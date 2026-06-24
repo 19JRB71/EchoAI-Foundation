@@ -1,0 +1,30 @@
+{
+  "name": "echoai",
+  "version": "1.0.0",
+  "description": "EchoAI - AI-powered SaaS marketing platform backend (Facebook ad automation, lead qualification chatbot, brand strategy)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "ai",
+    "saas",
+    "marketing",
+    "facebook-ads",
+    "crm",
+    "stripe",
+    "chatbot"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1",
+    "stripe": "^17.5.0",
+    "facebook-nodejs-business-sdk": "^21.0.0",
+    "dotenv": "^16.4.7",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
