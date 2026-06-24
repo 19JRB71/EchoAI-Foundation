@@ -3,11 +3,19 @@ require("dotenv").config();
 const express = require("express");
 
 const authRoutes = require("./routes/authRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(express.json());
+// The Stripe webhook needs the raw request body for signature verification,
+// so skip JSON parsing for that specific route.
+app.use((req, res, next) => {
+  if (req.originalUrl === "/api/subscriptions/webhook") {
+    return next();
+  }
+  return express.json()(req, res, next);
+});
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/", (req, res) => {
@@ -20,6 +28,7 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
 
 app.listen(PORT, () => {
   console.log(`EchoAI server is running on port ${PORT}`);
