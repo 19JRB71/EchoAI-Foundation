@@ -7,6 +7,9 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const campaignRoutes = require("./routes/campaignRoutes");
 const brandRoutes = require("./routes/brandRoutes");
 const leadRoutes = require("./routes/leadRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
+
+const { startScheduler } = require("./utils/scheduler");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,9 +38,11 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/brands", brandRoutes);
 app.use("/api/leads", leadRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 app.listen(PORT, () => {
   console.log(`EchoAI server is running on port ${PORT}`);
+  startScheduler();
 });
 
 module.exports = app;

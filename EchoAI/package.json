@@ -27,6 +27,7 @@
     "facebook-nodejs-business-sdk": "^21.0.0",
     "dotenv": "^16.4.7",
     "jsonwebtoken": "^9.0.2",
-    "bcrypt": "^5.1.1"
+    "bcrypt": "^5.1.1",
+    "node-cron": "^3.0.3"
   }
 }
