@@ -1,11 +1,14 @@
 const cron = require("node-cron");
 const db = require("../config/db");
 const { recordWeeklyAnalyticsForBrand } = require("../controllers/analyticsController");
+const { autoOptimizeCampaignsForBrand } = require("../controllers/optimizationController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
- * active campaign). Errors for an individual brand (e.g. no connected Facebook
- * account) are caught so one failure doesn't stop the rest.
+ * active campaign), then auto-optimizes that brand's campaigns so the system
+ * continuously improves without any manual intervention. Errors for an
+ * individual brand (e.g. no connected Facebook account) are caught so one
+ * failure doesn't stop the rest.
  */
 async function runWeeklyAnalytics() {
   const brands = await db.query(
@@ -16,6 +19,7 @@ async function runWeeklyAnalytics() {
   );
 
   let succeeded = 0;
+  let optimized = 0;
   for (const brand of brands.rows) {
     try {
       await recordWeeklyAnalyticsForBrand(brand);
@@ -23,9 +27,21 @@ async function runWeeklyAnalytics() {
     } catch (err) {
       console.error(`Weekly analytics failed for brand ${brand.brand_id}:`, err.message);
     }
+
+    // Auto-optimize after recording analytics. Kept separate so an analytics
+    // failure doesn't block optimization and vice versa.
+    try {
+      await autoOptimizeCampaignsForBrand(brand);
+      optimized += 1;
+    } catch (err) {
+      console.error(`Auto optimization failed for brand ${brand.brand_id}:`, err.message);
+    }
   }
 
-  console.log(`Weekly analytics run complete: ${succeeded}/${brands.rows.length} brands updated.`);
+  console.log(
+    `Weekly run complete: ${succeeded}/${brands.rows.length} analytics updated, ` +
+      `${optimized}/${brands.rows.length} brands optimized.`
+  );
 }
 
 /**

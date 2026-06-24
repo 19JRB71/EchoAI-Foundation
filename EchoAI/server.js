@@ -8,6 +8,7 @@ const campaignRoutes = require("./routes/campaignRoutes");
 const brandRoutes = require("./routes/brandRoutes");
 const leadRoutes = require("./routes/leadRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const optimizationRoutes = require("./routes/optimizationRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 
@@ -39,6 +40,7 @@ app.use("/api/campaigns", campaignRoutes);
 app.use("/api/brands", brandRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/optimize", optimizationRoutes);
 
 app.listen(PORT, () => {
   console.log(`EchoAI server is running on port ${PORT}`);
