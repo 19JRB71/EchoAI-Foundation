@@ -116,7 +116,8 @@ async function login(req, res) {
 async function getProfile(req, res) {
   try {
     const result = await db.query(
-      `SELECT user_id, email, subscription_tier, team_size, created_at, updated_at
+      `SELECT user_id, email, subscription_tier, team_size, business_name, industry,
+              onboarding_completed, onboarding_step, created_at, updated_at
        FROM users
        WHERE user_id = $1`,
       [req.user.userId]
@@ -133,6 +134,10 @@ async function getProfile(req, res) {
       email: user.email,
       subscriptionTier: user.subscription_tier,
       teamSize: user.team_size,
+      businessName: user.business_name,
+      industry: user.industry,
+      onboardingCompleted: user.onboarding_completed,
+      onboardingStep: user.onboarding_step,
       createdAt: user.created_at,
       updatedAt: user.updated_at,
     });
@@ -148,9 +153,14 @@ async function getProfile(req, res) {
  * team size). Only provided fields are updated.
  */
 async function updateProfile(req, res) {
-  const { email, teamSize } = req.body;
+  const { email, teamSize, businessName, industry } = req.body;
 
-  if (email === undefined && teamSize === undefined) {
+  if (
+    email === undefined &&
+    teamSize === undefined &&
+    businessName === undefined &&
+    industry === undefined
+  ) {
     return res.status(400).json({ error: "No fields provided to update" });
   }
 
@@ -166,6 +176,14 @@ async function updateProfile(req, res) {
     fields.push(`team_size = $${idx++}`);
     values.push(teamSize);
   }
+  if (businessName !== undefined) {
+    fields.push(`business_name = $${idx++}`);
+    values.push(businessName);
+  }
+  if (industry !== undefined) {
+    fields.push(`industry = $${idx++}`);
+    values.push(industry);
+  }
 
   values.push(req.user.userId);
 
@@ -174,7 +192,7 @@ async function updateProfile(req, res) {
       `UPDATE users
        SET ${fields.join(", ")}
        WHERE user_id = $${idx}
-       RETURNING user_id, email, subscription_tier, team_size, updated_at`,
+       RETURNING user_id, email, subscription_tier, team_size, business_name, industry, updated_at`,
       values
     );
 
@@ -189,6 +207,8 @@ async function updateProfile(req, res) {
       email: user.email,
       subscriptionTier: user.subscription_tier,
       teamSize: user.team_size,
+      businessName: user.business_name,
+      industry: user.industry,
       updatedAt: user.updated_at,
     });
   } catch (err) {
@@ -200,9 +220,67 @@ async function updateProfile(req, res) {
   }
 }
 
+/**
+ * PUT /profile/onboarding  (protected)
+ * Persists onboarding progress so the setup wizard can resume where the user
+ * left off. Accepts the current onboarding step and/or a completion flag.
+ */
+async function updateOnboarding(req, res) {
+  const { onboardingStep, onboardingCompleted } = req.body;
+
+  if (onboardingStep === undefined && onboardingCompleted === undefined) {
+    return res.status(400).json({ error: "No onboarding fields provided to update" });
+  }
+
+  const fields = [];
+  const values = [];
+  let idx = 1;
+
+  if (onboardingStep !== undefined) {
+    const stepNumber = Number(onboardingStep);
+    if (!Number.isInteger(stepNumber) || stepNumber < 1) {
+      return res.status(400).json({ error: "onboardingStep must be a positive integer" });
+    }
+    fields.push(`onboarding_step = $${idx++}`);
+    values.push(stepNumber);
+  }
+  if (onboardingCompleted !== undefined) {
+    fields.push(`onboarding_completed = $${idx++}`);
+    values.push(Boolean(onboardingCompleted));
+  }
+
+  values.push(req.user.userId);
+
+  try {
+    const result = await db.query(
+      `UPDATE users
+       SET ${fields.join(", ")}
+       WHERE user_id = $${idx}
+       RETURNING user_id, onboarding_completed, onboarding_step`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = result.rows[0];
+
+    return res.json({
+      userId: user.user_id,
+      onboardingCompleted: user.onboarding_completed,
+      onboardingStep: user.onboarding_step,
+    });
+  } catch (err) {
+    console.error("Update onboarding error:", err);
+    return res.status(500).json({ error: "Failed to update onboarding progress" });
+  }
+}
+
 module.exports = {
   register,
   login,
   getProfile,
   updateProfile,
+  updateOnboarding,
 };

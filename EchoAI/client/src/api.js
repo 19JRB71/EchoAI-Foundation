@@ -75,9 +75,16 @@ export const api = {
   getProfile: () => request("/api/auth/profile"),
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),
+  updateOnboarding: (payload) =>
+    request("/api/auth/profile/onboarding", { method: "PUT", body: payload }),
 
   // Subscription
   getSubscriptionStatus: () => request("/api/subscriptions/status"),
+  createSubscription: (paymentMethodId, tier) =>
+    request("/api/subscriptions", {
+      method: "POST",
+      body: { paymentMethodId, tier },
+    }),
   cancelSubscription: () =>
     request("/api/subscriptions/cancel", { method: "POST" }),
 

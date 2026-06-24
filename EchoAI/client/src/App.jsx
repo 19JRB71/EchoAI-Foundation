@@ -7,6 +7,7 @@ import Overview from "./sections/Overview.jsx";
 import Leads from "./sections/Leads.jsx";
 import Campaigns from "./sections/Campaigns.jsx";
 import Settings from "./sections/Settings.jsx";
+import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()));
@@ -15,12 +16,15 @@ export default function App() {
   const [selectedBrandId, setSelectedBrandId] = useState("");
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [brandsError, setBrandsError] = useState("");
+  // null = unknown (still loading the profile), true/false once known.
+  const [onboardingCompleted, setOnboardingCompleted] = useState(null);
 
   const handleLogout = useCallback(() => {
     clearToken();
     setAuthed(false);
     setBrands([]);
     setSelectedBrandId("");
+    setOnboardingCompleted(null);
   }, []);
 
   const loadBrands = useCallback(async () => {
@@ -42,9 +46,33 @@ export default function App() {
     }
   }, [handleLogout]);
 
+  // Once authenticated, find out whether the user still needs onboarding.
   useEffect(() => {
-    if (authed) loadBrands();
-  }, [authed, loadBrands]);
+    if (!authed) return;
+    let active = true;
+    (async () => {
+      try {
+        const profile = await api.getProfile();
+        if (active) setOnboardingCompleted(Boolean(profile.onboardingCompleted));
+      } catch (err) {
+        if (err.status === 401) {
+          handleLogout();
+          return;
+        }
+        // If the profile can't be read, fall back to showing the dashboard
+        // rather than trapping the user in onboarding.
+        if (active) setOnboardingCompleted(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [authed, handleLogout]);
+
+  // Only load brands once the user has finished onboarding (the dashboard view).
+  useEffect(() => {
+    if (authed && onboardingCompleted) loadBrands();
+  }, [authed, onboardingCompleted, loadBrands]);
 
   // Return to the login screen whenever any protected request reports an
   // expired or invalid token.
@@ -60,6 +88,20 @@ export default function App() {
   }
 
   if (!authed) return <Login onLogin={handleLogin} />;
+
+  // Wait until we know the onboarding status before deciding what to render.
+  if (onboardingCompleted === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Spinner label="Loading…" />
+      </div>
+    );
+  }
+
+  // New users go through the setup wizard; it disappears for good once complete.
+  if (!onboardingCompleted) {
+    return <OnboardingWizard onComplete={() => setOnboardingCompleted(true)} />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 md:flex-row">
