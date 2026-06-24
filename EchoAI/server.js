@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 
+const authRoutes = require("./routes/authRoutes");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -15,6 +17,9 @@ app.get("/", (req, res) => {
     message: "EchoAI API is running",
   });
 });
+
+// Routes
+app.use("/api/auth", authRoutes);
 
 app.listen(PORT, () => {
   console.log(`EchoAI server is running on port ${PORT}`);
