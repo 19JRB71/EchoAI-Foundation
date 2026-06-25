@@ -142,6 +142,22 @@ export const api = {
       body: { name, businessType, phone, email },
     }),
 
+  // Voice landing page (public — prospects clicking a Facebook ad)
+  getPublicBrand: (brandId) =>
+    request(`/api/public/brand/${brandId}`, { auth: false }),
+  startVoiceLead: (brandId) =>
+    request("/api/public/lead/start", {
+      method: "POST",
+      auth: false,
+      body: { brandId },
+    }),
+  saveLeadContact: (leadId, { name, phone, email }) =>
+    request(`/api/public/lead/${leadId}/contact`, {
+      method: "POST",
+      auth: false,
+      body: { name, phone, email },
+    }),
+
   // Lead qualification chatbot (public — prospects are not logged in)
   leadChat: (leadId, message) =>
     request("/api/leads/chat", {
