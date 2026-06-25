@@ -34,3 +34,11 @@ Making one artifact own `/` and serve `/api` itself sidesteps the collision.
   the port (`fuser -k <port>/tcp`) before restarting the artifact workflow.
 - The `Project` run-button wrapper workflow is not removable via `removeWorkflow`
   (only the individual workflows are).
+- **Stale canvas frames after removing a workflow.** Canvas frames with an
+  `artifact:v3:` id prefix are *artifact-type* frames bound to a specific
+  workflow/artifact. After you remove that workflow, the frame lingers with an
+  empty URL and shows a blank/skeleton box. Setting its `url` via an `update`
+  action reports `applied: true` but does NOT render — the frame stays bound to
+  its (now-gone) artifact. Fix: `delete` the stale `artifact:v3:` frame and
+  `create-auto` a plain `iframe` shape with the live dev-domain URL, which
+  renders arbitrary URLs reliably.
