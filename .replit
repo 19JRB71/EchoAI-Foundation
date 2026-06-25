@@ -20,6 +20,10 @@ author = "agent"
 task = "workflow.run"
 args = "EchoAI Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "EchoAI Client"
+
 [[workflows.workflow]]
 name = "EchoAI Server"
 author = "agent"
@@ -28,6 +32,18 @@ author = "agent"
 task = "shell.exec"
 args = "cd EchoAI && npm start"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "EchoAI Client"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd EchoAI/client && npm run dev"
+waitForPort = 5173
 
 [workflows.workflow.metadata]
 outputType = "webview"
