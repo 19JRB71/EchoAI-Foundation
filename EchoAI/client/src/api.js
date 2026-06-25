@@ -133,4 +133,32 @@ export const api = {
     }),
   adminDeleteUser: (userId) =>
     request(`/api/admin/users/${userId}`, { method: "DELETE" }),
+
+  // Lead qualification chatbot (public — prospects are not logged in)
+  leadChat: (leadId, message) =>
+    request("/api/leads/chat", {
+      method: "POST",
+      auth: false,
+      body: { leadId, message },
+    }),
+
+  // Voice chat loop (public). Sends recorded audio as multipart form data and
+  // returns { transcript, reply, audio (base64), audioFormat }.
+  voiceChat: async (leadId, audioBlob, voice) => {
+    const form = new FormData();
+    form.append("audio", audioBlob, "recording.webm");
+    form.append("leadId", leadId);
+    if (voice) form.append("voice", voice);
+
+    const res = await fetch(`${BASE_URL}/api/voice/chat`, {
+      method: "POST",
+      body: form,
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error((data && data.error) || `Request failed (${res.status})`);
+    }
+    return data;
+  },
 };

@@ -10,6 +10,7 @@ const leadRoutes = require("./routes/leadRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const optimizationRoutes = require("./routes/optimizationRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const voiceRoutes = require("./routes/voiceRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -44,6 +45,7 @@ app.use("/api/leads", leadRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/optimize", optimizationRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/voice", voiceRoutes);
 
 app.listen(PORT, () => {
   console.log(`EchoAI server is running on port ${PORT}`);
