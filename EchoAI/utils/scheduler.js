@@ -1,7 +1,11 @@
 const cron = require("node-cron");
 const db = require("../config/db");
-const { recordWeeklyAnalyticsForBrand } = require("../controllers/analyticsController");
+const {
+  recordWeeklyAnalyticsForBrand,
+  generateWeeklyReport,
+} = require("../controllers/analyticsController");
 const { autoOptimizeCampaignsForBrand } = require("../controllers/optimizationController");
+const { sendWeeklyReportEmail } = require("../controllers/emailController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -21,8 +25,9 @@ async function runWeeklyAnalytics() {
   let succeeded = 0;
   let optimized = 0;
   for (const brand of brands.rows) {
+    let analytics = null;
     try {
-      await recordWeeklyAnalyticsForBrand(brand);
+      analytics = await recordWeeklyAnalyticsForBrand(brand);
       succeeded += 1;
     } catch (err) {
       console.error(`Weekly analytics failed for brand ${brand.brand_id}:`, err.message);
@@ -35,6 +40,34 @@ async function runWeeklyAnalytics() {
       optimized += 1;
     } catch (err) {
       console.error(`Auto optimization failed for brand ${brand.brand_id}:`, err.message);
+    }
+
+    // Deliver the AI-generated weekly report to the brand owner's inbox. Kept
+    // best-effort so an email failure doesn't disrupt the rest of the run.
+    if (analytics) {
+      try {
+        const profileResult = await db.query(
+          "SELECT brand_name, voice_description FROM brands WHERE brand_id = $1",
+          [brand.brand_id]
+        );
+        const ownerResult = await db.query(
+          "SELECT email FROM users WHERE user_id = $1",
+          [brand.user_id]
+        );
+        const brandProfile = profileResult.rows[0];
+        const owner = ownerResult.rows[0];
+        if (brandProfile && owner) {
+          const { subject, body } = await generateWeeklyReport(brandProfile, analytics);
+          await sendWeeklyReportEmail({
+            email: owner.email,
+            brandName: brandProfile.brand_name,
+            reportBody: body,
+            subject,
+          });
+        }
+      } catch (err) {
+        console.error(`Weekly report email failed for brand ${brand.brand_id}:`, err.message);
+      }
     }
   }
 

@@ -11,6 +11,7 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 const optimizationRoutes = require("./routes/optimizationRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const voiceRoutes = require("./routes/voiceRoutes");
+const emailRoutes = require("./routes/emailRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -46,6 +47,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/optimize", optimizationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/voice", voiceRoutes);
+app.use("/api/email", emailRoutes);
 
 app.listen(PORT, () => {
   console.log(`EchoAI server is running on port ${PORT}`);

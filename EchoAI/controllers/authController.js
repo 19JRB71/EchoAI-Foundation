@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 
 const db = require("../config/db");
 const { generateToken } = require("../utils/token");
+const emailController = require("./emailController");
 
 const SALT_ROUNDS = 10;
 
@@ -254,10 +255,16 @@ async function updateOnboarding(req, res) {
 
   try {
     const result = await db.query(
-      `UPDATE users
+      `WITH prev AS (
+         SELECT user_id, onboarding_completed AS was_completed
+         FROM users
+         WHERE user_id = $${idx}
+       )
+       UPDATE users u
        SET ${fields.join(", ")}
-       WHERE user_id = $${idx}
-       RETURNING user_id, onboarding_completed, onboarding_step`,
+       FROM prev
+       WHERE u.user_id = prev.user_id
+       RETURNING u.user_id, u.onboarding_completed, u.onboarding_step, prev.was_completed`,
       values
     );
 
@@ -266,6 +273,23 @@ async function updateOnboarding(req, res) {
     }
 
     const user = result.rows[0];
+
+    // Fire the welcome email only on the transition into completion (false -> true),
+    // so repeated "completed" updates don't resend it. Best-effort: never block
+    // or fail the onboarding response on email delivery.
+    if (onboardingCompleted === true && user.onboarding_completed && !user.was_completed) {
+      db.query("SELECT email, business_name FROM users WHERE user_id = $1", [req.user.userId])
+        .then((r) => {
+          const u = r.rows[0];
+          if (u) {
+            return emailController.sendWelcomeEmail({
+              email: u.email,
+              business_name: u.business_name,
+            });
+          }
+        })
+        .catch((err) => console.error("Welcome email failed:", err.message));
+    }
 
     return res.json({
       userId: user.user_id,

@@ -4,6 +4,7 @@ const {
   buildLeadQualificationPrompt,
   LEAD_SCORING_PROMPT,
 } = require("../prompts/leadQualificationPrompt");
+const emailController = require("./emailController");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 
@@ -115,9 +116,12 @@ async function chat(req, res) {
     // Load the lead and its brand (for brand-aware tone).
     const result = await db.query(
       `SELECT l.lead_id, l.brand_id, l.conversation_history,
-              b.brand_name, b.brand_personality, b.voice_description, b.target_audience
+              l.lead_name, l.email AS lead_email, l.phone,
+              b.brand_name, b.brand_personality, b.voice_description, b.target_audience,
+              u.email AS owner_email
        FROM leads l
        JOIN brands b ON b.brand_id = l.brand_id
+       JOIN users u ON u.user_id = b.user_id
        WHERE l.lead_id = $1`,
       [leadId]
     );
@@ -161,6 +165,24 @@ async function chat(req, res) {
       botReply: reply,
       scoredTemperature: temperature || null,
     });
+
+    // Notify the business owner immediately whenever a lead turns hot.
+    // Best-effort: never block or fail the chat response on email delivery.
+    if (temperature === "hot" && row.owner_email) {
+      const summary = messages
+        .filter((m) => m.role === "user")
+        .slice(-5)
+        .map((m) => m.content)
+        .join(" ");
+      emailController
+        .sendHotLeadAlert({
+          ownerEmail: row.owner_email,
+          brandName: row.brand_name,
+          lead: { lead_name: row.lead_name, email: row.lead_email, phone: row.phone },
+          summary,
+        })
+        .catch((err) => console.error("Hot lead alert failed:", err.message));
+    }
 
     return res.json({ leadId, reply });
   } catch (err) {

@@ -1,5 +1,34 @@
 const { stripe, getPriceIdForTier } = require("../config/stripe");
 const db = require("../config/db");
+const emailController = require("./emailController");
+
+/**
+ * Looks up the account owner (and lockout state) for a Stripe customer so the
+ * webhook can send the right payment email.
+ */
+async function getOwnerByCustomer(customerId) {
+  const result = await db.query(
+    `SELECT u.email, u.business_name,
+            s.is_locked, s.failed_payment_at, s.lockout_threshold_days
+     FROM users u
+     JOIN subscriptions s ON s.user_id = u.user_id
+     WHERE u.stripe_customer_id = $1`,
+    [customerId]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Days remaining before a failed-payment account is locked, based on the first
+ * failure timestamp and the configured lockout threshold.
+ */
+function daysUntilLock(owner) {
+  if (!owner.failed_payment_at) return owner.lockout_threshold_days;
+  const lockAt =
+    new Date(owner.failed_payment_at).getTime() +
+    owner.lockout_threshold_days * 86400000;
+  return Math.max(0, Math.ceil((lockAt - Date.now()) / 86400000));
+}
 
 /**
  * POST /api/subscriptions
@@ -161,6 +190,43 @@ async function handleWebhook(req, res) {
              AND users.stripe_customer_id = $1`,
           [customerId]
         );
+
+        // Email the owner: an account-locked notice if this failure tripped the
+        // lock, otherwise a payment reminder with the lockout countdown.
+        const failedOwner = await getOwnerByCustomer(customerId);
+        if (failedOwner) {
+          const action = failedOwner.is_locked
+            ? emailController.sendAccountLockedEmail({
+                email: failedOwner.email,
+                businessName: failedOwner.business_name,
+              })
+            : emailController.sendPaymentReminderEmail({
+                email: failedOwner.email,
+                businessName: failedOwner.business_name,
+                reason: "failed",
+                daysUntilLock: daysUntilLock(failedOwner),
+              });
+          action.catch((err) =>
+            console.error("Payment failed email error:", err.message)
+          );
+        }
+        break;
+      }
+
+      case "invoice.upcoming": {
+        // Stripe fires this ahead of a renewal (configurable, e.g. 3 days out).
+        const upcomingOwner = await getOwnerByCustomer(customerId);
+        if (upcomingOwner) {
+          emailController
+            .sendPaymentReminderEmail({
+              email: upcomingOwner.email,
+              businessName: upcomingOwner.business_name,
+              reason: "upcoming",
+            })
+            .catch((err) =>
+              console.error("Renewal reminder email error:", err.message)
+            );
+        }
         break;
       }
 
