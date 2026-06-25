@@ -134,6 +134,14 @@ export const api = {
   adminDeleteUser: (userId) =>
     request(`/api/admin/users/${userId}`, { method: "DELETE" }),
 
+  // Demo request (public — landing-page visitors have no account yet)
+  requestDemo: ({ name, businessType, phone, email }) =>
+    request("/api/demo/request", {
+      method: "POST",
+      auth: false,
+      body: { name, businessType, phone, email },
+    }),
+
   // Lead qualification chatbot (public — prospects are not logged in)
   leadChat: (leadId, message) =>
     request("/api/leads/chat", {

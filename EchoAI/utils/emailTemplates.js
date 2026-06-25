@@ -201,10 +201,43 @@ function accountLockedEmail({ businessName }) {
   };
 }
 
+/**
+ * Admin notification sent to James when a prospect submits the public
+ * landing-page demo request form.
+ */
+function platformInquiryEmail({ name, businessType, phone, email }) {
+  const bodyHtml = `
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">A new prospect just requested a demo from the ${BRAND} landing page. Call them within 24 hours.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;width:100%;border-collapse:collapse;">
+      <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;width:140px;">Name</td><td style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;">${escapeHtml(
+        name
+      )}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Business type</td><td style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;">${escapeHtml(
+        businessType
+      )}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Phone</td><td style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;">${escapeHtml(
+        phone
+      )}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Email</td><td style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;">${escapeHtml(
+        email
+      )}</td></tr>
+    </table>`;
+  return {
+    subject: `New demo request: ${name} (${businessType})`,
+    html: layout({
+      heading: "New demo request",
+      bodyHtml,
+      ctaLabel: "Email this prospect",
+      ctaUrl: `mailto:${email}`,
+    }),
+  };
+}
+
 module.exports = {
   welcomeEmail,
   weeklyReportEmail,
   hotLeadAlertEmail,
   paymentReminderEmail,
   accountLockedEmail,
+  platformInquiryEmail,
 };

@@ -129,11 +129,31 @@ async function triggerTestEmail(req, res) {
   }
 }
 
+/**
+ * Notifies the platform owner (James) when a prospect submits the public
+ * landing-page demo request form. Sent to ADMIN_EMAIL.
+ * Accepts { name, businessType, phone, email }.
+ */
+async function sendPlatformInquiryNotification({ name, businessType, phone, email }) {
+  const to = process.env.ADMIN_EMAIL;
+  if (!to) {
+    throw new Error("ADMIN_EMAIL is not configured");
+  }
+  const { subject, html } = templates.platformInquiryEmail({
+    name,
+    businessType,
+    phone,
+    email,
+  });
+  return sendEmail({ to, subject, html });
+}
+
 module.exports = {
   sendWelcomeEmail,
   sendWeeklyReportEmail,
   sendHotLeadAlert,
   sendPaymentReminderEmail,
   sendAccountLockedEmail,
+  sendPlatformInquiryNotification,
   triggerTestEmail,
 };
