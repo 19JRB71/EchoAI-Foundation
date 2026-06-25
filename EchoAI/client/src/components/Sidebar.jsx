@@ -5,7 +5,8 @@ const NAV = [
   { key: "settings", label: "Settings" },
 ];
 
-export default function Sidebar({ section, onSelect, onLogout }) {
+export default function Sidebar({ section, onSelect, onLogout, isAdmin }) {
+  const items = isAdmin ? [...NAV, { key: "admin", label: "Admin" }] : NAV;
   return (
     <aside className="flex w-full flex-row items-center justify-between gap-3 bg-gray-900 px-4 py-3 text-gray-100 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:py-6">
       <div className="flex items-center md:mb-8">
@@ -15,7 +16,7 @@ export default function Sidebar({ section, onSelect, onLogout }) {
       </div>
 
       <nav className="flex flex-row gap-1 md:flex-1 md:flex-col">
-        {NAV.map((item) => (
+        {items.map((item) => (
           <button
             key={item.key}
             onClick={() => onSelect(item.key)}

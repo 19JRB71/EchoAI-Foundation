@@ -115,4 +115,22 @@ export const api = {
   // Analytics
   getAnalytics: (brandId) => request(`/api/analytics/${brandId}`),
   getCurrentWeek: (brandId) => request(`/api/analytics/${brandId}/current`),
+
+  // Admin
+  adminGetStats: () => request("/api/admin/stats"),
+  adminGetHealth: () => request("/api/admin/health"),
+  adminGetUsers: ({ page = 1, limit = 50 } = {}) =>
+    request(`/api/admin/users?page=${page}&limit=${limit}`),
+  adminGetUser: (userId) => request(`/api/admin/users/${userId}`),
+  adminUnlockUser: (userId) =>
+    request(`/api/admin/users/${userId}/unlock`, { method: "POST" }),
+  adminLockUser: (userId) =>
+    request(`/api/admin/users/${userId}/lock`, { method: "POST" }),
+  adminUpdateUserTier: (userId, tier) =>
+    request(`/api/admin/users/${userId}/subscription`, {
+      method: "PUT",
+      body: { tier },
+    }),
+  adminDeleteUser: (userId) =>
+    request(`/api/admin/users/${userId}`, { method: "DELETE" }),
 };

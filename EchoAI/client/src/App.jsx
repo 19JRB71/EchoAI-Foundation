@@ -8,6 +8,7 @@ import Leads from "./sections/Leads.jsx";
 import Campaigns from "./sections/Campaigns.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
+import AdminPanel from "./admin/AdminPanel.jsx";
 
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()));
@@ -18,6 +19,7 @@ export default function App() {
   const [brandsError, setBrandsError] = useState("");
   // null = unknown (still loading the profile), true/false once known.
   const [onboardingCompleted, setOnboardingCompleted] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const handleLogout = useCallback(() => {
     clearToken();
@@ -25,6 +27,7 @@ export default function App() {
     setBrands([]);
     setSelectedBrandId("");
     setOnboardingCompleted(null);
+    setIsAdmin(false);
   }, []);
 
   const loadBrands = useCallback(async () => {
@@ -53,7 +56,10 @@ export default function App() {
     (async () => {
       try {
         const profile = await api.getProfile();
-        if (active) setOnboardingCompleted(Boolean(profile.onboardingCompleted));
+        if (active) {
+          setOnboardingCompleted(Boolean(profile.onboardingCompleted));
+          setIsAdmin(profile.role === "admin");
+        }
       } catch (err) {
         if (err.status === 401) {
           handleLogout();
@@ -105,24 +111,35 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 md:flex-row">
-      <Sidebar section={section} onSelect={setSection} onLogout={handleLogout} />
+      <Sidebar
+        section={section}
+        onSelect={setSection}
+        onLogout={handleLogout}
+        isAdmin={isAdmin}
+      />
       <main className="flex-1 p-4 md:p-8">
         <div className="mx-auto max-w-6xl">
-          <BrandBar
-            brands={brands}
-            selectedBrandId={selectedBrandId}
-            onSelect={setSelectedBrandId}
-            loading={loadingBrands}
-            error={brandsError}
-          />
-          {section === "overview" && <Overview brandId={selectedBrandId} />}
-          {section === "leads" && <Leads brandId={selectedBrandId} />}
-          {section === "campaigns" && <Campaigns />}
-          {section === "settings" && (
-            <Settings
-              brandId={selectedBrandId}
-              onBrandsChanged={loadBrands}
-            />
+          {section === "admin" && isAdmin ? (
+            <AdminPanel />
+          ) : (
+            <>
+              <BrandBar
+                brands={brands}
+                selectedBrandId={selectedBrandId}
+                onSelect={setSelectedBrandId}
+                loading={loadingBrands}
+                error={brandsError}
+              />
+              {section === "overview" && <Overview brandId={selectedBrandId} />}
+              {section === "leads" && <Leads brandId={selectedBrandId} />}
+              {section === "campaigns" && <Campaigns />}
+              {section === "settings" && (
+                <Settings
+                  brandId={selectedBrandId}
+                  onBrandsChanged={loadBrands}
+                />
+              )}
+            </>
           )}
         </div>
       </main>

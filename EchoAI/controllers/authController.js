@@ -117,7 +117,7 @@ async function getProfile(req, res) {
   try {
     const result = await db.query(
       `SELECT user_id, email, subscription_tier, team_size, business_name, industry,
-              onboarding_completed, onboarding_step, created_at, updated_at
+              role, onboarding_completed, onboarding_step, created_at, updated_at
        FROM users
        WHERE user_id = $1`,
       [req.user.userId]
@@ -136,6 +136,7 @@ async function getProfile(req, res) {
       teamSize: user.team_size,
       businessName: user.business_name,
       industry: user.industry,
+      role: user.role,
       onboardingCompleted: user.onboarding_completed,
       onboardingStep: user.onboarding_step,
       createdAt: user.created_at,
