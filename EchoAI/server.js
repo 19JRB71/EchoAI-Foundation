@@ -1,6 +1,8 @@
 require("dotenv").config();
 
 const express = require("express");
+const path = require("path");
+const fs = require("fs");
 
 const authRoutes = require("./routes/authRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
@@ -31,7 +33,7 @@ app.use((req, res, next) => {
 });
 app.use(express.urlencoded({ extended: true }));
 
-app.get("/", (req, res) => {
+app.get("/api/health", (req, res) => {
   res.json({
     name: "EchoAI",
     status: "ok",
@@ -52,6 +54,32 @@ app.use("/api/voice", voiceRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/demo", demoRoutes);
 app.use("/api/public", publicRoutes);
+
+// Serve the built React client (single-origin: API + SPA on one port).
+const clientDist = path.join(__dirname, "client", "dist");
+const clientIndex = path.join(clientDist, "index.html");
+if (!fs.existsSync(clientIndex)) {
+  console.warn(
+    `Warning: client build not found at ${clientDist}. ` +
+      "Run `cd client && npm run build` so the SPA can be served.",
+  );
+}
+app.use(express.static(clientDist));
+
+// SPA fallback: non-API GET requests for non-file paths return index.html so
+// React Router can handle client-side routes (/, /dashboard, /voice/:brandId).
+// Asset-like paths (containing a ".") are skipped so missing files 404 instead
+// of silently returning HTML.
+app.use((req, res, next) => {
+  if (
+    req.method !== "GET" ||
+    req.path.startsWith("/api") ||
+    req.path.includes(".")
+  ) {
+    return next();
+  }
+  res.sendFile(clientIndex);
+});
 
 app.listen(PORT, () => {
   console.log(`EchoAI server is running on port ${PORT}`);

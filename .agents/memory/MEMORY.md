@@ -1,0 +1,1 @@
+- [Standalone app preview wiring](standalone-app-preview-wiring.md) — making a non-artifact root app (EchoAI) visible via the path-based proxy; single-origin + repurposed artifact.toml.

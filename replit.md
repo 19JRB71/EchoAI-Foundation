@@ -22,11 +22,17 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `EchoAI/` — the actual product: a standalone Node/Express (CommonJS) backend at the workspace root, NOT a pnpm-workspace artifact package.
+  - `EchoAI/server.js` — Express app (port from `PORT`, default 5000). Serves the React SPA from `EchoAI/client/dist` AND the `/api/*` routes on a single origin.
+  - `EchoAI/client/` — React + Vite SPA. Build with `npm run build` (outputs `client/dist`).
+  - `EchoAI/routes/`, `EchoAI/utils/` — API route handlers and scheduler/admin-seeder utilities.
+- `artifacts/api-server/.replit-artifact/artifact.toml` — repurposed to serve EchoAI through the shared proxy at `/` (see Architecture decisions).
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **EchoAI is served single-origin.** `server.js` serves the built React client (static + SPA fallback) and the JSON API (`/api/*`) on one port. The client calls the API with relative paths (empty base), so no cross-origin/proxy config is needed in production or the preview.
+- **The preview is wired through the artifact proxy.** EchoAI is standalone, but this workspace's preview/canvas only renders apps registered with the path-based proxy. The unused starter `api-server` artifact was repurposed (its `artifact.toml`) to run EchoAI at previewPath `/` on port 8080. Its `kind` stays `api` (the validator forbids changing an artifact's kind), which still renders a browser preview.
+- The standalone webview workflows (`EchoAI Server`/`EchoAI Client`) were removed in favor of the single artifact-managed service.
 
 ## Product
 
@@ -38,7 +44,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- **Rebuild the client after changing `EchoAI/client/`**: run `cd EchoAI/client && npm run build`, then restart the `artifacts/api-server: EchoAI` workflow. The server serves the pre-built `client/dist` (no dev HMR in the preview).
+- The artifact's `development.run` runs from the artifact dir, so it uses an absolute path (`cd /home/runner/workspace/EchoAI && npm start`).
+- If a port (8080) is stuck after a failed restart, free it with `fuser -k 8080/tcp` before restarting the workflow.
 
 ## Pointers
 
