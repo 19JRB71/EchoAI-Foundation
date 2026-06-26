@@ -90,7 +90,7 @@ export default function ConnectedAccounts({ brandId }) {
                         onClick={() =>
                           setConnecting(connecting === platform ? null : platform)
                         }
-                        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+                        className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-600"
                       >
                         {connecting === platform ? "Cancel" : "Connect"}
                       </button>
@@ -176,7 +176,7 @@ function ConnectForm({ brandId, platform, onConnected }) {
             type="text"
             value={values[field.key] || ""}
             onChange={(e) => setField(field.key, e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           />
         </div>
       ))}
@@ -188,7 +188,7 @@ function ConnectForm({ brandId, platform, onConnected }) {
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
       </div>
 
@@ -201,7 +201,7 @@ function ConnectForm({ brandId, platform, onConnected }) {
       <button
         type="submit"
         disabled={busy}
-        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+        className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60"
       >
         {busy ? "Connecting…" : `Connect ${meta.label}`}
       </button>

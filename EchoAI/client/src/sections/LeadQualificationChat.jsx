@@ -61,7 +61,7 @@ export default function LeadQualificationChat({ leadId }) {
             onClick={() => setMode("text")}
             className={`rounded-md px-3 py-1 transition ${
               mode === "text"
-                ? "bg-white text-indigo-600 shadow-sm"
+                ? "bg-white text-amber-700 shadow-sm"
                 : "text-gray-500"
             }`}
           >
@@ -71,7 +71,7 @@ export default function LeadQualificationChat({ leadId }) {
             onClick={() => setMode("voice")}
             className={`rounded-md px-3 py-1 transition ${
               mode === "voice"
-                ? "bg-white text-indigo-600 shadow-sm"
+                ? "bg-white text-amber-700 shadow-sm"
                 : "text-gray-500"
             }`}
           >
@@ -100,7 +100,7 @@ export default function LeadQualificationChat({ leadId }) {
                   className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
                     m.role === "assistant"
                       ? "bg-gray-100 text-gray-800"
-                      : "ml-auto bg-indigo-600 text-white"
+                      : "ml-auto bg-amber-500 text-gray-900"
                   }`}
                 >
                   {m.content}
@@ -117,12 +117,12 @@ export default function LeadQualificationChat({ leadId }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type your message…"
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
             />
             <button
               type="submit"
               disabled={sending}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+              className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-amber-600 disabled:opacity-60"
             >
               {sending ? "…" : "Send"}
             </button>

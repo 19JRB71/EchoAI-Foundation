@@ -55,7 +55,7 @@ export default function Leads({ brandId }) {
               onClick={() => setFilter(f.value)}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
                 filter === f.value
-                  ? "bg-indigo-600 text-white"
+                  ? "bg-amber-500 text-gray-900"
                   : "bg-white text-gray-600 hover:bg-gray-100"
               }`}
             >

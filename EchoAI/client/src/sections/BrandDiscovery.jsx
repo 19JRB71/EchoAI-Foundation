@@ -105,7 +105,7 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
                 key={i}
                 className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                   m.role === "user"
-                    ? "ml-auto bg-indigo-600 text-white"
+                    ? "ml-auto bg-amber-500 text-gray-900"
                     : "bg-gray-100 text-gray-800"
                 }`}
               >
@@ -130,12 +130,12 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Type your answer…"
                   disabled={loading || sending}
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
                 <button
                   type="submit"
                   disabled={loading || sending || !input.trim()}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60"
                 >
                   Send
                 </button>
@@ -143,7 +143,7 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
               <button
                 onClick={confirm}
                 disabled={loading || sending || messages.length === 0}
-                className="mt-2 w-full rounded-lg border border-indigo-600 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 disabled:opacity-60"
+                className="mt-2 w-full rounded-lg border border-amber-500 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-60"
               >
                 Finish &amp; save brand profile
               </button>

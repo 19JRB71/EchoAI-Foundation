@@ -131,7 +131,7 @@ export default function ContentGenerator({ brandId }) {
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="e.g. Spring promotion for new customers"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           />
         </div>
 
@@ -150,7 +150,7 @@ export default function ContentGenerator({ brandId }) {
                   onClick={() => togglePlatform(p)}
                   className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
                     on
-                      ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                      ? "border-amber-500 bg-amber-50 text-amber-700"
                       : "border-gray-200 text-gray-600 hover:bg-gray-50"
                   }`}
                 >
@@ -167,7 +167,7 @@ export default function ContentGenerator({ brandId }) {
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60"
         >
           {loading ? "Generating…" : "Generate"}
         </button>
@@ -279,7 +279,7 @@ function VariationCard({ brandId, platform, variation, onRegenerate }) {
           {variation.hashtags.map((tag, i) => (
             <span
               key={i}
-              className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"
+              className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
             >
               {tag.startsWith("#") ? tag : `#${tag}`}
             </span>
@@ -310,13 +310,13 @@ function VariationCard({ brandId, platform, variation, onRegenerate }) {
             type="datetime-local"
             value={when}
             onChange={(e) => setWhen(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           />
           <div className="flex gap-2">
             <button
               onClick={handleSchedule}
               disabled={busy}
-              className="flex-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+              className="flex-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60"
             >
               {busy ? "Scheduling…" : "Confirm"}
             </button>
@@ -335,7 +335,7 @@ function VariationCard({ brandId, platform, variation, onRegenerate }) {
               setScheduling(true);
               setNotice("");
             }}
-            className="flex-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+            className="flex-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-amber-600"
           >
             Schedule This Post
           </button>

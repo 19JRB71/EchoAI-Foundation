@@ -37,10 +37,10 @@ export default function OnboardingWizard({ onComplete }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-indigo-50 to-white">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-amber-50 to-white">
       <header className="border-b border-gray-100 bg-white/70 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-4">
-          <span className="text-lg font-extrabold tracking-tight text-indigo-600">
+          <span className="text-lg font-extrabold tracking-tight text-amber-700">
             EchoAI
           </span>
           <span className="text-sm text-gray-400">Setup</span>
@@ -97,9 +97,9 @@ function Stepper({ current }) {
                 className={[
                   "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                   done
-                    ? "bg-indigo-600 text-white"
+                    ? "bg-amber-500 text-gray-900"
                     : active
-                    ? "border-2 border-indigo-600 text-indigo-600"
+                    ? "border-2 border-amber-500 text-amber-700"
                     : "border border-gray-300 text-gray-400",
                 ].join(" ")}
               >
@@ -108,7 +108,7 @@ function Stepper({ current }) {
               <span
                 className={[
                   "hidden text-xs font-medium sm:inline",
-                  active ? "text-indigo-600" : "text-gray-400",
+                  active ? "text-amber-700" : "text-gray-400",
                 ].join(" ")}
               >
                 {s.title}
@@ -117,7 +117,7 @@ function Stepper({ current }) {
                 <span
                   className={[
                     "h-px flex-1",
-                    done ? "bg-indigo-600" : "bg-gray-200",
+                    done ? "bg-amber-500" : "bg-gray-200",
                   ].join(" ")}
                 />
               )}

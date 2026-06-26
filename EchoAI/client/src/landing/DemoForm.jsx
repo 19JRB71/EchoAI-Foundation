@@ -28,14 +28,14 @@ export default function DemoForm() {
 
   if (status === "done") {
     return (
-      <div className="rounded-2xl border border-cyan-400/30 bg-slate-900/70 p-10 text-center shadow-2xl">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/15 text-3xl">
+      <div className="rounded-2xl border border-amber-400/30 bg-slate-900/70 p-10 text-center shadow-2xl">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-amber-400/15 text-3xl">
           ✓
         </div>
         <h3 className="text-2xl font-bold text-white">You're booked in.</h3>
         <p className="mt-3 text-slate-300">
           Thanks for reaching out. We'll call you within{" "}
-          <span className="font-semibold text-cyan-400">24 hours</span> to set up
+          <span className="font-semibold text-amber-400">24 hours</span> to set up
           your free demo and onboarding.
         </p>
       </div>
@@ -88,7 +88,7 @@ export default function DemoForm() {
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="mt-6 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-6 py-4 text-lg font-bold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-6 w-full rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 px-6 py-4 text-lg font-bold text-black shadow-lg shadow-amber-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {status === "submitting" ? "Booking your demo…" : "Book Your Free Demo"}
       </button>
@@ -112,7 +112,7 @@ function Field({ label, value, onChange, type = "text", placeholder, autoComplet
         autoComplete={autoComplete}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30"
+        className="w-full rounded-xl border border-white/10 bg-black/60 px-4 py-3 text-white placeholder-slate-500 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
       />
     </label>
   );

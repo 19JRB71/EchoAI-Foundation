@@ -90,10 +90,10 @@ export default function Sidebar({ section, onSelect, onLogout, isAdmin }) {
     ? [...NAV, { key: "admin", label: "Admin", icon: "admin" }]
     : NAV;
   return (
-    <aside className="flex w-full flex-row items-center justify-between gap-3 bg-gray-900 px-4 py-3 text-gray-100 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:py-6">
+    <aside className="flex w-full flex-row items-center justify-between gap-3 bg-black px-4 py-3 text-gray-100 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:py-6">
       <div className="flex items-center md:mb-8">
         <span className="text-xl font-bold tracking-tight text-white">
-          Echo<span className="text-indigo-400">AI</span>
+          Echo<span className="text-amber-400">AI</span>
         </span>
       </div>
 
@@ -104,7 +104,7 @@ export default function Sidebar({ section, onSelect, onLogout, isAdmin }) {
             onClick={() => onSelect(item.key)}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
               section === item.key
-                ? "bg-indigo-600 text-white"
+                ? "bg-amber-500 text-gray-900"
                 : "text-gray-300 hover:bg-gray-800 hover:text-white"
             }`}
           >

@@ -12,7 +12,7 @@ const TIER_LABELS = {
 };
 
 const primaryBtn =
-  "rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60";
+  "rounded-lg bg-amber-500 px-6 py-3 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60";
 
 export default function StepConfirmation({
   facebookConnected,
@@ -99,7 +99,7 @@ export default function StepConfirmation({
         </SummaryItem>
       </ul>
 
-      <div className="mt-8 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-800">
+      <div className="mt-8 rounded-lg bg-amber-50 p-4 text-sm text-amber-700">
         Your first campaign will be built and launched within the next{" "}
         <span className="font-semibold">24 hours</span>.
       </div>

@@ -165,15 +165,15 @@ export default function ContentCalendar({ brandId }) {
                 <button
                   key={key}
                   onClick={() => setSelectedKey(dayPosts.length ? key : null)}
-                  className={`min-h-[88px] cursor-pointer border-b border-r border-gray-50 p-2 text-left align-top transition hover:bg-indigo-50/40 ${
-                    isSelected ? "bg-indigo-50" : "bg-white"
+                  className={`min-h-[88px] cursor-pointer border-b border-r border-gray-50 p-2 text-left align-top transition hover:bg-amber-50/40 ${
+                    isSelected ? "bg-amber-50" : "bg-white"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span
                       className={`text-xs font-semibold ${
                         isToday
-                          ? "flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white"
+                          ? "flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-gray-900"
                           : "text-gray-600"
                       }`}
                     >
@@ -316,7 +316,7 @@ function PostDetailModal({ post, onClose }) {
         <div className="mt-5 text-right">
           <button
             onClick={onClose}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600"
           >
             Close
           </button>

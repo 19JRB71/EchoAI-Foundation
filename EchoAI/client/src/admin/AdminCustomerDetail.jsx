@@ -54,7 +54,7 @@ export default function AdminCustomerDetail({ userId, onBack }) {
     <div className="space-y-4">
       <button
         onClick={onBack}
-        className="text-sm font-medium text-indigo-600 hover:underline"
+        className="text-sm font-medium text-amber-700 hover:underline"
       >
         ← Back to customers
       </button>

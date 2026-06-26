@@ -59,7 +59,7 @@ const TIERS = [
 ];
 
 const primaryBtn =
-  "rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60";
+  "rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60";
 const backBtn =
   "rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50";
 
@@ -91,12 +91,12 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
             className={[
               "flex flex-col rounded-xl border p-4 text-left transition",
               tier === t.value
-                ? "border-indigo-600 ring-2 ring-indigo-200"
+                ? "border-amber-500 ring-2 ring-amber-200"
                 : "border-gray-200 hover:border-gray-300",
             ].join(" ")}
           >
             {t.highlighted && (
-              <span className="mb-1 inline-block w-fit rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
+              <span className="mb-1 inline-block w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
                 Most popular
               </span>
             )}
@@ -112,7 +112,7 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
             <ul className="mt-3 space-y-1">
               {t.features.map((f) => (
                 <li key={f} className="flex gap-1.5 text-xs text-gray-600">
-                  <span className="text-indigo-600">✓</span>
+                  <span className="text-amber-700">✓</span>
                   <span>{f}</span>
                 </li>
               ))}

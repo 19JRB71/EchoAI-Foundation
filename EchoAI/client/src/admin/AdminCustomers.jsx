@@ -109,7 +109,7 @@ export default function AdminCustomers({ onView }) {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search by name or email…"
-        className="w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        className="w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
       />
 
       <ErrorBanner message={error} />
@@ -189,7 +189,7 @@ export default function AdminCustomers({ onView }) {
                       <div className="flex flex-wrap gap-2 text-xs">
                         <button
                           onClick={() => onView(u.userId)}
-                          className="font-medium text-indigo-600 hover:underline"
+                          className="font-medium text-amber-700 hover:underline"
                         >
                           View
                         </button>
@@ -215,7 +215,7 @@ export default function AdminCustomers({ onView }) {
                                 u.userId
                               )
                             }
-                            className="font-medium text-amber-600 hover:underline disabled:opacity-50"
+                            className="font-medium text-amber-700 hover:underline disabled:opacity-50"
                           >
                             Lock
                           </button>

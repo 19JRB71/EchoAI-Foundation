@@ -83,10 +83,10 @@ export default function VoiceChat({ leadId, messages = [], onExchange, voice }) 
         onPointerUp={stopRecording}
         onPointerLeave={stopRecording}
         disabled={loading}
-        className={`flex h-24 w-24 items-center justify-center rounded-full text-white shadow-lg transition focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:opacity-60 ${
+        className={`flex h-24 w-24 items-center justify-center rounded-full text-white shadow-lg transition focus:outline-none focus:ring-4 focus:ring-amber-300 disabled:opacity-60 ${
           recording
             ? "scale-110 animate-pulse bg-red-500"
-            : "bg-indigo-600 hover:bg-indigo-700"
+            : "bg-amber-500 hover:bg-amber-600"
         }`}
         aria-label={recording ? "Release to send" : "Hold to speak"}
       >
@@ -111,9 +111,9 @@ export default function VoiceChat({ leadId, messages = [], onExchange, voice }) 
 
       {loading && (
         <div className="mt-1 flex gap-1" aria-hidden="true">
-          <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-400 [animation-delay:-0.3s]" />
-          <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-400 [animation-delay:-0.15s]" />
-          <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-400" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-400 [animation-delay:-0.3s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-400 [animation-delay:-0.15s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-400" />
         </div>
       )}
 
@@ -129,7 +129,7 @@ export default function VoiceChat({ leadId, messages = [], onExchange, voice }) 
               className={`rounded-2xl px-4 py-2 text-sm ${
                 m.role === "assistant"
                   ? "bg-gray-100 text-gray-800"
-                  : "ml-auto bg-indigo-600 text-white"
+                  : "ml-auto bg-amber-500 text-gray-900"
               } max-w-[85%] ${m.role === "assistant" ? "" : "text-right"}`}
             >
               {m.content}

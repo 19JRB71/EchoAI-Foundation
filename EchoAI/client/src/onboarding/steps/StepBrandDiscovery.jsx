@@ -7,7 +7,7 @@ import { useState } from "react";
 import BrandDiscovery from "../../sections/BrandDiscovery.jsx";
 
 const primaryBtn =
-  "rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60";
+  "rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60";
 const backBtn =
   "rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50";
 

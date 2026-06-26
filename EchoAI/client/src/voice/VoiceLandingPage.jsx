@@ -138,7 +138,7 @@ export default function VoiceLandingPage() {
   if (!brand) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-amber-500" />
       </div>
     );
   }
@@ -170,14 +170,14 @@ export default function VoiceLandingPage() {
                 onClick={toggleRecording}
                 disabled={busy || !leadId}
                 aria-label={recording ? "Stop recording" : "Start speaking"}
-                className={`relative flex h-32 w-32 items-center justify-center rounded-full text-white shadow-xl transition focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:opacity-60 ${
+                className={`relative flex h-32 w-32 items-center justify-center rounded-full text-white shadow-xl transition focus:outline-none focus:ring-4 focus:ring-amber-300 disabled:opacity-60 ${
                   recording
                     ? "bg-red-500"
-                    : "bg-indigo-600 hover:bg-indigo-700"
+                    : "bg-amber-500 hover:bg-amber-600"
                 }`}
               >
                 {!recording && !busy && (
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-40" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-40" />
                 )}
                 <MicIcon className="relative h-12 w-12" />
               </button>
@@ -207,7 +207,7 @@ export default function VoiceLandingPage() {
                   <div
                     className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
                       m.role === "user"
-                        ? "bg-indigo-600 text-white"
+                        ? "bg-amber-500 text-gray-900"
                         : "bg-white text-slate-800 shadow-sm ring-1 ring-slate-200"
                     }`}
                   >
@@ -287,7 +287,7 @@ function ContactForm({ leadId, onSaved }) {
           autoComplete="name"
           value={form.name}
           onChange={(e) => update("name", e.target.value)}
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
         <input
           type="tel"
@@ -296,7 +296,7 @@ function ContactForm({ leadId, onSaved }) {
           autoComplete="tel"
           value={form.phone}
           onChange={(e) => update("phone", e.target.value)}
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
         <input
           type="email"
@@ -305,14 +305,14 @@ function ContactForm({ leadId, onSaved }) {
           autoComplete="email"
           value={form.email}
           onChange={(e) => update("email", e.target.value)}
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
       </div>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       <button
         type="submit"
         disabled={status === "saving"}
-        className="mt-4 w-full rounded-xl bg-indigo-600 py-3 text-base font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+        className="mt-4 w-full rounded-xl bg-amber-500 py-3 text-base font-semibold text-gray-900 transition hover:bg-amber-600 disabled:opacity-60"
       >
         {status === "saving" ? "Saving…" : "Send my details"}
       </button>
@@ -323,7 +323,7 @@ function ContactForm({ leadId, onSaved }) {
 function Closing() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-4xl text-indigo-600">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-4xl text-amber-700">
         ✓
       </div>
       <h2 className="mt-6 text-2xl font-bold text-slate-900">Thank you!</h2>

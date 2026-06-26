@@ -19,7 +19,7 @@ export default function LeadsBarChart({ data }) {
           >
             <span className="text-xs font-semibold text-gray-700">{leads}</span>
             <div
-              className="w-full max-w-[48px] rounded-t-md bg-indigo-500 transition-all"
+              className="w-full max-w-[48px] rounded-t-md bg-amber-500 transition-all"
               style={{ height: `${Math.max(heightPct, 4)}%` }}
             />
             <span className="text-xs text-gray-400">{formatWeek(d.week_date)}</span>

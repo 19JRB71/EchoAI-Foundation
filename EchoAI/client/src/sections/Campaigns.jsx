@@ -51,7 +51,7 @@ export default function Campaigns() {
         <button
           onClick={handleOptimize}
           disabled={optimizing}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60"
         >
           {optimizing ? "Optimizing…" : "Optimize campaigns"}
         </button>

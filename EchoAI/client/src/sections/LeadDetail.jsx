@@ -91,7 +91,7 @@ export default function LeadDetail({ leadId, onClose }) {
                       className={`rounded-lg p-2 text-sm ${
                         m.role === "user"
                           ? "bg-gray-100 text-gray-800"
-                          : "bg-indigo-50 text-indigo-900"
+                          : "bg-amber-50 text-amber-800"
                       }`}
                     >
                       <span className="mb-0.5 block text-xs font-semibold uppercase text-gray-400">
