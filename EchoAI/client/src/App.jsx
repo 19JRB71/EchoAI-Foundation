@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, getToken, setToken, clearToken } from "./api.js";
 import Sidebar from "./components/Sidebar.jsx";
 import Spinner from "./components/Spinner.jsx";
@@ -12,6 +13,7 @@ import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
 
 export default function App() {
+  const navigate = useNavigate();
   const [authed, setAuthed] = useState(Boolean(getToken()));
   const [section, setSection] = useState("overview");
   const [brands, setBrands] = useState([]);
@@ -29,7 +31,8 @@ export default function App() {
     setSelectedBrandId("");
     setOnboardingCompleted(null);
     setIsAdmin(false);
-  }, []);
+    navigate("/");
+  }, [navigate]);
 
   const loadBrands = useCallback(async () => {
     setLoadingBrands(true);
