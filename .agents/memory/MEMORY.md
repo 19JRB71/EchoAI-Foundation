@@ -1,1 +1,2 @@
 - [Standalone app preview wiring](standalone-app-preview-wiring.md) — making a non-artifact root app (EchoAI) visible via the path-based proxy; single-origin + repurposed artifact.toml.
+- [Social credentials are brand-scoped](social-credentials-brand-scoped.md) — EchoAI social creds live in social_accounts (brand_id), not user-scoped api_integrations; media platforms throw explicit 422.

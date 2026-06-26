@@ -16,6 +16,7 @@ const voiceRoutes = require("./routes/voiceRoutes");
 const emailRoutes = require("./routes/emailRoutes");
 const demoRoutes = require("./routes/demoRoutes");
 const publicRoutes = require("./routes/publicRoutes");
+const socialRoutes = require("./routes/socialRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -54,6 +55,7 @@ app.use("/api/voice", voiceRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/demo", demoRoutes);
 app.use("/api/public", publicRoutes);
+app.use("/api/social", socialRoutes);
 
 // Serve the built React client (single-origin: API + SPA on one port).
 const clientDist = path.join(__dirname, "client", "dist");

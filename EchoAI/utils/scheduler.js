@@ -6,6 +6,7 @@ const {
 } = require("../controllers/analyticsController");
 const { autoOptimizeCampaignsForBrand } = require("../controllers/optimizationController");
 const { sendWeeklyReportEmail } = require("../controllers/emailController");
+const { publishDuePosts } = require("../controllers/socialController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -88,7 +89,16 @@ function startScheduler() {
     });
   });
 
-  console.log("Weekly analytics scheduler started (Mondays at 08:00).");
+  // Every minute: publish any scheduled social posts that are now due.
+  cron.schedule("* * * * *", () => {
+    publishDuePosts().catch((err) => {
+      console.error("Scheduled social post publish run errored:", err.message);
+    });
+  });
+
+  console.log(
+    "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute)."
+  );
 }
 
 module.exports = { startScheduler, runWeeklyAnalytics };

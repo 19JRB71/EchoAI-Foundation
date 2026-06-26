@@ -36,7 +36,26 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+EchoAI is an AI-powered SaaS marketing platform. Capabilities include Facebook ad
+campaign automation, a lead-qualification chatbot, brand discovery, weekly
+analytics + auto-optimization, and multi-platform social media content generation
+and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
+
+### Social media subsystem
+
+- Routes mounted at `/api/social` (all auth + lockout protected): `POST /connect`,
+  `POST /generate`, `POST /schedule`, `GET /calendar/:brandId`, `GET /performance/:brandId`.
+- Connected-platform credentials are stored **encrypted** (AES-256-GCM) in the
+  **brand-scoped** `social_accounts` table — NOT the user-scoped `api_integrations`
+  table (which has a fixed enum + `UNIQUE(user_id, platform)`). The rest of the
+  feature (posts) is brand-scoped, so credentials are too.
+- A node-cron job runs **every minute** to publish due scheduled posts. It claims
+  rows atomically (`status -> 'publishing'` via `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)`)
+  so overlapping ticks cannot double-publish.
+- `utils/socialApi.js` makes the real per-platform API calls. Text publishing works
+  for facebook/twitter/linkedin; instagram/tiktok/youtube require a media/video
+  upload and throw an explicit 422 (no silent fallback) — those posts end as
+  `failed` with the error recorded in `engagement_metrics`.
 
 ## User preferences
 
