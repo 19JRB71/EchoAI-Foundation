@@ -52,6 +52,7 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
       `Request failed (${res.status})`;
     const err = new Error(message);
     err.status = res.status;
+    err.data = data;
     throw err;
   }
 
@@ -133,6 +134,28 @@ export const api = {
     }),
   adminDeleteUser: (userId) =>
     request(`/api/admin/users/${userId}`, { method: "DELETE" }),
+
+  // Social media
+  getSocialCalendar: (brandId) => request(`/api/social/calendar/${brandId}`),
+  getSocialPerformance: (brandId) => request(`/api/social/performance/${brandId}`),
+  getSocialAccounts: (brandId) => request(`/api/social/accounts/${brandId}`),
+  generateSocial: (brandId, topic, platform) =>
+    request("/api/social/generate", {
+      method: "POST",
+      body: { brandId, topic, platform },
+    }),
+  scheduleSocial: ({ brandId, platform, postContent, scheduledTime }) =>
+    request("/api/social/schedule", {
+      method: "POST",
+      body: { brandId, platform, postContent, scheduledTime },
+    }),
+  connectSocial: ({ brandId, platform, credentials, username }) =>
+    request("/api/social/connect", {
+      method: "POST",
+      body: { brandId, platform, credentials, username },
+    }),
+  disconnectSocial: (brandId, platform) =>
+    request(`/api/social/accounts/${brandId}/${platform}`, { method: "DELETE" }),
 
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>

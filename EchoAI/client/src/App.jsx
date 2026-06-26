@@ -6,6 +6,7 @@ import Login from "./sections/Login.jsx";
 import Overview from "./sections/Overview.jsx";
 import Leads from "./sections/Leads.jsx";
 import Campaigns from "./sections/Campaigns.jsx";
+import SocialMedia from "./sections/SocialMedia.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
@@ -133,6 +134,7 @@ export default function App() {
               {section === "overview" && <Overview brandId={selectedBrandId} />}
               {section === "leads" && <Leads brandId={selectedBrandId} />}
               {section === "campaigns" && <Campaigns />}
+              {section === "social" && <SocialMedia brandId={selectedBrandId} />}
               {section === "settings" && (
                 <Settings
                   brandId={selectedBrandId}

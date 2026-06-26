@@ -230,6 +230,77 @@ async function getSocialCalendar(req, res) {
 }
 
 /**
+ * GET /api/social/accounts/:brandId
+ * Lists the brand's connected social accounts (no credentials are ever returned).
+ */
+async function getSocialAccounts(req, res) {
+  const userId = req.user.userId;
+  const { brandId } = req.params;
+
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const result = await db.query(
+      `SELECT platform, platform_username, connection_status, created_at, updated_at
+       FROM social_accounts
+       WHERE brand_id = $1
+       ORDER BY platform ASC`,
+      [brandId]
+    );
+
+    const accounts = result.rows.map((row) => ({
+      platform: row.platform,
+      username: row.platform_username,
+      status: row.connection_status,
+      connectedAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+    return res.json({ brandId, count: accounts.length, accounts });
+  } catch (err) {
+    console.error("Get social accounts error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch social accounts" });
+  }
+}
+
+/**
+ * DELETE /api/social/accounts/:brandId/:platform
+ * Disconnects (removes) a brand's connected social account for a platform.
+ */
+async function disconnectSocialAccount(req, res) {
+  const userId = req.user.userId;
+  const { brandId, platform } = req.params;
+  const normalizedPlatform = String(platform || "").toLowerCase();
+
+  if (!isSupportedPlatform(normalizedPlatform)) {
+    return res.status(400).json({
+      error: `Unsupported platform. Supported: ${SUPPORTED_PLATFORMS.join(", ")}`,
+    });
+  }
+
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const result = await db.query(
+      `DELETE FROM social_accounts
+       WHERE brand_id = $1 AND platform = $2
+       RETURNING account_id`,
+      [brandId, normalizedPlatform]
+    );
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: `No connected ${normalizedPlatform} account for this brand` });
+    }
+    return res.json({ disconnected: true, platform: normalizedPlatform });
+  } catch (err) {
+    console.error("Disconnect social account error:", err.message);
+    return res.status(500).json({ error: "Failed to disconnect social account" });
+  }
+}
+
+/**
  * GET /api/social/performance/:brandId
  * Pulls fresh engagement metrics from each platform for the brand's published
  * posts. Per-post failures are surfaced inline rather than failing the request.
@@ -243,9 +314,10 @@ async function getPostPerformance(req, res) {
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
     const published = await db.query(
-      `SELECT post_id, platform, external_post_id, engagement_metrics
+      `SELECT post_id, platform, external_post_id, published_time, engagement_metrics
        FROM social_posts
-       WHERE brand_id = $1 AND status = 'published'`,
+       WHERE brand_id = $1 AND status = 'published'
+       ORDER BY published_time DESC NULLS LAST`,
       [brandId]
     );
 
@@ -270,6 +342,7 @@ async function getPostPerformance(req, res) {
         postId: post.post_id,
         platform: post.platform,
         externalPostId: post.external_post_id,
+        publishedTime: post.published_time,
         metrics,
       });
     }
@@ -350,6 +423,8 @@ module.exports = {
   generateSocialContent,
   schedulePost,
   getSocialCalendar,
+  getSocialAccounts,
+  disconnectSocialAccount,
   getPostPerformance,
   publishStoredPost,
   publishDuePosts,

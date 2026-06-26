@@ -44,7 +44,18 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
 ### Social media subsystem
 
 - Routes mounted at `/api/social` (all auth + lockout protected): `POST /connect`,
-  `POST /generate`, `POST /schedule`, `GET /calendar/:brandId`, `GET /performance/:brandId`.
+  `POST /generate`, `POST /schedule`, `GET /calendar/:brandId`,
+  `GET /accounts/:brandId`, `DELETE /accounts/:brandId/:platform`,
+  `GET /performance/:brandId`.
+- The customer dashboard exposes this via a **Social Media** sidebar section
+  (`client/src/sections/SocialMedia.jsx` + `client/src/sections/social/*`) with
+  four tabs: Content Calendar, AI Content Generator, Connected Accounts, and
+  Performance. Per-platform brand color/monogram metadata lives in
+  `client/src/sections/social/platformMeta.jsx`.
+- `POST /connect` returns **502** (not 2xx) when credentials are stored but the
+  platform verification fails — the row is persisted with `connection_status =
+  'error'`. The dashboard treats 502 as "stored, needs attention" and reloads
+  the accounts list rather than as a hard failure.
 - Connected-platform credentials are stored **encrypted** (AES-256-GCM) in the
   **brand-scoped** `social_accounts` table — NOT the user-scoped `api_integrations`
   table (which has a fixed enum + `UNIQUE(user_id, platform)`). The rest of the

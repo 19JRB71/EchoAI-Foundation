@@ -13,6 +13,8 @@ router.post("/connect", socialController.connectSocialAccount);
 router.post("/generate", socialController.generateSocialContent);
 router.post("/schedule", socialController.schedulePost);
 router.get("/calendar/:brandId", socialController.getSocialCalendar);
+router.get("/accounts/:brandId", socialController.getSocialAccounts);
+router.delete("/accounts/:brandId/:platform", socialController.disconnectSocialAccount);
 router.get("/performance/:brandId", socialController.getPostPerformance);
 
 module.exports = router;
