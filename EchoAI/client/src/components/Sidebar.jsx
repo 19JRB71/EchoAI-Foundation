@@ -3,6 +3,7 @@ const NAV = [
   { key: "leads", label: "Leads", icon: "leads" },
   { key: "campaigns", label: "Campaigns", icon: "campaigns" },
   { key: "social", label: "Social Media", icon: "social" },
+  { key: "video", label: "Video Content", icon: "video" },
   { key: "settings", label: "Settings", icon: "settings" },
 ];
 
@@ -52,6 +53,16 @@ function NavIcon({ name }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"
+          />
+        </svg>
+      );
+    case "video":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
           />
         </svg>
       );

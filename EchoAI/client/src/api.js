@@ -157,6 +157,21 @@ export const api = {
   disconnectSocial: (brandId, platform) =>
     request(`/api/social/accounts/${brandId}/${platform}`, { method: "DELETE" }),
 
+  // Video content (AI Video Script & Content Creation Agent)
+  generateVideoScript: ({ brandId, topic, platform, length }) =>
+    request("/api/video/generate", {
+      method: "POST",
+      body: { brandId, topic, platform, length },
+    }),
+  saveVideoScript: ({ brandId, topic, platform, length, scriptContent, status }) =>
+    request("/api/video/scripts", {
+      method: "POST",
+      body: { brandId, topic, platform, length, scriptContent, status },
+    }),
+  getVideoScripts: (brandId) => request(`/api/video/scripts/${brandId}`),
+  deleteVideoScript: (scriptId) =>
+    request(`/api/video/scripts/${scriptId}`, { method: "DELETE" }),
+
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>
     request("/api/demo/request", {

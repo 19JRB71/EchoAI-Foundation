@@ -68,6 +68,24 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   upload and throw an explicit 422 (no silent fallback) — those posts end as
   `failed` with the error recorded in `engagement_metrics`.
 
+### Video content subsystem
+
+- Routes mounted at `/api/video` (all auth + lockout protected): `POST /generate`,
+  `POST /scripts` (save), `GET /scripts/:brandId` (list), `DELETE /scripts/:scriptId`.
+- The AI Video Content Agent (`prompts/videoContentPrompt.js`) calls Anthropic to
+  produce a complete video package (hook, scenes with script+visual+on-screen text,
+  CTA, music style, thumbnail concept) tailored to platform
+  (facebook/instagram/tiktok/youtube) and length (short/medium/long).
+- Saved packages are stored brand-scoped in the `video_scripts` table
+  (`script_content` JSONB, `status` draft|published). `DELETE` enforces ownership
+  by joining `video_scripts` to `brands` on the authenticated `user_id`.
+- `POST /generate` maps upstream Anthropic failures (billing, rate limits) to a
+  **502** with a clear message rather than a generic 500.
+- The customer dashboard exposes this via a **Video Content** sidebar section
+  (`client/src/sections/VideoContent.jsx` + `client/src/sections/video/*`) with
+  two tabs: Script Generator and Saved Scripts. Platform badges are reused from
+  `sections/social/platformMeta.jsx`.
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._

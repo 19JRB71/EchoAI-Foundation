@@ -17,6 +17,7 @@ const emailRoutes = require("./routes/emailRoutes");
 const demoRoutes = require("./routes/demoRoutes");
 const publicRoutes = require("./routes/publicRoutes");
 const socialRoutes = require("./routes/socialRoutes");
+const videoRoutes = require("./routes/videoRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -56,6 +57,7 @@ app.use("/api/email", emailRoutes);
 app.use("/api/demo", demoRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/social", socialRoutes);
+app.use("/api/video", videoRoutes);
 
 // Serve the built React client (single-origin: API + SPA on one port).
 const clientDist = path.join(__dirname, "client", "dist");
