@@ -86,6 +86,35 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   two tabs: Script Generator and Saved Scripts. Platform badges are reused from
   `sections/social/platformMeta.jsx`.
 
+### Email marketing subsystem
+
+- Routes mounted at **`/api/email-campaigns`** (all auth + lockout protected):
+  `POST /generate`, `POST /` (save), `POST /:campaignId/send`,
+  `GET /:brandId` (list), `GET /performance/:brandId`. The path is
+  `email-campaigns` — NOT `/api/email`, which is the admin-only email-test route.
+- The AI Email Campaign Agent (`prompts/emailCampaignPrompt.js`) calls Anthropic
+  to produce a sequence of 3–10 emails, each with subject, previewText, body (brand
+  voice), callToAction, and sendTiming (Day 1/Day 3/…). Output is validated +
+  normalized before it can be saved or sent (no malformed data reaches DB/SMTP).
+- Migration `models/014_email_campaigns.sql`: brand-scoped `email_campaigns`
+  (`email_sequence` JSONB, `status` draft|active|completed, `current_step` =
+  emails sent / index of next email) + `email_sends` (one row per recipient per
+  step). `current_step` drives the "next scheduled email" and the progress bar.
+- **`sendCampaign` is transactional**: it `SELECT … FOR UPDATE`s the campaign row,
+  re-checks `current_step`, sends the next email to all brand leads with an email,
+  inserts `email_sends` rows, advances the step, then commits — so concurrent
+  sends cannot double-send or skip a step. A unique index
+  `(campaign_id, email_address, sequence_step)` + `ON CONFLICT DO NOTHING` is a
+  DB-level idempotency backstop. The step advances **only if ≥1 email actually
+  sent**; a total SMTP outage rolls back and returns 502 (no step consumed).
+- `POST /generate` maps upstream Anthropic failures to a **502**. Email delivery
+  uses `utils/email.js` `sendEmail` (nodemailer); requires SMTP env to be set.
+- The customer dashboard exposes this via an **Email Marketing** sidebar section
+  (`client/src/sections/EmailMarketing.jsx` + `client/src/sections/email/*`) with
+  three tabs: Campaign Generator (expandable email cards + Save/Send buttons),
+  Active Campaigns (status + progress indicator + Send Next Email), and
+  Performance (open/click/unsubscribe rates table).
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._

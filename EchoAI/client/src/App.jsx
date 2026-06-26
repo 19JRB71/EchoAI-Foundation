@@ -9,6 +9,7 @@ import Leads from "./sections/Leads.jsx";
 import Campaigns from "./sections/Campaigns.jsx";
 import SocialMedia from "./sections/SocialMedia.jsx";
 import VideoContent from "./sections/VideoContent.jsx";
+import EmailMarketing from "./sections/EmailMarketing.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
@@ -140,6 +141,9 @@ export default function App() {
               {section === "campaigns" && <Campaigns />}
               {section === "social" && <SocialMedia brandId={selectedBrandId} />}
               {section === "video" && <VideoContent brandId={selectedBrandId} />}
+              {section === "email" && (
+                <EmailMarketing brandId={selectedBrandId} />
+              )}
               {section === "settings" && (
                 <Settings
                   brandId={selectedBrandId}

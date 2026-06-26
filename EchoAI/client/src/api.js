@@ -172,6 +172,23 @@ export const api = {
   deleteVideoScript: (scriptId) =>
     request(`/api/video/scripts/${scriptId}`, { method: "DELETE" }),
 
+  // Email marketing (AI Email Campaign Agent)
+  generateEmailSequence: ({ brandId, goal, targetAudience, numEmails }) =>
+    request("/api/email-campaigns/generate", {
+      method: "POST",
+      body: { brandId, goal, targetAudience, numEmails },
+    }),
+  saveEmailCampaign: ({ brandId, campaignName, goal, emailSequence }) =>
+    request("/api/email-campaigns", {
+      method: "POST",
+      body: { brandId, campaignName, goal, emailSequence },
+    }),
+  sendEmailCampaign: (campaignId) =>
+    request(`/api/email-campaigns/${campaignId}/send`, { method: "POST" }),
+  getEmailCampaigns: (brandId) => request(`/api/email-campaigns/${brandId}`),
+  getEmailCampaignPerformance: (brandId) =>
+    request(`/api/email-campaigns/performance/${brandId}`),
+
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>
     request("/api/demo/request", {
