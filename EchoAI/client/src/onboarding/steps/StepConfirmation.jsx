@@ -74,10 +74,10 @@ export default function StepConfirmation({
   const tierLabel = selectedTier ? TIER_LABELS[selectedTier] : null;
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm sm:p-10">
+    <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 text-center shadow-sm sm:p-10">
       <div className="text-4xl">🎉</div>
-      <h1 className="mt-3 text-2xl font-bold text-gray-900">You're all set!</h1>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600">
+      <h1 className="mt-3 text-2xl font-bold text-gray-100">You're all set!</h1>
+      <p className="mt-2 text-sm leading-relaxed text-gray-400">
         Congratulations — EchoAI is ready to go to work for your business.
       </p>
 
@@ -99,7 +99,7 @@ export default function StepConfirmation({
         </SummaryItem>
       </ul>
 
-      <div className="mt-8 rounded-lg bg-amber-50 p-4 text-sm text-amber-700">
+      <div className="mt-8 rounded-lg bg-amber-500/10 p-4 text-sm text-amber-300">
         Your first campaign will be built and launched within the next{" "}
         <span className="font-semibold">24 hours</span>.
       </div>
@@ -121,12 +121,12 @@ function SummaryItem({ ok, children }) {
       <span
         className={[
           "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-          ok ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400",
+          ok ? "bg-green-100 text-green-700" : "bg-gray-800 text-gray-400",
         ].join(" ")}
       >
         {ok ? "✓" : "•"}
       </span>
-      <span className={ok ? "text-gray-800" : "text-gray-500"}>{children}</span>
+      <span className={ok ? "text-gray-200" : "text-gray-400"}>{children}</span>
     </li>
   );
 }

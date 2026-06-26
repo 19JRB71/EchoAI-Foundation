@@ -30,17 +30,17 @@ export default function OnboardingWizard({ onComplete }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-800">
         <Spinner label="Loading your setup…" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-amber-50 to-white">
-      <header className="border-b border-gray-100 bg-white/70 backdrop-blur">
+    <div className="flex min-h-screen flex-col bg-black">
+      <header className="border-b border-gray-800 bg-gray-900/70 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-4">
-          <span className="text-lg font-extrabold tracking-tight text-amber-700">
+          <span className="text-lg font-extrabold tracking-tight text-amber-300">
             EchoAI
           </span>
           <span className="text-sm text-gray-400">Setup</span>
@@ -99,8 +99,8 @@ function Stepper({ current }) {
                   done
                     ? "bg-amber-500 text-gray-900"
                     : active
-                    ? "border-2 border-amber-500 text-amber-700"
-                    : "border border-gray-300 text-gray-400",
+                    ? "border-2 border-amber-500 text-amber-300"
+                    : "border border-gray-700 text-gray-400",
                 ].join(" ")}
               >
                 {done ? "✓" : index}
@@ -108,7 +108,7 @@ function Stepper({ current }) {
               <span
                 className={[
                   "hidden text-xs font-medium sm:inline",
-                  active ? "text-amber-700" : "text-gray-400",
+                  active ? "text-amber-300" : "text-gray-400",
                 ].join(" ")}
               >
                 {s.title}
@@ -117,7 +117,7 @@ function Stepper({ current }) {
                 <span
                   className={[
                     "h-px flex-1",
-                    done ? "bg-amber-500" : "bg-gray-200",
+                    done ? "bg-amber-500" : "bg-gray-700",
                   ].join(" ")}
                 />
               )}

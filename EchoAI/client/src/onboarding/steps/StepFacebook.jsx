@@ -7,13 +7,13 @@ import { api } from "../../api.js";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
+  "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
 const primaryBtn =
   "rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60";
 const ghostBtn =
-  "rounded-lg px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700";
+  "rounded-lg px-5 py-2.5 text-sm font-semibold text-gray-400 hover:text-gray-200";
 const backBtn =
-  "rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50";
+  "rounded-lg border border-gray-700 px-5 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800";
 
 export default function StepFacebook({ onNext, onBack, onConnected }) {
   const [adAccountId, setAdAccountId] = useState("");
@@ -37,28 +37,28 @@ export default function StepFacebook({ onNext, onBack, onConnected }) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-      <h1 className="text-2xl font-bold text-gray-900">
+    <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm sm:p-8">
+      <h1 className="text-2xl font-bold text-gray-100">
         Connect your Facebook ad account
       </h1>
-      <p className="mt-3 text-sm leading-relaxed text-gray-600">
+      <p className="mt-3 text-sm leading-relaxed text-gray-400">
         EchoAI runs your campaigns directly inside your own Facebook Ads account,
         so you always stay in full control of your budget and data.
       </p>
 
-      <ol className="mt-5 space-y-2 text-sm text-gray-600">
+      <ol className="mt-5 space-y-2 text-sm text-gray-400">
         <li>
-          <span className="font-semibold text-gray-800">1.</span> Open{" "}
+          <span className="font-semibold text-gray-200">1.</span> Open{" "}
           <span className="font-medium">Meta Ads Manager</span> and go to{" "}
           <span className="font-medium">Account Settings</span>.
         </li>
         <li>
-          <span className="font-semibold text-gray-800">2.</span> Copy your{" "}
+          <span className="font-semibold text-gray-200">2.</span> Copy your{" "}
           <span className="font-medium">Ad account ID</span> (it looks like{" "}
-          <code className="rounded bg-gray-100 px-1">act_123456789</code>).
+          <code className="rounded bg-gray-800 px-1">act_123456789</code>).
         </li>
         <li>
-          <span className="font-semibold text-gray-800">3.</span> Paste it below
+          <span className="font-semibold text-gray-200">3.</span> Paste it below
           and connect — you'll authorize EchoAI through Facebook.
         </li>
       </ol>

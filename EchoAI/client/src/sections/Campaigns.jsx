@@ -47,7 +47,7 @@ export default function Campaigns() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-gray-900">Campaigns</h2>
+        <h2 className="text-xl font-bold text-gray-100">Campaigns</h2>
         <button
           onClick={handleOptimize}
           disabled={optimizing}
@@ -67,11 +67,11 @@ export default function Campaigns() {
       {loading ? (
         <Spinner label="Loading campaigns…" />
       ) : campaigns.length === 0 ? (
-        <p className="text-sm text-gray-500">No active campaigns.</p>
+        <p className="text-sm text-gray-400">No active campaigns.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-900 shadow-sm">
+          <table className="min-w-full divide-y divide-gray-800 text-sm">
+            <thead className="bg-gray-800 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Budget</th>
@@ -80,19 +80,19 @@ export default function Campaigns() {
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-800">
               {campaigns.map((c) => (
                 <tr key={c.campaignId}>
-                  <td className="px-4 py-3 font-medium text-gray-900">
+                  <td className="px-4 py-3 font-medium text-gray-100">
                     {c.name || "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-gray-400">
                     {formatMoney(c.budget)}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-gray-400">
                     {c.costPerLead != null ? formatMoney(c.costPerLead) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-gray-400">
                     {c.conversionRate != null ? `${c.conversionRate}%` : "—"}
                   </td>
                   <td className="px-4 py-3">
@@ -113,7 +113,7 @@ function StatusPill({ status }) {
   return (
     <span
       className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        ok ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+        ok ? "bg-green-100 text-green-700" : "bg-gray-800 text-gray-400"
       }`}
     >
       {status || "unknown"}

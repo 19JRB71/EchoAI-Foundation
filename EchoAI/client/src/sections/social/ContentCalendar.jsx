@@ -27,11 +27,11 @@ function statusStyle(status) {
     case "scheduled":
       return "bg-blue-100 text-blue-700";
     case "publishing":
-      return "bg-amber-100 text-amber-800";
+      return "bg-amber-500/15 text-amber-300";
     case "failed":
       return "bg-red-100 text-red-700";
     default:
-      return "bg-gray-100 text-gray-600";
+      return "bg-gray-800 text-gray-400";
   }
 }
 
@@ -118,23 +118,23 @@ export default function ContentCalendar({ brandId }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => changeMonth(-1)}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border border-gray-800 px-3 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-800"
           >
             ‹ Prev
           </button>
-          <span className="min-w-[10rem] text-center text-sm font-semibold text-gray-900">
+          <span className="min-w-[10rem] text-center text-sm font-semibold text-gray-100">
             {monthLabel}
           </span>
           <button
             onClick={() => changeMonth(1)}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border border-gray-800 px-3 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-800"
           >
             Next ›
           </button>
         </div>
         <button
           onClick={load}
-          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border border-gray-800 px-3 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-800"
         >
           Refresh
         </button>
@@ -145,8 +145,8 @@ export default function ContentCalendar({ brandId }) {
       {loading ? (
         <Spinner label="Loading calendar…" />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-          <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900 shadow-sm">
+          <div className="grid grid-cols-7 border-b border-gray-800 bg-gray-800 text-center text-xs font-semibold uppercase tracking-wide text-gray-400">
             {WEEKDAYS.map((d) => (
               <div key={d} className="px-1 py-2">
                 {d}
@@ -155,7 +155,7 @@ export default function ContentCalendar({ brandId }) {
           </div>
           <div className="grid grid-cols-7">
             {cells.map((date, idx) => {
-              if (!date) return <div key={`pad-${idx}`} className="min-h-[88px] border-b border-r border-gray-50 bg-gray-50/40" />;
+              if (!date) return <div key={`pad-${idx}`} className="min-h-[88px] border-b border-r border-gray-800 bg-gray-800/40" />;
               const key = dayKey(date);
               const dayPosts = postsByDay[key] || [];
               const platforms = [...new Set(dayPosts.map((p) => p.platform))];
@@ -165,8 +165,8 @@ export default function ContentCalendar({ brandId }) {
                 <button
                   key={key}
                   onClick={() => setSelectedKey(dayPosts.length ? key : null)}
-                  className={`min-h-[88px] cursor-pointer border-b border-r border-gray-50 p-2 text-left align-top transition hover:bg-amber-50/40 ${
-                    isSelected ? "bg-amber-50" : "bg-white"
+                  className={`min-h-[88px] cursor-pointer border-b border-r border-gray-800 p-2 text-left align-top transition hover:bg-amber-500/10 ${
+                    isSelected ? "bg-amber-500/10" : "bg-gray-900"
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -174,7 +174,7 @@ export default function ContentCalendar({ brandId }) {
                       className={`text-xs font-semibold ${
                         isToday
                           ? "flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-gray-900"
-                          : "text-gray-600"
+                          : "text-gray-400"
                       }`}
                     >
                       {date.getDate()}
@@ -198,9 +198,9 @@ export default function ContentCalendar({ brandId }) {
       )}
 
       {selectedKey && (
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-sm font-semibold text-gray-100">
               Posts on{" "}
               {new Date(`${selectedKey}T00:00:00`).toLocaleDateString(undefined, {
                 weekday: "long",
@@ -210,23 +210,23 @@ export default function ContentCalendar({ brandId }) {
             </h3>
             <button
               onClick={() => setSelectedKey(null)}
-              className="text-sm text-gray-400 hover:text-gray-600"
+              className="text-sm text-gray-400 hover:text-gray-400"
             >
               Close
             </button>
           </div>
           {selectedPosts.length === 0 ? (
-            <p className="text-sm text-gray-500">No posts this day.</p>
+            <p className="text-sm text-gray-400">No posts this day.</p>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-gray-800">
               {selectedPosts.map((post) => (
                 <li key={post.post_id}>
                   <button
                     onClick={() => setActivePost(post)}
-                    className="flex w-full items-center gap-3 py-3 text-left hover:bg-gray-50"
+                    className="flex w-full items-center gap-3 py-3 text-left hover:bg-gray-800"
                   >
                     <PlatformBadge platform={post.platform} />
-                    <span className="flex-1 truncate text-sm text-gray-700">
+                    <span className="flex-1 truncate text-sm text-gray-300">
                       {post.post_content}
                     </span>
                     <span
@@ -260,13 +260,13 @@ function PostDetailModal({ post, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl"
+        className="w-full max-w-lg rounded-xl bg-gray-900 p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <PlatformBadge platform={post.platform} />
-            <span className="text-sm font-semibold text-gray-900">
+            <span className="text-sm font-semibold text-gray-100">
               {meta.label}
             </span>
           </div>
@@ -279,29 +279,29 @@ function PostDetailModal({ post, onClose }) {
           </span>
         </div>
 
-        <p className="whitespace-pre-wrap text-sm text-gray-800">
+        <p className="whitespace-pre-wrap text-sm text-gray-200">
           {post.post_content}
         </p>
 
-        <dl className="mt-4 space-y-1 border-t border-gray-100 pt-4 text-xs text-gray-500">
+        <dl className="mt-4 space-y-1 border-t border-gray-800 pt-4 text-xs text-gray-400">
           <div className="flex justify-between">
             <dt>Scheduled</dt>
-            <dd className="text-gray-700">{formatDateTime(post.scheduled_time)}</dd>
+            <dd className="text-gray-300">{formatDateTime(post.scheduled_time)}</dd>
           </div>
           <div className="flex justify-between">
             <dt>Published</dt>
-            <dd className="text-gray-700">{formatDateTime(post.published_time)}</dd>
+            <dd className="text-gray-300">{formatDateTime(post.published_time)}</dd>
           </div>
           {post.external_post_id && (
             <div className="flex justify-between">
               <dt>Platform post ID</dt>
-              <dd className="text-gray-700">{post.external_post_id}</dd>
+              <dd className="text-gray-300">{post.external_post_id}</dd>
             </div>
           )}
         </dl>
 
         {metrics && (
-          <div className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+          <div className="mt-3 rounded-lg bg-gray-800 p-3 text-xs text-gray-400">
             {metrics.error ? (
               <span className="text-red-600">{metrics.error}</span>
             ) : (

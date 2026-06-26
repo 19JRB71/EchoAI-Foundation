@@ -61,7 +61,7 @@ const TIERS = [
 const primaryBtn =
   "rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60";
 const backBtn =
-  "rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50";
+  "rounded-lg border border-gray-700 px-5 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800";
 
 export default function StepSubscription({ onNext, onBack, onSelectTier }) {
   const [tier, setTier] = useState("pro");
@@ -72,11 +72,11 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-      <h1 className="text-2xl font-bold text-gray-900">Choose your plan</h1>
-      <p className="mt-3 text-sm leading-relaxed text-gray-600">
+    <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm sm:p-8">
+      <h1 className="text-2xl font-bold text-gray-100">Choose your plan</h1>
+      <p className="mt-3 text-sm leading-relaxed text-gray-400">
         Every plan is{" "}
-        <span className="font-semibold text-gray-800">
+        <span className="font-semibold text-gray-200">
           ${PRICE_PER_SEAT} per seat / month
         </span>
         . Pick the size that fits your team — you can change it any time.
@@ -91,28 +91,28 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
             className={[
               "flex flex-col rounded-xl border p-4 text-left transition",
               tier === t.value
-                ? "border-amber-500 ring-2 ring-amber-200"
-                : "border-gray-200 hover:border-gray-300",
+                ? "border-amber-500 ring-2 ring-amber-500/40"
+                : "border-gray-800 hover:border-gray-700",
             ].join(" ")}
           >
             {t.highlighted && (
-              <span className="mb-1 inline-block w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+              <span className="mb-1 inline-block w-fit rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
                 Most popular
               </span>
             )}
-            <span className="text-sm font-bold text-gray-900">{t.name}</span>
-            <span className="text-xs text-gray-500">{t.seats}</span>
-            <span className="mt-2 text-lg font-extrabold text-gray-900">
+            <span className="text-sm font-bold text-gray-100">{t.name}</span>
+            <span className="text-xs text-gray-400">{t.seats}</span>
+            <span className="mt-2 text-lg font-extrabold text-gray-100">
               ${PRICE_PER_SEAT}
-              <span className="text-xs font-medium text-gray-500">
+              <span className="text-xs font-medium text-gray-400">
                 {" "}
                 / seat / mo
               </span>
             </span>
             <ul className="mt-3 space-y-1">
               {t.features.map((f) => (
-                <li key={f} className="flex gap-1.5 text-xs text-gray-600">
-                  <span className="text-amber-700">✓</span>
+                <li key={f} className="flex gap-1.5 text-xs text-gray-400">
+                  <span className="text-amber-300">✓</span>
                   <span>{f}</span>
                 </li>
               ))}
@@ -127,9 +127,9 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
             <PaymentForm tier={tier} onNext={onNext} onBack={onBack} />
           </Elements>
         ) : (
-          <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="rounded-lg bg-amber-500/10 p-4 text-sm text-amber-300">
             Payments are not configured. Set{" "}
-            <code className="rounded bg-amber-100 px-1">
+            <code className="rounded bg-amber-500/15 px-1">
               VITE_STRIPE_PUBLISHABLE_KEY
             </code>{" "}
             to enable checkout.
@@ -171,10 +171,10 @@ function PaymentForm({ tier, onNext, onBack }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">
+        <label className="mb-1 block text-sm font-medium text-gray-300">
           Card details
         </label>
-        <div className="rounded-lg border border-gray-300 px-3 py-3">
+        <div className="rounded-lg border border-gray-700 px-3 py-3">
           <CardElement options={{ hidePostalCode: false }} />
         </div>
       </div>

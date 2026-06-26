@@ -39,7 +39,7 @@ export default function Leads({ brandId }) {
 
   if (!brandId)
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-gray-400">
         Select or create a brand to view leads.
       </p>
     );
@@ -47,7 +47,7 @@ export default function Leads({ brandId }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-gray-900">Leads</h2>
+        <h2 className="text-xl font-bold text-gray-100">Leads</h2>
         <div className="flex flex-wrap gap-1">
           {FILTERS.map((f) => (
             <button
@@ -56,7 +56,7 @@ export default function Leads({ brandId }) {
               className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
                 filter === f.value
                   ? "bg-amber-500 text-gray-900"
-                  : "bg-white text-gray-600 hover:bg-gray-100"
+                  : "bg-gray-900 text-gray-400 hover:bg-gray-800"
               }`}
             >
               {f.label}
@@ -70,11 +70,11 @@ export default function Leads({ brandId }) {
       {loading ? (
         <Spinner label="Loading leads…" />
       ) : leads.length === 0 ? (
-        <p className="text-sm text-gray-500">No leads found.</p>
+        <p className="text-sm text-gray-400">No leads found.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-900 shadow-sm">
+          <table className="min-w-full divide-y divide-gray-800 text-sm">
+            <thead className="bg-gray-800 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Email</th>
@@ -84,25 +84,25 @@ export default function Leads({ brandId }) {
                 <th className="px-4 py-3">Created</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-800">
               {leads.map((l) => (
                 <tr
                   key={l.lead_id}
                   onClick={() => setActiveLeadId(l.lead_id)}
-                  className="cursor-pointer hover:bg-gray-50"
+                  className="cursor-pointer hover:bg-gray-800"
                 >
-                  <td className="px-4 py-3 font-medium text-gray-900">
+                  <td className="px-4 py-3 font-medium text-gray-100">
                     {l.lead_name || "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{l.email || "—"}</td>
-                  <td className="px-4 py-3 text-gray-600">{l.phone || "—"}</td>
+                  <td className="px-4 py-3 text-gray-400">{l.email || "—"}</td>
+                  <td className="px-4 py-3 text-gray-400">{l.phone || "—"}</td>
                   <td className="px-4 py-3">
                     <Badge temperature={l.temperature} />
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-gray-400">
                     {l.conversion_status}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3 text-gray-400">
                     {formatDate(l.created_at)}
                   </td>
                 </tr>

@@ -129,29 +129,29 @@ export default function VoiceLandingPage() {
 
   if (loadError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-center">
-        <p className="text-slate-600">{loadError}</p>
+      <div className="flex min-h-screen items-center justify-center bg-black p-6 text-center">
+        <p className="text-gray-400">{loadError}</p>
       </div>
     );
   }
 
   if (!brand) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-amber-500" />
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-800 border-t-amber-500" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+    <div className="flex min-h-screen flex-col bg-black text-gray-100">
       {/* Section 1: Business header (the customer's brand, no EchoAI branding) */}
-      <header className="border-b border-slate-200 bg-white px-6 py-5 text-center">
+      <header className="border-b border-gray-800 bg-gray-900 px-6 py-5 text-center">
         <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
           {brand.businessName}
         </h1>
         {brand.tagline && (
-          <p className="mx-auto mt-1 max-w-xl text-sm text-slate-500 sm:text-base">
+          <p className="mx-auto mt-1 max-w-xl text-sm text-gray-400 sm:text-base">
             {brand.tagline}
           </p>
         )}
@@ -170,7 +170,7 @@ export default function VoiceLandingPage() {
                 onClick={toggleRecording}
                 disabled={busy || !leadId}
                 aria-label={recording ? "Stop recording" : "Start speaking"}
-                className={`relative flex h-32 w-32 items-center justify-center rounded-full text-white shadow-xl transition focus:outline-none focus:ring-4 focus:ring-amber-300 disabled:opacity-60 ${
+                className={`relative flex h-32 w-32 items-center justify-center rounded-full text-white shadow-xl transition focus:outline-none focus:ring-4 focus:ring-amber-500/40 disabled:opacity-60 ${
                   recording
                     ? "bg-red-500"
                     : "bg-amber-500 hover:bg-amber-600"
@@ -181,7 +181,7 @@ export default function VoiceLandingPage() {
                 )}
                 <MicIcon className="relative h-12 w-12" />
               </button>
-              <p className="mt-5 h-5 text-sm font-medium text-slate-500">
+              <p className="mt-5 h-5 text-sm font-medium text-gray-400">
                 {busy
                   ? "Thinking…"
                   : recording
@@ -208,7 +208,7 @@ export default function VoiceLandingPage() {
                     className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
                       m.role === "user"
                         ? "bg-amber-500 text-gray-900"
-                        : "bg-white text-slate-800 shadow-sm ring-1 ring-slate-200"
+                        : "bg-gray-900 text-gray-200 shadow-sm ring-1 ring-gray-700"
                     }`}
                   >
                     {m.content}
@@ -233,7 +233,7 @@ export default function VoiceLandingPage() {
                   stopRecording();
                   setClosed(true);
                 }}
-                className="mt-6 w-full rounded-xl border border-slate-300 bg-white py-3 font-semibold text-slate-700 transition hover:bg-slate-100"
+                className="mt-6 w-full rounded-xl border border-gray-700 bg-gray-900 py-3 font-semibold text-gray-300 transition hover:bg-gray-800"
               >
                 Finish conversation
               </button>
@@ -271,12 +271,12 @@ function ContactForm({ leadId, onSaved }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      className="mt-8 rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm"
     >
-      <h2 className="text-lg font-bold text-slate-900">
+      <h2 className="text-lg font-bold text-gray-100">
         Where can we reach you?
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-gray-400">
         Leave your details and we'll follow up shortly.
       </p>
       <div className="mt-4 space-y-3">
@@ -287,7 +287,7 @@ function ContactForm({ leadId, onSaved }) {
           autoComplete="name"
           value={form.name}
           onChange={(e) => update("name", e.target.value)}
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          className="w-full rounded-xl border border-gray-700 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/40"
         />
         <input
           type="tel"
@@ -296,7 +296,7 @@ function ContactForm({ leadId, onSaved }) {
           autoComplete="tel"
           value={form.phone}
           onChange={(e) => update("phone", e.target.value)}
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          className="w-full rounded-xl border border-gray-700 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/40"
         />
         <input
           type="email"
@@ -305,7 +305,7 @@ function ContactForm({ leadId, onSaved }) {
           autoComplete="email"
           value={form.email}
           onChange={(e) => update("email", e.target.value)}
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          className="w-full rounded-xl border border-gray-700 px-4 py-3 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/40"
         />
       </div>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -323,11 +323,11 @@ function ContactForm({ leadId, onSaved }) {
 function Closing() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-4xl text-amber-700">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/15 text-4xl text-amber-300">
         ✓
       </div>
-      <h2 className="mt-6 text-2xl font-bold text-slate-900">Thank you!</h2>
-      <p className="mt-3 max-w-sm text-slate-600">
+      <h2 className="mt-6 text-2xl font-bold text-gray-100">Thank you!</h2>
+      <p className="mt-3 max-w-sm text-gray-400">
         Thanks for chatting with us. Someone from our team will be in touch
         shortly.
       </p>

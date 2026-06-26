@@ -99,7 +99,7 @@ export default function App() {
   // Wait until we know the onboarding status before deciding what to render.
   if (onboardingCompleted === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-black">
         <Spinner label="Loading…" />
       </div>
     );
@@ -111,7 +111,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 md:flex-row">
+    <div className="flex min-h-screen flex-col bg-black md:flex-row">
       <Sidebar
         section={section}
         onSelect={setSection}
@@ -164,7 +164,7 @@ function BrandBar({ brands, selectedBrandId, onSelect, loading, error }) {
     );
   if (brands.length === 0)
     return (
-      <div className="mb-6 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+      <div className="mb-6 rounded-lg bg-amber-500/10 p-3 text-sm text-amber-300">
         No brands yet. Go to Settings to start your brand discovery
         conversation.
       </div>
@@ -173,11 +173,11 @@ function BrandBar({ brands, selectedBrandId, onSelect, loading, error }) {
 
   return (
     <div className="mb-6 flex items-center gap-2">
-      <label className="text-sm font-medium text-gray-600">Brand</label>
+      <label className="text-sm font-medium text-gray-400">Brand</label>
       <select
         value={selectedBrandId}
         onChange={(e) => onSelect(e.target.value)}
-        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm"
+        className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-100"
       >
         {brands.map((b) => (
           <option key={b.brand_id} value={b.brand_id}>

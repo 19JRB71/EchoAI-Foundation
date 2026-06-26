@@ -22,13 +22,13 @@ export default function AdminPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Admin</h2>
-        <p className="text-sm text-gray-500">
+        <h2 className="text-2xl font-bold text-gray-100">Admin</h2>
+        <p className="text-sm text-gray-400">
           Manage customers, billing, and platform health.
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-800">
         {TABS.map((t) => {
           const active = tab === t.key || (t.key === "customers" && tab === "detail");
           return (
@@ -37,8 +37,8 @@ export default function AdminPanel() {
               onClick={() => setTab(t.key)}
               className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
                 active
-                  ? "border-amber-500 text-amber-700"
-                  : "border-transparent text-gray-500 hover:text-gray-800"
+                  ? "border-amber-500 text-amber-300"
+                  : "border-transparent text-gray-400 hover:text-gray-200"
               }`}
             >
               {t.label}

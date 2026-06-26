@@ -39,7 +39,7 @@ export default function Overview({ brandId }) {
 
   if (!brandId)
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-gray-400">
         Select or create a brand to see your dashboard.
       </p>
     );
@@ -47,7 +47,7 @@ export default function Overview({ brandId }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-gray-900">Dashboard</h2>
+      <h2 className="text-xl font-bold text-gray-100">Dashboard</h2>
       <ErrorBanner message={error} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -65,8 +65,8 @@ export default function Overview({ brandId }) {
         />
       </div>
 
-      <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-gray-700">
+      <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-gray-300">
           Leads over the last 4 weeks
         </h3>
         <LeadsBarChart data={weeks} />

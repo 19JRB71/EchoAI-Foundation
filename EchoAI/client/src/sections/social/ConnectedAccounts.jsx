@@ -47,7 +47,7 @@ export default function ConnectedAccounts({ brandId }) {
       {loading ? (
         <Spinner label="Loading accounts…" />
       ) : (
-        <div className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+        <div className="divide-y divide-gray-800 overflow-hidden rounded-xl border border-gray-800 bg-gray-900 shadow-sm">
           {PLATFORMS.map((platform) => {
             const meta = platformMeta(platform);
             const account = byPlatform[platform];
@@ -59,14 +59,14 @@ export default function ConnectedAccounts({ brandId }) {
                   <div className="flex items-center gap-3">
                     <PlatformBadge platform={platform} size={32} />
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-semibold text-gray-100">
                         {meta.label}
                       </p>
                       {connected ? (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-400">
                           {account.username || "Connected"}
                           {hasError && (
-                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                            <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
                               needs attention
                             </span>
                           )}
@@ -165,30 +165,30 @@ function ConnectForm({ brandId, platform, onConnected }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-4 space-y-3 rounded-lg bg-gray-50 p-4"
+      className="mt-4 space-y-3 rounded-lg bg-gray-800 p-4"
     >
       {meta.fields.map((field) => (
         <div key={field.key}>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label className="mb-1 block text-xs font-medium text-gray-400">
             {field.label}
           </label>
           <input
             type="text"
             value={values[field.key] || ""}
             onChange={(e) => setField(field.key, e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            className="w-full rounded-lg border border-gray-700 px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           />
         </div>
       ))}
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label className="mb-1 block text-xs font-medium text-gray-400">
           Display username (optional)
         </label>
         <input
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          className="w-full rounded-lg border border-gray-700 px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
       </div>
 

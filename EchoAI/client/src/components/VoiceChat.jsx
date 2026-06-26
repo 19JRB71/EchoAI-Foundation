@@ -83,7 +83,7 @@ export default function VoiceChat({ leadId, messages = [], onExchange, voice }) 
         onPointerUp={stopRecording}
         onPointerLeave={stopRecording}
         disabled={loading}
-        className={`flex h-24 w-24 items-center justify-center rounded-full text-white shadow-lg transition focus:outline-none focus:ring-4 focus:ring-amber-300 disabled:opacity-60 ${
+        className={`flex h-24 w-24 items-center justify-center rounded-full text-white shadow-lg transition focus:outline-none focus:ring-4 focus:ring-amber-500/40 disabled:opacity-60 ${
           recording
             ? "scale-110 animate-pulse bg-red-500"
             : "bg-amber-500 hover:bg-amber-600"
@@ -101,7 +101,7 @@ export default function VoiceChat({ leadId, messages = [], onExchange, voice }) 
         </svg>
       </button>
 
-      <p className="mt-3 h-5 text-sm text-gray-500">
+      <p className="mt-3 h-5 text-sm text-gray-400">
         {loading
           ? "Thinking…"
           : recording
@@ -128,7 +128,7 @@ export default function VoiceChat({ leadId, messages = [], onExchange, voice }) 
               key={i}
               className={`rounded-2xl px-4 py-2 text-sm ${
                 m.role === "assistant"
-                  ? "bg-gray-100 text-gray-800"
+                  ? "bg-gray-800 text-gray-200"
                   : "ml-auto bg-amber-500 text-gray-900"
               } max-w-[85%] ${m.role === "assistant" ? "" : "text-right"}`}
             >

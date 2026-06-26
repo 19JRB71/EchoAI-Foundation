@@ -5,16 +5,16 @@ import ErrorBanner from "../components/ErrorBanner.jsx";
 import BrandDiscovery from "./BrandDiscovery.jsx";
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
+  "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
 const primaryBtn =
   "rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60";
 const secondaryBtn =
-  "rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60";
+  "rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-60";
 
 export default function Settings({ brandId, onBrandsChanged }) {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-gray-900">Settings</h2>
+      <h2 className="text-xl font-bold text-gray-100">Settings</h2>
       <ProfileCard />
       <SubscriptionCard />
       <FacebookCard />
@@ -25,8 +25,8 @@ export default function Settings({ brandId, onBrandsChanged }) {
 
 function Card({ title, children }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h3 className="mb-4 text-sm font-semibold text-gray-700">{title}</h3>
+    <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+      <h3 className="mb-4 text-sm font-semibold text-gray-300">{title}</h3>
       {children}
     </div>
   );
@@ -35,7 +35,7 @@ function Card({ title, children }) {
 function Labeled({ label, children }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-gray-700">
+      <label className="mb-1 block text-sm font-medium text-gray-300">
         {label}
       </label>
       {children}
@@ -46,8 +46,8 @@ function Labeled({ label, children }) {
 function Row({ label, value }) {
   return (
     <div className="flex justify-between gap-4">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium text-gray-800">{value || "—"}</span>
+      <span className="text-gray-400">{label}</span>
+      <span className="font-medium text-gray-200">{value || "—"}</span>
     </div>
   );
 }
@@ -203,7 +203,7 @@ function SubscriptionCard() {
           )}
         </div>
       ) : (
-        <p className="text-sm text-gray-500">No subscription found.</p>
+        <p className="text-sm text-gray-400">No subscription found.</p>
       )}
       {notice && <p className="mt-3 text-sm text-green-600">{notice}</p>}
       <ErrorBanner message={error} />
@@ -296,7 +296,7 @@ function BrandCard({ brandId, onBrandsChanged }) {
           <Row label="Audience" value={brand.target_audience} />
         </div>
       ) : (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           No brand profile yet. Start a discovery conversation to create one.
         </p>
       )}

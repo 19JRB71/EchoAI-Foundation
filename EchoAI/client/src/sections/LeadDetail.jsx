@@ -41,14 +41,14 @@ export default function LeadDetail({ leadId, onClose }) {
       onClick={onClose}
     >
       <div
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-gray-900 p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between">
-          <h3 className="text-lg font-bold text-gray-900">Lead profile</h3>
+          <h3 className="text-lg font-bold text-gray-100">Lead profile</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-400"
           >
             ✕
           </button>
@@ -61,12 +61,12 @@ export default function LeadDetail({ leadId, onClose }) {
         ) : lead ? (
           <div className="space-y-5">
             <div className="space-y-1">
-              <p className="text-xl font-semibold text-gray-900">
+              <p className="text-xl font-semibold text-gray-100">
                 {lead.lead_name || "Unnamed lead"}
               </p>
               <div className="flex items-center gap-2">
                 <Badge temperature={lead.temperature} />
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-400">
                   {lead.conversion_status}
                 </span>
               </div>
@@ -78,7 +78,7 @@ export default function LeadDetail({ leadId, onClose }) {
             </dl>
 
             <div>
-              <h4 className="mb-2 text-sm font-semibold text-gray-700">
+              <h4 className="mb-2 text-sm font-semibold text-gray-300">
                 Conversation history
               </h4>
               {conversation.length === 0 ? (
@@ -90,8 +90,8 @@ export default function LeadDetail({ leadId, onClose }) {
                       key={i}
                       className={`rounded-lg p-2 text-sm ${
                         m.role === "user"
-                          ? "bg-gray-100 text-gray-800"
-                          : "bg-amber-50 text-amber-800"
+                          ? "bg-gray-800 text-gray-200"
+                          : "bg-amber-500/10 text-amber-300"
                       }`}
                     >
                       <span className="mb-0.5 block text-xs font-semibold uppercase text-gray-400">
@@ -106,10 +106,10 @@ export default function LeadDetail({ leadId, onClose }) {
 
             {interactions.length > 0 && (
               <div>
-                <h4 className="mb-2 text-sm font-semibold text-gray-700">
+                <h4 className="mb-2 text-sm font-semibold text-gray-300">
                   Interactions
                 </h4>
-                <ul className="space-y-1 text-sm text-gray-600">
+                <ul className="space-y-1 text-sm text-gray-400">
                   {interactions.map((it) => (
                     <li
                       key={it.interaction_id}
@@ -135,7 +135,7 @@ function Field({ label, value }) {
   return (
     <div>
       <dt className="text-xs font-medium uppercase text-gray-400">{label}</dt>
-      <dd className="text-gray-800">{value || "—"}</dd>
+      <dd className="text-gray-200">{value || "—"}</dd>
     </div>
   );
 }

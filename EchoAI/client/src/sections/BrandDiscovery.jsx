@@ -83,14 +83,14 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-gray-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-100 p-4">
-          <h3 className="text-lg font-bold text-gray-900">Brand discovery</h3>
+        <div className="flex items-center justify-between border-b border-gray-800 p-4">
+          <h3 className="text-lg font-bold text-gray-100">Brand discovery</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-400"
           >
             ✕
           </button>
@@ -106,7 +106,7 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
                 className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                   m.role === "user"
                     ? "ml-auto bg-amber-500 text-gray-900"
-                    : "bg-gray-100 text-gray-800"
+                    : "bg-gray-800 text-gray-200"
                 }`}
               >
                 {m.content}
@@ -120,7 +120,7 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
           )}
         </div>
 
-        <div className="border-t border-gray-100 p-4">
+        <div className="border-t border-gray-800 p-4">
           <ErrorBanner message={error} />
           {!completed && (
             <>
@@ -130,7 +130,7 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Type your answer…"
                   disabled={loading || sending}
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="flex-1 rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
                 <button
                   type="submit"
@@ -143,7 +143,7 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
               <button
                 onClick={confirm}
                 disabled={loading || sending || messages.length === 0}
-                className="mt-2 w-full rounded-lg border border-amber-500 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                className="mt-2 w-full rounded-lg border border-amber-500 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-60"
               >
                 Finish &amp; save brand profile
               </button>

@@ -45,12 +45,12 @@ export default function Performance({ brandId }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Engagement for published posts, most recent first.
         </p>
         <button
           onClick={load}
-          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border border-gray-800 px-3 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-800"
         >
           Refresh
         </button>
@@ -61,11 +61,11 @@ export default function Performance({ brandId }) {
       {loading ? (
         <Spinner label="Loading performance…" />
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-500">No published posts yet.</p>
+        <p className="text-sm text-gray-400">No published posts yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-900 shadow-sm">
+          <table className="min-w-full divide-y divide-gray-800 text-sm">
+            <thead className="bg-gray-800 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
               <tr>
                 <th className="px-4 py-3">Platform</th>
                 <th className="px-4 py-3">Post date</th>
@@ -74,7 +74,7 @@ export default function Performance({ brandId }) {
                 <th className="px-4 py-3">Reach</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-800">
               {rows.map((row) => {
                 const m = row.metrics || {};
                 return (
@@ -82,21 +82,21 @@ export default function Performance({ brandId }) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <PlatformBadge platform={row.platform} size={22} />
-                        <span className="text-gray-700">
+                        <span className="text-gray-300">
                           {platformMeta(row.platform).label}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-gray-400">
                       {formatDate(row.publishedTime)}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-gray-400">
                       {metricValue(m.likes)}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-gray-400">
                       {metricValue(m.shares)}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-gray-400">
                       {m.error ? (
                         <span className="text-xs text-red-500">unavailable</span>
                       ) : (

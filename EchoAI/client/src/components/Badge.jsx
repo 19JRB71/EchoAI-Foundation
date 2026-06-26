@@ -11,7 +11,7 @@ const LABELS = {
 };
 
 export default function Badge({ temperature }) {
-  const style = STYLES[temperature] || "bg-gray-100 text-gray-600";
+  const style = STYLES[temperature] || "bg-gray-800 text-gray-400";
   const label = LABELS[temperature] || temperature || "Unknown";
   return (
     <span

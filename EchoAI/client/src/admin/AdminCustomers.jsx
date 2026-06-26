@@ -109,7 +109,7 @@ export default function AdminCustomers({ onView }) {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search by name or email…"
-        className="w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+        className="w-full max-w-sm rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
       />
 
       <ErrorBanner message={error} />
@@ -117,15 +117,15 @@ export default function AdminCustomers({ onView }) {
       {loading ? (
         <Spinner label="Loading customers…" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-900 shadow-sm">
+          <table className="min-w-full divide-y divide-gray-800 text-sm">
+            <thead className="bg-gray-800 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
               <tr>
                 {COLUMNS.map((c) => (
                   <th
                     key={c.key}
                     onClick={() => toggleSort(c.key)}
-                    className="cursor-pointer select-none px-4 py-3 hover:text-gray-800"
+                    className="cursor-pointer select-none px-4 py-3 hover:text-gray-200"
                   >
                     {c.label}
                     {sortKey === c.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
@@ -134,7 +134,7 @@ export default function AdminCustomers({ onView }) {
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-800">
               {visible.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
@@ -143,14 +143,14 @@ export default function AdminCustomers({ onView }) {
                 </tr>
               ) : (
                 visible.map((u) => (
-                  <tr key={u.userId} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
+                  <tr key={u.userId} className="hover:bg-gray-800">
+                    <td className="px-4 py-3 font-medium text-gray-100">
                       {u.name || "—"}
                       <div className="text-xs text-gray-400">
                         Joined {formatDate(u.joinedAt)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-700">{u.email}</td>
+                    <td className="px-4 py-3 text-gray-300">{u.email}</td>
                     <td className="px-4 py-3">
                       <select
                         value={u.subscriptionTier}
@@ -162,7 +162,7 @@ export default function AdminCustomers({ onView }) {
                             u.userId
                           )
                         }
-                        className="rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+                        className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-100"
                       >
                         {TIERS.map((t) => (
                           <option key={t} value={t}>
@@ -171,7 +171,7 @@ export default function AdminCustomers({ onView }) {
                         ))}
                       </select>
                     </td>
-                    <td className="px-4 py-3 text-gray-700">
+                    <td className="px-4 py-3 text-gray-300">
                       {u.paymentStatus || "—"}
                     </td>
                     <td className="px-4 py-3">
@@ -189,7 +189,7 @@ export default function AdminCustomers({ onView }) {
                       <div className="flex flex-wrap gap-2 text-xs">
                         <button
                           onClick={() => onView(u.userId)}
-                          className="font-medium text-amber-700 hover:underline"
+                          className="font-medium text-amber-300 hover:underline"
                         >
                           View
                         </button>
@@ -215,7 +215,7 @@ export default function AdminCustomers({ onView }) {
                                 u.userId
                               )
                             }
-                            className="font-medium text-amber-700 hover:underline disabled:opacity-50"
+                            className="font-medium text-amber-300 hover:underline disabled:opacity-50"
                           >
                             Lock
                           </button>
@@ -237,11 +237,11 @@ export default function AdminCustomers({ onView }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-600">
+      <div className="flex items-center justify-between text-sm text-gray-400">
         <button
           disabled={page <= 1 || loading}
           onClick={() => setPage((p) => Math.max(p - 1, 1))}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 disabled:opacity-50"
+          className="rounded-lg border border-gray-700 px-3 py-1.5 disabled:opacity-50"
         >
           Previous
         </button>
@@ -251,7 +251,7 @@ export default function AdminCustomers({ onView }) {
         <button
           disabled={page >= totalPages || loading}
           onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 disabled:opacity-50"
+          className="rounded-lg border border-gray-700 px-3 py-1.5 disabled:opacity-50"
         >
           Next
         </button>

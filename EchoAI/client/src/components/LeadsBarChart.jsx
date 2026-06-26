@@ -17,7 +17,7 @@ export default function LeadsBarChart({ data }) {
             key={d.week_date}
             className="flex flex-1 flex-col items-center justify-end gap-2"
           >
-            <span className="text-xs font-semibold text-gray-700">{leads}</span>
+            <span className="text-xs font-semibold text-gray-300">{leads}</span>
             <div
               className="w-full max-w-[48px] rounded-t-md bg-amber-500 transition-all"
               style={{ height: `${Math.max(heightPct, 4)}%` }}

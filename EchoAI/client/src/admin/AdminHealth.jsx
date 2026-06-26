@@ -10,9 +10,9 @@ function formatDateTime(value) {
 
 function Row({ label, value, accent }) {
   return (
-    <div className="flex items-center justify-between border-b border-gray-100 py-3 last:border-0">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className={`text-sm font-medium ${accent || "text-gray-900"}`}>
+    <div className="flex items-center justify-between border-b border-gray-800 py-3 last:border-0">
+      <span className="text-sm text-gray-400">{label}</span>
+      <span className={`text-sm font-medium ${accent || "text-gray-100"}`}>
         {value}
       </span>
     </div>
@@ -49,8 +49,8 @@ export default function AdminHealth() {
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
           Scheduler
         </h3>
         <Row
@@ -69,8 +69,8 @@ export default function AdminHealth() {
         />
       </div>
 
-      <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
           System errors
         </h3>
         {health.systemErrors && health.systemErrors.length > 0 ? (

@@ -8,7 +8,7 @@ import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
+  "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
 const primaryBtn =
   "rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60";
 
@@ -68,8 +68,8 @@ export default function StepWelcome({ onNext }) {
 
   return (
     <Card>
-      <h1 className="text-2xl font-bold text-gray-900">Welcome to EchoAI 👋</h1>
-      <p className="mt-3 text-sm leading-relaxed text-gray-600">
+      <h1 className="text-2xl font-bold text-gray-100">Welcome to EchoAI 👋</h1>
+      <p className="mt-3 text-sm leading-relaxed text-gray-400">
         EchoAI is your always-on AI marketing team. We learn your brand inside
         and out, then design, launch, and continuously optimize Facebook ad
         campaigns that bring you qualified leads — automatically. Let's spend a
@@ -119,7 +119,7 @@ export default function StepWelcome({ onNext }) {
 
 function Card({ children }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+    <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm sm:p-8">
       {children}
     </div>
   );
@@ -128,7 +128,7 @@ function Card({ children }) {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-gray-700">
+      <label className="mb-1 block text-sm font-medium text-gray-300">
         {label}
       </label>
       {children}
