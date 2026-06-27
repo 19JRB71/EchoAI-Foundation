@@ -576,4 +576,7 @@ module.exports = {
   getAnalytics,
   getAdsPerformance,
   oauthConfigured,
+  // Reused by the reputation controller to read Google Business Profile reviews.
+  getValidAccessToken,
+  googleFetch,
 };

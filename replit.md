@@ -356,7 +356,41 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   Generate Monthly Report button + **Download PDF** (opens a print window with
   escaped HTML → browser "Save as PDF"; no PDF lib added).
 
-### Production hardening subsystem
+### Reputation Management subsystem
+
+- Routes mounted at `/api/reputation` (**auth + lockout**): `GET /:brandId`
+  (reviews newest-first + stats), `POST /:brandId/fetch` (pull from platforms),
+  `POST /:brandId/reviews` (manual add), and review-scoped
+  `POST /reviews/:reviewId/{generate,respond,ignore}`. Ownership via
+  `getOwnedBrand` / `getOwnedReview` (join to `user_id`) → 404 on foreign rows.
+- **Real platform data, no mocks.** `fetchReviews` pulls Google Business Profile
+  reviews (reuses `googleController`'s exported `getValidAccessToken` +
+  `googleFetch`) and Facebook Page ratings (decrypts the stored long-lived FB
+  user token → `/me/accounts` → page `/ratings`). **Yelp has no public reviews
+  API → manual-entry only** (explicit note, never faked). Per-platform results
+  (`fetched`/`saved`/`error`) are returned so partial failures are visible.
+- **Posting is honest.** Google replies are posted via `PUT /v4/{name}/reply`;
+  Facebook & Yelp have no reply API, so the response is saved and flagged with an
+  explicit manual-post note (no silent pretend-success). **Store the full Google
+  v4 resource path in `reviews.external_id`** (prefer the list `name`, else build
+  from account/location + reviewId) — a bare `reviewId` can't be replied to.
+- The AI Review Response Agent (`prompts/reputationPrompt.js`, Anthropic `MODEL`)
+  varies tone by star rating (5★ grateful / 3-4★ appreciative+improving / 1-2★
+  empathetic apology + offer to make it right). Upstream AI failures → **502**.
+- Migration `models/020_reviews.sql`: brand-scoped `reviews` (platform, star_rating
+  CHECK 1-5, response_status pending|responded|ignored) with a **partial**
+  `UNIQUE(brand_id, platform, external_id) WHERE external_id IS NOT NULL` so
+  fetched reviews upsert (`ON CONFLICT … RETURNING (xmax=0) AS inserted`) while
+  manual reviews (null external_id) aren't blocked. `set_updated_at()` trigger.
+- The customer dashboard exposes this via a **Reputation** sidebar section
+  (`client/src/sections/Reputation.jsx` + `sections/reputation/*`, sky-500 accent)
+  with two tabs: Review Inbox (unified feed, Generate→edit→Post / Ignore, manual
+  add, Sync button) and Reputation Stats (avg rating, response rate, per-platform
+  breakdown, 30-day trend). `components/StarRating.jsx` is reusable (display +
+  interactive input). **api.js methods pass plain objects** as `body` — the
+  `request()` wrapper already `JSON.stringify`s it (double-encoding 400s the UI).
+
+## Production hardening subsystem
 
 - `config/env.js` `validateEnv()` runs at boot (first thing in `server.js`):
   **throws** on missing critical vars (`DATABASE_URL`, `JWT_SECRET`,

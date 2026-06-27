@@ -38,6 +38,7 @@ const facebookOAuthRoutes = require("./routes/facebookOAuthRoutes");
 const googleRoutes = require("./routes/googleRoutes");
 const seoRoutes = require("./routes/seoRoutes");
 const roiRoutes = require("./routes/roiRoutes");
+const reputationRoutes = require("./routes/reputationRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -160,6 +161,7 @@ app.use("/api/facebook", facebookOAuthRoutes);
 app.use("/api/google", googleRoutes);
 app.use("/api/seo", seoRoutes);
 app.use("/api/roi", roiRoutes);
+app.use("/api/reputation", reputationRoutes);
 
 // Serve saved AI-generated images persisted to disk (DALL-E URLs expire, so we
 // download and serve them locally). Mounted before the SPA fallback.

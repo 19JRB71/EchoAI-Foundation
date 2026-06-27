@@ -269,6 +269,25 @@ export const api = {
   generateRoiReport: (brandId) =>
     request(`/api/roi/${brandId}/report`, { method: "POST" }),
 
+  // Reputation Management (reviews)
+  getReviews: (brandId) => request(`/api/reputation/${brandId}`),
+  fetchReviews: (brandId) =>
+    request(`/api/reputation/${brandId}/fetch`, { method: "POST" }),
+  addReview: (brandId, body) =>
+    request(`/api/reputation/${brandId}/reviews`, { method: "POST", body }),
+  generateReviewResponse: (reviewId, body = {}) =>
+    request(`/api/reputation/reviews/${reviewId}/generate`, {
+      method: "POST",
+      body,
+    }),
+  postReviewResponse: (reviewId, response) =>
+    request(`/api/reputation/reviews/${reviewId}/respond`, {
+      method: "POST",
+      body: { response },
+    }),
+  ignoreReview: (reviewId) =>
+    request(`/api/reputation/reviews/${reviewId}/ignore`, { method: "POST" }),
+
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>
     request("/api/demo/request", {

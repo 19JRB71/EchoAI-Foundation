@@ -13,6 +13,7 @@ import EmailMarketing from "./sections/EmailMarketing.jsx";
 import ImageStudio from "./sections/ImageStudio.jsx";
 import GoogleSeo from "./sections/GoogleSeo.jsx";
 import RoiDashboard from "./sections/RoiDashboard.jsx";
+import Reputation from "./sections/Reputation.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
@@ -221,6 +222,9 @@ export default function App() {
               )}
               {section === "roi" && (
                 <RoiDashboard brandId={selectedBrandId} />
+              )}
+              {section === "reputation" && (
+                <Reputation brandId={selectedBrandId} />
               )}
               {section === "settings" && (
                 <Settings
