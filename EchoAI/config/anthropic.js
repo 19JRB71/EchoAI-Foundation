@@ -10,6 +10,6 @@ if (!process.env.ANTHROPIC_API_KEY) {
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest";
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
 module.exports = { anthropic, MODEL };
