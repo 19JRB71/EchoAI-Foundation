@@ -6,6 +6,7 @@ const {
 } = require("../prompts/websiteChatbotPrompt");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
+const { normalizeE164 } = require("../utils/phone");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 const VALID_AVATAR_STYLES = ["initials", "robot", "circle"];
@@ -113,7 +114,9 @@ async function getBrandWithOwner(brandId) {
 async function upsertLeadForSession({ brandId, session, contact }) {
   const name = contact.name || null;
   const email = contact.email || null;
-  const phone = contact.phone || null;
+  // Canonicalize to E.164 so formatting variance (e.g. "555-123-4567" vs
+  // "+15551234567") can't slip past the phone-based dedup match/lock below.
+  const phone = normalizeE164(contact.phone);
 
   // Update the existing lead this session already produced.
   if (session && session.lead_id) {

@@ -1,517 +1,149 @@
-# [Project name]
+# EchoAI
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+EchoAI is an AI-powered SaaS marketing platform: Facebook/Google ad automation, a
+lead-qualification chatbot + embeddable website widget, brand discovery, weekly
+analytics & auto-optimization, multi-platform social/video/email/image content
+generation & scheduling, SEO tools, reputation management, an AI phone agent, a
+sales-script generator, an ROI dashboard, and Stripe billing.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+EchoAI is a **standalone Node/Express (CommonJS) app**, not a pnpm-workspace
+package. All commands run from `EchoAI/` with **npm** (not pnpm):
+
+- `npm start` — run the server (`node server.js`, port from `PORT`, default 5000)
+- `npm run dev` — run with `--watch` auto-reload
+- `npm run migrate` — apply pending `models/*.sql` migrations (idempotent runner)
+- `npm run seed` — seed the admin user
+- `npm run build` — build the React client (`client/dist`)
+- `npm run start:prod` — migrate → build client → start (deploy command)
+- Client only: `cd client && npm run build`
+- Required env: `DATABASE_URL`, `JWT_SECRET`, `SESSION_SECRET`, `ENCRYPTION_KEY`
+  (boot fails fast if any is missing). Feature env vars degrade gracefully to
+  503 / "not configured" when unset.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Node.js 24, Express 5, CommonJS
+- PostgreSQL via `pg` (raw SQL migrations in `models/*.sql` — **no ORM**)
+- React + Vite SPA (`client/`), served single-origin by the same server
+- AI: Anthropic (`@anthropic-ai/sdk`) for text agents, OpenAI for DALL-E images
+- Integrations: Stripe, Twilio, Facebook/Google OAuth, web-push, nodemailer
 
 ## Where things live
 
-- `EchoAI/` — the actual product: a standalone Node/Express (CommonJS) backend at the workspace root, NOT a pnpm-workspace artifact package.
-  - `EchoAI/server.js` — Express app (port from `PORT`, default 5000). Serves the React SPA from `EchoAI/client/dist` AND the `/api/*` routes on a single origin.
-  - `EchoAI/client/` — React + Vite SPA. Build with `npm run build` (outputs `client/dist`).
-  - `EchoAI/routes/`, `EchoAI/utils/` — API route handlers and scheduler/admin-seeder utilities.
-- `artifacts/api-server/.replit-artifact/artifact.toml` — repurposed to serve EchoAI through the shared proxy at `/` (see Architecture decisions).
+- `EchoAI/server.js` — Express app; serves the built SPA (static + SPA fallback)
+  AND `/api/*` on one origin. Mounts every route, session, CORS, rate limiter.
+- `EchoAI/client/` — React + Vite SPA. The customer dashboard is `App.jsx` +
+  `sections/*` (one sidebar section per subsystem) + `components/*`.
+- `EchoAI/routes/`, `EchoAI/controllers/`, `EchoAI/prompts/`, `EchoAI/utils/`,
+  `EchoAI/config/` — API layer, AI prompt builders, helpers, feature-gate config.
+- `EchoAI/models/*.sql` — numbered, idempotent migrations (`IF NOT EXISTS`).
+- `artifacts/api-server/.replit-artifact/artifact.toml` — repurposed to serve
+  EchoAI through the shared proxy at `/` (see Architecture decisions).
 
 ## Architecture decisions
 
-- **EchoAI is served single-origin.** `server.js` serves the built React client (static + SPA fallback) and the JSON API (`/api/*`) on one port. The client calls the API with relative paths (empty base), so no cross-origin/proxy config is needed in production or the preview.
-- **The preview is wired through the artifact proxy.** EchoAI is standalone, but this workspace's preview/canvas only renders apps registered with the path-based proxy. The unused starter `api-server` artifact was repurposed (its `artifact.toml`) to run EchoAI at previewPath `/` on port 8080. Its `kind` stays `api` (the validator forbids changing an artifact's kind), which still renders a browser preview.
-- The standalone webview workflows (`EchoAI Server`/`EchoAI Client`) were removed in favor of the single artifact-managed service.
+- **Served single-origin.** `server.js` serves the built client and the JSON API
+  on one port; the client calls the API with relative paths, so no cross-origin
+  config is needed.
+- **Preview wired through the artifact proxy.** EchoAI is standalone, but the
+  preview only renders proxy-registered apps, so the unused starter `api-server`
+  artifact was repurposed to run EchoAI at previewPath `/` on port 8080. Its
+  `kind` stays `api` (the validator forbids changing kind) but still renders a
+  browser preview. The old standalone webview workflows were removed.
 
-## Product
+## Cross-cutting conventions & invariants
 
-EchoAI is an AI-powered SaaS marketing platform. Capabilities include Facebook ad
-campaign automation, a lead-qualification chatbot, brand discovery, weekly
-analytics + auto-optimization, and multi-platform social media content generation
-and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
+These patterns repeat across subsystems — follow them for any new feature.
 
-### Social media subsystem
+- **Auth & lockout.** Most routes require auth + `lockoutCheck` (locked/past-due
+  accounts get 403). **Exceptions that bypass lockout on purpose** so a past-due
+  user can recover or keep being pulled back: billing-management routes, `/api/push`,
+  `/api/google`. Public (no-auth) endpoints: Stripe/Twilio webhooks, OAuth GET
+  callbacks, and the embeddable chatbot widget's `GET /config/:id` + `POST
+  /chat|/capture`.
+- **Ownership.** Brand-scoped resources guard access via `getOwnedBrand(userId,
+  brandId)` (404 on foreign brand); update/delete enforce it with a join to
+  `brands` on `user_id` (e.g. `USING brands` / `FROM brands b ... WHERE
+  b.user_id = $`). Never trust a client-supplied id without this join.
+- **AI failures → 502, never mocked.** All AI agents call Anthropic/OpenAI for
+  real. Upstream billing/rate/other failures map to **502** with a clear message
+  (not a generic 500). No silent fallbacks or placeholder data anywhere.
+- **AI output is validated before persistence.** Generators reject empty/malformed
+  responses (non-empty strings + non-empty arrays for required fields) so no bad
+  data reaches the DB or downstream sends.
+- **Secrets encrypted at rest.** Third-party tokens/creds are AES-256-GCM encrypted
+  (`utils/encryption.js`) before storage; status endpoints never return tokens.
+- **SSRF allowlists (do not regress).** Any client-supplied URL/endpoint used as
+  an outbound target is restricted to https + an allowlisted host suffix: Image
+  Studio save URLs (`persistImage`) and web-push endpoints
+  (`config/webpush.js`), enforced on both save and use.
+- **OAuth shape.** Facebook & Google share it: auth-POST `/oauth/initiate` returns
+  `{ authUrl }` (JWT in header, never in the URL); no-auth GET `/oauth/callback`
+  validates a session CSRF `state`, exchanges the code, encrypts tokens. Requires
+  `express-session` + `connect-pg-simple` (Postgres `session` table).
+- **Concurrency safety.** Background/recurring work claims rows atomically
+  (`SELECT ... FOR UPDATE [SKIP LOCKED]`) and uses transactions + unique-index
+  `ON CONFLICT` backstops so overlapping ticks/requests can't double-act
+  (scheduled social posts, email-campaign step advance).
+- **api.js body convention.** Client `api.js` methods pass **plain objects** as
+  `body`; the `request()` wrapper `JSON.stringify`s — double-encoding 400s the UI.
+- **OpenAI/DALL-E URLs expire (~1-2h)** → images are downloaded and persisted to
+  disk (`uploads/images/`) at save time; the permanent relative URL is stored.
 
-- Routes mounted at `/api/social` (all auth + lockout protected): `POST /connect`,
-  `POST /generate`, `POST /schedule`, `GET /calendar/:brandId`,
-  `GET /accounts/:brandId`, `DELETE /accounts/:brandId/:platform`,
-  `GET /performance/:brandId`.
-- The customer dashboard exposes this via a **Social Media** sidebar section
-  (`client/src/sections/SocialMedia.jsx` + `client/src/sections/social/*`) with
-  four tabs: Content Calendar, AI Content Generator, Connected Accounts, and
-  Performance. Per-platform brand color/monogram metadata lives in
-  `client/src/sections/social/platformMeta.jsx`.
-- `POST /connect` returns **502** (not 2xx) when credentials are stored but the
-  platform verification fails — the row is persisted with `connection_status =
-  'error'`. The dashboard treats 502 as "stored, needs attention" and reloads
-  the accounts list rather than as a hard failure.
-- Connected-platform credentials are stored **encrypted** (AES-256-GCM) in the
-  **brand-scoped** `social_accounts` table — NOT the user-scoped `api_integrations`
-  table (which has a fixed enum + `UNIQUE(user_id, platform)`). The rest of the
-  feature (posts) is brand-scoped, so credentials are too.
-- A node-cron job runs **every minute** to publish due scheduled posts. It claims
-  rows atomically (`status -> 'publishing'` via `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)`)
-  so overlapping ticks cannot double-publish.
-- `utils/socialApi.js` makes the real per-platform API calls. Text publishing works
-  for facebook/twitter/linkedin; instagram/tiktok/youtube require a media/video
-  upload and throw an explicit 422 (no silent fallback) — those posts end as
-  `failed` with the error recorded in `engagement_metrics`.
+## Subsystem reference
 
-### Video content subsystem
+Each is a sidebar section in the dashboard (`client/src/sections/<Name>.jsx`)
+backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 
-- Routes mounted at `/api/video` (all auth + lockout protected): `POST /generate`,
-  `POST /scripts` (save), `GET /scripts/:brandId` (list), `DELETE /scripts/:scriptId`.
-- The AI Video Content Agent (`prompts/videoContentPrompt.js`) calls Anthropic to
-  produce a complete video package (hook, scenes with script+visual+on-screen text,
-  CTA, music style, thumbnail concept) tailored to platform
-  (facebook/instagram/tiktok/youtube) and length (short/medium/long).
-- Saved packages are stored brand-scoped in the `video_scripts` table
-  (`script_content` JSONB, `status` draft|published). `DELETE` enforces ownership
-  by joining `video_scripts` to `brands` on the authenticated `user_id`.
-- `POST /generate` maps upstream Anthropic failures (billing, rate limits) to a
-  **502** with a clear message rather than a generic 500.
-- The customer dashboard exposes this via a **Video Content** sidebar section
-  (`client/src/sections/VideoContent.jsx` + `client/src/sections/video/*`) with
-  two tabs: Script Generator and Saved Scripts. Platform badges are reused from
-  `sections/social/platformMeta.jsx`.
+| Subsystem | Route mount | Notes |
+|---|---|---|
+| Social media | `/api/social` | brand-scoped encrypted `social_accounts`; node-cron publishes due posts every minute; ig/tiktok/youtube text-only → 422 |
+| Video content | `/api/video` | AI video package (hook/scenes/CTA/thumbnail); `video_scripts` |
+| Email marketing | `/api/email-campaigns` | 3–10 email sequence; transactional `sendCampaign` (no double/skip); `email_campaigns`+`email_sends` (014) |
+| Image studio | `/api/images` | DALL-E 3 (`n=1` ×3 for variations); persisted to disk; `images` (015) |
+| Billing | `/api/subscriptions` | Stripe; management routes bypass lockout; `config/plans.js` is the tier source of truth; global payment-failed banner |
+| PWA + web push | `/api/push` | installable PWA; `sw.js` in `client/public/`; VAPID env must stay stable; dual-channel hot-lead alerts; `push_subscriptions` (016) |
+| Facebook OAuth | `/api/facebook` | "Continue with Facebook" ad-account linking; `facebook_ad_accounts` JSONB (017) |
+| Google + SEO | `/api/google`, `/api/seo` | Google OAuth read APIs + SEO content/keyword generator; `seo_content` (018) |
+| ROI dashboard | `/api/roi` | real activity × `config/roiModel.js` constants (estimate, with disclaimer); 12-week `roi_snapshots` (019) |
+| Reputation | `/api/reputation` | Google/Facebook review fetch (Yelp manual-only); honest reply posting; `reviews` (020) |
+| Phone agent | `/api/phone` | Twilio webhooks return TwiML 200 even on error; inbound routed by E.164 number (global unique); outbound hot-leads only; `twilio_config`+`calls` (021) |
+| Website chatbot | `/api/chatbot` | embeddable widget; method-aware CORS; hot-lead alert once per session on non-hot→hot; app-level lead dedup; `chatbot_*` (022) |
+| Sales scripts | `/api/sales-scripts` | AI sales-script generator; `sales_scripts` (023) |
 
-### Email marketing subsystem
+### Sales scripts subsystem (`/api/sales-scripts`)
 
-- Routes mounted at **`/api/email-campaigns`** (all auth + lockout protected):
-  `POST /generate`, `POST /` (save), `POST /:campaignId/send`,
-  `GET /:brandId` (list), `GET /performance/:brandId`. The path is
-  `email-campaigns` — NOT `/api/email`, which is the admin-only email-test route.
-- The AI Email Campaign Agent (`prompts/emailCampaignPrompt.js`) calls Anthropic
-  to produce a sequence of 3–10 emails, each with subject, previewText, body (brand
-  voice), callToAction, and sendTiming (Day 1/Day 3/…). Output is validated +
-  normalized before it can be saved or sent (no malformed data reaches DB/SMTP).
-- Migration `models/014_email_campaigns.sql`: brand-scoped `email_campaigns`
-  (`email_sequence` JSONB, `status` draft|active|completed, `current_step` =
-  emails sent / index of next email) + `email_sends` (one row per recipient per
-  step). `current_step` drives the "next scheduled email" and the progress bar.
-- **`sendCampaign` is transactional**: it `SELECT … FOR UPDATE`s the campaign row,
-  re-checks `current_step`, sends the next email to all brand leads with an email,
-  inserts `email_sends` rows, advances the step, then commits — so concurrent
-  sends cannot double-send or skip a step. A unique index
-  `(campaign_id, email_address, sequence_step)` + `ON CONFLICT DO NOTHING` is a
-  DB-level idempotency backstop. The step advances **only if ≥1 email actually
-  sent**; a total SMTP outage rolls back and returns 502 (no step consumed).
-- `POST /generate` maps upstream Anthropic failures to a **502**. Email delivery
-  uses `utils/email.js` `sendEmail` (nodemailer); requires SMTP env to be set.
-- The customer dashboard exposes this via an **Email Marketing** sidebar section
-  (`client/src/sections/EmailMarketing.jsx` + `client/src/sections/email/*`) with
-  three tabs: Campaign Generator (expandable email cards + Save/Send buttons),
-  Active Campaigns (status + progress indicator + Send Next Email), and
-  Performance (open/click/unsubscribe rates table).
+- **Auth + lockout.** `POST /generate`, `POST /` (save), `GET /:brandId` (list),
+  `PUT /:scriptId` (edit), `DELETE /:scriptId`. Ownership via `getOwnedBrand` and
+  `USING brands` / `FROM brands b ... b.user_id` joins on update/delete.
+- The AI agent (`prompts/salesScriptPrompt.js`, Anthropic) takes a brand + a
+  `saleType` (**cold_call / warm_follow_up / in_person_meeting**) + target persona
+  + desired outcome and returns a structured JSON package: `opening`,
+  `discoveryQuestions[]`, `pitch`, `objectionHandling[]`, `closingTechniques[3 —
+  soft/medium/direct]`, `followUpSequence[3 — day/channel/message]`. Output is
+  trimmed-then-validated (non-empty `opening`/`pitch` + all 4 arrays non-empty);
+  upstream AI failures → **502**.
+- Brand-scoped `sales_scripts` (`script_content` JSONB, `status` draft|published),
+  migration `models/023_sales_scripts.sql`. Dashboard section
+  `sections/SalesScripts.jsx` + `sections/sales/*` with two tabs (Script
+  Generator, Saved Scripts).
 
-### AI image generation subsystem (Image Studio)
+## Production hardening
 
-- Routes mounted at `/api/images` (all auth + lockout protected): `POST /generate`
-  (purpose + description → N variations, default 1, capped at 3),
-  `POST /ad-set` (brandId + campaignGoal → 3 Facebook-ad variations),
-  `POST /` (save), `GET /:brandId` (list, grouped by purpose),
-  `DELETE /:imageId` (ownership via `DELETE … USING brands`).
-- `prompts/imagePromptBuilder.js` maps each **purpose**
-  (facebook_ad / instagram_post / twitter_post / linkedin_post / email_header /
-  youtube_thumbnail) to a platform + the DALL-E size matching its aspect ratio,
-  and builds a brand-aware prompt. DALL-E 3 only supports `n=1`, so 3 variations
-  = 3 parallel `openai.images.generate` calls with different `VARIANT_STYLES`.
-- **DALL-E URLs expire (~1-2h), so images are persisted to disk at save time**:
-  `saveImage` downloads the bytes → writes `EchoAI/uploads/images/<uuid>.png` →
-  stores the permanent relative URL `/uploads/images/<file>` in the `images`
-  table (migration `models/015_images.sql`). `server.js` serves these via
-  `app.use("/uploads", express.static(...))` **before** the SPA fallback.
-- **SSRF guardrail**: the save URL comes from the client, so `persistImage`
-  accepts **https only** on an allowlisted host suffix
-  (`.blob.core.windows.net`, `.openai.com`, `.oaiusercontent.com`), with an
-  `AbortController` timeout + content-type/size caps. Do not regress this.
-- Upstream OpenAI billing/rate errors map to **502**; a failed save download
-  (expired link) also returns 502.
-- The customer dashboard exposes this via an **Image Studio** sidebar section
-  (`client/src/sections/ImageStudio.jsx` + `client/src/sections/image/*`) with
-  two tabs: AI Image Generator (3 variations side by side, each Save / Use in
-  Social / Download) and Image Library (grouped + filterable).
-- **"Use in Social Post" is an honest handoff**: `social_posts` has no media
-  column, so the image is saved then handed to the Social Media AI Content
-  Generator as an attached reference (App-level `socialPrefillImage` →
-  `SocialMedia prefillImage` → `ContentGenerator attachedImage`). It does NOT
-  publish media through the scheduler.
-
-### Billing & subscription management subsystem
-
-- Routes mounted at `/api/subscriptions`. The original auth+lockout routes stay:
-  `POST /` (create), `POST /cancel`, `GET /status`, `POST /webhook` (raw body).
-  Prompt 22 added **auth-only (NOT lockout-gated)** billing-management routes so a
-  past-due / locked customer can still recover: `GET /plans`, `POST /change`
-  (upgrade/downgrade), `GET|POST /payment-method`, `GET /invoices` (last 12),
-  `GET /upcoming-invoice`.
-- **Why billing routes bypass lockout:** the whole point of the payment-failed
-  banner is to let a locked user fix their card / change plan. Putting those
-  behind `lockoutCheck` (which 403s locked accounts) would trap them. Create and
-  cancel stay lockout-gated.
-- `config/plans.js` is the **single source of truth** for tier catalog (name,
-  monthlyPrice, seatLabel, features) for starter/growth/pro/enterprise. The
-  client fetches it via `GET /plans`. Listed prices are display/fallback values —
-  the *actual* next charge always comes from Stripe's upcoming invoice.
-- `changeSubscription` swaps the single Stripe subscription item to the new tier's
-  price with `proration_behavior: 'create_prorations'`, then syncs
-  `subscriptions.subscription_tier` + `users.subscription_tier` so access changes
-  immediately. Requires an existing `stripe_subscription_id` (else 404).
-- `updatePaymentMethod` attaches the PM, sets it as the customer's default
-  invoice PM, and points the active subscription's `default_payment_method` at it.
-  Creates the Stripe customer if missing. Stores the PM id in
-  `subscriptions.payment_method`.
-- All new Stripe-calling handlers map SDK errors (`err.type` starts with
-  `Stripe`) to **502** via a shared `fail()` helper; `getUpcomingInvoice` returns
-  `{ upcoming: null }` (200) when there's no subscription to bill.
-- `getSubscriptionStatus` now also returns `failedPaymentAt` + `daysUntilLock`
-  (computed from `failed_payment_at` + `lockout_threshold_days`) to drive the
-  banner countdown.
-- Client: `client/src/sections/billing/{Billing,PlanSelectorModal,UpdatePaymentMethodModal}.jsx`.
-  `Settings.jsx` now has **Account / Billing tabs** (the old flat SubscriptionCard
-  was removed; cancel/plan management lives in Billing). Shared Stripe loader:
-  `client/src/lib/stripe.js` (`stripePromise`, `stripeConfigured`).
-- **Global payment-failed banner** (`client/src/components/PaymentFailedBanner.jsx`)
-  renders in `App.jsx` above every dashboard section when
-  `paymentStatus` is `failed`/`past_due` or `isLocked`. App polls
-  `getSubscriptionStatus` every 60s AND listens for the
-  `window` event `echoai:billing-updated` (dispatched by Billing on successful
-  card/plan change) to clear the banner instantly. The banner's button
-  deep-links to Settings → Billing with the card modal auto-opened (via
-  `initialTab` + `openPaymentModal` props on Settings; sidebar navigation resets
-  those flags).
-- **No new DB migration** — the existing `subscriptions` table already has every
-  needed column. Live `change`/`create` require `STRIPE_PRICE_*` env vars to be
-  set (else they 400/502).
-
-### Progressive Web App (PWA) + Web Push subsystem
-
-- **Installable PWA.** `client/public/manifest.json` (name/short_name/description,
-  `display: standalone`, dark theme/background `#05070d`, `start_url: /dashboard`,
-  `scope: /`) + icons (`icon-192.png`, `icon-512.png`, `icon.svg`,
-  `apple-touch-icon.png`) generated from `client/public/icon.svg` via ImageMagick
-  (`magick`/`convert`). `index.html` links the manifest + theme-color + apple
-  touch/meta tags.
-- **Service worker lives in `client/public/sw.js`, NOT `client/src/`.** It must be
-  served at the site root to control scope `/`; Vite copies `public/` verbatim to
-  `dist/`. (If it lived in `src/` the bundler would hash/scope it wrong.) The
-  server's SPA fallback skips paths containing `.`, so `/sw.js`, `/manifest.json`
-  and the icons are served as static files. SW caches the app shell on install
-  (cache-first for hashed assets, network-first for navigations w/ offline
-  fallback) and renders hot-lead notifications on `push`.
-- **Registration vs subscription are split.** `client/src/push.js`
-  `registerServiceWorker()` is called from `main.jsx` on every load (so the shell
-  caches even before login). `enablePushNotifications(token)` is called from
-  `App.handleLogin` on first login: it fetches the VAPID public key from the
-  backend (`GET /api/push/vapid-public-key`), requests Notification permission,
-  subscribes via `PushManager`, and POSTs the subscription to
-  `POST /api/push/subscribe`. All best-effort — never blocks login, no-ops when
-  unsupported or when push isn't configured server-side.
-- Routes mounted at `/api/push` (**auth-only, NOT lockout-gated** — a past-due
-  user should keep getting hot-lead alerts that bring them back to pay).
-  `controllers/pushController.js`: `saveSubscription` (upsert by `endpoint`,
-  `ON CONFLICT (endpoint)` so re-subscribe/owner-change updates keys),
-  `sendPushToUser(userId, payload)` (fans out to all the user's devices, prunes
-  subscriptions the push service reports 404/410), `getVapidPublicKey` (503 when
-  unconfigured).
-- **SSRF guardrail (do not regress):** a `PushSubscription.endpoint` is
-  client-supplied and later used as an outbound request target by
-  `webpush.sendNotification`. `config/webpush.js` `isAllowedPushEndpoint()`
-  requires **https + an allowlisted push-service host suffix**
-  (`.googleapis.com`, `.push.services.mozilla.com`, `.push.apple.com`,
-  `.notify.windows.com`, `.push.microsoft.com`). Enforced on **both** save
-  (reject 400) and send (skip + prune). Mirrors the Image Studio URL allowlist.
-- **Hot-lead alert now dual-channel.** `chatbotController.chat` selects the brand
-  owner's `user_id` (added `u.user_id AS owner_user_id` to the lead/brand/user
-  JOIN) and, when a lead scores `hot`, sends BOTH the existing email
-  (`emailController.sendHotLeadAlert`) AND a push
-  (`pushController.sendPushToUser`) with the lead name + temperature. Both are
-  fire-and-forget; neither blocks or fails the chat response.
-- Migration `models/016_push_subscriptions.sql`: user-scoped `push_subscriptions`
-  (`endpoint` UNIQUE, `keys` JSONB, `ON DELETE CASCADE` to users). Applied via
-  `psql "$DATABASE_URL" -f models/016_push_subscriptions.sql`.
-- **VAPID env vars** (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`)
-  are set as shared env vars (generated once with `web-push`). They must stay
-  stable — regenerating invalidates every existing subscription. Dependency:
-  `web-push` (in `EchoAI/package.json`).
-
-### Facebook OAuth connection subsystem
-
-- Replaces manual ad-account-ID/token entry with a real **"Continue with
-  Facebook" OAuth flow**. Routes mounted at `/api/facebook`
-  (`routes/facebookOAuthRoutes.js`, `controllers/facebookOAuthController.js`):
-  - `POST /oauth/initiate` (**auth header**) — stores a random CSRF `state` +
-    the authenticated `userId` in the session, returns `{ authUrl }`. The client
-    then does a top-level `window.location` navigation to Facebook.
-  - `GET /oauth/callback` (**no auth middleware** — Facebook's top-level GET
-    redirect) — verifies `state` against the session, exchanges `code` → a
-    short-lived → a **long-lived** user token, fetches `/me/adaccounts`, encrypts
-    the token, upserts `api_integrations`, and redirects to
-    `/dashboard?fb=connected|error&fb_message=…`.
-  - `GET /accounts`, `POST /select-account`, `POST /disconnect` (auth header).
-    `getConnectedAccounts` **never returns the token** (only the ad-account list
-    + which one is selected + a `configured` flag).
-- **Why initiate is an authenticated POST (not a token-in-query GET redirect):**
-  putting the bearer JWT in a URL leaks it via history/logs/referer. The client
-  calls initiate with the `Authorization` header, gets the URL back, then
-  navigates. (Architect flagged the query-token approach as High severity.)
-- **Session is required for CSRF state across the redirect round-trip.**
-  `express-session` + `connect-pg-simple` (Postgres `session` table) added in
-  `server.js`. `app.set("trust proxy", 1)`; cookie is `httpOnly`,
-  `sameSite: "lax"` (so it survives Facebook's top-level GET back to the
-  callback), `secure` only in production. **Boot fails fast if `SESSION_SECRET`
-  is unset** (no insecure fallback secret).
-- **Token storage:** the long-lived FB user token is AES-256-GCM encrypted
-  (`utils/encryption.js`) into `api_integrations.api_token_encrypted`;
-  `account_ref` holds the selected ad-account id; the full ad-account list lives
-  in the new `facebook_ad_accounts` JSONB column. Migration
-  `models/017_facebook_oauth.sql` (session table + the JSONB column), applied via
-  `psql "$DATABASE_URL" -f models/017_facebook_oauth.sql`.
-- **Config-gated:** OAuth needs `FACEBOOK_APP_ID` + `FACEBOOK_APP_SECRET`. When
-  unset, `initiate` returns **503** and `/accounts` returns `configured:false`
-  so the client hides the button + shows a "not configured" notice instead of a
-  broken Facebook dialog. The `redirect_uri` is derived from `REPLIT_DOMAINS`
-  (prod) / `REPLIT_DEV_DOMAIN`, overridable via `FACEBOOK_REDIRECT_URI`; it must
-  be `https://<domain>/api/facebook/oauth/callback` and registered in the
-  Facebook app's Valid OAuth Redirect URIs.
-- Client: shared `client/src/components/FacebookConnect.jsx` (FB-blue `#1877F2`
-  button + logo, ad-account dropdown, green connected badge, disconnect button,
-  surfaces `?fb=…` results). Used by both `sections/Settings.jsx` (FacebookCard)
-  and onboarding `onboarding/steps/StepFacebook.jsx`. Dependencies added to
-  `EchoAI/package.json`: `express-session`, `connect-pg-simple`.
-
-### Google integration & SEO tools subsystem
-
-- **Google OAuth** follows the shared EchoAI OAuth convention (see Facebook
-  subsystem above): auth-POST `/oauth/initiate` returns `{ authUrl }`; no-auth
-  GET `/oauth/callback` validates the session CSRF `state`, exchanges the code,
-  and AES-256-GCM-encrypts the access + refresh tokens into the user-scoped
-  `google_integrations` table (UNIQUE `user_id`). Requests `access_type=offline`
-  + `prompt=consent`. On reconnect the refresh token is preserved via
-  `COALESCE`; if NO refresh token ends up stored, the row is marked
-  `connection_status='error'` and the user is redirected to re-consent (never
-  falsely reported `connected`).
-- Routes mounted at `/api/google` (**auth-only, NOT lockout-gated**):
-  `POST /oauth/initiate`, `GET /oauth/callback`, `GET /status`,
-  `POST /disconnect`, and real read endpoints `GET /business-profile`,
-  `GET /analytics`, `GET /ads`, `GET /performance/:brandId`. `getStatus` never
-  returns tokens — only the linked account email + per-service flags
-  (businessProfile/googleAds/googleAnalytics/searchConsole) derived from the
-  granted scope. Config-gated via `config/google.js` (`oauthConfigured()` needs
-  `GOOGLE_CLIENT_ID`+`GOOGLE_CLIENT_SECRET`; `adsConfigured()` adds
-  `GOOGLE_ADS_DEVELOPER_TOKEN`): unset → `initiate` 503, `status`
-  `configured:false`. Upstream Google failures → 502, not-connected → 400.
-  Access tokens are auto-refreshed (`refreshAccessToken`) before each API call.
-- **SEO tools** routes mounted at `/api/seo` (**auth + lockout**):
-  `POST /generate` (brandId + keyword + contentType →
-  blog_post|landing_page|product_description, returns title/metaDescription/
-  headers/body/internalLinks/seoScore), `POST /keywords` (topic → ranked
-  keyword suggestions with volume/intent — no brand required),
-  `POST /` (save), `GET /:brandId` (list), `DELETE /:contentId` (ownership via
-  join to `brands`). AI lives in `prompts/seoContentPrompt.js` (Anthropic
-  `MODEL`); upstream AI failures map to **502**. Saved content is brand-scoped
-  in `seo_content` (migration `models/018_google_seo.sql`).
-- The customer dashboard exposes both via a **Google & SEO** sidebar section
-  (`client/src/sections/GoogleSeo.jsx` + `client/src/sections/googleseo/*`) with
-  four tabs: Google Connect (`components/GoogleConnect.jsx`, mirrors
-  `FacebookConnect`), SEO Content Generator, Keyword Research, and Google
-  Analytics. Amber-500 accent.
-
-### Customer ROI Dashboard subsystem
-
-- Routes mounted at `/api/roi` (**auth + lockout**): `GET /:brandId`
-  (full ROI breakdown), `GET /:brandId/history` (12 weekly snapshots),
-  `POST /:brandId/report` (AI monthly report). All guard ownership via
-  `getOwnedBrand(userId, brandId)` → 404 on foreign brand.
-- **All figures derive from REAL platform data** — `leads`, `campaigns`,
-  `social_posts` (published), `email_sends`+`email_campaigns`, `analytics` —
-  multiplied by **industry-average constants in `config/roiModel.js`** (the single
-  source of truth: leadValue 75, hotLeadValue 350, hourlyRate 60, hours-per-task,
-  reachPerPost, fallbackMonthlyPrice). Activity counts are real; monetary value is
-  an *estimate*, so `computeRoi` returns the full `assumptions` object and the
-  client shows a disclaimer. Don't hardcode multipliers in the controller.
-- `getRoiHistory` recomputes 12 weekly buckets from real aggregates
-  (`date_trunc('week', …)::date` = Monday) and **upserts** them into
-  `roi_snapshots` (`ON CONFLICT (brand_id, week_date)`), so the table mirrors the
-  latest data rather than being append-only. Migration
-  `models/019_roi_snapshots.sql` (applied via `psql … -f`).
-- `POST /:brandId/report` (`prompts/roiReportPrompt.js`, Anthropic `MODEL`)
-  generates a personalized monthly summary grounded in the computed breakdown +
-  history; upstream AI failures map to **502**.
-- The customer dashboard exposes this via an **ROI Dashboard** sidebar section
-  (`client/src/sections/RoiDashboard.jsx` + `components/RoiTrendChart.jsx`,
-  amber-500): headline 4-big-number card (value generated / hours saved / money
-  saved / ROI %), 12-week CSS trend chart, detailed breakdown grid, and a
-  Generate Monthly Report button + **Download PDF** (opens a print window with
-  escaped HTML → browser "Save as PDF"; no PDF lib added).
-
-### Reputation Management subsystem
-
-- Routes mounted at `/api/reputation` (**auth + lockout**): `GET /:brandId`
-  (reviews newest-first + stats), `POST /:brandId/fetch` (pull from platforms),
-  `POST /:brandId/reviews` (manual add), and review-scoped
-  `POST /reviews/:reviewId/{generate,respond,ignore}`. Ownership via
-  `getOwnedBrand` / `getOwnedReview` (join to `user_id`) → 404 on foreign rows.
-- **Real platform data, no mocks.** `fetchReviews` pulls Google Business Profile
-  reviews (reuses `googleController`'s exported `getValidAccessToken` +
-  `googleFetch`) and Facebook Page ratings (decrypts the stored long-lived FB
-  user token → `/me/accounts` → page `/ratings`). **Yelp has no public reviews
-  API → manual-entry only** (explicit note, never faked). Per-platform results
-  (`fetched`/`saved`/`error`) are returned so partial failures are visible.
-- **Posting is honest.** Google replies are posted via `PUT /v4/{name}/reply`;
-  Facebook & Yelp have no reply API, so the response is saved and flagged with an
-  explicit manual-post note (no silent pretend-success). **Store the full Google
-  v4 resource path in `reviews.external_id`** (prefer the list `name`, else build
-  from account/location + reviewId) — a bare `reviewId` can't be replied to.
-- The AI Review Response Agent (`prompts/reputationPrompt.js`, Anthropic `MODEL`)
-  varies tone by star rating (5★ grateful / 3-4★ appreciative+improving / 1-2★
-  empathetic apology + offer to make it right). Upstream AI failures → **502**.
-- Migration `models/020_reviews.sql`: brand-scoped `reviews` (platform, star_rating
-  CHECK 1-5, response_status pending|responded|ignored) with a **partial**
-  `UNIQUE(brand_id, platform, external_id) WHERE external_id IS NOT NULL` so
-  fetched reviews upsert (`ON CONFLICT … RETURNING (xmax=0) AS inserted`) while
-  manual reviews (null external_id) aren't blocked. `set_updated_at()` trigger.
-- The customer dashboard exposes this via a **Reputation** sidebar section
-  (`client/src/sections/Reputation.jsx` + `sections/reputation/*`, sky-500 accent)
-  with two tabs: Review Inbox (unified feed, Generate→edit→Post / Ignore, manual
-  add, Sync button) and Reputation Stats (avg rating, response rate, per-platform
-  breakdown, 30-day trend). `components/StarRating.jsx` is reusable (display +
-  interactive input). **api.js methods pass plain objects** as `body` — the
-  `request()` wrapper already `JSON.stringify`s it (double-encoding 400s the UI).
-
-### AI Phone Agent subsystem (Twilio)
-
-- Routes mounted at `/api/phone`. Two **public Twilio webhooks** (no auth — Twilio
-  POSTs them, protected by `validateTwilioRequest` X-Twilio-Signature, bypassable
-  in dev via `TWILIO_SKIP_VALIDATION`): `POST /inbound` (incoming call) and
-  `POST /respond` (gather → AI turn). The rest are **auth + lockout**:
-  `POST /config` (save Twilio creds), `GET /config/:brandId` (status, no token),
-  `DELETE /config/:brandId`, `POST /outbound` (call a lead),
-  `GET /calls/:brandId` (history + stats).
-- **Webhooks must always return valid TwiML 200, even on error** — a 500 breaks
-  the live call. Handlers wrap everything in try/catch and emit a spoken fallback
-  `<Say>` + `<Hangup>` instead of throwing. (Contrast with the auth JSON routes,
-  where AI/Twilio upstream failures map to **502**.)
-- **Inbound tenant routing is by dialed number.** `twilio_config.phone_number`
-  has a **global UNIQUE index** so an incoming `To` resolves to exactly one brand
-  deterministically. Numbers are normalized to **E.164** (`normalizeE164`) on
-  save AND on inbound lookup so format drift can't miss or mis-route.
-  Migration `models/021_phone_agent.sql` force-replaces any older non-unique
-  index of the same name (`DROP INDEX IF EXISTS … ; CREATE UNIQUE INDEX …`) so
-  upgraded DBs can't silently keep ambiguous routing — and it **fails loudly** if
-  duplicate numbers already exist (collisions need manual resolution).
-- **`saveTwilioConfig` verifies before storing**: normalizes the number to E.164
-  (bad format → 400), authenticates the creds (`accounts(sid).fetch()`), and
-  confirms the number is actually provisioned on that account
-  (`incomingPhoneNumbers.list({ phoneNumber })`) — a number the account doesn't
-  own → 400; bad creds/upstream → 502. A duplicate number across brands hits the
-  unique index → PG 23505 → **409**. The auth token is AES-256-GCM encrypted
-  (brand-scoped `twilio_config`, `UNIQUE(brand_id)`), mirroring `social_accounts`.
-- **Outbound is constrained to HOT leads.** `initiateOutboundCall` selects
-  `l.temperature` and rejects non-hot leads with **400** (UI's OutboundPanel also
-  filters the lead list to hot leads only). Requires a saved Twilio config for the
-  brand (else 400) and a valid owned lead with a phone (else 404).
-- The AI agent (`prompts/phoneAgentPrompt.js`, Anthropic `MODEL`) is brand-aware
-  (personality/voice/audience) and drives each conversational turn from the
-  caller's gathered speech. `config/twilio.js` gates the feature (creds-per-brand,
-  not a single global env), exposes `normalizeE164`, `getTwilioClient`,
-  `validateTwilioRequest`, `getPublicBaseUrl`. Migration `021` adds a
-  `call_direction` enum (inbound|outbound), `twilio_config`, and `calls` tables.
-- The customer dashboard exposes this via a **Phone Agent** sidebar section
-  (`client/src/sections/PhoneAgent.jsx`) with two tabs: Call History (list +
-  stats) and Make a Call (hot-lead picker). Settings adds a **TwilioCard**.
-- **Note:** Twilio creds are NOT in the workspace secrets, so real calls can't be
-  placed from here — only gating/validation/error paths are testable via curl.
-
-### Website Chatbot subsystem (embeddable widget)
-
-- An embeddable AI chat widget that brands drop onto their **own third-party
-  websites** to greet visitors, answer questions in brand voice, auto-capture
-  leads, and score lead temperature.
-- Routes mounted at `/api/chatbot`. **Public (no auth) widget endpoints:**
-  `GET /config/:brandId` (greeting/accent/avatar for the widget to render),
-  `POST /chat` (`{sessionId, brandId, message}` → AI reply), `POST /capture`
-  (explicit contact submit). **Owner-only (auth + lockout):**
-  `GET /config-owner/:brandId`, `PUT /config/:brandId` (save config),
-  `GET /sessions/:brandId` (conversation history + transcripts). Ownership via
-  `getOwnedBrand`.
-- **CORS is method-aware** (`isPublicWidgetRequest(req)` in `server.js`): only
-  `GET /config/:id`, `POST /chat`, `POST /capture`, and the OPTIONS preflight
-  for chat/capture are opened to any origin (credentials:false). The owner-only
-  `PUT /config/:id` and `GET /sessions` stay on the standard allowlist — do NOT
-  widen this to a bare `startsWith("/config/")` path check (would expose the
-  owner PUT). In dev all origins are allowed anyway; the gate only bites in prod.
-- **Hot-lead alerts fire once per session on the non-hot→hot transition AND only
-  when a lead with real contact info exists** (`temperature==="hot" && !wasHot
-  && leadId`) — `wasHot` is read from the session row before the UPDATE. This
-  stops anonymous visitors from spamming the owner by repeatedly posting "hot"
-  messages to the public endpoint. Alert is dual-channel (email + push),
-  best-effort, never blocks the reply.
-- `analyzeConversation` (scoring + contact extraction) serializes the whole
-  transcript into a **single user message** for Anthropic (NOT
-  `toAnthropicMessages`, which is used only for the live reply turn) — the
-  analysis call must end with a user message or Anthropic 400s.
-- **Lead dedup is application-level**, matching an existing brand lead on
-  case-insensitive email OR phone before inserting (only ever COALESCE-fills
-  blank fields, never overwrites). No DB unique constraint was added: the `leads`
-  table is shared with manual creation (`leadController`) and public lead-qual
-  (`publicController`), so a global `(brand_id, email)` unique index would
-  regress those paths.
-- The AI prompt lives in `prompts/websiteChatbotPrompt.js` (Anthropic `MODEL`);
-  upstream AI failures map to **502**. Migration `models/022_chatbot_sessions.sql`
-  (applied via the migration runner): brand-scoped `chatbot_config` (UNIQUE
-  `brand_id`) + `chatbot_sessions` (TEXT `session_id` PK, `conversation_history`
-  JSONB, `temperature`, `lead_id`).
-- The customer dashboard exposes this via a **Website Chatbot** sidebar section
-  (`client/src/sections/ChatbotSetup.jsx`) with two tabs: Setup & Embed
-  (greeting/accent/avatar config + copy-paste embed `<script>` + live preview)
-  and Conversations (sessions list + transcripts). Widget loader served as a
-  static file: `client/public/chatbot-widget.js`.
-
-## Production hardening subsystem
-
-- `config/env.js` `validateEnv()` runs at boot (first thing in `server.js`):
-  **throws** on missing critical vars (`DATABASE_URL`, `JWT_SECRET`,
-  `SESSION_SECRET`, `ENCRYPTION_KEY`) with one clear message; **warns** for
-  feature vars (each gates one feature that degrades to 503/"not configured").
-  Boot logs an "enabled/disabled features" summary.
-- **Middleware order in `server.js`:** `trust proxy` → `morgan` (request log,
-  `combined` in prod / `dev` locally) → `cors` → `express-rate-limit` on `/api`
-  → JSON-body parser (webhook-exempt) → `urlencoded` → session → routes →
-  SPA/static → JSON 404 for `/api` → global JSON error handler.
-- **CORS** is permissive in development (the preview/canvas iframe is
-  cross-origin) and restricted in production to `https://`+`REPLIT_DOMAINS` plus
-  `ALLOWED_ORIGINS`. Requests with no `Origin` (same-origin/non-browser) are
-  always allowed — the SPA + API share one origin.
-- **Rate limiter** mounted `app.use("/api", limiter)` (default 1000 req / 15 min
-  per IP, `RATE_LIMIT_MAX`). Inside it `req.path` has the `/api` prefix stripped,
-  so the webhook `skip` is `req.path === "/subscriptions/webhook"`.
-- **Stripe webhook raw-body bypass** matches `req.method === "POST" &&
-  req.path === "/api/subscriptions/webhook"` (NOT `originalUrl`) so query/slash
-  can't let `express.json()` eat the body and break signature verification.
-- **Global error handler** (last middleware, 4 args): malformed-JSON →
-  400 (parser-specific: `entity.parse.failed` or `status===400 && "body" in err`,
-  not a broad `SyntaxError`), CORS reject → 403, else 500 (message hidden in
-  prod). Unknown `/api` routes → JSON 404. No more HTML error pages.
-- **Migration runner** `utils/runMigrations.js` (`npm run migrate`): applies
-  `models/*.sql` in filename order inside per-file transactions, tracks applied
-  files in `schema_migrations`, skips already-applied, and **fails hard** on a
-  real error (relies on every migration being idempotent — `IF NOT EXISTS`).
-- **package.json scripts:** `migrate`, `seed`, `build:client`, `build`, and
-  `start:prod` (= migrate → build client → start). New deps: `cors`,
-  `express-rate-limit`, `morgan`. Comprehensive `EchoAI/README.md` documents
-  every feature, env var, endpoint, and third-party connection guide.
+- `config/env.js` `validateEnv()` runs first at boot: throws on missing critical
+  vars, warns for feature vars, logs an enabled/disabled feature summary.
+- Middleware order: `trust proxy` → `morgan` → `cors` → rate limiter on `/api` →
+  JSON parser (webhook-exempt) → urlencoded → session → routes → SPA/static →
+  `/api` JSON 404 → global JSON error handler. CORS is permissive in dev,
+  restricted to `https://`+`REPLIT_DOMAINS`+`ALLOWED_ORIGINS` in prod.
+- **Stripe webhook raw-body bypass** matches `POST` + `req.path ===
+  "/api/subscriptions/webhook"` so `express.json()` can't eat the body and break
+  signature verification.
+- Migration runner `utils/runMigrations.js` applies `models/*.sql` in order in
+  per-file transactions, tracks `schema_migrations`, skips applied, fails hard on
+  real errors (relies on idempotent migrations).
 
 ## User preferences
 
@@ -519,10 +151,17 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-- **Rebuild the client after changing `EchoAI/client/`**: run `cd EchoAI/client && npm run build`, then restart the `artifacts/api-server: EchoAI` workflow. The server serves the pre-built `client/dist` (no dev HMR in the preview).
-- The artifact's `development.run` runs from the artifact dir, so it uses an absolute path (`cd /home/runner/workspace/EchoAI && npm start`).
-- If a port (8080) is stuck after a failed restart, free it with `fuser -k 8080/tcp` before restarting the workflow.
+- **Rebuild the client after changing `EchoAI/client/`**: `cd EchoAI/client &&
+  npm run build`, then restart the `artifacts/api-server: EchoAI` workflow. The
+  server serves pre-built `client/dist` (no dev HMR in the preview).
+- The artifact's `development.run` runs from the artifact dir, so it uses an
+  absolute path (`cd /home/runner/workspace/EchoAI && npm start`).
+- If port 8080 is stuck after a failed restart, free it with `fuser -k 8080/tcp`
+  before restarting the workflow.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- `EchoAI/README.md` documents every feature, env var, endpoint, and third-party
+  connection guide in full detail.
+- See the `pnpm-workspace` skill for workspace structure (applies to the
+  surrounding monorepo, not to EchoAI itself).

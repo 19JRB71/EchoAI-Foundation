@@ -197,6 +197,32 @@ export const api = {
   deleteVideoScript: (scriptId) =>
     request(`/api/video/scripts/${scriptId}`, { method: "DELETE" }),
 
+  // Sales scripts (AI Sales Script Generator)
+  generateSalesScript: ({
+    brandId,
+    saleType,
+    targetPersona,
+    commonObjections,
+    desiredOutcome,
+  }) =>
+    request("/api/sales-scripts/generate", {
+      method: "POST",
+      body: { brandId, saleType, targetPersona, commonObjections, desiredOutcome },
+    }),
+  saveSalesScript: ({ brandId, saleType, targetPersona, scriptContent, status }) =>
+    request("/api/sales-scripts", {
+      method: "POST",
+      body: { brandId, saleType, targetPersona, scriptContent, status },
+    }),
+  getSalesScripts: (brandId) => request(`/api/sales-scripts/${brandId}`),
+  updateSalesScript: (scriptId, updates) =>
+    request(`/api/sales-scripts/${scriptId}`, {
+      method: "PUT",
+      body: updates,
+    }),
+  deleteSalesScript: (scriptId) =>
+    request(`/api/sales-scripts/${scriptId}`, { method: "DELETE" }),
+
   // Email marketing (AI Email Campaign Agent)
   generateEmailSequence: ({ brandId, goal, targetAudience, numEmails }) =>
     request("/api/email-campaigns/generate", {

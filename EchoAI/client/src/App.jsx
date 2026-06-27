@@ -9,6 +9,7 @@ import Leads from "./sections/Leads.jsx";
 import Campaigns from "./sections/Campaigns.jsx";
 import SocialMedia from "./sections/SocialMedia.jsx";
 import VideoContent from "./sections/VideoContent.jsx";
+import SalesScripts from "./sections/SalesScripts.jsx";
 import EmailMarketing from "./sections/EmailMarketing.jsx";
 import ImageStudio from "./sections/ImageStudio.jsx";
 import GoogleSeo from "./sections/GoogleSeo.jsx";
@@ -210,6 +211,7 @@ export default function App() {
                 />
               )}
               {section === "video" && <VideoContent brandId={selectedBrandId} />}
+              {section === "sales" && <SalesScripts brandId={selectedBrandId} />}
               {section === "email" && (
                 <EmailMarketing brandId={selectedBrandId} />
               )}

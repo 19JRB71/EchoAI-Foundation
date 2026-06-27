@@ -15,25 +15,13 @@ const {
 } = require("../config/twilio");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
+const { normalizeE164 } = require("../utils/phone");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Normalizes a phone number to E.164 (leading "+" then digits). Twilio sends
- * inbound `To` in E.164, so storing the same canonical form makes inbound tenant
- * resolution deterministic. Returns null if it can't produce a plausible number.
- */
-function normalizeE164(input) {
-  if (!input) return null;
-  const trimmed = String(input).trim();
-  const digits = trimmed.replace(/\D/g, "");
-  if (digits.length < 7 || digits.length > 15) return null;
-  return `+${digits}`;
-}
 
 function extractText(response) {
   return (response.content || [])

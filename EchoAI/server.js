@@ -41,6 +41,7 @@ const roiRoutes = require("./routes/roiRoutes");
 const reputationRoutes = require("./routes/reputationRoutes");
 const phoneRoutes = require("./routes/phoneRoutes");
 const websiteChatbotRoutes = require("./routes/websiteChatbotRoutes");
+const salesScriptRoutes = require("./routes/salesScriptRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -189,6 +190,7 @@ app.use("/api/roi", roiRoutes);
 app.use("/api/reputation", reputationRoutes);
 app.use("/api/phone", phoneRoutes);
 app.use("/api/chatbot", websiteChatbotRoutes);
+app.use("/api/sales-scripts", salesScriptRoutes);
 
 // Serve saved AI-generated images persisted to disk (DALL-E URLs expire, so we
 // download and serve them locally). Mounted before the SPA fallback.
