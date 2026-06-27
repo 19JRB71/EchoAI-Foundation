@@ -1,8 +1,12 @@
 require("dotenv").config();
 
 const express = require("express");
+const session = require("express-session");
+const ConnectPgSimple = require("connect-pg-simple");
 const path = require("path");
 const fs = require("fs");
+
+const { pool } = require("./config/db");
 
 const authRoutes = require("./routes/authRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
@@ -21,6 +25,7 @@ const videoRoutes = require("./routes/videoRoutes");
 const emailCampaignRoutes = require("./routes/emailCampaignRoutes");
 const imageRoutes = require("./routes/imageRoutes");
 const pushRoutes = require("./routes/pushRoutes");
+const facebookOAuthRoutes = require("./routes/facebookOAuthRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -37,6 +42,32 @@ app.use((req, res, next) => {
   return express.json()(req, res, next);
 });
 app.use(express.urlencoded({ extended: true }));
+
+// Trust the Replit reverse proxy so secure cookies / req.protocol reflect HTTPS.
+app.set("trust proxy", 1);
+
+// Session store (PostgreSQL via connect-pg-simple) — used to hold the Facebook
+// OAuth `state` (CSRF) and initiating user across the redirect round-trip.
+// sameSite "lax" is required so the session cookie survives Facebook's top-level
+// GET redirect back to the callback.
+const PgSession = ConnectPgSimple(session);
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is not set; refusing to start with an insecure session secret");
+}
+app.use(
+  session({
+    store: new PgSession({ pool, tableName: "session" }),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 1000,
+    },
+  }),
+);
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -64,6 +95,7 @@ app.use("/api/video", videoRoutes);
 app.use("/api/email-campaigns", emailCampaignRoutes);
 app.use("/api/images", imageRoutes);
 app.use("/api/push", pushRoutes);
+app.use("/api/facebook", facebookOAuthRoutes);
 
 // Serve saved AI-generated images persisted to disk (DALL-E URLs expire, so we
 // download and serve them locally). Mounted before the SPA fallback.

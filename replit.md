@@ -246,6 +246,51 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   stable — regenerating invalidates every existing subscription. Dependency:
   `web-push` (in `EchoAI/package.json`).
 
+### Facebook OAuth connection subsystem
+
+- Replaces manual ad-account-ID/token entry with a real **"Continue with
+  Facebook" OAuth flow**. Routes mounted at `/api/facebook`
+  (`routes/facebookOAuthRoutes.js`, `controllers/facebookOAuthController.js`):
+  - `POST /oauth/initiate` (**auth header**) — stores a random CSRF `state` +
+    the authenticated `userId` in the session, returns `{ authUrl }`. The client
+    then does a top-level `window.location` navigation to Facebook.
+  - `GET /oauth/callback` (**no auth middleware** — Facebook's top-level GET
+    redirect) — verifies `state` against the session, exchanges `code` → a
+    short-lived → a **long-lived** user token, fetches `/me/adaccounts`, encrypts
+    the token, upserts `api_integrations`, and redirects to
+    `/dashboard?fb=connected|error&fb_message=…`.
+  - `GET /accounts`, `POST /select-account`, `POST /disconnect` (auth header).
+    `getConnectedAccounts` **never returns the token** (only the ad-account list
+    + which one is selected + a `configured` flag).
+- **Why initiate is an authenticated POST (not a token-in-query GET redirect):**
+  putting the bearer JWT in a URL leaks it via history/logs/referer. The client
+  calls initiate with the `Authorization` header, gets the URL back, then
+  navigates. (Architect flagged the query-token approach as High severity.)
+- **Session is required for CSRF state across the redirect round-trip.**
+  `express-session` + `connect-pg-simple` (Postgres `session` table) added in
+  `server.js`. `app.set("trust proxy", 1)`; cookie is `httpOnly`,
+  `sameSite: "lax"` (so it survives Facebook's top-level GET back to the
+  callback), `secure` only in production. **Boot fails fast if `SESSION_SECRET`
+  is unset** (no insecure fallback secret).
+- **Token storage:** the long-lived FB user token is AES-256-GCM encrypted
+  (`utils/encryption.js`) into `api_integrations.api_token_encrypted`;
+  `account_ref` holds the selected ad-account id; the full ad-account list lives
+  in the new `facebook_ad_accounts` JSONB column. Migration
+  `models/017_facebook_oauth.sql` (session table + the JSONB column), applied via
+  `psql "$DATABASE_URL" -f models/017_facebook_oauth.sql`.
+- **Config-gated:** OAuth needs `FACEBOOK_APP_ID` + `FACEBOOK_APP_SECRET`. When
+  unset, `initiate` returns **503** and `/accounts` returns `configured:false`
+  so the client hides the button + shows a "not configured" notice instead of a
+  broken Facebook dialog. The `redirect_uri` is derived from `REPLIT_DOMAINS`
+  (prod) / `REPLIT_DEV_DOMAIN`, overridable via `FACEBOOK_REDIRECT_URI`; it must
+  be `https://<domain>/api/facebook/oauth/callback` and registered in the
+  Facebook app's Valid OAuth Redirect URIs.
+- Client: shared `client/src/components/FacebookConnect.jsx` (FB-blue `#1877F2`
+  button + logo, ad-account dropdown, green connected badge, disconnect button,
+  surfaces `?fb=…` results). Used by both `sections/Settings.jsx` (FacebookCard)
+  and onboarding `onboarding/steps/StepFacebook.jsx`. Dependencies added to
+  `EchoAI/package.json`: `express-session`, `connect-pg-simple`.
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._

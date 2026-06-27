@@ -124,6 +124,20 @@ export const api = {
       body: { adAccountId },
     }),
 
+  // Facebook OAuth connection
+  getFacebookAccounts: () => request("/api/facebook/accounts"),
+  selectFacebookAccount: (accountId) =>
+    request("/api/facebook/select-account", {
+      method: "POST",
+      body: { accountId },
+    }),
+  disconnectFacebook: () =>
+    request("/api/facebook/disconnect", { method: "POST" }),
+  // Authenticated initiation: returns the Facebook dialog URL the client should
+  // navigate to. Keeps the bearer token in the Authorization header (not the URL).
+  startFacebookOAuth: () =>
+    request("/api/facebook/oauth/initiate", { method: "POST" }),
+
   // Analytics
   getAnalytics: (brandId) => request(`/api/analytics/${brandId}`),
   getCurrentWeek: (brandId) => request(`/api/analytics/${brandId}/current`),

@@ -4,6 +4,7 @@ import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import BrandDiscovery from "./BrandDiscovery.jsx";
 import Billing from "./billing/Billing.jsx";
+import FacebookConnect from "../components/FacebookConnect.jsx";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
@@ -173,45 +174,9 @@ function ProfileCard() {
 }
 
 function FacebookCard() {
-  const [adAccountId, setAdAccountId] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-
-  async function connect(e) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    setNotice("");
-    try {
-      await api.connectFacebook(adAccountId);
-      setNotice("Facebook account connected.");
-      setAdAccountId("");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <Card title="Facebook connection">
-      <form onSubmit={connect} className="space-y-3">
-        <Labeled label="Ad account ID">
-          <input
-            value={adAccountId}
-            onChange={(e) => setAdAccountId(e.target.value)}
-            placeholder="act_123456789"
-            required
-            className={inputClass}
-          />
-        </Labeled>
-        {notice && <p className="text-sm text-green-600">{notice}</p>}
-        <ErrorBanner message={error} />
-        <button disabled={saving} className={primaryBtn}>
-          {saving ? "Connecting…" : "Connect Facebook"}
-        </button>
-      </form>
+      <FacebookConnect />
     </Card>
   );
 }

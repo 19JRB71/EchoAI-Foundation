@@ -1,3 +1,4 @@
 - [Billing routes bypass lockout](billing-lockout-recovery.md) — EchoAI billing-recovery endpoints must be auth-only, never behind lockoutCheck (403), or locked users can't self-recover.
 - [PWA service worker location](pwa-service-worker-location.md) — in a Vite SPA, sw.js/manifest/icons go in client/public (served at root), not src, or SW scope is wrong.
 - [Push endpoint SSRF allowlist](push-endpoint-ssrf-allowlist.md) — client-supplied PushSubscription.endpoint is an SSRF vector; https + host-allowlist on save AND send.
+- [OAuth redirect in a JWT SPA](oauth-redirect-jwt-app.md) — initiate=auth POST returns authUrl, callback=GET via PG session; never put the bearer JWT in a URL.
