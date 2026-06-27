@@ -291,6 +291,40 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   and onboarding `onboarding/steps/StepFacebook.jsx`. Dependencies added to
   `EchoAI/package.json`: `express-session`, `connect-pg-simple`.
 
+### Production hardening subsystem
+
+- `config/env.js` `validateEnv()` runs at boot (first thing in `server.js`):
+  **throws** on missing critical vars (`DATABASE_URL`, `JWT_SECRET`,
+  `SESSION_SECRET`, `ENCRYPTION_KEY`) with one clear message; **warns** for
+  feature vars (each gates one feature that degrades to 503/"not configured").
+  Boot logs an "enabled/disabled features" summary.
+- **Middleware order in `server.js`:** `trust proxy` → `morgan` (request log,
+  `combined` in prod / `dev` locally) → `cors` → `express-rate-limit` on `/api`
+  → JSON-body parser (webhook-exempt) → `urlencoded` → session → routes →
+  SPA/static → JSON 404 for `/api` → global JSON error handler.
+- **CORS** is permissive in development (the preview/canvas iframe is
+  cross-origin) and restricted in production to `https://`+`REPLIT_DOMAINS` plus
+  `ALLOWED_ORIGINS`. Requests with no `Origin` (same-origin/non-browser) are
+  always allowed — the SPA + API share one origin.
+- **Rate limiter** mounted `app.use("/api", limiter)` (default 1000 req / 15 min
+  per IP, `RATE_LIMIT_MAX`). Inside it `req.path` has the `/api` prefix stripped,
+  so the webhook `skip` is `req.path === "/subscriptions/webhook"`.
+- **Stripe webhook raw-body bypass** matches `req.method === "POST" &&
+  req.path === "/api/subscriptions/webhook"` (NOT `originalUrl`) so query/slash
+  can't let `express.json()` eat the body and break signature verification.
+- **Global error handler** (last middleware, 4 args): malformed-JSON →
+  400 (parser-specific: `entity.parse.failed` or `status===400 && "body" in err`,
+  not a broad `SyntaxError`), CORS reject → 403, else 500 (message hidden in
+  prod). Unknown `/api` routes → JSON 404. No more HTML error pages.
+- **Migration runner** `utils/runMigrations.js` (`npm run migrate`): applies
+  `models/*.sql` in filename order inside per-file transactions, tracks applied
+  files in `schema_migrations`, skips already-applied, and **fails hard** on a
+  real error (relies on every migration being idempotent — `IF NOT EXISTS`).
+- **package.json scripts:** `migrate`, `seed`, `build:client`, `build`, and
+  `start:prod` (= migrate → build client → start). New deps: `cors`,
+  `express-rate-limit`, `morgan`. Comprehensive `EchoAI/README.md` documents
+  every feature, env var, endpoint, and third-party connection guide.
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._

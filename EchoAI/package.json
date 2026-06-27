@@ -6,7 +6,12 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "migrate": "node utils/runMigrations.js",
+    "seed": "node -e \"require('./utils/adminSeeder').seedAdmin().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})\"",
+    "build:client": "cd client && npm install && npm run build",
+    "build": "npm run build:client",
+    "start:prod": "npm run migrate && npm run build:client && node server.js"
   },
   "keywords": [
     "ai",
@@ -23,11 +28,14 @@
     "@anthropic-ai/sdk": "^0.32.1",
     "bcrypt": "^5.1.1",
     "connect-pg-simple": "^10.0.0",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
     "express-session": "^1.19.0",
     "facebook-nodejs-business-sdk": "^21.0.0",
     "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.11.0",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.16",

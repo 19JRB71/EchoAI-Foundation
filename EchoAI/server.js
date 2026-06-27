@@ -3,10 +3,19 @@ require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
 const ConnectPgSimple = require("connect-pg-simple");
+const cors = require("cors");
+const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
 const path = require("path");
 const fs = require("fs");
 
+const { validateEnv } = require("./config/env");
 const { pool } = require("./config/db");
+
+// Validate the environment before anything else. Missing critical vars (DB,
+// JWT, session, encryption) abort the boot with a single clear message instead
+// of failing later with a cryptic stack trace.
+const { features } = validateEnv();
 
 const authRoutes = require("./routes/authRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
@@ -32,19 +41,68 @@ const { seedAdmin } = require("./utils/adminSeeder");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const IS_PROD = process.env.NODE_ENV === "production";
 
-// The Stripe webhook needs the raw request body for signature verification,
-// so skip JSON parsing for that specific route.
+// Trust the Replit reverse proxy so secure cookies / req.protocol reflect HTTPS
+// and rate-limit / logging see the real client IP via X-Forwarded-For.
+app.set("trust proxy", 1);
+
+// Request logging: see every request hitting the server. Concise in production,
+// colored/dev format locally.
+app.use(morgan(IS_PROD ? "combined" : "dev"));
+
+// CORS. In production, restrict API access to our own domain(s): the comma-
+// separated REPLIT_DOMAINS plus any explicit ALLOWED_ORIGINS. In development we
+// allow all origins so the preview/canvas iframe and local tooling work.
+const allowedOrigins = [
+  ...(process.env.REPLIT_DOMAINS || "")
+    .split(",")
+    .map((d) => d.trim())
+    .filter(Boolean)
+    .map((d) => `https://${d}`),
+  ...(process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+];
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Same-origin / non-browser requests (no Origin header) are always allowed.
+      if (!origin) return callback(null, true);
+      if (!IS_PROD) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  }),
+);
+
+// Rate limiting on all API routes to prevent abuse. Generous default ceiling so
+// legitimate dashboard usage is never throttled; the standard headers let
+// clients back off. The Stripe webhook is exempt (Stripe controls its own rate
+// and must never be dropped).
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX || 1000),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+  skip: (req) => req.path === "/subscriptions/webhook",
+});
+app.use("/api", apiLimiter);
+
+// The Stripe webhook needs the raw request body for signature verification, so
+// skip JSON parsing for that specific route. Match on req.path + method (not
+// originalUrl) so query params / trailing slashes can't accidentally let the
+// JSON parser consume the body and break signature verification.
 app.use((req, res, next) => {
-  if (req.originalUrl === "/api/subscriptions/webhook") {
+  if (req.method === "POST" && req.path === "/api/subscriptions/webhook") {
     return next();
   }
   return express.json()(req, res, next);
 });
 app.use(express.urlencoded({ extended: true }));
-
-// Trust the Replit reverse proxy so secure cookies / req.protocol reflect HTTPS.
-app.set("trust proxy", 1);
 
 // Session store (PostgreSQL via connect-pg-simple) — used to hold the Facebook
 // OAuth `state` (CSRF) and initiating user across the redirect round-trip.
@@ -127,8 +185,39 @@ app.use((req, res, next) => {
   res.sendFile(clientIndex);
 });
 
+// Unknown API routes return a JSON 404 (never Express's default HTML page).
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` });
+});
+
+// Global error handler — guarantees every failure (including malformed JSON
+// bodies and errors thrown in handlers) returns a JSON response instead of an
+// HTML stack-trace page or a crash. Must be the LAST middleware and keep all
+// four args so Express recognizes it as an error handler.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  // Body-parser raises this on malformed JSON request bodies. Match the
+  // parser-specific shape (type + status + a `body` property) rather than any
+  // SyntaxError, so unrelated server-side SyntaxErrors aren't misreported as 400.
+  if (err.type === "entity.parse.failed" || (err.status === 400 && "body" in err)) {
+    return res.status(400).json({ error: "Invalid JSON in request body" });
+  }
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({ error: "Origin not allowed" });
+  }
+  console.error("Unhandled error:", err.stack || err.message);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: IS_PROD ? "Internal server error" : err.message || "Internal server error",
+  });
+});
+
 app.listen(PORT, () => {
-  console.log(`EchoAI server is running on port ${PORT}`);
+  console.log(`EchoAI server is running on port ${PORT} (${IS_PROD ? "production" : "development"})`);
+  const enabled = features.filter((f) => f.enabled).map((f) => f.name);
+  const disabled = features.filter((f) => !f.enabled).map((f) => f.name);
+  console.log(`Features enabled: ${enabled.length ? enabled.join(", ") : "(none)"}`);
+  if (disabled.length) console.log(`Features disabled: ${disabled.join(", ")}`);
   startScheduler();
   seedAdmin().catch((err) => {
     console.error("Admin seeder failed:", err.message);
