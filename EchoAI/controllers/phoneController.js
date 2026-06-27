@@ -15,6 +15,7 @@ const {
 } = require("../config/twilio");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
+const zapierController = require("./zapierController");
 const { normalizeE164 } = require("../utils/phone");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
@@ -426,6 +427,14 @@ async function handleInboundCall(req, res) {
     );
     const callId = created[0].call_id;
 
+    // Outbound webhook (Zapier etc.) for the inbound call. Fire-and-forget.
+    zapierController.triggerWebhook(cfg.brand_id, "inbound_call_received", {
+      callId,
+      direction: "inbound",
+      callerPhone: fromNumber,
+      twilioCallSid: callSid,
+    });
+
     sayAndGather(twiml, callId, baseUrl, speech);
     res.type("text/xml").send(twiml.toString());
   } catch (err) {
@@ -612,6 +621,20 @@ async function handleCallStatus(req, res) {
         call.call_id,
       ],
     );
+
+    // Outbound webhook (Zapier etc.) when an outbound call completes.
+    if (call.direction === "outbound" && callStatus === "completed") {
+      zapierController.triggerWebhook(call.brand_id, "outbound_call_completed", {
+        callId: call.call_id,
+        direction: "outbound",
+        callerPhone: call.caller_phone,
+        twilioCallSid: callSid,
+        durationSeconds: duration,
+        outcome,
+        leadTemperature:
+          temperature && VALID_TEMPERATURES.includes(temperature) ? temperature : null,
+      });
+    }
 
     // Propagate the temperature to the linked lead and alert on hot leads.
     if (call.lead_id && temperature && VALID_TEMPERATURES.includes(temperature)) {

@@ -42,6 +42,7 @@ const reputationRoutes = require("./routes/reputationRoutes");
 const phoneRoutes = require("./routes/phoneRoutes");
 const websiteChatbotRoutes = require("./routes/websiteChatbotRoutes");
 const salesScriptRoutes = require("./routes/salesScriptRoutes");
+const webhookRoutes = require("./routes/webhookRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -191,6 +192,7 @@ app.use("/api/reputation", reputationRoutes);
 app.use("/api/phone", phoneRoutes);
 app.use("/api/chatbot", websiteChatbotRoutes);
 app.use("/api/sales-scripts", salesScriptRoutes);
+app.use("/api/webhooks", webhookRoutes);
 
 // Serve saved AI-generated images persisted to disk (DALL-E URLs expire, so we
 // download and serve them locally). Mounted before the SPA fallback.

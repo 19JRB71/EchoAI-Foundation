@@ -17,6 +17,7 @@ import RoiDashboard from "./sections/RoiDashboard.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
 import ChatbotSetup from "./sections/ChatbotSetup.jsx";
+import ZapierIntegration from "./sections/ZapierIntegration.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
@@ -235,6 +236,9 @@ export default function App() {
               )}
               {section === "chatbot" && (
                 <ChatbotSetup brandId={selectedBrandId} />
+              )}
+              {section === "zapier" && (
+                <ZapierIntegration brandId={selectedBrandId} />
               )}
               {section === "settings" && (
                 <Settings

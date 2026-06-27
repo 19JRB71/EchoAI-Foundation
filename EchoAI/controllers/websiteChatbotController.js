@@ -6,6 +6,7 @@ const {
 } = require("../prompts/websiteChatbotPrompt");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
+const zapierController = require("./zapierController");
 const { normalizeE164 } = require("../utils/phone");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
@@ -390,6 +391,17 @@ async function chat(req, res) {
           })
           .catch((err) => console.error("Hot lead push failed:", err.message));
       }
+
+      // Outbound webhook (Zapier etc.) on the non-hot -> hot transition.
+      zapierController.triggerWebhook(brandId, "lead_temperature_hot", {
+        leadId,
+        name: analysis.name || null,
+        email: analysis.email || null,
+        phone: analysis.phone || null,
+        temperature,
+        source: "website_chatbot",
+        summary,
+      });
     }
 
     return res.json({ sessionId, reply });

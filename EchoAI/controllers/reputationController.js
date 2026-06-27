@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { decrypt } = require("../utils/encryption");
 const { generateReviewResponse } = require("../prompts/reputationPrompt");
+const zapierController = require("./zapierController");
 const {
   getValidAccessToken,
   googleFetch,
@@ -175,7 +176,17 @@ async function persistFetchedReviews(brandId, reviews) {
         rv.postedAt ? new Date(rv.postedAt) : null,
       ],
     );
-    if (res.rows[0]?.inserted) saved++;
+    if (res.rows[0]?.inserted) {
+      saved++;
+      // Outbound webhook (Zapier etc.) for each newly received review.
+      zapierController.triggerWebhook(brandId, "new_review_received", {
+        platform: rv.platform,
+        reviewerName: rv.reviewerName,
+        starRating: rv.starRating,
+        reviewText: rv.reviewText,
+        source: "fetched",
+      });
+    }
   }
   return saved;
 }
@@ -267,7 +278,17 @@ async function addReview(req, res) {
         postedAt ? new Date(postedAt) : new Date(),
       ],
     );
-    return res.status(201).json({ review: rows[0] });
+    const review = rows[0];
+    // Outbound webhook (Zapier etc.) for the manually added review.
+    zapierController.triggerWebhook(brandId, "new_review_received", {
+      reviewId: review.review_id,
+      platform: review.platform,
+      reviewerName: review.reviewer_name,
+      starRating: review.star_rating,
+      reviewText: review.review_text,
+      source: "manual",
+    });
+    return res.status(201).json({ review });
   } catch (err) {
     console.error("Add review error:", err.message);
     return res.status(500).json({ error: "Failed to add review" });

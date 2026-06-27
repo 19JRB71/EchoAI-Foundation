@@ -7,6 +7,7 @@ const {
 const { autoOptimizeCampaignsForBrand } = require("../controllers/optimizationController");
 const { sendWeeklyReportEmail } = require("../controllers/emailController");
 const { publishDuePosts } = require("../controllers/socialController");
+const { triggerWebhook } = require("../controllers/zapierController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -64,6 +65,13 @@ async function runWeeklyAnalytics() {
             brandName: brandProfile.brand_name,
             reportBody: body,
             subject,
+          });
+
+          // Outbound webhook (Zapier etc.) with the weekly report. Fire-and-forget.
+          triggerWebhook(brand.brand_id, "weekly_report_generated", {
+            brandName: brandProfile.brand_name,
+            subject,
+            report: body,
           });
         }
       } catch (err) {

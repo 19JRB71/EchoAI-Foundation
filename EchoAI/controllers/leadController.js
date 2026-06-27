@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const chatbotController = require("./chatbotController");
+const zapierController = require("./zapierController");
 
 /**
  * Verifies that a brand belongs to the authenticated user.
@@ -57,6 +58,17 @@ async function createLead(req, res) {
       [brandId, name || null, email || null, phone || null]
     );
     const lead = inserted.rows[0];
+
+    // Fire the new-lead webhook (Zapier etc.). Fire-and-forget — never blocks
+    // the response and never throws.
+    zapierController.triggerWebhook(brandId, "new_lead_created", {
+      leadId: lead.lead_id,
+      name: lead.lead_name,
+      email: lead.email,
+      phone: lead.phone,
+      temperature: lead.temperature,
+      conversionStatus: lead.conversion_status,
+    });
 
     // Trigger the qualification chatbot to open the conversation. If the AI call
     // fails (e.g. missing API key), still return the created lead.

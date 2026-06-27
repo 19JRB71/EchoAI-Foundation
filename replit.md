@@ -112,6 +112,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Phone agent | `/api/phone` | Twilio webhooks return TwiML 200 even on error; inbound routed by E.164 number (global unique); outbound hot-leads only; `twilio_config`+`calls` (021) |
 | Website chatbot | `/api/chatbot` | embeddable widget; method-aware CORS; hot-lead alert once per session on non-hot→hot; app-level lead dedup; `chatbot_*` (022) |
 | Sales scripts | `/api/sales-scripts` | AI sales-script generator; `sales_scripts` (023) |
+| Zapier webhooks | `/api/webhooks` | outbound webhooks; fire-and-forget `triggerWebhook(brandId,event,data)`; SSRF-guarded https targets; retry+timeout+per-attempt logging; `webhooks`+`webhook_delivery_logs` (024) |
 
 ### Sales scripts subsystem (`/api/sales-scripts`)
 
@@ -129,6 +130,38 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   migration `models/023_sales_scripts.sql`. Dashboard section
   `sections/SalesScripts.jsx` + `sections/sales/*` with two tabs (Script
   Generator, Saved Scripts).
+
+### Zapier webhooks subsystem (`/api/webhooks`)
+
+- **Outbound only.** EchoAI POSTs JSON event payloads to user-registered URLs
+  (Zapier catch hooks, Make, Slack, etc.). No inbound Zapier actions.
+- **Auth + lockout.** `POST /` (create), `POST /test` (send sample payload),
+  `GET /:brandId` (list active), `DELETE /:webhookId`. Ownership via
+  `getOwnedBrand(userId, brandId)` and `USING brands ... b.user_id` joins.
+- **Event catalog is the source of truth.** `config/webhookEvents.js` lists the
+  11 subscribable events + `isValidEvent`. The client dropdown mirrors this list
+  (keep in sync). `createWebhook` rejects unknown events (400).
+- **SSRF guardrail (do not regress).** `config/webhooks.js`: client-supplied
+  webhook URLs must be `https`; internal hostnames (`localhost`/`.local`/
+  `.internal`) and private/reserved IP literals are rejected at create time
+  (`isAllowedWebhookUrl`), and re-validated at dispatch with DNS resolution
+  (`assertSafeWebhookTarget` rejects names resolving to private addresses).
+  Residual DNS-rebinding TOCTOU is acknowledged in-code (not closed).
+- **Dispatcher.** `utils/webhookDispatcher.js` `deliver()`: 3 attempts, 10s
+  `AbortSignal.timeout`, backoff `[0,1000,3000]`, logs **every** attempt to
+  `webhook_delivery_logs`, never throws.
+- **triggerWebhook is fire-and-forget.** `controllers/zapierController.js`
+  `triggerWebhook(brandId, event, data)` looks up active subs and fans out via
+  `deliver()`; it catches all errors and is called **without `await`** from
+  emitting controllers so it never blocks the request/response. The `POST /test`
+  route is the one place delivery is awaited → returns **502** on non-2xx.
+- **Events emitted automatically:** `new_lead_created` (leadController),
+  `lead_temperature_hot` (websiteChatbotController), `weekly_report_generated`
+  (scheduler), `inbound_call_received` + `outbound_call_completed`
+  (phoneController), `new_review_received` (reputationController). The remaining
+  catalog events are subscribable but not yet wired to an emitter.
+- Migration `models/024_webhooks.sql`; dashboard section
+  `client/src/sections/ZapierIntegration.jsx`.
 
 ## Production hardening
 

@@ -223,6 +223,18 @@ export const api = {
   deleteSalesScript: (scriptId) =>
     request(`/api/sales-scripts/${scriptId}`, { method: "DELETE" }),
 
+  // Zapier integration (outbound webhooks)
+  listWebhooks: (brandId) => request(`/api/webhooks/${brandId}`),
+  createWebhook: ({ brandId, eventName, webhookUrl }) =>
+    request("/api/webhooks", {
+      method: "POST",
+      body: { brandId, eventName, webhookUrl },
+    }),
+  testWebhook: (webhookId) =>
+    request("/api/webhooks/test", { method: "POST", body: { webhookId } }),
+  deleteWebhook: (webhookId) =>
+    request(`/api/webhooks/${webhookId}`, { method: "DELETE" }),
+
   // Email marketing (AI Email Campaign Agent)
   generateEmailSequence: ({ brandId, goal, targetAudience, numEmails }) =>
     request("/api/email-campaigns/generate", {
