@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import BrandDiscovery from "./BrandDiscovery.jsx";
+import Billing from "./billing/Billing.jsx";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
@@ -11,14 +12,49 @@ const primaryBtn =
 const secondaryBtn =
   "rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-60";
 
-export default function Settings({ brandId, onBrandsChanged }) {
+export default function Settings({
+  brandId,
+  onBrandsChanged,
+  initialTab = "account",
+  openPaymentModal = false,
+}) {
+  const [tab, setTab] = useState(initialTab);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
+  const tabBtn = (value, label) => (
+    <button
+      onClick={() => setTab(value)}
+      className={[
+        "rounded-lg px-4 py-2 text-sm font-semibold transition",
+        tab === value
+          ? "bg-amber-500 text-gray-900"
+          : "border border-gray-700 text-gray-300 hover:bg-gray-800",
+      ].join(" ")}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-gray-100">Settings</h2>
-      <ProfileCard />
-      <SubscriptionCard />
-      <FacebookCard />
-      <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
+      <div className="flex gap-2">
+        {tabBtn("account", "Account")}
+        {tabBtn("billing", "Billing")}
+      </div>
+
+      {tab === "account" ? (
+        <div className="space-y-6">
+          <ProfileCard />
+          <FacebookCard />
+          <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
+        </div>
+      ) : (
+        <Billing openPaymentModal={openPaymentModal} />
+      )}
     </div>
   );
 }
@@ -136,84 +172,6 @@ function ProfileCard() {
   );
 }
 
-function SubscriptionCard() {
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [canceling, setCanceling] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setStatus(await api.getSubscriptionStatus());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function cancel() {
-    if (
-      !window.confirm(
-        "Cancel your subscription? Your account will move to the free tier."
-      )
-    )
-      return;
-    setCanceling(true);
-    setError("");
-    setNotice("");
-    try {
-      await api.cancelSubscription();
-      setNotice("Subscription canceled.");
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setCanceling(false);
-    }
-  }
-
-  if (loading)
-    return (
-      <Card title="Subscription">
-        <Spinner label="Loading…" />
-      </Card>
-    );
-
-  return (
-    <Card title="Subscription">
-      {status ? (
-        <div className="space-y-2 text-sm">
-          <Row label="Plan" value={status.subscriptionTier} />
-          <Row label="Payment status" value={status.paymentStatus} />
-          {status.renewalDate && (
-            <Row label="Renews" value={formatDate(status.renewalDate)} />
-          )}
-          {status.isLocked && (
-            <p className="text-sm text-red-600">
-              Account locked for non-payment.
-            </p>
-          )}
-        </div>
-      ) : (
-        <p className="text-sm text-gray-400">No subscription found.</p>
-      )}
-      {notice && <p className="mt-3 text-sm text-green-600">{notice}</p>}
-      <ErrorBanner message={error} />
-      <button onClick={cancel} disabled={canceling} className={`${secondaryBtn} mt-4`}>
-        {canceling ? "Canceling…" : "Cancel subscription"}
-      </button>
-    </Card>
-  );
-}
-
 function FacebookCard() {
   const [adAccountId, setAdAccountId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -321,10 +279,4 @@ function BrandCard({ brandId, onBrandsChanged }) {
       )}
     </Card>
   );
-}
-
-function formatDate(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString();
 }

@@ -148,6 +148,53 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   `SocialMedia prefillImage` → `ContentGenerator attachedImage`). It does NOT
   publish media through the scheduler.
 
+### Billing & subscription management subsystem
+
+- Routes mounted at `/api/subscriptions`. The original auth+lockout routes stay:
+  `POST /` (create), `POST /cancel`, `GET /status`, `POST /webhook` (raw body).
+  Prompt 22 added **auth-only (NOT lockout-gated)** billing-management routes so a
+  past-due / locked customer can still recover: `GET /plans`, `POST /change`
+  (upgrade/downgrade), `GET|POST /payment-method`, `GET /invoices` (last 12),
+  `GET /upcoming-invoice`.
+- **Why billing routes bypass lockout:** the whole point of the payment-failed
+  banner is to let a locked user fix their card / change plan. Putting those
+  behind `lockoutCheck` (which 403s locked accounts) would trap them. Create and
+  cancel stay lockout-gated.
+- `config/plans.js` is the **single source of truth** for tier catalog (name,
+  monthlyPrice, seatLabel, features) for starter/growth/pro/enterprise. The
+  client fetches it via `GET /plans`. Listed prices are display/fallback values —
+  the *actual* next charge always comes from Stripe's upcoming invoice.
+- `changeSubscription` swaps the single Stripe subscription item to the new tier's
+  price with `proration_behavior: 'create_prorations'`, then syncs
+  `subscriptions.subscription_tier` + `users.subscription_tier` so access changes
+  immediately. Requires an existing `stripe_subscription_id` (else 404).
+- `updatePaymentMethod` attaches the PM, sets it as the customer's default
+  invoice PM, and points the active subscription's `default_payment_method` at it.
+  Creates the Stripe customer if missing. Stores the PM id in
+  `subscriptions.payment_method`.
+- All new Stripe-calling handlers map SDK errors (`err.type` starts with
+  `Stripe`) to **502** via a shared `fail()` helper; `getUpcomingInvoice` returns
+  `{ upcoming: null }` (200) when there's no subscription to bill.
+- `getSubscriptionStatus` now also returns `failedPaymentAt` + `daysUntilLock`
+  (computed from `failed_payment_at` + `lockout_threshold_days`) to drive the
+  banner countdown.
+- Client: `client/src/sections/billing/{Billing,PlanSelectorModal,UpdatePaymentMethodModal}.jsx`.
+  `Settings.jsx` now has **Account / Billing tabs** (the old flat SubscriptionCard
+  was removed; cancel/plan management lives in Billing). Shared Stripe loader:
+  `client/src/lib/stripe.js` (`stripePromise`, `stripeConfigured`).
+- **Global payment-failed banner** (`client/src/components/PaymentFailedBanner.jsx`)
+  renders in `App.jsx` above every dashboard section when
+  `paymentStatus` is `failed`/`past_due` or `isLocked`. App polls
+  `getSubscriptionStatus` every 60s AND listens for the
+  `window` event `echoai:billing-updated` (dispatched by Billing on successful
+  card/plan change) to clear the banner instantly. The banner's button
+  deep-links to Settings → Billing with the card modal auto-opened (via
+  `initialTab` + `openPaymentModal` props on Settings; sidebar navigation resets
+  those flags).
+- **No new DB migration** — the existing `subscriptions` table already has every
+  needed column. Live `change`/`create` require `STRIPE_PRICE_*` env vars to be
+  set (else they 400/502).
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._

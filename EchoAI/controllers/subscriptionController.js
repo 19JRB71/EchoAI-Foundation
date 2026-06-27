@@ -1,6 +1,44 @@
 const { stripe, getPriceIdForTier } = require("../config/stripe");
+const { getPlan, listPlans } = require("../config/plans");
 const db = require("../config/db");
 const emailController = require("./emailController");
+
+/**
+ * Stripe SDK errors carry a `type` like "StripeCardError" /
+ * "StripeInvalidRequestError". Treat those as upstream failures (502) rather
+ * than masking them as a generic 500.
+ */
+function isStripeError(err) {
+  return Boolean(err && typeof err.type === "string" && err.type.startsWith("Stripe"));
+}
+
+function fail(res, err, logLabel, friendly) {
+  console.error(logLabel, err.message);
+  if (isStripeError(err)) {
+    return res.status(502).json({ error: friendly || "Payment provider error. Please try again." });
+  }
+  return res.status(500).json({ error: logLabel });
+}
+
+/** Returns the user's Stripe customer id (or null if they don't have one yet). */
+async function getCustomerId(userId) {
+  const result = await db.query(
+    "SELECT stripe_customer_id FROM users WHERE user_id = $1",
+    [userId]
+  );
+  return result.rows[0] ? result.rows[0].stripe_customer_id : null;
+}
+
+/** Normalizes a Stripe PaymentMethod's card into the shape the client expects. */
+function cardFromPaymentMethod(pm) {
+  if (!pm || !pm.card) return null;
+  return {
+    brand: pm.card.brand,
+    last4: pm.card.last4,
+    expMonth: pm.card.exp_month,
+    expYear: pm.card.exp_year,
+  };
+}
 
 /**
  * Looks up the account owner (and lockout state) for a Stripe customer so the
@@ -304,7 +342,8 @@ async function getSubscriptionStatus(req, res) {
 
   try {
     const result = await db.query(
-      `SELECT subscription_tier, payment_status, renewal_date, is_locked, locked_at
+      `SELECT subscription_tier, payment_status, renewal_date, is_locked, locked_at,
+              failed_payment_at, lockout_threshold_days
        FROM subscriptions
        WHERE user_id = $1`,
       [userId]
@@ -322,10 +361,270 @@ async function getSubscriptionStatus(req, res) {
       renewalDate: sub.renewal_date,
       isLocked: sub.is_locked,
       lockedAt: sub.locked_at,
+      failedPaymentAt: sub.failed_payment_at,
+      // Drives the dashboard "locked in X days" banner.
+      daysUntilLock:
+        sub.failed_payment_at != null
+          ? daysUntilLock({
+              failed_payment_at: sub.failed_payment_at,
+              lockout_threshold_days: sub.lockout_threshold_days,
+            })
+          : null,
     });
   } catch (err) {
     console.error("Get subscription status error:", err);
     return res.status(500).json({ error: "Failed to fetch subscription status" });
+  }
+}
+
+/**
+ * GET /api/subscriptions/plans
+ * Returns the catalog of subscription tiers (name, price, features) used by the
+ * billing plan selector. Auth only — visible even while locked so a past-due
+ * customer can pick a plan to recover.
+ */
+async function getPlans(req, res) {
+  return res.json({ plans: listPlans() });
+}
+
+/**
+ * POST /api/subscriptions/change
+ * Upgrades or downgrades the active subscription to a new tier. Updates the
+ * Stripe subscription item (with prorations) and immediately reflects the new
+ * tier in the local database so account access changes right away.
+ */
+async function changeSubscription(req, res) {
+  const userId = req.user.userId;
+  const { tier } = req.body;
+
+  const plan = getPlan(tier);
+  if (!plan) {
+    return res.status(400).json({ error: `Unknown subscription tier "${tier}"` });
+  }
+
+  const priceId = getPriceIdForTier(tier);
+  if (!priceId) {
+    return res.status(400).json({ error: `No Stripe price configured for tier "${tier}"` });
+  }
+
+  try {
+    const result = await db.query(
+      "SELECT subscription_tier, stripe_subscription_id FROM subscriptions WHERE user_id = $1",
+      [userId]
+    );
+
+    if (result.rows.length === 0 || !result.rows[0].stripe_subscription_id) {
+      return res
+        .status(404)
+        .json({ error: "No active subscription to change. Start a subscription first." });
+    }
+
+    if (result.rows[0].subscription_tier === tier) {
+      return res.status(400).json({ error: `You are already on the ${plan.name} plan.` });
+    }
+
+    const stripeSubscriptionId = result.rows[0].stripe_subscription_id;
+
+    // Swap the single subscription item to the new price, prorating the change.
+    const current = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const itemId = current.items.data[0].id;
+    const updated = await stripe.subscriptions.update(stripeSubscriptionId, {
+      items: [{ id: itemId, price: priceId }],
+      proration_behavior: "create_prorations",
+    });
+
+    const renewalDate = updated.current_period_end
+      ? new Date(updated.current_period_end * 1000)
+      : null;
+
+    await db.query(
+      `UPDATE subscriptions
+         SET subscription_tier = $1,
+             renewal_date = $2
+       WHERE user_id = $3`,
+      [tier, renewalDate, userId]
+    );
+    await db.query("UPDATE users SET subscription_tier = $1 WHERE user_id = $2", [tier, userId]);
+
+    return res.json({
+      tier,
+      status: updated.status,
+      renewalDate,
+    });
+  } catch (err) {
+    return fail(res, err, "Change subscription error:", "Failed to update your plan. Please try again.");
+  }
+}
+
+/**
+ * POST /api/subscriptions/payment-method
+ * Attaches a new payment method (from Stripe Elements) to the customer, makes it
+ * the default for invoices and the active subscription, and records it locally.
+ * Auth only (NOT lockout-gated) so a past-due customer can fix their card.
+ */
+async function updatePaymentMethod(req, res) {
+  const userId = req.user.userId;
+  const { paymentMethodId } = req.body;
+
+  if (!paymentMethodId) {
+    return res.status(400).json({ error: "paymentMethodId is required" });
+  }
+
+  try {
+    const userResult = await db.query(
+      "SELECT email, stripe_customer_id FROM users WHERE user_id = $1",
+      [userId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    let customerId = userResult.rows[0].stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: userResult.rows[0].email,
+        metadata: { userId },
+      });
+      customerId = customer.id;
+      await db.query("UPDATE users SET stripe_customer_id = $1 WHERE user_id = $2", [
+        customerId,
+        userId,
+      ]);
+    }
+
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+    await stripe.customers.update(customerId, {
+      invoice_settings: { default_payment_method: paymentMethodId },
+    });
+
+    // Also point the active subscription at the new default card, if there is one.
+    const subResult = await db.query(
+      "SELECT stripe_subscription_id FROM subscriptions WHERE user_id = $1",
+      [userId]
+    );
+    const stripeSubscriptionId = subResult.rows[0] && subResult.rows[0].stripe_subscription_id;
+    if (stripeSubscriptionId) {
+      await stripe.subscriptions.update(stripeSubscriptionId, {
+        default_payment_method: paymentMethodId,
+      });
+    }
+
+    await db.query("UPDATE subscriptions SET payment_method = $1 WHERE user_id = $2", [
+      paymentMethodId,
+      userId,
+    ]);
+
+    const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+    return res.json({ message: "Payment method updated", card: cardFromPaymentMethod(pm) });
+  } catch (err) {
+    return fail(
+      res,
+      err,
+      "Update payment method error:",
+      "Failed to update your payment method. Please check the card details and try again."
+    );
+  }
+}
+
+/**
+ * GET /api/subscriptions/payment-method
+ * Returns the customer's current default card (brand / last4 / expiry) or null.
+ */
+async function getPaymentMethod(req, res) {
+  const userId = req.user.userId;
+
+  try {
+    const customerId = await getCustomerId(userId);
+    if (!customerId) return res.json({ card: null });
+
+    const customer = await stripe.customers.retrieve(customerId);
+    const defaultPmId =
+      customer.invoice_settings && customer.invoice_settings.default_payment_method;
+    if (!defaultPmId) return res.json({ card: null });
+
+    const pm = await stripe.paymentMethods.retrieve(defaultPmId);
+    return res.json({ card: cardFromPaymentMethod(pm) });
+  } catch (err) {
+    return fail(res, err, "Get payment method error:", "Failed to load your payment method.");
+  }
+}
+
+/**
+ * GET /api/subscriptions/invoices
+ * Returns the last 12 invoices for the customer with date, amount, status, and a
+ * download link for the PDF.
+ */
+async function getBillingHistory(req, res) {
+  const userId = req.user.userId;
+
+  try {
+    const customerId = await getCustomerId(userId);
+    if (!customerId) return res.json({ invoices: [] });
+
+    const list = await stripe.invoices.list({ customer: customerId, limit: 12 });
+    const invoices = list.data.map((inv) => ({
+      id: inv.id,
+      number: inv.number,
+      date: inv.created ? new Date(inv.created * 1000) : null,
+      amount: (inv.amount_paid || inv.amount_due || inv.total || 0) / 100,
+      currency: inv.currency,
+      status: inv.status, // paid | open | void | uncollectible | draft
+      paid: inv.status === "paid",
+      pdfUrl: inv.invoice_pdf || null,
+      hostedUrl: inv.hosted_invoice_url || null,
+    }));
+
+    return res.json({ invoices });
+  } catch (err) {
+    return fail(res, err, "Get billing history error:", "Failed to load your billing history.");
+  }
+}
+
+/**
+ * GET /api/subscriptions/upcoming-invoice
+ * Returns what the customer will be charged on their next billing date based on
+ * their current plan and seat count. Returns null when there's no active
+ * subscription to bill.
+ */
+async function getUpcomingInvoice(req, res) {
+  const userId = req.user.userId;
+
+  try {
+    const subResult = await db.query(
+      "SELECT stripe_subscription_id FROM subscriptions WHERE user_id = $1",
+      [userId]
+    );
+    const customerId = await getCustomerId(userId);
+    const hasSubscription =
+      subResult.rows[0] && subResult.rows[0].stripe_subscription_id;
+
+    if (!customerId || !hasSubscription) {
+      return res.json({ upcoming: null });
+    }
+
+    const upcoming = await stripe.invoices.retrieveUpcoming({ customer: customerId });
+    return res.json({
+      upcoming: {
+        amount: (upcoming.amount_due || upcoming.total || 0) / 100,
+        currency: upcoming.currency,
+        date: upcoming.next_payment_attempt
+          ? new Date(upcoming.next_payment_attempt * 1000)
+          : upcoming.period_end
+            ? new Date(upcoming.period_end * 1000)
+            : null,
+        lineItems: (upcoming.lines && upcoming.lines.data ? upcoming.lines.data : []).map((line) => ({
+          description: line.description,
+          amount: (line.amount || 0) / 100,
+        })),
+      },
+    });
+  } catch (err) {
+    // Stripe returns an error when there is genuinely no upcoming invoice;
+    // surface that as an empty (not failed) result.
+    if (err && err.code === "invoice_upcoming_none") {
+      return res.json({ upcoming: null });
+    }
+    return fail(res, err, "Get upcoming invoice error:", "Failed to load your upcoming invoice.");
   }
 }
 
@@ -334,4 +633,10 @@ module.exports = {
   handleWebhook,
   cancelSubscription,
   getSubscriptionStatus,
+  getPlans,
+  changeSubscription,
+  updatePaymentMethod,
+  getPaymentMethod,
+  getBillingHistory,
+  getUpcomingInvoice,
 };

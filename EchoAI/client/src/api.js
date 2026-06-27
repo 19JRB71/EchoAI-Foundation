@@ -88,6 +88,17 @@ export const api = {
     }),
   cancelSubscription: () =>
     request("/api/subscriptions/cancel", { method: "POST" }),
+  getPlans: () => request("/api/subscriptions/plans"),
+  changeSubscription: (tier) =>
+    request("/api/subscriptions/change", { method: "POST", body: { tier } }),
+  getPaymentMethod: () => request("/api/subscriptions/payment-method"),
+  updatePaymentMethod: (paymentMethodId) =>
+    request("/api/subscriptions/payment-method", {
+      method: "POST",
+      body: { paymentMethodId },
+    }),
+  getBillingHistory: () => request("/api/subscriptions/invoices"),
+  getUpcomingInvoice: () => request("/api/subscriptions/upcoming-invoice"),
 
   // Brands
   getBrands: () => request("/api/brands"),

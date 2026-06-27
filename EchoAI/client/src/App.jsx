@@ -14,6 +14,7 @@ import ImageStudio from "./sections/ImageStudio.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
+import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
 
 export default function App() {
   const navigate = useNavigate();
@@ -28,10 +29,30 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   // Image handed off from Image Studio to the Social Media generator.
   const [socialPrefillImage, setSocialPrefillImage] = useState(null);
+  // Subscription status drives the global payment-failed banner.
+  const [billingStatus, setBillingStatus] = useState(null);
+  // When the banner's "Update payment method" is clicked, jump to Settings →
+  // Billing and auto-open the card form.
+  const [billingTab, setBillingTab] = useState("account");
+  const [openPaymentModal, setOpenPaymentModal] = useState(false);
 
   function handleUseImageInSocial(image) {
     setSocialPrefillImage(image);
     setSection("social");
+  }
+
+  function handleFixPayment() {
+    setBillingTab("billing");
+    setOpenPaymentModal(true);
+    setSection("settings");
+  }
+
+  // Manual navigation (sidebar) resets the billing deep-link flags so Settings
+  // opens on its default Account tab without auto-opening the card form.
+  function handleSelectSection(next) {
+    setBillingTab("account");
+    setOpenPaymentModal(false);
+    setSection(next);
   }
 
   const handleLogout = useCallback(() => {
@@ -94,6 +115,30 @@ export default function App() {
     if (authed && onboardingCompleted) loadBrands();
   }, [authed, onboardingCompleted, loadBrands]);
 
+  // Poll subscription status so the payment-failed banner stays current across
+  // every dashboard page until the issue is resolved.
+  const loadBillingStatus = useCallback(async () => {
+    try {
+      setBillingStatus(await api.getSubscriptionStatus());
+    } catch {
+      // A missing/unreadable subscription simply means no banner.
+      setBillingStatus(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authed || !onboardingCompleted) return;
+    loadBillingStatus();
+    const id = setInterval(loadBillingStatus, 60000);
+    // Refresh immediately when a billing action (card update / plan change)
+    // succeeds, so the payment-failed banner clears without waiting for the poll.
+    window.addEventListener("echoai:billing-updated", loadBillingStatus);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("echoai:billing-updated", loadBillingStatus);
+    };
+  }, [authed, onboardingCompleted, loadBillingStatus]);
+
   // Return to the login screen whenever any protected request reports an
   // expired or invalid token.
   useEffect(() => {
@@ -127,7 +172,7 @@ export default function App() {
     <div className="flex min-h-screen flex-col bg-black md:flex-row">
       <Sidebar
         section={section}
-        onSelect={setSection}
+        onSelect={handleSelectSection}
         onLogout={handleLogout}
         isAdmin={isAdmin}
       />
@@ -137,6 +182,7 @@ export default function App() {
             <AdminPanel />
           ) : (
             <>
+              <PaymentFailedBanner status={billingStatus} onFix={handleFixPayment} />
               <BrandBar
                 brands={brands}
                 selectedBrandId={selectedBrandId}
@@ -168,6 +214,9 @@ export default function App() {
                 <Settings
                   brandId={selectedBrandId}
                   onBrandsChanged={loadBrands}
+                  initialTab={billingTab}
+                  openPaymentModal={openPaymentModal}
+                  key={`${billingTab}-${openPaymentModal}`}
                 />
               )}
             </>

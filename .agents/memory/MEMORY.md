@@ -1,1 +1,1 @@
-- [Image Studio (DALL-E)](image-studio.md) — persist generated images at save time (URLs expire); locked-down server download (allowlist + size/time caps) to avoid SSRF.
+- [Billing routes bypass lockout](billing-lockout-recovery.md) — EchoAI billing-recovery endpoints must be auth-only, never behind lockoutCheck (403), or locked users can't self-recover.
