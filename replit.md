@@ -434,6 +434,51 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
 - **Note:** Twilio creds are NOT in the workspace secrets, so real calls can't be
   placed from here — only gating/validation/error paths are testable via curl.
 
+### Website Chatbot subsystem (embeddable widget)
+
+- An embeddable AI chat widget that brands drop onto their **own third-party
+  websites** to greet visitors, answer questions in brand voice, auto-capture
+  leads, and score lead temperature.
+- Routes mounted at `/api/chatbot`. **Public (no auth) widget endpoints:**
+  `GET /config/:brandId` (greeting/accent/avatar for the widget to render),
+  `POST /chat` (`{sessionId, brandId, message}` → AI reply), `POST /capture`
+  (explicit contact submit). **Owner-only (auth + lockout):**
+  `GET /config-owner/:brandId`, `PUT /config/:brandId` (save config),
+  `GET /sessions/:brandId` (conversation history + transcripts). Ownership via
+  `getOwnedBrand`.
+- **CORS is method-aware** (`isPublicWidgetRequest(req)` in `server.js`): only
+  `GET /config/:id`, `POST /chat`, `POST /capture`, and the OPTIONS preflight
+  for chat/capture are opened to any origin (credentials:false). The owner-only
+  `PUT /config/:id` and `GET /sessions` stay on the standard allowlist — do NOT
+  widen this to a bare `startsWith("/config/")` path check (would expose the
+  owner PUT). In dev all origins are allowed anyway; the gate only bites in prod.
+- **Hot-lead alerts fire once per session on the non-hot→hot transition AND only
+  when a lead with real contact info exists** (`temperature==="hot" && !wasHot
+  && leadId`) — `wasHot` is read from the session row before the UPDATE. This
+  stops anonymous visitors from spamming the owner by repeatedly posting "hot"
+  messages to the public endpoint. Alert is dual-channel (email + push),
+  best-effort, never blocks the reply.
+- `analyzeConversation` (scoring + contact extraction) serializes the whole
+  transcript into a **single user message** for Anthropic (NOT
+  `toAnthropicMessages`, which is used only for the live reply turn) — the
+  analysis call must end with a user message or Anthropic 400s.
+- **Lead dedup is application-level**, matching an existing brand lead on
+  case-insensitive email OR phone before inserting (only ever COALESCE-fills
+  blank fields, never overwrites). No DB unique constraint was added: the `leads`
+  table is shared with manual creation (`leadController`) and public lead-qual
+  (`publicController`), so a global `(brand_id, email)` unique index would
+  regress those paths.
+- The AI prompt lives in `prompts/websiteChatbotPrompt.js` (Anthropic `MODEL`);
+  upstream AI failures map to **502**. Migration `models/022_chatbot_sessions.sql`
+  (applied via the migration runner): brand-scoped `chatbot_config` (UNIQUE
+  `brand_id`) + `chatbot_sessions` (TEXT `session_id` PK, `conversation_history`
+  JSONB, `temperature`, `lead_id`).
+- The customer dashboard exposes this via a **Website Chatbot** sidebar section
+  (`client/src/sections/ChatbotSetup.jsx`) with two tabs: Setup & Embed
+  (greeting/accent/avatar config + copy-paste embed `<script>` + live preview)
+  and Conversations (sessions list + transcripts). Widget loader served as a
+  static file: `client/public/chatbot-widget.js`.
+
 ## Production hardening subsystem
 
 - `config/env.js` `validateEnv()` runs at boot (first thing in `server.js`):

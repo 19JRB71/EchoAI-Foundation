@@ -40,6 +40,7 @@ const seoRoutes = require("./routes/seoRoutes");
 const roiRoutes = require("./routes/roiRoutes");
 const reputationRoutes = require("./routes/reputationRoutes");
 const phoneRoutes = require("./routes/phoneRoutes");
+const websiteChatbotRoutes = require("./routes/websiteChatbotRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -70,16 +71,39 @@ const allowedOrigins = [
     .map((o) => o.trim())
     .filter(Boolean),
 ];
+// The embeddable website chatbot widget is loaded on arbitrary third-party
+// customer sites, so its PUBLIC endpoints must accept any origin (and never
+// reflect credentials). Everything else follows the standard allowlist.
+// Method-aware so the OWNER-only `PUT /api/chatbot/config/:brandId` is NOT
+// opened to any origin — only the read config (GET), chat (POST), and capture
+// (POST) endpoints the widget actually uses, plus their POST preflight.
+function isPublicWidgetRequest(req) {
+  const p = req.path;
+  const m = req.method;
+  if (m === "GET" && p.startsWith("/api/chatbot/config/")) return true;
+  if (m === "POST" && (p === "/api/chatbot/chat" || p === "/api/chatbot/capture")) {
+    return true;
+  }
+  // CORS preflight for the JSON POSTs (config GET is a simple request, and the
+  // owner-only PUT is intentionally excluded so it stays allowlist-gated).
+  if (m === "OPTIONS" && (p === "/api/chatbot/chat" || p === "/api/chatbot/capture")) {
+    return true;
+  }
+  return false;
+}
 app.use(
-  cors({
-    origin(origin, callback) {
-      // Same-origin / non-browser requests (no Origin header) are always allowed.
-      if (!origin) return callback(null, true);
-      if (!IS_PROD) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
+  cors((req, callback) => {
+    if (isPublicWidgetRequest(req)) {
+      return callback(null, { origin: true, credentials: false });
+    }
+    const origin = req.header("Origin");
+    // Same-origin / non-browser requests (no Origin header) are always allowed.
+    if (!origin) return callback(null, { origin: true, credentials: true });
+    if (!IS_PROD) return callback(null, { origin: true, credentials: true });
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, { origin: true, credentials: true });
+    }
+    return callback(new Error("Not allowed by CORS"), { origin: false });
   }),
 );
 
@@ -164,6 +188,7 @@ app.use("/api/seo", seoRoutes);
 app.use("/api/roi", roiRoutes);
 app.use("/api/reputation", reputationRoutes);
 app.use("/api/phone", phoneRoutes);
+app.use("/api/chatbot", websiteChatbotRoutes);
 
 // Serve saved AI-generated images persisted to disk (DALL-E URLs expire, so we
 // download and serve them locally). Mounted before the SPA fallback.

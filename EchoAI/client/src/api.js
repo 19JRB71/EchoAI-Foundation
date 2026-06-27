@@ -301,6 +301,16 @@ export const api = {
   initiateOutboundCall: (leadId) =>
     request("/api/phone/outbound", { method: "POST", body: { leadId } }),
 
+  // AI Website Chatbot (embeddable widget)
+  getChatbotConfigForOwner: (brandId) =>
+    request(`/api/chatbot/admin-config/${brandId}`),
+  saveChatbotConfig: ({ brandId, greeting, accentColor, avatarStyle }) =>
+    request(`/api/chatbot/config/${brandId}`, {
+      method: "PUT",
+      body: { greeting, accentColor, avatarStyle },
+    }),
+  getChatbotSessions: (brandId) => request(`/api/chatbot/sessions/${brandId}`),
+
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>
     request("/api/demo/request", {

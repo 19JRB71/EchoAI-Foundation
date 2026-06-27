@@ -15,6 +15,7 @@ import GoogleSeo from "./sections/GoogleSeo.jsx";
 import RoiDashboard from "./sections/RoiDashboard.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
+import ChatbotSetup from "./sections/ChatbotSetup.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
@@ -229,6 +230,9 @@ export default function App() {
               )}
               {section === "phone" && (
                 <PhoneAgent brandId={selectedBrandId} />
+              )}
+              {section === "chatbot" && (
+                <ChatbotSetup brandId={selectedBrandId} />
               )}
               {section === "settings" && (
                 <Settings
