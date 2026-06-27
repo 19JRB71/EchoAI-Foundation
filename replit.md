@@ -195,6 +195,57 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   needed column. Live `change`/`create` require `STRIPE_PRICE_*` env vars to be
   set (else they 400/502).
 
+### Progressive Web App (PWA) + Web Push subsystem
+
+- **Installable PWA.** `client/public/manifest.json` (name/short_name/description,
+  `display: standalone`, dark theme/background `#05070d`, `start_url: /dashboard`,
+  `scope: /`) + icons (`icon-192.png`, `icon-512.png`, `icon.svg`,
+  `apple-touch-icon.png`) generated from `client/public/icon.svg` via ImageMagick
+  (`magick`/`convert`). `index.html` links the manifest + theme-color + apple
+  touch/meta tags.
+- **Service worker lives in `client/public/sw.js`, NOT `client/src/`.** It must be
+  served at the site root to control scope `/`; Vite copies `public/` verbatim to
+  `dist/`. (If it lived in `src/` the bundler would hash/scope it wrong.) The
+  server's SPA fallback skips paths containing `.`, so `/sw.js`, `/manifest.json`
+  and the icons are served as static files. SW caches the app shell on install
+  (cache-first for hashed assets, network-first for navigations w/ offline
+  fallback) and renders hot-lead notifications on `push`.
+- **Registration vs subscription are split.** `client/src/push.js`
+  `registerServiceWorker()` is called from `main.jsx` on every load (so the shell
+  caches even before login). `enablePushNotifications(token)` is called from
+  `App.handleLogin` on first login: it fetches the VAPID public key from the
+  backend (`GET /api/push/vapid-public-key`), requests Notification permission,
+  subscribes via `PushManager`, and POSTs the subscription to
+  `POST /api/push/subscribe`. All best-effort — never blocks login, no-ops when
+  unsupported or when push isn't configured server-side.
+- Routes mounted at `/api/push` (**auth-only, NOT lockout-gated** — a past-due
+  user should keep getting hot-lead alerts that bring them back to pay).
+  `controllers/pushController.js`: `saveSubscription` (upsert by `endpoint`,
+  `ON CONFLICT (endpoint)` so re-subscribe/owner-change updates keys),
+  `sendPushToUser(userId, payload)` (fans out to all the user's devices, prunes
+  subscriptions the push service reports 404/410), `getVapidPublicKey` (503 when
+  unconfigured).
+- **SSRF guardrail (do not regress):** a `PushSubscription.endpoint` is
+  client-supplied and later used as an outbound request target by
+  `webpush.sendNotification`. `config/webpush.js` `isAllowedPushEndpoint()`
+  requires **https + an allowlisted push-service host suffix**
+  (`.googleapis.com`, `.push.services.mozilla.com`, `.push.apple.com`,
+  `.notify.windows.com`, `.push.microsoft.com`). Enforced on **both** save
+  (reject 400) and send (skip + prune). Mirrors the Image Studio URL allowlist.
+- **Hot-lead alert now dual-channel.** `chatbotController.chat` selects the brand
+  owner's `user_id` (added `u.user_id AS owner_user_id` to the lead/brand/user
+  JOIN) and, when a lead scores `hot`, sends BOTH the existing email
+  (`emailController.sendHotLeadAlert`) AND a push
+  (`pushController.sendPushToUser`) with the lead name + temperature. Both are
+  fire-and-forget; neither blocks or fails the chat response.
+- Migration `models/016_push_subscriptions.sql`: user-scoped `push_subscriptions`
+  (`endpoint` UNIQUE, `keys` JSONB, `ON DELETE CASCADE` to users). Applied via
+  `psql "$DATABASE_URL" -f models/016_push_subscriptions.sql`.
+- **VAPID env vars** (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`)
+  are set as shared env vars (generated once with `web-push`). They must stay
+  stable — regenerating invalidates every existing subscription. Dependency:
+  `web-push` (in `EchoAI/package.json`).
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._

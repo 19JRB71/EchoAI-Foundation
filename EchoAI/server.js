@@ -20,6 +20,7 @@ const socialRoutes = require("./routes/socialRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const emailCampaignRoutes = require("./routes/emailCampaignRoutes");
 const imageRoutes = require("./routes/imageRoutes");
+const pushRoutes = require("./routes/pushRoutes");
 
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
@@ -62,6 +63,7 @@ app.use("/api/social", socialRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/email-campaigns", emailCampaignRoutes);
 app.use("/api/images", imageRoutes);
+app.use("/api/push", pushRoutes);
 
 // Serve saved AI-generated images persisted to disk (DALL-E URLs expire, so we
 // download and serve them locally). Mounted before the SPA fallback.

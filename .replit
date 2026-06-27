@@ -20,3 +20,10 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BH2_HXzvbMw9coMqKv3nwpE4WOMXEG9YQtwGab-dxVd3hjLKY9c9B2AAl6rxISuG-QWNpU_NUuxASbab5FTTiEU"
+VAPID_PRIVATE_KEY = "nJ_r3IIBTpUN7gDcWB2mSszLpp1VuN9CrnFK-w82Hfg"
+VAPID_SUBJECT = "mailto:alerts@echoai.app"

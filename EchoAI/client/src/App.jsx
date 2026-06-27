@@ -15,6 +15,7 @@ import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
 import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
+import { enablePushNotifications } from "./push.js";
 
 export default function App() {
   const navigate = useNavigate();
@@ -150,6 +151,9 @@ export default function App() {
     setToken(token);
     setAuthed(true);
     setSection("overview");
+    // On first login, ask to enable push so the owner gets instant hot-lead
+    // alerts on their phone. Best-effort — never blocks the login flow.
+    enablePushNotifications(token).catch(() => {});
   }
 
   if (!authed) return <Login onLogin={handleLogin} />;

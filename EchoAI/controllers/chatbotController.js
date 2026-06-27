@@ -5,6 +5,7 @@ const {
   LEAD_SCORING_PROMPT,
 } = require("../prompts/leadQualificationPrompt");
 const emailController = require("./emailController");
+const pushController = require("./pushController");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 
@@ -118,7 +119,7 @@ async function chat(req, res) {
       `SELECT l.lead_id, l.brand_id, l.conversation_history,
               l.lead_name, l.email AS lead_email, l.phone,
               b.brand_name, b.brand_personality, b.voice_description, b.target_audience,
-              u.email AS owner_email
+              u.email AS owner_email, u.user_id AS owner_user_id
        FROM leads l
        JOIN brands b ON b.brand_id = l.brand_id
        JOIN users u ON u.user_id = b.user_id
@@ -182,6 +183,20 @@ async function chat(req, res) {
           summary,
         })
         .catch((err) => console.error("Hot lead alert failed:", err.message));
+
+      // Also push a real-time notification to the owner's installed devices so
+      // they can act the instant a lead turns hot. Best-effort, never blocks.
+      if (row.owner_user_id) {
+        const leadLabel = row.lead_name || "A new lead";
+        pushController
+          .sendPushToUser(row.owner_user_id, {
+            title: "🔥 Hot lead!",
+            body: `${leadLabel} just turned HOT${row.brand_name ? ` for ${row.brand_name}` : ""}. Reach out now.`,
+            url: "/dashboard",
+            tag: `hot-lead-${leadId}`,
+          })
+          .catch((err) => console.error("Hot lead push failed:", err.message));
+      }
     }
 
     return res.json({ leadId, reply });
