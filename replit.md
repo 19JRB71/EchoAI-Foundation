@@ -390,6 +390,50 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   interactive input). **api.js methods pass plain objects** as `body` — the
   `request()` wrapper already `JSON.stringify`s it (double-encoding 400s the UI).
 
+### AI Phone Agent subsystem (Twilio)
+
+- Routes mounted at `/api/phone`. Two **public Twilio webhooks** (no auth — Twilio
+  POSTs them, protected by `validateTwilioRequest` X-Twilio-Signature, bypassable
+  in dev via `TWILIO_SKIP_VALIDATION`): `POST /inbound` (incoming call) and
+  `POST /respond` (gather → AI turn). The rest are **auth + lockout**:
+  `POST /config` (save Twilio creds), `GET /config/:brandId` (status, no token),
+  `DELETE /config/:brandId`, `POST /outbound` (call a lead),
+  `GET /calls/:brandId` (history + stats).
+- **Webhooks must always return valid TwiML 200, even on error** — a 500 breaks
+  the live call. Handlers wrap everything in try/catch and emit a spoken fallback
+  `<Say>` + `<Hangup>` instead of throwing. (Contrast with the auth JSON routes,
+  where AI/Twilio upstream failures map to **502**.)
+- **Inbound tenant routing is by dialed number.** `twilio_config.phone_number`
+  has a **global UNIQUE index** so an incoming `To` resolves to exactly one brand
+  deterministically. Numbers are normalized to **E.164** (`normalizeE164`) on
+  save AND on inbound lookup so format drift can't miss or mis-route.
+  Migration `models/021_phone_agent.sql` force-replaces any older non-unique
+  index of the same name (`DROP INDEX IF EXISTS … ; CREATE UNIQUE INDEX …`) so
+  upgraded DBs can't silently keep ambiguous routing — and it **fails loudly** if
+  duplicate numbers already exist (collisions need manual resolution).
+- **`saveTwilioConfig` verifies before storing**: normalizes the number to E.164
+  (bad format → 400), authenticates the creds (`accounts(sid).fetch()`), and
+  confirms the number is actually provisioned on that account
+  (`incomingPhoneNumbers.list({ phoneNumber })`) — a number the account doesn't
+  own → 400; bad creds/upstream → 502. A duplicate number across brands hits the
+  unique index → PG 23505 → **409**. The auth token is AES-256-GCM encrypted
+  (brand-scoped `twilio_config`, `UNIQUE(brand_id)`), mirroring `social_accounts`.
+- **Outbound is constrained to HOT leads.** `initiateOutboundCall` selects
+  `l.temperature` and rejects non-hot leads with **400** (UI's OutboundPanel also
+  filters the lead list to hot leads only). Requires a saved Twilio config for the
+  brand (else 400) and a valid owned lead with a phone (else 404).
+- The AI agent (`prompts/phoneAgentPrompt.js`, Anthropic `MODEL`) is brand-aware
+  (personality/voice/audience) and drives each conversational turn from the
+  caller's gathered speech. `config/twilio.js` gates the feature (creds-per-brand,
+  not a single global env), exposes `normalizeE164`, `getTwilioClient`,
+  `validateTwilioRequest`, `getPublicBaseUrl`. Migration `021` adds a
+  `call_direction` enum (inbound|outbound), `twilio_config`, and `calls` tables.
+- The customer dashboard exposes this via a **Phone Agent** sidebar section
+  (`client/src/sections/PhoneAgent.jsx`) with two tabs: Call History (list +
+  stats) and Make a Call (hot-lead picker). Settings adds a **TwilioCard**.
+- **Note:** Twilio creds are NOT in the workspace secrets, so real calls can't be
+  placed from here — only gating/validation/error paths are testable via curl.
+
 ## Production hardening subsystem
 
 - `config/env.js` `validateEnv()` runs at boot (first thing in `server.js`):

@@ -288,6 +288,19 @@ export const api = {
   ignoreReview: (reviewId) =>
     request(`/api/reputation/reviews/${reviewId}/ignore`, { method: "POST" }),
 
+  // AI Phone Agent (Twilio)
+  getTwilioConfig: (brandId) => request(`/api/phone/config/${brandId}`),
+  saveTwilioConfig: ({ brandId, accountSid, authToken, phoneNumber }) =>
+    request("/api/phone/config", {
+      method: "POST",
+      body: { brandId, accountSid, authToken, phoneNumber },
+    }),
+  deleteTwilioConfig: (brandId) =>
+    request(`/api/phone/config/${brandId}`, { method: "DELETE" }),
+  getCallHistory: (brandId) => request(`/api/phone/history/${brandId}`),
+  initiateOutboundCall: (leadId) =>
+    request("/api/phone/outbound", { method: "POST", body: { leadId } }),
+
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>
     request("/api/demo/request", {

@@ -51,6 +51,7 @@ export default function Settings({
         <div className="space-y-6">
           <ProfileCard />
           <FacebookCard />
+          <TwilioCard brandId={brandId} />
           <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
         </div>
       ) : (
@@ -177,6 +178,146 @@ function FacebookCard() {
   return (
     <Card title="Facebook connection">
       <FacebookConnect />
+    </Card>
+  );
+}
+
+function TwilioCard({ brandId }) {
+  const [config, setConfig] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [accountSid, setAccountSid] = useState("");
+  const [authToken, setAuthToken] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+
+  const load = useCallback(async () => {
+    if (!brandId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await api.getTwilioConfig(brandId);
+      setConfig(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [brandId]);
+
+  useEffect(() => {
+    setConfig(null);
+    load();
+  }, [load]);
+
+  async function save(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.saveTwilioConfig({ brandId, accountSid, authToken, phoneNumber });
+      setNotice("Twilio connected.");
+      setAccountSid("");
+      setAuthToken("");
+      setPhoneNumber("");
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function disconnect() {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.deleteTwilioConfig(brandId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!brandId)
+    return (
+      <Card title="Twilio (AI Phone Agent)">
+        <p className="text-sm text-gray-400">
+          Select or create a brand to connect a phone number.
+        </p>
+      </Card>
+    );
+
+  if (loading)
+    return (
+      <Card title="Twilio (AI Phone Agent)">
+        <Spinner label="Loading…" />
+      </Card>
+    );
+
+  return (
+    <Card title="Twilio (AI Phone Agent)">
+      {config && config.configured ? (
+        <div className="space-y-3">
+          <Row label="Connected number" value={config.phoneNumber} />
+          <Row label="Account SID" value={config.accountSid} />
+          <span className="inline-block rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-400">
+            Connected
+          </span>
+          {notice && <p className="text-sm text-green-600">{notice}</p>}
+          <ErrorBanner message={error} />
+          <button
+            onClick={disconnect}
+            disabled={saving}
+            className="block rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+          >
+            {saving ? "Working…" : "Disconnect"}
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={save} className="space-y-3">
+          <p className="text-sm text-gray-400">
+            Connect your Twilio account to place AI outbound calls and answer
+            inbound calls. Set the number's voice webhook to{" "}
+            <code className="text-amber-400">/api/phone/inbound</code> (POST).
+          </p>
+          <Labeled label="Account SID">
+            <input
+              value={accountSid}
+              onChange={(e) => setAccountSid(e.target.value)}
+              placeholder="ACxxxxxxxx…"
+              className={inputClass}
+            />
+          </Labeled>
+          <Labeled label="Auth Token">
+            <input
+              type="password"
+              value={authToken}
+              onChange={(e) => setAuthToken(e.target.value)}
+              placeholder="Your Twilio auth token"
+              className={inputClass}
+            />
+          </Labeled>
+          <Labeled label="Phone Number">
+            <input
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="+15551234567"
+              className={inputClass}
+            />
+          </Labeled>
+          {notice && <p className="text-sm text-green-600">{notice}</p>}
+          <ErrorBanner message={error} />
+          <button disabled={saving} className={primaryBtn}>
+            {saving ? "Connecting…" : "Connect Twilio"}
+          </button>
+        </form>
+      )}
     </Card>
   );
 }

@@ -14,6 +14,7 @@ import ImageStudio from "./sections/ImageStudio.jsx";
 import GoogleSeo from "./sections/GoogleSeo.jsx";
 import RoiDashboard from "./sections/RoiDashboard.jsx";
 import Reputation from "./sections/Reputation.jsx";
+import PhoneAgent from "./sections/PhoneAgent.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
@@ -225,6 +226,9 @@ export default function App() {
               )}
               {section === "reputation" && (
                 <Reputation brandId={selectedBrandId} />
+              )}
+              {section === "phone" && (
+                <PhoneAgent brandId={selectedBrandId} />
               )}
               {section === "settings" && (
                 <Settings

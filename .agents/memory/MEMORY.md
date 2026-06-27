@@ -2,3 +2,5 @@
 - [EchoAI test-brand workflow](echoai-test-brand.md) — admin account has no brand; create a throwaway brand, seed real rows, test, then delete everything.
 - [EchoAI client api.js body](echoai-client-api.md) — request() already JSON.stringifies body; pass plain objects, never pre-stringify, or the dashboard 400s (curl still passes).
 - [EchoAI Google review replies](echoai-google-reviews.md) — store the full v4 resource path in reviews.external_id, not the bare reviewId, or replies can't be posted via API.
+- [Unique-index migration upgrade trap](unique-index-migration-upgrade.md) — CREATE UNIQUE INDEX IF NOT EXISTS no-ops on a same-named NON-unique index; DROP first to force the upgrade.
+- [Twilio webhook error contract](twilio-webhook-error-contract.md) — voice webhooks must always return valid TwiML 200 even on error; only the auth JSON routes map upstream failures to 502.
