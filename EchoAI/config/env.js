@@ -41,6 +41,11 @@ const FEATURES = [
     vars: ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"],
   },
   {
+    name: "Google integration (OAuth — Business Profile, Ads, Analytics, Search Console)",
+    vars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    optional: ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_REDIRECT_URI"],
+  },
+  {
     name: "Web push notifications (VAPID)",
     vars: ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"],
   },

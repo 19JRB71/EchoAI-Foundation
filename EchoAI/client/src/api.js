@@ -234,6 +234,35 @@ export const api = {
   deleteImage: (imageId) =>
     request(`/api/images/${imageId}`, { method: "DELETE" }),
 
+  // Google integration (OAuth — Business Profile, Ads, Analytics, Search Console)
+  getGoogleStatus: () => request("/api/google/status"),
+  // Authenticated initiation: returns the Google consent URL to navigate to.
+  // Keeps the bearer token in the Authorization header (not the URL).
+  startGoogleOAuth: () =>
+    request("/api/google/oauth/initiate", { method: "POST" }),
+  disconnectGoogle: () =>
+    request("/api/google/disconnect", { method: "POST" }),
+  getGoogleAnalytics: () => request("/api/google/analytics"),
+  getGoogleBusinessProfile: () => request("/api/google/business-profile"),
+  getGoogleAdsPerformance: () => request("/api/google/ads/performance"),
+
+  // SEO tools (AI SEO content + keyword research)
+  generateSeoContent: ({ brandId, keyword, contentType }) =>
+    request("/api/seo/generate", {
+      method: "POST",
+      body: { brandId, keyword, contentType },
+    }),
+  getKeywordSuggestions: (topic) =>
+    request("/api/seo/keywords", { method: "POST", body: { topic } }),
+  saveSeoContent: ({ brandId, keyword, contentType, content, seoScore }) =>
+    request("/api/seo", {
+      method: "POST",
+      body: { brandId, keyword, contentType, content, seoScore },
+    }),
+  getSeoContent: (brandId) => request(`/api/seo/${brandId}`),
+  deleteSeoContent: (contentId) =>
+    request(`/api/seo/${contentId}`, { method: "DELETE" }),
+
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>
     request("/api/demo/request", {

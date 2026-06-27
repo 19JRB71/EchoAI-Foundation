@@ -291,6 +291,43 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   and onboarding `onboarding/steps/StepFacebook.jsx`. Dependencies added to
   `EchoAI/package.json`: `express-session`, `connect-pg-simple`.
 
+### Google integration & SEO tools subsystem
+
+- **Google OAuth** follows the shared EchoAI OAuth convention (see Facebook
+  subsystem above): auth-POST `/oauth/initiate` returns `{ authUrl }`; no-auth
+  GET `/oauth/callback` validates the session CSRF `state`, exchanges the code,
+  and AES-256-GCM-encrypts the access + refresh tokens into the user-scoped
+  `google_integrations` table (UNIQUE `user_id`). Requests `access_type=offline`
+  + `prompt=consent`. On reconnect the refresh token is preserved via
+  `COALESCE`; if NO refresh token ends up stored, the row is marked
+  `connection_status='error'` and the user is redirected to re-consent (never
+  falsely reported `connected`).
+- Routes mounted at `/api/google` (**auth-only, NOT lockout-gated**):
+  `POST /oauth/initiate`, `GET /oauth/callback`, `GET /status`,
+  `POST /disconnect`, and real read endpoints `GET /business-profile`,
+  `GET /analytics`, `GET /ads`, `GET /performance/:brandId`. `getStatus` never
+  returns tokens — only the linked account email + per-service flags
+  (businessProfile/googleAds/googleAnalytics/searchConsole) derived from the
+  granted scope. Config-gated via `config/google.js` (`oauthConfigured()` needs
+  `GOOGLE_CLIENT_ID`+`GOOGLE_CLIENT_SECRET`; `adsConfigured()` adds
+  `GOOGLE_ADS_DEVELOPER_TOKEN`): unset → `initiate` 503, `status`
+  `configured:false`. Upstream Google failures → 502, not-connected → 400.
+  Access tokens are auto-refreshed (`refreshAccessToken`) before each API call.
+- **SEO tools** routes mounted at `/api/seo` (**auth + lockout**):
+  `POST /generate` (brandId + keyword + contentType →
+  blog_post|landing_page|product_description, returns title/metaDescription/
+  headers/body/internalLinks/seoScore), `POST /keywords` (topic → ranked
+  keyword suggestions with volume/intent — no brand required),
+  `POST /` (save), `GET /:brandId` (list), `DELETE /:contentId` (ownership via
+  join to `brands`). AI lives in `prompts/seoContentPrompt.js` (Anthropic
+  `MODEL`); upstream AI failures map to **502**. Saved content is brand-scoped
+  in `seo_content` (migration `models/018_google_seo.sql`).
+- The customer dashboard exposes both via a **Google & SEO** sidebar section
+  (`client/src/sections/GoogleSeo.jsx` + `client/src/sections/googleseo/*`) with
+  four tabs: Google Connect (`components/GoogleConnect.jsx`, mirrors
+  `FacebookConnect`), SEO Content Generator, Keyword Research, and Google
+  Analytics. Amber-500 accent.
+
 ### Production hardening subsystem
 
 - `config/env.js` `validateEnv()` runs at boot (first thing in `server.js`):
