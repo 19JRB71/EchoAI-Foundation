@@ -26,7 +26,11 @@ function defaultScheduleValue() {
   )}:${pad(d.getMinutes())}`;
 }
 
-export default function ContentGenerator({ brandId }) {
+export default function ContentGenerator({
+  brandId,
+  attachedImage,
+  onClearAttachedImage,
+}) {
   const [topic, setTopic] = useState("");
   const [selected, setSelected] = useState(["facebook"]);
   const [loading, setLoading] = useState(false);
@@ -118,6 +122,29 @@ export default function ContentGenerator({ brandId }) {
 
   return (
     <div className="space-y-6">
+      {attachedImage && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+          <img
+            src={attachedImage.image_url}
+            alt="Attached"
+            className="h-16 w-16 shrink-0 rounded-lg border border-gray-800 object-cover"
+          />
+          <div className="flex-1 text-sm text-amber-200">
+            <p className="font-medium">Image attached from Image Studio</p>
+            <p className="text-xs text-amber-300/80">
+              Generate copy for this image, then schedule your post.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onClearAttachedImage?.()}
+            className="rounded-lg border border-amber-500/40 px-2 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/20"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+
       <form
         onSubmit={handleGenerate}
         className="space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm"

@@ -11,8 +11,9 @@ const TABS = [
   { key: "performance", label: "Performance" },
 ];
 
-export default function SocialMedia({ brandId }) {
-  const [tab, setTab] = useState("calendar");
+export default function SocialMedia({ brandId, prefillImage, onPrefillConsumed }) {
+  // Open the generator tab when an image was handed off from Image Studio.
+  const [tab, setTab] = useState(prefillImage ? "generate" : "calendar");
 
   return (
     <div className="space-y-6">
@@ -41,7 +42,13 @@ export default function SocialMedia({ brandId }) {
           </div>
 
           {tab === "calendar" && <ContentCalendar brandId={brandId} />}
-          {tab === "generate" && <ContentGenerator brandId={brandId} />}
+          {tab === "generate" && (
+            <ContentGenerator
+              brandId={brandId}
+              attachedImage={prefillImage}
+              onClearAttachedImage={onPrefillConsumed}
+            />
+          )}
           {tab === "accounts" && <ConnectedAccounts brandId={brandId} />}
           {tab === "performance" && <Performance brandId={brandId} />}
         </>

@@ -10,6 +10,7 @@ import Campaigns from "./sections/Campaigns.jsx";
 import SocialMedia from "./sections/SocialMedia.jsx";
 import VideoContent from "./sections/VideoContent.jsx";
 import EmailMarketing from "./sections/EmailMarketing.jsx";
+import ImageStudio from "./sections/ImageStudio.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
@@ -25,6 +26,13 @@ export default function App() {
   // null = unknown (still loading the profile), true/false once known.
   const [onboardingCompleted, setOnboardingCompleted] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  // Image handed off from Image Studio to the Social Media generator.
+  const [socialPrefillImage, setSocialPrefillImage] = useState(null);
+
+  function handleUseImageInSocial(image) {
+    setSocialPrefillImage(image);
+    setSection("social");
+  }
 
   const handleLogout = useCallback(() => {
     clearToken();
@@ -139,10 +147,22 @@ export default function App() {
               {section === "overview" && <Overview brandId={selectedBrandId} />}
               {section === "leads" && <Leads brandId={selectedBrandId} />}
               {section === "campaigns" && <Campaigns />}
-              {section === "social" && <SocialMedia brandId={selectedBrandId} />}
+              {section === "social" && (
+                <SocialMedia
+                  brandId={selectedBrandId}
+                  prefillImage={socialPrefillImage}
+                  onPrefillConsumed={() => setSocialPrefillImage(null)}
+                />
+              )}
               {section === "video" && <VideoContent brandId={selectedBrandId} />}
               {section === "email" && (
                 <EmailMarketing brandId={selectedBrandId} />
+              )}
+              {section === "image" && (
+                <ImageStudio
+                  brandId={selectedBrandId}
+                  onUseInSocial={handleUseImageInSocial}
+                />
               )}
               {section === "settings" && (
                 <Settings

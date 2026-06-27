@@ -115,6 +115,39 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   Active Campaigns (status + progress indicator + Send Next Email), and
   Performance (open/click/unsubscribe rates table).
 
+### AI image generation subsystem (Image Studio)
+
+- Routes mounted at `/api/images` (all auth + lockout protected): `POST /generate`
+  (purpose + description → N variations, default 1, capped at 3),
+  `POST /ad-set` (brandId + campaignGoal → 3 Facebook-ad variations),
+  `POST /` (save), `GET /:brandId` (list, grouped by purpose),
+  `DELETE /:imageId` (ownership via `DELETE … USING brands`).
+- `prompts/imagePromptBuilder.js` maps each **purpose**
+  (facebook_ad / instagram_post / twitter_post / linkedin_post / email_header /
+  youtube_thumbnail) to a platform + the DALL-E size matching its aspect ratio,
+  and builds a brand-aware prompt. DALL-E 3 only supports `n=1`, so 3 variations
+  = 3 parallel `openai.images.generate` calls with different `VARIANT_STYLES`.
+- **DALL-E URLs expire (~1-2h), so images are persisted to disk at save time**:
+  `saveImage` downloads the bytes → writes `EchoAI/uploads/images/<uuid>.png` →
+  stores the permanent relative URL `/uploads/images/<file>` in the `images`
+  table (migration `models/015_images.sql`). `server.js` serves these via
+  `app.use("/uploads", express.static(...))` **before** the SPA fallback.
+- **SSRF guardrail**: the save URL comes from the client, so `persistImage`
+  accepts **https only** on an allowlisted host suffix
+  (`.blob.core.windows.net`, `.openai.com`, `.oaiusercontent.com`), with an
+  `AbortController` timeout + content-type/size caps. Do not regress this.
+- Upstream OpenAI billing/rate errors map to **502**; a failed save download
+  (expired link) also returns 502.
+- The customer dashboard exposes this via an **Image Studio** sidebar section
+  (`client/src/sections/ImageStudio.jsx` + `client/src/sections/image/*`) with
+  two tabs: AI Image Generator (3 variations side by side, each Save / Use in
+  Social / Download) and Image Library (grouped + filterable).
+- **"Use in Social Post" is an honest handoff**: `social_posts` has no media
+  column, so the image is saved then handed to the Social Media AI Content
+  Generator as an attached reference (App-level `socialPrefillImage` →
+  `SocialMedia prefillImage` → `ContentGenerator attachedImage`). It does NOT
+  publish media through the scheduler.
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._

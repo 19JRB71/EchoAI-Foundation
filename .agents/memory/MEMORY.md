@@ -1,3 +1,1 @@
-- [Social connect endpoint 502 contract](social-connect-contract.md) — POST /api/social/connect stores creds then returns 502 on verify-fail; clients must treat 502 as "stored, needs attention", not failure.
-- [EchoAI black & gold theme contrast](echoai-theme-contrast.md) — gold buttons need dark text; amber text on white must be amber-700+; bright amber only on dark surfaces.
-- [Email campaign send idempotency](email-campaign-sends.md) — send-next-email must be FOR UPDATE + unique-index guarded; mount at /api/email-campaigns (not /api/email, the admin route).
+- [Image Studio (DALL-E)](image-studio.md) — persist generated images at save time (URLs expire); locked-down server download (allowlist + size/time caps) to avoid SSRF.

@@ -189,6 +189,26 @@ export const api = {
   getEmailCampaignPerformance: (brandId) =>
     request(`/api/email-campaigns/performance/${brandId}`),
 
+  // Image Studio (AI image generation)
+  generateImage: ({ brandId, purpose, description, variations }) =>
+    request("/api/images/generate", {
+      method: "POST",
+      body: { brandId, purpose, description, variations },
+    }),
+  generateAdCreativeSet: ({ brandId, campaignGoal, purpose }) =>
+    request("/api/images/ad-set", {
+      method: "POST",
+      body: { brandId, campaignGoal, purpose },
+    }),
+  saveImage: ({ brandId, purpose, prompt, imageUrl, platform }) =>
+    request("/api/images", {
+      method: "POST",
+      body: { brandId, purpose, prompt, imageUrl, platform },
+    }),
+  getImages: (brandId) => request(`/api/images/${brandId}`),
+  deleteImage: (imageId) =>
+    request(`/api/images/${imageId}`, { method: "DELETE" }),
+
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>
     request("/api/demo/request", {
