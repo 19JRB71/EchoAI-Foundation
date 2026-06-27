@@ -328,6 +328,34 @@ and scheduled posting (facebook/instagram/tiktok/linkedin/twitter/youtube).
   `FacebookConnect`), SEO Content Generator, Keyword Research, and Google
   Analytics. Amber-500 accent.
 
+### Customer ROI Dashboard subsystem
+
+- Routes mounted at `/api/roi` (**auth + lockout**): `GET /:brandId`
+  (full ROI breakdown), `GET /:brandId/history` (12 weekly snapshots),
+  `POST /:brandId/report` (AI monthly report). All guard ownership via
+  `getOwnedBrand(userId, brandId)` → 404 on foreign brand.
+- **All figures derive from REAL platform data** — `leads`, `campaigns`,
+  `social_posts` (published), `email_sends`+`email_campaigns`, `analytics` —
+  multiplied by **industry-average constants in `config/roiModel.js`** (the single
+  source of truth: leadValue 75, hotLeadValue 350, hourlyRate 60, hours-per-task,
+  reachPerPost, fallbackMonthlyPrice). Activity counts are real; monetary value is
+  an *estimate*, so `computeRoi` returns the full `assumptions` object and the
+  client shows a disclaimer. Don't hardcode multipliers in the controller.
+- `getRoiHistory` recomputes 12 weekly buckets from real aggregates
+  (`date_trunc('week', …)::date` = Monday) and **upserts** them into
+  `roi_snapshots` (`ON CONFLICT (brand_id, week_date)`), so the table mirrors the
+  latest data rather than being append-only. Migration
+  `models/019_roi_snapshots.sql` (applied via `psql … -f`).
+- `POST /:brandId/report` (`prompts/roiReportPrompt.js`, Anthropic `MODEL`)
+  generates a personalized monthly summary grounded in the computed breakdown +
+  history; upstream AI failures map to **502**.
+- The customer dashboard exposes this via an **ROI Dashboard** sidebar section
+  (`client/src/sections/RoiDashboard.jsx` + `components/RoiTrendChart.jsx`,
+  amber-500): headline 4-big-number card (value generated / hours saved / money
+  saved / ROI %), 12-week CSS trend chart, detailed breakdown grid, and a
+  Generate Monthly Report button + **Download PDF** (opens a print window with
+  escaped HTML → browser "Save as PDF"; no PDF lib added).
+
 ### Production hardening subsystem
 
 - `config/env.js` `validateEnv()` runs at boot (first thing in `server.js`):

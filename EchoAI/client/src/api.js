@@ -263,6 +263,12 @@ export const api = {
   deleteSeoContent: (contentId) =>
     request(`/api/seo/${contentId}`, { method: "DELETE" }),
 
+  // Customer ROI Dashboard
+  getRoi: (brandId) => request(`/api/roi/${brandId}`),
+  getRoiHistory: (brandId) => request(`/api/roi/${brandId}/history`),
+  generateRoiReport: (brandId) =>
+    request(`/api/roi/${brandId}/report`, { method: "POST" }),
+
   // Demo request (public — landing-page visitors have no account yet)
   requestDemo: ({ name, businessType, phone, email }) =>
     request("/api/demo/request", {

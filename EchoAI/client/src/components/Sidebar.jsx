@@ -7,6 +7,7 @@ const NAV = [
   { key: "email", label: "Email Marketing", icon: "email" },
   { key: "image", label: "Image Studio", icon: "image" },
   { key: "googleseo", label: "Google & SEO", icon: "googleseo" },
+  { key: "roi", label: "ROI Dashboard", icon: "roi" },
   { key: "settings", label: "Settings", icon: "settings" },
 ];
 
@@ -96,6 +97,16 @@ function NavIcon({ name }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+          />
+        </svg>
+      );
+    case "roi":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 18L9 11.25l3.75 3.75L21.75 6M21.75 6h-4.5m4.5 0v4.5"
           />
         </svg>
       );

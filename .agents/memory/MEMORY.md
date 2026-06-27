@@ -1,1 +1,2 @@
-- [EchoAI OAuth conventions](echoai-oauth.md) — how Facebook/Google OAuth integrations are wired (auth-POST initiate, session CSRF, offline-access guard).
+- [EchoAI ROI model](echoai-roi-model.md) — ROI value figures are industry-average estimates applied to real activity, never stored as "truth"; keep the assumptions object in the payload.
+- [EchoAI test-brand workflow](echoai-test-brand.md) — admin account has no brand; create a throwaway brand, seed real rows, test, then delete everything.
