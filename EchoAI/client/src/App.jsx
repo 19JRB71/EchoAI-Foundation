@@ -20,6 +20,7 @@ import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
 import Appointments from "./sections/Appointments.jsx";
 import FollowUps from "./sections/FollowUps.jsx";
+import SmsMarketing from "./sections/SmsMarketing.jsx";
 import ChatbotSetup from "./sections/ChatbotSetup.jsx";
 import Feedback from "./sections/Feedback.jsx";
 import ZapierIntegration from "./sections/ZapierIntegration.jsx";
@@ -432,6 +433,8 @@ export default function App() {
                 )}
               {section === "followups" &&
                 gate("followups", <FollowUps brandId={selectedBrandId} />)}
+              {section === "sms" &&
+                gate("sms", <SmsMarketing brandId={selectedBrandId} />)}
               {section === "chatbot" && (
                 <ChatbotSetup brandId={selectedBrandId} />
               )}

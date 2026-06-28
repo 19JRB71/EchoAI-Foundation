@@ -298,3 +298,47 @@ the project root `replit.md` — read that first; this file expands each subsyst
   members table, owner/admin only) surfaced as Settings **Team** tab (Billing+Team
   gated to owner/admin); onboarding **StepTeam** (step 4, skippable); App.jsx reads
   workspace context + consumes `?invite=` after login; Sidebar shows a role badge.
+
+### Two-way SMS marketing subsystem (`/api/sms`)
+
+- **Pro-gated, brand-scoped, sends over the brand's own Twilio number.** Route
+  order is the standard `auth → lockout → featureGate("sms_marketing") →
+  denyViewerMutations`, **except** the public `POST /inbound` webhook, which is
+  mounted **before** that middleware stack (Twilio cannot send a JWT). Every
+  authed route resolves the brand via `getOwnedBrand(userId, brandId)`; the
+  per-brand Twilio creds come from `twilio_config` (auth token AES-decrypted).
+- **AI agents (Anthropic, real, validated, 502 on upstream error).**
+  `prompts/smsMarketingPrompt.js`: `generateSmsVariations` returns **5** distinct
+  SMS drafts (rejected if empty/not 5 non-empty strings); `generateSmsAutoReply`
+  returns `{ reply, temperature }` for inbound auto-responses (reply must be a
+  non-empty string, temperature constrained to the lead enum). Both map upstream
+  billing/rate/5xx to **502** via the shared `handleAiError`.
+- **Opt-out is global and authoritative.** `utils/smsOptOut.js` canonicalizes via
+  `normalizeE164` and reads/writes `sms_opt_outs` (UNIQUE `brand_id+phone`).
+  `isOptedOut` is checked at **every** outbound SMS site — campaign send, the
+  inbound auto-reply path, **and the three pre-existing senders**
+  (`followUpController.deliverTouchpoint` → skip, `appointmentController`
+  confirmations → silent return, `feedbackController.dispatchSurvey` → 409). A
+  contact who texts **STOP** is opted out everywhere instantly; **START** removes
+  the row (also exposed as owner-initiated `POST /resubscribe`). **Regression
+  watch:** any new outbound SMS must call `isOptedOut` first.
+- **Inbound webhook flow.** `handleInbound` identifies the brand by
+  `twilio_config.phone_number = normalizeE164(req.body.To)` (joined to
+  `brands`/owner), **validates the Twilio signature** against
+  `${getPublicBaseUrl(req)}/api/sms/inbound`, handles STOP/START keywords first,
+  else find-or-creates a lead by phone (app-level dedup), records the inbound
+  message, generates an AI reply, returns it as TwiML `MessagingResponse`, and
+  bumps the conversation `reply_count`. On a non-hot→hot temperature transition it
+  fires the **dual-channel hot-lead alert** (email + web push + mobile push). The
+  webhook always returns 200 (TwiML) even on internal error, matching the phone
+  agent convention.
+- **Persistence & concurrency.** `createCampaign` queues per-recipient
+  `sms_messages` rows inside a `db.getClient()` transaction; `sendCampaign`
+  delivers and tracks `recipient/delivered/reply` counts. `direction` is an enum
+  (`inbound`/`outbound`). Migration `models/035_sms_marketing.sql`
+  (`sms_campaigns`, `sms_messages`, `sms_opt_outs`; idempotent `IF NOT EXISTS`).
+- **Client.** `client/src/sections/SmsMarketing.jsx` — four tabs (Campaigns w/
+  AI-assisted builder, Conversations live thread + manual reply, Contacts w/
+  re-subscribe, Analytics). `api.js` SMS block; `lib/tiers.js`
+  `SECTION_GATES`/`SECTION_TIERS` `sms:"pro"`; Sidebar marketing nav item +
+  `NavIcon` `sms` case; App.jsx gates the section.

@@ -3,6 +3,7 @@ const { anthropic, MODEL } = require("../config/anthropic");
 const { sendEmail } = require("../utils/email");
 const { buildClient, getPublicBaseUrl } = require("../config/twilio");
 const { decrypt } = require("../utils/encryption");
+const { isOptedOut } = require("../utils/smsOptOut");
 const {
   SURVEY_DESIGNER_SYSTEM_PROMPT,
   FEEDBACK_ANALYST_SYSTEM_PROMPT,
@@ -305,6 +306,11 @@ async function dispatchSurvey({ survey, brand, email, phone, channel, leadId, re
   }
 
   // SMS via the brand's own Twilio number.
+  if (await isOptedOut(brand.brand_id, phone)) {
+    const err = new Error("This contact has opted out of SMS");
+    err.statusCode = 409;
+    throw err;
+  }
   const cfg = await getTwilioConfig(brand.brand_id);
   if (!cfg) {
     const err = new Error("This brand has no connected Twilio number for SMS");

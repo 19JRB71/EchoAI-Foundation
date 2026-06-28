@@ -74,6 +74,7 @@ const NAV_GROUPS = [
       { key: "social", label: "Social Media", icon: "social" },
       { key: "contentcalendar", label: "Content Calendar", icon: "contentcalendar" },
       { key: "email", label: "Email Marketing", icon: "email" },
+      { key: "sms", label: "SMS Marketing", icon: "sms" },
       { key: "video", label: "Video Content", icon: "video" },
       { key: "followups", label: "Follow-Up Sequences", icon: "followups" },
     ],
@@ -225,6 +226,16 @@ function NavIcon({ name }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+          />
+        </svg>
+      );
+    case "sms":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
           />
         </svg>
       );

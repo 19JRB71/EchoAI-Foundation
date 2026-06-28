@@ -535,6 +535,35 @@ export const api = {
   cancelFollowUp: (sequenceId) =>
     request(`/api/follow-ups/${sequenceId}/cancel`, { method: "POST" }),
 
+  // Two-Way SMS Marketing
+  generateSmsMessages: ({ brandId, goal, audienceSegment, callToAction }) =>
+    request("/api/sms/generate", {
+      method: "POST",
+      body: { brandId, goal, audienceSegment, callToAction },
+    }),
+  createSmsCampaign: ({ brandId, campaignName, messageContent, segmentFilter, leadIds, scheduledAt }) =>
+    request("/api/sms/campaigns", {
+      method: "POST",
+      body: { brandId, campaignName, messageContent, segmentFilter, leadIds, scheduledAt },
+    }),
+  sendSmsCampaign: (campaignId) =>
+    request(`/api/sms/campaigns/${campaignId}/send`, { method: "POST" }),
+  getSmsCampaigns: (brandId) => request(`/api/sms/campaigns/${brandId}`),
+  getSmsCampaignDetail: (campaignId) => request(`/api/sms/campaign/${campaignId}`),
+  getSmsConversations: (brandId) => request(`/api/sms/conversations/${brandId}`),
+  sendSmsReply: ({ brandId, leadId, message }) =>
+    request("/api/sms/reply", {
+      method: "POST",
+      body: { brandId, leadId, message },
+    }),
+  getSmsContacts: (brandId) => request(`/api/sms/contacts/${brandId}`),
+  resubscribeSmsContact: ({ brandId, phone }) =>
+    request("/api/sms/resubscribe", {
+      method: "POST",
+      body: { brandId, phone },
+    }),
+  getSmsAnalytics: (brandId) => request(`/api/sms/analytics/${brandId}`),
+
   // AI Website Chatbot (embeddable widget)
   getChatbotConfigForOwner: (brandId) =>
     request(`/api/chatbot/admin-config/${brandId}`),

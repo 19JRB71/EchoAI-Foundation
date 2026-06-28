@@ -3,6 +3,7 @@ const { sendEmail } = require("../utils/email");
 const { normalizeE164 } = require("../utils/phone");
 const { buildClient } = require("../config/twilio");
 const { decrypt } = require("../utils/encryption");
+const { isOptedOut } = require("../utils/smsOptOut");
 const googleController = require("./googleController");
 const calendar = require("../config/googleCalendar");
 const pushController = require("./pushController");
@@ -354,6 +355,7 @@ async function sendConfirmations(appt, brand, timeZone) {
   // SMS the lead via the brand's own Twilio number (if configured).
   if (appt.contact_phone) {
     try {
+      if (await isOptedOut(brand.brand_id, appt.contact_phone)) return;
       const cfg = await getTwilioConfig(brand.brand_id);
       if (cfg) {
         const client = buildClient(cfg.accountSid, cfg.authToken);

@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { sendEmail } = require("../utils/email");
 const { buildClient, getPublicBaseUrl } = require("../config/twilio");
 const { decrypt } = require("../utils/encryption");
+const { isOptedOut } = require("../utils/smsOptOut");
 const { meetsTier } = require("../config/tiers");
 const {
   generateFollowUpSequence,
@@ -518,6 +519,9 @@ async function deliverTouchpoint(tp, lead, brand) {
 
   if (tp.channel === "sms") {
     if (!lead.phone) return { status: "skipped", reason: "no phone on file" };
+    if (await isOptedOut(brand.brand_id, lead.phone)) {
+      return { status: "skipped", reason: "opted out of SMS" };
+    }
     const cfg = await getTwilioConfig(brand.brand_id);
     if (!cfg) return { status: "skipped", reason: "Twilio not connected" };
     const client = buildClient(cfg.accountSid, cfg.authToken);

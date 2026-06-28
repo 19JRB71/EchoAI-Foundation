@@ -51,6 +51,7 @@ const affiliateRoutes = require("./routes/affiliateRoutes");
 const teamRoutes = require("./routes/teamRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const followUpRoutes = require("./routes/followUpRoutes");
+const smsRoutes = require("./routes/smsRoutes");
 
 // Mobile API (v2) — lean payloads, cursor pagination, standard envelopes.
 const mobileAuthRoutes = require("./routes/mobileAuthRoutes");
@@ -214,6 +215,7 @@ app.use("/api/affiliates", affiliateRoutes);
 app.use("/api/team", teamRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/follow-ups", followUpRoutes);
+app.use("/api/sms", smsRoutes);
 
 // Mobile API (v2). Mounted under /api so the rate limiter covers it, and before
 // the SPA fallback. /api/v2/auth + /api/v2/push are named per the mobile spec;

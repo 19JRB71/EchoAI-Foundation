@@ -35,6 +35,7 @@ export const SECTION_GATES = {
   appointments: "pro",
   followups: "pro",
   contentcalendar: "pro",
+  sms: "pro",
   // Enterprise
   feedback: "enterprise",
   affiliate: "enterprise",
@@ -113,6 +114,7 @@ export const SECTION_TIERS = {
   reputation: "pro",
   zapier: "pro",
   sales: "pro",
+  sms: "pro",
   // Enterprise
   feedback: "enterprise",
   affiliate: "enterprise",
