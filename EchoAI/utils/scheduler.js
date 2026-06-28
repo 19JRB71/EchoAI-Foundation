@@ -15,6 +15,7 @@ const {
   generateFeedbackReportForBrand,
 } = require("../controllers/feedbackController");
 const { executeDueTouchpoints } = require("../controllers/followUpController");
+const { sendDueDripEmails } = require("../controllers/emailMarketingController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -160,9 +161,16 @@ function startScheduler() {
     });
   });
 
+  // Top of every hour: send any due drip-sequence emails.
+  cron.schedule("0 * * * *", () => {
+    sendDueDripEmails().catch((err) => {
+      console.error("Scheduled drip email run errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
-      "follow-up touchpoints: every 5 minutes)."
+      "follow-up touchpoints: every 5 minutes; drip emails: hourly)."
   );
 }
 

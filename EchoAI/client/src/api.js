@@ -376,22 +376,43 @@ export const api = {
       body: { affiliateId, status },
     }),
 
-  // Email marketing (AI Email Campaign Agent)
-  generateEmailSequence: ({ brandId, goal, targetAudience, numEmails }) =>
-    request("/api/email-campaigns/generate", {
+  // Email marketing (AI Email Campaign Writer + Drip Sequence Designer)
+  generateCampaignEmail: ({ brandId, goal, audienceSegment, topic }) =>
+    request("/api/email-marketing/generate-email", {
       method: "POST",
-      body: { brandId, goal, targetAudience, numEmails },
+      body: { brandId, goal, audienceSegment, topic },
     }),
-  saveEmailCampaign: ({ brandId, campaignName, goal, emailSequence }) =>
-    request("/api/email-campaigns", {
+  generateDripSequence: ({ brandId, goal, audienceSegment, numEmails }) =>
+    request("/api/email-marketing/generate-drip", {
       method: "POST",
-      body: { brandId, campaignName, goal, emailSequence },
+      body: { brandId, goal, audienceSegment, numEmails },
+    }),
+  createEmailCampaign: ({ brandId, campaignName, goal, segment, email }) =>
+    request("/api/email-marketing/campaigns", {
+      method: "POST",
+      body: { brandId, campaignName, goal, segment, email },
+    }),
+  createDripCampaign: ({ brandId, campaignName, goal, segment, emails }) =>
+    request("/api/email-marketing/drip", {
+      method: "POST",
+      body: { brandId, campaignName, goal, segment, emails },
     }),
   sendEmailCampaign: (campaignId) =>
-    request(`/api/email-campaigns/${campaignId}/send`, { method: "POST" }),
-  getEmailCampaigns: (brandId) => request(`/api/email-campaigns/${brandId}`),
-  getEmailCampaignPerformance: (brandId) =>
-    request(`/api/email-campaigns/performance/${brandId}`),
+    request(`/api/email-marketing/campaigns/${campaignId}/send`, { method: "POST" }),
+  pauseEmailCampaign: (campaignId) =>
+    request(`/api/email-marketing/campaigns/${campaignId}/pause`, { method: "POST" }),
+  resumeEmailCampaign: (campaignId) =>
+    request(`/api/email-marketing/campaigns/${campaignId}/resume`, { method: "POST" }),
+  cancelEmailCampaign: (campaignId) =>
+    request(`/api/email-marketing/campaigns/${campaignId}`, { method: "DELETE" }),
+  getEmailCampaigns: (brandId) =>
+    request(`/api/email-marketing/campaigns/${brandId}`),
+  getEmailCampaignDetail: (campaignId) =>
+    request(`/api/email-marketing/campaign/${campaignId}`),
+  getEmailContacts: (brandId) =>
+    request(`/api/email-marketing/contacts/${brandId}`),
+  getEmailAnalytics: (brandId) =>
+    request(`/api/email-marketing/analytics/${brandId}`),
 
   // Image Studio (AI image generation)
   generateImage: ({ brandId, purpose, description, variations }) =>

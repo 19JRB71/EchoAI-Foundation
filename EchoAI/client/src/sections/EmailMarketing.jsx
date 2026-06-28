@@ -1,25 +1,34 @@
 import { useState } from "react";
-import CampaignGenerator from "./email/CampaignGenerator.jsx";
-import ActiveCampaigns from "./email/ActiveCampaigns.jsx";
-import Performance from "./email/Performance.jsx";
+import Campaigns from "./email/Campaigns.jsx";
+import DripSequences from "./email/DripSequences.jsx";
+import Contacts from "./email/Contacts.jsx";
+import Analytics from "./email/Analytics.jsx";
 
 const TABS = [
-  { key: "generate", label: "Campaign Generator" },
-  { key: "active", label: "Active Campaigns" },
-  { key: "performance", label: "Performance" },
+  { key: "campaigns", label: "Campaigns" },
+  { key: "drip", label: "Drip Sequences" },
+  { key: "contacts", label: "Contacts" },
+  { key: "analytics", label: "Analytics" },
 ];
 
 export default function EmailMarketing({ brandId }) {
-  const [tab, setTab] = useState("generate");
+  const [tab, setTab] = useState("campaigns");
   const [refreshKey, setRefreshKey] = useState(0);
+  const bump = () => setRefreshKey((k) => k + 1);
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-gray-100">Email Marketing</h2>
+      <div>
+        <h2 className="text-xl font-bold text-gray-100">Email Marketing</h2>
+        <p className="mt-1 text-sm text-gray-400">
+          AI-written one-time email blasts and automated drip sequences sent to
+          your contacts, with open/click tracking and unsubscribe handling.
+        </p>
+      </div>
 
       {!brandId ? (
         <p className="text-sm text-gray-400">
-          Select or create a brand to build email campaigns.
+          Select or create a brand to start email marketing.
         </p>
       ) : (
         <>
@@ -39,18 +48,14 @@ export default function EmailMarketing({ brandId }) {
             ))}
           </div>
 
-          {tab === "generate" && (
-            <CampaignGenerator
-              brandId={brandId}
-              onSaved={() => setRefreshKey((k) => k + 1)}
-            />
+          {tab === "campaigns" && (
+            <Campaigns brandId={brandId} refreshKey={refreshKey} onChange={bump} />
           )}
-          {tab === "active" && (
-            <ActiveCampaigns brandId={brandId} refreshKey={refreshKey} />
+          {tab === "drip" && (
+            <DripSequences brandId={brandId} refreshKey={refreshKey} onChange={bump} />
           )}
-          {tab === "performance" && (
-            <Performance brandId={brandId} refreshKey={refreshKey} />
-          )}
+          {tab === "contacts" && <Contacts brandId={brandId} refreshKey={refreshKey} />}
+          {tab === "analytics" && <Analytics brandId={brandId} refreshKey={refreshKey} />}
         </>
       )}
     </div>

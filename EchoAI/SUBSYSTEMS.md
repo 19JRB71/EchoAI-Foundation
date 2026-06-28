@@ -342,3 +342,59 @@ the project root `replit.md` — read that first; this file expands each subsyst
   re-subscribe, Analytics). `api.js` SMS block; `lib/tiers.js`
   `SECTION_GATES`/`SECTION_TIERS` `sms:"pro"`; Sidebar marketing nav item +
   `NavIcon` `sms` case; App.jsx gates the section.
+
+### Email marketing subsystem (`/api/email-marketing`)
+
+- **Pro-gated, brand-scoped; supersedes the legacy `/api/email-campaigns`** (014,
+  Starter). The old backend is left mounted/intact but is no longer surfaced in
+  the UI — the reused `email` sidebar section now renders the new 4-tab
+  `EmailMarketing.jsx`. New tables are **namespaced** (`email_marketing_*`) so
+  nothing collides with `email_campaigns`/`email_sends`.
+- **Route order.** Public, no-auth endpoints are declared **before** the
+  middleware stack so recipients can act straight from an email without a session:
+  `GET /open/:recipientId` (tracking pixel), `GET /click/:recipientId?url=`
+  (click tracker + 302 redirect), `GET|POST /unsubscribe?token=`. Everything else
+  is `auth → lockout → featureGate("email_marketing")` (standard order, never gate
+  before lockout).
+- **AI agents (Anthropic, real, validated, 502 on failure).**
+  `prompts/emailMarketingPrompt.js`: `generateCampaignEmail` returns ONE email
+  `{ subjectVariations[3], previewText, bodyHtml, bodyPlainText }`;
+  `generateDripSequence` returns an array (clamped 3–7) of those plus
+  `sendDelayDays`. Empty/malformed output throws `err.aiInvalid=true`; the
+  controller's `aiError` maps that (and SDK 4xx/5xx) to **502**, never a mock.
+- **Validation before persistence.** `validateEmailPayload` re-checks every
+  client-saved email (subject line + HTML body required; derives plain text from
+  HTML if missing; clamps `sendDelayDays ≥ 0`) so malformed data never reaches the
+  DB or SMTP. Drip create requires ≥2 emails and sorts steps by delay.
+- **Segments → leads.** `SEGMENTS` maps the UI filter to a leads WHERE fragment:
+  `all` (any lead w/ email), `hot`/`warm` (temperature), `cold` (=`tire_kicker`),
+  `customers` (=`conversion_status='converted'`). `seedRecipients` inserts one
+  recipient per **distinct, non-opted-out** lead email (`ON CONFLICT
+  (campaign_id, email_address) DO NOTHING` backstop).
+- **Sending & tracking.** `buildTrackedHtml` rewrites `href`s through the click
+  tracker, appends the open pixel, and adds the **unsubscribe footer** (token =
+  AES-GCM `encrypt({brandId,email})` from `utils/encryption.js`). One-time
+  `sendCampaign` locks the campaign row `FOR UPDATE` (no double-send), skips +
+  marks opt-outs at send time, and 502s if **zero** sent (SMTP misconfig).
+  `sendEmail` from `utils/email.js` (degrades when SMTP unset).
+- **Drip scheduler.** `utils/scheduler.js` runs `sendDueDripEmails` hourly
+  (`0 * * * *`). It selects due `pending` recipients of `sending` drip campaigns,
+  then claims each **`FOR UPDATE SKIP LOCKED`** in its own transaction so
+  overlapping ticks never double-send; sends the current step, advances
+  `current_step`/`next_send_at` to the next step's relative delay, completes the
+  recipient when the sequence is exhausted, re-checks opt-out each tick, and
+  leaves a row pending (rollback) on send failure to retry next tick.
+- **Opt-out is authoritative** (`email_opt_outs`, UNIQUE `brand_id+email_address`).
+  `isOptedOut` is checked at every send site (one-time send, drip tick).
+  `unsubscribe` decrypts the token, records the opt-out, and marks pending
+  recipient rows `unsubscribed`; GET renders a styled HTML page, POST returns JSON.
+- **Persistence.** Migration `models/037_email_marketing.sql` (idempotent):
+  `email_marketing_campaigns` (type `one-time`/`drip`, status enum, rollup
+  counts), `email_marketing_emails` (per-step subject/preview/html/plain/delay),
+  `email_marketing_recipients` (per-recipient delivery_status, current_step,
+  next_send_at, opened_at/clicked_at/unsubscribed_at), `email_opt_outs`.
+- **Client.** `client/src/sections/EmailMarketing.jsx` + `sections/email/*`
+  (Campaigns, DripSequences, Contacts, Analytics, `emailShared.js`). `api.js`
+  email-marketing block; `lib/tiers.js` `SECTION_GATES`/`SECTION_TIERS`
+  `email:"pro"`; App.jsx wraps the `email` section in `gate("email", …)`. The old
+  `sections/email/` sub-components were removed.

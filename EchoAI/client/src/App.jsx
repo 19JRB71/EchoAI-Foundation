@@ -408,9 +408,8 @@ export default function App() {
                 )}
               {section === "video" && gate("video", <VideoContent brandId={selectedBrandId} />)}
               {section === "sales" && gate("sales", <SalesScripts brandId={selectedBrandId} />)}
-              {section === "email" && (
-                <EmailMarketing brandId={selectedBrandId} />
-              )}
+              {section === "email" &&
+                gate("email", <EmailMarketing brandId={selectedBrandId} />)}
               {section === "image" &&
                 gate(
                   "image",

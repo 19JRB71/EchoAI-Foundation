@@ -37,6 +37,7 @@ export const SECTION_GATES = {
   followups: "pro",
   contentcalendar: "pro",
   sms: "pro",
+  email: "pro",
   // Enterprise
   feedback: "enterprise",
   affiliate: "enterprise",
@@ -99,7 +100,6 @@ export const SECTION_TIERS = {
   leads: "starter",
   campaigns: "starter",
   social: "starter",
-  email: "starter",
   googleseo: "starter",
   roi: "starter",
   chatbot: "starter",
@@ -116,6 +116,7 @@ export const SECTION_TIERS = {
   zapier: "pro",
   sales: "pro",
   sms: "pro",
+  email: "pro",
   // Enterprise
   feedback: "enterprise",
   affiliate: "enterprise",
