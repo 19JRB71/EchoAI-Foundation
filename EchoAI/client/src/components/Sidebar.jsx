@@ -1,46 +1,110 @@
+import { useState, useEffect } from "react";
 import { useBranding } from "../lib/BrandingContext.jsx";
-import { requiredTierForSection, meetsTier, tierName } from "../lib/tiers.js";
+import {
+  requiredTierForSection,
+  meetsTier,
+  tierName,
+  tierRank,
+  accentColor,
+  tierBadgeShort,
+} from "../lib/tiers.js";
 
-function LockIcon() {
+// Small colored "PRO" / "ENT" badge shown on items the user's plan can't access.
+// Color is the REQUIRED tier's accent (purple for pro, gold for enterprise).
+function LockBadge({ reqTier }) {
+  const color = accentColor(reqTier);
   return (
-    <svg
-      className="ml-auto hidden h-3.5 w-3.5 shrink-0 text-amber-400/80 md:block"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="currentColor"
+    <span
+      className="ml-auto inline-block shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold leading-none tracking-wide"
+      style={{ color, backgroundColor: `${color}22`, border: `1px solid ${color}55` }}
     >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25v-6.75a2.25 2.25 0 012.25-2.25z"
-      />
-    </svg>
+      {tierBadgeShort(reqTier)}
+    </span>
   );
 }
 
-const NAV = [
-  { key: "overview", label: "Dashboard", icon: "overview" },
-  { key: "leads", label: "Leads", icon: "leads" },
-  { key: "campaigns", label: "Campaigns", icon: "campaigns" },
-  { key: "adstudio", label: "Ad Studio", icon: "adstudio" },
-  { key: "social", label: "Social Media", icon: "social" },
-  { key: "video", label: "Video Content", icon: "video" },
-  { key: "sales", label: "Sales Scripts", icon: "sales" },
-  { key: "email", label: "Email Marketing", icon: "email" },
-  { key: "image", label: "Image Studio", icon: "image" },
-  { key: "googleseo", label: "Google & SEO", icon: "googleseo" },
-  { key: "roi", label: "ROI Dashboard", icon: "roi" },
-  { key: "reputation", label: "Reputation", icon: "reputation" },
-  { key: "phone", label: "Phone Agent", icon: "phone" },
-  { key: "appointments", label: "Appointments", icon: "appointments" },
-  { key: "followups", label: "Follow-Ups", icon: "followups" },
-  { key: "chatbot", label: "Website Chatbot", icon: "chatbot" },
-  { key: "feedback", label: "Feedback", icon: "feedback" },
-  { key: "zapier", label: "Zapier", icon: "zapier" },
-  { key: "affiliate", label: "Affiliate Program", icon: "affiliate" },
-  { key: "settings", label: "Settings", icon: "settings" },
+// Five collapsible navigation groups. Each item carries an explicit `accent`
+// tier used purely for color coding (highlight tint / left border). Gating —
+// whether an item shows a lock badge — is driven separately by SECTION_GATES.
+const NAV_GROUPS = [
+  {
+    key: "overview",
+    label: "Overview",
+    icon: "g-overview",
+    alwaysOpen: true,
+    items: [
+      { key: "overview", label: "Dashboard", icon: "overview", accent: null },
+      { key: "leads", label: "Leads", icon: "leads", accent: null },
+    ],
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    icon: "g-marketing",
+    items: [
+      { key: "campaigns", label: "Campaigns", icon: "campaigns", accent: "starter" },
+      { key: "adstudio", label: "Ad Studio", icon: "adstudio", accent: "pro" },
+      { key: "social", label: "Social Media", icon: "social", accent: "pro" },
+      { key: "contentcalendar", label: "Content Calendar", icon: "contentcalendar", accent: "pro" },
+      { key: "email", label: "Email Marketing", icon: "email", accent: "pro" },
+      { key: "video", label: "Video Content", icon: "video", accent: "pro" },
+      { key: "followups", label: "Follow-Up Sequences", icon: "followups", accent: "pro" },
+    ],
+  },
+  {
+    key: "customer",
+    label: "Customer Management",
+    icon: "g-customer",
+    items: [
+      { key: "phone", label: "Phone Agent", icon: "phone", accent: "pro" },
+      { key: "chatbot", label: "Website Chatbot", icon: "chatbot", accent: "pro" },
+      { key: "appointments", label: "Appointments", icon: "appointments", accent: "pro" },
+      { key: "reputation", label: "Reputation", icon: "reputation", accent: "pro" },
+      { key: "feedback", label: "Feedback", icon: "feedback", accent: "enterprise" },
+      { key: "zapier", label: "Zapier", icon: "zapier", accent: "pro" },
+    ],
+  },
+  {
+    key: "content",
+    label: "Content & Tools",
+    icon: "g-content",
+    items: [
+      { key: "sales", label: "Sales Scripts", icon: "sales", accent: "pro" },
+      { key: "image", label: "Image Studio", icon: "image", accent: "pro" },
+      { key: "googleseo", label: "Google & SEO", icon: "googleseo", accent: "pro" },
+    ],
+  },
+  {
+    key: "business",
+    label: "Business",
+    icon: "g-business",
+    items: [
+      { key: "roi", label: "ROI Dashboard", icon: "roi", accent: "pro" },
+      { key: "affiliate", label: "Affiliate Program", icon: "affiliate", accent: "enterprise" },
+      { key: "agency", label: "White Label", icon: "whitelabel", accent: "enterprise" },
+      { key: "settings", label: "Settings", icon: "settings", accent: null },
+    ],
+  },
 ];
+
+// Which group contains a given section key (for force-expanding the active group).
+function groupKeyForSection(sectionKey) {
+  for (const g of NAV_GROUPS) {
+    if (g.items.some((it) => it.key === sectionKey)) return g.key;
+  }
+  return null;
+}
+
+// The accent tier ('starter'|'pro'|'enterprise'|null) for a section — the single
+// source of truth for tier color coding. Used by the sidebar and by App.jsx to
+// tint the main content area for the section currently being viewed.
+export function accentTierForSection(sectionKey) {
+  for (const g of NAV_GROUPS) {
+    const it = g.items.find((i) => i.key === sectionKey);
+    if (it) return it.accent;
+  }
+  return null;
+}
 
 function NavIcon({ name }) {
   const common = {
@@ -266,9 +330,133 @@ function NavIcon({ name }) {
           />
         </svg>
       );
+    case "contentcalendar":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5M8.25 12.75h7.5M8.25 15.75h4.5"
+          />
+        </svg>
+      );
+    case "whitelabel":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"
+          />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+        </svg>
+      );
+    case "g-overview":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"
+          />
+        </svg>
+      );
+    case "g-marketing":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73"
+          />
+        </svg>
+      );
+    case "g-customer":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
+          />
+        </svg>
+      );
+    case "g-content":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"
+          />
+        </svg>
+      );
+    case "g-business":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"
+          />
+        </svg>
+      );
     default:
       return null;
   }
+}
+
+const LS_KEY = "echoai.sidebarGroups";
+
+// Resolve lock state for an item given the user's tier. Agency owners are never
+// locked out of White Label even if their plan rank is below enterprise.
+function isItemLocked(itemKey, { tier, isAgencyOwner }) {
+  if (itemKey === "agency" && isAgencyOwner) return false;
+  const reqTier = requiredTierForSection(itemKey);
+  return Boolean(reqTier && tier != null && !meetsTier(tier, reqTier));
+}
+
+// Count of items in a group currently locked for this user (group header hint).
+function groupLockCount(group, ctx) {
+  return group.items.filter((it) => isItemLocked(it.key, ctx)).length;
+}
+
+// Highest required tier among a group's locked items — drives the tier color of
+// the group header's "N locked" chip (purple for pro-locked, gold for ent-locked).
+function groupLockTier(group, ctx) {
+  let best = null;
+  for (const it of group.items) {
+    if (!isItemLocked(it.key, ctx)) continue;
+    const t = requiredTierForSection(it.key);
+    if (!best || tierRank(t) > tierRank(best)) best = t;
+  }
+  return best;
+}
+
+// A single nav row (shared by desktop list and mobile slide-up panel).
+function NavRow({ item, active, locked, brandTeal, onSelect }) {
+  const accent = item.accent ? accentColor(item.accent) : brandTeal;
+  const reqTier = requiredTierForSection(item.key);
+  return (
+    <button
+      onClick={() => onSelect(item.key)}
+      title={locked ? `${tierName(reqTier)} plan` : undefined}
+      style={
+        active
+          ? { backgroundColor: `${accent}22`, borderLeftColor: accent, color: accent }
+          : { borderLeftColor: "transparent" }
+      }
+      className={`flex w-full items-center gap-3 rounded-r-lg border-l-[3px] px-3 py-2 text-sm font-medium transition ${
+        active
+          ? "font-semibold"
+          : "text-gray-300 hover:bg-gray-800 hover:text-white"
+      }`}
+    >
+      <NavIcon name={item.icon} />
+      <span>{item.label}</span>
+      {locked && <LockBadge reqTier={reqTier} />}
+    </button>
+  );
 }
 
 export default function Sidebar({
@@ -284,81 +472,232 @@ export default function Sidebar({
 }) {
   const { branding } = useBranding();
   const isDefaultBrand = branding.agencyName === "EchoAI";
+  const brandTeal = branding.primaryColor || "#14B8A6";
+  const ctx = { tier, isAgencyOwner };
+  const activeGroup = groupKeyForSection(section);
 
-  let items = NAV;
-  if (isAgencyOwner) {
-    items = [...items, { key: "agency", label: "Agency Portal", icon: "admin" }];
+  // Persisted open/closed state per group. First load: only the group with the
+  // active section (plus always-open groups) is expanded to keep things compact.
+  const [openGroups, setOpenGroups] = useState(() => {
+    let stored = null;
+    try {
+      stored = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+    } catch {
+      stored = null;
+    }
+    const init = {};
+    for (const g of NAV_GROUPS) {
+      if (stored && typeof stored[g.key] === "boolean") init[g.key] = stored[g.key];
+      else init[g.key] = Boolean(g.alwaysOpen) || g.key === activeGroup;
+    }
+    return init;
+  });
+
+  // Mobile: which group's slide-up panel is open (null = none).
+  const [mobilePanel, setMobilePanel] = useState(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(openGroups));
+    } catch {
+      /* ignore quota / privacy-mode errors */
+    }
+  }, [openGroups]);
+
+  function toggleGroup(key) {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   }
-  if (isAdmin) {
-    items = [...items, { key: "admin", label: "Admin", icon: "admin" }];
+
+  function handleSelect(key) {
+    setMobilePanel(null);
+    onSelect(key);
   }
+
+  const logo = branding.logoUrl ? (
+    <img src={branding.logoUrl} alt={branding.agencyName} className="max-h-9 w-auto object-contain" />
+  ) : isDefaultBrand ? (
+    <span className="text-xl font-bold tracking-tight text-white">
+      Echo<span style={{ color: brandTeal }}>AI</span>
+    </span>
+  ) : (
+    <span className="text-xl font-bold tracking-tight text-white">{branding.agencyName}</span>
+  );
 
   return (
-    <aside className="flex w-full flex-row items-center justify-between gap-3 bg-black px-4 py-3 text-gray-100 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:py-6">
-      <div className="flex items-center md:mb-8">
-        {branding.logoUrl ? (
-          <img
-            src={branding.logoUrl}
-            alt={branding.agencyName}
-            className="max-h-9 w-auto object-contain"
-          />
-        ) : isDefaultBrand ? (
-          <span className="text-xl font-bold tracking-tight text-white">
-            Echo<span style={{ color: branding.primaryColor }}>AI</span>
-          </span>
-        ) : (
-          <span className="text-xl font-bold tracking-tight text-white">
-            {branding.agencyName}
-          </span>
+    <>
+      {/* ---------- Desktop sidebar ---------- */}
+      <aside className="hidden bg-black px-3 py-6 text-gray-100 md:flex md:h-screen md:w-64 md:flex-col md:overflow-y-auto">
+        <div className="mb-8 flex items-center px-2">{logo}</div>
+
+        {isTeamMember && (
+          <div className="mb-4 rounded-lg bg-gray-900 px-3 py-2 text-xs">
+            <div className="text-gray-500">
+              {ownerBusinessName ? `${ownerBusinessName} workspace` : "Team workspace"}
+            </div>
+            <div className="mt-0.5 font-semibold capitalize text-amber-300">
+              {workspaceRole} access
+            </div>
+          </div>
         )}
+
+        <nav className="flex flex-1 flex-col gap-3">
+          {NAV_GROUPS.map((group) => {
+            const open = Boolean(openGroups[group.key]) || group.key === activeGroup;
+            const lockCount = groupLockCount(group, ctx);
+            const lockTierColor = accentColor(groupLockTier(group, ctx));
+            const forced = group.key === activeGroup;
+            return (
+              <div key={group.key}>
+                <button
+                  onClick={() => !forced && toggleGroup(group.key)}
+                  className={`flex w-full items-center justify-between px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500 transition hover:text-gray-300 ${
+                    forced ? "cursor-default" : ""
+                  }`}
+                >
+                  <span>{group.label}</span>
+                  <span className="flex items-center gap-1.5">
+                    {lockCount > 0 && (
+                      <span
+                        className="rounded-full px-1.5 text-[10px] font-bold"
+                        style={{
+                          color: lockTierColor,
+                          backgroundColor: `${lockTierColor}22`,
+                        }}
+                      >
+                        {lockCount} locked
+                      </span>
+                    )}
+                    <svg
+                      className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-90" : ""}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2.5}
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </span>
+                </button>
+                {open && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {group.items.map((item) => (
+                      <NavRow
+                        key={item.key}
+                        item={item}
+                        active={section === item.key}
+                        locked={isItemLocked(item.key, ctx)}
+                        brandTeal={brandTeal}
+                        onSelect={handleSelect}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        {isAdmin && (
+          <button
+            onClick={() => handleSelect("admin")}
+            style={
+              section === "admin"
+                ? { backgroundColor: `${brandTeal}22`, borderLeftColor: brandTeal, color: brandTeal }
+                : { borderLeftColor: "transparent" }
+            }
+            className={`mt-3 flex w-full items-center gap-3 rounded-r-lg border-l-[3px] px-3 py-2 text-sm font-medium transition ${
+              section === "admin" ? "font-semibold" : "text-gray-300 hover:bg-gray-800 hover:text-white"
+            }`}
+          >
+            <NavIcon name="admin" />
+            <span>Admin</span>
+          </button>
+        )}
+
+        <button
+          onClick={onLogout}
+          className="mt-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white"
+        >
+          Log out
+        </button>
+      </aside>
+
+      {/* ---------- Mobile top logo bar ---------- */}
+      <div className="flex items-center justify-between bg-black px-4 py-3 text-gray-100 md:hidden">
+        {logo}
+        <button onClick={onLogout} className="text-sm font-medium text-gray-400 hover:text-white">
+          Log out
+        </button>
       </div>
 
-      {isTeamMember && (
-        <div className="hidden rounded-lg bg-gray-900 px-3 py-2 text-xs md:mb-4 md:block">
-          <div className="text-gray-500">
-            {ownerBusinessName ? `${ownerBusinessName} workspace` : "Team workspace"}
-          </div>
-          <div className="mt-0.5 font-semibold capitalize text-amber-300">
-            {workspaceRole} access
+      {/* ---------- Mobile slide-up panel ---------- */}
+      {mobilePanel && (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobilePanel(null)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="absolute inset-x-0 bottom-16 mx-2 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const group = NAV_GROUPS.find((g) => g.key === mobilePanel);
+              if (!group) return null;
+              return (
+                <>
+                  <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    {group.label}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {group.items.map((item) => (
+                      <NavRow
+                        key={item.key}
+                        item={item}
+                        active={section === item.key}
+                        locked={isItemLocked(item.key, ctx)}
+                        brandTeal={brandTeal}
+                        onSelect={handleSelect}
+                      />
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
 
-      <nav className="flex flex-row gap-1 md:flex-1 md:flex-col">
-        {items.map((item) => {
-          const active = section === item.key;
-          const reqTier = requiredTierForSection(item.key);
-          // Lock indicator only once the tier is known and the section is gated
-          // above the user's plan. Admins (tier "enterprise") never see locks.
-          const locked = reqTier && tier != null && !meetsTier(tier, reqTier);
+      {/* ---------- Mobile bottom nav (group icons) ---------- */}
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex items-stretch justify-around border-t border-gray-800 bg-black md:hidden">
+        {NAV_GROUPS.map((group) => {
+          const isActiveGroup = group.key === activeGroup;
+          const open = mobilePanel === group.key;
+          const color = isActiveGroup ? brandTeal : undefined;
           return (
             <button
-              key={item.key}
-              onClick={() => onSelect(item.key)}
-              title={locked ? `${tierName(reqTier)} plan` : undefined}
-              style={active ? { backgroundColor: branding.primaryColor } : undefined}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                active
-                  ? "text-gray-900"
-                  : locked
-                    ? "text-gray-400 hover:bg-gray-800 hover:text-white"
-                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+              key={group.key}
+              onClick={() => setMobilePanel(open ? null : group.key)}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
+                open || isActiveGroup ? "text-white" : "text-gray-400"
               }`}
+              style={color ? { color } : undefined}
             >
-              <NavIcon name={item.icon} />
-              <span className="hidden md:inline">{item.label}</span>
-              {locked && <LockIcon />}
+              <NavIcon name={group.icon} />
+              <span className="max-w-[64px] truncate">{group.label.split(" ")[0]}</span>
             </button>
           );
         })}
+        {isAdmin && (
+          <button
+            onClick={() => handleSelect("admin")}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
+              section === "admin" ? "text-white" : "text-gray-400"
+            }`}
+            style={section === "admin" ? { color: brandTeal } : undefined}
+          >
+            <NavIcon name="admin" />
+            <span>Admin</span>
+          </button>
+        )}
       </nav>
-
-      <button
-        onClick={onLogout}
-        className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white"
-      >
-        Log out
-      </button>
-    </aside>
+    </>
   );
 }

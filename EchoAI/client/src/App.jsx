@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, getToken, setToken, clearToken } from "./api.js";
-import Sidebar from "./components/Sidebar.jsx";
+import Sidebar, { accentTierForSection } from "./components/Sidebar.jsx";
 import Spinner from "./components/Spinner.jsx";
+import TierBadge from "./components/TierBadge.jsx";
 import Login from "./sections/Login.jsx";
 import Overview from "./sections/Overview.jsx";
 import Leads from "./sections/Leads.jsx";
@@ -29,7 +30,7 @@ import AgencyPortal from "./sections/AgencyPortal.jsx";
 import AffiliateProgram from "./sections/AffiliateProgram.jsx";
 import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
 import FeatureGate from "./components/FeatureGate.jsx";
-import { requiredTierForSection } from "./lib/tiers.js";
+import { requiredTierForSection, accentColor } from "./lib/tiers.js";
 import { enablePushNotifications } from "./push.js";
 
 export default function App() {
@@ -44,6 +45,9 @@ export default function App() {
   const [onboardingCompleted, setOnboardingCompleted] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAgencyOwner, setIsAgencyOwner] = useState(false);
+  // Identity shown in the top bar next to the tier badge.
+  const [userEmail, setUserEmail] = useState("");
+  const [businessName, setBusinessName] = useState("");
   // Image handed off from Image Studio to the Social Media generator.
   const [socialPrefillImage, setSocialPrefillImage] = useState(null);
   // Subscription status drives the global payment-failed banner.
@@ -137,6 +141,8 @@ export default function App() {
           setWorkspaceRole(profile.workspaceRole || "owner");
           setIsTeamMember(Boolean(profile.isTeamMember));
           setOwnerBusinessName(profile.ownerBusinessName || null);
+          setUserEmail(profile.email || "");
+          setBusinessName(profile.businessName || profile.ownerBusinessName || "");
         }
         // Detect whether this account owns a white-label agency (shows the
         // Agency Portal nav). A 404 simply means "not an agency owner".
@@ -274,6 +280,10 @@ export default function App() {
       ? billingStatus.subscriptionTier
       : null;
 
+  // Accent color for the section currently being viewed — reinforces the tier
+  // association on the content cards (blue/purple/gold, teal for core sections).
+  const sectionAccent = accentColor(accentTierForSection(section));
+
   // Wraps a section node in a FeatureGate when that section requires a tier.
   function gate(key, node) {
     const req = requiredTierForSection(key);
@@ -303,12 +313,45 @@ export default function App() {
         isTeamMember={isTeamMember}
         ownerBusinessName={ownerBusinessName}
       />
-      <main className="flex-1 p-4 md:p-8">
+      <main
+        className="flex-1 p-4 pb-24 md:p-8 md:pb-8"
+        style={{ "--tier-accent": sectionAccent }}
+      >
         <div className="mx-auto max-w-6xl">
+          <TopBar
+            businessName={businessName}
+            email={userEmail}
+            tier={currentTier}
+            isAdmin={isAdmin}
+          />
+          <div
+            className="border-l-2 pl-3 md:pl-4"
+            style={{ borderLeftColor: "var(--tier-accent)" }}
+          >
           {section === "admin" && isAdmin ? (
             <AdminPanel />
-          ) : section === "agency" && isAgencyOwner ? (
-            <AgencyPortal />
+          ) : section === "agency" ? (
+            isAgencyOwner ? (
+              <AgencyPortal />
+            ) : (
+              <FeatureGate
+                feature="agency"
+                requiredTier="enterprise"
+                currentTier={currentTier}
+                onUpgrade={handleUpgrade}
+              >
+                {/* Enterprise users who are not provisioned as an agency owner
+                    still don't have a portal — show an informational note. */}
+                <div className="mx-auto max-w-xl rounded-2xl border border-gray-700 bg-gray-900/60 p-8 text-center">
+                  <h2 className="text-xl font-bold text-gray-100">White Label</h2>
+                  <p className="mt-3 text-sm leading-relaxed text-gray-300">
+                    White-label agency accounts are provisioned by the EchoAI team.
+                    Contact support to have your agency enabled and start reselling
+                    EchoAI under your own brand.
+                  </p>
+                </div>
+              </FeatureGate>
+            )
           ) : section === "affiliate" ? (
             <FeatureGate
               feature="affiliate"
@@ -351,6 +394,16 @@ export default function App() {
                   onPrefillConsumed={() => setSocialPrefillImage(null)}
                 />
               )}
+              {section === "contentcalendar" &&
+                gate(
+                  "contentcalendar",
+                  <SocialMedia
+                    brandId={selectedBrandId}
+                    initialTab="ai-calendar"
+                    prefillImage={socialPrefillImage}
+                    onPrefillConsumed={() => setSocialPrefillImage(null)}
+                  />,
+                )}
               {section === "video" && gate("video", <VideoContent brandId={selectedBrandId} />)}
               {section === "sales" && gate("sales", <SalesScripts brandId={selectedBrandId} />)}
               {section === "email" && (
@@ -400,8 +453,29 @@ export default function App() {
               )}
             </>
           )}
+          </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+// Top bar shown above every dashboard view: the business name / email on the
+// left and the tier badge on the right so the current plan is always visible.
+function TopBar({ businessName, email, tier, isAdmin }) {
+  const primary = businessName || email || "Your account";
+  const secondary = businessName && email ? email : "";
+  return (
+    <div className="mb-6 flex items-center justify-between gap-3 border-b border-gray-800 pb-4">
+      <div className="min-w-0">
+        <div className="truncate text-sm font-semibold text-gray-100">
+          {primary}
+        </div>
+        {secondary && (
+          <div className="truncate text-xs text-gray-500">{secondary}</div>
+        )}
+      </div>
+      <TierBadge tier={tier} isAdmin={isAdmin} />
     </div>
   );
 }

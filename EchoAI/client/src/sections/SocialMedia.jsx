@@ -13,9 +13,12 @@ const TABS = [
   { key: "performance", label: "Performance" },
 ];
 
-export default function SocialMedia({ brandId, prefillImage, onPrefillConsumed }) {
-  // Open the generator tab when an image was handed off from Image Studio.
-  const [tab, setTab] = useState(prefillImage ? "generate" : "ai-calendar");
+export default function SocialMedia({ brandId, prefillImage, onPrefillConsumed, initialTab }) {
+  // Open the generator tab when an image was handed off from Image Studio;
+  // otherwise honor an explicit initialTab (e.g. the Content Calendar nav item).
+  const [tab, setTab] = useState(
+    prefillImage ? "generate" : initialTab || "ai-calendar",
+  );
 
   return (
     <div className="space-y-6">

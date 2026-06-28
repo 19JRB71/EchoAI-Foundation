@@ -34,10 +34,35 @@ export const SECTION_GATES = {
   adstudio: "pro",
   appointments: "pro",
   followups: "pro",
+  contentcalendar: "pro",
   // Enterprise
   feedback: "enterprise",
   affiliate: "enterprise",
+  agency: "enterprise",
 };
+
+// Accent color per tier. Drives nav highlights, lock badges, group headers and
+// upgrade prompt cards. Ungated/"core" items fall back to the brand teal accent.
+export const TIER_COLORS = {
+  starter: "#3B82F6", // blue
+  pro: "#8B5CF6", // purple
+  enterprise: "#F59E0B", // gold
+};
+
+export const DEFAULT_ACCENT = "#14B8A6"; // teal — core features with no tier
+
+// Resolve a hex accent for a tier key (starter/pro/enterprise) or null → teal.
+export function accentColor(tier) {
+  return TIER_COLORS[tier] || DEFAULT_ACCENT;
+}
+
+// Short uppercase badge shown on locked nav items.
+export function tierBadgeShort(tier) {
+  if (tier === "enterprise") return "ENT";
+  if (tier === "pro") return "PRO";
+  if (tier === "starter") return "STR";
+  return "";
+}
 
 export function tierRank(tier) {
   return TIER_RANK[tier] != null ? TIER_RANK[tier] : 0;
