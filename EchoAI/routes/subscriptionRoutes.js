@@ -24,6 +24,7 @@ router.get("/status", authMiddleware, subscriptionController.getSubscriptionStat
 // and update their card to recover their account.
 router.get("/plans", authMiddleware, subscriptionController.getPlans);
 router.post("/change", authMiddleware, subscriptionController.changeSubscription);
+router.post("/team", authMiddleware, subscriptionController.updateTeamSize);
 router.get("/payment-method", authMiddleware, subscriptionController.getPaymentMethod);
 router.post("/payment-method", authMiddleware, subscriptionController.updatePaymentMethod);
 router.get("/invoices", authMiddleware, subscriptionController.getBillingHistory);

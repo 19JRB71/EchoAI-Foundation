@@ -4,11 +4,12 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const featureGate = require("../middleware/featureGate");
 const zapierController = require("../controllers/zapierController");
 
 // All webhook-management routes require authentication and an active
 // (non-locked) subscription.
-router.use(auth, lockout);
+router.use(auth, lockout, featureGate("zapier"));
 
 router.post("/", zapierController.createWebhook);
 router.post("/test", zapierController.testWebhook);

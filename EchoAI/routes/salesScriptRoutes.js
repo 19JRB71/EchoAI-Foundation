@@ -4,11 +4,12 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const featureGate = require("../middleware/featureGate");
 const salesScriptController = require("../controllers/salesScriptController");
 
 // All sales-script routes require authentication and an active (non-locked)
 // subscription.
-router.use(auth, lockout);
+router.use(auth, lockout, featureGate("sales_scripts"));
 
 router.post("/generate", salesScriptController.generateScript);
 router.post("/", salesScriptController.saveScript);

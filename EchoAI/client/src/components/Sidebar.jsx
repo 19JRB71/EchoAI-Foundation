@@ -1,4 +1,23 @@
 import { useBranding } from "../lib/BrandingContext.jsx";
+import { requiredTierForSection, meetsTier, tierName } from "../lib/tiers.js";
+
+function LockIcon() {
+  return (
+    <svg
+      className="ml-auto hidden h-3.5 w-3.5 shrink-0 text-amber-400/80 md:block"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25v-6.75a2.25 2.25 0 012.25-2.25z"
+      />
+    </svg>
+  );
+}
 
 const NAV = [
   { key: "overview", label: "Dashboard", icon: "overview" },
@@ -236,6 +255,7 @@ export default function Sidebar({
   onLogout,
   isAdmin,
   isAgencyOwner,
+  tier,
 }) {
   const { branding } = useBranding();
   const isDefaultBrand = branding.agencyName === "EchoAI";
@@ -271,19 +291,27 @@ export default function Sidebar({
       <nav className="flex flex-row gap-1 md:flex-1 md:flex-col">
         {items.map((item) => {
           const active = section === item.key;
+          const reqTier = requiredTierForSection(item.key);
+          // Lock indicator only once the tier is known and the section is gated
+          // above the user's plan. Admins (tier "enterprise") never see locks.
+          const locked = reqTier && tier != null && !meetsTier(tier, reqTier);
           return (
             <button
               key={item.key}
               onClick={() => onSelect(item.key)}
+              title={locked ? `${tierName(reqTier)} plan` : undefined}
               style={active ? { backgroundColor: branding.primaryColor } : undefined}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                 active
                   ? "text-gray-900"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  : locked
+                    ? "text-gray-400 hover:bg-gray-800 hover:text-white"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
               }`}
             >
               <NavIcon name={item.icon} />
               <span className="hidden md:inline">{item.label}</span>
+              {locked && <LockIcon />}
             </button>
           );
         })}

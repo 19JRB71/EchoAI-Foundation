@@ -26,6 +26,8 @@ import AdminPanel from "./admin/AdminPanel.jsx";
 import AgencyPortal from "./sections/AgencyPortal.jsx";
 import AffiliateProgram from "./sections/AffiliateProgram.jsx";
 import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
+import FeatureGate from "./components/FeatureGate.jsx";
+import { requiredTierForSection } from "./lib/tiers.js";
 import { enablePushNotifications } from "./push.js";
 
 export default function App() {
@@ -57,6 +59,14 @@ export default function App() {
   function handleFixPayment() {
     setBillingTab("billing");
     setOpenPaymentModal(true);
+    setSection("settings");
+  }
+
+  // Sends the user to Settings → Billing to upgrade their plan (from a locked
+  // feature's upgrade prompt or a sidebar lock).
+  function handleUpgrade() {
+    setBillingTab("billing");
+    setOpenPaymentModal(false);
     setSection("settings");
   }
 
@@ -192,6 +202,31 @@ export default function App() {
     return <OnboardingWizard onComplete={() => setOnboardingCompleted(true)} />;
   }
 
+  // Effective tier for client-side gating. Admins bypass every gate (treated as
+  // top tier). Otherwise the tier comes from the subscription status; null until
+  // it loads so FeatureGate shows a spinner rather than flashing a prompt.
+  const currentTier = isAdmin
+    ? "enterprise"
+    : billingStatus
+      ? billingStatus.subscriptionTier
+      : null;
+
+  // Wraps a section node in a FeatureGate when that section requires a tier.
+  function gate(key, node) {
+    const req = requiredTierForSection(key);
+    if (!req) return node;
+    return (
+      <FeatureGate
+        feature={key}
+        requiredTier={req}
+        currentTier={currentTier}
+        onUpgrade={handleUpgrade}
+      >
+        {node}
+      </FeatureGate>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-black md:flex-row">
       <Sidebar
@@ -200,6 +235,7 @@ export default function App() {
         onLogout={handleLogout}
         isAdmin={isAdmin}
         isAgencyOwner={isAgencyOwner}
+        tier={currentTier}
       />
       <main className="flex-1 p-4 md:p-8">
         <div className="mx-auto max-w-6xl">
@@ -208,7 +244,14 @@ export default function App() {
           ) : section === "agency" && isAgencyOwner ? (
             <AgencyPortal />
           ) : section === "affiliate" ? (
-            <AffiliateProgram />
+            <FeatureGate
+              feature="affiliate"
+              requiredTier="enterprise"
+              currentTier={currentTier}
+              onUpgrade={handleUpgrade}
+            >
+              <AffiliateProgram />
+            </FeatureGate>
           ) : (
             <>
               <PaymentFailedBanner status={billingStatus} onFix={handleFixPayment} />
@@ -222,7 +265,7 @@ export default function App() {
               {section === "overview" && <Overview brandId={selectedBrandId} />}
               {section === "leads" && <Leads brandId={selectedBrandId} />}
               {section === "campaigns" && <Campaigns />}
-              {section === "adstudio" && <AdStudio brandId={selectedBrandId} />}
+              {section === "adstudio" && gate("adstudio", <AdStudio brandId={selectedBrandId} />)}
               {section === "social" && (
                 <SocialMedia
                   brandId={selectedBrandId}
@@ -230,8 +273,8 @@ export default function App() {
                   onPrefillConsumed={() => setSocialPrefillImage(null)}
                 />
               )}
-              {section === "video" && <VideoContent brandId={selectedBrandId} />}
-              {section === "sales" && <SalesScripts brandId={selectedBrandId} />}
+              {section === "video" && gate("video", <VideoContent brandId={selectedBrandId} />)}
+              {section === "sales" && gate("sales", <SalesScripts brandId={selectedBrandId} />)}
               {section === "email" && (
                 <EmailMarketing brandId={selectedBrandId} />
               )}
@@ -247,21 +290,17 @@ export default function App() {
               {section === "roi" && (
                 <RoiDashboard brandId={selectedBrandId} />
               )}
-              {section === "reputation" && (
-                <Reputation brandId={selectedBrandId} />
-              )}
-              {section === "phone" && (
-                <PhoneAgent brandId={selectedBrandId} />
-              )}
+              {section === "reputation" &&
+                gate("reputation", <Reputation brandId={selectedBrandId} />)}
+              {section === "phone" &&
+                gate("phone", <PhoneAgent brandId={selectedBrandId} />)}
               {section === "chatbot" && (
                 <ChatbotSetup brandId={selectedBrandId} />
               )}
-              {section === "feedback" && (
-                <Feedback brandId={selectedBrandId} />
-              )}
-              {section === "zapier" && (
-                <ZapierIntegration brandId={selectedBrandId} />
-              )}
+              {section === "feedback" &&
+                gate("feedback", <Feedback brandId={selectedBrandId} />)}
+              {section === "zapier" &&
+                gate("zapier", <ZapierIntegration brandId={selectedBrandId} />)}
               {section === "settings" && (
                 <Settings
                   brandId={selectedBrandId}

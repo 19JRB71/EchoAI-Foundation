@@ -4,6 +4,7 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const featureGate = require("../middleware/featureGate");
 const admin = require("../middleware/admin");
 const whiteLabel = require("../middleware/whiteLabel");
 const whiteLabelController = require("../controllers/whiteLabelController");
@@ -14,7 +15,7 @@ const whiteLabelController = require("../controllers/whiteLabelController");
 router.get("/branding", whiteLabel, whiteLabelController.getBranding);
 
 // Everything below requires a valid session and an active (non-locked) account.
-router.use(auth, lockout);
+router.use(auth, lockout, featureGate("white_label"));
 
 // Agency-owner self-service (the Agency Portal).
 router.get("/settings", whiteLabelController.getAgencySettings);

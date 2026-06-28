@@ -3,10 +3,11 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const featureGate = require("../middleware/featureGate");
 const reputationController = require("../controllers/reputationController");
 
 // All reputation routes require auth + an account in good standing.
-router.use(auth, lockout);
+router.use(auth, lockout, featureGate("reputation"));
 
 // Brand-scoped
 router.get("/:brandId", reputationController.getReviews);

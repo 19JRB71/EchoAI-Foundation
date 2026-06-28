@@ -91,6 +91,8 @@ export const api = {
   getPlans: () => request("/api/subscriptions/plans"),
   changeSubscription: (tier) =>
     request("/api/subscriptions/change", { method: "POST", body: { tier } }),
+  updateTeamSize: (teamSize) =>
+    request("/api/subscriptions/team", { method: "POST", body: { teamSize } }),
   getPaymentMethod: () => request("/api/subscriptions/payment-method"),
   updatePaymentMethod: (paymentMethodId) =>
     request("/api/subscriptions/payment-method", {

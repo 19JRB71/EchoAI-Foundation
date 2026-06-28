@@ -1,5 +1,13 @@
-const { stripe, getPriceIdForTier } = require("../config/stripe");
-const { getPlan, listPlans } = require("../config/plans");
+const { stripe, getPriceIdForTier, getSeatPriceId } = require("../config/stripe");
+const {
+  getPlan,
+  listPlans,
+  ADDITIONAL_SEAT_PRICE,
+  additionalSeats,
+  computeMonthlyTotal,
+  seatLimitFor,
+} = require("../config/plans");
+const { tierRank } = require("../config/tiers");
 const db = require("../config/db");
 const emailController = require("./emailController");
 const affiliateController = require("./affiliateController");
@@ -29,6 +37,43 @@ async function getCustomerId(userId) {
     [userId]
   );
   return result.rows[0] ? result.rows[0].stripe_customer_id : null;
+}
+
+/**
+ * Syncs the per-seat add-on line item on a Stripe subscription to match the
+ * number of chargeable seats (team size beyond the tier's included seats).
+ * No-op when seat billing isn't configured (STRIPE_PRICE_SEAT unset) or there's
+ * no Stripe subscription — the local computed total still reflects the change.
+ */
+async function syncSeatItem(stripeSubscriptionId, tier, teamSize) {
+  const seatPriceId = getSeatPriceId();
+  if (!seatPriceId || !stripeSubscriptionId) return;
+
+  const qty = additionalSeats(tier, teamSize);
+  const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const seatItem = sub.items.data.find(
+    (it) => it.price && it.price.id === seatPriceId
+  );
+
+  if (qty > 0) {
+    if (seatItem) {
+      await stripe.subscriptionItems.update(seatItem.id, {
+        quantity: qty,
+        proration_behavior: "create_prorations",
+      });
+    } else {
+      await stripe.subscriptionItems.create({
+        subscription: stripeSubscriptionId,
+        price: seatPriceId,
+        quantity: qty,
+        proration_behavior: "create_prorations",
+      });
+    }
+  } else if (seatItem) {
+    await stripe.subscriptionItems.del(seatItem.id, {
+      proration_behavior: "create_prorations",
+    });
+  }
 }
 
 /** Normalizes a Stripe PaymentMethod's card into the shape the client expects. */
@@ -91,7 +136,7 @@ async function createSubscription(req, res) {
 
   try {
     const userResult = await db.query(
-      "SELECT user_id, email, stripe_customer_id FROM users WHERE user_id = $1",
+      "SELECT user_id, email, stripe_customer_id, COALESCE(team_size, 1) AS team_size FROM users WHERE user_id = $1",
       [userId]
     );
 
@@ -128,6 +173,9 @@ async function createSubscription(req, res) {
       default_payment_method: paymentMethodId,
       expand: ["latest_invoice.payment_intent"],
     });
+
+    // Bill any seats beyond the tier's included count from the first cycle.
+    await syncSeatItem(subscription.id, tier, user.team_size);
 
     const renewalDate = subscription.current_period_end
       ? new Date(subscription.current_period_end * 1000)
@@ -206,6 +254,37 @@ async function handleWebhook(req, res) {
              AND users.stripe_customer_id = $1`,
           [customerId]
         );
+
+        // Apply any scheduled downgrade now that the new cycle has been paid:
+        // flip to the pending tier (locking higher-tier features) and clear it.
+        const downgraded = await db.query(
+          `UPDATE subscriptions
+             SET subscription_tier = pending_tier,
+                 pending_tier = NULL,
+                 pending_tier_effective_at = NULL
+           FROM users
+           WHERE subscriptions.user_id = users.user_id
+             AND users.stripe_customer_id = $1
+             AND subscriptions.pending_tier IS NOT NULL
+             AND (subscriptions.pending_tier_effective_at IS NULL
+                  OR subscriptions.pending_tier_effective_at <= NOW())
+           RETURNING subscriptions.user_id, subscriptions.subscription_tier,
+                     subscriptions.stripe_subscription_id, users.team_size`,
+          [customerId]
+        );
+        for (const row of downgraded.rows) {
+          await db.query("UPDATE users SET subscription_tier = $1 WHERE user_id = $2", [
+            row.subscription_tier,
+            row.user_id,
+          ]);
+          // Resize the seat add-on to the (now smaller) tier's included seats.
+          // Best-effort — never fail the webhook over seat math.
+          try {
+            await syncSeatItem(row.stripe_subscription_id, row.subscription_tier, row.team_size);
+          } catch (seatErr) {
+            console.error("Seat resync after downgrade failed:", seatErr.message);
+          }
+        }
 
         // Affiliate attribution: on the customer's FIRST successful payment,
         // credit the referring affiliate 20% of the amount paid. convertReferral
@@ -379,10 +458,13 @@ async function getSubscriptionStatus(req, res) {
 
   try {
     const result = await db.query(
-      `SELECT subscription_tier, payment_status, renewal_date, is_locked, locked_at,
-              failed_payment_at, lockout_threshold_days
-       FROM subscriptions
-       WHERE user_id = $1`,
+      `SELECT s.subscription_tier, s.payment_status, s.renewal_date, s.is_locked,
+              s.locked_at, s.failed_payment_at, s.lockout_threshold_days,
+              s.pending_tier, s.pending_tier_effective_at,
+              COALESCE(u.team_size, 1) AS team_size
+       FROM subscriptions s
+       JOIN users u ON u.user_id = s.user_id
+       WHERE s.user_id = $1`,
       [userId]
     );
 
@@ -391,14 +473,25 @@ async function getSubscriptionStatus(req, res) {
     }
 
     const sub = result.rows[0];
+    const tier = sub.subscription_tier;
+    const teamSize = sub.team_size;
 
     return res.json({
-      subscriptionTier: sub.subscription_tier,
+      subscriptionTier: tier,
       paymentStatus: sub.payment_status,
       renewalDate: sub.renewal_date,
       isLocked: sub.is_locked,
       lockedAt: sub.locked_at,
       failedPaymentAt: sub.failed_payment_at,
+      // Seat / billing breakdown for the billing UI.
+      teamSize,
+      includedSeats: seatLimitFor(tier),
+      additionalSeats: additionalSeats(tier, teamSize),
+      additionalSeatPrice: ADDITIONAL_SEAT_PRICE,
+      monthlyTotal: computeMonthlyTotal(tier, teamSize),
+      // A scheduled downgrade that takes effect at the next cycle (or null).
+      pendingTier: sub.pending_tier,
+      pendingTierEffectiveAt: sub.pending_tier_effective_at,
       // Drives the dashboard "locked in X days" banner.
       daysUntilLock:
         sub.failed_payment_at != null
@@ -460,36 +553,120 @@ async function changeSubscription(req, res) {
       return res.status(400).json({ error: `You are already on the ${plan.name} plan.` });
     }
 
+    const currentTier = result.rows[0].subscription_tier;
     const stripeSubscriptionId = result.rows[0].stripe_subscription_id;
+    const isUpgrade = tierRank(tier) > tierRank(currentTier);
 
-    // Swap the single subscription item to the new price, prorating the change.
+    // Current team size drives the per-seat add-on when the tier changes.
+    const userRow = await db.query(
+      "SELECT team_size FROM users WHERE user_id = $1",
+      [userId]
+    );
+    const teamSize = userRow.rows[0] ? userRow.rows[0].team_size : 1;
+
+    // Swap the base subscription item to the new price. Upgrades prorate
+    // immediately; downgrades take effect next cycle (no proration now).
     const current = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-    const itemId = current.items.data[0].id;
+    // The base plan item is the one that isn't the per-seat add-on.
+    const seatPriceId = getSeatPriceId();
+    const baseItem =
+      current.items.data.find((it) => !seatPriceId || (it.price && it.price.id !== seatPriceId)) ||
+      current.items.data[0];
     const updated = await stripe.subscriptions.update(stripeSubscriptionId, {
-      items: [{ id: itemId, price: priceId }],
-      proration_behavior: "create_prorations",
+      items: [{ id: baseItem.id, price: priceId }],
+      proration_behavior: isUpgrade ? "create_prorations" : "none",
     });
 
     const renewalDate = updated.current_period_end
       ? new Date(updated.current_period_end * 1000)
       : null;
 
+    if (isUpgrade) {
+      // Unlock immediately: reflect the new tier now and clear any previously
+      // scheduled downgrade. Resize the seat add-on to the new tier's included
+      // seats.
+      await db.query(
+        `UPDATE subscriptions
+           SET subscription_tier = $1,
+               renewal_date = $2,
+               pending_tier = NULL,
+               pending_tier_effective_at = NULL
+         WHERE user_id = $3`,
+        [tier, renewalDate, userId]
+      );
+      await db.query("UPDATE users SET subscription_tier = $1 WHERE user_id = $2", [tier, userId]);
+      await syncSeatItem(stripeSubscriptionId, tier, teamSize);
+
+      return res.json({ tier, status: updated.status, renewalDate, pendingTier: null });
+    }
+
+    // Downgrade: keep the higher-tier features unlocked until the next billing
+    // cycle. Record the scheduled tier; the invoice.payment_succeeded webhook
+    // applies it at the cycle boundary.
     await db.query(
       `UPDATE subscriptions
-         SET subscription_tier = $1,
-             renewal_date = $2
+         SET renewal_date = $1,
+             pending_tier = $2,
+             pending_tier_effective_at = $1
        WHERE user_id = $3`,
-      [tier, renewalDate, userId]
+      [renewalDate, tier, userId]
     );
-    await db.query("UPDATE users SET subscription_tier = $1 WHERE user_id = $2", [tier, userId]);
 
     return res.json({
-      tier,
+      tier: currentTier,
+      pendingTier: tier,
+      pendingTierEffectiveAt: renewalDate,
       status: updated.status,
       renewalDate,
     });
   } catch (err) {
     return fail(res, err, "Change subscription error:", "Failed to update your plan. Please try again.");
+  }
+}
+
+/**
+ * POST /api/subscriptions/team
+ * Sets the account's team size (seat count) and re-syncs the per-seat add-on on
+ * the Stripe subscription. Returns the new seat breakdown + computed monthly
+ * total. Auth-only (NOT lockout-gated) — consistent with the other billing
+ * management routes so a past-due account can still adjust seats.
+ */
+async function updateTeamSize(req, res) {
+  const userId = req.user.userId;
+  const size = Number(req.body.teamSize);
+
+  if (!Number.isInteger(size) || size < 1) {
+    return res.status(400).json({ error: "teamSize must be an integer of at least 1" });
+  }
+
+  try {
+    const { rows } = await db.query(
+      "SELECT subscription_tier, stripe_subscription_id FROM subscriptions WHERE user_id = $1",
+      [userId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "No subscription found" });
+    }
+
+    const tier = rows[0].subscription_tier;
+    const stripeSubscriptionId = rows[0].stripe_subscription_id;
+
+    await db.query("UPDATE users SET team_size = $1 WHERE user_id = $2", [size, userId]);
+
+    if (stripeSubscriptionId) {
+      await syncSeatItem(stripeSubscriptionId, tier, size);
+    }
+
+    return res.json({
+      teamSize: size,
+      tier,
+      includedSeats: seatLimitFor(tier),
+      additionalSeats: additionalSeats(tier, size),
+      additionalSeatPrice: ADDITIONAL_SEAT_PRICE,
+      monthlyTotal: computeMonthlyTotal(tier, size),
+    });
+  } catch (err) {
+    return fail(res, err, "Update team size error:", "Failed to update your team size. Please try again.");
   }
 }
 
@@ -672,6 +849,7 @@ module.exports = {
   getSubscriptionStatus,
   getPlans,
   changeSubscription,
+  updateTeamSize,
   updatePaymentMethod,
   getPaymentMethod,
   getBillingHistory,

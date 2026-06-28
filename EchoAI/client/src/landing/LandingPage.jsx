@@ -259,40 +259,43 @@ function Pricing() {
   const tiers = [
     {
       name: "Starter",
-      price: "$50",
+      price: "$100",
       unit: "/month",
       tagline: "For solo operators",
       features: [
         "Automated ad campaigns",
         "AI lead qualification chatbot",
+        "Embeddable website widget",
         "Weekly performance reports",
-        "1 user",
+        "1 user included",
       ],
       featured: false,
     },
     {
       name: "Professional",
-      price: "$50",
-      unit: "/seat / month",
-      tagline: "For teams up to 5",
+      price: "$350",
+      unit: "/month",
+      tagline: "For growing teams",
       features: [
         "Everything in Starter",
-        "Competitor intelligence",
-        "Priority campaign optimization",
-        "Up to 5 users",
+        "AI phone agent & voice chatbot",
+        "Reputation & content calendar",
+        "Ad creative studio & Zapier",
+        "Up to 5 users included",
       ],
       featured: true,
     },
     {
       name: "Enterprise",
-      price: "$50",
-      unit: "/seat / month",
-      tagline: "For unlimited users",
+      price: "$550",
+      unit: "/month",
+      tagline: "For agencies & at scale",
       features: [
         "Everything in Professional",
-        "Unlimited users",
-        "Dedicated account support",
-        "Custom integrations",
+        "White-label agency system",
+        "Affiliate program & mobile API",
+        "Customer feedback & surveys",
+        "Unlimited users included",
       ],
       featured: false,
     },
@@ -306,6 +309,9 @@ function Pricing() {
           </h2>
           <p className="mt-3 text-slate-400">
             Every plan includes a free onboarding call with me, personally.
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            Need more seats? Add extra users to Starter or Professional for $50 / seat / month.
           </p>
         </div>
         <div className="mt-14 grid gap-6 lg:grid-cols-3">

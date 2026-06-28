@@ -5,6 +5,42 @@ const {
   SUPPORTED_PLATFORMS,
 } = require("../prompts/socialContentPrompt");
 const socialApi = require("../utils/socialApi");
+const { getUserTier } = require("../middleware/featureGate");
+const { meetsTier } = require("../config/tiers");
+
+// Starter accounts may connect at most this many distinct social platforms.
+// Professional and above are unlimited (all 6 platforms).
+const STARTER_PLATFORM_LIMIT = 2;
+
+/**
+ * Enforces the per-tier social-platform limit. Starter is capped at 2 distinct
+ * platforms across all of the user's brands; Professional+ is unlimited.
+ * Reconnecting an already-connected platform is always allowed. Throws a 403
+ * (with upgrade metadata) when a new platform would exceed the cap.
+ */
+async function enforceSocialPlatformLimit(userId, platform) {
+  const { tier, role } = await getUserTier(userId);
+  if (role === "admin" || meetsTier(tier, "pro")) return; // unlimited
+
+  const { rows } = await db.query(
+    `SELECT DISTINCT sa.platform
+       FROM social_accounts sa
+       JOIN brands b ON b.brand_id = sa.brand_id
+      WHERE b.user_id = $1`,
+    [userId]
+  );
+  const platforms = new Set(rows.map((r) => r.platform));
+  platforms.add(platform); // counting the one being connected
+  if (platforms.size > STARTER_PLATFORM_LIMIT) {
+    const err = new Error(
+      `Your Starter plan supports social posting on ${STARTER_PLATFORM_LIMIT} platforms. Upgrade to Professional to connect all 6.`
+    );
+    err.statusCode = 403;
+    err.upgradeRequired = true;
+    err.requiredTier = "pro";
+    throw err;
+  }
+}
 
 function isSupportedPlatform(platform) {
   return SUPPORTED_PLATFORMS.includes(String(platform || "").toLowerCase());
@@ -80,6 +116,9 @@ async function connectSocialAccount(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    // Tier gate: Starter is limited to 2 social platforms; Pro+ is unlimited.
+    await enforceSocialPlatformLimit(userId, normalizedPlatform);
+
     // Verify the connection works before persisting the status.
     let verification;
     try {
@@ -115,9 +154,17 @@ async function connectSocialAccount(req, res) {
     return res.status(201).json({ account });
   } catch (err) {
     console.error("Connect social account error:", err.message);
-    return res
-      .status(err.statusCode || 500)
-      .json({ error: "Failed to connect social account" });
+    // Surface the tier-limit upgrade prompt (and any other tagged client error)
+    // verbatim so the UI can offer an upgrade path.
+    if (err.statusCode) {
+      const payload = { error: err.message };
+      if (err.upgradeRequired) {
+        payload.upgradeRequired = true;
+        payload.requiredTier = err.requiredTier;
+      }
+      return res.status(err.statusCode).json(payload);
+    }
+    return res.status(500).json({ error: "Failed to connect social account" });
   }
 }
 

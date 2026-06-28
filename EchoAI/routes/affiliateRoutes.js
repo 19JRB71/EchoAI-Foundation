@@ -4,6 +4,7 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const featureGate = require("../middleware/featureGate");
 const admin = require("../middleware/admin");
 const affiliateController = require("../controllers/affiliateController");
 
@@ -12,7 +13,7 @@ const affiliateController = require("../controllers/affiliateController");
 router.post("/track/:code", affiliateController.trackReferral);
 
 // Everything below requires a valid session and an active (non-locked) account.
-router.use(auth, lockout);
+router.use(auth, lockout, featureGate("affiliate"));
 
 // Affiliate self-service. Anyone can join the program and manage their own
 // referrals/payouts.

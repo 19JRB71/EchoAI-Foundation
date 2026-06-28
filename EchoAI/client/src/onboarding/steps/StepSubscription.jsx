@@ -1,6 +1,6 @@
 // Step 3 — Subscription selection.
-// Shows the three pricing tiers (all $50 per seat / month) and collects payment
-// details via Stripe Elements, then creates the subscription on the backend.
+// Shows the three pricing tiers (flat monthly base price + included seats) and
+// collects payment details via Stripe Elements, then creates the subscription.
 
 import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -16,15 +16,16 @@ import ErrorBanner from "../../components/ErrorBanner.jsx";
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = PUBLISHABLE_KEY ? loadStripe(PUBLISHABLE_KEY) : null;
 
-const PRICE_PER_SEAT = 50;
+const ADDITIONAL_SEAT_PRICE = 50;
 
 const TIERS = [
   {
     value: "starter",
     name: "Starter",
-    seats: "1 user",
+    price: 100,
+    seats: "1 user included",
     features: [
-      "1 user seat",
+      "1 user included",
       "AI brand discovery & voice profile",
       "Automated Facebook ad campaigns",
       "Lead qualification & scoring",
@@ -34,26 +35,28 @@ const TIERS = [
   {
     value: "pro",
     name: "Professional",
-    seats: "Up to 5 users",
+    price: 350,
+    seats: "Up to 5 users included",
     highlighted: true,
     features: [
-      "Up to 5 user seats",
+      "Up to 5 users included",
       "Everything in Starter",
-      "AI campaign optimization",
-      "Competitor intelligence",
-      "Priority support",
+      "AI phone agent & voice chatbot",
+      "Reputation, content calendar & ad studio",
+      "Zapier integration & priority support",
     ],
   },
   {
     value: "enterprise",
     name: "Enterprise",
+    price: 550,
     seats: "Unlimited users",
     features: [
-      "Unlimited user seats",
+      "Unlimited users included",
       "Everything in Professional",
-      "Dedicated success manager",
-      "Custom reporting",
-      "Onboarding & strategy calls",
+      "White-label agency & affiliate program",
+      "Customer feedback & surveys",
+      "Mobile API & dedicated support",
     ],
   },
 ];
@@ -75,11 +78,12 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
     <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm sm:p-8">
       <h1 className="text-2xl font-bold text-gray-100">Choose your plan</h1>
       <p className="mt-3 text-sm leading-relaxed text-gray-400">
-        Every plan is{" "}
+        Pick the plan that fits your business — you can change it any time. Need
+        more seats? Add extra users to Starter or Professional for{" "}
         <span className="font-semibold text-gray-200">
-          ${PRICE_PER_SEAT} per seat / month
+          ${ADDITIONAL_SEAT_PRICE} / seat / month
         </span>
-        . Pick the size that fits your team — you can change it any time.
+        .
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -103,11 +107,8 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
             <span className="text-sm font-bold text-gray-100">{t.name}</span>
             <span className="text-xs text-gray-400">{t.seats}</span>
             <span className="mt-2 text-lg font-extrabold text-gray-100">
-              ${PRICE_PER_SEAT}
-              <span className="text-xs font-medium text-gray-400">
-                {" "}
-                / seat / mo
-              </span>
+              ${t.price}
+              <span className="text-xs font-medium text-gray-400"> / mo</span>
             </span>
             <ul className="mt-3 space-y-1">
               {t.features.map((f) => (

@@ -25,4 +25,14 @@ function getPriceIdForTier(tier) {
   return tierPriceIds[tier];
 }
 
-module.exports = { stripe, getPriceIdForTier };
+/**
+ * Stripe Price ID for the per-seat add-on (a recurring $50/seat/month price,
+ * billed by quantity). When unset, seat billing degrades gracefully: team size
+ * is still tracked locally and the computed total is shown, but no extra seat
+ * line item is synced to Stripe.
+ */
+function getSeatPriceId() {
+  return process.env.STRIPE_PRICE_SEAT;
+}
+
+module.exports = { stripe, getPriceIdForTier, getSeatPriceId };

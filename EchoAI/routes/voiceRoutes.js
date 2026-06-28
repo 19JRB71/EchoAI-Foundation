@@ -2,6 +2,7 @@ const express = require("express");
 const multer = require("multer");
 
 const authMiddleware = require("../middleware/auth");
+const featureGate = require("../middleware/featureGate");
 const voiceController = require("../controllers/voiceController");
 
 // Audio uploads are held in memory and forwarded straight to OpenAI.
@@ -14,10 +15,16 @@ const router = express.Router();
 router.post(
   "/speech-to-text",
   authMiddleware,
+  featureGate("voice_chatbot"),
   upload.single("audio"),
   voiceController.transcribeSpeech
 );
-router.post("/text-to-speech", authMiddleware, voiceController.generateSpeech);
+router.post(
+  "/text-to-speech",
+  authMiddleware,
+  featureGate("voice_chatbot"),
+  voiceController.generateSpeech
+);
 
 // Public: the full voice conversation loop is used by prospects, who are not
 // logged in.

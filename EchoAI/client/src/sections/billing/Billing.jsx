@@ -8,6 +8,7 @@ import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import PlanSelectorModal from "./PlanSelectorModal.jsx";
 import UpdatePaymentMethodModal from "./UpdatePaymentMethodModal.jsx";
+import { tierName } from "../../lib/tiers.js";
 
 const primaryBtn =
   "rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60";
@@ -39,6 +40,100 @@ function formatDate(value) {
   if (!value) return "";
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString();
+}
+
+// Lets the customer set the number of team seats. Seats beyond the plan's
+// included count are billed at the per-seat add-on price; the projected total
+// updates live before saving.
+function SeatManager({ status, onSave }) {
+  const unlimited = status.includedSeats == null;
+  const [size, setSize] = useState(status.teamSize || 1);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setSize(status.teamSize || 1);
+  }, [status.teamSize]);
+
+  const extra = unlimited ? 0 : Math.max(0, size - status.includedSeats);
+  const projectedTotal = status.monthlyTotal != null
+    ? status.monthlyTotal - (status.additionalSeats || 0) * status.additionalSeatPrice +
+      extra * status.additionalSeatPrice
+    : null;
+  const changed = size !== status.teamSize;
+
+  async function submit() {
+    if (!changed || size < 1) return;
+    setSaving(true);
+    try {
+      await onSave(size);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card title="Team seats">
+      {unlimited ? (
+        <p className="text-sm text-gray-400">
+          Your plan includes <span className="font-semibold text-gray-200">unlimited</span> seats.
+          You have {status.teamSize} team member{status.teamSize === 1 ? "" : "s"}.
+        </p>
+      ) : (
+        <div className="space-y-4 text-sm">
+          <p className="text-gray-400">
+            Your plan includes{" "}
+            <span className="font-semibold text-gray-200">{status.includedSeats}</span> seat
+            {status.includedSeats === 1 ? "" : "s"}. Additional seats are{" "}
+            <span className="font-semibold text-gray-200">
+              {formatMoney(status.additionalSeatPrice)}
+            </span>{" "}
+            / seat / month.
+          </p>
+          <div className="flex items-center gap-3">
+            <label className="text-gray-400">Total team size</label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSize((s) => Math.max(1, s - 1))}
+                className="h-8 w-8 rounded-lg border border-gray-700 text-gray-200 hover:bg-gray-800"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min="1"
+                value={size}
+                onChange={(e) => setSize(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                className="w-16 rounded-lg border border-gray-700 bg-gray-900 px-2 py-1.5 text-center text-gray-100"
+              />
+              <button
+                type="button"
+                onClick={() => setSize((s) => s + 1)}
+                className="h-8 w-8 rounded-lg border border-gray-700 text-gray-200 hover:bg-gray-800"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between border-t border-gray-800 pt-3">
+            <span className="text-gray-400">
+              {extra > 0
+                ? `${extra} additional seat${extra === 1 ? "" : "s"}`
+                : "No additional seats"}
+            </span>
+            {projectedTotal != null && (
+              <span className="font-semibold text-gray-100">
+                {formatMoney(projectedTotal)} / month
+              </span>
+            )}
+          </div>
+          <button onClick={submit} disabled={!changed || saving} className={primaryBtn}>
+            {saving ? "Updating…" : "Update seats"}
+          </button>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function formatMoney(amount, currency = "usd") {
@@ -106,7 +201,18 @@ export default function Billing({ openPaymentModal = false }) {
   }, [openPaymentModal]);
 
   const currentPlan = plans.find((p) => p.tier === status?.subscriptionTier) || null;
-  const seatsUsed = profile?.teamSize;
+
+  async function saveSeats(nextSize) {
+    setError("");
+    try {
+      await api.updateTeamSize(nextSize);
+      setNotice("Team size updated.");
+      window.dispatchEvent(new Event("echoai:billing-updated"));
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   if (loading) {
     return (
@@ -132,21 +238,47 @@ export default function Billing({ openPaymentModal = false }) {
       >
         {status ? (
           <div className="space-y-2 text-sm">
-            <Row label="Plan" value={currentPlan ? currentPlan.name : status.subscriptionTier} />
+            <Row label="Plan" value={currentPlan ? currentPlan.name : tierName(status.subscriptionTier)} />
             <Row
-              label="Price"
+              label="Base price"
               value={
                 currentPlan ? `${formatMoney(currentPlan.monthlyPrice)} / month` : undefined
               }
             />
+            {status.additionalSeats > 0 && (
+              <Row
+                label="Additional seats"
+                value={`${status.additionalSeats} × ${formatMoney(status.additionalSeatPrice)} / month`}
+              />
+            )}
+            {status.monthlyTotal != null && (
+              <Row
+                label="Monthly total"
+                value={`${formatMoney(status.monthlyTotal)} / month`}
+              />
+            )}
             <Row label="Next billing date" value={status.renewalDate ? formatDate(status.renewalDate) : undefined} />
-            <Row label="Seats used" value={seatsUsed != null ? String(seatsUsed) : undefined} />
             <Row label="Payment status" value={status.paymentStatus} />
+            {status.pendingTier && (
+              <div className="mt-3 rounded-lg bg-amber-500/10 p-3 text-xs text-amber-300">
+                Scheduled downgrade to{" "}
+                <span className="font-semibold">{tierName(status.pendingTier)}</span>
+                {status.pendingTierEffectiveAt
+                  ? ` on ${formatDate(status.pendingTierEffectiveAt)}`
+                  : " at your next billing cycle"}
+                . You keep your current features until then.
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-sm text-gray-400">No active subscription.</p>
         )}
       </Card>
+
+      {/* Team seats */}
+      {status && (
+        <SeatManager status={status} onSave={saveSeats} />
+      )}
 
       {/* Payment method */}
       <Card

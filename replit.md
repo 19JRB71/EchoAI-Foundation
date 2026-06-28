@@ -370,6 +370,46 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   `client/src/sections/Feedback.jsx` (Dashboard / Responses / Surveys tabs);
   api.js block + Sidebar "Feedback" nav.
 
+### Feature gating & tier enforcement
+
+- **Three active tiers** (the `subscription_tier` enum keeps legacy `free`/`growth`
+  defensively, but only these are offered): **Starter $100** (1 seat), **Professional
+  $350** (5 seats), **Enterprise $550** (unlimited). Seats beyond the included count
+  bill at **$50/seat/month** (`ADDITIONAL_SEAT_PRICE`). `config/plans.js` is the tier
+  source of truth (`computeMonthlyTotal`, `additionalSeats`, `seatLimitFor`, hidden
+  legacy tiers); `config/tiers.js` holds `FEATURES`, `TIER_RANK`
+  (free0 starter1 growth1 pro2 enterprise3), `meetsTier`.
+- **Tier read from `subscriptions` = source of truth → instant upgrade unlock.**
+  `middleware/featureGate.js` `featureGate(featureKey|tier)` returns **403**
+  `{error,feature,currentTier,requiredTier,requiredTierName,requiredMonthlyPrice}`
+  when below the required rank; **admin role bypasses all gates**. Order on gated
+  routes is always `auth → lockout → featureGate` (never gate before lockout).
+- **Pro-gated:** voice (per-route), phone, reputation, sales scripts, content
+  calendar, webhooks, video, ad studio. **Enterprise-gated:** agency, affiliate,
+  mobile v2, feedback. **Social** rejects connecting a 3rd+ platform below Pro
+  (`socialController.connectSocialAccount`, admin bypass).
+- **Upgrade is instant; downgrade defers to next cycle.** `changeSubscription`:
+  upgrade swaps the Stripe price immediately, clears any pending downgrade, and
+  resyncs seats; downgrade only sets `pending_tier` + `pending_tier_effective_at`
+  (= renewal date), no proration. The pending downgrade is applied in the
+  `invoice.payment_succeeded` webhook (per-row users tier update + best-effort
+  `syncSeatItem`). Migration `models/031_feature_gating.sql` adds those two columns
+  (idempotent).
+- **Seat billing.** `syncSeatItem(stripeSubscriptionId, tier, teamSize)` adds/updates/
+  deletes a single Stripe seat line item for `additionalSeats(tier,teamSize)` with
+  prorations; no-ops gracefully when `STRIPE_PRICE_SEAT` is unset. Applied at
+  `createSubscription` (first cycle reflects extra seats), `changeSubscription`
+  (upgrade), and `updateTeamSize` (`POST /api/subscriptions/team`, auth-only).
+  `getSubscriptionStatus` exposes `teamSize/includedSeats/additionalSeats/
+  additionalSeatPrice/monthlyTotal/pendingTier/pendingTierEffectiveAt`.
+- **Client mirror.** `client/src/lib/tiers.js` mirrors `PLAN_META`, `TIER_RANK`,
+  `meetsTier`, and `SECTION_GATES` (keep in sync with backend). `components/
+  FeatureGate.jsx` shows a spinner while tier is unknown, else an upgrade prompt;
+  `App.jsx` gates each section + passes tier to `Sidebar.jsx` (lock indicators);
+  admin gets `currentTier='enterprise'`. Pricing surfaces (LandingPage Pricing,
+  onboarding StepSubscription, Billing seat manager + pending-downgrade note) show
+  100/350/550 + the $50/seat note. `api.js` `updateTeamSize`.
+
 ## Production hardening
 
 - `config/env.js` `validateEnv()` runs first at boot: throws on missing critical

@@ -4,10 +4,11 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const featureGate = require("../middleware/featureGate");
 const contentCalendarController = require("../controllers/contentCalendarController");
 
 // All content-calendar routes require authentication and an active subscription.
-router.use(auth, lockout);
+router.use(auth, lockout, featureGate("content_calendar"));
 
 router.post("/generate", contentCalendarController.generateCalendar);
 router.post("/", contentCalendarController.saveCalendar);
