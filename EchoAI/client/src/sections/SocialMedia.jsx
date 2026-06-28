@@ -13,7 +13,7 @@ const TABS = [
   { key: "performance", label: "Performance" },
 ];
 
-export default function SocialMedia({ brandId, prefillImage, onPrefillConsumed, initialTab }) {
+export default function SocialMedia({ brandId, tier, prefillImage, onPrefillConsumed, initialTab }) {
   // Open the generator tab when an image was handed off from Image Studio;
   // otherwise honor an explicit initialTab (e.g. the Content Calendar nav item).
   const [tab, setTab] = useState(
@@ -51,6 +51,7 @@ export default function SocialMedia({ brandId, prefillImage, onPrefillConsumed, 
           {tab === "generate" && (
             <ContentGenerator
               brandId={brandId}
+              tier={tier}
               attachedImage={prefillImage}
               onClearAttachedImage={onPrefillConsumed}
             />

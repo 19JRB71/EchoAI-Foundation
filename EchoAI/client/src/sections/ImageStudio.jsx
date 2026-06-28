@@ -1,9 +1,11 @@
 import { useState } from "react";
 import ImageGenerator from "./image/ImageGenerator.jsx";
 import ImageLibrary from "./image/ImageLibrary.jsx";
+import BrandStyleGuide from "./image/BrandStyleGuide.jsx";
 
 const TABS = [
   { key: "generate", label: "AI Image Generator" },
+  { key: "styleguide", label: "Brand Style Guide" },
   { key: "library", label: "Image Library" },
 ];
 
@@ -29,8 +31,8 @@ export default function ImageStudio({ brandId, onUseInSocial }) {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-100">Image Studio</h1>
         <p className="mt-1 text-sm text-gray-400">
-          Generate on-brand marketing images for ads, social posts, and email
-          headers with AI.
+          The AI Image Prompt Engineer designs on-brand prompts, then generates
+          professional marketing visuals for ads, social, stories, and more.
         </p>
       </div>
 
@@ -50,13 +52,21 @@ export default function ImageStudio({ brandId, onUseInSocial }) {
         ))}
       </div>
 
-      {tab === "generate" ? (
+      {tab === "generate" && (
         <ImageGenerator
           brandId={brandId}
           onSaved={handleSaved}
           onUseInSocial={onUseInSocial}
         />
-      ) : (
+      )}
+      {tab === "styleguide" && (
+        <BrandStyleGuide
+          brandId={brandId}
+          onSaved={handleSaved}
+          onUseInSocial={onUseInSocial}
+        />
+      )}
+      {tab === "library" && (
         <ImageLibrary brandId={brandId} refreshKey={refreshKey} />
       )}
     </div>

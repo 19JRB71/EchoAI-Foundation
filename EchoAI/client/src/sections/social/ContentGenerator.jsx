@@ -1,11 +1,23 @@
 import { useState } from "react";
 import { api } from "../../api.js";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
+import GeneratedImageCard from "../image/GeneratedImageCard.jsx";
+import { meetsTier } from "../../lib/tiers.js";
 import {
   PLATFORMS,
   PlatformBadge,
   platformMeta,
 } from "./platformMeta.jsx";
+
+// Maps a social platform to the Image Studio purpose whose aspect ratio fits.
+const PLATFORM_IMAGE_PURPOSE = {
+  facebook: "facebook_ad",
+  instagram: "instagram_post",
+  twitter: "twitter_post",
+  linkedin: "linkedin_post",
+  tiktok: "tiktok_thumbnail",
+  youtube: "youtube_thumbnail",
+};
 
 // Joins post copy with its hashtags into the single content string the schedule
 // endpoint stores.
@@ -28,9 +40,11 @@ function defaultScheduleValue() {
 
 export default function ContentGenerator({
   brandId,
+  tier,
   attachedImage,
   onClearAttachedImage,
 }) {
+  const isPro = meetsTier(tier, "pro");
   const [topic, setTopic] = useState("");
   const [selected, setSelected] = useState(["facebook"]);
   const [loading, setLoading] = useState(false);
@@ -235,6 +249,7 @@ export default function ContentGenerator({
                     brandId={brandId}
                     platform={platform}
                     variation={variation}
+                    canGenerateImage={isPro}
                     onRegenerate={() => handleRegenerateOne(platform, i)}
                   />
                 ))}
@@ -247,7 +262,72 @@ export default function ContentGenerator({
   );
 }
 
-function VariationCard({ brandId, platform, variation, onRegenerate }) {
+// Generates one on-brand image for a social post from its copy, using the
+// platform's matching aspect ratio. Reuses the Image Studio image card.
+function SocialImageGenerator({ brandId, platform, postText, canGenerate }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [image, setImage] = useState(null);
+  const purpose = PLATFORM_IMAGE_PURPOSE[platform] || "instagram_post";
+
+  if (!canGenerate) {
+    return (
+      <div className="mt-3 border-t border-gray-800 pt-3">
+        <p className="rounded-lg border border-gray-800 bg-gray-800/40 px-3 py-1.5 text-center text-xs text-gray-400">
+          AI image generation is a Professional feature.
+        </p>
+      </div>
+    );
+  }
+
+  async function generate() {
+    setBusy(true);
+    setError("");
+    try {
+      const data = await api.generateImageFromPrompt({
+        brandId,
+        purpose,
+        prompt: postText,
+      });
+      setImage(data.image);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 border-t border-gray-800 pt-3">
+      {error && (
+        <p className="mb-2 rounded-lg bg-red-500/10 px-2 py-1 text-xs text-red-300">
+          {error}
+        </p>
+      )}
+      {image ? (
+        <GeneratedImageCard
+          brandId={brandId}
+          purpose={purpose}
+          platform={platform}
+          image={image}
+          contentDescription={postText}
+          label="Post image"
+          filenameBase={`${platform}-post`}
+        />
+      ) : (
+        <button
+          onClick={generate}
+          disabled={busy}
+          className="w-full rounded-lg border border-amber-500/60 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-60"
+        >
+          {busy ? "Generating image…" : "Generate Image"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function VariationCard({ brandId, platform, variation, canGenerateImage, onRegenerate }) {
   const [scheduling, setScheduling] = useState(false);
   const [when, setWhen] = useState(defaultScheduleValue);
   const [busy, setBusy] = useState(false);
@@ -319,6 +399,13 @@ function VariationCard({ brandId, platform, variation, onRegenerate }) {
           Best time: {variation.bestPostingTime}
         </p>
       )}
+
+      <SocialImageGenerator
+        brandId={brandId}
+        platform={platform}
+        postText={variation.postText}
+        canGenerate={canGenerateImage}
+      />
 
       {notice && (
         <p className="mt-3 rounded-lg bg-green-50 px-2 py-1 text-xs text-green-700">

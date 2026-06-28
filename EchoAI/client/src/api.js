@@ -404,10 +404,43 @@ export const api = {
       method: "POST",
       body: { brandId, campaignGoal, purpose },
     }),
-  saveImage: ({ brandId, purpose, prompt, imageUrl, platform }) =>
+  generateImagePrompts: ({ brandId, purpose, description }) =>
+    request("/api/images/prompts", {
+      method: "POST",
+      body: { brandId, purpose, description },
+    }),
+  generateImageFromPrompt: ({ brandId, purpose, prompt }) =>
+    request("/api/images/from-prompt", {
+      method: "POST",
+      body: { brandId, purpose, prompt },
+    }),
+  generateImageVariations: ({ brandId, purpose, prompt }) =>
+    request("/api/images/variations", {
+      method: "POST",
+      body: { brandId, purpose, prompt },
+    }),
+  getBrandStyleGuide: (brandId) =>
+    request(`/api/images/style-guide/${brandId}`),
+  saveImage: ({
+    brandId,
+    purpose,
+    prompt,
+    imageUrl,
+    platform,
+    contentDescription,
+    styleNotes,
+  }) =>
     request("/api/images", {
       method: "POST",
-      body: { brandId, purpose, prompt, imageUrl, platform },
+      body: {
+        brandId,
+        purpose,
+        prompt,
+        imageUrl,
+        platform,
+        contentDescription,
+        styleNotes,
+      },
     }),
   getImages: (brandId) => request(`/api/images/${brandId}`),
   deleteImage: (imageId) =>

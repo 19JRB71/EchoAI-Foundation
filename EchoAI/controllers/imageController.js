@@ -12,6 +12,10 @@ const {
   buildImagePrompt,
   VARIANT_STYLES,
 } = require("../prompts/imagePromptBuilder");
+const {
+  generateImagePrompts: engineerImagePrompts,
+  buildBrandStyleSummary,
+} = require("../prompts/imagePromptEngineerPrompt");
 
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "dall-e-3";
 
@@ -69,6 +73,23 @@ function sendOpenAiError(res, err, fallbackMsg) {
     return res.status(502).json({
       error:
         "The image provider could not generate the image right now. Please try again shortly.",
+    });
+  }
+  return res.status(500).json({ error: fallbackMsg });
+}
+
+/**
+ * Maps an AI-text failure to an HTTP status. Upstream provider failures
+ * (Anthropic billing/rate/etc.) AND invalid/malformed AI output (tagged
+ * `err.aiInvalid`) both become 502 with a clear message — never a generic 500,
+ * and never silently mocked.
+ */
+function sendAiError(res, err, fallbackMsg) {
+  const status = err && typeof err.status === "number" ? err.status : null;
+  if (err?.aiInvalid || (status && status >= 400)) {
+    return res.status(502).json({
+      error:
+        "The AI could not produce on-brand image prompts right now. Please try again shortly.",
     });
   }
   return res.status(500).json({ error: fallbackMsg });
@@ -176,6 +197,177 @@ async function generateAdCreativeSet(req, res) {
 }
 
 /**
+ * POST /api/images/prompts
+ * AI Image Prompt Engineer: returns 5 detailed, on-brand image-generation
+ * prompts for a brand + purpose + content description. No image is generated
+ * here — the client picks a prompt and calls /from-prompt to render it.
+ */
+async function generateImagePrompts(req, res) {
+  const userId = req.user.userId;
+  const { brandId, purpose, description } = req.body;
+
+  if (!brandId || !description || !description.trim()) {
+    return res
+      .status(400)
+      .json({ error: "brandId and description are required" });
+  }
+  if (purpose && !isPurpose(purpose)) {
+    return res.status(400).json({ error: "Unknown image purpose" });
+  }
+
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const resolvedPurpose = isPurpose(purpose) ? purpose : "instagram_post";
+    const meta = purposeMeta(resolvedPurpose);
+    const prompts = await engineerImagePrompts(
+      brand,
+      resolvedPurpose,
+      description.trim()
+    );
+
+    return res.json({
+      brandId,
+      purpose: resolvedPurpose,
+      platform: meta.platform,
+      size: meta.size,
+      description: description.trim(),
+      prompts,
+    });
+  } catch (err) {
+    console.error("Generate image prompts error:", err.message);
+    return sendAiError(res, err, "Failed to generate image prompts");
+  }
+}
+
+/**
+ * Renders a single DALL-E image from an explicit (prompt-engineer authored)
+ * prompt. Returns the temporary URL — the caller saves it to persist.
+ */
+async function renderFromPrompt(prompt, purpose) {
+  const response = await openai.images.generate({
+    model: IMAGE_MODEL,
+    prompt,
+    n: 1,
+    size: sizeFor(purpose),
+    response_format: "url",
+  });
+  const url = response?.data?.[0]?.url;
+  if (!url || typeof url !== "string") {
+    const err = new Error("Image generator returned no image");
+    err.aiInvalid = true;
+    throw err;
+  }
+  return url;
+}
+
+/**
+ * POST /api/images/from-prompt
+ * Generates one image from a specific engineer-authored prompt + purpose.
+ */
+async function generateImageFromPrompt(req, res) {
+  const userId = req.user.userId;
+  const { brandId, purpose, prompt } = req.body;
+
+  if (!brandId || !prompt || !prompt.trim()) {
+    return res.status(400).json({ error: "brandId and prompt are required" });
+  }
+  if (purpose && !isPurpose(purpose)) {
+    return res.status(400).json({ error: "Unknown image purpose" });
+  }
+
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const resolvedPurpose = isPurpose(purpose) ? purpose : "instagram_post";
+    const meta = purposeMeta(resolvedPurpose);
+    const imageUrl = await renderFromPrompt(prompt.trim(), resolvedPurpose);
+
+    return res.json({
+      brandId,
+      purpose: resolvedPurpose,
+      platform: meta.platform,
+      size: meta.size,
+      image: { imageUrl, prompt: prompt.trim() },
+    });
+  } catch (err) {
+    console.error("Generate image from prompt error:", err.message);
+    return sendOpenAiError(res, err, "Failed to generate image");
+  }
+}
+
+/**
+ * POST /api/images/variations
+ * Generates 3 variations of an existing prompt, each nudged with a different
+ * creative direction so the owner has options to choose from.
+ */
+async function generateImageVariations(req, res) {
+  const userId = req.user.userId;
+  const { brandId, purpose, prompt } = req.body;
+
+  if (!brandId || !prompt || !prompt.trim()) {
+    return res.status(400).json({ error: "brandId and prompt are required" });
+  }
+  if (purpose && !isPurpose(purpose)) {
+    return res.status(400).json({ error: "Unknown image purpose" });
+  }
+
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const resolvedPurpose = isPurpose(purpose) ? purpose : "instagram_post";
+    const meta = purposeMeta(resolvedPurpose);
+    const base = prompt.trim();
+
+    const images = await Promise.all(
+      VARIANT_STYLES.map(async (direction) => {
+        const variantPrompt = `${base} Creative direction: ${direction}`;
+        const imageUrl = await renderFromPrompt(variantPrompt, resolvedPurpose);
+        return { imageUrl, prompt: variantPrompt };
+      })
+    );
+
+    return res.json({
+      brandId,
+      purpose: resolvedPurpose,
+      platform: meta.platform,
+      size: meta.size,
+      images,
+    });
+  } catch (err) {
+    console.error("Generate image variations error:", err.message);
+    return sendOpenAiError(res, err, "Failed to generate image variations");
+  }
+}
+
+/**
+ * GET /api/images/style-guide/:brandId
+ * Returns the brand's visual profile (palette, visual style, mood, personality,
+ * audience) for the Brand Style Guide tab.
+ */
+async function getBrandStyleGuide(req, res) {
+  const userId = req.user.userId;
+  const { brandId } = req.params;
+
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    return res.json({
+      brandId,
+      brandName: brand.brand_name,
+      styleGuide: buildBrandStyleSummary(brand),
+    });
+  } catch (err) {
+    console.error("Get brand style guide error:", err.message);
+    return res.status(500).json({ error: "Failed to load brand style guide" });
+  }
+}
+
+/**
  * Downloads an image from a (temporary) URL and writes it to the uploads dir.
  * Returns the public-serving path. Throws if the download fails.
  */
@@ -223,7 +415,8 @@ async function persistImage(sourceUrl) {
  */
 async function saveImage(req, res) {
   const userId = req.user.userId;
-  const { brandId, purpose, prompt, imageUrl, platform } = req.body;
+  const { brandId, purpose, prompt, imageUrl, platform, contentDescription, styleNotes } =
+    req.body;
 
   if (!brandId || !imageUrl || !prompt) {
     return res
@@ -251,16 +444,20 @@ async function saveImage(req, res) {
 
     const meta = purposeMeta(purpose);
     const result = await db.query(
-      `INSERT INTO images (brand_id, purpose, prompt_used, image_url, platform, status)
-       VALUES ($1, $2, $3, $4, $5, 'saved')
+      `INSERT INTO images
+         (brand_id, purpose, prompt_used, image_url, platform, status,
+          content_description, style_notes)
+       VALUES ($1, $2, $3, $4, $5, 'saved', $6, $7)
        RETURNING image_id, brand_id, purpose, prompt_used, image_url, platform,
-                 status, created_at`,
+                 status, content_description, style_notes, created_at`,
       [
         brandId,
         purpose || "instagram_post",
         prompt,
         storedUrl,
         platform || meta.platform,
+        contentDescription || null,
+        styleNotes || null,
       ]
     );
     return res.status(201).json({ image: result.rows[0] });
@@ -284,7 +481,7 @@ async function getImages(req, res) {
 
     const result = await db.query(
       `SELECT image_id, brand_id, purpose, prompt_used, image_url, platform,
-              status, created_at
+              status, content_description, style_notes, created_at
        FROM images
        WHERE brand_id = $1
        ORDER BY created_at DESC`,
@@ -356,6 +553,10 @@ module.exports = {
   UPLOADS_DIR,
   generateImage,
   generateAdCreativeSet,
+  generateImagePrompts,
+  generateImageFromPrompt,
+  generateImageVariations,
+  getBrandStyleGuide,
   saveImage,
   getImages,
   deleteImage,

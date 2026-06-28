@@ -48,6 +48,7 @@ const FEATURES = {
   zapier: { name: "Zapier Integration", tier: "pro", description: "Outbound webhooks to Zapier, Make, Slack, and more." },
   video: { name: "Video Script Generator", tier: "pro", description: "AI video packages: hook, scenes, CTA, and thumbnail." },
   ad_studio: { name: "AI Ad Creative Studio", tier: "pro", description: "AI-generated ad creative packages, one-click launch into Facebook." },
+  image_studio: { name: "AI Image Studio", tier: "pro", description: "AI Image Prompt Engineer plus DALL-E generation of on-brand marketing visuals." },
   appointments: { name: "AI Appointment Booking", tier: "pro", description: "AI books appointments for hot leads, syncs Google Calendar, and sends confirmations." },
   followups: { name: "AI Follow-Up Sequences", tier: "pro", description: "Automated multi-step email, SMS, and phone follow-up that runs until a lead responds, books, or converts." },
   sms_marketing: { name: "Two-Way SMS Marketing", tier: "pro", description: "Bulk AI-written SMS campaigns with two-way inbound auto-replies and platform-wide opt-out handling." },

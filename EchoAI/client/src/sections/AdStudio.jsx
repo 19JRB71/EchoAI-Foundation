@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
+import GeneratedImageCard from "./image/GeneratedImageCard.jsx";
 
 const CAMPAIGN_GOALS = [
   { value: "lead_generation", label: "Lead Generation" },
@@ -220,7 +221,7 @@ function GenerateTab({ brandId, onSaved }) {
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             {packages.map((pkg, i) => (
-              <PackageCard key={i} pkg={pkg} index={i} />
+              <PackageCard key={i} pkg={pkg} index={i} brandId={brandId} />
             ))}
           </div>
         </div>
@@ -229,7 +230,7 @@ function GenerateTab({ brandId, onSaved }) {
   );
 }
 
-function PackageCard({ pkg, index }) {
+function PackageCard({ pkg, index, brandId }) {
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -257,6 +258,13 @@ function PackageCard({ pkg, index }) {
 
       <Field label="Image concept">
         <p className="text-sm text-gray-300">{pkg.imageDescription}</p>
+        {brandId && pkg.imageDescription && (
+          <AdImageGenerator
+            brandId={brandId}
+            imageDescription={pkg.imageDescription}
+            index={index}
+          />
+        )}
       </Field>
 
       {pkg.videoScript && (
@@ -337,6 +345,65 @@ function Field({ label, children }) {
   );
 }
 
+// Renders one DALL-E image for an ad concept directly from its image
+// description, using the Facebook-ad purpose/size. Reuses the Image Studio
+// save/download/use-in-social card.
+function AdImageGenerator({ brandId, imageDescription, index }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [image, setImage] = useState(null);
+
+  async function generate() {
+    setBusy(true);
+    setError("");
+    try {
+      const data = await api.generateImageFromPrompt({
+        brandId,
+        purpose: "facebook_ad",
+        prompt: imageDescription,
+      });
+      setImage(data.image);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (image) {
+    return (
+      <div className="mt-3 max-w-xs">
+        <GeneratedImageCard
+          brandId={brandId}
+          purpose="facebook_ad"
+          platform="facebook"
+          image={image}
+          contentDescription={imageDescription}
+          label={`Ad image ${index + 1}`}
+          filenameBase={`ad-${index + 1}`}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2">
+      {error && (
+        <p className="mb-2 rounded-lg bg-red-500/10 px-2 py-1 text-xs text-red-300">
+          {error}
+        </p>
+      )}
+      <button
+        onClick={generate}
+        disabled={busy}
+        className="rounded-lg border border-amber-500/60 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-60"
+      >
+        {busy ? "Generating…" : "Generate Image"}
+      </button>
+    </div>
+  );
+}
+
 function LibraryTab({ brandId }) {
   const [creatives, setCreatives] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -383,6 +450,7 @@ function LibraryTab({ brandId }) {
           <CreativeRow
             key={c.creative_id}
             creative={c}
+            brandId={brandId}
             onLaunch={(packageIndex) => setLaunchTarget({ creative: c, packageIndex })}
           />
         ))
@@ -403,7 +471,7 @@ function LibraryTab({ brandId }) {
   );
 }
 
-function CreativeRow({ creative, onLaunch }) {
+function CreativeRow({ creative, brandId, onLaunch }) {
   const [expanded, setExpanded] = useState(false);
   const concept = creative.creative_concept || {};
   const packages = Array.isArray(concept.packages) ? concept.packages : [];
@@ -444,7 +512,7 @@ function CreativeRow({ creative, onLaunch }) {
           <div className="grid gap-4 lg:grid-cols-2">
             {packages.map((pkg, i) => (
               <div key={i}>
-                <PackageCard pkg={pkg} index={i} />
+                <PackageCard pkg={pkg} index={i} brandId={brandId} />
                 {!launched && (
                   <button
                     onClick={() => onLaunch(i)}

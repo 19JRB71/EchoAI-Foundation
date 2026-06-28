@@ -28,6 +28,18 @@ const PURPOSES = {
     size: SIZE_SQUARE,
     aspect: "square 1:1",
   },
+  instagram_story: {
+    label: "Instagram Story",
+    platform: "instagram",
+    size: SIZE_PORTRAIT,
+    aspect: "vertical 9:16 full-screen story",
+  },
+  tiktok_thumbnail: {
+    label: "TikTok Thumbnail",
+    platform: "tiktok",
+    size: SIZE_PORTRAIT,
+    aspect: "vertical 9:16",
+  },
   twitter_post: {
     label: "Twitter Post",
     platform: "twitter",
@@ -40,11 +52,23 @@ const PURPOSES = {
     size: SIZE_LANDSCAPE,
     aspect: "landscape 16:9",
   },
+  blog_header: {
+    label: "Blog Header",
+    platform: "blog",
+    size: SIZE_LANDSCAPE,
+    aspect: "wide landscape banner",
+  },
   email_header: {
     label: "Email Header",
     platform: "email",
     size: SIZE_LANDSCAPE,
     aspect: "wide landscape banner",
+  },
+  logo_concept: {
+    label: "Logo Concept",
+    platform: "brand",
+    size: SIZE_SQUARE,
+    aspect: "square 1:1 logo concept",
   },
   youtube_thumbnail: {
     label: "YouTube Thumbnail",

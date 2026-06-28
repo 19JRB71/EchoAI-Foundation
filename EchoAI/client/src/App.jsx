@@ -391,6 +391,7 @@ export default function App() {
               {section === "social" && (
                 <SocialMedia
                   brandId={selectedBrandId}
+                  tier={currentTier}
                   prefillImage={socialPrefillImage}
                   onPrefillConsumed={() => setSocialPrefillImage(null)}
                 />
@@ -410,12 +411,14 @@ export default function App() {
               {section === "email" && (
                 <EmailMarketing brandId={selectedBrandId} />
               )}
-              {section === "image" && (
-                <ImageStudio
-                  brandId={selectedBrandId}
-                  onUseInSocial={handleUseImageInSocial}
-                />
-              )}
+              {section === "image" &&
+                gate(
+                  "image",
+                  <ImageStudio
+                    brandId={selectedBrandId}
+                    onUseInSocial={handleUseImageInSocial}
+                  />,
+                )}
               {section === "googleseo" && (
                 <GoogleSeo brandId={selectedBrandId} />
               )}

@@ -102,7 +102,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Social media | `/api/social` | brand-scoped encrypted `social_accounts`; node-cron publishes due posts every minute; ig/tiktok/youtube text-only → 422 |
 | Video content | `/api/video` | AI video package (hook/scenes/CTA/thumbnail); `video_scripts` |
 | Email marketing | `/api/email-campaigns` | 3–10 email sequence; transactional `sendCampaign` (no double/skip); `email_campaigns`+`email_sends` (014) |
-| Image studio | `/api/images` | DALL-E 3 (`n=1` ×3 for variations); persisted to disk; `images` (015) |
+| Image studio | `/api/images` | **Pro-gated.** AI Image Prompt Engineer (Anthropic) designs 5 detailed on-brand prompts (style/palette/composition/mood/lighting/text-overlay) → per-prompt DALL-E 3 generation → 3 variations per prompt (VARIANT_STYLES). 9 purposes (square/landscape/portrait sizing). Brand Style Guide tab (palette/style/mood/personality/audience + Regenerate Brand Prompts). Generate-Image wired into Ad Studio (`facebook_ad`) + Social (platform→purpose). AI-text failures + malformed output → 502. Persisted to disk; `images` + content_description/style_notes (015, 036) |
 | Billing | `/api/subscriptions` | Stripe; management routes bypass lockout; `config/plans.js` is the tier source of truth; global payment-failed banner |
 | PWA + web push | `/api/push` | installable PWA; `sw.js` in `client/public/`; VAPID env must stay stable; dual-channel hot-lead alerts; `push_subscriptions` (016) |
 | Facebook OAuth | `/api/facebook` | "Continue with Facebook" ad-account linking; `facebook_ad_accounts` JSONB (017) |
@@ -142,7 +142,7 @@ open that file when working inside a specific subsystem.
   when below the required rank; **admin role bypasses all gates**. Order on gated
   routes is always `auth → lockout → featureGate` (never gate before lockout).
 - **Pro-gated:** voice (per-route), phone, reputation, sales scripts, content
-  calendar, webhooks, video, ad studio. **Enterprise-gated:** agency, affiliate,
+  calendar, webhooks, video, ad studio, image studio. **Enterprise-gated:** agency, affiliate,
   mobile v2, feedback. **Social** rejects connecting a 3rd+ platform below Pro
   (`socialController.connectSocialAccount`, admin bypass).
 - **Upgrade is instant; downgrade defers to next cycle.** `changeSubscription`:
