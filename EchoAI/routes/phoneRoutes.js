@@ -4,6 +4,7 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
 const featureGate = require("../middleware/featureGate");
+const { denyViewerMutations } = require("../middleware/rolePermissions");
 const phoneController = require("../controllers/phoneController");
 
 // ---------------------------------------------------------------------------
@@ -17,7 +18,7 @@ router.post("/status", phoneController.handleCallStatus);
 // ---------------------------------------------------------------------------
 // Customer-facing routes — auth + account in good standing.
 // ---------------------------------------------------------------------------
-router.use(auth, lockout, featureGate("phone_agent"));
+router.use(auth, lockout, featureGate("phone_agent"), denyViewerMutations);
 
 // Twilio config (Settings panel)
 router.post("/config", phoneController.saveTwilioConfig);

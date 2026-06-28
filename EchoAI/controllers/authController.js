@@ -132,12 +132,17 @@ async function login(req, res) {
  */
 async function getProfile(req, res) {
   try {
+    // Identity is always the REAL authenticated user (actualUserId); for team
+    // members req.user.userId has been remapped to the workspace owner.
+    const selfId = req.user.actualUserId || req.user.userId;
+    const workspaceId = req.user.userId;
+
     const result = await db.query(
       `SELECT user_id, email, subscription_tier, team_size, business_name, industry,
               role, onboarding_completed, onboarding_step, created_at, updated_at
        FROM users
        WHERE user_id = $1`,
-      [req.user.userId]
+      [selfId]
     );
 
     if (result.rows.length === 0) {
@@ -146,18 +151,38 @@ async function getProfile(req, res) {
 
     const user = result.rows[0];
 
+    // Team members operate inside the owner's workspace: surface the owner's
+    // plan/seat/business identity so client-side gating and branding match what
+    // the backend actually allows.
+    let workspace = user;
+    if (req.user.isTeamMember && workspaceId !== selfId) {
+      const ws = await db.query(
+        `SELECT subscription_tier, team_size, business_name, industry
+         FROM users WHERE user_id = $1`,
+        [workspaceId]
+      );
+      if (ws.rows.length > 0) workspace = ws.rows[0];
+    }
+
     return res.json({
       userId: user.user_id,
       email: user.email,
-      subscriptionTier: user.subscription_tier,
-      teamSize: user.team_size,
-      businessName: user.business_name,
-      industry: user.industry,
+      subscriptionTier: workspace.subscription_tier,
+      teamSize: workspace.team_size,
+      businessName: workspace.business_name,
+      industry: workspace.industry,
       role: user.role,
-      onboardingCompleted: user.onboarding_completed,
+      // Team members join an existing workspace — they never run owner onboarding.
+      onboardingCompleted: req.user.isTeamMember ? true : user.onboarding_completed,
       onboardingStep: user.onboarding_step,
       createdAt: user.created_at,
       updatedAt: user.updated_at,
+      // Workspace context for the client.
+      workspaceRole: req.user.workspaceRole,
+      isTeamMember: Boolean(req.user.isTeamMember),
+      isPlatformAdmin: Boolean(req.user.isPlatformAdmin),
+      workspaceOwnerId: workspaceId,
+      ownerBusinessName: req.user.isTeamMember ? workspace.business_name : null,
     });
   } catch (err) {
     console.error("Get profile error:", err);
@@ -203,7 +228,9 @@ async function updateProfile(req, res) {
     values.push(industry);
   }
 
-  values.push(req.user.userId);
+  // Always act on the REAL authenticated user, never the remapped workspace
+  // owner — a team member must not be able to edit the owner's account.
+  values.push(req.user.actualUserId || req.user.userId);
 
   try {
     const result = await db.query(
@@ -267,7 +294,10 @@ async function updateOnboarding(req, res) {
     values.push(Boolean(onboardingCompleted));
   }
 
-  values.push(req.user.userId);
+  // Onboarding progress belongs to the real authenticated user, not the
+  // remapped workspace owner.
+  const selfId = req.user.actualUserId || req.user.userId;
+  values.push(selfId);
 
   try {
     const result = await db.query(
@@ -294,7 +324,7 @@ async function updateOnboarding(req, res) {
     // so repeated "completed" updates don't resend it. Best-effort: never block
     // or fail the onboarding response on email delivery.
     if (onboardingCompleted === true && user.onboarding_completed && !user.was_completed) {
-      db.query("SELECT email, business_name FROM users WHERE user_id = $1", [req.user.userId])
+      db.query("SELECT email, business_name FROM users WHERE user_id = $1", [selfId])
         .then((r) => {
           const u = r.rows[0];
           if (u) {

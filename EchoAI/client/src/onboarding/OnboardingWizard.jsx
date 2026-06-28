@@ -17,6 +17,7 @@ import {
 import StepWelcome from "./steps/StepWelcome.jsx";
 import StepFacebook from "./steps/StepFacebook.jsx";
 import StepSubscription from "./steps/StepSubscription.jsx";
+import StepTeam from "./steps/StepTeam.jsx";
 import StepBrandDiscovery from "./steps/StepBrandDiscovery.jsx";
 import StepConfirmation from "./steps/StepConfirmation.jsx";
 
@@ -66,8 +67,9 @@ export default function OnboardingWizard({ onComplete }) {
               onSelectTier={setSelectedTier}
             />
           )}
-          {step === 4 && <StepBrandDiscovery onNext={goNext} onBack={goBack} />}
-          {step === 5 && (
+          {step === 4 && <StepTeam onNext={goNext} onBack={goBack} />}
+          {step === 5 && <StepBrandDiscovery onNext={goNext} onBack={goBack} />}
+          {step === 6 && (
             <StepConfirmation
               facebookConnected={facebookConnected}
               selectedTier={selectedTier}

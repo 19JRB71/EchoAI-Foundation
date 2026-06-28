@@ -50,6 +50,21 @@ export default function App() {
   // Billing and auto-open the card form.
   const [billingTab, setBillingTab] = useState("account");
   const [openPaymentModal, setOpenPaymentModal] = useState(false);
+  // Workspace context for team members. Defaults to "owner" (acting as
+  // themselves) until the profile loads.
+  const [workspaceRole, setWorkspaceRole] = useState("owner");
+  const [isTeamMember, setIsTeamMember] = useState(false);
+  const [ownerBusinessName, setOwnerBusinessName] = useState(null);
+  // A pending team invitation token pulled from the ?invite= link, consumed
+  // once the user is authenticated.
+  const [inviteToken, setInviteToken] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("invite") || null;
+    } catch {
+      return null;
+    }
+  });
+  const [inviteNotice, setInviteNotice] = useState("");
 
   function handleUseImageInSocial(image) {
     setSocialPrefillImage(image);
@@ -117,6 +132,9 @@ export default function App() {
         if (active) {
           setOnboardingCompleted(Boolean(profile.onboardingCompleted));
           setIsAdmin(profile.role === "admin");
+          setWorkspaceRole(profile.workspaceRole || "owner");
+          setIsTeamMember(Boolean(profile.isTeamMember));
+          setOwnerBusinessName(profile.ownerBusinessName || null);
         }
         // Detect whether this account owns a white-label agency (shows the
         // Agency Portal nav). A 404 simply means "not an agency owner".
@@ -145,6 +163,48 @@ export default function App() {
   useEffect(() => {
     if (authed && onboardingCompleted) loadBrands();
   }, [authed, onboardingCompleted, loadBrands]);
+
+  // Consume a pending team invitation once authenticated. Accepting joins the
+  // owner's workspace; we then re-read the profile so the remapped role/context
+  // takes effect, and strip the token from the URL.
+  useEffect(() => {
+    if (!authed || !inviteToken) return;
+    let active = true;
+    (async () => {
+      try {
+        const res = await api.acceptTeamInvite(inviteToken);
+        if (!active) return;
+        setInviteNotice(
+          `You've joined ${res.businessName || "the workspace"} as ${
+            res.role || "a team member"
+          }.`
+        );
+        const profile = await api.getProfile();
+        if (!active) return;
+        setOnboardingCompleted(Boolean(profile.onboardingCompleted));
+        setWorkspaceRole(profile.workspaceRole || "owner");
+        setIsTeamMember(Boolean(profile.isTeamMember));
+        setOwnerBusinessName(profile.ownerBusinessName || null);
+      } catch (err) {
+        if (active)
+          setInviteNotice(err.message || "Could not accept the invitation.");
+      } finally {
+        if (active) {
+          setInviteToken(null);
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("invite");
+            window.history.replaceState({}, "", url.pathname + url.search);
+          } catch {
+            /* no-op */
+          }
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [authed, inviteToken]);
 
   // Poll subscription status so the payment-failed banner stays current across
   // every dashboard page until the issue is resolved.
@@ -186,7 +246,8 @@ export default function App() {
     enablePushNotifications(token).catch(() => {});
   }
 
-  if (!authed) return <Login onLogin={handleLogin} />;
+  if (!authed)
+    return <Login onLogin={handleLogin} invitePending={Boolean(inviteToken)} />;
 
   // Wait until we know the onboarding status before deciding what to render.
   if (onboardingCompleted === null) {
@@ -236,6 +297,9 @@ export default function App() {
         isAdmin={isAdmin}
         isAgencyOwner={isAgencyOwner}
         tier={currentTier}
+        workspaceRole={workspaceRole}
+        isTeamMember={isTeamMember}
+        ownerBusinessName={ownerBusinessName}
       />
       <main className="flex-1 p-4 md:p-8">
         <div className="mx-auto max-w-6xl">
@@ -255,6 +319,18 @@ export default function App() {
           ) : (
             <>
               <PaymentFailedBanner status={billingStatus} onFix={handleFixPayment} />
+              {inviteNotice && (
+                <div className="mb-6 flex items-start justify-between gap-3 rounded-lg bg-green-500/10 p-3 text-sm text-green-300">
+                  <span>{inviteNotice}</span>
+                  <button
+                    onClick={() => setInviteNotice("")}
+                    className="shrink-0 text-green-400 hover:text-green-200"
+                    aria-label="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <BrandBar
                 brands={brands}
                 selectedBrandId={selectedBrandId}
@@ -307,6 +383,8 @@ export default function App() {
                   onBrandsChanged={loadBrands}
                   initialTab={billingTab}
                   openPaymentModal={openPaymentModal}
+                  workspaceRole={workspaceRole}
+                  isTeamMember={isTeamMember}
                   key={`${billingTab}-${openPaymentModal}`}
                 />
               )}

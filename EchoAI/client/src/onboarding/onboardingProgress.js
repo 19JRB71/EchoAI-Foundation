@@ -8,12 +8,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api.js";
 
-// The five wizard steps, in order. The 1-based index of each entry is the value
+// The wizard steps, in order. The 1-based index of each entry is the value
 // stored in users.onboarding_step.
 export const ONBOARDING_STEPS = [
   { key: "welcome", title: "Welcome" },
   { key: "facebook", title: "Connect Facebook" },
   { key: "subscription", title: "Choose your plan" },
+  { key: "team", title: "Invite your team" },
   { key: "brand", title: "Brand discovery" },
   { key: "launch", title: "Launch" },
 ];

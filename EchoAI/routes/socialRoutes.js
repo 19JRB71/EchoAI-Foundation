@@ -4,10 +4,12 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const { denyViewerMutations } = require("../middleware/rolePermissions");
 const socialController = require("../controllers/socialController");
 
-// All social routes require authentication and an active (non-locked) subscription.
-router.use(auth, lockout);
+// All social routes require authentication and an active (non-locked)
+// subscription. Viewers may read but not post/modify.
+router.use(auth, lockout, denyViewerMutations);
 
 router.post("/connect", socialController.connectSocialAccount);
 router.post("/generate", socialController.generateSocialContent);

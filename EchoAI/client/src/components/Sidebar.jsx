@@ -256,6 +256,9 @@ export default function Sidebar({
   isAdmin,
   isAgencyOwner,
   tier,
+  workspaceRole = "owner",
+  isTeamMember = false,
+  ownerBusinessName = null,
 }) {
   const { branding } = useBranding();
   const isDefaultBrand = branding.agencyName === "EchoAI";
@@ -287,6 +290,17 @@ export default function Sidebar({
           </span>
         )}
       </div>
+
+      {isTeamMember && (
+        <div className="hidden rounded-lg bg-gray-900 px-3 py-2 text-xs md:mb-4 md:block">
+          <div className="text-gray-500">
+            {ownerBusinessName ? `${ownerBusinessName} workspace` : "Team workspace"}
+          </div>
+          <div className="mt-0.5 font-semibold capitalize text-amber-300">
+            {workspaceRole} access
+          </div>
+        </div>
+      )}
 
       <nav className="flex flex-row gap-1 md:flex-1 md:flex-col">
         {items.map((item) => {

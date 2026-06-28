@@ -843,6 +843,7 @@ async function getUpcomingInvoice(req, res) {
 }
 
 module.exports = {
+  syncSeatItem,
   createSubscription,
   handleWebhook,
   cancelSubscription,

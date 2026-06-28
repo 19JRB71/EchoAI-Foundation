@@ -102,6 +102,19 @@ export const api = {
   getBillingHistory: () => request("/api/subscriptions/invoices"),
   getUpcomingInvoice: () => request("/api/subscriptions/upcoming-invoice"),
 
+  // Team members & roles
+  getTeam: () => request("/api/team"),
+  inviteTeamMember: (email, role) =>
+    request("/api/team/invite", { method: "POST", body: { email, role } }),
+  resendTeamInvite: (teamMemberId) =>
+    request("/api/team/resend", { method: "POST", body: { teamMemberId } }),
+  changeTeamRole: (teamMemberId, role) =>
+    request("/api/team/role", { method: "PUT", body: { teamMemberId, role } }),
+  removeTeamMember: (teamMemberId) =>
+    request(`/api/team/${teamMemberId}`, { method: "DELETE" }),
+  acceptTeamInvite: (token) =>
+    request("/api/team/accept", { method: "POST", body: { token } }),
+
   // Brands
   getBrands: () => request("/api/brands"),
   getBrand: (brandId) => request(`/api/brands/${brandId}`),

@@ -4,6 +4,7 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const { denyViewerMutations } = require("../middleware/rolePermissions");
 const leadController = require("../controllers/leadController");
 const chatbotController = require("../controllers/chatbotController");
 
@@ -11,7 +12,8 @@ const chatbotController = require("../controllers/chatbotController");
 router.post("/chat", chatbotController.chat);
 
 // All remaining lead routes require authentication and an active subscription.
-router.use(auth, lockout);
+// Viewers may read leads/CRM but not create/convert/modify them.
+router.use(auth, lockout, denyViewerMutations);
 
 router.post("/", leadController.createLead);
 router.get("/", leadController.getLeads);

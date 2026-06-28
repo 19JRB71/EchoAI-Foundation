@@ -5,6 +5,7 @@ import ErrorBanner from "../components/ErrorBanner.jsx";
 import BrandDiscovery from "./BrandDiscovery.jsx";
 import Billing from "./billing/Billing.jsx";
 import FacebookConnect from "../components/FacebookConnect.jsx";
+import TeamManagement from "./team/TeamManagement.jsx";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
@@ -18,12 +19,21 @@ export default function Settings({
   onBrandsChanged,
   initialTab = "account",
   openPaymentModal = false,
+  workspaceRole = "owner",
+  isTeamMember = false,
 }) {
+  // Billing and team management are restricted to the workspace owner/admin.
+  const canManage = workspaceRole === "owner" || workspaceRole === "admin";
   const [tab, setTab] = useState(initialTab);
 
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
+
+  // Keep restricted users out of gated tabs even if deep-linked there.
+  useEffect(() => {
+    if (!canManage && (tab === "billing" || tab === "team")) setTab("account");
+  }, [canManage, tab]);
 
   const tabBtn = (value, label) => (
     <button
@@ -42,20 +52,23 @@ export default function Settings({
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-gray-100">Settings</h2>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {tabBtn("account", "Account")}
-        {tabBtn("billing", "Billing")}
+        {canManage && tabBtn("billing", "Billing")}
+        {canManage && tabBtn("team", "Team")}
       </div>
 
-      {tab === "account" ? (
+      {tab === "billing" && canManage ? (
+        <Billing openPaymentModal={openPaymentModal} />
+      ) : tab === "team" && canManage ? (
+        <TeamManagement />
+      ) : (
         <div className="space-y-6">
-          <ProfileCard />
+          <ProfileCard isTeamMember={isTeamMember} />
           <FacebookCard />
           <TwilioCard brandId={brandId} />
           <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
         </div>
-      ) : (
-        <Billing openPaymentModal={openPaymentModal} />
       )}
     </div>
   );
@@ -90,7 +103,7 @@ function Row({ label, value }) {
   );
 }
 
-function ProfileCard() {
+function ProfileCard({ isTeamMember = false }) {
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState("");
   const [teamSize, setTeamSize] = useState("");
@@ -155,15 +168,17 @@ function ProfileCard() {
             className={inputClass}
           />
         </Labeled>
-        <Labeled label="Team size">
-          <input
-            type="number"
-            min="1"
-            value={teamSize}
-            onChange={(e) => setTeamSize(e.target.value)}
-            className={inputClass}
-          />
-        </Labeled>
+        {!isTeamMember && (
+          <Labeled label="Team size">
+            <input
+              type="number"
+              min="1"
+              value={teamSize}
+              onChange={(e) => setTeamSize(e.target.value)}
+              className={inputClass}
+            />
+          </Labeled>
+        )}
         {notice && <p className="text-sm text-green-600">{notice}</p>}
         <ErrorBanner message={error} />
         <button disabled={saving} className={primaryBtn}>

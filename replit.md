@@ -119,6 +119,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Content calendar | `/api/content-calendar` | AI generates a month of social posts (frequency × platforms × theme); saved as `draft` social_posts linked to a `content_calendars` row; activate→scheduled, pause→draft; scheduler only auto-publishes calendar posts whose calendar is `active`; `content_calendars`+`social_posts.calendar_id` (028) |
 | Ad creative studio | `/api/ad-studio` | AI generates 5 complete ad creative packages/brand (image desc, video script, copy variations, audience, placements); Creative Library + Performance tabs; one-click launch into existing Facebook campaign infra (paused); weekly perf refresh in Monday scheduler; `ad_creatives` (029) |
 | Customer feedback | `/api/feedback` | AI Survey Designer (5Q) + Feedback Analyst (30-day report); public server-rendered response page (`/r/:responseId`); 1-10 sentiment scoring; auto-sent after chat/call/weekly; `surveys`+`survey_responses`+`feedback_reports` (030) |
+| Team & roles | `/api/team` | owners invite staff by email (48h token) + assign workspace roles (viewer/manager/admin); `middleware/auth.js` remaps an active member's `userId`→owner so all userId-scoped queries become workspace-scoped; seats = 1 owner + active members (auto-bills via `syncSeatItem`); `team_members`+`team_invitations` (032) |
 
 ### Sales scripts subsystem (`/api/sales-scripts`)
 
@@ -369,6 +370,51 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   `feedback_reports`; reuses `set_updated_at()`; idempotent). Client:
   `client/src/sections/Feedback.jsx` (Dashboard / Responses / Surveys tabs);
   api.js block + Sidebar "Feedback" nav.
+
+### Team & role permissions subsystem (`/api/team`)
+
+- **Workspace remap is the core mechanism.** `middleware/auth.js`, after JWT
+  verify, looks up an **active** `team_members` row where `invited_user_id = me`.
+  If found it sets `req.user.userId = account_owner_user_id` (the effective
+  workspace), keeps `req.user.actualUserId` (the real signed-in user), and stamps
+  `workspaceRole` + `isTeamMember=true` + `isPlatformAdmin`. This makes every
+  existing `userId`-scoped query workspace-scoped with **zero per-controller
+  edits**. The lookup is `try/catch` → falls back to self on any error.
+- **Identity-sensitive writes must use `actualUserId`, never the remapped
+  `userId`.** `getProfile`, `updateProfile`, `updateOnboarding`, and the team
+  controller act on `actualUserId` — otherwise a team member would edit the
+  **owner's** account. **Regression watch:** any new self-account mutation in
+  `authController` must use `actualUserId`.
+- **v2 keeps real identity.** `auth.js` skips the remap for `/api/v2*` (mobile).
+  Team members on mobile therefore operate in **their own** account, not the
+  owner's workspace — cross-workspace mobile access is intentionally unsupported
+  (safe: no foreign-workspace data is reachable), not a gate to add later without
+  scoping the v2 data routes too.
+- **Roles & gating.** Rank `viewer < manager < admin < owner`; platform admin
+  (`users.role='admin'`) bypasses all. `middleware/rolePermissions.js`:
+  `requireRole(min)`, `denyViewerMutations` (blocks non-GET for viewers),
+  `requireOwner`. Applied: `denyViewerMutations` on campaign/social/
+  content-calendar/video/phone/lead routes; `requireRole('admin')` on
+  subscription mgmt/billing mutation routes + all `/api/team` mgmt routes.
+- **Invitations.** `POST /invite` (admin+) creates a `team_invitations` row (48h
+  token) + a `team_members` row; an **existing** EchoAI account is linked
+  immediately (`active`), otherwise `pending` + email with `/?invite=<token>`.
+  `POST /accept` (auth only): **looks up the token first, verifies the caller's
+  email matches `invited_email` BEFORE consuming it** (a wrong-email caller gets
+  403 and the token stays valid for the real invitee), then atomically consumes
+  it via conditional `UPDATE ... WHERE accepted_at IS NULL AND expires_at > NOW()`
+  (single-use; concurrent accept loses the race → 410). Expired/used/invalid → 410.
+- **Seats are membership-driven.** `recomputeOwnerSeats(ownerId)` sets
+  `users.team_size = 1 (owner) + count(active members)` and calls the exported
+  `syncSeatItem` (best-effort try/catch) on accept/remove. Extra seats beyond the
+  tier's included count auto-bill `$50` (enterprise unlimited); **no hard block**.
+- Migration `models/032_team_members.sql` (`team_role`/`team_member_status` enums;
+  `team_members` UNIQUE `(account_owner_user_id, lower(email))` + partial UNIQUE
+  on `invited_user_id`; `team_invitations`; idempotent). Client: api.js team
+  block; `client/src/sections/team/TeamManagement.jsx` (seat summary + invite +
+  members table, owner/admin only) surfaced as Settings **Team** tab (Billing+Team
+  gated to owner/admin); onboarding **StepTeam** (step 4, skippable); App.jsx reads
+  workspace context + consumes `?invite=` after login; Sidebar shows a role badge.
 
 ### Feature gating & tier enforcement
 

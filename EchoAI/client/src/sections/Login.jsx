@@ -7,10 +7,10 @@ import { getReferralCode, clearReferralCode } from "../lib/referral.js";
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, invitePending = false }) {
   const { branding } = useBranding();
   const isDefaultBrand = branding.agencyName === "EchoAI";
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState(invitePending ? "register" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [teamSize, setTeamSize] = useState("");
@@ -68,6 +68,13 @@ export default function Login({ onLogin }) {
               : "Create your account"}
           </p>
         </div>
+
+        {invitePending && (
+          <div className="mb-4 rounded-lg bg-amber-500/10 p-3 text-sm text-amber-300">
+            You've been invited to join a team. Sign in or create an account with
+            the email your invitation was sent to, and you'll join automatically.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

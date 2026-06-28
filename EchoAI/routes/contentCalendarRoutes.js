@@ -5,10 +5,12 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
 const featureGate = require("../middleware/featureGate");
+const { denyViewerMutations } = require("../middleware/rolePermissions");
 const contentCalendarController = require("../controllers/contentCalendarController");
 
 // All content-calendar routes require authentication and an active subscription.
-router.use(auth, lockout, featureGate("content_calendar"));
+// Viewers may read but not generate/modify content.
+router.use(auth, lockout, featureGate("content_calendar"), denyViewerMutations);
 
 router.post("/generate", contentCalendarController.generateCalendar);
 router.post("/", contentCalendarController.saveCalendar);

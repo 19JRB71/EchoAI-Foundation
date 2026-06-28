@@ -233,6 +233,67 @@ function platformInquiryEmail({ name, businessType, phone, email }) {
   };
 }
 
+const ROLE_BLURB = {
+  viewer:
+    "As a Viewer you'll be able to see leads, reports, analytics, and the CRM.",
+  manager:
+    "As a Manager you'll be able to run campaigns, generate content, manage leads, and use all the AI tools.",
+  admin:
+    "As an Admin you'll be able to do everything a Manager can, plus manage team members and billing.",
+};
+
+/**
+ * Invitation email for a NEW person (no EchoAI account yet). Contains the
+ * secure one-time accept link that expires in 48 hours.
+ */
+function teamInvitationEmail({ businessName, role, acceptUrl, expiresHours }) {
+  const workspace = businessName ? escapeHtml(businessName) : `the ${BRAND} workspace`;
+  const blurb = ROLE_BLURB[role] || ROLE_BLURB.viewer;
+  const hours = expiresHours || 48;
+  const bodyHtml = `
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">You've been invited to join <strong>${workspace}</strong> on ${BRAND} as a <strong>${escapeHtml(
+      role || "team member"
+    )}</strong>.</p>
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">${escapeHtml(
+      blurb
+    )}</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Click the button below to accept your invitation and set up your account. This secure link expires in <strong>${hours} hours</strong>.</p>`;
+  return {
+    subject: `You've been invited to join ${businessName || BRAND}`,
+    html: layout({
+      heading: "You're invited to join the team",
+      bodyHtml,
+      ctaLabel: "Accept invitation",
+      ctaUrl: acceptUrl || APP_URL,
+    }),
+  };
+}
+
+/**
+ * Notification for an EXISTING EchoAI user who was added to a workspace
+ * immediately (no acceptance step needed).
+ */
+function teamMemberAddedEmail({ businessName, role, loginUrl }) {
+  const workspace = businessName ? escapeHtml(businessName) : `a ${BRAND} workspace`;
+  const blurb = ROLE_BLURB[role] || ROLE_BLURB.viewer;
+  const bodyHtml = `
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">You've been added to <strong>${workspace}</strong> on ${BRAND} as a <strong>${escapeHtml(
+      role || "team member"
+    )}</strong>.</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${escapeHtml(
+      blurb
+    )} Just log in to start working inside the workspace.</p>`;
+  return {
+    subject: `You've been added to ${businessName || BRAND}`,
+    html: layout({
+      heading: "You've joined a team",
+      bodyHtml,
+      ctaLabel: "Log in to EchoAI",
+      ctaUrl: loginUrl || APP_URL,
+    }),
+  };
+}
+
 module.exports = {
   welcomeEmail,
   weeklyReportEmail,
@@ -240,4 +301,6 @@ module.exports = {
   paymentReminderEmail,
   accountLockedEmail,
   platformInquiryEmail,
+  teamInvitationEmail,
+  teamMemberAddedEmail,
 };
