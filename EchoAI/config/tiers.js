@@ -49,6 +49,7 @@ const FEATURES = {
   video: { name: "Video Script Generator", tier: "pro", description: "AI video packages: hook, scenes, CTA, and thumbnail." },
   ad_studio: { name: "AI Ad Creative Studio", tier: "pro", description: "AI-generated ad creative packages, one-click launch into Facebook." },
   appointments: { name: "AI Appointment Booking", tier: "pro", description: "AI books appointments for hot leads, syncs Google Calendar, and sends confirmations." },
+  followups: { name: "AI Follow-Up Sequences", tier: "pro", description: "Automated multi-step email, SMS, and phone follow-up that runs until a lead responds, books, or converts." },
 
   // --- Enterprise ---
   white_label: { name: "White-Label Agency", tier: "enterprise", description: "Resell EchoAI under your own brand and domain." },

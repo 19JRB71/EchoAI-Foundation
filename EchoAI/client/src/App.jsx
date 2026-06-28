@@ -18,6 +18,7 @@ import RoiDashboard from "./sections/RoiDashboard.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
 import Appointments from "./sections/Appointments.jsx";
+import FollowUps from "./sections/FollowUps.jsx";
 import ChatbotSetup from "./sections/ChatbotSetup.jsx";
 import Feedback from "./sections/Feedback.jsx";
 import ZapierIntegration from "./sections/ZapierIntegration.jsx";
@@ -376,6 +377,8 @@ export default function App() {
                   "appointments",
                   <Appointments brandId={selectedBrandId} />,
                 )}
+              {section === "followups" &&
+                gate("followups", <FollowUps brandId={selectedBrandId} />)}
               {section === "chatbot" && (
                 <ChatbotSetup brandId={selectedBrandId} />
               )}

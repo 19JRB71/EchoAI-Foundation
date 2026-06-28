@@ -511,6 +511,30 @@ export const api = {
       body: data,
     }),
 
+  // AI Follow-Up Sequences
+  generateFollowUp: ({ brandId, leadId, goal }) =>
+    request("/api/follow-ups/generate", {
+      method: "POST",
+      body: { brandId, leadId, goal },
+    }),
+  saveFollowUp: ({ brandId, leadId, goal, sequenceType, touchpoints }) =>
+    request("/api/follow-ups", {
+      method: "POST",
+      body: { brandId, leadId, goal, sequenceType, touchpoints },
+    }),
+  getFollowUps: (brandId, status) => {
+    const qs = new URLSearchParams({ brandId });
+    if (status) qs.set("status", status);
+    return request(`/api/follow-ups?${qs.toString()}`);
+  },
+  getFollowUp: (sequenceId) => request(`/api/follow-ups/${sequenceId}`),
+  pauseFollowUp: (sequenceId) =>
+    request(`/api/follow-ups/${sequenceId}/pause`, { method: "POST" }),
+  resumeFollowUp: (sequenceId) =>
+    request(`/api/follow-ups/${sequenceId}/resume`, { method: "POST" }),
+  cancelFollowUp: (sequenceId) =>
+    request(`/api/follow-ups/${sequenceId}/cancel`, { method: "POST" }),
+
   // AI Website Chatbot (embeddable widget)
   getChatbotConfigForOwner: (brandId) =>
     request(`/api/chatbot/admin-config/${brandId}`),

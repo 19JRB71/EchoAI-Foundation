@@ -7,6 +7,7 @@ const {
 const emailController = require("./emailController");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
+const followUpController = require("./followUpController");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 
@@ -118,7 +119,7 @@ async function chat(req, res) {
     // Load the lead and its brand (for brand-aware tone).
     const result = await db.query(
       `SELECT l.lead_id, l.brand_id, l.conversation_history,
-              l.lead_name, l.email AS lead_email, l.phone,
+              l.lead_name, l.email AS lead_email, l.phone, l.temperature AS prev_temperature,
               b.brand_name, b.brand_personality, b.voice_description, b.target_audience,
               u.email AS owner_email, u.user_id AS owner_user_id
        FROM leads l
@@ -167,6 +168,23 @@ async function chat(req, res) {
       botReply: reply,
       scoredTemperature: temperature || null,
     });
+
+    // The lead just replied — stop any follow-up that has already reached out to
+    // them (they came back), then auto-enroll on a fresh cold -> warm/hot
+    // transition. Both are best-effort and never block or fail the chat.
+    followUpController
+      .cancelActiveSequencesForLead(leadId, "lead_responded", true)
+      .catch((err) => console.error("Follow-up stop (responded) failed:", err.message));
+    if (temperature && VALID_TEMPERATURES.includes(temperature)) {
+      followUpController
+        .maybeStartSequenceForLead({
+          brandId: row.brand_id,
+          leadId,
+          temperature,
+          prevTemperature: row.prev_temperature,
+        })
+        .catch((err) => console.error("Follow-up auto-enroll failed:", err.message));
+    }
 
     // Notify the business owner immediately whenever a lead turns hot.
     // Best-effort: never block or fail the chat response on email delivery.

@@ -14,6 +14,7 @@ const {
   autoSendSurvey,
   generateFeedbackReportForBrand,
 } = require("../controllers/feedbackController");
+const { executeDueTouchpoints } = require("../controllers/followUpController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -152,8 +153,16 @@ function startScheduler() {
     });
   });
 
+  // Every 5 minutes: send any due follow-up touchpoints (email/SMS/phone).
+  cron.schedule("*/5 * * * *", () => {
+    executeDueTouchpoints().catch((err) => {
+      console.error("Scheduled follow-up touchpoint run errored:", err.message);
+    });
+  });
+
   console.log(
-    "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute)."
+    "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
+      "follow-up touchpoints: every 5 minutes)."
   );
 }
 

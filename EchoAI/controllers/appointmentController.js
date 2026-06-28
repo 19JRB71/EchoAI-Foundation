@@ -8,6 +8,7 @@ const calendar = require("../config/googleCalendar");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
 const zapierController = require("./zapierController");
+const followUpController = require("./followUpController");
 
 const VALID_STATUSES = ["scheduled", "completed", "cancelled", "no_show"];
 const VALID_SOURCES = ["manual", "chatbot", "phone"];
@@ -498,6 +499,13 @@ async function createBooking({
     }
 
     await sendConfirmations(appt, brand, schedule.timezone);
+
+    // The lead booked — stop any running follow-up for them. Best-effort.
+    if (leadId) {
+      followUpController
+        .cancelActiveSequencesForLead(leadId, "booked")
+        .catch((err) => console.error("Follow-up stop (booked) failed:", err.message));
+    }
 
     zapierController.triggerWebhook(brand.brand_id, "appointment_booked", {
       appointmentId: appt.appointment_id,

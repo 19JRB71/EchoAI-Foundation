@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const chatbotController = require("./chatbotController");
 const zapierController = require("./zapierController");
+const followUpController = require("./followUpController");
 
 /**
  * Verifies that a brand belongs to the authenticated user.
@@ -197,6 +198,13 @@ async function updateLead(req, res) {
       values.push(conversionStatus);
     }
 
+    // A converted lead no longer needs any running follow-up — stop them.
+    if (conversionStatus === "converted") {
+      followUpController
+        .cancelActiveSequencesForLead(leadId, "converted")
+        .catch((err) => console.error("Follow-up stop (convert) failed:", err.message));
+    }
+
     if (fields.length === 0) {
       return res.status(400).json({ error: "No fields provided to update" });
     }
@@ -246,6 +254,11 @@ async function convertLead(req, res) {
        VALUES ($1, 'conversion', $2::jsonb)`,
       [leadId, JSON.stringify({ notes: notes || null, convertedAt: new Date().toISOString() })]
     );
+
+    // Stop any running follow-up — the lead has converted.
+    followUpController
+      .cancelActiveSequencesForLead(leadId, "converted")
+      .catch((err) => console.error("Follow-up stop (convert) failed:", err.message));
 
     return res.json({ message: "Lead converted", lead: updated.rows[0] });
   } catch (err) {

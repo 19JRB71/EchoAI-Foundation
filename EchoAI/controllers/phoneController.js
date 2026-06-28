@@ -12,6 +12,7 @@ const {
   buildPhoneBookingExtractionPrompt,
 } = require("../prompts/appointmentBookingPrompt");
 const appointmentController = require("./appointmentController");
+const followUpController = require("./followUpController");
 const { LEAD_SCORING_PROMPT } = require("../prompts/leadQualificationPrompt");
 const {
   getPublicBaseUrl,
@@ -709,12 +710,35 @@ async function handleCallStatus(req, res) {
       });
     }
 
+    // The lead engaged on the call — stop any follow-up that already reached out
+    // to them (they responded). Best-effort, never blocks the webhook 200.
+    if (call.lead_id && hadConversation) {
+      followUpController
+        .cancelActiveSequencesForLead(call.lead_id, "lead_responded", true)
+        .catch((err) => console.error("Follow-up stop (call) failed:", err.message));
+    }
+
     // Propagate the temperature to the linked lead and alert on hot leads.
     if (call.lead_id && temperature && VALID_TEMPERATURES.includes(temperature)) {
+      const prev = await db.query(
+        "SELECT temperature FROM leads WHERE lead_id = $1",
+        [call.lead_id],
+      );
+      const prevTemperature = prev.rows[0] ? prev.rows[0].temperature : null;
       await db.query("UPDATE leads SET temperature = $1 WHERE lead_id = $2", [
         temperature,
         call.lead_id,
       ]);
+
+      // Auto-enroll on a fresh cold -> warm/hot transition driven by the call.
+      followUpController
+        .maybeStartSequenceForLead({
+          brandId: call.brand_id,
+          leadId: call.lead_id,
+          temperature,
+          prevTemperature,
+        })
+        .catch((err) => console.error("Follow-up auto-enroll (call) failed:", err.message));
       if (temperature === "hot") {
         const summary = transcript
           .filter((m) => m.role === "user")

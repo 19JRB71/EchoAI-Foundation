@@ -10,6 +10,7 @@ const mobilePushController = require("./mobilePushController");
 const zapierController = require("./zapierController");
 const feedbackController = require("./feedbackController");
 const appointmentController = require("./appointmentController");
+const followUpController = require("./followUpController");
 const {
   buildAppointmentSchedulerPrompt,
 } = require("../prompts/appointmentBookingPrompt");
@@ -407,6 +408,25 @@ async function chat(req, res) {
           leadId,
         ])
         .catch((err) => console.error("Lead temperature sync failed:", err.message));
+    }
+
+    // Follow-up automation: the lead just replied via the widget, so stop any
+    // follow-up they've already been touched by (they came back), then auto-enroll
+    // on a fresh cold -> warm/hot transition. Both best-effort, never block.
+    if (leadId) {
+      followUpController
+        .cancelActiveSequencesForLead(leadId, "lead_responded", true)
+        .catch((err) => console.error("Follow-up stop (widget) failed:", err.message));
+      if (temperature && VALID_TEMPERATURES.includes(temperature)) {
+        followUpController
+          .maybeStartSequenceForLead({
+            brandId,
+            leadId,
+            temperature,
+            prevTemperature: session.temperature,
+          })
+          .catch((err) => console.error("Follow-up auto-enroll (widget) failed:", err.message));
+      }
     }
 
     // Alert the owner the instant a lead turns hot (best-effort, never blocks).
