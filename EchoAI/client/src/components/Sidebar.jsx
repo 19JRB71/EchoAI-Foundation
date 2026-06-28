@@ -452,7 +452,11 @@ function NavRow({ item, active, locked, brandTeal, onSelect }) {
           : "text-gray-300 hover:bg-gray-800 hover:text-white"
       }`}
     >
-      <NavIcon name={item.icon} />
+      {/* Icon is always tinted with the item's tier accent so the color coding
+          is visible on every item, not just the active one. */}
+      <span style={{ color: accent }}>
+        <NavIcon name={item.icon} />
+      </span>
       <span>{item.label}</span>
       {locked && <LockBadge reqTier={reqTier} />}
     </button>
