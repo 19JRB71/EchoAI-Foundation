@@ -182,6 +182,39 @@ export const api = {
   disconnectSocial: (brandId, platform) =>
     request(`/api/social/accounts/${brandId}/${platform}`, { method: "DELETE" }),
 
+  // AI Content Calendar & Auto-Posting Scheduler
+  generateContentCalendar: ({ brandId, postingFrequency, platforms, contentTheme }) =>
+    request("/api/content-calendar/generate", {
+      method: "POST",
+      body: { brandId, postingFrequency, platforms, contentTheme },
+    }),
+  saveContentCalendar: ({ brandId, postingFrequency, contentTheme, posts }) =>
+    request("/api/content-calendar", {
+      method: "POST",
+      body: { brandId, postingFrequency, contentTheme, posts },
+    }),
+  getContentCalendar: (brandId) => request(`/api/content-calendar/${brandId}`),
+  activateContentCalendar: (calendarId) =>
+    request("/api/content-calendar/activate", {
+      method: "POST",
+      body: { calendarId },
+    }),
+  pauseContentCalendar: (calendarId) =>
+    request("/api/content-calendar/pause", {
+      method: "POST",
+      body: { calendarId },
+    }),
+  regenerateCalendarPost: (postId) =>
+    request("/api/content-calendar/regenerate-post", {
+      method: "POST",
+      body: { postId },
+    }),
+  updateCalendarPost: (postId, postContent) =>
+    request(`/api/content-calendar/post/${postId}`, {
+      method: "PUT",
+      body: { postContent },
+    }),
+
   // Video content (AI Video Script & Content Creation Agent)
   generateVideoScript: ({ brandId, topic, platform, length }) =>
     request("/api/video/generate", {

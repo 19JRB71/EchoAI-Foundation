@@ -116,6 +116,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | White label | `/api/agencies` | agencies resell EchoAI under own brand; public `GET /branding` themes client by domain; admin creates agencies + overview; owners self-serve settings/customers/revenue; `agencies`+`agency_customers` (025) |
 | Affiliate program | `/api/affiliates` | anyone joins + earns 20% of a referred user's FIRST month's payment; public `POST /track/:code` cookie before auth; conversion on Stripe `invoice.payment_succeeded`; admin approve/pay/suspend lifecycle; `affiliates`+`referrals` (026) |
 | Mobile API (v2) | `/api/v2/auth`, `/api/v2/push`, `/api/v2` | native iOS/Android backend; lean payloads + cursor pagination + standard envelope `{status,data,message,pagination}`; 30-day JWT + rotating refresh + biometric; FCM push (degrades when `FCM_SERVER_KEY` unset); `refresh_tokens`+`device_tokens` (027). RN/Expo scaffold in root `EchoAI-Mobile/` |
+| Content calendar | `/api/content-calendar` | AI generates a month of social posts (frequency × platforms × theme); saved as `draft` social_posts linked to a `content_calendars` row; activate→scheduled, pause→draft; scheduler only auto-publishes calendar posts whose calendar is `active`; `content_calendars`+`social_posts.calendar_id` (028) |
 
 ### Sales scripts subsystem (`/api/sales-scripts`)
 
@@ -275,6 +276,34 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   pagination), Notifications, Settings. API client (`src/api/client.js`) parses
   the envelope and does refresh-on-401. Set the backend URL via
   `EXPO_PUBLIC_API_URL` or `app.json` → `extra.apiUrl`.
+
+### Content calendar subsystem (`/api/content-calendar`)
+
+- **Auth + lockout** on every route. Ownership via `getOwnedBrand` (joins
+  `users` for `industry` as business type — `industry` lives on `users`, NOT
+  `brands`), `getOwnedCalendar`, `getOwnedCalendarPost` (all join `brands.user_id`).
+- **AI agent** (`prompts/contentCalendarPrompt.js`, Anthropic):
+  `generateCalendarPosts` builds a month of posts across selected platforms at a
+  `postingFrequency` (`daily`/`five_per_week`/`three_per_week`), cycling
+  `CONTENT_TYPES` and `DEFAULT_POSTING_TIMES`; `generateSingleCalendarPost`
+  regenerates one. Output is validated (non-empty text) before persistence;
+  upstream AI failures → **502**. No mocked posts.
+- **Persistence.** `saveCalendar` inserts a `content_calendars` row (status
+  `draft`) + its `social_posts` (with `calendar_id` FK, status `draft`) in one
+  transaction (`db.getClient()`). `activate`→posts `scheduled` + calendar
+  `active`; `pause`→scheduled posts back to `draft` + calendar `paused` (both
+  wrapped in a transaction). Edit/regenerate guard with `status NOT IN
+  ('publishing','published')` in the WHERE (race-safe vs. the scheduler) → **409**
+  if already claimed.
+- **Scheduler safety (belt + suspenders).** `socialController.publishDuePosts`
+  only auto-publishes a calendar post when `calendar_id IS NULL OR calendar_id IN
+  (SELECT calendar_id FROM content_calendars WHERE status='active')`, so pausing a
+  calendar stops its posts even if a row was left `scheduled`.
+- Migration `models/028_content_calendar.sql` (`content_calendar_status` enum;
+  `content_calendars`; `ALTER social_posts ADD calendar_id` FK ON DELETE CASCADE;
+  idempotent). Client: first tab of `client/src/sections/SocialMedia.jsx` →
+  `sections/social/AICalendar.jsx` (generate form, preview grid, per-post
+  edit/regenerate). The old in-app schedule view is now the "Post Schedule" tab.
 
 ## Production hardening
 

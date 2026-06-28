@@ -1,11 +1,13 @@
 import { useState } from "react";
+import AICalendar from "./social/AICalendar.jsx";
 import ContentCalendar from "./social/ContentCalendar.jsx";
 import ContentGenerator from "./social/ContentGenerator.jsx";
 import ConnectedAccounts from "./social/ConnectedAccounts.jsx";
 import Performance from "./social/Performance.jsx";
 
 const TABS = [
-  { key: "calendar", label: "Content Calendar" },
+  { key: "ai-calendar", label: "Content Calendar" },
+  { key: "schedule", label: "Post Schedule" },
   { key: "generate", label: "AI Content Generator" },
   { key: "accounts", label: "Connected Accounts" },
   { key: "performance", label: "Performance" },
@@ -13,7 +15,7 @@ const TABS = [
 
 export default function SocialMedia({ brandId, prefillImage, onPrefillConsumed }) {
   // Open the generator tab when an image was handed off from Image Studio.
-  const [tab, setTab] = useState(prefillImage ? "generate" : "calendar");
+  const [tab, setTab] = useState(prefillImage ? "generate" : "ai-calendar");
 
   return (
     <div className="space-y-6">
@@ -41,7 +43,8 @@ export default function SocialMedia({ brandId, prefillImage, onPrefillConsumed }
             ))}
           </div>
 
-          {tab === "calendar" && <ContentCalendar brandId={brandId} />}
+          {tab === "ai-calendar" && <AICalendar brandId={brandId} />}
+          {tab === "schedule" && <ContentCalendar brandId={brandId} />}
           {tab === "generate" && (
             <ContentGenerator
               brandId={brandId}

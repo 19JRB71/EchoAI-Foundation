@@ -389,6 +389,12 @@ async function publishDuePosts() {
      WHERE post_id IN (
        SELECT post_id FROM social_posts
        WHERE status = 'scheduled' AND scheduled_time <= NOW()
+         AND (
+           calendar_id IS NULL
+           OR calendar_id IN (
+             SELECT calendar_id FROM content_calendars WHERE status = 'active'
+           )
+         )
        ORDER BY scheduled_time ASC
        LIMIT 50
        FOR UPDATE SKIP LOCKED
