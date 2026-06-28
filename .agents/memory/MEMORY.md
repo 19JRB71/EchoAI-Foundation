@@ -1,5 +1,6 @@
 - [EchoAI public widget endpoints](echoai-public-widget-endpoints.md) — method-aware CORS (never path-prefix) + gate owner alerts on real state transitions, not raw public POSTs.
 - [EchoAI leads dedup](echoai-leads-dedup.md) — dedup leads in app code (email/phone), no table-wide unique index; the leads table is shared by multiple insert paths.
+- [EchoAI idempotent public records](echoai-idempotent-public-records.md) — public "fill once" endpoints: branch on the atomic UPDATE row count, never a stale pre-read, or concurrent double-submits leak a false success.
 - [EchoAI AI-call 502 mapping](echoai-ai-call-502-mapping.md) — wrap every Anthropic/OpenAI call to force 502 (SDK errors lack `.status`); re-validate AI output at save endpoints (bad payload = 400).
 - [EchoAI affiliate attribution](echoai-affiliate-attribution.md) — await referral attribution before returning the signup token, else a fast first-payment webhook misses the row and credits a renewal.
 - [EchoAI white-label ownership](echoai-white-label.md) — agencies.owner_user_id is UNIQUE (1/account); admin createAgency takes optional ownerEmail to assign agencies to other users, else multi-agency overview + per-owner portal can't coexist.

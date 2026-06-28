@@ -235,6 +235,31 @@ export const api = {
   getAdCreativePerformance: (brandId) =>
     request(`/api/ad-studio/performance/${brandId}`),
 
+  // Customer Feedback & Survey System
+  getFeedbackDashboard: (brandId) => request(`/api/feedback/dashboard/${brandId}`),
+  getFeedbackResponses: (brandId) => request(`/api/feedback/responses/${brandId}`),
+  getSurveys: (brandId) => request(`/api/feedback/surveys/${brandId}`),
+  createSurvey: ({ brandId, surveyType }) =>
+    request("/api/feedback/survey", {
+      method: "POST",
+      body: { brandId, surveyType },
+    }),
+  updateSurvey: (surveyId, questions) =>
+    request(`/api/feedback/survey/${surveyId}`, {
+      method: "PUT",
+      body: { questions },
+    }),
+  sendSurvey: ({ surveyId, email, phone, channel, leadId }) =>
+    request("/api/feedback/send", {
+      method: "POST",
+      body: { surveyId, email, phone, channel, leadId },
+    }),
+  analyzeFeedback: (brandId) =>
+    request("/api/feedback/analyze", {
+      method: "POST",
+      body: { brandId },
+    }),
+
   // Video content (AI Video Script & Content Creation Agent)
   generateVideoScript: ({ brandId, topic, platform, length }) =>
     request("/api/video/generate", {

@@ -118,6 +118,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Mobile API (v2) | `/api/v2/auth`, `/api/v2/push`, `/api/v2` | native iOS/Android backend; lean payloads + cursor pagination + standard envelope `{status,data,message,pagination}`; 30-day JWT + rotating refresh + biometric; FCM push (degrades when `FCM_SERVER_KEY` unset); `refresh_tokens`+`device_tokens` (027). RN/Expo scaffold in root `EchoAI-Mobile/` |
 | Content calendar | `/api/content-calendar` | AI generates a month of social posts (frequency × platforms × theme); saved as `draft` social_posts linked to a `content_calendars` row; activate→scheduled, pause→draft; scheduler only auto-publishes calendar posts whose calendar is `active`; `content_calendars`+`social_posts.calendar_id` (028) |
 | Ad creative studio | `/api/ad-studio` | AI generates 5 complete ad creative packages/brand (image desc, video script, copy variations, audience, placements); Creative Library + Performance tabs; one-click launch into existing Facebook campaign infra (paused); weekly perf refresh in Monday scheduler; `ad_creatives` (029) |
+| Customer feedback | `/api/feedback` | AI Survey Designer (5Q) + Feedback Analyst (30-day report); public server-rendered response page (`/r/:responseId`); 1-10 sentiment scoring; auto-sent after chat/call/weekly; `surveys`+`survey_responses`+`feedback_reports` (030) |
 
 ### Sales scripts subsystem (`/api/sales-scripts`)
 
@@ -336,6 +337,38 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   JSONB, FK brands CASCADE + campaigns SET NULL, set_updated_at trigger,
   idempotent). Client: `client/src/sections/AdStudio.jsx` (Generate / Creative
   Library / Performance tabs); api.js block + Sidebar "Ad Studio" nav.
+
+### Customer feedback subsystem (`/api/feedback`)
+
+- **Two AI agents** (`prompts/feedbackAnalysisPrompt.js`, Anthropic): the Survey
+  Designer writes 5 on-brand questions (1 rating `id:"satisfaction"` + 4 text) for
+  a `surveyType` (**post_purchase / post_call / post_chatbot / general**); the
+  Feedback Analyst turns the last 30 days of responses into a report
+  (`full_report`, `themes[]`, `recommendations[]`, `average_sentiment`). Output is
+  validated (`validateSurveyQuestions`/`validateFeedbackReport`, `statusCode=502`)
+  before persistence; all upstream AI failures → **502**. No mocks.
+- **Public response page (no auth, before `router.use(auth,lockout)`).** `GET
+  /r/:responseId` server-renders an HTML survey form (`pageShell`, `escapeHtml` —
+  no client bundle); `POST /r/:responseId` accepts form-encoded OR JSON. Recording
+  is **race-safe/idempotent**: a single `UPDATE ... WHERE answers IS NULL` is the
+  source of truth — a zero-row update on an existing row means already-answered →
+  **409** (do not re-add a stale pre-read `answers` check). `answers IS NULL` =
+  "sent/awaiting"; `sentiment_score` (1-10 CHECK) is derived from the rating answer.
+- **Auth + lockout** on all other routes. Ownership via `getOwnedBrand` /
+  `getOwnedSurvey` (joins `brands.user_id`). `sendSurvey` **re-validates a
+  client-supplied `leadId`** belongs to the survey's brand (join `leads` on
+  `brand_id`) → 404 — never trust the cross-resource id.
+- **Auto-send is fire-and-forget / never-throws.** `autoSendSurvey({brandId,
+  surveyType,...})` finds-or-creates a fixed **2-question** auto survey, dedupes
+  the same recipient within 24h, and delivers by email/SMS; wrapped in try/catch so
+  it never blocks/fails the host request. Wired (without `await`) into
+  websiteChatbotController (post_chatbot, after hot-lead), phoneController
+  (post_call SMS), and `scheduler.js` (general to owner after the weekly email +
+  best-effort `generateFeedbackReportForBrand` per brand).
+- Migration `models/030_feedback.sql` (`surveys`, `survey_responses`,
+  `feedback_reports`; reuses `set_updated_at()`; idempotent). Client:
+  `client/src/sections/Feedback.jsx` (Dashboard / Responses / Surveys tabs);
+  api.js block + Sidebar "Feedback" nav.
 
 ## Production hardening
 

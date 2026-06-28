@@ -10,6 +10,10 @@ const { sendWeeklyReportEmail } = require("../controllers/emailController");
 const { publishDuePosts } = require("../controllers/socialController");
 const { triggerWebhook } = require("../controllers/zapierController");
 const mobilePushController = require("../controllers/mobilePushController");
+const {
+  autoSendSurvey,
+  generateFeedbackReportForBrand,
+} = require("../controllers/feedbackController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -94,10 +98,33 @@ async function runWeeklyAnalytics() {
               data: { type: "weekly_report", brandId: String(brand.brand_id) },
             })
             .catch((err) => console.error("Weekly report mobile push failed:", err.message));
+
+          // After the weekly report goes out, ask the owner for a quick check-in.
+          // Fire-and-forget; autoSendSurvey dedupes and never throws.
+          autoSendSurvey({
+            brandId: brand.brand_id,
+            surveyType: "general",
+            email: owner.email,
+          });
         }
       } catch (err) {
         console.error(`Weekly report email failed for brand ${brand.brand_id}:`, err.message);
       }
+    }
+
+    // Generate a fresh AI feedback-analysis report for the brand alongside the
+    // weekly run. Best-effort: a failure (e.g. no responses, AI down) is logged
+    // and never stops the rest of the weekly job.
+    try {
+      const reportBrand = await db.query(
+        "SELECT brand_id, brand_name FROM brands WHERE brand_id = $1",
+        [brand.brand_id]
+      );
+      if (reportBrand.rows[0]) {
+        await generateFeedbackReportForBrand(reportBrand.rows[0]);
+      }
+    } catch (err) {
+      console.error(`Weekly feedback report failed for brand ${brand.brand_id}:`, err.message);
     }
   }
 

@@ -8,6 +8,7 @@ const emailController = require("./emailController");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
 const zapierController = require("./zapierController");
+const feedbackController = require("./feedbackController");
 const { normalizeE164 } = require("../utils/phone");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
@@ -412,6 +413,19 @@ async function chat(req, res) {
         temperature,
         source: "website_chatbot",
         summary,
+      });
+    }
+
+    // Auto-send a short satisfaction survey once we have a lead with real
+    // contact details. Fire-and-forget; autoSendSurvey dedupes per recipient
+    // within 24h so repeated chat turns won't spam the customer.
+    if (leadId && (analysis.email || analysis.phone)) {
+      feedbackController.autoSendSurvey({
+        brandId,
+        surveyType: "post_chatbot",
+        leadId,
+        email: analysis.email || null,
+        phone: analysis.phone || null,
       });
     }
 

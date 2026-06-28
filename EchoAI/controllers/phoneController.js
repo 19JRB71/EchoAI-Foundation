@@ -17,6 +17,7 @@ const emailController = require("./emailController");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
 const zapierController = require("./zapierController");
+const feedbackController = require("./feedbackController");
 const { normalizeE164 } = require("../utils/phone");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
@@ -680,6 +681,18 @@ async function handleCallStatus(req, res) {
             .catch((err) => console.error("Hot call mobile push failed:", err.message));
         }
       }
+    }
+
+    // Auto-send a short satisfaction survey by SMS once a call completes and we
+    // have the caller's number. Fire-and-forget; dedupes per recipient in 24h.
+    if (callStatus === "completed" && call.caller_phone) {
+      feedbackController.autoSendSurvey({
+        brandId: call.brand_id,
+        surveyType: "post_call",
+        leadId: call.lead_id || null,
+        phone: call.caller_phone,
+        channel: "sms",
+      });
     }
 
     return res.status(200).send("");
