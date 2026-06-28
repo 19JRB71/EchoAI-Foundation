@@ -6,19 +6,45 @@ import {
   tierName,
   tierRank,
   accentColor,
-  tierBadgeShort,
 } from "../lib/tiers.js";
 
-// Small colored "PRO" / "ENT" badge shown on items the user's plan can't access.
-// Color is the REQUIRED tier's accent (purple for pro, gold for enterprise).
-function LockBadge({ reqTier }) {
-  const color = accentColor(reqTier);
+// Dark text reads better on the gold (enterprise) accent; white on blue/purple.
+function onAccentText(tier) {
+  return tier === "enterprise" ? "#1c1500" : "#ffffff";
+}
+
+// Full tier label for the pill shown next to each tiered nav item.
+function tierPillLabel(tier) {
+  if (tier === "enterprise") return "ENT";
+  if (tier === "pro") return "PRO";
+  if (tier === "starter") return "STARTER";
+  return "";
+}
+
+// Bold tier pill next to an item label: STARTER (blue), PRO (purple), ENT (gold).
+// When the row is active it sits on a solid accent background, so the pill flips
+// to a white chip with accent-colored text to stay legible. A lock glyph is
+// added when the user's plan can't access the item yet.
+function TierPill({ tier, active = false, locked = false }) {
+  const color = accentColor(tier);
+  const style = active
+    ? { backgroundColor: "#ffffff", color }
+    : { backgroundColor: color, color: onAccentText(tier) };
   return (
     <span
-      className="ml-auto inline-block shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold leading-none tracking-wide"
-      style={{ color, backgroundColor: `${color}22`, border: `1px solid ${color}55` }}
+      className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold leading-none tracking-wide"
+      style={style}
     >
-      {tierBadgeShort(reqTier)}
+      {locked && (
+        <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25v-6.75a2.25 2.25 0 012.25-2.25z"
+          />
+        </svg>
+      )}
+      {tierPillLabel(tier)}
     </span>
   );
 }
@@ -433,32 +459,37 @@ function groupLockTier(group, ctx) {
   return best;
 }
 
-// A single nav row (shared by desktop list and mobile slide-up panel).
+// A single nav row (shared by desktop list and mobile slide-up panel). Tiered
+// items get a bright accent icon + label and a tier pill; the active item gets a
+// full solid accent background. Core (no-tier) items stay neutral teal/gray.
 function NavRow({ item, active, locked, brandTeal, onSelect }) {
-  const accent = item.accent ? accentColor(item.accent) : brandTeal;
+  const accentTier = item.accent; // 'starter' | 'pro' | 'enterprise' | null
+  const accent = accentTier ? accentColor(accentTier) : brandTeal;
   const reqTier = requiredTierForSection(item.key);
+  const activeText = accentTier ? onAccentText(accentTier) : "#ffffff";
   return (
     <button
       onClick={() => onSelect(item.key)}
       title={locked ? `${tierName(reqTier)} plan` : undefined}
       style={
         active
-          ? { backgroundColor: `${accent}22`, borderLeftColor: accent, color: accent }
-          : { borderLeftColor: "transparent" }
+          ? { backgroundColor: accent, borderLeftColor: accent, color: activeText }
+          : { borderLeftColor: "transparent", color: accentTier ? accent : undefined }
       }
-      className={`flex w-full items-center gap-3 rounded-r-lg border-l-[3px] px-3 py-2 text-sm font-medium transition ${
+      className={`flex w-full items-center gap-3 rounded-r-lg border-l-[3px] px-3 py-2 text-sm transition ${
         active
-          ? "font-semibold"
-          : "text-gray-300 hover:bg-gray-800 hover:text-white"
+          ? "font-bold"
+          : accentTier
+            ? "font-semibold hover:bg-gray-800"
+            : "font-medium text-gray-300 hover:bg-gray-800 hover:text-white"
       }`}
     >
-      {/* Icon is always tinted with the item's tier accent so the color coding
-          is visible on every item, not just the active one. */}
-      <span style={{ color: accent }}>
+      {/* Icon always carries the tier color (white/dark on the active solid bg). */}
+      <span style={{ color: active ? activeText : accent }}>
         <NavIcon name={item.icon} />
       </span>
       <span>{item.label}</span>
-      {locked && <LockBadge reqTier={reqTier} />}
+      {accentTier && <TierPill tier={accentTier} active={active} locked={locked} />}
     </button>
   );
 }
