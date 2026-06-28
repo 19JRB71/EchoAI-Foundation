@@ -15,6 +15,7 @@ const {
 } = require("../config/twilio");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
+const mobilePushController = require("./mobilePushController");
 const zapierController = require("./zapierController");
 const { normalizeE164 } = require("../utils/phone");
 
@@ -659,14 +660,24 @@ async function handleCallStatus(req, res) {
             .catch((err) => console.error("Hot lead alert failed:", err.message));
         }
         if (call.owner_user_id) {
+          const hotCallBody = `A phone call just scored HOT${call.brand_name ? ` for ${call.brand_name}` : ""}. Follow up now.`;
           pushController
             .sendPushToUser(call.owner_user_id, {
               title: "🔥 Hot lead from a call!",
-              body: `A phone call just scored HOT${call.brand_name ? ` for ${call.brand_name}` : ""}. Follow up now.`,
+              body: hotCallBody,
               url: "/dashboard",
               tag: `hot-call-${call.call_id}`,
             })
             .catch((err) => console.error("Hot call push failed:", err.message));
+
+          // Mirror the alert to the owner's native mobile devices via FCM.
+          mobilePushController
+            .sendToUser(call.owner_user_id, {
+              title: "🔥 Hot lead from a call!",
+              body: hotCallBody,
+              data: { type: "hot_lead_call", callId: String(call.call_id) },
+            })
+            .catch((err) => console.error("Hot call mobile push failed:", err.message));
         }
       }
     }

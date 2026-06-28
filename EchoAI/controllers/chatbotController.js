@@ -6,6 +6,7 @@ const {
 } = require("../prompts/leadQualificationPrompt");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
+const mobilePushController = require("./mobilePushController");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 
@@ -188,14 +189,24 @@ async function chat(req, res) {
       // they can act the instant a lead turns hot. Best-effort, never blocks.
       if (row.owner_user_id) {
         const leadLabel = row.lead_name || "A new lead";
+        const hotBody = `${leadLabel} just turned HOT${row.brand_name ? ` for ${row.brand_name}` : ""}. Reach out now.`;
         pushController
           .sendPushToUser(row.owner_user_id, {
             title: "🔥 Hot lead!",
-            body: `${leadLabel} just turned HOT${row.brand_name ? ` for ${row.brand_name}` : ""}. Reach out now.`,
+            body: hotBody,
             url: "/dashboard",
             tag: `hot-lead-${leadId}`,
           })
           .catch((err) => console.error("Hot lead push failed:", err.message));
+
+        // Mirror the alert to the owner's native mobile devices via FCM.
+        mobilePushController
+          .sendToUser(row.owner_user_id, {
+            title: "🔥 Hot lead!",
+            body: hotBody,
+            data: { type: "hot_lead", leadId: String(leadId) },
+          })
+          .catch((err) => console.error("Hot lead mobile push failed:", err.message));
       }
     }
 

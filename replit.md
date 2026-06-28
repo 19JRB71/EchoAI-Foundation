@@ -115,6 +115,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Zapier webhooks | `/api/webhooks` | outbound webhooks; fire-and-forget `triggerWebhook(brandId,event,data)`; SSRF-guarded https targets; retry+timeout+per-attempt logging; `webhooks`+`webhook_delivery_logs` (024) |
 | White label | `/api/agencies` | agencies resell EchoAI under own brand; public `GET /branding` themes client by domain; admin creates agencies + overview; owners self-serve settings/customers/revenue; `agencies`+`agency_customers` (025) |
 | Affiliate program | `/api/affiliates` | anyone joins + earns 20% of a referred user's FIRST month's payment; public `POST /track/:code` cookie before auth; conversion on Stripe `invoice.payment_succeeded`; admin approve/pay/suspend lifecycle; `affiliates`+`referrals` (026) |
+| Mobile API (v2) | `/api/v2/auth`, `/api/v2/push`, `/api/v2` | native iOS/Android backend; lean payloads + cursor pagination + standard envelope `{status,data,message,pagination}`; 30-day JWT + rotating refresh + biometric; FCM push (degrades when `FCM_SERVER_KEY` unset); `refresh_tokens`+`device_tokens` (027). RN/Expo scaffold in root `EchoAI-Mobile/` |
 
 ### Sales scripts subsystem (`/api/sales-scripts`)
 
@@ -233,6 +234,47 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   `client/src/sections/AffiliateProgram.jsx` (Dashboard/Commissions/Payouts tabs,
   visible to all users); admin `client/src/admin/AdminAffiliates.jsx`
   (Affiliates tab in AdminPanel).
+
+### Mobile API subsystem (`/api/v2`) + `EchoAI-Mobile/`
+
+- **Native-app backend.** A versioned, mobile-optimized API for the iOS/Android
+  app, additive and independent of the web `/api/*` routes. Three mounts (before
+  the SPA fallback): `/api/v2/auth`, `/api/v2/push`, `/api/v2` (data).
+- **Standard envelope.** Every v2 response is `{status,data,message,pagination}`
+  via `utils/mobileResponse.js` (`success`/`fail`); `pagination` is null except on
+  list endpoints. Same util holds the cursor `encode`/`decode`/`paginate` helpers.
+- **Auth model (`mobileAuthController.js`).** Login/register issue a **30-day**
+  access JWT (same `{userId,email}` shape + `JWT_SECRET` as web, so v2 tokens also
+  authorize legacy `/api/*`) **plus** an opaque refresh token (only its SHA-256
+  hash stored in `refresh_tokens`). Refresh is **single-use rotation** under
+  `SELECT ... FOR UPDATE` (delete+reissue in one tx). Biometric = short-lived (5m)
+  JWT with a `biometric:true` claim, minted while logged in and exchanged via
+  `/auth/biometric/login`. Logout revokes one device (body `refreshToken`) or all.
+- **Lockout invariant holds.** `/api/v2` **data** routes enforce `auth + lockout`
+  (locked/past-due → 403), same as web data routes. The intended bypass exceptions
+  are `/api/v2/auth/*` (recovery) and `/api/v2/push/*` (push management) — do not
+  add lockout there. **Regression watch:** never mount v2 data routes with `auth`
+  alone.
+- **Ownership + no-mock conventions carry over.** Dashboard/leads scope via
+  `getOwnedBrand` (404 on foreign brand); leads use keyset pagination
+  (`ORDER BY created_at DESC, lead_id DESC`, `(created_at,lead_id) < cursor`,
+  `limit+1` probe) for stable, no-skip/no-dupe paging.
+- **FCM push.** `config/fcm.js` (legacy HTTP) + `controllers/mobilePushController.js`:
+  device-token upsert into `device_tokens`, `sendToUser` fans out and prunes tokens
+  FCM reports invalid. **Degrades gracefully** — when `FCM_SERVER_KEY` is unset,
+  registration still succeeds (`pushConfigured:false`) and sends no-op. `sendToUser`
+  is **best-effort/never-throws** and every caller invokes it with `.catch(...)`
+  (and without `await` in request paths) so push never blocks/fails the request.
+  Wired at: hot-lead (chatbot/websiteChatbot/phone controllers), weekly report
+  (`scheduler.js`), payment failed (`subscriptionController.js`).
+- Migration `models/027_mobile_tokens.sql` (`refresh_tokens`+`device_tokens`).
+  Full endpoint/flow docs in `EchoAI/MOBILE_API.md`.
+- **`EchoAI-Mobile/` is a source-only Expo (React Native) scaffold** — NOT a
+  Replit artifact, so it does not run in the preview pane. React Navigation +
+  AsyncStorage; auth (login/biometric/register), Home (dashboard), Leads (cursor
+  pagination), Notifications, Settings. API client (`src/api/client.js`) parses
+  the envelope and does refresh-on-401. Set the backend URL via
+  `EXPO_PUBLIC_API_URL` or `app.json` → `extra.apiUrl`.
 
 ## Production hardening
 

@@ -8,6 +8,7 @@ const { autoOptimizeCampaignsForBrand } = require("../controllers/optimizationCo
 const { sendWeeklyReportEmail } = require("../controllers/emailController");
 const { publishDuePosts } = require("../controllers/socialController");
 const { triggerWebhook } = require("../controllers/zapierController");
+const mobilePushController = require("../controllers/mobilePushController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -73,6 +74,16 @@ async function runWeeklyAnalytics() {
             subject,
             report: body,
           });
+
+          // Push the "report ready" alert to the owner's native mobile devices
+          // via FCM. Best-effort — never blocks or fails the weekly run.
+          mobilePushController
+            .sendToUser(brand.user_id, {
+              title: "📊 Weekly report ready",
+              body: `Your latest performance report for ${brandProfile.brand_name} is ready.`,
+              data: { type: "weekly_report", brandId: String(brand.brand_id) },
+            })
+            .catch((err) => console.error("Weekly report mobile push failed:", err.message));
         }
       } catch (err) {
         console.error(`Weekly report email failed for brand ${brand.brand_id}:`, err.message);

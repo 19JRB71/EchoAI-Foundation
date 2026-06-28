@@ -3,6 +3,7 @@ const { getPlan, listPlans } = require("../config/plans");
 const db = require("../config/db");
 const emailController = require("./emailController");
 const affiliateController = require("./affiliateController");
+const mobilePushController = require("./mobilePushController");
 
 /**
  * Stripe SDK errors carry a `type` like "StripeCardError" /
@@ -47,7 +48,7 @@ function cardFromPaymentMethod(pm) {
  */
 async function getOwnerByCustomer(customerId) {
   const result = await db.query(
-    `SELECT u.email, u.business_name,
+    `SELECT u.user_id, u.email, u.business_name,
             s.is_locked, s.failed_payment_at, s.lockout_threshold_days
      FROM users u
      JOIN subscriptions s ON s.user_id = u.user_id
@@ -267,6 +268,22 @@ async function handleWebhook(req, res) {
           action.catch((err) =>
             console.error("Payment failed email error:", err.message)
           );
+
+          // Push the payment-failed alert to the owner's native mobile devices
+          // via FCM. Best-effort — never throws into the webhook handler.
+          if (failedOwner.user_id) {
+            mobilePushController
+              .sendToUser(failedOwner.user_id, {
+                title: "⚠️ Payment failed",
+                body: failedOwner.is_locked
+                  ? "Your account is locked due to a failed payment. Update your billing to restore access."
+                  : "We couldn't process your latest payment. Please update your billing details.",
+                data: { type: "payment_failed" },
+              })
+              .catch((err) =>
+                console.error("Payment failed mobile push failed:", err.message)
+              );
+          }
         }
         break;
       }

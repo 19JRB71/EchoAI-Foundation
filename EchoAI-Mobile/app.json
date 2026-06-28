@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "EchoAI",
+    "slug": "echoai-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "echoai",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#111827"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.echoai.mobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to sign in to EchoAI securely."
+      }
+    },
+    "android": {
+      "package": "com.echoai.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#111827"
+      },
+      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"]
+    },
+    "plugins": ["expo-local-authentication"],
+    "extra": {
+      "apiUrl": "https://your-echoai-domain.example.com"
+    }
+  }
+}

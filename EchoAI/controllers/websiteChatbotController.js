@@ -6,6 +6,7 @@ const {
 } = require("../prompts/websiteChatbotPrompt");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
+const mobilePushController = require("./mobilePushController");
 const zapierController = require("./zapierController");
 const { normalizeE164 } = require("../utils/phone");
 
@@ -380,16 +381,26 @@ async function chat(req, res) {
           .catch((err) => console.error("Hot lead alert failed:", err.message));
       }
       if (brand.owner_user_id) {
+        const hotBody = `${analysis.name || "A website visitor"} just turned HOT${
+          brand.brand_name ? ` for ${brand.brand_name}` : ""
+        }. Reach out now.`;
         pushController
           .sendPushToUser(brand.owner_user_id, {
             title: "🔥 Hot lead!",
-            body: `${analysis.name || "A website visitor"} just turned HOT${
-              brand.brand_name ? ` for ${brand.brand_name}` : ""
-            }. Reach out now.`,
+            body: hotBody,
             url: "/dashboard",
             tag: `hot-lead-${sessionId}`,
           })
           .catch((err) => console.error("Hot lead push failed:", err.message));
+
+        // Mirror the alert to the owner's native mobile devices via FCM.
+        mobilePushController
+          .sendToUser(brand.owner_user_id, {
+            title: "🔥 Hot lead!",
+            body: hotBody,
+            data: { type: "hot_lead", leadId: String(leadId) },
+          })
+          .catch((err) => console.error("Hot lead mobile push failed:", err.message));
       }
 
       // Outbound webhook (Zapier etc.) on the non-hot -> hot transition.

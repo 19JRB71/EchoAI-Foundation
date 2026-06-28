@@ -49,6 +49,10 @@ const FEATURES = [
     name: "Web push notifications (VAPID)",
     vars: ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"],
   },
+  {
+    name: "Mobile push notifications (Firebase Cloud Messaging)",
+    vars: ["FCM_SERVER_KEY"],
+  },
 ];
 
 /**

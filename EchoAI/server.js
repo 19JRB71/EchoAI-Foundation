@@ -46,6 +46,11 @@ const webhookRoutes = require("./routes/webhookRoutes");
 const agencyRoutes = require("./routes/agencyRoutes");
 const affiliateRoutes = require("./routes/affiliateRoutes");
 
+// Mobile API (v2) — lean payloads, cursor pagination, standard envelopes.
+const mobileAuthRoutes = require("./routes/mobileAuthRoutes");
+const mobilePushRoutes = require("./routes/mobilePushRoutes");
+const mobileRoutes = require("./routes/mobileRoutes");
+
 const { startScheduler } = require("./utils/scheduler");
 const { seedAdmin } = require("./utils/adminSeeder");
 
@@ -197,6 +202,13 @@ app.use("/api/sales-scripts", salesScriptRoutes);
 app.use("/api/webhooks", webhookRoutes);
 app.use("/api/agencies", agencyRoutes);
 app.use("/api/affiliates", affiliateRoutes);
+
+// Mobile API (v2). Mounted under /api so the rate limiter covers it, and before
+// the SPA fallback. /api/v2/auth + /api/v2/push are named per the mobile spec;
+// /api/v2 also serves the lean dashboard + cursor-paginated leads endpoints.
+app.use("/api/v2/auth", mobileAuthRoutes);
+app.use("/api/v2/push", mobilePushRoutes);
+app.use("/api/v2", mobileRoutes);
 
 // Serve saved AI-generated images persisted to disk (DALL-E URLs expire, so we
 // download and serve them locally). Mounted before the SPA fallback.
