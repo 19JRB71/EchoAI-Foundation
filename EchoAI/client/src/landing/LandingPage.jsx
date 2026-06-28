@@ -262,6 +262,7 @@ function Pricing() {
       price: "$100",
       unit: "/month",
       tagline: "For solo operators",
+      accent: "#3B82F6",
       features: [
         "Automated ad campaigns",
         "AI lead qualification chatbot",
@@ -276,6 +277,7 @@ function Pricing() {
       price: "$350",
       unit: "/month",
       tagline: "For growing teams",
+      accent: "#8B5CF6",
       features: [
         "Everything in Starter",
         "AI phone agent & voice chatbot",
@@ -290,6 +292,7 @@ function Pricing() {
       price: "$550",
       unit: "/month",
       tagline: "For agencies & at scale",
+      accent: "#F59E0B",
       features: [
         "Everything in Professional",
         "White-label agency system",
@@ -326,8 +329,8 @@ function Pricing() {
     { feature: "Included users", starter: "1", pro: "5", enterprise: "Unlimited" },
     { feature: "Additional seats", starter: "$50/seat", pro: "$50/seat", enterprise: "Included" },
   ];
-  const cell = (v) => {
-    if (v === true) return <span className="text-amber-400">✓</span>;
+  const cell = (v, color) => {
+    if (v === true) return <span style={{ color }}>✓</span>;
     if (v === false) return <span className="text-slate-600">—</span>;
     return <span className="text-slate-200">{v}</span>;
   };
@@ -346,47 +349,59 @@ function Pricing() {
           </p>
         </div>
         <div className="mt-14 grid gap-6 lg:grid-cols-3">
-          {tiers.map((t) => (
-            <div
-              key={t.name}
-              className={`relative flex flex-col rounded-2xl border p-8 ${
-                t.featured
-                  ? "border-amber-400/50 bg-gradient-to-b from-amber-400/10 to-slate-900/40 shadow-xl shadow-amber-500/10"
-                  : "border-white/10 bg-slate-900/40"
-              }`}
-            >
-              {t.featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-black">
-                  Most popular
-                </span>
-              )}
-              <h3 className="text-lg font-bold text-white">{t.name}</h3>
-              <p className="mt-1 text-sm text-slate-400">{t.tagline}</p>
-              <div className="mt-5 flex items-baseline gap-1">
-                <span className="text-4xl font-black text-white">{t.price}</span>
-                <span className="text-slate-400">{t.unit}</span>
-              </div>
-              <ul className="mt-6 flex-1 space-y-3">
-                {t.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-slate-300">
-                    <span className="mt-0.5 text-amber-400">✓</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <a
-                href="#demo"
-                onClick={scrollToDemo}
-                className={`mt-8 block rounded-xl px-6 py-3 text-center font-bold transition ${
-                  t.featured
-                    ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-black hover:brightness-110"
-                    : "border border-white/15 text-white hover:bg-white/5"
-                }`}
+          {tiers.map((t) => {
+            const onAccent = t.name === "Enterprise" ? "#1c1500" : "#ffffff";
+            return (
+              <div
+                key={t.name}
+                style={{
+                  borderColor: t.featured ? `${t.accent}80` : `${t.accent}40`,
+                  background: `linear-gradient(to bottom, ${t.accent}1f, rgba(15,23,42,0.4))`,
+                  boxShadow: t.featured ? `0 22px 45px -18px ${t.accent}80` : undefined,
+                }}
+                className="relative flex flex-col rounded-2xl border p-8"
               >
-                Book Your Free Demo
-              </a>
-            </div>
-          ))}
+                {t.featured && (
+                  <span
+                    style={{ backgroundColor: t.accent, color: onAccent }}
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-bold"
+                  >
+                    Most popular
+                  </span>
+                )}
+                <h3 className="text-lg font-bold" style={{ color: t.accent }}>
+                  {t.name}
+                </h3>
+                <p className="mt-1 text-sm text-slate-400">{t.tagline}</p>
+                <div className="mt-5 flex items-baseline gap-1">
+                  <span className="text-4xl font-black text-white">{t.price}</span>
+                  <span className="text-slate-400">{t.unit}</span>
+                </div>
+                <ul className="mt-6 flex-1 space-y-3">
+                  {t.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-slate-300">
+                      <span className="mt-0.5" style={{ color: t.accent }}>✓</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href="#demo"
+                  onClick={scrollToDemo}
+                  style={
+                    t.featured
+                      ? { backgroundColor: t.accent, color: onAccent }
+                      : { borderColor: `${t.accent}80`, color: t.accent }
+                  }
+                  className={`mt-8 block rounded-xl px-6 py-3 text-center font-bold transition hover:brightness-110 ${
+                    t.featured ? "" : "border"
+                  }`}
+                >
+                  Book Your Free Demo
+                </a>
+              </div>
+            );
+          })}
         </div>
 
         <div className="mt-20">
@@ -403,13 +418,22 @@ function Pricing() {
                   <th className="py-3 pr-4 text-left font-semibold text-slate-300">
                     Feature
                   </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-300">
+                  <th
+                    className="px-4 py-3 text-center font-semibold"
+                    style={{ color: "#3B82F6" }}
+                  >
                     Starter
                   </th>
-                  <th className="px-4 py-3 text-center font-semibold text-amber-300">
+                  <th
+                    className="px-4 py-3 text-center font-semibold"
+                    style={{ color: "#8B5CF6" }}
+                  >
                     Professional
                   </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-300">
+                  <th
+                    className="px-4 py-3 text-center font-semibold"
+                    style={{ color: "#F59E0B" }}
+                  >
                     Enterprise
                   </th>
                 </tr>
@@ -420,10 +444,10 @@ function Pricing() {
                     <td className="py-3 pr-4 text-left text-slate-300">
                       {row.feature}
                     </td>
-                    <td className="px-4 py-3 text-center">{cell(row.starter)}</td>
-                    <td className="px-4 py-3 text-center">{cell(row.pro)}</td>
+                    <td className="px-4 py-3 text-center">{cell(row.starter, "#3B82F6")}</td>
+                    <td className="px-4 py-3 text-center">{cell(row.pro, "#8B5CF6")}</td>
                     <td className="px-4 py-3 text-center">
-                      {cell(row.enterprise)}
+                      {cell(row.enterprise, "#F59E0B")}
                     </td>
                   </tr>
                 ))}
