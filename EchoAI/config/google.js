@@ -24,6 +24,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/adwords",
   "https://www.googleapis.com/auth/analytics.readonly",
   "https://www.googleapis.com/auth/webmasters.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
   "openid",
   "email",
 ];
@@ -35,6 +36,7 @@ const SERVICE_SCOPES = {
   googleAds: "https://www.googleapis.com/auth/adwords",
   googleAnalytics: "https://www.googleapis.com/auth/analytics.readonly",
   searchConsole: "https://www.googleapis.com/auth/webmasters.readonly",
+  calendar: "https://www.googleapis.com/auth/calendar.events",
 };
 
 /** True when the Google OAuth client credentials are configured. */

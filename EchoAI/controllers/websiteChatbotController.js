@@ -9,7 +9,23 @@ const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
 const zapierController = require("./zapierController");
 const feedbackController = require("./feedbackController");
+const appointmentController = require("./appointmentController");
+const {
+  buildAppointmentSchedulerPrompt,
+} = require("../prompts/appointmentBookingPrompt");
+const { meetsTier } = require("../config/tiers");
 const { normalizeE164 } = require("../utils/phone");
+
+// Strips the hidden [[BOOK:<ISO>]] booking token from an AI reply. Returns
+// { reply, bookIso } — bookIso is the requested slot ISO or null. The visitor
+// must never see this token.
+const BOOK_TOKEN_RE = /\[\[BOOK:\s*([^\]]+?)\s*\]\]/i;
+function extractBookingToken(reply) {
+  const match = reply.match(BOOK_TOKEN_RE);
+  const bookIso = match ? match[1].trim() : null;
+  const cleaned = reply.replace(BOOK_TOKEN_RE, "").trim();
+  return { reply: cleaned, bookIso };
+}
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 const VALID_AVATAR_STYLES = ["initials", "robot", "circle"];
@@ -100,12 +116,22 @@ async function getOwnedBrand(userId, brandId) {
 async function getBrandWithOwner(brandId) {
   const { rows } = await db.query(
     `SELECT b.brand_id, b.brand_name, b.brand_personality, b.voice_description,
-            b.target_audience, u.email AS owner_email, u.user_id AS owner_user_id
-     FROM brands b JOIN users u ON u.user_id = b.user_id
+            b.target_audience, u.email AS owner_email, u.user_id AS owner_user_id,
+            u.role AS owner_role, s.subscription_tier AS owner_tier
+     FROM brands b
+     JOIN users u ON u.user_id = b.user_id
+     LEFT JOIN subscriptions s ON s.user_id = u.user_id
      WHERE b.brand_id = $1`,
     [brandId],
   );
   return rows[0] || null;
+}
+
+/** True when the brand's owner may use the AI appointment booking feature. */
+function appointmentsEnabledFor(brand) {
+  if (!brand) return false;
+  if (brand.owner_role === "admin") return true;
+  return meetsTier(brand.owner_tier || "free", "pro");
 }
 
 /**
@@ -294,27 +320,11 @@ async function chat(req, res) {
     const greeting =
       (cfg.rows[0] && cfg.rows[0].greeting_message) || defaultGreeting(brand.brand_name);
 
-    const systemPrompt = buildWebsiteChatbotPrompt(brand, { greeting });
-
+    // Append the visitor's message, then score temperature + extract contact
+    // BEFORE generating the reply. Scoring the lead's own messages up front lets
+    // us inject the scheduler guidance the SAME turn the lead turns hot, rather
+    // than one turn late.
     messages.push({ role: "user", content: message, at: new Date().toISOString() });
-
-    let reply;
-    try {
-      const response = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: toAnthropicMessages(messages),
-      });
-      reply = extractText(response);
-    } catch (err) {
-      console.error("Chatbot AI error:", err.message);
-      return res
-        .status(502)
-        .json({ error: "The assistant is temporarily unavailable. Please try again." });
-    }
-
-    messages.push({ role: "assistant", content: reply, at: new Date().toISOString() });
 
     // Score + extract contact in one pass (best-effort).
     const analysis = await analyzeConversation(messages);
@@ -339,6 +349,44 @@ async function chat(req, res) {
       analysis.temperature && VALID_TEMPERATURES.includes(analysis.temperature)
         ? analysis.temperature
         : session.temperature || null;
+
+    let systemPrompt = buildWebsiteChatbotPrompt(brand, { greeting });
+
+    // The instant the lead is hot (scored from THIS turn) and the brand's owner
+    // is on a plan that includes appointment booking, append the scheduler
+    // guidance + the brand's REAL open slots so the agent can book in-chat.
+    if (temperature === "hot" && appointmentsEnabledFor(brand)) {
+      const offeredSlots = await appointmentController.getSlotsForBrand(
+        brandId,
+        brand.owner_user_id,
+      );
+      systemPrompt += buildAppointmentSchedulerPrompt(brand, {
+        slots: offeredSlots,
+        channel: "chat",
+      });
+    }
+
+    let reply;
+    try {
+      const response = await anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: toAnthropicMessages(messages),
+      });
+      reply = extractText(response);
+    } catch (err) {
+      console.error("Chatbot AI error:", err.message);
+      return res
+        .status(502)
+        .json({ error: "The assistant is temporarily unavailable. Please try again." });
+    }
+
+    // Strip the hidden booking token before the reply is shown or stored.
+    const { reply: visibleReply, bookIso } = extractBookingToken(reply);
+    reply = visibleReply;
+
+    messages.push({ role: "assistant", content: reply, at: new Date().toISOString() });
 
     await db.query(
       `UPDATE chatbot_sessions
@@ -414,6 +462,27 @@ async function chat(req, res) {
         source: "website_chatbot",
         summary,
       });
+    }
+
+    // If the agent confirmed a slot via the hidden booking token, create the
+    // appointment now. bookForLead re-validates the slot against real open
+    // availability (so a stale/invalid ISO can't slip through) and fires the
+    // confirmations + Google Calendar sync. Best-effort: never blocks the reply.
+    if (bookIso && temperature === "hot" && appointmentsEnabledFor(brand)) {
+      appointmentController
+        .bookForLead({
+          brandId,
+          ownerUserId: brand.owner_user_id,
+          leadId: leadId || null,
+          startIso: bookIso,
+          source: "chatbot",
+          contact: {
+            name: analysis.name || null,
+            email: analysis.email || null,
+            phone: analysis.phone || null,
+          },
+        })
+        .catch((err) => console.error("Chatbot booking failed:", err.message));
     }
 
     // Auto-send a short satisfaction survey once we have a lead with real

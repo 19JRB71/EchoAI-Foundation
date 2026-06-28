@@ -480,6 +480,37 @@ export const api = {
   initiateOutboundCall: (leadId) =>
     request("/api/phone/outbound", { method: "POST", body: { leadId } }),
 
+  // AI Appointment Booking
+  getAvailabilityConfig: (brandId) =>
+    request(`/api/appointments/config/${brandId}`),
+  saveAvailabilityConfig: (brandId, config) =>
+    request(`/api/appointments/config/${brandId}`, {
+      method: "PUT",
+      body: config,
+    }),
+  addAvailabilityBlock: ({ brandId, startTime, endTime, reason }) =>
+    request("/api/appointments/blocks", {
+      method: "POST",
+      body: { brandId, startTime, endTime, reason },
+    }),
+  deleteAvailabilityBlock: (blockId) =>
+    request(`/api/appointments/blocks/${blockId}`, { method: "DELETE" }),
+  getOpenSlots: (brandId, { from, to } = {}) => {
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/appointments/slots/${brandId}${suffix}`);
+  },
+  getAppointments: (brandId) => request(`/api/appointments/list/${brandId}`),
+  bookAppointment: (data) =>
+    request("/api/appointments", { method: "POST", body: data }),
+  updateAppointment: (appointmentId, data) =>
+    request(`/api/appointments/${appointmentId}`, {
+      method: "PATCH",
+      body: data,
+    }),
+
   // AI Website Chatbot (embeddable widget)
   getChatbotConfigForOwner: (brandId) =>
     request(`/api/chatbot/admin-config/${brandId}`),

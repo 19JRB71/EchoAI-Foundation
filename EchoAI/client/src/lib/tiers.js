@@ -32,6 +32,7 @@ export const SECTION_GATES = {
   phone: "pro",
   zapier: "pro",
   adstudio: "pro",
+  appointments: "pro",
   // Enterprise
   feedback: "enterprise",
   affiliate: "enterprise",

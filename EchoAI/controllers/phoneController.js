@@ -7,6 +7,11 @@ const {
   CALL_DISPOSITION_PROMPT,
   VALID_DISPOSITIONS,
 } = require("../prompts/phoneAgentPrompt");
+const {
+  buildAppointmentSchedulerPrompt,
+  buildPhoneBookingExtractionPrompt,
+} = require("../prompts/appointmentBookingPrompt");
+const appointmentController = require("./appointmentController");
 const { LEAD_SCORING_PROMPT } = require("../prompts/leadQualificationPrompt");
 const {
   getPublicBaseUrl,
@@ -104,6 +109,46 @@ async function classifyOutcome(transcript) {
   });
   const text = extractText(response).toLowerCase().trim();
   return VALID_DISPOSITIONS.find((d) => text.includes(d)) || "interested";
+}
+
+/**
+ * Inspects a finished call transcript for a confirmed appointment time and books
+ * it. The AI may only pick from the brand's REAL open slots (passed in), so it
+ * can never invent a time; bookForLead re-validates before persisting. Best-
+ * effort — returns silently on any failure so the status webhook never breaks.
+ */
+async function maybeBookFromCall(call, transcript) {
+  try {
+    const slots = await appointmentController.getSlotsForBrand(
+      call.brand_id,
+      call.owner_user_id,
+    );
+    if (!slots.length) return;
+
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 60,
+      system: buildPhoneBookingExtractionPrompt(slots),
+      messages: toAnthropicMessages(transcript),
+    });
+    const text = extractText(response).trim();
+    if (!text || /none/i.test(text)) return;
+
+    // The model returns the chosen slot's ISO; match it to a real open slot.
+    const chosen = slots.find((s) => text.includes(s.start));
+    if (!chosen) return;
+
+    await appointmentController.bookForLead({
+      brandId: call.brand_id,
+      ownerUserId: call.owner_user_id,
+      leadId: call.lead_id || null,
+      startIso: chosen.start,
+      source: "phone",
+      contact: { phone: call.caller_phone || null },
+    });
+  } catch (err) {
+    console.error("Phone booking extraction failed:", err.message);
+  }
 }
 
 /** Generates the agent's next spoken line. Returns { speech, end }. */
@@ -383,7 +428,7 @@ async function handleInboundCall(req, res) {
     const callSid = req.body.CallSid;
 
     const { rows } = await db.query(
-      `SELECT tc.brand_id, tc.auth_token_encrypted,
+      `SELECT tc.brand_id, tc.auth_token_encrypted, b.user_id AS owner_user_id,
               b.brand_name, b.brand_personality, b.voice_description, b.target_audience
        FROM twilio_config tc
        JOIN brands b ON b.brand_id = tc.brand_id
@@ -413,7 +458,20 @@ async function handleInboundCall(req, res) {
       voice_description: cfg.voice_description,
       target_audience: cfg.target_audience,
     };
-    const systemPrompt = buildPhoneAgentPrompt(brand, { direction: "inbound" });
+    // Phone is Professional-gated, so any owner who configured a Twilio number
+    // already meets the appointment tier — append the scheduler guidance + real
+    // open slots so the agent can offer to book a meeting during the call.
+    let systemPrompt = buildPhoneAgentPrompt(brand, { direction: "inbound" });
+    const inboundSlots = await appointmentController.getSlotsForBrand(
+      cfg.brand_id,
+      cfg.owner_user_id,
+    );
+    if (inboundSlots.length) {
+      systemPrompt += buildAppointmentSchedulerPrompt(brand, {
+        slots: inboundSlots,
+        channel: "phone",
+      });
+    }
     const { speech } = await generateAgentReply(systemPrompt, [
       { role: "user", content: "The caller has just connected. Greet them." },
     ]);
@@ -462,7 +520,7 @@ async function handleVoiceTurn(req, res) {
   try {
     const { rows } = await db.query(
       `SELECT c.call_id, c.brand_id, c.direction, c.lead_id, c.transcript,
-              tc.auth_token_encrypted,
+              tc.auth_token_encrypted, b.user_id AS owner_user_id,
               b.brand_name, b.brand_personality, b.voice_description, b.target_audience
        FROM calls c
        JOIN brands b ON b.brand_id = c.brand_id
@@ -508,10 +566,21 @@ async function handleVoiceTurn(req, res) {
       voice_description: call.voice_description,
       target_audience: call.target_audience,
     };
-    const systemPrompt = buildPhoneAgentPrompt(brand, {
+    let systemPrompt = buildPhoneAgentPrompt(brand, {
       direction: call.direction,
       lead,
     });
+    // Offer real open slots so the agent can book a meeting mid-call.
+    const turnSlots = await appointmentController.getSlotsForBrand(
+      call.brand_id,
+      call.owner_user_id,
+    );
+    if (turnSlots.length) {
+      systemPrompt += buildAppointmentSchedulerPrompt(brand, {
+        slots: turnSlots,
+        channel: "phone",
+      });
+    }
 
     if (speechResult) {
       transcript.push({
@@ -607,6 +676,8 @@ async function handleCallStatus(req, res) {
       } catch (err) {
         console.error("Call outcome classification failed:", err.message);
       }
+      // If the caller agreed to a time during the call, book it now.
+      await maybeBookFromCall(call, transcript);
     } else {
       outcome = callStatus === "completed" ? "no_answer" : callStatus;
     }

@@ -17,6 +17,7 @@ import GoogleSeo from "./sections/GoogleSeo.jsx";
 import RoiDashboard from "./sections/RoiDashboard.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
+import Appointments from "./sections/Appointments.jsx";
 import ChatbotSetup from "./sections/ChatbotSetup.jsx";
 import Feedback from "./sections/Feedback.jsx";
 import ZapierIntegration from "./sections/ZapierIntegration.jsx";
@@ -370,6 +371,11 @@ export default function App() {
                 gate("reputation", <Reputation brandId={selectedBrandId} />)}
               {section === "phone" &&
                 gate("phone", <PhoneAgent brandId={selectedBrandId} />)}
+              {section === "appointments" &&
+                gate(
+                  "appointments",
+                  <Appointments brandId={selectedBrandId} />,
+                )}
               {section === "chatbot" && (
                 <ChatbotSetup brandId={selectedBrandId} />
               )}

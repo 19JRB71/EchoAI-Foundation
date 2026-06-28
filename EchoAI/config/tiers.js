@@ -48,6 +48,7 @@ const FEATURES = {
   zapier: { name: "Zapier Integration", tier: "pro", description: "Outbound webhooks to Zapier, Make, Slack, and more." },
   video: { name: "Video Script Generator", tier: "pro", description: "AI video packages: hook, scenes, CTA, and thumbnail." },
   ad_studio: { name: "AI Ad Creative Studio", tier: "pro", description: "AI-generated ad creative packages, one-click launch into Facebook." },
+  appointments: { name: "AI Appointment Booking", tier: "pro", description: "AI books appointments for hot leads, syncs Google Calendar, and sends confirmations." },
 
   // --- Enterprise ---
   white_label: { name: "White-Label Agency", tier: "enterprise", description: "Resell EchoAI under your own brand and domain." },
