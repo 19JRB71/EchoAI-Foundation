@@ -91,6 +91,11 @@ export default function FeatureGate({
           to unlock it instantly. You currently have the{" "}
           <span className="font-medium text-gray-200">{tierName(currentTier)}</span> plan.
         </p>
+        <p className="mt-2 text-xs text-gray-500">
+          {requiredTier === "enterprise"
+            ? "Includes unlimited users."
+            : "Includes your first seat — additional users are $50/seat/month."}
+        </p>
         <button
           onClick={onUpgrade}
           className="mt-6 rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-gray-900 hover:bg-amber-600"
