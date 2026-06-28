@@ -215,6 +215,26 @@ export const api = {
       body: { postContent },
     }),
 
+  // AI Ad Creative Studio
+  generateAdCreatives: ({ brandId, campaignGoal, budgetRange, productFocus }) =>
+    request("/api/ad-studio/generate", {
+      method: "POST",
+      body: { brandId, campaignGoal, budgetRange, productFocus },
+    }),
+  saveAdCreative: ({ brandId, campaignGoal, packages, budgetRange, productFocus }) =>
+    request("/api/ad-studio", {
+      method: "POST",
+      body: { brandId, campaignGoal, packages, budgetRange, productFocus },
+    }),
+  getAdCreatives: (brandId) => request(`/api/ad-studio/${brandId}`),
+  launchAdCreative: ({ creativeId, packageIndex, budget }) =>
+    request("/api/ad-studio/launch", {
+      method: "POST",
+      body: { creativeId, packageIndex, budget },
+    }),
+  getAdCreativePerformance: (brandId) =>
+    request(`/api/ad-studio/performance/${brandId}`),
+
   // Video content (AI Video Script & Content Creation Agent)
   generateVideoScript: ({ brandId, topic, platform, length }) =>
     request("/api/video/generate", {

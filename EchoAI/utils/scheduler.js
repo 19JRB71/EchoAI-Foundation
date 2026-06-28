@@ -5,6 +5,7 @@ const {
   generateWeeklyReport,
 } = require("../controllers/analyticsController");
 const { autoOptimizeCampaignsForBrand } = require("../controllers/optimizationController");
+const { updateCreativePerformanceForBrand } = require("../controllers/adCreativeStudioController");
 const { sendWeeklyReportEmail } = require("../controllers/emailController");
 const { publishDuePosts } = require("../controllers/socialController");
 const { triggerWebhook } = require("../controllers/zapierController");
@@ -43,6 +44,15 @@ async function runWeeklyAnalytics() {
       optimized += 1;
     } catch (err) {
       console.error(`Auto optimization failed for brand ${brand.brand_id}:`, err.message);
+    }
+
+    // Refresh real Facebook performance for this brand's launched ad creatives so
+    // the Ad Studio performance tab stays current. Best-effort — a failure here
+    // (e.g. no connected Facebook account) must not stop the rest of the run.
+    try {
+      await updateCreativePerformanceForBrand(brand);
+    } catch (err) {
+      console.error(`Creative performance refresh failed for brand ${brand.brand_id}:`, err.message);
     }
 
     // Deliver the AI-generated weekly report to the brand owner's inbox. Kept

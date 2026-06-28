@@ -117,6 +117,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Affiliate program | `/api/affiliates` | anyone joins + earns 20% of a referred user's FIRST month's payment; public `POST /track/:code` cookie before auth; conversion on Stripe `invoice.payment_succeeded`; admin approve/pay/suspend lifecycle; `affiliates`+`referrals` (026) |
 | Mobile API (v2) | `/api/v2/auth`, `/api/v2/push`, `/api/v2` | native iOS/Android backend; lean payloads + cursor pagination + standard envelope `{status,data,message,pagination}`; 30-day JWT + rotating refresh + biometric; FCM push (degrades when `FCM_SERVER_KEY` unset); `refresh_tokens`+`device_tokens` (027). RN/Expo scaffold in root `EchoAI-Mobile/` |
 | Content calendar | `/api/content-calendar` | AI generates a month of social posts (frequency × platforms × theme); saved as `draft` social_posts linked to a `content_calendars` row; activate→scheduled, pause→draft; scheduler only auto-publishes calendar posts whose calendar is `active`; `content_calendars`+`social_posts.calendar_id` (028) |
+| Ad creative studio | `/api/ad-studio` | AI generates 5 complete ad creative packages/brand (image desc, video script, copy variations, audience, placements); Creative Library + Performance tabs; one-click launch into existing Facebook campaign infra (paused); weekly perf refresh in Monday scheduler; `ad_creatives` (029) |
 
 ### Sales scripts subsystem (`/api/sales-scripts`)
 
@@ -304,6 +305,37 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   idempotent). Client: first tab of `client/src/sections/SocialMedia.jsx` →
   `sections/social/AICalendar.jsx` (generate form, preview grid, per-post
   edit/regenerate). The old in-app schedule view is now the "Post Schedule" tab.
+
+### Ad creative studio subsystem (`/api/ad-studio`)
+
+- **Auth + lockout** on every route (`router.use(auth, lockout)`). Ownership via
+  `getOwnedBrand(brandId, userId)` (404 on foreign brand); `launchCreative` joins
+  `ad_creatives → brands` on `b.user_id` so a foreign creative 404s.
+- **AI agent** (`prompts/adCreativeStudioPrompt.js`, Anthropic): returns EXACTLY
+  5 packages, each with `conceptName`, `angle`, `headline`, `bodyCopyVariations[]`,
+  `imageDescription`, `videoScript{hook,scenes[],cta}`, `audienceTargeting`,
+  `recommendedPlacements[]`, `callToAction`. `validateCreativePackages` trims then
+  rejects empty/short output. **All upstream AI failures → 502** (the
+  `anthropic.messages.create` call is wrapped; parse/validation also throw 502);
+  no mocks. `saveCreative` **re-validates** client-supplied packages before
+  persistence (a bad payload there is a 400, not a 502).
+- **Routes.** `POST /generate` (preview, no persist), `POST /` (save draft),
+  `POST /launch`, `GET /performance/:brandId` (**declared before** `GET /:brandId`
+  so "performance" isn't captured as a brandId), `GET /:brandId` (library).
+- **Launch reuses the Facebook campaign infra** (`utils/facebookApi.js`
+  graphPost): creates campaign + ad set + ad creative all **PAUSED**, records a
+  `campaigns` row (so optimizer/analytics pick it up), then marks the creative
+  `launched` with `launched_package`/FB ids. **Fails fast with 503** if
+  `FACEBOOK_PAGE_ID`/`FACEBOOK_LINK_URL` are unset — never reports success for a
+  campaign that can't serve ads (no partial-launch state mutation). Decrypted FB
+  token via `getFacebookIntegration` (`api_integrations`, status `connected`).
+- **Weekly performance refresh.** `updateCreativePerformanceForBrand(brand)` pulls
+  real FB insights for launched creatives; wired **best-effort** (try/catch) into
+  the Monday `scheduler.js` run so a failure (e.g. no FB account) never stops it.
+- Migration `models/029_ad_creatives.sql` (`ad_creatives`, `creative_concept`
+  JSONB, FK brands CASCADE + campaigns SET NULL, set_updated_at trigger,
+  idempotent). Client: `client/src/sections/AdStudio.jsx` (Generate / Creative
+  Library / Performance tabs); api.js block + Sidebar "Ad Studio" nav.
 
 ## Production hardening
 
