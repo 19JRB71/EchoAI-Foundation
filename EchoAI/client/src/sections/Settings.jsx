@@ -21,6 +21,7 @@ export default function Settings({
   openPaymentModal = false,
   workspaceRole = "owner",
   isTeamMember = false,
+  isAdmin = false,
 }) {
   // Billing and team management are restricted to the workspace owner/admin.
   const canManage = workspaceRole === "owner" || workspaceRole === "admin";
@@ -61,7 +62,7 @@ export default function Settings({
       {tab === "billing" && canManage ? (
         <Billing openPaymentModal={openPaymentModal} />
       ) : tab === "team" && canManage ? (
-        <TeamManagement />
+        <TeamManagement isAdmin={isAdmin} />
       ) : (
         <div className="space-y-6">
           <ProfileCard isTeamMember={isTeamMember} />

@@ -385,6 +385,7 @@ export default function App() {
                   openPaymentModal={openPaymentModal}
                   workspaceRole={workspaceRole}
                   isTeamMember={isTeamMember}
+                  isAdmin={isAdmin}
                   key={`${billingTab}-${openPaymentModal}`}
                 />
               )}

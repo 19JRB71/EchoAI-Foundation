@@ -300,6 +300,37 @@ function Pricing() {
       featured: false,
     },
   ];
+  const comparison = [
+    { feature: "Facebook ad automation", starter: true, pro: true, enterprise: true },
+    { feature: "Basic CRM & lead scoring", starter: true, pro: true, enterprise: true },
+    { feature: "AI lead-qualification chatbot", starter: true, pro: true, enterprise: true },
+    { feature: "Website chatbot widget", starter: true, pro: true, enterprise: true },
+    { feature: "Weekly performance reports", starter: true, pro: true, enterprise: true },
+    { feature: "Email notifications", starter: true, pro: true, enterprise: true },
+    { feature: "Social posting", starter: "2 platforms", pro: "All 6", enterprise: "All 6" },
+    { feature: "Voice chatbot", starter: false, pro: true, enterprise: true },
+    { feature: "AI phone agent", starter: false, pro: true, enterprise: true },
+    { feature: "Reputation management", starter: false, pro: true, enterprise: true },
+    { feature: "Sales script generator", starter: false, pro: true, enterprise: true },
+    { feature: "Content calendar", starter: false, pro: true, enterprise: true },
+    { feature: "Video script generator", starter: false, pro: true, enterprise: true },
+    { feature: "AI ad creative studio", starter: false, pro: true, enterprise: true },
+    { feature: "Zapier integration", starter: false, pro: true, enterprise: true },
+    { feature: "White-label agency", starter: false, pro: false, enterprise: true },
+    { feature: "Affiliate program", starter: false, pro: false, enterprise: true },
+    { feature: "Mobile app API", starter: false, pro: false, enterprise: true },
+    { feature: "Customer feedback & surveys", starter: false, pro: false, enterprise: true },
+    { feature: "Advanced analytics", starter: false, pro: false, enterprise: true },
+    { feature: "API marketplace access", starter: false, pro: false, enterprise: true },
+    { feature: "Priority support", starter: false, pro: false, enterprise: true },
+    { feature: "Included users", starter: "1", pro: "5", enterprise: "Unlimited" },
+    { feature: "Additional seats", starter: "$50/seat", pro: "$50/seat", enterprise: "Included" },
+  ];
+  const cell = (v) => {
+    if (v === true) return <span className="text-amber-400">✓</span>;
+    if (v === false) return <span className="text-slate-600">—</span>;
+    return <span className="text-slate-200">{v}</span>;
+  };
   return (
     <section className="border-t border-white/5 py-24">
       <div className="mx-auto max-w-6xl px-6">
@@ -356,6 +387,49 @@ function Pricing() {
               </a>
             </div>
           ))}
+        </div>
+
+        <div className="mt-20">
+          <h3 className="text-center text-2xl font-bold text-white">
+            Compare every feature
+          </h3>
+          <p className="mt-2 text-center text-sm text-slate-500">
+            See exactly what's included in each plan.
+          </p>
+          <div className="mt-8 overflow-x-auto">
+            <table className="mx-auto w-full max-w-4xl border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="py-3 pr-4 text-left font-semibold text-slate-300">
+                    Feature
+                  </th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-300">
+                    Starter
+                  </th>
+                  <th className="px-4 py-3 text-center font-semibold text-amber-300">
+                    Professional
+                  </th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-300">
+                    Enterprise
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparison.map((row) => (
+                  <tr key={row.feature} className="border-b border-white/5">
+                    <td className="py-3 pr-4 text-left text-slate-300">
+                      {row.feature}
+                    </td>
+                    <td className="px-4 py-3 text-center">{cell(row.starter)}</td>
+                    <td className="px-4 py-3 text-center">{cell(row.pro)}</td>
+                    <td className="px-4 py-3 text-center">
+                      {cell(row.enterprise)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>

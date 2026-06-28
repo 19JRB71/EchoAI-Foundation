@@ -36,7 +36,7 @@ function StatusBadge({ status }) {
   );
 }
 
-export default function TeamManagement() {
+export default function TeamManagement({ isAdmin = false }) {
   const [members, setMembers] = useState([]);
   const [seats, setSeats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,11 +71,31 @@ export default function TeamManagement() {
 
   async function invite(e) {
     e.preventDefault();
+    const trimmed = email.trim();
+    // Seat-charge confirmation: when this addition exceeds the plan's included
+    // seats, surface the $50/seat charge and require explicit confirmation.
+    // Enterprise (unlimited seats → includedSeats null) and the platform admin
+    // are exempt — no limit, no confirmation.
+    const exceedsSeats =
+      !isAdmin &&
+      seats &&
+      seats.includedSeats != null &&
+      seats.teamSize + 1 > seats.includedSeats;
+    if (exceedsSeats) {
+      const seatPrice = seats.additionalSeatPrice;
+      const included = seats.includedSeats;
+      const ok = window.confirm(
+        `Your plan includes ${included} seat${included === 1 ? "" : "s"}. ` +
+          `Adding ${trimmed} is an additional seat billed at $${seatPrice}/seat/month, ` +
+          `prorated on your next invoice. Add this seat and confirm the charge?`
+      );
+      if (!ok) return;
+    }
     setInviting(true);
     setError("");
     setNotice("");
     try {
-      const res = await api.inviteTeamMember(email.trim(), role);
+      const res = await api.inviteTeamMember(trimmed, role);
       setNotice(
         res.status === "active"
           ? `${email.trim()} was added to your team.`
