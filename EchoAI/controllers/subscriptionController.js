@@ -2,6 +2,7 @@ const { stripe, getPriceIdForTier } = require("../config/stripe");
 const { getPlan, listPlans } = require("../config/plans");
 const db = require("../config/db");
 const emailController = require("./emailController");
+const affiliateController = require("./affiliateController");
 
 /**
  * Stripe SDK errors carry a `type` like "StripeCardError" /
@@ -204,6 +205,25 @@ async function handleWebhook(req, res) {
              AND users.stripe_customer_id = $1`,
           [customerId]
         );
+
+        // Affiliate attribution: on the customer's FIRST successful payment,
+        // credit the referring affiliate 20% of the amount paid. convertReferral
+        // is a no-op for non-referred users and for renewals (only the first
+        // payment converts). Best-effort — never fail the webhook over it.
+        try {
+          const amountPaid = object.amount_paid; // cents
+          if (amountPaid > 0) {
+            const { rows } = await db.query(
+              "SELECT user_id FROM users WHERE stripe_customer_id = $1",
+              [customerId]
+            );
+            if (rows.length) {
+              await affiliateController.convertReferral(rows[0].user_id, amountPaid);
+            }
+          }
+        } catch (err) {
+          console.error("Affiliate conversion error:", err.message);
+        }
         break;
       }
 

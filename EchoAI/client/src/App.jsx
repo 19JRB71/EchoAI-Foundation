@@ -22,6 +22,7 @@ import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
 import AgencyPortal from "./sections/AgencyPortal.jsx";
+import AffiliateProgram from "./sections/AffiliateProgram.jsx";
 import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
 import { enablePushNotifications } from "./push.js";
 
@@ -204,6 +205,8 @@ export default function App() {
             <AdminPanel />
           ) : section === "agency" && isAgencyOwner ? (
             <AgencyPortal />
+          ) : section === "affiliate" ? (
+            <AffiliateProgram />
           ) : (
             <>
               <PaymentFailedBanner status={billingStatus} onFix={handleFixPayment} />

@@ -61,11 +61,11 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
 
 export const api = {
   // Auth
-  register: (email, password, teamSize) =>
+  register: (email, password, teamSize, referralCode) =>
     request("/api/auth/register", {
       method: "POST",
       auth: false,
-      body: { email, password, teamSize },
+      body: { email, password, teamSize, referralCode },
     }),
   login: (email, password) =>
     request("/api/auth/login", {
@@ -254,6 +254,34 @@ export const api = {
     }),
   getAgencyCustomers: () => request("/api/agencies/customers"),
   getAgencyRevenue: () => request("/api/agencies/revenue"),
+
+  // Affiliate program
+  // Public: store a referral code in a cookie before signup (no auth).
+  trackReferral: (code) =>
+    request(`/api/affiliates/track/${encodeURIComponent(code)}`, {
+      method: "POST",
+      auth: false,
+    }),
+  joinAffiliate: () => request("/api/affiliates/register", { method: "POST" }),
+  getAffiliateProfile: () => request("/api/affiliates/profile"),
+  getAffiliateCommissions: () => request("/api/affiliates/commissions"),
+  requestAffiliatePayout: (paypalEmail) =>
+    request("/api/affiliates/payout", {
+      method: "POST",
+      body: { paypalEmail },
+    }),
+  // Admin (platform owner): overview + advancing the commission lifecycle.
+  adminListAffiliates: () => request("/api/affiliates/all"),
+  adminUpdateAffiliateCommissions: ({ affiliateId, action }) =>
+    request("/api/affiliates/approve", {
+      method: "POST",
+      body: { affiliateId, action },
+    }),
+  adminSetAffiliateStatus: ({ affiliateId, status }) =>
+    request("/api/affiliates/suspend", {
+      method: "POST",
+      body: { affiliateId, status },
+    }),
 
   // Email marketing (AI Email Campaign Agent)
   generateEmailSequence: ({ brandId, goal, targetAudience, numEmails }) =>

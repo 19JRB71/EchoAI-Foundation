@@ -15,6 +15,7 @@ const NAV = [
   { key: "phone", label: "Phone Agent", icon: "phone" },
   { key: "chatbot", label: "Website Chatbot", icon: "chatbot" },
   { key: "zapier", label: "Zapier", icon: "zapier" },
+  { key: "affiliate", label: "Affiliate Program", icon: "affiliate" },
   { key: "settings", label: "Settings", icon: "settings" },
 ];
 
@@ -164,6 +165,16 @@ function NavIcon({ name }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             d="M13 10V3L4 14h7v7l9-11h-7z"
+          />
+        </svg>
+      );
+    case "affiliate":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 8.25v13m0-13a2.25 2.25 0 01-2.25-2.25c0-1.86 1.5-3 3.375-3S16.5 4.14 16.5 6m-4.5 2.25H6.75A2.25 2.25 0 014.5 6V5.25A2.25 2.25 0 016.75 3h10.5A2.25 2.25 0 0119.5 5.25V6a2.25 2.25 0 01-2.25 2.25m-5.25 0a2.25 2.25 0 002.25-2.25c0-1.86-1.5-3-3.375-3M5.25 8.25v9.75A2.25 2.25 0 007.5 20.25h9a2.25 2.25 0 002.25-2.25V8.25"
           />
         </svg>
       );

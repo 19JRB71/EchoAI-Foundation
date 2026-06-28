@@ -1,5 +1,8 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import DemoForm from "./DemoForm.jsx";
+import { api } from "../api.js";
+import { setReferralCode } from "../lib/referral.js";
 
 function scrollToDemo(e) {
   e.preventDefault();
@@ -8,6 +11,16 @@ function scrollToDemo(e) {
 }
 
 export default function LandingPage() {
+  // Capture an affiliate referral code from the URL (?ref=CODE), persist it so
+  // it survives the navigation to signup, and store it as a cookie server-side.
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) {
+      setReferralCode(ref);
+      api.trackReferral(ref).catch(() => {});
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-white antialiased">
       <Nav />

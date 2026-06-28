@@ -114,6 +114,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Sales scripts | `/api/sales-scripts` | AI sales-script generator; `sales_scripts` (023) |
 | Zapier webhooks | `/api/webhooks` | outbound webhooks; fire-and-forget `triggerWebhook(brandId,event,data)`; SSRF-guarded https targets; retry+timeout+per-attempt logging; `webhooks`+`webhook_delivery_logs` (024) |
 | White label | `/api/agencies` | agencies resell EchoAI under own brand; public `GET /branding` themes client by domain; admin creates agencies + overview; owners self-serve settings/customers/revenue; `agencies`+`agency_customers` (025) |
+| Affiliate program | `/api/affiliates` | anyone joins + earns 20% of a referred user's FIRST month's payment; public `POST /track/:code` cookie before auth; conversion on Stripe `invoice.payment_succeeded`; admin approve/pay/suspend lifecycle; `affiliates`+`referrals` (026) |
 
 ### Sales scripts subsystem (`/api/sales-scripts`)
 
@@ -196,6 +197,42 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   Label panel: `client/src/admin/AdminWhiteLabel.jsx`; owner portal:
   `client/src/sections/AgencyPortal.jsx` (customers + revenue + branding form
   with live preview). Migration `models/025_white_label.sql`.
+
+### Affiliate program subsystem (`/api/affiliates`)
+
+- **Anyone can join.** Not brand-scoped — keyed by `user_id` (UNIQUE → one
+  affiliate record per account). Affiliates earn 20% (`COMMISSION_RATE`) of a
+  referred user's **first month's payment** only.
+- **Attribution chain.** Landing page reads `?ref=CODE` → stores in client
+  `localStorage` (`lib/referral.js`) AND calls public `POST /track/:code` which
+  sets an httpOnly cookie (`utils/referralTracking.js`, no cookie-parser — manual
+  header parse). `authController.register` accepts `referralCode` in the body
+  (falls back to the cookie) and **awaits** `attributeSignup` after COMMIT so the
+  pending `referrals` row exists before the JWT is returned (closes the
+  race where a fast first-payment webhook would otherwise miss the row). Attribution
+  is best-effort (try/catch — a bad code never fails signup), guards self-referral
+  and inactive affiliates, and dedups via UNIQUE `referred_user_id` + `ON CONFLICT
+  DO NOTHING`.
+- **Conversion is first-payment-only + idempotent.** `convertReferral(userId,
+  amountCents)` is called (try/catch, never fails the webhook) from the Stripe
+  `invoice.payment_succeeded` case when `amount_paid > 0`. It locks the pending
+  zero-commission row `FOR UPDATE` in a tx and fills `commission_amount =
+  round(cents * 0.2)/100`; renewals and duplicate webhooks are no-ops (only
+  `status='pending' AND commission_amount=0` matches). It is NOT an HTTP route.
+- **Routes.** Public `POST /track/:code` (before auth). Then `auth + lockout`:
+  `POST /register` (409 dup, retry on code 23505), `GET /profile` (404 = "not an
+  affiliate"), `GET /commissions`, `POST /payout` (records PayPal email + confirms
+  approved balance; **no real money moves** — owner reconciles manually). Admin
+  (`admin` mw): `GET /all`, `POST /approve` (action `approve`: pending→approved /
+  `pay`: approved→paid, bumps `total_paid`), `POST /suspend` (status
+  active|suspended).
+- **Lifecycle.** Commission `status`: pending → approved → paid, advanced by the
+  platform owner. Suspended affiliates earn nothing on new signups.
+- Migration `models/026_affiliate_program.sql` (`affiliates` + `referrals`,
+  NUMERIC money, set_updated_at triggers). Dashboard section
+  `client/src/sections/AffiliateProgram.jsx` (Dashboard/Commissions/Payouts tabs,
+  visible to all users); admin `client/src/admin/AdminAffiliates.jsx`
+  (Affiliates tab in AdminPanel).
 
 ## Production hardening
 

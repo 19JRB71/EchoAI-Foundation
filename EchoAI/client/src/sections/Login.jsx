@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api.js";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import { useBranding } from "../lib/BrandingContext.jsx";
+import { getReferralCode, clearReferralCode } from "../lib/referral.js";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
@@ -27,9 +28,13 @@ export default function Login({ onLogin }) {
           : await api.register(
               email,
               password,
-              teamSize ? Number(teamSize) : undefined
+              teamSize ? Number(teamSize) : undefined,
+              getReferralCode() || undefined
             );
       if (!data || !data.token) throw new Error("No token returned");
+      // The referral code has been attributed server-side; clear it so it isn't
+      // reused for a future signup on this browser.
+      if (mode === "register") clearReferralCode();
       onLogin(data.token);
     } catch (err) {
       setError(err.message);

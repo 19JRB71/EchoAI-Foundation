@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const db = require("../config/db");
 const { generateToken } = require("../utils/token");
 const emailController = require("./emailController");
+const { attributeSignup, readReferralCookie } = require("../utils/referralTracking");
 
 const SALT_ROUNDS = 10;
 
@@ -13,7 +14,7 @@ const SALT_ROUNDS = 10;
  * a JWT token.
  */
 async function register(req, res) {
-  const { email, password, teamSize } = req.body;
+  const { email, password, teamSize, referralCode } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required" });
@@ -47,6 +48,21 @@ async function register(req, res) {
     );
 
     await client.query("COMMIT");
+
+    // Attribute the signup to an affiliate referral if a code was supplied in
+    // the request body (client localStorage) or stored in the referral cookie.
+    // Awaited (after COMMIT) so the referral row exists BEFORE the token is
+    // returned — the user can't reach checkout/pay until they're logged in, so
+    // this guarantees the first-payment webhook finds the row to convert. Errors
+    // are swallowed so a bad code never fails an otherwise-successful signup.
+    const code = referralCode || readReferralCookie(req);
+    if (code) {
+      try {
+        await attributeSignup(db, { referredUserId: user.user_id, code });
+      } catch (err) {
+        console.error("Referral attribution failed:", err.message);
+      }
+    }
 
     const token = generateToken({ userId: user.user_id, email: user.email });
 

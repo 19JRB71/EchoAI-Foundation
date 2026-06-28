@@ -4,11 +4,13 @@ import AdminCustomers from "./AdminCustomers.jsx";
 import AdminCustomerDetail from "./AdminCustomerDetail.jsx";
 import AdminHealth from "./AdminHealth.jsx";
 import AdminWhiteLabel from "./AdminWhiteLabel.jsx";
+import AdminAffiliates from "./AdminAffiliates.jsx";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "customers", label: "Customers" },
   { key: "whitelabel", label: "White Label" },
+  { key: "affiliates", label: "Affiliates" },
   { key: "health", label: "Platform health" },
 ];
 
@@ -58,6 +60,7 @@ export default function AdminPanel() {
         />
       )}
       {tab === "whitelabel" && <AdminWhiteLabel />}
+      {tab === "affiliates" && <AdminAffiliates />}
       {tab === "health" && <AdminHealth />}
     </div>
   );
