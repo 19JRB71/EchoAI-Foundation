@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useBranding } from "../lib/BrandingContext.jsx";
 import {
   requiredTierForSection,
+  tierForSection,
   meetsTier,
   tierName,
   tierRank,
@@ -49,9 +50,9 @@ function TierPill({ tier, active = false, locked = false }) {
   );
 }
 
-// Five collapsible navigation groups. Each item carries an explicit `accent`
-// tier used purely for color coding (highlight tint / left border). Gating —
-// whether an item shows a lock badge — is driven separately by SECTION_GATES.
+// Five collapsible navigation groups. The color coding + tier pill for each item
+// is derived from tierForSection() (which mirrors the backend feature catalog);
+// lock state is driven separately by SECTION_GATES.
 const NAV_GROUPS = [
   {
     key: "overview",
@@ -59,8 +60,8 @@ const NAV_GROUPS = [
     icon: "g-overview",
     alwaysOpen: true,
     items: [
-      { key: "overview", label: "Dashboard", icon: "overview", accent: null },
-      { key: "leads", label: "Leads", icon: "leads", accent: null },
+      { key: "overview", label: "Dashboard", icon: "overview" },
+      { key: "leads", label: "Leads", icon: "leads" },
     ],
   },
   {
@@ -68,13 +69,13 @@ const NAV_GROUPS = [
     label: "Marketing",
     icon: "g-marketing",
     items: [
-      { key: "campaigns", label: "Campaigns", icon: "campaigns", accent: "starter" },
-      { key: "adstudio", label: "Ad Studio", icon: "adstudio", accent: "pro" },
-      { key: "social", label: "Social Media", icon: "social", accent: "pro" },
-      { key: "contentcalendar", label: "Content Calendar", icon: "contentcalendar", accent: "pro" },
-      { key: "email", label: "Email Marketing", icon: "email", accent: "pro" },
-      { key: "video", label: "Video Content", icon: "video", accent: "pro" },
-      { key: "followups", label: "Follow-Up Sequences", icon: "followups", accent: "pro" },
+      { key: "campaigns", label: "Campaigns", icon: "campaigns" },
+      { key: "adstudio", label: "Ad Studio", icon: "adstudio" },
+      { key: "social", label: "Social Media", icon: "social" },
+      { key: "contentcalendar", label: "Content Calendar", icon: "contentcalendar" },
+      { key: "email", label: "Email Marketing", icon: "email" },
+      { key: "video", label: "Video Content", icon: "video" },
+      { key: "followups", label: "Follow-Up Sequences", icon: "followups" },
     ],
   },
   {
@@ -82,12 +83,12 @@ const NAV_GROUPS = [
     label: "Customer Management",
     icon: "g-customer",
     items: [
-      { key: "phone", label: "Phone Agent", icon: "phone", accent: "pro" },
-      { key: "chatbot", label: "Website Chatbot", icon: "chatbot", accent: "pro" },
-      { key: "appointments", label: "Appointments", icon: "appointments", accent: "pro" },
-      { key: "reputation", label: "Reputation", icon: "reputation", accent: "pro" },
-      { key: "feedback", label: "Feedback", icon: "feedback", accent: "enterprise" },
-      { key: "zapier", label: "Zapier", icon: "zapier", accent: "pro" },
+      { key: "phone", label: "Phone Agent", icon: "phone" },
+      { key: "chatbot", label: "Website Chatbot", icon: "chatbot" },
+      { key: "appointments", label: "Appointments", icon: "appointments" },
+      { key: "reputation", label: "Reputation", icon: "reputation" },
+      { key: "feedback", label: "Feedback", icon: "feedback" },
+      { key: "zapier", label: "Zapier", icon: "zapier" },
     ],
   },
   {
@@ -95,9 +96,9 @@ const NAV_GROUPS = [
     label: "Content & Tools",
     icon: "g-content",
     items: [
-      { key: "sales", label: "Sales Scripts", icon: "sales", accent: "pro" },
-      { key: "image", label: "Image Studio", icon: "image", accent: "pro" },
-      { key: "googleseo", label: "Google & SEO", icon: "googleseo", accent: "pro" },
+      { key: "sales", label: "Sales Scripts", icon: "sales" },
+      { key: "image", label: "Image Studio", icon: "image" },
+      { key: "googleseo", label: "Google & SEO", icon: "googleseo" },
     ],
   },
   {
@@ -105,10 +106,10 @@ const NAV_GROUPS = [
     label: "Business",
     icon: "g-business",
     items: [
-      { key: "roi", label: "ROI Dashboard", icon: "roi", accent: "pro" },
-      { key: "affiliate", label: "Affiliate Program", icon: "affiliate", accent: "enterprise" },
-      { key: "agency", label: "White Label", icon: "whitelabel", accent: "enterprise" },
-      { key: "settings", label: "Settings", icon: "settings", accent: null },
+      { key: "roi", label: "ROI Dashboard", icon: "roi" },
+      { key: "affiliate", label: "Affiliate Program", icon: "affiliate" },
+      { key: "agency", label: "White Label", icon: "whitelabel" },
+      { key: "settings", label: "Settings", icon: "settings" },
     ],
   },
 ];
@@ -121,15 +122,11 @@ function groupKeyForSection(sectionKey) {
   return null;
 }
 
-// The accent tier ('starter'|'pro'|'enterprise'|null) for a section — the single
-// source of truth for tier color coding. Used by the sidebar and by App.jsx to
-// tint the main content area for the section currently being viewed.
+// The accent tier ('starter'|'pro'|'enterprise') for a section — re-exported from
+// the shared tier catalog (which mirrors the backend) so the sidebar and App.jsx
+// (which tints the main content area) share one source of truth.
 export function accentTierForSection(sectionKey) {
-  for (const g of NAV_GROUPS) {
-    const it = g.items.find((i) => i.key === sectionKey);
-    if (it) return it.accent;
-  }
-  return null;
+  return tierForSection(sectionKey);
 }
 
 function NavIcon({ name }) {
@@ -459,14 +456,14 @@ function groupLockTier(group, ctx) {
   return best;
 }
 
-// A single nav row (shared by desktop list and mobile slide-up panel). Tiered
-// items get a bright accent icon + label and a tier pill; the active item gets a
-// full solid accent background. Core (no-tier) items stay neutral teal/gray.
-function NavRow({ item, active, locked, brandTeal, onSelect }) {
-  const accentTier = item.accent; // 'starter' | 'pro' | 'enterprise' | null
-  const accent = accentTier ? accentColor(accentTier) : brandTeal;
+// A single nav row (shared by desktop list and mobile slide-up panel). Every item
+// gets a bright accent icon + label and a tier pill matching its backend tier; the
+// active item gets a full solid accent background with high-contrast text.
+function NavRow({ item, active, locked, onSelect }) {
+  const accentTier = tierForSection(item.key) || "starter"; // every nav item is tiered
+  const accent = accentColor(accentTier);
   const reqTier = requiredTierForSection(item.key);
-  const activeText = accentTier ? onAccentText(accentTier) : "#ffffff";
+  const activeText = onAccentText(accentTier);
   return (
     <button
       onClick={() => onSelect(item.key)}
@@ -474,14 +471,10 @@ function NavRow({ item, active, locked, brandTeal, onSelect }) {
       style={
         active
           ? { backgroundColor: accent, borderLeftColor: accent, color: activeText }
-          : { borderLeftColor: "transparent", color: accentTier ? accent : undefined }
+          : { borderLeftColor: "transparent", color: accent }
       }
       className={`flex w-full items-center gap-3 rounded-r-lg border-l-[3px] px-3 py-2 text-sm transition ${
-        active
-          ? "font-bold"
-          : accentTier
-            ? "font-semibold hover:bg-gray-800"
-            : "font-medium text-gray-300 hover:bg-gray-800 hover:text-white"
+        active ? "font-bold" : "font-semibold hover:bg-gray-800"
       }`}
     >
       {/* Icon always carries the tier color (white/dark on the active solid bg). */}
@@ -489,7 +482,7 @@ function NavRow({ item, active, locked, brandTeal, onSelect }) {
         <NavIcon name={item.icon} />
       </span>
       <span>{item.label}</span>
-      {accentTier && <TierPill tier={accentTier} active={active} locked={locked} />}
+      <TierPill tier={accentTier} active={active} locked={locked} />
     </button>
   );
 }
@@ -621,7 +614,6 @@ export default function Sidebar({
                         item={item}
                         active={section === item.key}
                         locked={isItemLocked(item.key, ctx)}
-                        brandTeal={brandTeal}
                         onSelect={handleSelect}
                       />
                     ))}
@@ -688,7 +680,6 @@ export default function Sidebar({
                         item={item}
                         active={section === item.key}
                         locked={isItemLocked(item.key, ctx)}
-                        brandTeal={brandTeal}
                         onSelect={handleSelect}
                       />
                     ))}

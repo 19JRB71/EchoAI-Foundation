@@ -86,6 +86,45 @@ export function requiredTierForSection(sectionKey) {
   return SECTION_GATES[sectionKey] || null;
 }
 
+// The tier each section BELONGS to — mirrors the backend feature catalog
+// (config/tiers.js FEATURES). Drives the color coding + tier pill on every nav
+// item. Baseline features (campaigns, leads, social, email, image, SEO, ROI,
+// chatbot, dashboard, settings) ship with Starter; the rest match their gate.
+// Keep in sync with the backend FEATURES map.
+export const SECTION_TIERS = {
+  // Starter (baseline)
+  overview: "starter",
+  leads: "starter",
+  campaigns: "starter",
+  social: "starter",
+  email: "starter",
+  image: "starter",
+  googleseo: "starter",
+  roi: "starter",
+  chatbot: "starter",
+  settings: "starter",
+  // Professional
+  adstudio: "pro",
+  contentcalendar: "pro",
+  video: "pro",
+  followups: "pro",
+  phone: "pro",
+  appointments: "pro",
+  reputation: "pro",
+  zapier: "pro",
+  sales: "pro",
+  // Enterprise
+  feedback: "enterprise",
+  affiliate: "enterprise",
+  agency: "enterprise",
+};
+
+// The tier a section belongs to (for color coding), or null for sections that are
+// not tiered nav items (e.g. admin) so they keep the neutral/core accent.
+export function tierForSection(sectionKey) {
+  return SECTION_TIERS[sectionKey] || null;
+}
+
 // Number of chargeable seats beyond a tier's included count.
 export function additionalSeats(tier, teamSize) {
   const meta = PLAN_META[tier];
