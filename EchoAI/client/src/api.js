@@ -235,6 +235,26 @@ export const api = {
   deleteWebhook: (webhookId) =>
     request(`/api/webhooks/${webhookId}`, { method: "DELETE" }),
 
+  // White-label agency system
+  // Public: branding for the domain the dashboard is served on (no auth).
+  getAgencyBranding: () =>
+    request("/api/agencies/branding", { auth: false }),
+  // Admin (platform owner): create agencies + all-agencies overview.
+  createAgency: (payload) =>
+    request("/api/agencies", { method: "POST", body: payload }),
+  listAllAgencies: () => request("/api/agencies/all"),
+  // Agency owner (Agency Portal): settings, customers, revenue.
+  getAgencySettings: () => request("/api/agencies/settings"),
+  updateAgencySettings: (payload) =>
+    request("/api/agencies/settings", { method: "PUT", body: payload }),
+  addAgencyCustomer: ({ customerEmail, monthlyPrice }) =>
+    request("/api/agencies/customers", {
+      method: "POST",
+      body: { customerEmail, monthlyPrice },
+    }),
+  getAgencyCustomers: () => request("/api/agencies/customers"),
+  getAgencyRevenue: () => request("/api/agencies/revenue"),
+
   // Email marketing (AI Email Campaign Agent)
   generateEmailSequence: ({ brandId, goal, targetAudience, numEmails }) =>
     request("/api/email-campaigns/generate", {

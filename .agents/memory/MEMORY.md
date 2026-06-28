@@ -1,2 +1,3 @@
 - [EchoAI public widget endpoints](echoai-public-widget-endpoints.md) — method-aware CORS (never path-prefix) + gate owner alerts on real state transitions, not raw public POSTs.
 - [EchoAI leads dedup](echoai-leads-dedup.md) — dedup leads in app code (email/phone), no table-wide unique index; the leads table is shared by multiple insert paths.
+- [EchoAI white-label ownership](echoai-white-label.md) — agencies.owner_user_id is UNIQUE (1/account); admin createAgency takes optional ownerEmail to assign agencies to other users, else multi-agency overview + per-owner portal can't coexist.

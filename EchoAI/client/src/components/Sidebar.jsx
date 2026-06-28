@@ -1,3 +1,5 @@
+import { useBranding } from "../lib/BrandingContext.jsx";
+
 const NAV = [
   { key: "overview", label: "Dashboard", icon: "overview" },
   { key: "leads", label: "Leads", icon: "leads" },
@@ -195,33 +197,63 @@ function NavIcon({ name }) {
   }
 }
 
-export default function Sidebar({ section, onSelect, onLogout, isAdmin }) {
-  const items = isAdmin
-    ? [...NAV, { key: "admin", label: "Admin", icon: "admin" }]
-    : NAV;
+export default function Sidebar({
+  section,
+  onSelect,
+  onLogout,
+  isAdmin,
+  isAgencyOwner,
+}) {
+  const { branding } = useBranding();
+  const isDefaultBrand = branding.agencyName === "EchoAI";
+
+  let items = NAV;
+  if (isAgencyOwner) {
+    items = [...items, { key: "agency", label: "Agency Portal", icon: "admin" }];
+  }
+  if (isAdmin) {
+    items = [...items, { key: "admin", label: "Admin", icon: "admin" }];
+  }
+
   return (
     <aside className="flex w-full flex-row items-center justify-between gap-3 bg-black px-4 py-3 text-gray-100 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:py-6">
       <div className="flex items-center md:mb-8">
-        <span className="text-xl font-bold tracking-tight text-white">
-          Echo<span className="text-amber-400">AI</span>
-        </span>
+        {branding.logoUrl ? (
+          <img
+            src={branding.logoUrl}
+            alt={branding.agencyName}
+            className="max-h-9 w-auto object-contain"
+          />
+        ) : isDefaultBrand ? (
+          <span className="text-xl font-bold tracking-tight text-white">
+            Echo<span style={{ color: branding.primaryColor }}>AI</span>
+          </span>
+        ) : (
+          <span className="text-xl font-bold tracking-tight text-white">
+            {branding.agencyName}
+          </span>
+        )}
       </div>
 
       <nav className="flex flex-row gap-1 md:flex-1 md:flex-col">
-        {items.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => onSelect(item.key)}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-              section === item.key
-                ? "bg-amber-500 text-gray-900"
-                : "text-gray-300 hover:bg-gray-800 hover:text-white"
-            }`}
-          >
-            <NavIcon name={item.icon} />
-            <span className="hidden md:inline">{item.label}</span>
-          </button>
-        ))}
+        {items.map((item) => {
+          const active = section === item.key;
+          return (
+            <button
+              key={item.key}
+              onClick={() => onSelect(item.key)}
+              style={active ? { backgroundColor: branding.primaryColor } : undefined}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                active
+                  ? "text-gray-900"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <NavIcon name={item.icon} />
+              <span className="hidden md:inline">{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
 
       <button

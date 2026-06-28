@@ -113,6 +113,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Website chatbot | `/api/chatbot` | embeddable widget; method-aware CORS; hot-lead alert once per session on non-hot→hot; app-level lead dedup; `chatbot_*` (022) |
 | Sales scripts | `/api/sales-scripts` | AI sales-script generator; `sales_scripts` (023) |
 | Zapier webhooks | `/api/webhooks` | outbound webhooks; fire-and-forget `triggerWebhook(brandId,event,data)`; SSRF-guarded https targets; retry+timeout+per-attempt logging; `webhooks`+`webhook_delivery_logs` (024) |
+| White label | `/api/agencies` | agencies resell EchoAI under own brand; public `GET /branding` themes client by domain; admin creates agencies + overview; owners self-serve settings/customers/revenue; `agencies`+`agency_customers` (025) |
 
 ### Sales scripts subsystem (`/api/sales-scripts`)
 
@@ -162,6 +163,39 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
   catalog events are subscribable but not yet wired to an emitter.
 - Migration `models/024_webhooks.sql`; dashboard section
   `client/src/sections/ZapierIntegration.jsx`.
+
+### White-label agency subsystem (`/api/agencies`)
+
+- **Two audiences.** Platform owner (admin) creates/oversees agencies; agency
+  owners self-serve their branding, customers, and revenue. `agencies` are keyed
+  by `owner_user_id` (UNIQUE → one agency per account); `agency_customers` link
+  customer accounts to an agency (UNIQUE `customer_user_id` → one agency per
+  customer) with the `monthly_price` the agency charges.
+- **Routes.** Public `GET /branding` (whiteLabel mw, **before** auth). Then
+  `auth + lockout`: `GET/PUT /settings`, `POST/GET /customers`, `GET /revenue`
+  (owner self-service, scoped via `getOwnedAgency(req.user.userId)`, 404 if not
+  an owner). Admin-only (adds `admin` mw): `POST /` (create), `GET /all`
+  (overview with per-agency customer counts + monthly revenue + JS-computed
+  totals).
+- **createAgency assigns ownership.** Admin-only; optional `ownerEmail` assigns
+  the agency to an existing user (defaults to the authenticated admin). This is
+  what makes the multi-agency admin overview + per-owner portal coherent given
+  `owner_user_id` is UNIQUE. Unique violations (`23505`) → **409** (owner already
+  has an agency, or domain taken).
+- **Dynamic theming.** `config/whiteLabel.js` `DEFAULT_BRANDING` mirrors the
+  client `lib/branding.js` defaults (amber `#f59e0b` / gray-900 `#111827`). The
+  `middleware/whiteLabel.js` resolves the request host (`X-White-Label-Domain` →
+  `X-Forwarded-Host` → `Host`) to an active agency's branding and attaches
+  `req.agencyBranding`; it **never throws** (branding is optional). The client
+  `BrandingProvider` (wraps `main.jsx`) fetches `GET /branding` once, applies CSS
+  vars + `document.title`, and feeds Sidebar/Login (logo/name + primaryColor
+  inline styles). Colors are strict hex; logos must be http(s) URLs; custom
+  domains are bare hostnames stored lower-cased.
+- **Agency-owner detection (client).** `App.jsx` calls `getAgencySettings` after
+  login; a 404 simply means "not an owner" (no Agency Portal nav). Admin White
+  Label panel: `client/src/admin/AdminWhiteLabel.jsx`; owner portal:
+  `client/src/sections/AgencyPortal.jsx` (customers + revenue + branding form
+  with live preview). Migration `models/025_white_label.sql`.
 
 ## Production hardening
 

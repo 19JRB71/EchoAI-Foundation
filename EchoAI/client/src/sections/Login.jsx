@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { api } from "../api.js";
 import ErrorBanner from "../components/ErrorBanner.jsx";
+import { useBranding } from "../lib/BrandingContext.jsx";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
 
 export default function Login({ onLogin }) {
+  const { branding } = useBranding();
+  const isDefaultBrand = branding.agencyName === "EchoAI";
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,9 +42,21 @@ export default function Login({ onLogin }) {
     <div className="flex min-h-screen items-center justify-center bg-black px-4">
       <div className="w-full max-w-md rounded-2xl bg-gray-900 p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-gray-100">
-            Echo<span className="text-amber-300">AI</span>
-          </h1>
+          {branding.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt={branding.agencyName}
+              className="mx-auto max-h-12 w-auto object-contain"
+            />
+          ) : isDefaultBrand ? (
+            <h1 className="text-2xl font-bold text-gray-100">
+              Echo<span style={{ color: branding.primaryColor }}>AI</span>
+            </h1>
+          ) : (
+            <h1 className="text-2xl font-bold text-gray-100">
+              {branding.agencyName}
+            </h1>
+          )}
           <p className="mt-1 text-sm text-gray-400">
             {mode === "login"
               ? "Sign in to your dashboard"
@@ -99,7 +114,8 @@ export default function Login({ onLogin }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-amber-500 py-2.5 text-sm font-semibold text-gray-900 transition hover:bg-amber-600 disabled:opacity-60"
+            style={{ backgroundColor: branding.primaryColor }}
+            className="w-full rounded-lg py-2.5 text-sm font-semibold text-gray-900 transition hover:opacity-90 disabled:opacity-60"
           >
             {loading
               ? "Please wait…"
@@ -110,7 +126,9 @@ export default function Login({ onLogin }) {
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-400">
-          {mode === "login" ? "New to EchoAI?" : "Already have an account?"}{" "}
+          {mode === "login"
+            ? `New to ${branding.agencyName}?`
+            : "Already have an account?"}{" "}
           <button
             onClick={() => {
               setMode(mode === "login" ? "register" : "login");

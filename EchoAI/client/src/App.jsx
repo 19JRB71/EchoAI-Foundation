@@ -21,6 +21,7 @@ import ZapierIntegration from "./sections/ZapierIntegration.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
+import AgencyPortal from "./sections/AgencyPortal.jsx";
 import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
 import { enablePushNotifications } from "./push.js";
 
@@ -35,6 +36,7 @@ export default function App() {
   // null = unknown (still loading the profile), true/false once known.
   const [onboardingCompleted, setOnboardingCompleted] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAgencyOwner, setIsAgencyOwner] = useState(false);
   // Image handed off from Image Studio to the Social Media generator.
   const [socialPrefillImage, setSocialPrefillImage] = useState(null);
   // Subscription status drives the global payment-failed banner.
@@ -102,6 +104,14 @@ export default function App() {
         if (active) {
           setOnboardingCompleted(Boolean(profile.onboardingCompleted));
           setIsAdmin(profile.role === "admin");
+        }
+        // Detect whether this account owns a white-label agency (shows the
+        // Agency Portal nav). A 404 simply means "not an agency owner".
+        try {
+          await api.getAgencySettings();
+          if (active) setIsAgencyOwner(true);
+        } catch {
+          if (active) setIsAgencyOwner(false);
         }
       } catch (err) {
         if (err.status === 401) {
@@ -186,11 +196,14 @@ export default function App() {
         onSelect={handleSelectSection}
         onLogout={handleLogout}
         isAdmin={isAdmin}
+        isAgencyOwner={isAgencyOwner}
       />
       <main className="flex-1 p-4 md:p-8">
         <div className="mx-auto max-w-6xl">
           {section === "admin" && isAdmin ? (
             <AdminPanel />
+          ) : section === "agency" && isAgencyOwner ? (
+            <AgencyPortal />
           ) : (
             <>
               <PaymentFailedBanner status={billingStatus} onFix={handleFixPayment} />

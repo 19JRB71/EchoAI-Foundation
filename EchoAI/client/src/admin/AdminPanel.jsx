@@ -3,10 +3,12 @@ import AdminOverview from "./AdminOverview.jsx";
 import AdminCustomers from "./AdminCustomers.jsx";
 import AdminCustomerDetail from "./AdminCustomerDetail.jsx";
 import AdminHealth from "./AdminHealth.jsx";
+import AdminWhiteLabel from "./AdminWhiteLabel.jsx";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "customers", label: "Customers" },
+  { key: "whitelabel", label: "White Label" },
   { key: "health", label: "Platform health" },
 ];
 
@@ -55,6 +57,7 @@ export default function AdminPanel() {
           onBack={() => setTab("customers")}
         />
       )}
+      {tab === "whitelabel" && <AdminWhiteLabel />}
       {tab === "health" && <AdminHealth />}
     </div>
   );
