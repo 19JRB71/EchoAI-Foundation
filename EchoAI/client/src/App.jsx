@@ -422,7 +422,11 @@ export default function App() {
                 <GoogleSeo brandId={selectedBrandId} />
               )}
               {section === "roi" && (
-                <RoiDashboard brandId={selectedBrandId} />
+                <RoiDashboard
+                  brandId={selectedBrandId}
+                  currentTier={currentTier}
+                  onUpgrade={handleUpgrade}
+                />
               )}
               {section === "reputation" &&
                 gate("reputation", <Reputation brandId={selectedBrandId} />)}

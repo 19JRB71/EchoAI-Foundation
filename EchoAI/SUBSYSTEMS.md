@@ -398,3 +398,54 @@ the project root `replit.md` — read that first; this file expands each subsyst
   email-marketing block; `lib/tiers.js` `SECTION_GATES`/`SECTION_TIERS`
   `email:"pro"`; App.jsx wraps the `email` section in `gate("email", …)`. The old
   `sections/email/` sub-components were removed.
+
+### Advanced ROI dashboard subsystem (`/api/roi/.../advanced`)
+
+- **Enterprise-gated; adds multi-channel dollar attribution on top of the basic
+  ROI estimate.** Basic ROI (`/api/roi/:brandId`, all paid tiers) is untouched;
+  the advanced routes share the same router, so order is `router.use(auth,
+  lockout)` then per-route `featureGate("advanced_roi")` (declared in
+  `config/tiers.js` FEATURES → enterprise; admin bypasses). Advanced routes are
+  declared **before** the basic `/:brandId` routes so `/advanced/*` is not
+  swallowed by the param route.
+- **Attribution model (`controllers/roiDashboardController.js`
+  `computeAdvancedSummary`).** Per channel: Facebook (spend/leads/conversions
+  from real `analytics` weekly rows, appointments where `source='facebook'`);
+  phone/SMS/email by **touch** (a lead is credited when that channel has a record
+  referencing `lead_id` in range), with spend estimated from real volumes ×
+  per-unit constants (`config/roiModel.js` `phoneCostPerMinute`/`smsCostPerMessage`/
+  `emailCostPerSend`); website = CRM leads created in range with **no** phone/SMS/
+  email touch. Revenue = conversions × `revenuePerConversion`. CPL/CPC and ROI%
+  (`(rev-spend)/spend`, **null when spend=0** — never infinite) computed per
+  channel + a funnel (leads→appointments→conversions with drop-off rates).
+- **Totals are computed independently from real CRM data** (leads + converted
+  leads in range), blending Facebook ad-reported conversions for revenue, because
+  channel attribution is multi-touch and per-channel conversions can overlap. The
+  client surfaces this in a disclaimer.
+- **AI ROI Analyst (`prompts/roiAnalystPrompt.js`, Anthropic, real, validated).**
+  `generateRoiAnalysis(brand, dataset)` grounds a 150–250 word executive summary
+  ONLY in the computed numbers (no invented figures; zero-spend channels are
+  "not measurable"). Empty output throws; `generateAdvancedAnalysis` maps SDK
+  4xx/5xx (`err.status >= 400`) to **502**, never a mock.
+- **Snapshots (`roi_advanced_snapshots`, migration 038).** `upsertSnapshot`
+  writes one row per `(brand_id, period_start, period_end)` (UNIQUE) with totals,
+  `roi_percentage`, full `channel_breakdown` JSONB (channels+funnel+totals), and
+  `ai_analysis` (COALESCE-preserved on conflict so a re-summary keeps prior text
+  if AI is skipped). `getAdvancedSummary` attaches any stored analysis for the
+  exact period; `getAdvancedHistory` returns the last 12 (summary fields +
+  `has_analysis`); `getAdvancedSnapshot` returns one full row.
+- **Weekly cron.** `utils/scheduler.js` `runWeeklyAnalytics` (Monday) calls
+  `generateWeeklyRoiSnapshot(brand)` per active brand best-effort (try/catch, an
+  AI failure stores the snapshot **without** analysis rather than losing data),
+  using the trailing 7 days.
+- **Ownership.** Every handler loads the brand via `getOwnedBrand(userId,
+  brandId)` (404 on foreign brand) before any work.
+- **Client.** `client/src/sections/RoiDashboard.jsx` is now a tier-aware wrapper:
+  Enterprise → `sections/roi/AdvancedRoiDashboard.jsx` (4 tabs Overview / Channel
+  Breakdown / Revenue Attribution / History + date-range selector 7d/30d/90d/
+  custom, dependency-free SVG/CSS charts), lower tiers → existing basic view +
+  `AdvancedRoiUpgradeBanner` (calls `onUpgrade` → Settings→Billing). `roi` stays
+  OUT of `SECTION_GATES` so the section is open to all tiers; gating is internal.
+  `api.js`: `getRoiAdvancedSummary`/`generateRoiAdvancedAnalysis`/
+  `getRoiAdvancedHistory`/`getRoiAdvancedSnapshot`. App.jsx passes `currentTier`
+  + `handleUpgrade` to `<RoiDashboard>`.

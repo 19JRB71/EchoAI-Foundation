@@ -30,6 +30,17 @@ const ROI_MODEL = {
   // Fallback monthly plan price used for the ROI ratio when a customer is on the
   // free tier (so the % is still meaningful and comparable to a paid plan).
   fallbackMonthlyPrice: 49,
+
+  // --- Advanced ROI Dashboard (multi-channel dollar attribution) ---
+  // Estimated average revenue from a single converted customer. Drives the
+  // revenue attributed to each channel's conversions in the advanced dashboard.
+  revenuePerConversion: 1200,
+
+  // Per-unit channel cost estimates used to attribute real outbound spend to the
+  // SMS, phone, and email channels (Facebook spend comes from real analytics).
+  smsCostPerMessage: 0.0079, // per outbound SMS segment (carrier/Twilio average)
+  phoneCostPerMinute: 0.013, // per outbound/inbound call minute (Twilio average)
+  emailCostPerSend: 0.001, // per delivered marketing email (ESP average)
 };
 
 module.exports = { ROI_MODEL };

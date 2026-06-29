@@ -16,6 +16,7 @@ const {
 } = require("../controllers/feedbackController");
 const { executeDueTouchpoints } = require("../controllers/followUpController");
 const { sendDueDripEmails } = require("../controllers/emailMarketingController");
+const { generateWeeklyRoiSnapshot } = require("../controllers/roiDashboardController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -127,6 +128,15 @@ async function runWeeklyAnalytics() {
       }
     } catch (err) {
       console.error(`Weekly feedback report failed for brand ${brand.brand_id}:`, err.message);
+    }
+
+    // Persist a weekly Advanced ROI snapshot (multi-channel attribution + AI
+    // executive summary) so owners get a running history without asking. Best-
+    // effort: a failure (e.g. AI down) is logged and never stops the weekly job.
+    try {
+      await generateWeeklyRoiSnapshot(brand);
+    } catch (err) {
+      console.error(`Weekly ROI snapshot failed for brand ${brand.brand_id}:`, err.message);
     }
   }
 

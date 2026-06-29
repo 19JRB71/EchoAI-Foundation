@@ -502,6 +502,22 @@ export const api = {
   generateRoiReport: (brandId) =>
     request(`/api/roi/${brandId}/report`, { method: "POST" }),
 
+  // Advanced ROI Dashboard (Enterprise)
+  getRoiAdvancedSummary: (brandId, params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.range) qs.set("range", params.range);
+    if (params.start) qs.set("start", params.start);
+    if (params.end) qs.set("end", params.end);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/roi/${brandId}/advanced/summary${suffix}`);
+  },
+  generateRoiAdvancedAnalysis: (brandId, body = {}) =>
+    request(`/api/roi/${brandId}/advanced/analysis`, { method: "POST", body }),
+  getRoiAdvancedHistory: (brandId) =>
+    request(`/api/roi/${brandId}/advanced/history`),
+  getRoiAdvancedSnapshot: (brandId, snapshotId) =>
+    request(`/api/roi/${brandId}/advanced/history/${snapshotId}`),
+
   // Reputation Management (reviews)
   getReviews: (brandId) => request(`/api/reputation/${brandId}`),
   fetchReviews: (brandId) =>

@@ -3,6 +3,8 @@ import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import RoiTrendChart from "../components/RoiTrendChart.jsx";
+import AdvancedRoiDashboard from "./roi/AdvancedRoiDashboard.jsx";
+import { meetsTier, tierName, tierPrice, accentColor } from "../lib/tiers.js";
 
 function money(n) {
   const v = Number(n) || 0;
@@ -40,7 +42,67 @@ function Row({ label, value }) {
   );
 }
 
-export default function RoiDashboard({ brandId }) {
+// Tier-aware entry point. Enterprise customers get the full Advanced ROI
+// Dashboard (multi-channel dollar attribution); everyone else keeps the basic
+// value-estimate dashboard plus an upgrade prompt for the advanced features.
+export default function RoiDashboard({ brandId, currentTier, onUpgrade }) {
+  if (currentTier == null) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Spinner label="Loading…" />
+      </div>
+    );
+  }
+  if (meetsTier(currentTier, "enterprise")) {
+    return <AdvancedRoiDashboard brandId={brandId} />;
+  }
+  return (
+    <div className="space-y-6">
+      <AdvancedRoiUpgradeBanner currentTier={currentTier} onUpgrade={onUpgrade} />
+      <BasicRoiDashboard brandId={brandId} />
+    </div>
+  );
+}
+
+function AdvancedRoiUpgradeBanner({ currentTier, onUpgrade }) {
+  const accent = accentColor("enterprise");
+  const price = tierPrice("enterprise");
+  return (
+    <div
+      className="rounded-2xl border p-6 shadow-lg"
+      style={{
+        borderColor: `${accent}40`,
+        backgroundImage: `linear-gradient(to bottom, ${accent}1f, rgba(17,24,39,0.95))`,
+      }}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-2xl">
+          <h3 className="text-base font-bold text-gray-100">
+            Unlock the <span style={{ color: accent }}>Advanced ROI Dashboard</span>
+          </h3>
+          <p className="mt-1 text-sm leading-relaxed text-gray-300">
+            See true dollar attribution across every channel — Facebook ads, phone, SMS, email,
+            and website — with cost per lead and conversion, a revenue funnel, an AI ROI analyst,
+            and a 12-week ROI history. Available on{" "}
+            <span className="font-semibold" style={{ color: accent }}>Enterprise</span>
+            {price != null && <> (${price}/mo)</>}. You're on the{" "}
+            <span className="font-medium text-gray-200">{tierName(currentTier)}</span> plan.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onUpgrade && onUpgrade()}
+          className="shrink-0 rounded-lg px-5 py-2.5 text-sm font-semibold text-gray-900 shadow transition hover:brightness-110"
+          style={{ backgroundColor: accent }}
+        >
+          Upgrade to Enterprise
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BasicRoiDashboard({ brandId }) {
   const [roi, setRoi] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
