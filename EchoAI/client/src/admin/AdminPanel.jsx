@@ -38,6 +38,7 @@ export default function AdminPanel() {
           return (
             <button
               key={t.key}
+              data-tour={`admin-${t.key}`}
               onClick={() => setTab(t.key)}
               className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
                 active

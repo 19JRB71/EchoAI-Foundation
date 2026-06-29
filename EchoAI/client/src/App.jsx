@@ -34,6 +34,8 @@ import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
 import FeatureGate from "./components/FeatureGate.jsx";
 import { requiredTierForSection, accentColor } from "./lib/tiers.js";
 import { enablePushNotifications } from "./push.js";
+import TourProvider from "./tour/TourProvider.jsx";
+import SectionHelp from "./tour/SectionHelp.jsx";
 
 export default function App() {
   const navigate = useNavigate();
@@ -325,6 +327,7 @@ export default function App() {
             email={userEmail}
             tier={currentTier}
             isAdmin={isAdmin}
+            section={section}
           />
           <div
             className="border-l-2 pl-3 md:pl-4"
@@ -463,6 +466,7 @@ export default function App() {
                   workspaceRole={workspaceRole}
                   isTeamMember={isTeamMember}
                   isAdmin={isAdmin}
+                  tier={currentTier}
                   key={`${billingTab}-${openPaymentModal}`}
                 />
               )}
@@ -471,13 +475,19 @@ export default function App() {
           </div>
         </div>
       </main>
+      <TourProvider
+        tier={currentTier}
+        isAdmin={isAdmin}
+        businessName={businessName}
+        onNavigate={setSection}
+      />
     </div>
   );
 }
 
 // Top bar shown above every dashboard view: the business name / email on the
 // left and the tier badge on the right so the current plan is always visible.
-function TopBar({ businessName, email, tier, isAdmin }) {
+function TopBar({ businessName, email, tier, isAdmin, section }) {
   const primary = businessName || email || "Your account";
   const secondary = businessName && email ? email : "";
   return (
@@ -490,7 +500,10 @@ function TopBar({ businessName, email, tier, isAdmin }) {
           <div className="truncate text-xs text-gray-500">{secondary}</div>
         )}
       </div>
-      <TierBadge tier={tier} isAdmin={isAdmin} />
+      <div className="flex shrink-0 items-center gap-3">
+        <SectionHelp sectionKey={section} tourAnchor />
+        <TierBadge tier={tier} isAdmin={isAdmin} />
+      </div>
     </div>
   );
 }
@@ -518,7 +531,7 @@ function BrandBar({ brands, selectedBrandId, onSelect, loading, error }) {
   if (brands.length === 1) return null;
 
   return (
-    <div className="mb-6 flex items-center gap-2">
+    <div className="mb-6 flex items-center gap-2" data-tour="brand-selector">
       <label className="text-sm font-medium text-gray-400">Brand</label>
       <select
         value={selectedBrandId}

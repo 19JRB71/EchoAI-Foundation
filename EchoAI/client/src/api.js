@@ -74,6 +74,17 @@ export const api = {
       body: { email, password },
     }),
   getProfile: () => request("/api/auth/profile"),
+
+  // Guided tour progress (per authenticated user, persists across devices)
+  getTourStatus: () => request("/api/tour/status"),
+  saveTourProgress: ({ tourType, currentStep, completed }) =>
+    request("/api/tour/progress", {
+      method: "POST",
+      body: { tourType, currentStep, completed },
+    }),
+  completeTour: (tourType) =>
+    request("/api/tour/complete", { method: "POST", body: { tourType } }),
+
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),
   updateOnboarding: (payload) =>

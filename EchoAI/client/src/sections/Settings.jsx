@@ -6,6 +6,8 @@ import BrandDiscovery from "./BrandDiscovery.jsx";
 import Billing from "./billing/Billing.jsx";
 import FacebookConnect from "../components/FacebookConnect.jsx";
 import TeamManagement from "./team/TeamManagement.jsx";
+import { tourTypeForTier } from "../tour/tourSteps.js";
+import { HELP_CONTENT } from "../tour/helpContent.js";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
@@ -22,6 +24,7 @@ export default function Settings({
   workspaceRole = "owner",
   isTeamMember = false,
   isAdmin = false,
+  tier = null,
 }) {
   // Billing and team management are restricted to the workspace owner/admin.
   const canManage = workspaceRole === "owner" || workspaceRole === "admin";
@@ -57,12 +60,15 @@ export default function Settings({
         {tabBtn("account", "Account")}
         {canManage && tabBtn("billing", "Billing")}
         {canManage && tabBtn("team", "Team")}
+        {tabBtn("tour", "Tour & Help")}
       </div>
 
       {tab === "billing" && canManage ? (
         <Billing openPaymentModal={openPaymentModal} />
       ) : tab === "team" && canManage ? (
         <TeamManagement isAdmin={isAdmin} />
+      ) : tab === "tour" ? (
+        <TourHelp tier={tier} isAdmin={isAdmin} />
       ) : (
         <div className="space-y-6">
           <ProfileCard isTeamMember={isTeamMember} />
@@ -71,6 +77,94 @@ export default function Settings({
           <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
         </div>
       )}
+    </div>
+  );
+}
+
+// Tour & Help tab: shows completion status for the user's tier-appropriate tour,
+// a button to (re)start it, and an index of the contextual help available
+// throughout the app.
+function TourHelp({ tier, isAdmin }) {
+  const tourType = isAdmin ? "admin" : tourTypeForTier(tier);
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await api.getTourStatus();
+        if (active) setStatus((res.tours && res.tours[tourType]) || null);
+      } catch {
+        if (active) setStatus(null);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [tourType]);
+
+  function restartTour() {
+    window.dispatchEvent(new Event("echoai:start-tour"));
+  }
+
+  const completed = status && status.completed;
+  const helpKeys = Object.keys(HELP_CONTENT);
+
+  return (
+    <div className="space-y-6">
+      <Card title="Guided product tour">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm">
+            {loading ? (
+              <span className="text-gray-400">Loading tour status…</span>
+            ) : completed ? (
+              <span className="inline-flex items-center gap-2 text-green-300">
+                <span className="h-2 w-2 rounded-full bg-green-400" />
+                Tour completed
+                {status.completedAt
+                  ? ` on ${new Date(status.completedAt).toLocaleDateString()}`
+                  : ""}
+              </span>
+            ) : status ? (
+              <span className="text-amber-300">
+                Tour in progress — you're on step {(status.currentStep || 0) + 1}.
+              </span>
+            ) : (
+              <span className="text-gray-400">You haven't taken the tour yet.</span>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              A guided walkthrough of every feature available on your plan.
+            </p>
+          </div>
+          <button onClick={restartTour} className={primaryBtn}>
+            {completed ? "Restart tour" : status ? "Resume tour" : "Start tour"}
+          </button>
+        </div>
+      </Card>
+
+      <Card title="Contextual help">
+        <p className="mb-4 text-xs text-gray-500">
+          Click the <span className="font-semibold text-gray-300">?</span> icon next
+          to any section title for a quick explainer. Here's what each section does:
+        </p>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {helpKeys.map((key) => {
+            const h = HELP_CONTENT[key];
+            return (
+              <li
+                key={key}
+                className="rounded-lg border border-gray-800 bg-gray-950/40 p-3"
+              >
+                <div className="text-sm font-semibold text-gray-200">{h.title}</div>
+                <div className="mt-0.5 text-xs text-gray-400">{h.what}</div>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
     </div>
   );
 }

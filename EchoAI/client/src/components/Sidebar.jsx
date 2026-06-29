@@ -488,6 +488,7 @@ function NavRow({ item, active, locked, onSelect }) {
   const activeText = onAccentText(accentTier);
   return (
     <button
+      data-tour={`nav-${item.key}`}
       onClick={() => onSelect(item.key)}
       title={locked ? `${tierName(reqTier)} plan` : undefined}
       style={
@@ -648,6 +649,7 @@ export default function Sidebar({
 
         {isAdmin && (
           <button
+            data-tour="nav-admin"
             onClick={() => handleSelect("admin")}
             style={
               section === "admin"
@@ -735,6 +737,7 @@ export default function Sidebar({
         })}
         {isAdmin && (
           <button
+            data-tour="nav-admin"
             onClick={() => handleSelect("admin")}
             className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
               section === "admin" ? "text-white" : "text-gray-400"
