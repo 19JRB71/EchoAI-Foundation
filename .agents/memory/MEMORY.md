@@ -1,6 +1,7 @@
 - [EchoAI public widget endpoints](echoai-public-widget-endpoints.md) — method-aware CORS (never path-prefix) + gate owner alerts on real state transitions, not raw public POSTs.
 - [EchoAI leads dedup](echoai-leads-dedup.md) — dedup leads in app code (email/phone), no table-wide unique index; the leads table is shared by multiple insert paths.
 - [EchoAI weekly scheduler scope](echoai-weekly-scheduler-scope.md) — Monday run only iterates active-campaign brands by design; don't make one job iterate all brands separately.
+- [EchoAI JSONB write safety](echoai-jsonb-writes.md) — route req.body values through utils/jsonb.js toJsonbParam before any ::jsonb cast; bare strings crash Postgres.
 - [Email click-tracker redirect safety](email-click-tracker-redirect.md) — public click/redirect trackers must encrypt the destination URL, never take a raw `?url=`, or they become open redirectors.
 - [EchoAI gating on background paths](echoai-gating-background-paths.md) — auto/background flows that create a tier-gated resource must enforce the gate themselves; route featureGate alone misses them.
 - [Appointment booking safety](appointments-booking.md) — every time-reserving write (book AND reschedule) serializes under the per-brand advisory lock; AI slot check fails closed on calendar outage; score chat temperature before replying.

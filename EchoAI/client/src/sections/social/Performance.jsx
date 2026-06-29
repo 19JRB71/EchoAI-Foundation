@@ -61,7 +61,13 @@ export default function Performance({ brandId }) {
       {loading ? (
         <Spinner label="Loading performance…" />
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-400">No published posts yet.</p>
+        <div className="rounded-xl border border-dashed border-gray-800 bg-gray-900/50 p-8 text-center">
+          <p className="text-sm font-medium text-gray-300">No published posts yet</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
+            Schedule and publish posts from the Content Generator tab — once they
+            go live, engagement metrics will show up here.
+          </p>
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-900 shadow-sm">
           <table className="min-w-full divide-y divide-gray-800 text-sm">

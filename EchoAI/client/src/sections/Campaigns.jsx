@@ -67,7 +67,13 @@ export default function Campaigns() {
       {loading ? (
         <Spinner label="Loading campaigns…" />
       ) : campaigns.length === 0 ? (
-        <p className="text-sm text-gray-400">No active campaigns.</p>
+        <div className="rounded-xl border border-dashed border-gray-800 bg-gray-900/50 p-8 text-center">
+          <p className="text-sm font-medium text-gray-300">No active campaigns yet</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
+            Launch a campaign from the Ad Studio, or connect your Facebook ad
+            account to sync existing campaigns here.
+          </p>
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-900 shadow-sm">
           <table className="min-w-full divide-y divide-gray-800 text-sm">
