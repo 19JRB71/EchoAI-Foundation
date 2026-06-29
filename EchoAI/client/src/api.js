@@ -518,6 +518,24 @@ export const api = {
   getRoiAdvancedSnapshot: (brandId, snapshotId) =>
     request(`/api/roi/${brandId}/advanced/history/${snapshotId}`),
 
+  // Customer Intelligence Engine (Enterprise)
+  getIntelligenceBrief: (brandId) => request(`/api/intelligence/${brandId}/brief`),
+  getIntelligenceProfile: (brandId) =>
+    request(`/api/intelligence/${brandId}/profile`),
+  getIntelligenceTrends: (brandId) =>
+    request(`/api/intelligence/${brandId}/trends`),
+  generateIntelligence: (brandId) =>
+    request(`/api/intelligence/${brandId}/generate`, { method: "POST" }),
+  getAppliedRecommendations: (brandId) =>
+    request(`/api/intelligence/${brandId}/applied`),
+  applyRecommendation: (brandId, body) =>
+    request(`/api/intelligence/${brandId}/applied`, { method: "POST", body }),
+  updateAppliedRecommendation: (brandId, applicationId, body) =>
+    request(`/api/intelligence/${brandId}/applied/${applicationId}`, {
+      method: "PATCH",
+      body,
+    }),
+
   // Reputation Management (reviews)
   getReviews: (brandId) => request(`/api/reputation/${brandId}`),
   fetchReviews: (brandId) =>

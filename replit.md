@@ -121,6 +121,7 @@ backed by a route group. Migrations are numbered `models/NNN_*.sql`.
 | Customer feedback | `/api/feedback` | AI Survey Designer (5Q) + Feedback Analyst (30-day report); public server-rendered response page (`/r/:responseId`); 1-10 sentiment scoring; auto-sent after chat/call/weekly; `surveys`+`survey_responses`+`feedback_reports` (030) |
 | Team & roles | `/api/team` | owners invite staff by email (48h token) + assign workspace roles (viewer/manager/admin); `middleware/auth.js` remaps an active member's `userId`→owner so all userId-scoped queries become workspace-scoped; seats = 1 owner + active members (auto-bills via `syncSeatItem`); `team_members`+`team_invitations` (032) |
 | SMS marketing | `/api/sms` | pro-gated two-way SMS over each brand's own Twilio number; AI writes 5 message variations + auto-replies inbound (TwiML `MessagingResponse`); STOP/START keywords + `sms_opt_outs` (unique brand_id+phone) honored at every outbound site (follow-ups, appointments, feedback → 409/skip); hot-lead alert on non-hot→hot; public `/inbound` webhook (Twilio-signature validated); `sms_campaigns`+`sms_messages`+`sms_opt_outs` (035) |
+| Customer Intelligence | `/api/intelligence` | **Enterprise-gated.** AI strategist synthesizes EVERY channel (`buildIntelligenceProfile`) into a growing **weekly** intelligence profile: `generateIntelligence` → trajectoryScore 1-10 + analysis + exactly 5 ranked data-grounded recommendations + trends[] + 6 insight sections; anchors on prior week for continuity + delta; AI fail/malformed → 502. Monday scheduler runs it **LAST** (freshest data), best-effort. 4-tab section (Brief/Profile/Trends/Applied) under Business group; applied-recommendation log w/ outcome notes; onboarding "warming up" msg for new Enterprise. `customer_intelligence` (UNIQUE brand_id+week_date) + `applied_recommendations` (039) |
 
 **Detailed per-subsystem deep dives live in `EchoAI/SUBSYSTEMS.md`** (one
 `### <subsystem>` section each: auth/ownership, AI agents, persistence,
@@ -143,7 +144,7 @@ open that file when working inside a specific subsystem.
   routes is always `auth → lockout → featureGate` (never gate before lockout).
 - **Pro-gated:** voice (per-route), phone, reputation, sales scripts, content
   calendar, webhooks, video, ad studio, image studio. **Enterprise-gated:** agency, affiliate,
-  mobile v2, feedback. **Social** rejects connecting a 3rd+ platform below Pro
+  mobile v2, feedback, customer intelligence. **Social** rejects connecting a 3rd+ platform below Pro
   (`socialController.connectSocialAccount`, admin bypass).
 - **Upgrade is instant; downgrade defers to next cycle.** `changeSubscription`:
   upgrade swaps the Stripe price immediately, clears any pending downgrade, and

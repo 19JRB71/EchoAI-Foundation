@@ -17,6 +17,9 @@ const {
 const { executeDueTouchpoints } = require("../controllers/followUpController");
 const { sendDueDripEmails } = require("../controllers/emailMarketingController");
 const { generateWeeklyRoiSnapshot } = require("../controllers/roiDashboardController");
+const {
+  generateWeeklyIntelligence,
+} = require("../controllers/customerIntelligenceController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -137,6 +140,16 @@ async function runWeeklyAnalytics() {
       await generateWeeklyRoiSnapshot(brand);
     } catch (err) {
       console.error(`Weekly ROI snapshot failed for brand ${brand.brand_id}:`, err.message);
+    }
+
+    // Customer Intelligence Engine runs LAST so it synthesizes the freshest data
+    // produced by every job above (analytics, optimization, creative perf,
+    // feedback report, ROI snapshot) into this week's growing intelligence
+    // profile. Best-effort: an AI failure is logged and never stops the run.
+    try {
+      await generateWeeklyIntelligence(brand);
+    } catch (err) {
+      console.error(`Weekly intelligence build failed for brand ${brand.brand_id}:`, err.message);
     }
   }
 

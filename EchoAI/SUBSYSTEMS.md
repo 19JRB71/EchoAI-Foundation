@@ -449,3 +449,63 @@ the project root `replit.md` — read that first; this file expands each subsyst
   `api.js`: `getRoiAdvancedSummary`/`generateRoiAdvancedAnalysis`/
   `getRoiAdvancedHistory`/`getRoiAdvancedSnapshot`. App.jsx passes `currentTier`
   + `handleUpgrade` to `<RoiDashboard>`.
+
+### Customer Intelligence Engine subsystem (`/api/intelligence`)
+
+EchoAI's most advanced **Enterprise-gated** feature: an AI strategist that
+synthesizes EVERY channel into a growing weekly intelligence profile.
+
+- **Profile builder (`buildIntelligenceProfile(brandId)`).** One `Promise.all`
+  pulls real rollups across campaigns, leads (90d/30d + `temperature` hot/warm/
+  tire_kicker split + `conversion_status` pipeline; NO `source`/`lead_score`
+  columns exist), phone calls, SMS, email (open/click/delivery), social posts,
+  appointments, feedback (+ latest report themes/recommendations), competitor
+  intelligence, ROI, follow-up sequences/touchpoints, SEO, ad creatives, content
+  calendars, and 12-week analytics (spend/leads/conversions/ROAS). Returns one
+  synthesized `metrics` object — the single source the AI reasons over.
+- **AI agent (`prompts/customerIntelligencePrompt.js`, Anthropic, real,
+  validated).** `generateIntelligence(brand, { metrics, previous })` returns
+  `{ trajectoryScore (int 1–10), analysis, recommendations[5], trends[], insights{6} }`.
+  Strict validation: score must be 1–10, **exactly 5** recommendations each with
+  a non-empty title + data-grounded explanation (impact high/med/low, effort
+  low/med/high, expectedOutcome), trends normalized to up/down/flat, 6 insight
+  sections (idealCustomerProfile/bestContentAngles/optimalChannelMix/
+  followUpTiming/competitivePositioning/seasonalTrends). Malformed output sets
+  `err.aiInvalid`; the controller maps `aiInvalid || err.status >= 400` → **502**.
+- **Continuity.** Each run anchors on the most recent prior week
+  (`getPreviousIntelligence`) so the prompt sees last week's score + top moves and
+  the brief can compute a `trajectoryDelta`. The profile literally grows sharper
+  every week.
+- **Persistence (`customer_intelligence`, migration 039).** `upsertIntelligence`
+  writes one row per `(brand_id, week_date)` (UNIQUE; week_date = most recent
+  Monday, UTC) with `raw_profile_data` JSONB (`{metrics, insights}`),
+  `recommendations`/`trends_identified` JSONB, `trajectory_score`, `ai_analysis`;
+  `ON CONFLICT` updates in place. `applied_recommendations` logs owner actions
+  (recommendation_text, action_taken, applied_at, outcome_notes), with an
+  optional `intelligence_id` guarded against cross-brand references. Both tables
+  carry `set_updated_at` triggers.
+- **Weekly cron (runs LAST).** `utils/scheduler.js` `runWeeklyAnalytics` (Monday)
+  calls `generateWeeklyIntelligence(brand)` per active brand **after every other
+  weekly job** (analytics, optimization, creative perf, feedback report, ROI
+  snapshot) so it synthesizes the freshest data. Best-effort: an AI failure is
+  logged and never stops the run.
+- **Routes & ownership.** `auth → lockout → featureGate("customer_intelligence")`
+  on all. GET `/:brandId/brief|profile|trends|applied`, POST `/:brandId/generate`
+  (on-demand, AI fail → 502), POST `/:brandId/applied`, PATCH
+  `/:brandId/applied/:applicationId`. Every handler loads the brand via
+  `getOwnedBrand(userId, brandId)` (404 on foreign brand). `brief` returns the
+  latest two weeks to compute `trajectoryDelta`; `trends` returns up to 12 weeks
+  (oldest→newest) + a current-vs-previous recommendation comparison.
+- **Client.** `client/src/sections/CustomerIntelligence.jsx` — 4 tabs
+  (Intelligence Brief / Profile / Trends / Applied): trajectory card with
+  delta, ranked recommendation cards with "mark as applied" inline form, key
+  trends, executive analysis; profile = 6 insight sections; trends = a
+  dependency-free SVG trajectory sparkline + 12-week metric table + this-vs-last
+  week recommendation comparison; applied = log with editable outcome notes.
+  Enterprise-gated via `gate("intelligence", …)` in `App.jsx`; sidebar item
+  "Intelligence Engine" under the Business group (lock indicator from tier).
+  `lib/tiers.js` SECTION_GATES + SECTION_TIERS `intelligence: enterprise`.
+  `api.js`: `getIntelligenceBrief`/`getIntelligenceProfile`/
+  `getIntelligenceTrends`/`generateIntelligence`/`getAppliedRecommendations`/
+  `applyRecommendation`/`updateAppliedRecommendation`. Onboarding
+  `StepConfirmation.jsx` shows a "warming up" message to new Enterprise customers.

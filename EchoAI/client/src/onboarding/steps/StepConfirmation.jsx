@@ -104,6 +104,21 @@ export default function StepConfirmation({
         <span className="font-semibold">24 hours</span>.
       </div>
 
+      {selectedTier === "enterprise" && (
+        <div className="mt-4 rounded-lg bg-indigo-500/10 p-4 text-left text-sm text-indigo-200">
+          <p className="font-semibold text-indigo-100">
+            Your Customer Intelligence Engine is warming up
+          </p>
+          <p className="mt-1 leading-relaxed text-indigo-200/90">
+            As an Enterprise customer, our AI strategist will study every channel —
+            ads, leads, calls, SMS, email, social, reviews and more — and build a
+            growing weekly intelligence profile with ranked, data-grounded
+            recommendations. Your first strategic brief lands after about a week of
+            data; it gets sharper every week as it learns your business.
+          </p>
+        </div>
+      )}
+
       <button onClick={launch} disabled={launching} className={`${primaryBtn} mt-8`}>
         {launching
           ? "Launching…"
