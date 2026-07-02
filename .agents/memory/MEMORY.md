@@ -1,5 +1,6 @@
 - [EchoAI public widget endpoints](echoai-public-widget-endpoints.md) — method-aware CORS (never path-prefix) + gate owner alerts on real state transitions, not raw public POSTs.
 - [EchoAI leads dedup](echoai-leads-dedup.md) — dedup leads in app code (email/phone), no table-wide unique index; the leads table is shared by multiple insert paths.
+- [EchoAI blank screen triage](echoai-blank-screen.md) — blank dashboard = workflow down (free 8080, restart) OR a client render throw (now caught by layered ErrorBoundary); rule out server first.
 - [EchoAI weekly scheduler scope](echoai-weekly-scheduler-scope.md) — Monday run only iterates active-campaign brands by design; don't make one job iterate all brands separately.
 - [EchoAI JSONB write safety](echoai-jsonb-writes.md) — route req.body values through utils/jsonb.js toJsonbParam before any ::jsonb cast; bare strings crash Postgres.
 - [Email click-tracker redirect safety](email-click-tracker-redirect.md) — public click/redirect trackers must encrypt the destination URL, never take a raw `?url=`, or they become open redirectors.

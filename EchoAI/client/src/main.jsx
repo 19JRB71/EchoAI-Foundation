@@ -6,6 +6,7 @@ import LandingPage from "./landing/LandingPage.jsx";
 import VoiceLandingPage from "./voice/VoiceLandingPage.jsx";
 import { BrandingProvider } from "./lib/BrandingContext.jsx";
 import { registerServiceWorker } from "./push.js";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import "./index.css";
 
 // Register the service worker on startup so the app shell is cached (instant
@@ -14,6 +15,7 @@ registerServiceWorker();
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
+    <ErrorBoundary>
     <BrandingProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
@@ -27,5 +29,6 @@ createRoot(document.getElementById("root")).render(
         </Routes>
       </BrowserRouter>
     </BrandingProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

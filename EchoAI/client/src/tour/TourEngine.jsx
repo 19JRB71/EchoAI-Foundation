@@ -115,9 +115,12 @@ export default function TourEngine({
   const [pos, setPos] = useState({ top: 0, left: 0, centered: true });
 
   const total = steps.length;
-  const step = steps[index];
-  const isLast = index === total - 1;
-  const isFirst = index === 0;
+  // Clamp defensively so a stale/out-of-range startIndex can never yield an
+  // undefined step (which would throw and blank the whole app).
+  const safeIndex = Math.min(Math.max(index, 0), Math.max(total - 1, 0));
+  const step = steps[safeIndex];
+  const isLast = safeIndex === total - 1;
+  const isFirst = safeIndex === 0;
 
   // Resolve the spotlight target whenever the step changes (navigating first).
   useEffect(() => {
@@ -137,7 +140,7 @@ export default function TourEngine({
 
   // Persist progress as the user advances.
   useEffect(() => {
-    if (onStepChange) onStepChange(index);
+    if (onStepChange) onStepChange(safeIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
@@ -225,7 +228,7 @@ export default function TourEngine({
     return () => window.removeEventListener("keydown", onKey);
   }, [next, back, onClose]);
 
-  const progressPct = Math.round(((index + 1) / total) * 100);
+  const progressPct = Math.round(((safeIndex + 1) / total) * 100);
 
   return (
     <div className="fixed inset-0 z-[1000]" aria-live="polite" role="dialog">
@@ -275,7 +278,7 @@ export default function TourEngine({
 
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-400">
-            Step {index + 1} of {total}
+            Step {safeIndex + 1} of {total}
           </span>
           <button
             onClick={onClose}

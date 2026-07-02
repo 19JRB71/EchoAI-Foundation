@@ -36,6 +36,7 @@ import { requiredTierForSection, accentColor } from "./lib/tiers.js";
 import { enablePushNotifications } from "./push.js";
 import TourProvider from "./tour/TourProvider.jsx";
 import SectionHelp from "./tour/SectionHelp.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 export default function App() {
   const navigate = useNavigate();
@@ -333,6 +334,7 @@ export default function App() {
             className="border-l-2 pl-3 md:pl-4"
             style={{ borderLeftColor: "var(--tier-accent)" }}
           >
+          <ErrorBoundary key={section}>
           {section === "admin" && isAdmin ? (
             <AdminPanel />
           ) : section === "agency" ? (
@@ -472,15 +474,18 @@ export default function App() {
               )}
             </>
           )}
+          </ErrorBoundary>
           </div>
         </div>
       </main>
-      <TourProvider
-        tier={currentTier}
-        isAdmin={isAdmin}
-        businessName={businessName}
-        onNavigate={setSection}
-      />
+      <ErrorBoundary silent>
+        <TourProvider
+          tier={currentTier}
+          isAdmin={isAdmin}
+          businessName={businessName}
+          onNavigate={setSection}
+        />
+      </ErrorBoundary>
     </div>
   );
 }
