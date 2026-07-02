@@ -189,11 +189,33 @@ function Labeled({ label, children }) {
   );
 }
 
+// Brand fields can come back as strings OR structured objects/arrays (e.g.
+// target_audience = { age, region }). Render them as readable text instead of
+// letting an object reach JSX (which throws React error #31 and blanks the page).
+function displayValue(value) {
+  if (value == null || value === "") return "—";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) {
+    const parts = value.map(displayValue).filter((p) => p && p !== "—");
+    return parts.length ? parts.join(", ") : "—";
+  }
+  if (typeof value === "object") {
+    const parts = Object.entries(value)
+      .map(([k, v]) => {
+        const inner = displayValue(v);
+        return inner && inner !== "—" ? `${k}: ${inner}` : null;
+      })
+      .filter(Boolean);
+    return parts.length ? parts.join(" · ") : "—";
+  }
+  return String(value);
+}
+
 function Row({ label, value }) {
   return (
     <div className="flex justify-between gap-4">
       <span className="text-gray-400">{label}</span>
-      <span className="font-medium text-gray-200">{value || "—"}</span>
+      <span className="font-medium text-gray-200">{displayValue(value)}</span>
     </div>
   );
 }
