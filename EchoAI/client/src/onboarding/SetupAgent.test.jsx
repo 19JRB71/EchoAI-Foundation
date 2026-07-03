@@ -402,3 +402,58 @@ describe("SetupAgent unmount pauses only mid-interview/consent", () => {
     expect(api.pauseSetupSession).not.toHaveBeenCalled();
   });
 });
+
+describe("SetupAgent in-run failure retry (progress is preserved)", () => {
+  test("a non-raced step failure shows Retry, which resumes without losing done steps", async () => {
+    // First step succeeds, then the second step throws a plain (non-409) error
+    // mid-run. The user should see the retryable banner — not the paused/dismissed
+    // branch — while the first step stays marked done.
+    api.runSetupAction
+      .mockResolvedValueOnce({
+        step: { key: "brand", label: "Set up your brand" },
+        status: "done",
+        detail: "Brand created.",
+      })
+      .mockRejectedValueOnce(new Error("Setting up your chatbot failed."));
+
+    const onClose = vi.fn();
+    render(<SetupAgent onClose={onClose} />);
+
+    // The first step's success detail renders and stays put through the failure.
+    expect(await screen.findByText("Brand created.")).toBeInTheDocument();
+
+    // The retryable error banner (server message + Retry) shows; we remain in the
+    // running phase and neither the paused panel nor onClose fires.
+    expect(await screen.findByText("Setting up your chatbot failed.")).toBeInTheDocument();
+    const retryBtn = screen.getByRole("button", { name: /retry/i });
+    expect(retryBtn).toBeInTheDocument();
+    expect(screen.queryByText("Setup paused")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText("Setting up your account…")).toBeInTheDocument();
+    // The already-completed step is still done after the failure.
+    expect(screen.getByText("Brand created.")).toBeInTheDocument();
+
+    // --- Retry: the run re-invokes runSetupAction from where it left off. The
+    // completed "brand" step is preserved (not re-run), so the resumed loop only
+    // needs to finish the chatbot step and then report completion. ---
+    api.runSetupAction
+      .mockResolvedValueOnce({
+        step: { key: "chatbot", label: "Configure your chatbot" },
+        status: "done",
+        detail: "Chatbot configured.",
+      })
+      .mockResolvedValueOnce({ allComplete: true });
+
+    fireEvent.click(retryBtn);
+
+    // The run reaches the success panel; both steps' details are visible.
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+    expect(screen.getByText("Brand created.")).toBeInTheDocument();
+    expect(screen.getByText("Chatbot configured.")).toBeInTheDocument();
+    // The error banner is gone once the retry succeeds.
+    expect(screen.queryByText("Setting up your chatbot failed.")).not.toBeInTheDocument();
+
+    // Total calls: brand(done) + fail + retry chatbot(done) + allComplete = 4.
+    expect(api.runSetupAction).toHaveBeenCalledTimes(4);
+  });
+});
