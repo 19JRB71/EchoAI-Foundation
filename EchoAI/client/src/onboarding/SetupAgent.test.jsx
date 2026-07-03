@@ -318,6 +318,119 @@ describe("SetupAgent raced-outcome render branches", () => {
   });
 });
 
+// A mid-flow backend hiccup while the user is still answering questions or
+// granting consent must surface an inline red error and KEEP the user on the same
+// screen so they can retry — never a frozen form with no feedback and never a jump
+// to a different phase. The submitAnswer / grantConsent catch branches set that
+// inline message; a refactor could silently swallow the rejection, so pin the
+// rendered behavior here.
+describe("SetupAgent inline errors during interview / consent", () => {
+  test("a rejected submitSetupAnswer shows an inline error and stays in the interview", async () => {
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+    api.submitSetupAnswer.mockRejectedValueOnce(new Error("Could not reach the setup service."));
+    const onClose = vi.fn();
+
+    render(<SetupAgent onClose={onClose} />);
+
+    // We're in the interview with the first question.
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+    const textarea = screen.getByPlaceholderText("Type your answer…");
+    fireEvent.change(textarea, { target: { value: "We sell handmade candles." } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(api.submitSetupAnswer).toHaveBeenCalledTimes(1));
+
+    // The inline error surfaces the server message and we stay on the interview
+    // screen (the question + the answer form are still rendered, so the user can
+    // retry) — never the consent screen or the scary full-screen error phase.
+    expect(await screen.findByText("Could not reach the setup service.")).toBeInTheDocument();
+    expect(screen.getByText("What does your business do?")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Type your answer…")).toBeInTheDocument();
+    expect(screen.queryByText("Ready to set up your account")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // The user can retry: a second submit that succeeds advances to consent.
+    api.submitSetupAnswer.mockResolvedValueOnce({
+      session: { ...INTERVIEW_SESSION, interviewComplete: true },
+      question: { complete: true, message: "I have everything I need." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    expect(await screen.findByText("Ready to set up your account")).toBeInTheDocument();
+    // The stale error is cleared once the retry starts.
+    expect(screen.queryByText("Could not reach the setup service.")).not.toBeInTheDocument();
+  });
+
+  test("a rejected submitSetupAnswer with no message falls back to generic copy", async () => {
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+    api.submitSetupAnswer.mockRejectedValueOnce(new Error(""));
+
+    render(<SetupAgent onClose={vi.fn()} />);
+
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Type your answer…"), {
+      target: { value: "We sell handmade candles." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(await screen.findByText("Could not send your answer.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Type your answer…")).toBeInTheDocument();
+  });
+
+  test("a rejected grantSetupConsent shows an inline error and stays on the consent screen", async () => {
+    // Bootstrap lands directly on the consent screen (interview already done).
+    api.startSetupSession.mockResolvedValue({
+      session: { ...INTERVIEW_SESSION, interviewComplete: true, consentGranted: false },
+    });
+    api.grantSetupConsent.mockRejectedValueOnce(new Error("Could not reach the setup service."));
+    const onClose = vi.fn();
+
+    render(<SetupAgent onClose={onClose} />);
+
+    // We're on the consent screen.
+    expect(await screen.findByText("Ready to set up your account")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /yes, set up my account/i }));
+
+    await waitFor(() => expect(api.grantSetupConsent).toHaveBeenCalledTimes(1));
+
+    // The inline error surfaces and we stay on the consent screen (the consent
+    // heading + its confirm button remain), never jumping into the running phase.
+    expect(await screen.findByText("Could not reach the setup service.")).toBeInTheDocument();
+    expect(screen.getByText("Ready to set up your account")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /yes, set up my account/i })).toBeInTheDocument();
+    expect(screen.queryByText("Setting up your account…")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    // No run was ever attempted since consent failed first.
+    expect(api.runSetupAction).not.toHaveBeenCalled();
+
+    // The user can retry: a second consent that succeeds starts the run.
+    api.grantSetupConsent.mockResolvedValueOnce({});
+    api.runSetupAction.mockResolvedValueOnce({ allComplete: true });
+    fireEvent.click(screen.getByRole("button", { name: /yes, set up my account/i }));
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+  });
+
+  test("a rejected grantSetupConsent with no message falls back to generic copy", async () => {
+    api.startSetupSession.mockResolvedValue({
+      session: { ...INTERVIEW_SESSION, interviewComplete: true, consentGranted: false },
+    });
+    api.grantSetupConsent.mockRejectedValueOnce(new Error(""));
+
+    render(<SetupAgent onClose={vi.fn()} />);
+
+    expect(await screen.findByText("Ready to set up your account")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /yes, set up my account/i }));
+
+    expect(await screen.findByText("Could not start account setup.")).toBeInTheDocument();
+    expect(screen.getByText("Ready to set up your account")).toBeInTheDocument();
+  });
+});
+
 // The unmount lifecycle: leaving the agent mid-flow (still interviewing or on the
 // consent screen) must quietly fire a best-effort api.pauseSetupSession so the
 // user's progress is saved and resumable. That same handler must stay silent in
