@@ -2,12 +2,14 @@ import { useState } from "react";
 import GoogleConnectTab from "./googleseo/GoogleConnectTab.jsx";
 import SeoGenerator from "./googleseo/SeoGenerator.jsx";
 import KeywordResearch from "./googleseo/KeywordResearch.jsx";
+import GoogleAdsPlan from "./googleseo/GoogleAdsPlan.jsx";
 import AnalyticsDashboard from "./googleseo/AnalyticsDashboard.jsx";
 
 const TABS = [
   { key: "connect", label: "Google Connect" },
   { key: "seo", label: "SEO Content Generator" },
   { key: "keywords", label: "Keyword Research" },
+  { key: "ads-plan", label: "Google Ads Plan" },
   { key: "analytics", label: "Google Analytics" },
 ];
 
@@ -46,6 +48,8 @@ export default function GoogleSeo({ brandId }) {
         ))}
 
       {tab === "keywords" && <KeywordResearch />}
+
+      {tab === "ads-plan" && <GoogleAdsPlan />}
 
       {tab === "analytics" && <AnalyticsDashboard />}
     </div>

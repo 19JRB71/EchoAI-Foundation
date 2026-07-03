@@ -461,10 +461,18 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   // The first-campaign step skips because no Facebook ad account is connected in
   // the test (a connection handoff, not a tier gate) — same class as connect_google.
   assert.equal(byKey.create_facebook_campaign, "skipped");
+  // Google Ads setup skips because this interview didn't opt in (an opt-in
+  // decision, not a tier gate).
+  assert.equal(byKey.setup_google_ads, "skipped");
 
   // No step was skipped for a tier/gating reason — the only skips are the
-  // connection-dependent ones (Google OAuth handoff + Facebook ad-account link).
-  const CONNECTION_STEPS = new Set(["connect_google", "create_facebook_campaign"]);
+  // connection-dependent ones (Google OAuth handoff + Facebook ad-account link)
+  // and the opt-in-dependent Google Ads step.
+  const CONNECTION_STEPS = new Set([
+    "connect_google",
+    "create_facebook_campaign",
+    "setup_google_ads",
+  ]);
   const gateSkipped = steps.filter((s) => s.status === "skipped" && !CONNECTION_STEPS.has(s.key));
   assert.equal(gateSkipped.length, 0, `Enterprise wrongly skipped: ${JSON.stringify(gateSkipped)}`);
 

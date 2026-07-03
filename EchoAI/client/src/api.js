@@ -531,6 +531,7 @@ export const api = {
   getGoogleAnalytics: () => request("/api/google/analytics"),
   getGoogleBusinessProfile: () => request("/api/google/business-profile"),
   getGoogleAdsPerformance: () => request("/api/google/ads/performance"),
+  getGoogleAdPlan: () => request("/api/google/ad-plan"),
 
   // SEO tools (AI SEO content + keyword research)
   generateSeoContent: ({ brandId, keyword, contentType }) =>

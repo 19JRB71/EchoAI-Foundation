@@ -13,6 +13,7 @@ const contentCalendarController = require("../controllers/contentCalendarControl
 const adCreativeStudioController = require("../controllers/adCreativeStudioController");
 const emailMarketingController = require("../controllers/emailMarketingController");
 const feedbackController = require("../controllers/feedbackController");
+const { generateKeywordSuggestions } = require("../prompts/seoContentPrompt");
 
 // ---------------------------------------------------------------------------
 // AI helpers (real Anthropic; malformed output → 502, never guessed)
@@ -153,18 +154,63 @@ function pickCampaignGoal(answers) {
   return "lead_generation";
 }
 
-// Derive a sensible DAILY ad budget (dollars) for the first campaign from the
-// interview answers. A figure over ~200 is read as a monthly budget and divided
-// down to a daily amount; otherwise it is treated as a daily figure. Falls back
-// to a conservative $20/day when nothing usable was collected.
+// Extract the MONTHLY advertising-budget ceiling (dollars) the user named, so
+// campaigns can be sized to never exceed it. Ranges like "$200–$500/month"
+// resolve to the TOP of the range (500) — that is the most they said they'd
+// spend, and we still stay under it once divided down to a daily figure. A
+// per-day figure ("$30/day") is scaled up to a ~30-day monthly ceiling. Returns
+// null when nothing usable was collected.
+function pickMonthlyAdBudget(answers) {
+  const raw = firstAnswer(answers, ["budget", "spend", "advertising"]);
+  if (!raw) return null;
+  const nums = (raw.replace(/,/g, "").match(/\d+(?:\.\d+)?/g) || [])
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (nums.length === 0) return null;
+  const perDay = /\bdaily\b|\bday\b|\/\s*day|per\s*day/i.test(raw);
+  const ceiling = Math.max(...nums);
+  return perDay ? ceiling * 30 : ceiling;
+}
+
+// Derive a sensible DAILY ad budget (dollars) for the first campaign that, over
+// a ~30-day month, never exceeds the monthly ceiling the user specified. Falls
+// back to a conservative $20/day when nothing usable was collected.
 function pickAdBudget(answers) {
-  const raw = firstAnswer(answers, ["budget", "spend"]);
-  const match = raw && raw.replace(/,/g, "").match(/\d+(\.\d+)?/);
-  const parsed = match ? Number(match[0]) : NaN;
-  if (Number.isFinite(parsed) && parsed > 0) {
-    return parsed > 200 ? Math.max(5, Math.round(parsed / 30)) : Math.round(parsed);
+  const monthly = pickMonthlyAdBudget(answers);
+  if (!monthly) return 20;
+  return Math.max(1, Math.floor(monthly / 30));
+}
+
+// Whether the user opted in to Google ads during the interview. Only an explicit
+// affirmative counts; a negative or missing answer leaves Google setup skipped.
+function wantsGoogleAds(answers) {
+  const text = (firstAnswer(answers, ["google_ads", "google"]) || "").toLowerCase();
+  if (!text) return false;
+  if (/\b(no|nope|nah|not now|not right now|maybe later|later|don'?t|do not|skip)\b/.test(text)) {
+    return false;
   }
-  return 20;
+  return /\b(yes|yeah|yep|sure|please|ok|okay|absolutely|definitely|sounds good|let'?s|go for it|i'?m in|interested)\b/.test(
+    text,
+  );
+}
+
+// Build a keyword-research topic for the Google Ads plan from the interview
+// answers: what they offer, and where (so keywords reflect their real market).
+function googleAdsTopic(answers) {
+  const product =
+    firstAnswer(answers, ["product", "offering", "focus", "service"]) ||
+    firstAnswer(answers, ["business"]) ||
+    "our products and services";
+  const location = firstAnswer(answers, [
+    "location",
+    "service_area",
+    "area",
+    "city",
+    "region",
+    "state",
+    "market",
+  ]);
+  return location ? `${product} in ${location}` : product;
 }
 
 function compiledBusinessSummary(answers) {
@@ -468,13 +514,81 @@ const ACTIONS = [
 
       const goal = pickCampaignGoal(answers);
       const budget = pickAdBudget(answers);
+      const monthly = pickMonthlyAdBudget(answers);
       const result = await invoke(campaignController.createCampaign, userId, {
         body: { brandId: session.brand_id, goal, budget, targetAudience: {} },
       });
       ensureOk(result, "Failed to create your first Facebook ad campaign.");
       return {
         status: "done",
-        detail: `Launched a paused Facebook ad campaign ($${budget}/day) ready for review.`,
+        detail: monthly
+          ? `Launched a paused Facebook ad campaign at $${budget}/day, within your $${monthly}/month budget, ready for review.`
+          : `Launched a paused Facebook ad campaign ($${budget}/day) ready for review.`,
+      };
+    },
+  },
+
+  {
+    key: "setup_google_ads",
+    label: "Setting up your Google Ads campaign",
+    feature: null,
+    async run({ session, answers }) {
+      if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
+      // Opt-in gate: only runs when the user said yes to Google ads in the
+      // interview — otherwise skip gracefully (they can add them anytime).
+      if (!wantsGoogleAds(answers)) {
+        return {
+          status: "skipped",
+          detail: "You chose not to run Google ads for now — you can add them anytime.",
+        };
+      }
+      // Idempotency: don't regenerate a plan on a retry after a crash between the
+      // AI call and the completed-steps write.
+      const existing = await db.query(
+        "SELECT 1 FROM google_ad_plans WHERE brand_id = $1 LIMIT 1",
+        [session.brand_id],
+      );
+      if (existing.rows.length > 0) {
+        return { status: "done", detail: "Your Google Ads campaign plan is already set up." };
+      }
+
+      const topic = googleAdsTopic(answers);
+      const location = firstAnswer(answers, [
+        "location",
+        "service_area",
+        "area",
+        "city",
+        "region",
+        "state",
+        "market",
+      ]) || null;
+      const monthlyBudget = pickMonthlyAdBudget(answers);
+
+      // Real AI keyword research — no mocked data. Upstream failures map to 502.
+      let keywords;
+      try {
+        keywords = await generateKeywordSuggestions(topic);
+      } catch (err) {
+        throw upstreamError(
+          "Could not generate your Google Ads keyword plan right now. Please try again shortly.",
+        );
+      }
+      if (!Array.isArray(keywords) || keywords.length === 0) {
+        throw upstreamError(
+          "The Google Ads keyword research came back empty. Please try again shortly.",
+        );
+      }
+
+      // brand_id is UNIQUE; ON CONFLICT backstops a concurrent double-run.
+      await db.query(
+        `INSERT INTO google_ad_plans (brand_id, location, monthly_budget, keywords, status)
+         VALUES ($1, $2, $3, $4, 'draft')
+         ON CONFLICT (brand_id) DO NOTHING`,
+        [session.brand_id, location, monthlyBudget, JSON.stringify(keywords)],
+      );
+      return {
+        status: "done",
+        detail: `Built a Google Ads keyword plan (${keywords.length} target keywords) ready for review.`,
       };
     },
   },
@@ -1106,6 +1220,9 @@ module.exports = {
   // Exported for the reliability test suite (tests/setupAgent.*.test.js).
   ACTIONS,
   isActionAllowed,
+  pickAdBudget,
+  pickMonthlyAdBudget,
+  wantsGoogleAds,
   claimExecution,
   heartbeatExecution,
   releaseExecution,

@@ -20,5 +20,6 @@ router.post("/disconnect", auth, googleController.disconnect);
 router.get("/business-profile", auth, googleController.getBusinessProfile);
 router.get("/analytics", auth, googleController.getAnalytics);
 router.get("/ads/performance", auth, googleController.getAdsPerformance);
+router.get("/ad-plan", auth, googleController.getAdPlan);
 
 module.exports = router;
