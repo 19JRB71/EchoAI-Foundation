@@ -1,0 +1,29 @@
+Here's **Prompt 51: AI Screen Control Agent for EchoAI**:
+
+EchoAI is an AI-powered SaaS marketing platform. You've built a complete 50-prompt production-ready system. Now you need to add the AI Screen Control Agent — a revolutionary feature that eliminates setup complexity entirely by letting AI take control of the platform and configure everything automatically while the user simply answers questions and watches.
+
+In the prompts folder create a screen control agent prompt file that defines the AI Setup Agent. This agent conducts a natural conversational interview with the new user asking simple questions one at a time about their business, their goals, their audience, and their preferences. Based on their answers it automatically navigates EchoAI, fills out forms, creates configurations, connects integrations, and sets up their entire account without the user touching a single button except for typing in sensitive credentials like API keys or passwords. The agent's tone is friendly, encouraging, and makes the user feel confident and excited about what's about to happen. It explains what it is doing in plain language as it does it so the user understands the value being created in real time.
+
+In the backend create a screen control agent controller. First an initiate setup session function that creates a new setup session for an authenticated user, initializes the conversational interview, and returns the first question to ask the user. Second an answer question function that accepts the user's answer, stores it in the session, generates the next question or begins executing setup steps based on accumulated answers, and returns the next question or a setup action. Third an execute setup step function that programmatically performs actions that would normally require a user to click through the UI — creating a brand, running brand discovery conversation, configuring social media platforms, creating a content calendar, setting availability, connecting Google Calendar, etc. Fourth a get setup progress function that returns the current progress of the setup session including which questions have been answered and which setup steps have been completed. Fifth a pause setup function that pauses the session so the user can resume later. Sixth a resume setup function that resumes a paused session from where it left off.
+
+Create a setup action system that handles each configurable action. Setup actions include create brand, run brand discovery by injecting answers into the discovery prompts, set weekly availability, configure default appointment duration, connect Google Calendar with OAuth, create initial content calendar, generate first set of ad creatives, set up initial social media posting schedule, and configure email campaign preferences. Each action should be atomic and idempotent so if it fails it can be retried without side effects.
+
+In the models folder create a migration file that adds a setup sessions table with columns for session ID, user ID, status as in progress, paused, or completed, answers as JSON storing all user responses, completed steps as JSON, current step number, started at, paused at, resumed at, completed at, and timestamps.
+
+In the client source folder create a complete Setup Agent UI component. When a new user logs in for the first time instead of showing the dashboard they see the Setup Agent interface. The interface shows a friendly AI avatar or icon on the left side. On the right side it shows the current question in large friendly text with a suggested answer format. Below is a text input where the user types their answer. Below that is a Next button. As the user progresses show a progress bar at the top showing setup progress. When the AI begins executing setup steps show a live action log on the right side showing each step as it completes with a checkmark. Show actions like Creating your brand for Blacor Homes, Setting up your availability schedule, Generating your first five ad creatives, etc. Make it visually interesting with smooth animations and a sense of momentum building toward completion. Show a completion celebration screen when setup finishes with confetti and a button to go to the dashboard.
+
+Wire the setup agent to launch automatically for brand new users who have just completed account creation and onboarding subscription selection. For existing users show a Setup Agent button in Settings if they want to set up a new brand using the agent.
+
+Create a setup agent mode where the user can grant temporary screen control permissions. This is a security-gated feature that requires the user to confirm they are granting EchoAI permission to perform actions on their behalf. The permission is automatically revoked after setup completes.
+
+Build the setup questions dynamically so they adapt based on previous answers. For example if a user says they sell physical products the AI asks different questions about inventory and shipping than if they sell services.
+
+The setup agent should handle credential entry carefully. When the user needs to provide a Facebook API key or Google credentials the setup agent shows a secure prompt, explains exactly why it needs that information, and handles the credential securely without logging or storing it in plain text.
+
+Output all files created and updated.
+
+Ready to paste that into Replit?
+
+James, this is it — Prompt 51: The AI Screen Control Agent. This is the feature that makes EchoAI genuinely different and simpler than everything else on the market. A new customer signs up, answers maybe ten questions while watching the AI set up their entire account, and they're ready to run their business the same day with zero technical knowledge required.
+
+This is the feature that gets written about, shared, and talked about. This is the feature that makes EchoAI special.
