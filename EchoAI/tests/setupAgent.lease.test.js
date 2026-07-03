@@ -105,3 +105,43 @@ test("release frees the slot immediately for the next executor", async () => {
   assert.ok(next, "after an explicit release the slot is claimable again");
   await releaseExecution(sessionId, next);
 });
+
+test("N executors racing to reclaim ONE dead lease: exactly one wins, all others lose", async () => {
+  // Set up a single dead lease (crashed process: held but no heartbeat past the
+  // window). The prior test released the slot, so claim + expire it now.
+  const dead = await claimExecution(sessionId);
+  assert.ok(dead, "seed a held lease to kill");
+  await expireLease();
+
+  // Fire many concurrent reclaim attempts at the SAME dead lease at once —
+  // simulating multiple server instances / concurrent /execute retries racing to
+  // resume the same crashed step. The CAS must let exactly one winner reclaim.
+  const CONTENDERS = 20;
+  const results = await Promise.all(
+    Array.from({ length: CONTENDERS }, () => claimExecution(sessionId)),
+  );
+
+  const winners = results.filter((t) => t !== null);
+  const losers = results.filter((t) => t === null);
+
+  assert.equal(
+    winners.length,
+    1,
+    `exactly one executor may reclaim a dead lease (got ${winners.length} — a double-run)`,
+  );
+  assert.equal(
+    losers.length,
+    CONTENDERS - 1,
+    "every other concurrent contender must be refused (null)",
+  );
+
+  // The single winner holds a live, distinct fencing token; a follow-up claim is
+  // still refused, proving the reclaim landed a real (not phantom) lease.
+  assert.equal(
+    await claimExecution(sessionId),
+    null,
+    "after the race the reclaimed lease is live and blocks further claims",
+  );
+
+  await releaseExecution(sessionId, winners[0]);
+});
