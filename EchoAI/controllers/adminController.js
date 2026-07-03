@@ -383,6 +383,62 @@ async function getPlatformHealth(req, res) {
   }
 }
 
+/**
+ * All-accounts health summary for the admin dashboard: the latest health check
+ * per brand (via a lateral join), plus platform-wide counts by status. Lets an
+ * admin spot at a glance which customers have critical issues.
+ */
+async function getAllAccountsHealth(req, res) {
+  try {
+    const { rows } = await db.query(
+      `SELECT b.brand_id, b.brand_name, u.user_id, u.email,
+              hc.overall_status, hc.check_time, hc.ai_analysis,
+              hc.issues_requiring_attention
+       FROM brands b
+       JOIN users u ON u.user_id = b.user_id
+       LEFT JOIN LATERAL (
+         SELECT overall_status, check_time, ai_analysis, issues_requiring_attention
+         FROM health_checks
+         WHERE brand_id = b.brand_id
+         ORDER BY check_time DESC
+         LIMIT 1
+       ) hc ON TRUE
+       ORDER BY
+         CASE hc.overall_status
+           WHEN 'critical' THEN 0
+           WHEN 'warning' THEN 1
+           WHEN 'healthy' THEN 2
+           ELSE 3
+         END,
+         b.brand_name ASC`,
+    );
+
+    const summary = { critical: 0, warning: 0, healthy: 0, unknown: 0 };
+    const accounts = rows.map((r) => {
+      const status = r.overall_status || "unknown";
+      if (summary[status] !== undefined) summary[status] += 1;
+      else summary.unknown += 1;
+      const attention = Array.isArray(r.issues_requiring_attention)
+        ? r.issues_requiring_attention
+        : [];
+      return {
+        brandId: r.brand_id,
+        brandName: r.brand_name,
+        email: r.email,
+        overallStatus: status,
+        lastCheck: r.check_time,
+        aiAnalysis: r.ai_analysis,
+        issueCount: attention.length,
+      };
+    });
+
+    return res.json({ summary, accounts });
+  } catch (err) {
+    console.error("Admin getAllAccountsHealth error:", err);
+    return res.status(500).json({ error: "Failed to fetch account health" });
+  }
+}
+
 module.exports = {
   getAllUsers,
   unlockAccount,
@@ -392,4 +448,5 @@ module.exports = {
   deleteUser,
   getUserDetail,
   getPlatformHealth,
+  getAllAccountsHealth,
 };

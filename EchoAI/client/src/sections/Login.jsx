@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import { useBranding } from "../lib/BrandingContext.jsx";
 import { getReferralCode, clearReferralCode } from "../lib/referral.js";
+import HealthSupportWidget from "../components/HealthSupportWidget.jsx";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
@@ -152,6 +153,7 @@ export default function Login({ onLogin, invitePending = false }) {
           </button>
         </p>
       </div>
+      <HealthSupportWidget isPublic />
     </div>
   );
 }

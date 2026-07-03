@@ -19,6 +19,105 @@ function Row({ label, value, accent }) {
   );
 }
 
+const STATUS_COLOR = {
+  critical: "#ef4444",
+  warning: "#f59e0b",
+  healthy: "#22c55e",
+  unknown: "#6b7280",
+};
+
+function StatusDot({ status }) {
+  return (
+    <span
+      className="inline-block h-2.5 w-2.5 rounded-full"
+      style={{ backgroundColor: STATUS_COLOR[status] || STATUS_COLOR.unknown }}
+    />
+  );
+}
+
+function AccountsHealth() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await api.adminGetAccountsHealth();
+        if (active) setData(res);
+      } catch (err) {
+        if (active) setError(err.message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) return <Spinner label="Loading account health…" />;
+  if (error) return <ErrorBanner message={error} />;
+  if (!data) return null;
+
+  const s = data.summary || {};
+  return (
+    <div className="mt-4 rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+        Account health ({data.accounts.length} brands)
+      </h3>
+      <div className="mb-4 flex flex-wrap gap-4 text-sm">
+        <span className="flex items-center gap-1.5">
+          <StatusDot status="critical" /> {s.critical || 0} critical
+        </span>
+        <span className="flex items-center gap-1.5">
+          <StatusDot status="warning" /> {s.warning || 0} warning
+        </span>
+        <span className="flex items-center gap-1.5">
+          <StatusDot status="healthy" /> {s.healthy || 0} healthy
+        </span>
+        <span className="flex items-center gap-1.5">
+          <StatusDot status="unknown" /> {s.unknown || 0} not checked
+        </span>
+      </div>
+      {data.accounts.length === 0 ? (
+        <p className="text-sm text-gray-400">No brands yet.</p>
+      ) : (
+        <div className="max-h-96 overflow-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="py-2">Brand</th>
+                <th className="py-2">Owner</th>
+                <th className="py-2">Status</th>
+                <th className="py-2">Issues</th>
+                <th className="py-2">Last check</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.accounts.map((a) => (
+                <tr key={a.brandId} className="border-t border-gray-800">
+                  <td className="py-2 pr-2 font-medium text-gray-100">{a.brandName}</td>
+                  <td className="py-2 pr-2 text-gray-400">{a.email}</td>
+                  <td className="py-2 pr-2">
+                    <span className="flex items-center gap-1.5">
+                      <StatusDot status={a.overallStatus} />
+                      <span className="capitalize text-gray-300">{a.overallStatus}</span>
+                    </span>
+                  </td>
+                  <td className="py-2 pr-2 text-gray-300">{a.issueCount}</td>
+                  <td className="py-2 text-gray-500">{formatDateTime(a.lastCheck)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminHealth() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +147,7 @@ export default function AdminHealth() {
   const running = health.scheduler?.status === "running";
 
   return (
+    <>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
@@ -86,5 +186,7 @@ export default function AdminHealth() {
         )}
       </div>
     </div>
+    <AccountsHealth />
+    </>
   );
 }

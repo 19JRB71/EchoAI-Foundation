@@ -788,6 +788,27 @@ export const api = {
     return await res.blob();
   },
 
+  // --- AI Health Monitor + Screenshot Support ---
+  healthGetStatus: (brandId) =>
+    request(`/api/health-monitor/${brandId}/status`),
+  healthRunCheck: (brandId) =>
+    request(`/api/health-monitor/${brandId}/check`, { method: "POST" }),
+  healthGetHistory: (brandId) =>
+    request(`/api/health-monitor/${brandId}/history`),
+  submitSupportTicket: ({ brandId, description, screenshot }) =>
+    request("/api/health-monitor/support", {
+      method: "POST",
+      body: { brandId, description, screenshot },
+    }),
+  listSupportTickets: () => request("/api/health-monitor/support"),
+  submitPublicSupportTicket: ({ description, screenshot }) =>
+    request("/api/public/support", {
+      method: "POST",
+      auth: false,
+      body: { description, screenshot },
+    }),
+  adminGetAccountsHealth: () => request("/api/admin/health/accounts"),
+
   // Speech-to-text (protected). Sends recorded audio as multipart form data and
   // returns { text }. Content-Type is left unset so the browser adds the
   // multipart boundary.

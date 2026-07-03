@@ -12,6 +12,7 @@ router.use(adminMiddleware);
 
 router.get("/stats", adminController.getPlatformStats);
 router.get("/health", adminController.getPlatformHealth);
+router.get("/health/accounts", adminController.getAllAccountsHealth);
 
 router.get("/users", adminController.getAllUsers);
 router.get("/users/:userId", adminController.getUserDetail);

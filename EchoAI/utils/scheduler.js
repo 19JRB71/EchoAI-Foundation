@@ -20,6 +20,7 @@ const { generateWeeklyRoiSnapshot } = require("../controllers/roiDashboardContro
 const {
   generateWeeklyIntelligence,
 } = require("../controllers/customerIntelligenceController");
+const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -191,9 +192,17 @@ function startScheduler() {
     });
   });
 
+  // Top of every hour: run the AI Health Monitor sweep over every active brand,
+  // silently auto-fixing safe issues and alerting owners only on critical ones.
+  cron.schedule("0 * * * *", () => {
+    runHourlyHealthSweep().catch((err) => {
+      console.error("Scheduled health monitor sweep errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
-      "follow-up touchpoints: every 5 minutes; drip emails: hourly)."
+      "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly)."
   );
 }
 

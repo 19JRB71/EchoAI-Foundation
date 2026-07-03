@@ -38,6 +38,7 @@ import { enablePushNotifications } from "./push.js";
 import TourProvider from "./tour/TourProvider.jsx";
 import SectionHelp from "./tour/SectionHelp.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
 
 export default function App() {
   const navigate = useNavigate();
@@ -404,6 +405,7 @@ export default function App() {
             tier={currentTier}
             isAdmin={isAdmin}
             section={section}
+            brandId={selectedBrandId}
           />
           <div
             className="border-l-2 pl-3 md:pl-4"
@@ -561,13 +563,16 @@ export default function App() {
           onNavigate={setSection}
         />
       </ErrorBoundary>
+      <ErrorBoundary silent>
+        <HealthSupportWidget brandId={selectedBrandId} />
+      </ErrorBoundary>
     </div>
   );
 }
 
 // Top bar shown above every dashboard view: the business name / email on the
 // left and the tier badge on the right so the current plan is always visible.
-function TopBar({ businessName, email, tier, isAdmin, section }) {
+function TopBar({ businessName, email, tier, isAdmin, section, brandId }) {
   const primary = businessName || email || "Your account";
   const secondary = businessName && email ? email : "";
   return (
@@ -581,10 +586,64 @@ function TopBar({ businessName, email, tier, isAdmin, section }) {
         )}
       </div>
       <div className="flex shrink-0 items-center gap-3">
+        <HealthIndicator brandId={brandId} />
         <SectionHelp sectionKey={section} tourAnchor />
         <TierBadge tier={tier} isAdmin={isAdmin} />
       </div>
     </div>
+  );
+}
+
+// Small colored dot in the top nav reflecting the brand's latest health check.
+// Polls the status endpoint periodically so it stays fresh without a reload.
+function HealthIndicator({ brandId }) {
+  const [status, setStatus] = useState("unknown");
+
+  useEffect(() => {
+    if (!brandId) {
+      setStatus("unknown");
+      return;
+    }
+    let active = true;
+    const load = async () => {
+      try {
+        const data = await api.healthGetStatus(brandId);
+        if (active) setStatus(data.overallStatus || "unknown");
+      } catch {
+        if (active) setStatus("unknown");
+      }
+    };
+    load();
+    const id = setInterval(load, 5 * 60 * 1000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [brandId]);
+
+  const colors = {
+    critical: "#ef4444",
+    warning: "#f59e0b",
+    healthy: "#22c55e",
+    unknown: "#6b7280",
+  };
+  const labels = {
+    critical: "Action needed on your account",
+    warning: "Minor issues detected",
+    healthy: "All systems healthy",
+    unknown: "Health not checked yet",
+  };
+  return (
+    <span
+      className="flex items-center"
+      title={labels[status] || labels.unknown}
+      aria-label={labels[status] || labels.unknown}
+    >
+      <span
+        className="inline-block h-2.5 w-2.5 rounded-full"
+        style={{ backgroundColor: colors[status] || colors.unknown }}
+      />
+    </span>
   );
 }
 

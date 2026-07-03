@@ -56,6 +56,7 @@ const followUpRoutes = require("./routes/followUpRoutes");
 const smsRoutes = require("./routes/smsRoutes");
 const tourRoutes = require("./routes/tourRoutes");
 const setupAgentRoutes = require("./routes/setupAgentRoutes");
+const healthRoutes = require("./routes/healthRoutes");
 
 // Mobile API (v2) — lean payloads, cursor pagination, standard envelopes.
 const mobileAuthRoutes = require("./routes/mobileAuthRoutes");
@@ -145,8 +146,19 @@ app.use("/api", apiLimiter);
 // skip JSON parsing for that specific route. Match on req.path + method (not
 // originalUrl) so query params / trailing slashes can't accidentally let the
 // JSON parser consume the body and break signature verification.
+// Support-ticket endpoints accept a base64 screenshot data URL, which easily
+// exceeds the default 100 KB JSON limit. Let their own routers parse the body
+// with a larger, scoped limit instead of raising it globally (which would widen
+// the DoS surface for every other endpoint).
+const LARGE_BODY_SUPPORT_PATHS = new Set([
+  "/api/health-monitor/support",
+  "/api/public/support",
+]);
 app.use((req, res, next) => {
   if (req.method === "POST" && req.path === "/api/subscriptions/webhook") {
+    return next();
+  }
+  if (req.method === "POST" && LARGE_BODY_SUPPORT_PATHS.has(req.path)) {
     return next();
   }
   return express.json()(req, res, next);
@@ -224,6 +236,7 @@ app.use("/api/follow-ups", followUpRoutes);
 app.use("/api/sms", smsRoutes);
 app.use("/api/tour", tourRoutes);
 app.use("/api/setup-agent", setupAgentRoutes);
+app.use("/api/health-monitor", healthRoutes);
 
 // Mobile API (v2). Mounted under /api so the rate limiter covers it, and before
 // the SPA fallback. /api/v2/auth + /api/v2/push are named per the mobile spec;

@@ -17,3 +17,4 @@
 - [EchoAI cross-tier embedded buttons](echoai-cross-tier-embedded-buttons.md) — a higher-tier action button living in a lower-tier section must be gated client-side too (meetsTier), or the backend 403 looks like a bug.
 - [Node test runner preload](node-test-preload.md) — `node --test` child processes inherit parent env + `--require`; use `--require` to inject a DB guard before config/db, and marker-guard env rewrites so children don't re-derive.
 - [EchoAI lease vs lifecycle guard](echoai-lease-vs-lifecycle.md) — a leased writer must status-guard its terminal/progress UPDATEs; pause/dismiss flip status out-of-band, so an unguarded finalize resurrects a dismissed run.
+- [EchoAI large base64 uploads](echoai-large-body-uploads.md) — screenshot/image endpoints need a scoped express.json({limit}) + global-parser skip; the default 100 KB limit silently rejects real images before any handler.
