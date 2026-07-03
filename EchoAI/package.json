@@ -7,10 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test \"test/**/*.test.js\" \"tests/**/*.test.js\"",
     "migrate": "node utils/runMigrations.js",
     "seed": "node -e \"require('./utils/adminSeeder').seedAdmin().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})\"",
-    "test": "node --test \"test/**/*.test.js\"",
     "build:client": "cd client && npm install && npm run build",
     "build": "npm run build:client",
     "start:prod": "npm run migrate && npm run build:client && node server.js"

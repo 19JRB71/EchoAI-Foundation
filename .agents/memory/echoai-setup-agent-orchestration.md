@@ -57,3 +57,17 @@ browser/cursor automation. OAuth stays user-driven (`needs_connection` handoff).
   resumed_at / completed_at / updated_at. Leaving mid-interview marks the row
   'paused' (POST /pause, fired client-side on unmount); reopening via
   initiateSession stamps resumed_at and flips back to 'in_progress'.
+
+## Test suite lives in TWO dirs — `npm test` must glob both
+
+- `EchoAI/test/` (singular) holds the e2e flow test; `EchoAI/tests/` (plural)
+  holds the health/gating/lease unit tests. `npm test` globs **both**
+  (`node --test "test/**/*.test.js" "tests/**/*.test.js"`). **Why:** a prior
+  duplicate `test` key in package.json silently ran only one dir (last key wins in
+  JSON) — if you touch the test script, keep both globs or half the suite goes
+  dark with no error.
+- Registered as the Replit **`test` validation step** (`cd EchoAI && npm test`) so
+  a broken onboarding flow blocks task completion instead of passing silently.
+- Runner needs the same boot env as the app: `DATABASE_URL` (migrated schema),
+  `JWT_SECRET`, `SESSION_SECRET`, `ENCRYPTION_KEY`. `ANTHROPIC_API_KEY` is read at
+  import but the Anthropic client is stubbed — any non-empty value works, no spend.

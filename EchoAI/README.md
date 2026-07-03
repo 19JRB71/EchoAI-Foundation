@@ -162,6 +162,36 @@ npm run dev          # auto-reload, or: npm start
 
 ---
 
+## Testing
+
+```bash
+npm test    # node --test over test/**/*.test.js and tests/**/*.test.js
+```
+
+The suite covers the AI Setup Agent end-to-end (`test/setupAgent.e2e.test.js`)
+plus the setup-agent health/gating/lease unit tests (`tests/*.test.js`). It runs
+against a **real Postgres database** and the **real Express routes/controllers** —
+only the Anthropic client is stubbed (deterministic, offline, no API spend), so no
+real AI calls are made.
+
+**Runner requirements** (the same env the app boots with):
+
+- `DATABASE_URL` — a reachable Postgres database with migrations applied
+  (`npm run migrate`). Tests create and clean up their own rows, but the schema
+  must already exist.
+- `JWT_SECRET` — used to mint test auth tokens.
+- `SESSION_SECRET`, `ENCRYPTION_KEY` — required at module load (boot fails fast
+  without them, so the tests can't `require` the app either).
+- `ANTHROPIC_API_KEY` — **read at import time but never called** (the Anthropic
+  singleton's `messages.create` is replaced with a stub). Any non-empty value
+  works; no live key or spend is needed.
+
+On Replit this suite is registered as the **`test` validation step** (`cd EchoAI
+&& npm test`), so a broken onboarding flow fails validation and blocks task
+completion instead of slipping through silently.
+
+---
+
 ## Running in production
 
 A single command runs migrations, builds the client, and starts the server:
