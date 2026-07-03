@@ -237,3 +237,69 @@ describe("SetupAgent beacon helper self-guards on missing prerequisites", () => 
     expect(navigator.sendBeacon).not.toHaveBeenCalled();
   });
 });
+
+// Older browsers (and some locked-down webviews) don't ship the Beacon API at
+// all. In that case pauseSetupSessionBeacon must still save progress by falling
+// back to a `keepalive` fetch — the only other request kind that survives a hard
+// tab/window close — POSTing the same {sessionId, token} body to the no-auth
+// /pause-beacon endpoint. This suite removes navigator.sendBeacon entirely and
+// asserts that fallback so a refactor can't silently drop it (which would lose
+// mid-interview progress for those users with no test catching it).
+describe("SetupAgent hard-close falls back to keepalive fetch when the Beacon API is missing", () => {
+  test("pagehide mid-interview POSTs a keepalive fetch to /pause-beacon with the sessionId + token", async () => {
+    // Simulate a browser with no Beacon API.
+    delete navigator.sendBeacon;
+    const fetchSpy = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("fetch", fetchSpy);
+
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+
+    firePageHide();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, opts] = fetchSpy.mock.calls[0];
+    expect(url).toBe("/api/setup-agent/pause-beacon");
+    expect(opts.method).toBe("POST");
+    // `keepalive` is what lets the request outlive the closing document.
+    expect(opts.keepalive).toBe(true);
+    expect(opts.headers).toEqual({ "Content-Type": "application/json" });
+    // Same body shape as the beacon path: JWT rides along since there's no header.
+    expect(JSON.parse(opts.body)).toEqual({ sessionId: "sess-hard-close", token: TOKEN });
+
+    vi.unstubAllGlobals();
+  });
+
+  test("no Beacon API AND no token → the fallback does nothing (returns false, no fetch)", async () => {
+    // With neither sendBeacon nor a JWT the helper must bail entirely rather than
+    // fire an unauthenticated keepalive request.
+    delete navigator.sendBeacon;
+    localStorage.removeItem("echoai_token");
+    const fetchSpy = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("fetch", fetchSpy);
+
+    // Direct helper check: the real pauseSetupSessionBeacon reports it did nothing.
+    expect(api.pauseSetupSessionBeacon("sess-hard-close")).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    // And driving it through the component's pagehide path issues no fetch either.
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+
+    firePageHide();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+});
