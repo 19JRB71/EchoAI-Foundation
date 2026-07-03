@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
+import { classifyExecuteError } from "./executeError.js";
 
 // Full-screen AI Setup Agent. Runs a short conversational interview, then — with
 // explicit consent — configures the user's account server-side by orchestrating
@@ -110,20 +111,17 @@ export default function SetupAgent({ onClose }) {
           // A 409 carrying the real session means a user-initiated pause/dismiss
           // raced this step and won — the cancellation was honored server-side,
           // so reflect the true state instead of a scary error screen.
-          const cancelledSession = err && err.status === 409 && err.data && err.data.session;
-          if (cancelledSession) {
-            const s = err.data.session;
-            if (s.status === "dismissed") {
-              onClose();
-              return;
-            }
-            if (s.status === "paused") {
-              setSession(s);
-              setPhase("paused");
-              return;
-            }
+          const outcome = classifyExecuteError(err);
+          if (outcome.type === "dismissed") {
+            onClose();
+            return;
           }
-          setError(err.message || "A setup step failed. You can retry.");
+          if (outcome.type === "paused") {
+            setSession(outcome.session);
+            setPhase("paused");
+            return;
+          }
+          setError(outcome.message);
           return;
         }
         if (res.allComplete) {
