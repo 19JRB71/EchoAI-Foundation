@@ -27,6 +27,7 @@ vi.mock("../api.js", () => ({
     grantSetupConsent: vi.fn(),
     submitSetupAnswer: vi.fn(),
     pauseSetupSession: vi.fn(),
+    pauseSetupSessionBeacon: vi.fn(),
     dismissSetupSession: vi.fn(),
     startGoogleOAuth: vi.fn(),
   },
@@ -622,6 +623,141 @@ describe("SetupAgent unmount pauses only mid-interview/consent", () => {
     unmount();
 
     expect(api.pauseSetupSession).not.toHaveBeenCalled();
+  });
+});
+
+// Backgrounding the tab (visibilitychange → hidden) is the most common "I'll come
+// back later" exit — especially on mobile, where the OS can silently discard a
+// backgrounded tab and `pagehide` may never fire. So while the user is still
+// interviewing or consenting, going hidden must fire the best-effort beacon pause
+// exactly once, re-arm when they return (so a later background pauses again), and
+// stay completely silent outside the interview/consent phases or before a session
+// exists. This whole "pause on hide, re-arm on show" dance is otherwise untested.
+describe("SetupAgent backgrounding the tab pauses via beacon (mid-interview/consent)", () => {
+  const INTERVIEW_SESSION = {
+    sessionId: "sess-bg",
+    interviewComplete: false,
+    consentGranted: false,
+    steps: [{ key: "brand", label: "Set up your brand" }],
+    completedSteps: [],
+  };
+
+  const CONSENT_SESSION = {
+    sessionId: "sess-bg",
+    interviewComplete: true,
+    consentGranted: false,
+    steps: [{ key: "brand", label: "Set up your brand" }],
+    completedSteps: [],
+  };
+
+  // jsdom exposes document.hidden / visibilityState as read-only getters on the
+  // prototype; override them so we can drive the visibilitychange event.
+  function setHidden(hidden) {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (hidden ? "hidden" : "visible"),
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }
+
+  afterEach(() => {
+    // Reset visibility so a lingering "hidden" can't leak into the next test.
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+  });
+
+  test("going hidden during the interview fires the beacon pause exactly once", async () => {
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+
+    setHidden(true);
+
+    expect(api.pauseSetupSessionBeacon).toHaveBeenCalledTimes(1);
+    expect(api.pauseSetupSessionBeacon).toHaveBeenCalledWith("sess-bg");
+    // The normal (authenticated) pause path is not used for a background exit.
+    expect(api.pauseSetupSession).not.toHaveBeenCalled();
+  });
+
+  test("going hidden during consent fires the beacon pause exactly once", async () => {
+    api.startSetupSession.mockResolvedValue({ session: CONSENT_SESSION });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByText("Ready to set up your account")).toBeInTheDocument();
+
+    setHidden(true);
+
+    expect(api.pauseSetupSessionBeacon).toHaveBeenCalledTimes(1);
+    expect(api.pauseSetupSessionBeacon).toHaveBeenCalledWith("sess-bg");
+  });
+
+  test("staying hidden does not double-pause, but returning then re-hiding pauses again", async () => {
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+
+    // First background → one pause.
+    setHidden(true);
+    expect(api.pauseSetupSessionBeacon).toHaveBeenCalledTimes(1);
+
+    // A spurious repeat visibilitychange while STILL hidden must not pause again.
+    setHidden(true);
+    expect(api.pauseSetupSessionBeacon).toHaveBeenCalledTimes(1);
+
+    // Returning to the tab re-arms the guard; a later background pauses again.
+    setHidden(false);
+    setHidden(true);
+    expect(api.pauseSetupSessionBeacon).toHaveBeenCalledTimes(2);
+  });
+
+  test("going hidden in the running phase does NOT pause (server owns lifecycle)", async () => {
+    // A needs_connection outcome settles the run loop into a stable running phase.
+    api.runSetupAction.mockResolvedValueOnce({
+      step: { key: "brand", label: "Set up your brand" },
+      status: "needs_connection",
+      detail: "Connect Google Calendar to continue.",
+      connect: { provider: "google" },
+    });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByText("One quick approval needed")).toBeInTheDocument();
+
+    setHidden(true);
+
+    expect(api.pauseSetupSessionBeacon).not.toHaveBeenCalled();
+  });
+
+  test("going hidden before a session exists (loading phase) does NOT pause", async () => {
+    // Hold the bootstrap open so the component stays in the sessionless loading
+    // phase when the tab is backgrounded — nothing to pause yet.
+    let resolveStart;
+    api.startSetupSession.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStart = resolve;
+      }),
+    );
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(screen.getByText("Starting your setup agent…")).toBeInTheDocument();
+
+    setHidden(true);
+    expect(api.pauseSetupSessionBeacon).not.toHaveBeenCalled();
+
+    // Let the bootstrap settle so the pending promise doesn't dangle.
+    resolveStart({ session: INTERVIEW_SESSION, question: { message: "Q?" } });
+    await screen.findByText("Q?");
   });
 });
 
