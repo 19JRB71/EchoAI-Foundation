@@ -724,4 +724,47 @@ export const api = {
     }
     return data;
   },
+
+  // Text-to-speech (protected). Sends { text, voice } and returns an audio Blob
+  // (MP3) the caller can play. Bearer token is attached like other auth routes.
+  textToSpeech: async (text, voice) => {
+    const headers = { "Content-Type": "application/json" };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}/api/voice/text-to-speech`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text, voice }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      const err = new Error((data && data.error) || `Request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return await res.blob();
+  },
+
+  // Speech-to-text (protected). Sends recorded audio as multipart form data and
+  // returns { text }. Content-Type is left unset so the browser adds the
+  // multipart boundary.
+  speechToText: async (audioBlob) => {
+    const headers = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const form = new FormData();
+    form.append("audio", audioBlob, "recording.webm");
+    const res = await fetch(`${BASE_URL}/api/voice/speech-to-text`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `Request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  },
 };
