@@ -57,6 +57,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Default: bootstrap resumes straight into the running phase.
   api.startSetupSession.mockResolvedValue({ session: READY_SESSION });
+  // The unmount handler chains .catch() on this, so it must return a promise.
+  api.pauseSetupSession.mockResolvedValue(undefined);
 });
 
 // A fresh (not-yet-interviewed) session so the bootstrap effect lands in the
@@ -279,5 +281,90 @@ describe("SetupAgent raced-outcome render branches", () => {
 
     // The progress rail (running phase) is still on screen.
     expect(screen.getByText("Setting up your account…")).toBeInTheDocument();
+  });
+});
+
+// The unmount lifecycle: leaving the agent mid-flow (still interviewing or on the
+// consent screen) must quietly fire a best-effort api.pauseSetupSession so the
+// user's progress is saved and resumable. That same handler must stay silent in
+// the running / done phases, where the server already owns lifecycle state — a
+// spurious pause there would fight the running orchestrator or reopen a finished
+// session. This fragile "fire only in interview/consent" behavior is otherwise
+// untested, so a refactor could either drop progress or spam pause calls.
+describe("SetupAgent unmount pauses only mid-interview/consent", () => {
+  const INTERVIEW_SESSION = {
+    sessionId: "sess-9",
+    interviewComplete: false,
+    consentGranted: false,
+    steps: [{ key: "brand", label: "Set up your brand" }],
+    completedSteps: [],
+  };
+
+  const CONSENT_SESSION = {
+    sessionId: "sess-9",
+    interviewComplete: true,
+    consentGranted: false,
+    steps: [{ key: "brand", label: "Set up your brand" }],
+    completedSteps: [],
+  };
+
+  test("unmount from the interview phase pauses the session once with its id", async () => {
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+
+    const { unmount } = render(<SetupAgent onClose={vi.fn()} />);
+
+    // Wait until we're actually in the interview phase before leaving.
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+
+    unmount();
+
+    expect(api.pauseSetupSession).toHaveBeenCalledTimes(1);
+    expect(api.pauseSetupSession).toHaveBeenCalledWith("sess-9");
+  });
+
+  test("unmount from the consent phase pauses the session once with its id", async () => {
+    api.startSetupSession.mockResolvedValue({ session: CONSENT_SESSION });
+
+    const { unmount } = render(<SetupAgent onClose={vi.fn()} />);
+
+    expect(await screen.findByText("Ready to set up your account")).toBeInTheDocument();
+
+    unmount();
+
+    expect(api.pauseSetupSession).toHaveBeenCalledTimes(1);
+    expect(api.pauseSetupSession).toHaveBeenCalledWith("sess-9");
+  });
+
+  test("unmount from the running phase does NOT pause (server owns lifecycle)", async () => {
+    // A needs_connection outcome settles the run loop into a stable running phase.
+    api.runSetupAction.mockResolvedValueOnce({
+      step: { key: "brand", label: "Set up your brand" },
+      status: "needs_connection",
+      detail: "Connect Google Calendar to continue.",
+      connect: { provider: "google" },
+    });
+
+    const { unmount } = render(<SetupAgent onClose={vi.fn()} />);
+
+    expect(await screen.findByText("One quick approval needed")).toBeInTheDocument();
+
+    unmount();
+
+    expect(api.pauseSetupSession).not.toHaveBeenCalled();
+  });
+
+  test("unmount from the done phase does NOT pause (setup already finished)", async () => {
+    api.runSetupAction.mockResolvedValueOnce({ allComplete: true });
+
+    const { unmount } = render(<SetupAgent onClose={vi.fn()} />);
+
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+
+    unmount();
+
+    expect(api.pauseSetupSession).not.toHaveBeenCalled();
   });
 });
