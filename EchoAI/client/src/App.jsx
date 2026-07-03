@@ -215,6 +215,18 @@ export default function App() {
     };
   }, [authed, onboardingCompleted, isTeamMember]);
 
+  // Poll subscription status so the payment-failed banner stays current across
+  // every dashboard page until the issue is resolved. Defined before any callback
+  // that depends on it to avoid a temporal-dead-zone reference during render.
+  const loadBillingStatus = useCallback(async () => {
+    try {
+      setBillingStatus(await api.getSubscriptionStatus());
+    } catch {
+      // A missing/unreadable subscription simply means no banner.
+      setBillingStatus(null);
+    }
+  }, []);
+
   const handleSetupClosed = useCallback(() => {
     setShowSetup(false);
     loadBrands();
@@ -262,17 +274,6 @@ export default function App() {
       active = false;
     };
   }, [authed, inviteToken]);
-
-  // Poll subscription status so the payment-failed banner stays current across
-  // every dashboard page until the issue is resolved.
-  const loadBillingStatus = useCallback(async () => {
-    try {
-      setBillingStatus(await api.getSubscriptionStatus());
-    } catch {
-      // A missing/unreadable subscription simply means no banner.
-      setBillingStatus(null);
-    }
-  }, []);
 
   useEffect(() => {
     if (!authed || !onboardingCompleted) return;
