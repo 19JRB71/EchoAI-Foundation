@@ -16,6 +16,8 @@
  * Coverage:
  *   - A Professional user completes every configuration step end-to-end, real DB
  *     rows are created, and consent is auto-revoked on completion.
+ *   - An Enterprise user (which outranks Professional) also completes every step
+ *     with nothing wrongly gated out, guarding tier-ranking regressions.
  *   - A Starter user's Pro-gated steps are skipped gracefully (flow still
  *     completes) while baseline steps run.
  *   - An invited team member is blocked (403) by requireOwner.
@@ -345,6 +347,73 @@ test("Professional user completes the full setup flow end-to-end", async () => {
   assert.equal(rerun.status, 409, "finished session should reject further execution");
 
   // Sanity: the brand belongs to this user.
+  const owned = await db.query("SELECT 1 FROM brands WHERE brand_id = $1 AND user_id = $2", [
+    brandId,
+    userId,
+  ]);
+  assert.ok(owned.rows.length > 0, "brand ownership mismatch");
+});
+
+test("Enterprise user completes every setup step (nothing wrongly gated)", async () => {
+  // Enterprise outranks Professional (TIER_RANK: enterprise > pro), so every
+  // Pro-gated action must still run for an Enterprise account — no step may be
+  // skipped for tier reasons. This guards against a tier-ranking regression and
+  // against any future Enterprise-only setup step being wrongly gated out.
+  const { userId, token } = await createUser({ tier: "enterprise" });
+
+  const session = await completeInterview(token);
+  assert.equal(session.interviewComplete, true);
+  assert.equal(session.consentGranted, false);
+
+  const consent = await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  assert.equal(consent.status, 200);
+  assert.equal(consent.body.session.consentGranted, true);
+
+  const { steps, finalSession } = await runExecuteLoop(token, session.sessionId);
+  const byKey = Object.fromEntries(steps.map((s) => [s.key, s.status]));
+
+  // Every configuration step ran; baseline + Pro-gated steps all executed, just
+  // like Professional. connect_google is the only OAuth handoff (skipped here).
+  assert.equal(byKey.create_brand_profile, "done");
+  assert.equal(byKey.set_availability, "done");
+  assert.equal(byKey.connect_google, "skipped"); // OAuth handoff skipped in test
+  assert.equal(byKey.content_calendar, "done");
+  assert.equal(byKey.ad_creatives, "done");
+  assert.equal(byKey.social_schedule, "done");
+  assert.equal(byKey.email_preferences, "done");
+
+  // No step was skipped for a tier/gating reason — the only skip is the OAuth one.
+  const gateSkipped = steps.filter((s) => s.status === "skipped" && s.key !== "connect_google");
+  assert.equal(gateSkipped.length, 0, `Enterprise wrongly skipped: ${JSON.stringify(gateSkipped)}`);
+
+  // Completion state + consent auto-revoke.
+  assert.equal(finalSession.status, "completed");
+  assert.equal(finalSession.consentGranted, false);
+
+  // The Pro-gated resources were really created for the Enterprise account.
+  const brandId = finalSession.brandId;
+  assert.ok(brandId, "a brand should have been created");
+  const [cal, creatives, series, scheduled, avail] = await Promise.all([
+    db.query("SELECT 1 FROM content_calendars WHERE brand_id = $1", [brandId]),
+    db.query("SELECT 1 FROM ad_creatives WHERE brand_id = $1", [brandId]),
+    db.query(
+      "SELECT 1 FROM email_marketing_campaigns WHERE brand_id = $1 AND campaign_name = 'Welcome Series'",
+      [brandId],
+    ),
+    db.query("SELECT 1 FROM social_posts WHERE brand_id = $1 AND status = 'scheduled'", [brandId]),
+    db.query("SELECT 1 FROM availability_schedules WHERE brand_id = $1", [brandId]),
+  ]);
+  assert.ok(cal.rows.length > 0, "content calendar row missing");
+  assert.ok(creatives.rows.length > 0, "ad creatives row missing");
+  assert.ok(series.rows.length > 0, "welcome email series missing");
+  assert.ok(scheduled.rows.length > 0, "social posts were not scheduled");
+  assert.ok(avail.rows.length > 0, "availability schedule missing");
+
+  // A finished session can never be re-run without a fresh grant.
+  const rerun = await apiRequest(token, "POST", "/execute", { sessionId: session.sessionId });
+  assert.equal(rerun.status, 409, "finished session should reject further execution");
+
+  // Sanity: the brand belongs to this Enterprise user.
   const owned = await db.query("SELECT 1 FROM brands WHERE brand_id = $1 AND user_id = $2", [
     brandId,
     userId,
