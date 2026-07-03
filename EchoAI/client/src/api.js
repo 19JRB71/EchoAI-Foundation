@@ -809,6 +809,24 @@ export const api = {
     }),
   adminGetAccountsHealth: () => request("/api/admin/health/accounts"),
 
+  // --- AI Sales Agent (admin only) ---
+  salesGetConfig: () => request("/api/sales-agent/config"),
+  salesSaveConfig: (payload) =>
+    request("/api/sales-agent/config", { method: "PUT", body: payload }),
+  salesGetCalls: () => request("/api/sales-agent/calls"),
+  salesGetLiveCalls: () => request("/api/sales-agent/live"),
+  salesGetPerformance: () => request("/api/sales-agent/performance"),
+  salesGetCall: (callId) => request(`/api/sales-agent/calls/${callId}`),
+  salesInvite: (callId) =>
+    request(`/api/sales-agent/calls/${callId}/invite`, { method: "POST" }),
+  salesAskEcho: ({ callId, question }) =>
+    request(`/api/sales-agent/calls/${callId}/ask-echo`, {
+      method: "POST",
+      body: { question },
+    }),
+  salesBookDemo: (callId) =>
+    request(`/api/sales-agent/calls/${callId}/book-demo`, { method: "POST" }),
+
   // Speech-to-text (protected). Sends recorded audio as multipart form data and
   // returns { text }. Content-Type is left unset so the browser adds the
   // multipart boundary.

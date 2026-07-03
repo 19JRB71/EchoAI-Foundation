@@ -53,6 +53,14 @@ const FEATURES = [
     name: "Mobile push notifications (Firebase Cloud Messaging)",
     vars: ["FCM_SERVER_KEY"],
   },
+  {
+    name: "AI Sales Agent (dedicated EchoAI sales Twilio line)",
+    vars: [
+      "SALES_TWILIO_ACCOUNT_SID",
+      "SALES_TWILIO_AUTH_TOKEN",
+      "SALES_TWILIO_NUMBER",
+    ],
+  },
 ];
 
 /**
