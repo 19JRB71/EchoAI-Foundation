@@ -47,16 +47,33 @@ browser/cursor automation. OAuth stays user-driven (`needs_connection` handoff).
   closed)**, else `meetsTier`. **Why fail closed:** a mistyped/removed feature key
   must never silently unlock a gated setup step. All setup actions are pro-gated or
   baseline (no enterprise-only setup step), so Enterprise unlocks every gated step.
-- **Connection-dependent steps skip gracefully (not gate, not fail).** A setup
-  action that needs a user-connected third party (Google Calendar OAuth, Facebook
-  ad-account link) returns status 'skipped' + a "connect in Settings" detail when
-  the integration is absent — it must never hard-fail the whole run and never
-  fabricate the resource. **Why:** the client `needs_connection` panel is
-  Google-specific, so Facebook (and any non-Google) connection gaps skip rather
-  than attempt an unsupported OAuth handoff. The e2e "nothing wrongly gated" test
-  keeps a CONNECTION_STEPS allowlist (connect_google, create_facebook_campaign)
-  excluded from the "no skips" assertion — extend that set when adding another
-  connection-dependent step, or the test will read the skip as a tier regression.
+- **Connection-dependent steps hand off inside setup (needs_connection), never
+  fail, never fabricate.** A setup action that needs a user-connected third party
+  returns status `needs_connection` (not 'skipped') + a `connect` payload + a
+  detail telling the user to connect — the client shows an in-setup approval panel
+  and the session stays `in_progress` so re-running `/execute` re-evaluates the
+  same step after the user connects. Three handoff shapes the client normalizes:
+  - Google Calendar → `connect:{provider:"google"}` → one-click OAuth in-panel.
+  - Facebook ad account (`create_facebook_campaign`) → `connect:"facebook"` →
+    one-click FB OAuth in-panel; once connected the step launches the latest
+    AI-generated ad creative (`adCreativeStudioController.launchCreative`) when
+    `FACEBOOK_PAGE_ID`+`FACEBOOK_LINK_URL` are set, else falls back to
+    `campaignController.createCampaign`. Skips (status 'skipped') only when there
+    is no brand yet; done (idempotent) when a campaign already exists.
+  - Social platforms (`connect_social`, inserted BEFORE `social_schedule`) →
+    `connect:{type:"social",platforms,connected}` → per-platform buttons that exit
+    to the existing Social Accounts screen (no one-click OAuth for social; it uses
+    per-brand creds). Skips when no brand or no draft content_calendar; done when
+    ≥1 requested platform is already connected.
+  **Why the app-side resume:** the running phase never auto-pauses on unmount, so
+  leaving to connect (Social screen, or returning from OAuth) keeps the session
+  live; App.jsx tracks `setupPending` + shows a "Finish your setup" button, and
+  SetupAgent takes an `onExitToSection` prop to jump to Social and back.
+  The e2e "nothing wrongly gated" test keeps a CONNECTION_STEPS allowlist
+  (connect_google, create_facebook_campaign, connect_social) excluded from the
+  "no skips" assertion (the e2e runner auto-skips any needs_connection step) —
+  extend that set when adding another connection-dependent step, or the test will
+  read the skip as a tier regression.
 - **AI failures → 502, never mocked** (matches the platform-wide convention).
 - **First action (create_brand_profile) is crash-replay safe.** It persists
   `discovery_session_id` on the setup_sessions row BEFORE calling brand-discovery

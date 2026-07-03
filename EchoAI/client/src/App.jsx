@@ -80,6 +80,10 @@ export default function App() {
   // AI Setup Agent overlay — auto-launches for brand-new users and resumes any
   // in-progress session; can also be opened manually from Settings.
   const [showSetup, setShowSetup] = useState(false);
+  // True when the user stepped out of the Setup Agent to connect an account (e.g.
+  // social) and still has an unfinished session to return to. Drives the floating
+  // "Finish setup" button so they can jump back into the flow.
+  const [setupPending, setSetupPending] = useState(false);
 
   function handleUseImageInSocial(image) {
     setSocialPrefillImage(image);
@@ -229,9 +233,19 @@ export default function App() {
 
   const handleSetupClosed = useCallback(() => {
     setShowSetup(false);
+    setSetupPending(false);
     loadBrands();
     loadBillingStatus();
   }, [loadBrands, loadBillingStatus]);
+
+  // Step out of the Setup Agent to a dashboard section (e.g. Social Accounts) to
+  // connect something, keeping the unfinished session so the user can return via
+  // the floating "Finish setup" button.
+  const handleSetupExitToSection = useCallback((sec) => {
+    setShowSetup(false);
+    setSetupPending(true);
+    if (sec) setSection(sec);
+  }, []);
 
   // Consume a pending team invitation once authenticated. Accepting joins the
   // owner's workspace; we then re-read the profile so the remapped role/context
@@ -324,7 +338,9 @@ export default function App() {
   // The AI Setup Agent takes over the screen while active (auto-launched for new
   // users / resumed sessions, or opened manually from Settings).
   if (showSetup) {
-    return <SetupAgent onClose={handleSetupClosed} />;
+    return (
+      <SetupAgent onClose={handleSetupClosed} onExitToSection={handleSetupExitToSection} />
+    );
   }
 
   // Effective tier for client-side gating. Admins bypass every gate (treated as
@@ -369,6 +385,14 @@ export default function App() {
         isTeamMember={isTeamMember}
         ownerBusinessName={ownerBusinessName}
       />
+      {setupPending ? (
+        <button
+          onClick={() => setShowSetup(true)}
+          className="fixed bottom-6 right-6 z-40 rounded-full bg-teal-500 px-5 py-3 font-semibold text-black shadow-lg shadow-teal-500/30 hover:bg-teal-400"
+        >
+          Finish your setup →
+        </button>
+      ) : null}
       <main
         className="flex-1 p-4 pb-24 md:p-8 md:pb-8"
         style={{ "--tier-accent": sectionAccent }}

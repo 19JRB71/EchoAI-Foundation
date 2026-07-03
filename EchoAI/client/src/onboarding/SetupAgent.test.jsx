@@ -30,6 +30,7 @@ vi.mock("../api.js", () => ({
     pauseSetupSessionBeacon: vi.fn(),
     dismissSetupSession: vi.fn(),
     startGoogleOAuth: vi.fn(),
+    startFacebookOAuth: vi.fn(),
   },
 }));
 
@@ -334,6 +335,65 @@ describe("SetupAgent needs_connection handoff", () => {
 
     expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
     expect(api.runSetupAction).toHaveBeenCalledTimes(2);
+  });
+
+  test("a Facebook needs_connection renders a Connect Facebook button that launches FB OAuth", async () => {
+    // The Facebook ad-campaign step now hands off to Facebook OAuth inside setup
+    // (was a silent skip). The same approval panel must render a "Connect
+    // Facebook" button that drives api.startFacebookOAuth and navigates away.
+    api.runSetupAction.mockResolvedValueOnce({
+      step: { key: "create_facebook_campaign", label: "Creating your first Facebook ad campaign" },
+      status: "needs_connection",
+      connect: "facebook",
+      detail: "Connect your Facebook ad account to launch your first campaign.",
+    });
+    api.startFacebookOAuth.mockResolvedValueOnce({ authUrl: "https://www.facebook.com/dialog/oauth" });
+
+    const originalLocation = window.location;
+    delete window.location;
+    window.location = { href: "" };
+
+    try {
+      render(<SetupAgent onClose={vi.fn()} />);
+
+      // No Google button — the panel branched to the Facebook variant.
+      const connectBtn = await screen.findByRole("button", { name: /connect facebook/i });
+      expect(screen.queryByRole("button", { name: /connect google calendar/i })).toBeNull();
+      fireEvent.click(connectBtn);
+
+      await waitFor(() => expect(api.startFacebookOAuth).toHaveBeenCalledTimes(1));
+      await waitFor(() =>
+        expect(window.location.href).toBe("https://www.facebook.com/dialog/oauth"),
+      );
+    } finally {
+      window.location = originalLocation;
+    }
+  });
+
+  test("a social needs_connection renders per-platform buttons that exit to the Social section", async () => {
+    // The connect_social step hands off to the existing Social Accounts screen
+    // (no one-click OAuth). The panel renders one button per requested platform,
+    // marks already-connected ones done, and clicking one calls onExitToSection.
+    api.runSetupAction.mockResolvedValueOnce({
+      step: { key: "connect_social", label: "Connecting your social accounts" },
+      status: "needs_connection",
+      connect: { type: "social", platforms: ["facebook", "instagram"], connected: ["facebook"] },
+      detail: "Connect a social account to activate your content calendar.",
+    });
+
+    const onExitToSection = vi.fn();
+    render(<SetupAgent onClose={vi.fn()} onExitToSection={onExitToSection} />);
+
+    // The social variant header renders (not the generic approval one).
+    expect(await screen.findByText("Connect your social accounts")).toBeInTheDocument();
+
+    // Already-connected platform is shown as done + disabled; the pending one is
+    // an active Connect button.
+    expect(screen.getByRole("button", { name: /facebook connected/i })).toBeDisabled();
+    const connectInstagram = screen.getByRole("button", { name: /connect instagram/i });
+    fireEvent.click(connectInstagram);
+
+    expect(onExitToSection).toHaveBeenCalledWith("social");
   });
 });
 

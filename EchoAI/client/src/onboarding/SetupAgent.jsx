@@ -51,7 +51,18 @@ function Avatar() {
   );
 }
 
-export default function SetupAgent({ onClose }) {
+// Normalize the server's needs_connection `connect` payload into a single kind:
+// a bare string ("google"/"facebook"), a `{ type: "social", ... }` object, or the
+// legacy `{ provider: "google" }` shape all map to one comparable value.
+function connectKind(connect) {
+  if (!connect) return null;
+  if (typeof connect === "string") return connect;
+  if (connect.type) return connect.type;
+  if (connect.provider) return connect.provider;
+  return null;
+}
+
+export default function SetupAgent({ onClose, onExitToSection }) {
   const [phase, setPhase] = useState("loading");
   const [error, setError] = useState("");
   const [session, setSession] = useState(null);
@@ -274,6 +285,29 @@ export default function SetupAgent({ onClose }) {
       setBusy(false);
       setError(err.message || "Could not start Google connection.");
     }
+  }
+
+  async function connectFacebook() {
+    setBusy(true);
+    setError("");
+    try {
+      const { authUrl } = await api.startFacebookOAuth();
+      // Full-page handoff to Facebook's own consent screen. The setup session
+      // persists; the agent resumes automatically when the user returns.
+      window.location.href = authUrl;
+    } catch (err) {
+      setBusy(false);
+      setError(err.message || "Could not start Facebook connection.");
+    }
+  }
+
+  function goConnectSocial() {
+    if (busy) return;
+    // Social posting uses per-brand credentials (no one-click OAuth), so we hand
+    // off to the existing Social Accounts screen. The session stays in_progress
+    // (the running phase never auto-pauses on unmount), so setup resumes and
+    // re-checks the connection when the user returns via "Finish setup".
+    if (typeof onExitToSection === "function") onExitToSection("social");
   }
 
   async function skipConnection() {
@@ -569,38 +603,82 @@ export default function SetupAgent({ onClose }) {
           })}
         </div>
 
-        {needsConnection ? (
-          <div className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/5 p-6">
-            <h3 className="font-semibold text-sky-200">One quick approval needed</h3>
-            <p className="mt-1 text-sm text-white/70">{needsConnection.detail}</p>
-            <p className="mt-2 text-xs text-white/40">
-              You&apos;ll approve this on Google&apos;s own secure page — EchoAI never sees your password.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                onClick={connectGoogle}
-                disabled={busy}
-                className="rounded-lg bg-sky-500 px-5 py-2.5 font-semibold text-black hover:bg-sky-400 disabled:opacity-50"
-              >
-                Connect Google Calendar
-              </button>
-              <button
-                onClick={continueAfterConnect}
-                disabled={busy}
-                className="rounded-lg bg-white/10 px-5 py-2.5 font-semibold hover:bg-white/20 disabled:opacity-50"
-              >
-                I&apos;ve connected — continue
-              </button>
-              <button
-                onClick={skipConnection}
-                disabled={busy}
-                className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
-              >
-                Skip this step
-              </button>
-            </div>
-          </div>
-        ) : null}
+        {needsConnection
+          ? (() => {
+              const kind = connectKind(needsConnection.connect);
+              const isSocial = kind === "social";
+              const platforms =
+                isSocial && Array.isArray(needsConnection.connect?.platforms)
+                  ? needsConnection.connect.platforms
+                  : [];
+              const alreadyConnected =
+                isSocial && Array.isArray(needsConnection.connect?.connected)
+                  ? needsConnection.connect.connected
+                  : [];
+              const primaryBtn =
+                "rounded-lg bg-sky-500 px-5 py-2.5 font-semibold text-black hover:bg-sky-400 disabled:opacity-50";
+              return (
+                <div className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/5 p-6">
+                  <h3 className="font-semibold text-sky-200">
+                    {isSocial ? "Connect your social accounts" : "One quick approval needed"}
+                  </h3>
+                  <p className="mt-1 text-sm text-white/70">{needsConnection.detail}</p>
+                  {isSocial ? (
+                    <p className="mt-2 text-xs text-white/40">
+                      We&apos;ll take you to the Social Accounts screen — connect an account there,
+                      then come back to finish setup.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-white/40">
+                      You&apos;ll approve this on {kind === "facebook" ? "Facebook" : "Google"}
+                      &apos;s own secure page — EchoAI never sees your password.
+                    </p>
+                  )}
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {kind === "google" ? (
+                      <button onClick={connectGoogle} disabled={busy} className={primaryBtn}>
+                        Connect Google Calendar
+                      </button>
+                    ) : null}
+                    {kind === "facebook" ? (
+                      <button onClick={connectFacebook} disabled={busy} className={primaryBtn}>
+                        Connect Facebook
+                      </button>
+                    ) : null}
+                    {isSocial
+                      ? platforms.map((p) => {
+                          const done = alreadyConnected.includes(p);
+                          return (
+                            <button
+                              key={p}
+                              onClick={goConnectSocial}
+                              disabled={busy || done}
+                              className={`${primaryBtn} capitalize`}
+                            >
+                              {done ? `${p} connected ✓` : `Connect ${p}`}
+                            </button>
+                          );
+                        })
+                      : null}
+                    <button
+                      onClick={continueAfterConnect}
+                      disabled={busy}
+                      className="rounded-lg bg-white/10 px-5 py-2.5 font-semibold hover:bg-white/20 disabled:opacity-50"
+                    >
+                      I&apos;ve connected — continue
+                    </button>
+                    <button
+                      onClick={skipConnection}
+                      disabled={busy}
+                      className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
+                    >
+                      Skip this step
+                    </button>
+                  </div>
+                </div>
+              );
+            })()
+          : null}
 
         {error && phase === "running" ? (
           <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/5 p-4">

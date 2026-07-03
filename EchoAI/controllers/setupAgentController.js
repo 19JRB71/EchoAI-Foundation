@@ -497,9 +497,11 @@ const ACTIONS = [
       if (existing.rows.length > 0) {
         return { status: "done", detail: "Your first ad campaign is already set up." };
       }
-      // A real Facebook ad campaign needs a connected ad account. Without one we
-      // skip gracefully (they can connect in Settings and launch later) rather
-      // than failing the whole setup — a campaign is never faked.
+      // A real Facebook ad campaign needs a connected ad account. Instead of
+      // skipping (making the user hunt for Settings later), we hand off to the
+      // existing Facebook OAuth right inside the setup flow. This step is
+      // idempotent: once connected, re-running it launches the campaign — a
+      // campaign is never faked.
       const connected = await db.query(
         `SELECT 1 FROM api_integrations
          WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected'`,
@@ -507,14 +509,44 @@ const ACTIONS = [
       );
       if (connected.rows.length === 0) {
         return {
-          status: "skipped",
-          detail: "Connect a Facebook ad account in Settings to launch your first campaign.",
+          status: "needs_connection",
+          connect: "facebook",
+          detail:
+            "Connect your Facebook account so EchoAI can launch your first ad campaign using the creatives we just generated.",
         };
       }
 
       const goal = pickCampaignGoal(answers);
       const budget = pickAdBudget(answers);
       const monthly = pickMonthlyAdBudget(answers);
+
+      // Prefer launching the AI-generated creative from the ad_creatives step so
+      // the campaign runs the real ad we just built (image concept, copy,
+      // audience). This only works when Facebook ad creation is fully configured
+      // (Page + destination link); otherwise fall back to a standard campaign.
+      const latestCreative = await db.query(
+        `SELECT creative_id FROM ad_creatives
+         WHERE brand_id = $1 AND status <> 'launched'
+         ORDER BY created_at DESC LIMIT 1`,
+        [session.brand_id],
+      );
+      const creativeId = latestCreative.rows[0] && latestCreative.rows[0].creative_id;
+      const canLaunchCreative =
+        creativeId && process.env.FACEBOOK_PAGE_ID && process.env.FACEBOOK_LINK_URL;
+
+      if (canLaunchCreative) {
+        const launched = await invoke(adCreativeStudioController.launchCreative, userId, {
+          body: { creativeId, packageIndex: 0, budget },
+        });
+        ensureOk(launched, "Failed to launch your first Facebook ad campaign.");
+        return {
+          status: "done",
+          detail: monthly
+            ? `Launched a paused Facebook ad campaign from your generated creative at $${budget}/day, within your $${monthly}/month budget, ready for review.`
+            : `Launched a paused Facebook ad campaign from your generated creative ($${budget}/day) ready for review.`,
+        };
+      }
+
       const result = await invoke(campaignController.createCampaign, userId, {
         body: { brandId: session.brand_id, goal, budget, targetAudience: {} },
       });
@@ -589,6 +621,61 @@ const ACTIONS = [
       return {
         status: "done",
         detail: `Built a Google Ads keyword plan (${keywords.length} target keywords) ready for review.`,
+      };
+    },
+  },
+
+  {
+    key: "connect_social",
+    label: "Connecting your social accounts",
+    feature: null,
+    async run({ session, answers }) {
+      if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
+      // Only prompt to connect posting accounts when there's actually a draft
+      // calendar to publish — otherwise there's nothing to post yet, so we skip
+      // gracefully (lower tiers without a calendar never see this).
+      let hasCalendar = false;
+      try {
+        const { rows } = await db.query(
+          `SELECT 1 FROM content_calendars
+           WHERE brand_id = $1 AND status = 'draft' LIMIT 1`,
+          [session.brand_id],
+        );
+        hasCalendar = rows.length > 0;
+      } catch (err) {
+        // fall through to skip
+      }
+      if (!hasCalendar) {
+        return { status: "skipped", detail: "No content calendar to publish yet." };
+      }
+
+      // The platforms the user mentioned in the interview. Social posting uses
+      // per-brand credentials (no one-click OAuth), so we hand off to the
+      // existing Social Accounts screen. This step is idempotent: once at least
+      // one mentioned account is connected, re-running it completes.
+      const platforms = pickPlatforms(answers);
+      let connected = [];
+      try {
+        const { rows } = await db.query(
+          `SELECT platform FROM social_accounts
+           WHERE brand_id = $1 AND connection_status = 'connected' AND platform = ANY($2)`,
+          [session.brand_id, platforms],
+        );
+        connected = rows.map((r) => r.platform);
+      } catch (err) {
+        // treat as none connected → prompt
+      }
+      if (connected.length > 0) {
+        return {
+          status: "done",
+          detail: `Connected: ${connected.join(", ")}. Your scheduled posts will publish automatically.`,
+        };
+      }
+      return {
+        status: "needs_connection",
+        connect: { type: "social", platforms, connected },
+        detail:
+          "Connect the social accounts you want to post to so your scheduled posts publish automatically.",
       };
     },
   },

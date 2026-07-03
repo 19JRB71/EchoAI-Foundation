@@ -385,6 +385,9 @@ test("Professional user completes the full setup flow end-to-end", async () => {
   assert.equal(byKey.connect_google, "skipped"); // OAuth handoff skipped in test
   assert.equal(byKey.content_calendar, "done");
   assert.equal(byKey.ad_creatives, "done");
+  // No social account is connected in the test, so the connect handoff is skipped
+  // (same class as connect_google) — the calendar still activates below.
+  assert.equal(byKey.connect_social, "skipped");
   assert.equal(byKey.social_schedule, "done");
   assert.equal(byKey.email_preferences, "done");
   // The Enterprise-only survey step is gated above Professional, so it is skipped.
@@ -454,6 +457,9 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   assert.equal(byKey.connect_google, "skipped"); // OAuth handoff skipped in test
   assert.equal(byKey.content_calendar, "done");
   assert.equal(byKey.ad_creatives, "done");
+  // No social account is connected in the test, so the connect handoff is skipped
+  // (same class as connect_google) — the calendar still activates below.
+  assert.equal(byKey.connect_social, "skipped");
   assert.equal(byKey.social_schedule, "done");
   assert.equal(byKey.email_preferences, "done");
   // The Enterprise-only survey step runs to completion for an Enterprise account.
@@ -471,6 +477,7 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   const CONNECTION_STEPS = new Set([
     "connect_google",
     "create_facebook_campaign",
+    "connect_social",
     "setup_google_ads",
   ]);
   const gateSkipped = steps.filter((s) => s.status === "skipped" && !CONNECTION_STEPS.has(s.key));

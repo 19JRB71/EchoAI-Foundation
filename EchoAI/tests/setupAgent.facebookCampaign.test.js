@@ -6,8 +6,9 @@
 // must hold without touching Facebook:
 //  - the step appears in the checklist with the exact user-facing label,
 //  - it is a baseline (non-gated) step so every paid plan runs it,
-//  - with NO connected Facebook account it skips gracefully (never fakes a
-//    campaign, never fails the whole setup),
+//  - with NO connected Facebook account it hands off to Facebook OAuth inside
+//    the setup flow (needs_connection, never fakes a campaign, never fails the
+//    whole setup),
 //  - it is idempotent: if the brand already has a campaign it reports done
 //    without creating a duplicate.
 
@@ -41,20 +42,21 @@ test("the step exists with the exact checklist label and is baseline (non-gated)
   assert.equal(ACTION.feature, null, "campaign creation runs on every paid plan");
 });
 
-test("skips gracefully when no Facebook ad account is connected", async () => {
+test("hands off to Facebook OAuth when no Facebook ad account is connected", async () => {
   const res = await ACTION.run({
     userId,
     session: { session_id: "s1", brand_id: brandId },
     answers: { budget: "$30/day" },
   });
-  assert.equal(res.status, "skipped");
-  assert.match(res.detail, /connect a facebook ad account/i);
+  assert.equal(res.status, "needs_connection");
+  assert.equal(res.connect, "facebook", "must point the client at the Facebook OAuth handoff");
+  assert.match(res.detail, /connect your facebook/i);
 
-  // Nothing was created.
+  // Nothing was created — the campaign only launches after the connection.
   const { rows } = await db.query("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1", [
     brandId,
   ]);
-  assert.equal(rows[0].n, 0, "a skipped step must not create a campaign");
+  assert.equal(rows[0].n, 0, "a needs_connection step must not create a campaign");
 });
 
 test("skips when there is no brand yet", async () => {
