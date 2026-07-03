@@ -636,3 +636,78 @@ test("a crashed holder's lease is reclaimed only after the window, and resume cr
     `resume duplicated side effects: before=${JSON.stringify(before)} after=${JSON.stringify(after)}`,
   );
 });
+
+// HTTP-layer concurrency guard: two (or more) /execute requests fired at the SAME
+// in-progress session at once must resolve to a SINGLE step run — one performs the
+// step (200), every other is refused (409 "already running"), nobody sees an error,
+// and the step's side effect happens exactly once. This complements the DB-level
+// lease suite (tests/setupAgent.lease.test.js) by driving the whole route wiring —
+// auth, requireOwner, requireSetupConsent, claimExecution, the action runner,
+// heartbeat, and releaseExecution — end-to-end, so a regression that reorders the
+// claim after the side effect (reintroducing a double-run) fails loudly here.
+test("concurrent /execute calls for one session run the step exactly once (HTTP layer)", async () => {
+  const { userId, token } = await createUser({ tier: "pro" });
+
+  const session = await completeInterview(token);
+  await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  const sessionId = session.sessionId;
+
+  // The first pending step (create_brand_profile) is the one all the concurrent
+  // calls will contend for. Make it deliberately slow so every contender's lease
+  // claim lands while the winner is still mid-step — this makes the overlap (and
+  // thus the test) deterministic rather than dependent on scheduling luck. The
+  // winner holds the renewable lease across this delay via its heartbeat.
+  const stubbedCreate = anthropicModule.anthropic.messages.create;
+  anthropicModule.anthropic.messages.create = async (args) => {
+    if (String(args.system || "").includes("extracting a structured brand profile")) {
+      await sleep(400);
+    }
+    return stubbedCreate(args);
+  };
+
+  let responses;
+  try {
+    const CONCURRENCY = 5;
+    responses = await Promise.all(
+      Array.from({ length: CONCURRENCY }, () =>
+        apiRequest(token, "POST", "/execute", { sessionId }),
+      ),
+    );
+  } finally {
+    anthropicModule.anthropic.messages.create = stubbedCreate;
+  }
+
+  // No request may surface an error to the user: outcomes are only 200 or 409.
+  const unexpected = responses.filter((r) => r.status !== 200 && r.status !== 409);
+  assert.equal(
+    unexpected.length,
+    0,
+    `concurrent /execute must never error, got: ${JSON.stringify(unexpected.map((r) => ({ status: r.status, body: r.body })))}`,
+  );
+
+  const ran = responses.filter((r) => r.status === 200);
+  const refused = responses.filter((r) => r.status === 409);
+
+  // Exactly one call performed the step; every other was refused (queued for retry).
+  assert.equal(ran.length, 1, `exactly one concurrent /execute may run the step, got ${ran.length} (a double-run)`);
+  assert.equal(
+    refused.length,
+    responses.length - 1,
+    "every other concurrent call must be refused with 409",
+  );
+  refused.forEach((r) =>
+    assert.match(r.body.error || "", /already running/i, "refusals must be the concurrency guard, not another error"),
+  );
+
+  // The single winner ran the first pending step to completion.
+  assert.equal(ran[0].body.step.key, "create_brand_profile");
+  assert.equal(ran[0].body.status, "done");
+
+  // The step's side effect happened exactly once despite the concurrent burst.
+  const brands = await db.query("SELECT brand_id FROM brands WHERE user_id = $1", [userId]);
+  assert.equal(
+    brands.rows.length,
+    1,
+    "concurrent /execute must create exactly one brand (no duplicated side effect)",
+  );
+});
