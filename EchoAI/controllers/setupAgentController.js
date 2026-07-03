@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const db = require("../config/db");
 const { anthropic, MODEL } = require("../config/anthropic");
 const { SETUP_AGENT_SYSTEM_PROMPT } = require("../prompts/setupAgentPrompt");
@@ -647,6 +648,78 @@ async function grantConsent(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Concurrency: renewable execution lease
+// ---------------------------------------------------------------------------
+// The /execute endpoint runs one setup action per call. Only one call may run a
+// step for a given session at a time. We use a compare-and-swap "executing" claim
+// backed by a renewable lease: while a step runs the lease is heartbeated, so a
+// legitimately slow step (e.g. an unusually slow AI/provider call that exceeds the
+// lease window) is never reclaimed out from under it. Only a truly dead claim —
+// one whose lease expired with no heartbeat, i.e. a crashed process — becomes
+// reclaimable, so a session can never deadlock permanently either.
+
+// A held claim whose executing_at is older than this (no heartbeat) is dead and
+// reclaimable. The heartbeat interval must be comfortably smaller than this.
+const EXECUTION_LEASE_SECONDS = 300;
+const EXECUTION_HEARTBEAT_MS = 60 * 1000;
+
+// Atomically claim the execution slot. Returns a per-claim fencing token if the
+// caller now holds the lease, or null if another live lease blocks it. The token
+// must be presented to heartbeat/release so only the current owner can affect it.
+async function claimExecution(sessionId) {
+  const token = crypto.randomUUID();
+  const claim = await db.query(
+    `UPDATE setup_sessions SET executing = TRUE, executing_at = NOW(), executing_token = $3
+       WHERE session_id = $1
+         AND (executing = FALSE OR executing_at < NOW() - ($2 || ' seconds')::interval)
+       RETURNING session_id`,
+    [sessionId, String(EXECUTION_LEASE_SECONDS), token],
+  );
+  return claim.rows.length > 0 ? token : null;
+}
+
+// Refresh the lease we currently hold. Guarded on the fencing token so it can only
+// refresh the lease this caller owns — never a released or reclaimed one.
+async function heartbeatExecution(sessionId, token) {
+  await db.query(
+    "UPDATE setup_sessions SET executing_at = NOW() WHERE session_id = $1 AND executing = TRUE AND executing_token = $2",
+    [sessionId, token],
+  );
+}
+
+// Start heartbeating the lease on an interval. Returns the timer to clear on release.
+function startHeartbeat(sessionId, token) {
+  const timer = setInterval(() => {
+    heartbeatExecution(sessionId, token).catch(() => {});
+  }, EXECUTION_HEARTBEAT_MS);
+  if (typeof timer.unref === "function") timer.unref();
+  return timer;
+}
+
+// Release the execution slot so the next /execute call can proceed. Token-guarded:
+// a revived crashed executor whose lease was already reclaimed can never clear the
+// new owner's live lease. Best-effort.
+async function releaseExecution(sessionId, token) {
+  await db
+    .query(
+      "UPDATE setup_sessions SET executing = FALSE, executing_at = NULL, executing_token = NULL WHERE session_id = $1 AND executing_token = $2",
+      [sessionId, token],
+    )
+    .catch(() => {});
+}
+
+// Pure tier-gate decision for a setup action: admins bypass, baseline actions
+// (no `feature`) are always allowed, otherwise the user's tier must meet the
+// feature's required tier. Extracted so it is unit-testable without a DB.
+function isActionAllowed(action, tier, role) {
+  if (role === "admin") return true;
+  if (!action.feature) return true;
+  const feat = FEATURES[action.feature];
+  if (!feat) return false; // fail closed: an unknown feature key never unlocks a gated action
+  return meetsTier(tier, feat.tier);
+}
+
 /**
  * POST /api/setup-agent/execute  { sessionId, skip? }
  * Runs the NEXT pending setup action (consent-gated). Called repeatedly by the UI
@@ -658,21 +731,14 @@ async function executeNextAction(req, res) {
   const session = req.setupSession; // attached by requireSetupConsent
   const skip = req.body && req.body.skip === true;
 
-  // Compare-and-swap concurrency claim: only one /execute call may run a step for
-  // a session at a time, so two overlapping calls can never run the same pending
-  // action twice (which could duplicate side effects like a saved ad creative).
-  // A stale claim older than 5 minutes (process crashed mid-step) is reclaimable
-  // so the session can never deadlock permanently.
-  const claim = await db.query(
-    `UPDATE setup_sessions SET executing = TRUE, executing_at = NOW()
-       WHERE session_id = $1
-         AND (executing = FALSE OR executing_at < NOW() - INTERVAL '5 minutes')
-       RETURNING session_id`,
-    [session.session_id],
-  );
-  if (claim.rows.length === 0) {
+  // Claim the renewable execution lease (see helpers above). If another call holds
+  // a live lease, refuse with 409; the client retries. The heartbeat keeps a slow
+  // step's lease fresh so it is never reclaimed while genuinely running.
+  const leaseToken = await claimExecution(session.session_id);
+  if (!leaseToken) {
     return res.status(409).json({ error: "A setup step is already running. Please wait." });
   }
+  const heartbeat = startHeartbeat(session.session_id, leaseToken);
 
   try {
     if (!session.interview_complete) {
@@ -720,7 +786,7 @@ async function executeNextAction(req, res) {
     // Tier gate: skip gated actions gracefully for lower tiers (admins bypass).
     if (nextAction.feature) {
       const { tier, role } = await getUserTier(userId);
-      const allowed = role === "admin" || meetsTier(tier, FEATURES[nextAction.feature].tier);
+      const allowed = isActionAllowed(nextAction, tier, role);
       if (!allowed) {
         completed.push(nextAction.key);
         const updated = await db.query(
@@ -728,7 +794,7 @@ async function executeNextAction(req, res) {
            WHERE session_id = $2 RETURNING *`,
           [JSON.stringify(completed), session.session_id],
         );
-        const feat = FEATURES[nextAction.feature];
+        const feat = FEATURES[nextAction.feature] || { name: nextAction.label, tier: "a higher" };
         const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
         return res.json({
           allComplete: false,
@@ -781,14 +847,10 @@ async function executeNextAction(req, res) {
     console.error("Setup agent execute error:", err.message);
     return res.status(status).json({ error: err.message || "A setup step failed" });
   } finally {
-    // Always release the concurrency claim, even on error, so the next /execute
-    // call (or a retry after a failed step) can proceed.
-    await db
-      .query(
-        "UPDATE setup_sessions SET executing = FALSE, executing_at = NULL WHERE session_id = $1",
-        [session.session_id],
-      )
-      .catch(() => {});
+    // Stop the heartbeat and release the lease, even on error, so the next
+    // /execute call (or a retry after a failed step) can proceed immediately.
+    clearInterval(heartbeat);
+    await releaseExecution(session.session_id, leaseToken);
   }
 }
 
@@ -870,4 +932,12 @@ module.exports = {
   pauseSession,
   dismissSession,
   getLatestSession,
+  // Exported for the reliability test suite (tests/setupAgent.*.test.js).
+  ACTIONS,
+  isActionAllowed,
+  claimExecution,
+  heartbeatExecution,
+  releaseExecution,
+  EXECUTION_LEASE_SECONDS,
+  EXECUTION_HEARTBEAT_MS,
 };

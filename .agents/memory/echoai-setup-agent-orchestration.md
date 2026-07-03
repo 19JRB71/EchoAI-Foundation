@@ -18,12 +18,21 @@ browser/cursor automation. OAuth stays user-driven (`needs_connection` handoff).
   'owner' or `isPlatformAdmin`. **Why:** auth.js remaps an active team member's
   userId→owner, so without this guard a team member could reconfigure the whole
   workspace by calling the API directly.
-- **One step at a time (concurrency).** `/execute` takes a compare-and-swap claim
-  on `setup_sessions.executing` (409 if already claimed) and releases it in a
-  `finally`. Stale claims (`executing_at < NOW() - 5 min`) are reclaimable so a
-  crash mid-step can't deadlock the session forever. **Residual:** the reclaim is
-  time-based (no heartbeat lease), so a step running >5 min could be re-entered —
-  mitigated by the idempotency checks below + the sequential single-client loop.
+- **One step at a time (token-fenced renewable lease).** `/execute` claims a lease
+  on `setup_sessions.executing` (409 if already held) and releases it in `finally`.
+  It is a *renewable, fenced* lease, not a plain time-based CAS:
+  - `claimExecution` stamps `executing_at` + a per-claim `executing_token` (UUID,
+    migration 044) and returns the token (or null when blocked).
+  - While a step runs, a heartbeat (`EXECUTION_HEARTBEAT_MS=60s`) bumps `executing_at`
+    guarded by the token, so a legitimately slow step (>`EXECUTION_LEASE_SECONDS=300`)
+    is **never** reclaimed mid-flight. Only a dead claim (no heartbeat past the lease
+    window, i.e. a crashed process) is reclaimable — so setup never stalls.
+  - `heartbeatExecution`/`releaseExecution` are **token-guarded** (`AND executing_token
+    = $token`). **Why:** a revived crashed executor must not clear a lease another
+    request already reclaimed (would allow a duplicate run). Helpers + both constants
+    are exported for the `tests/setupAgent.lease.test.js` suite.
+  **Residual (accepted):** the fence stops stale *release*, not stale *side effects*
+  already in flight; the idempotency existence-checks below are the backstop for that.
 - **Idempotent artifact steps.** The non-idempotent, artifact-creating actions
   each existence-check before creating so a crash/retry (or overlap) can't
   duplicate: content_calendar→`content_calendars`, ad_creatives→`ad_creatives`,
@@ -33,6 +42,11 @@ browser/cursor automation. OAuth stays user-driven (`needs_connection` handoff).
   code, not the schema.
 - **Tier gating skips gracefully.** A gated action below the user's tier is marked
   complete with status 'skipped' + a message, never a hard failure. Admin bypass.
+  The decision is the pure `isActionAllowed(action, tier, role)` (exported, unit-
+  tested): admin→allow, no `feature`→allow, **unknown feature key→deny (fail
+  closed)**, else `meetsTier`. **Why fail closed:** a mistyped/removed feature key
+  must never silently unlock a gated setup step. All setup actions are pro-gated or
+  baseline (no enterprise-only setup step), so Enterprise unlocks every gated step.
 - **AI failures → 502, never mocked** (matches the platform-wide convention).
 - **First action (create_brand_profile) is crash-replay safe.** It persists
   `discovery_session_id` on the setup_sessions row BEFORE calling brand-discovery
