@@ -59,6 +59,172 @@ beforeEach(() => {
   api.startSetupSession.mockResolvedValue({ session: READY_SESSION });
 });
 
+// A fresh (not-yet-interviewed) session so the bootstrap effect lands in the
+// interview phase and we can walk the whole happy path a real user takes.
+const INTERVIEW_SESSION = {
+  sessionId: "sess-1",
+  interviewComplete: false,
+  consentGranted: false,
+  steps: [
+    { key: "brand", label: "Set up your brand" },
+    { key: "chatbot", label: "Configure your chatbot" },
+  ],
+  completedSteps: [],
+};
+
+describe("SetupAgent happy path (interview → consent → running → done)", () => {
+  test("walks a user from the first question through a completed setup", async () => {
+    // Bootstrap lands in the interview with the first question.
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+    // The single answer completes the interview and returns the consent prompt.
+    api.submitSetupAnswer.mockResolvedValueOnce({
+      session: { ...INTERVIEW_SESSION, interviewComplete: true },
+      question: { complete: true, message: "I have everything I need." },
+    });
+    api.grantSetupConsent.mockResolvedValueOnce({});
+    // Two steps succeed, then the run reports completion.
+    api.runSetupAction
+      .mockResolvedValueOnce({
+        step: { key: "brand", label: "Set up your brand" },
+        status: "done",
+        detail: "Brand created.",
+      })
+      .mockResolvedValueOnce({
+        step: { key: "chatbot", label: "Configure your chatbot" },
+        status: "done",
+        detail: "Chatbot configured.",
+      })
+      .mockResolvedValueOnce({ allComplete: true });
+
+    const onClose = vi.fn();
+    render(<SetupAgent onClose={onClose} />);
+
+    // --- Interview: the question renders and we answer it. ---
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+    const textarea = screen.getByPlaceholderText("Type your answer…");
+    fireEvent.change(textarea, { target: { value: "We sell handmade candles." } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() =>
+      expect(api.submitSetupAnswer).toHaveBeenCalledWith("sess-1", "We sell handmade candles."),
+    );
+
+    // --- Consent: the consent screen + the plan of steps renders. ---
+    expect(await screen.findByText("Ready to set up your account")).toBeInTheDocument();
+    expect(screen.getByText("I have everything I need.")).toBeInTheDocument();
+    const consentBtn = screen.getByRole("button", { name: /yes, set up my account/i });
+    fireEvent.click(consentBtn);
+
+    await waitFor(() => expect(api.grantSetupConsent).toHaveBeenCalledWith("sess-1"));
+
+    // --- Done: after the run completes we reach the success panel. ---
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+    expect(screen.getByText("Brand created.")).toBeInTheDocument();
+    expect(screen.getByText("Chatbot configured.")).toBeInTheDocument();
+    // The run made exactly the three calls (two steps + the allComplete probe).
+    expect(api.runSetupAction).toHaveBeenCalledTimes(3);
+
+    // The success CTA hands control back to the dashboard.
+    fireEvent.click(screen.getByRole("button", { name: /go to my dashboard/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SetupAgent needs_connection handoff", () => {
+  test("renders the approval panel and skipping continues the run to completion", async () => {
+    api.runSetupAction
+      // First step needs the user to connect Google.
+      .mockResolvedValueOnce({
+        step: { key: "calendar", label: "Connect Google Calendar" },
+        status: "needs_connection",
+        connect: { provider: "google" },
+        detail: "Connect your Google Calendar to enable booking.",
+      })
+      // The skip call (runSetupAction(sid, true)) resolves…
+      .mockResolvedValueOnce({
+        step: { key: "calendar", label: "Connect Google Calendar" },
+        status: "skipped",
+        detail: "Skipped.",
+      })
+      // …then the resumed loop finishes.
+      .mockResolvedValueOnce({ allComplete: true });
+
+    const onClose = vi.fn();
+    render(<SetupAgent onClose={onClose} />);
+
+    // The "One quick approval needed" panel + its three buttons render.
+    expect(await screen.findByText("One quick approval needed")).toBeInTheDocument();
+    expect(
+      screen.getByText("Connect your Google Calendar to enable booking."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /connect google calendar/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /i've connected — continue/i })).toBeInTheDocument();
+
+    const skipBtn = screen.getByRole("button", { name: /skip this step/i });
+    fireEvent.click(skipBtn);
+
+    // Skip issues the skip flag, then the loop runs to completion.
+    await waitFor(() => expect(api.runSetupAction).toHaveBeenCalledWith("sess-1", true));
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+    expect(screen.queryByText("One quick approval needed")).not.toBeInTheDocument();
+  });
+
+  test("the Connect button launches Google OAuth", async () => {
+    api.runSetupAction.mockResolvedValueOnce({
+      step: { key: "calendar", label: "Connect Google Calendar" },
+      status: "needs_connection",
+      connect: { provider: "google" },
+      detail: "Connect your Google Calendar to enable booking.",
+    });
+    api.startGoogleOAuth.mockResolvedValueOnce({ authUrl: "https://accounts.google.com/o/oauth2" });
+
+    // Stub navigation so the component's window.location.href assignment is inert.
+    const originalLocation = window.location;
+    delete window.location;
+    window.location = { href: "" };
+
+    try {
+      render(<SetupAgent onClose={vi.fn()} />);
+
+      const connectBtn = await screen.findByRole("button", {
+        name: /connect google calendar/i,
+      });
+      fireEvent.click(connectBtn);
+
+      await waitFor(() => expect(api.startGoogleOAuth).toHaveBeenCalledTimes(1));
+      await waitFor(() =>
+        expect(window.location.href).toBe("https://accounts.google.com/o/oauth2"),
+      );
+    } finally {
+      window.location = originalLocation;
+    }
+  });
+
+  test("'I've connected — continue' resumes the run after the user approves", async () => {
+    api.runSetupAction
+      .mockResolvedValueOnce({
+        step: { key: "calendar", label: "Connect Google Calendar" },
+        status: "needs_connection",
+        connect: { provider: "google" },
+        detail: "Connect your Google Calendar to enable booking.",
+      })
+      .mockResolvedValueOnce({ allComplete: true });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+
+    const continueBtn = await screen.findByRole("button", {
+      name: /i've connected — continue/i,
+    });
+    fireEvent.click(continueBtn);
+
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+    expect(api.runSetupAction).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("SetupAgent raced-outcome render branches", () => {
   test("409 with a paused session renders the resumable 'Setup paused' panel", async () => {
     api.runSetupAction.mockRejectedValueOnce(
