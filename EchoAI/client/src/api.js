@@ -96,6 +96,32 @@ export const api = {
     request("/api/setup-agent/execute", { method: "POST", body: { sessionId, skip } }),
   pauseSetupSession: (sessionId) =>
     request("/api/setup-agent/pause", { method: "POST", body: { sessionId } }),
+  // Fire-and-forget pause used on hard tab/window close, where a normal fetch
+  // (and the React unmount effect) is unreliable. Uses navigator.sendBeacon,
+  // which can't set an Authorization header, so the JWT rides in the body and is
+  // verified by the no-auth /pause-beacon endpoint. Returns true if the beacon
+  // was queued. Falls back to a keepalive fetch when sendBeacon is unavailable.
+  pauseSetupSessionBeacon: (sessionId) => {
+    const token = getToken();
+    if (!sessionId || !token) return false;
+    const url = `${BASE_URL}/api/setup-agent/pause-beacon`;
+    const payload = JSON.stringify({ sessionId, token });
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const blob = new Blob([payload], { type: "application/json" });
+      return navigator.sendBeacon(url, blob);
+    }
+    try {
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  },
   dismissSetupSession: (sessionId) =>
     request("/api/setup-agent/dismiss", { method: "POST", body: { sessionId } }),
 

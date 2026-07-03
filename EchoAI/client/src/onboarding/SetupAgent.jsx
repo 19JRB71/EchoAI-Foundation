@@ -81,13 +81,34 @@ export default function SetupAgent({ onClose }) {
   // If the user leaves mid-flow (still interviewing / consenting), mark the
   // session paused so the lifecycle timestamps stay accurate and it can be
   // resumed later. Best-effort, fire-and-forget on unmount.
+  //
+  // Two complementary paths, guarded so we pause at most once:
+  //   1. React unmount effect — fires on in-app navigation (SPA route changes,
+  //      closing the agent), where a normal authenticated fetch works.
+  //   2. `pagehide` sendBeacon — fires on a hard tab/window close, where the
+  //      unmount effect and a normal fetch are both unreliable. The Beacon API
+  //      can't set an Authorization header, so it hits the no-auth /pause-beacon
+  //      endpoint with the JWT in the body.
+  const pausedRef = useRef(false);
   useEffect(() => {
-    return () => {
+    const shouldPause = () => {
       const p = phaseRef.current;
       const sid = sessionIdRef.current;
-      if (sid && (p === "interview" || p === "consent")) {
-        api.pauseSetupSession(sid).catch(() => {});
-      }
+      return Boolean(sid) && (p === "interview" || p === "consent");
+    };
+
+    const onPageHide = () => {
+      if (pausedRef.current || !shouldPause()) return;
+      pausedRef.current = true;
+      api.pauseSetupSessionBeacon(sessionIdRef.current);
+    };
+    window.addEventListener("pagehide", onPageHide);
+
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      if (pausedRef.current || !shouldPause()) return;
+      pausedRef.current = true;
+      api.pauseSetupSession(sessionIdRef.current).catch(() => {});
     };
   }, []);
 

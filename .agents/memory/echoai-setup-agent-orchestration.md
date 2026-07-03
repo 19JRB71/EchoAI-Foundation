@@ -55,8 +55,17 @@ browser/cursor automation. OAuth stays user-driven (`needs_connection` handoff).
   external side effect that runs before the completed-steps write.
 - **Resumable lifecycle.** setup_sessions tracks started_at / paused_at /
   resumed_at / completed_at / updated_at. Leaving mid-interview marks the row
-  'paused' (POST /pause, fired client-side on unmount); reopening via
-  initiateSession stamps resumed_at and flips back to 'in_progress'.
+  'paused'; reopening via initiateSession stamps resumed_at and flips back to
+  'in_progress'. Pause has TWO client paths that share one idempotent guarded
+  UPDATE (`markSessionPaused`, only flips status='in_progress' scoped to owner):
+  - in-app nav / closing the agent → React unmount effect → auth'd POST /pause.
+  - hard tab/window close → `pagehide` `navigator.sendBeacon` → no-auth POST
+    /pause-beacon. **Why a separate endpoint:** unmount effects don't run on hard
+    unload and sendBeacon can't set an Authorization header, so the beacon route
+    is mounted BEFORE `router.use(auth,...)` and verifies the JWT from its **body**
+    (`{sessionId, token}`), scoping the UPDATE to the token's userId. Always 204,
+    swallows bad-token/DB errors (never block the unload). A `pausedRef` guard in
+    SetupAgent ensures at most one pause fires (beacon OR unmount, not both).
 
 ## Test suite lives in TWO dirs — `npm test` must glob both
 

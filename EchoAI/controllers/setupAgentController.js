@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const { anthropic, MODEL } = require("../config/anthropic");
 const { SETUP_AGENT_SYSTEM_PROMPT } = require("../prompts/setupAgentPrompt");
@@ -917,22 +918,54 @@ async function executeNextAction(req, res) {
  * stamping paused_at. Resuming (via initiateSession) flips it back to in_progress
  * and stamps resumed_at. Best-effort: a no-op if the session isn't pausable.
  */
+async function markSessionPaused(sessionId, userId) {
+  // Best-effort, idempotent: only an in-progress row for this owner flips to
+  // paused, so a repeat call (e.g. beacon then in-app unmount) is a harmless
+  // no-op that never resurrects a completed/dismissed session.
+  await db.query(
+    `UPDATE setup_sessions
+       SET status = 'paused', paused_at = NOW(), updated_at = NOW()
+     WHERE session_id = $1 AND user_id = $2 AND status = 'in_progress'`,
+    [sessionId, userId],
+  );
+}
+
 async function pauseSession(req, res) {
   const userId = req.user.userId;
   const { sessionId } = req.body;
   if (!sessionId) return res.status(400).json({ error: "sessionId is required" });
   try {
-    await db.query(
-      `UPDATE setup_sessions
-         SET status = 'paused', paused_at = NOW(), updated_at = NOW()
-       WHERE session_id = $1 AND user_id = $2 AND status = 'in_progress'`,
-      [sessionId, userId],
-    );
+    await markSessionPaused(sessionId, userId);
     return res.json({ ok: true });
   } catch (err) {
     console.error("Setup agent pause error:", err.message);
     return res.status(500).json({ error: "Failed to pause the setup session" });
   }
+}
+
+/**
+ * POST /api/setup-agent/pause-beacon  { sessionId, token }
+ * sendBeacon-friendly pause used on hard tab/window close, where a React unmount
+ * effect and an Authorization header both can't be relied on. The Beacon API
+ * can't set headers, so the JWT rides in the body and is verified here instead
+ * of via the auth middleware. Always answers 204 (fire-and-forget; the browser
+ * is unloading and won't read the response) and never resurrects a session that
+ * isn't 'in_progress' for the token's owner.
+ */
+async function pauseSessionBeacon(req, res) {
+  const { sessionId, token } = req.body || {};
+  if (sessionId && token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded && decoded.userId) {
+        await markSessionPaused(sessionId, decoded.userId);
+      }
+    } catch (err) {
+      // Invalid/expired token or DB hiccup: swallow — the page is unloading and
+      // a stale-timestamp session is preferable to blocking the unload.
+    }
+  }
+  return res.status(204).end();
 }
 
 /**
@@ -987,6 +1020,7 @@ module.exports = {
   grantConsent,
   executeNextAction,
   pauseSession,
+  pauseSessionBeacon,
   dismissSession,
   getLatestSession,
   // Exported for the reliability test suite (tests/setupAgent.*.test.js).
