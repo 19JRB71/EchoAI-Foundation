@@ -995,6 +995,27 @@ async function dismissSession(req, res) {
 }
 
 /**
+ * POST /api/setup-agent/reset
+ * Clears the caller's setup-agent history so they can re-experience the
+ * brand-new-user flow (the automatic greeting + a fresh interview). Deletes the
+ * user's own setup_sessions rows only; owner-scoped like the rest of this route
+ * group. Returns how many sessions were cleared.
+ */
+async function resetSetup(req, res) {
+  const userId = req.user.userId;
+  try {
+    const result = await db.query(
+      "DELETE FROM setup_sessions WHERE user_id = $1",
+      [userId],
+    );
+    return res.json({ cleared: result.rowCount || 0 });
+  } catch (err) {
+    console.error("Setup agent reset error:", err.message);
+    return res.status(500).json({ error: "Failed to reset the setup agent" });
+  }
+}
+
+/**
  * GET /api/setup-agent/latest
  * Returns a light summary of the caller's most recent session (or null) so the
  * client can decide whether to auto-launch the agent for a brand-new user.
@@ -1022,6 +1043,7 @@ module.exports = {
   pauseSession,
   pauseSessionBeacon,
   dismissSession,
+  resetSetup,
   getLatestSession,
   // Exported for the reliability test suite (tests/setupAgent.*.test.js).
   ACTIONS,

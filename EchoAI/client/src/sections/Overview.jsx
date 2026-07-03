@@ -37,17 +37,46 @@ export default function Overview({ brandId }) {
     };
   }, [brandId]);
 
+  function launchSetupAgent() {
+    window.dispatchEvent(new Event("echoai:open-setup-agent"));
+  }
+
+  const setupCard = (
+    <div className="flex flex-col gap-4 rounded-xl border border-teal-500/40 bg-teal-500/10 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h3 className="text-sm font-semibold text-teal-200">
+          Set up a new brand with AI
+        </h3>
+        <p className="mt-1 text-xs text-teal-100/70">
+          Let the AI Setup Agent interview you and configure a whole brand
+          workspace in minutes.
+        </p>
+      </div>
+      <button
+        onClick={launchSetupAgent}
+        className="shrink-0 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-teal-400"
+      >
+        Set up a new brand with AI
+      </button>
+    </div>
+  );
+
   if (!brandId)
     return (
-      <p className="text-sm text-gray-400">
-        Select or create a brand to see your dashboard.
-      </p>
+      <div className="space-y-6">
+        <h2 className="text-xl font-bold text-gray-100">Dashboard</h2>
+        {setupCard}
+        <p className="text-sm text-gray-400">
+          Select or create a brand to see your dashboard.
+        </p>
+      </div>
     );
   if (loading) return <Spinner label="Loading dashboard…" />;
 
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-gray-100">Dashboard</h2>
+      {setupCard}
       <ErrorBanner message={error} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

@@ -71,6 +71,7 @@ export default function Settings({
         <TourHelp tier={tier} isAdmin={isAdmin} />
       ) : (
         <div className="space-y-6">
+          <SetupAgentCard />
           <ProfileCard isTeamMember={isTeamMember} />
           <FacebookCard />
           <TwilioCard brandId={brandId} />
@@ -217,6 +218,54 @@ function Row({ label, value }) {
       <span className="text-gray-400">{label}</span>
       <span className="font-medium text-gray-200">{displayValue(value)}</span>
     </div>
+  );
+}
+
+// AI Setup Agent controls: a clearly-visible launcher for existing users (incl.
+// admin, who predate the agent and never got the automatic greeting), plus a
+// reset that clears setup history so the full new-user experience can be re-run.
+function SetupAgentCard() {
+  const [resetting, setResetting] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+
+  function launch() {
+    window.dispatchEvent(new Event("echoai:open-setup-agent"));
+  }
+
+  async function reset() {
+    setResetting(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.resetSetupAgent();
+      setNotice(
+        "Setup agent status reset. Launch it again to go through the full new-user experience.",
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  return (
+    <Card title="AI Setup Agent">
+      <p className="mb-4 text-sm text-gray-400">
+        Let the AI Setup Agent interview you and configure a whole brand
+        workspace for you. You can launch it any time to set up a new brand.
+      </p>
+      {notice && <p className="mb-3 text-sm text-green-500">{notice}</p>}
+      <ErrorBanner message={error} />
+      <div className="flex flex-wrap gap-3">
+        <button onClick={launch} className={primaryBtn}>
+          Set up a new brand with AI
+        </button>
+        <button onClick={reset} disabled={resetting} className={secondaryBtn}>
+          {resetting ? "Resetting…" : "Reset setup agent status"}
+        </button>
+      </div>
+    </Card>
   );
 }
 

@@ -124,6 +124,8 @@ export const api = {
   },
   dismissSetupSession: (sessionId) =>
     request("/api/setup-agent/dismiss", { method: "POST", body: { sessionId } }),
+  resetSetupAgent: () =>
+    request("/api/setup-agent/reset", { method: "POST" }),
 
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),

@@ -28,6 +28,9 @@ router.post("/consent", controller.grantConsent);
 router.post("/pause", controller.pauseSession);
 router.post("/dismiss", controller.dismissSession);
 
+// Clears the caller's setup history so they can re-experience the new-user flow.
+router.post("/reset", controller.resetSetup);
+
 // Account configuration — sits behind the explicit setup-consent guard.
 router.post("/execute", requireSetupConsent, controller.executeNextAction);
 
