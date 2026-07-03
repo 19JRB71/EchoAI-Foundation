@@ -10,6 +10,7 @@ const appointmentController = require("../controllers/appointmentController");
 const contentCalendarController = require("../controllers/contentCalendarController");
 const adCreativeStudioController = require("../controllers/adCreativeStudioController");
 const emailMarketingController = require("../controllers/emailMarketingController");
+const feedbackController = require("../controllers/feedbackController");
 
 // ---------------------------------------------------------------------------
 // AI helpers (real Anthropic; malformed output → 502, never guessed)
@@ -465,6 +466,37 @@ const ACTIONS = [
       });
       ensureOk(saveResult, "Failed to save your welcome email sequence.");
       return { status: "done", detail: `Created a ${gen.emails.length}-email welcome series.` };
+    },
+  },
+
+  {
+    key: "create_survey",
+    label: "Designing your first customer survey",
+    feature: "feedback",
+    async run({ userId, session }) {
+      if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
+      // Idempotency: don't create a duplicate survey on a retry after a crash
+      // between the side effect and the completed-steps write.
+      const existingSurvey = await db.query(
+        "SELECT 1 FROM surveys WHERE brand_id = $1 LIMIT 1",
+        [session.brand_id],
+      );
+      if (existingSurvey.rows.length > 0) {
+        return { status: "done", detail: "Your customer survey is already set up." };
+      }
+
+      const result = await invoke(feedbackController.createSurvey, userId, {
+        body: { brandId: session.brand_id, surveyType: "general" },
+      });
+      const payload = ensureOk(result, "Failed to design your customer survey.");
+      const survey = payload.survey;
+      if (!survey || !Array.isArray(survey.questions) || survey.questions.length === 0) {
+        throw upstreamError("The customer survey came back empty. Please try again.");
+      }
+      return {
+        status: "done",
+        detail: `Designed a ${survey.questions.length}-question customer satisfaction survey.`,
+      };
     },
   },
 ];

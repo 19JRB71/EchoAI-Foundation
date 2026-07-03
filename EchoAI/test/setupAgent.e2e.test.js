@@ -144,6 +144,23 @@ function installAiStub() {
       return textResponse([email(0), email(1), email(2), email(3), email(4)]);
     }
 
+    // 6. Survey designer — five on-brand questions, exactly one 1-10 rating.
+    if (sys.includes("customer-experience researcher")) {
+      return textResponse({
+        questions: [
+          {
+            id: "satisfaction",
+            question: "How satisfied were you overall? (1 = unhappy, 10 = delighted)",
+            type: "rating",
+          },
+          { id: "what_we_did_well", question: "What did we do well?", type: "text" },
+          { id: "what_to_improve", question: "What could we improve?", type: "text" },
+          { id: "recommend", question: "Would you recommend us to a friend? Why?", type: "text" },
+          { id: "anything_else", question: "Anything else you'd like us to know?", type: "text" },
+        ],
+      });
+    }
+
     throw new Error(`Unexpected AI call in test for system prompt: ${sys.slice(0, 80)}`);
   };
 }
@@ -317,6 +334,8 @@ test("Professional user completes the full setup flow end-to-end", async () => {
   assert.equal(byKey.ad_creatives, "done");
   assert.equal(byKey.social_schedule, "done");
   assert.equal(byKey.email_preferences, "done");
+  // The Enterprise-only survey step is gated above Professional, so it is skipped.
+  assert.equal(byKey.create_survey, "skipped");
 
   // Completion state + consent auto-revoke.
   assert.equal(finalSession.status, "completed");
@@ -326,7 +345,7 @@ test("Professional user completes the full setup flow end-to-end", async () => {
   const brandId = finalSession.brandId;
   assert.ok(brandId, "a brand should have been created");
 
-  const [cal, creatives, series, scheduled, avail] = await Promise.all([
+  const [cal, creatives, series, scheduled, avail, survey] = await Promise.all([
     db.query("SELECT 1 FROM content_calendars WHERE brand_id = $1", [brandId]),
     db.query("SELECT 1 FROM ad_creatives WHERE brand_id = $1", [brandId]),
     db.query(
@@ -335,12 +354,15 @@ test("Professional user completes the full setup flow end-to-end", async () => {
     ),
     db.query("SELECT 1 FROM social_posts WHERE brand_id = $1 AND status = 'scheduled'", [brandId]),
     db.query("SELECT 1 FROM availability_schedules WHERE brand_id = $1", [brandId]),
+    db.query("SELECT 1 FROM surveys WHERE brand_id = $1", [brandId]),
   ]);
   assert.ok(cal.rows.length > 0, "content calendar row missing");
   assert.ok(creatives.rows.length > 0, "ad creatives row missing");
   assert.ok(series.rows.length > 0, "welcome email series missing");
   assert.ok(scheduled.rows.length > 0, "social posts were not scheduled");
   assert.ok(avail.rows.length > 0, "availability schedule missing");
+  // Professional is below Enterprise, so no survey was created.
+  assert.equal(survey.rows.length, 0, "Professional should not get a survey");
 
   // A finished session can never be re-run without a fresh grant.
   const rerun = await apiRequest(token, "POST", "/execute", { sessionId: session.sessionId });
@@ -381,6 +403,8 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   assert.equal(byKey.ad_creatives, "done");
   assert.equal(byKey.social_schedule, "done");
   assert.equal(byKey.email_preferences, "done");
+  // The Enterprise-only survey step runs to completion for an Enterprise account.
+  assert.equal(byKey.create_survey, "done");
 
   // No step was skipped for a tier/gating reason — the only skip is the OAuth one.
   const gateSkipped = steps.filter((s) => s.status === "skipped" && s.key !== "connect_google");
@@ -393,7 +417,7 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   // The Pro-gated resources were really created for the Enterprise account.
   const brandId = finalSession.brandId;
   assert.ok(brandId, "a brand should have been created");
-  const [cal, creatives, series, scheduled, avail] = await Promise.all([
+  const [cal, creatives, series, scheduled, avail, survey] = await Promise.all([
     db.query("SELECT 1 FROM content_calendars WHERE brand_id = $1", [brandId]),
     db.query("SELECT 1 FROM ad_creatives WHERE brand_id = $1", [brandId]),
     db.query(
@@ -402,12 +426,15 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
     ),
     db.query("SELECT 1 FROM social_posts WHERE brand_id = $1 AND status = 'scheduled'", [brandId]),
     db.query("SELECT 1 FROM availability_schedules WHERE brand_id = $1", [brandId]),
+    db.query("SELECT 1 FROM surveys WHERE brand_id = $1", [brandId]),
   ]);
   assert.ok(cal.rows.length > 0, "content calendar row missing");
   assert.ok(creatives.rows.length > 0, "ad creatives row missing");
   assert.ok(series.rows.length > 0, "welcome email series missing");
   assert.ok(scheduled.rows.length > 0, "social posts were not scheduled");
   assert.ok(avail.rows.length > 0, "availability schedule missing");
+  // The Enterprise-only survey was really created.
+  assert.ok(survey.rows.length > 0, "Enterprise survey row missing");
 
   // A finished session can never be re-run without a fresh grant.
   const rerun = await apiRequest(token, "POST", "/execute", { sessionId: session.sessionId });
@@ -439,20 +466,24 @@ test("Starter user skips Pro-gated steps gracefully and still completes", async 
   assert.equal(byKey.email_preferences, "skipped");
   // Social schedule is baseline but no-ops when there's no calendar to activate.
   assert.equal(byKey.social_schedule, "skipped");
+  // The Enterprise-only survey step is gated above Starter, so it is skipped.
+  assert.equal(byKey.create_survey, "skipped");
 
   assert.equal(finalSession.status, "completed");
   assert.equal(finalSession.consentGranted, false);
 
-  // A Starter brand exists, but no Pro-gated resources were created.
+  // A Starter brand exists, but no Pro-gated or Enterprise-gated resources were created.
   const brandId = finalSession.brandId;
-  const [cal, creatives, series] = await Promise.all([
+  const [cal, creatives, series, survey] = await Promise.all([
     db.query("SELECT 1 FROM content_calendars WHERE brand_id = $1", [brandId]),
     db.query("SELECT 1 FROM ad_creatives WHERE brand_id = $1", [brandId]),
     db.query("SELECT 1 FROM email_marketing_campaigns WHERE brand_id = $1", [brandId]),
+    db.query("SELECT 1 FROM surveys WHERE brand_id = $1", [brandId]),
   ]);
   assert.equal(cal.rows.length, 0, "Starter should not get a content calendar");
   assert.equal(creatives.rows.length, 0, "Starter should not get ad creatives");
   assert.equal(series.rows.length, 0, "Starter should not get an email series");
+  assert.equal(survey.rows.length, 0, "Starter should not get a survey");
 });
 
 test("Invited team member is blocked from the setup agent (403)", async () => {
