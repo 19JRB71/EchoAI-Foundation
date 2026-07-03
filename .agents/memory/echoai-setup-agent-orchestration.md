@@ -34,3 +34,12 @@ browser/cursor automation. OAuth stays user-driven (`needs_connection` handoff).
 - **Tier gating skips gracefully.** A gated action below the user's tier is marked
   complete with status 'skipped' + a message, never a hard failure. Admin bypass.
 - **AI failures → 502, never mocked** (matches the platform-wide convention).
+- **First action (create_brand_profile) is crash-replay safe.** It persists
+  `discovery_session_id` on the setup_sessions row BEFORE calling brand-discovery
+  confirm; on retry it recovers the created brand via that discovery row's
+  `brand_id` rather than creating a second brand. **Why:** brand creation is an
+  external side effect that runs before the completed-steps write.
+- **Resumable lifecycle.** setup_sessions tracks started_at / paused_at /
+  resumed_at / completed_at / updated_at. Leaving mid-interview marks the row
+  'paused' (POST /pause, fired client-side on unmount); reopening via
+  initiateSession stamps resumed_at and flips back to 'in_progress'.

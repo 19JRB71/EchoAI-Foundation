@@ -190,17 +190,43 @@ const ACTIONS = [
       if (session.brand_id) {
         return { status: "done", detail: "Your brand is already set up." };
       }
-      // Seed a brand-discovery session with the interview answers, then run the
-      // existing discovery confirm path so the brand + full profile are created
-      // through the exact same synthesis pipeline the UI uses.
-      const seeded = [{ role: "user", content: compiledBusinessSummary(answers) }];
-      const { rows } = await db.query(
-        `INSERT INTO brand_discovery_sessions (user_id, brand_id, messages)
-         VALUES ($1, NULL, $2::jsonb)
-         RETURNING session_id`,
-        [userId, JSON.stringify(seeded)],
-      );
-      const discoverySessionId = rows[0].session_id;
+      // Crash-replay safety: this is the first action and it has an external side
+      // effect (brand creation). We persist the brand-discovery session id BEFORE
+      // confirming, so a retry after a crash can recover the already-created brand
+      // (via the discovery row's brand_id) instead of creating a duplicate.
+      let discoverySessionId = session.discovery_session_id || null;
+      if (discoverySessionId) {
+        const prior = await db.query(
+          "SELECT brand_id FROM brand_discovery_sessions WHERE session_id = $1 AND user_id = $2",
+          [discoverySessionId, userId],
+        );
+        const recoveredBrandId = prior.rows[0] && prior.rows[0].brand_id;
+        if (recoveredBrandId) {
+          await db.query("UPDATE setup_sessions SET brand_id = $1 WHERE session_id = $2", [
+            recoveredBrandId,
+            session.session_id,
+          ]);
+          session.brand_id = recoveredBrandId;
+          return { status: "done", detail: "Your brand profile is already set up." };
+        }
+      } else {
+        // Seed a brand-discovery session with the interview answers, then run the
+        // existing discovery confirm path so the brand + full profile are created
+        // through the exact same synthesis pipeline the UI uses.
+        const seeded = [{ role: "user", content: compiledBusinessSummary(answers) }];
+        const { rows } = await db.query(
+          `INSERT INTO brand_discovery_sessions (user_id, brand_id, messages)
+           VALUES ($1, NULL, $2::jsonb)
+           RETURNING session_id`,
+          [userId, JSON.stringify(seeded)],
+        );
+        discoverySessionId = rows[0].session_id;
+        await db.query(
+          "UPDATE setup_sessions SET discovery_session_id = $1 WHERE session_id = $2",
+          [discoverySessionId, session.session_id],
+        );
+        session.discovery_session_id = discoverySessionId;
+      }
 
       const result = await invoke(brandDiscoveryController.discovery, userId, {
         body: { sessionId: discoverySessionId, confirm: true },
@@ -483,7 +509,16 @@ async function initiateSession(req, res) {
       [userId],
     );
     if (existing.rows.length > 0) {
-      const session = existing.rows[0];
+      // Resuming an existing run: stamp resumed_at and clear any paused state so
+      // the lifecycle (started/paused/resumed) reflects reality.
+      const resumed = await db.query(
+        `UPDATE setup_sessions
+           SET status = 'in_progress', resumed_at = NOW(), updated_at = NOW()
+         WHERE session_id = $1
+         RETURNING *`,
+        [existing.rows[0].session_id],
+      );
+      const session = resumed.rows[0];
       const messages = Array.isArray(session.messages) ? session.messages : [];
       const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
       let firstQuestion = null;
@@ -758,6 +793,30 @@ async function executeNextAction(req, res) {
 }
 
 /**
+ * POST /api/setup-agent/pause  { sessionId }
+ * Marks an active (interview-phase) session paused when the user leaves the flow,
+ * stamping paused_at. Resuming (via initiateSession) flips it back to in_progress
+ * and stamps resumed_at. Best-effort: a no-op if the session isn't pausable.
+ */
+async function pauseSession(req, res) {
+  const userId = req.user.userId;
+  const { sessionId } = req.body;
+  if (!sessionId) return res.status(400).json({ error: "sessionId is required" });
+  try {
+    await db.query(
+      `UPDATE setup_sessions
+         SET status = 'paused', paused_at = NOW(), updated_at = NOW()
+       WHERE session_id = $1 AND user_id = $2 AND status = 'in_progress'`,
+      [sessionId, userId],
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Setup agent pause error:", err.message);
+    return res.status(500).json({ error: "Failed to pause the setup session" });
+  }
+}
+
+/**
  * POST /api/setup-agent/dismiss  { sessionId }
  * Marks the session dismissed so the agent doesn't auto-launch again.
  */
@@ -808,6 +867,7 @@ module.exports = {
   submitAnswer,
   grantConsent,
   executeNextAction,
+  pauseSession,
   dismissSession,
   getLatestSession,
 };

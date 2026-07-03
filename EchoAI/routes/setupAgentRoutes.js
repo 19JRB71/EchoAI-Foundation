@@ -20,6 +20,7 @@ router.get("/latest", controller.getLatestSession);
 router.post("/session", controller.initiateSession);
 router.post("/answer", controller.submitAnswer);
 router.post("/consent", controller.grantConsent);
+router.post("/pause", controller.pauseSession);
 router.post("/dismiss", controller.dismissSession);
 
 // Account configuration — sits behind the explicit setup-consent guard.

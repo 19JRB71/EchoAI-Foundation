@@ -70,6 +70,26 @@ export default function SetupAgent({ onClose }) {
 
   const sessionId = session && session.sessionId;
 
+  // Track the latest phase + sessionId so the unmount handler can decide whether
+  // to pause without re-subscribing on every change.
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+
+  // If the user leaves mid-flow (still interviewing / consenting), mark the
+  // session paused so the lifecycle timestamps stay accurate and it can be
+  // resumed later. Best-effort, fire-and-forget on unmount.
+  useEffect(() => {
+    return () => {
+      const p = phaseRef.current;
+      const sid = sessionIdRef.current;
+      if (sid && (p === "interview" || p === "consent")) {
+        api.pauseSetupSession(sid).catch(() => {});
+      }
+    };
+  }, []);
+
   // ---- Action execution loop -------------------------------------------------
 
   const runLoop = useCallback(

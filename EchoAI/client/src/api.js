@@ -94,6 +94,8 @@ export const api = {
     request("/api/setup-agent/consent", { method: "POST", body: { sessionId } }),
   runSetupAction: (sessionId, skip = false) =>
     request("/api/setup-agent/execute", { method: "POST", body: { sessionId, skip } }),
+  pauseSetupSession: (sessionId) =>
+    request("/api/setup-agent/pause", { method: "POST", body: { sessionId } }),
   dismissSetupSession: (sessionId) =>
     request("/api/setup-agent/dismiss", { method: "POST", body: { sessionId } }),
 
