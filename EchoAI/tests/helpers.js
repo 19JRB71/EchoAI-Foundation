@@ -1,9 +1,13 @@
 // Shared helpers for the AI Setup Agent reliability tests.
 //
-// Tests run against the real (development) database via the app's own db module,
-// so they exercise the exact SQL the controller uses. Each test file creates its
+// Tests run against an isolated test database via the app's own db module, so
+// they exercise the exact SQL the controller uses. Each test file creates its
 // own throwaway user and cleans it up (ON DELETE CASCADE removes its sessions),
 // so tests never touch real accounts.
+//
+// `./dbGuard` runs first (before `config/db` opens a pool) so the suite prefers
+// TEST_DATABASE_URL and hard-fails against anything that looks like production.
+require("./dbGuard");
 
 const db = require("../config/db");
 

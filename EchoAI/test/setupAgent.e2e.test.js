@@ -28,6 +28,11 @@
 
 require("dotenv").config();
 
+// Runs before config/db opens a pool: prefers TEST_DATABASE_URL and hard-fails
+// against anything that looks like production, so this destructive suite can
+// never mutate real customer data.
+require("../tests/dbGuard");
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");

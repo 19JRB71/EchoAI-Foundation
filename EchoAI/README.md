@@ -174,11 +174,44 @@ against a **real Postgres database** and the **real Express routes/controllers**
 only the Anthropic client is stubbed (deterministic, offline, no API spend), so no
 real AI calls are made.
 
+### Test-database isolation (never touches real customer data)
+
+These tests create and then **DELETE** real `users`, `brands`, `subscriptions`,
+etc. rows, so they must **never** run against the app's real database. Isolation is
+guaranteed by construction — the suite always runs against a **physically separate
+Postgres database** (a distinct database namespace shares no tables), never the one
+`DATABASE_URL` points at:
+
+- **Setup (`npm run pretest`, `tests/setupTestDb.js`).** Chooses the isolated test
+  database, creates it if needed, and applies `models/schema.sql` + all numbered
+  migrations to it. The app's real database is used only as a maintenance
+  connection to issue `CREATE DATABASE` — no app tables are read or written there.
+- **Guard (`tests/dbGuard.js`).** Preloaded via `node --require` (and also required
+  by `tests/helpers.js` + the e2e test) so that **before any pool is opened** it
+  rewrites `DATABASE_URL` to the isolated test database. Everything downstream
+  (`config/db.js`, controllers, the migration runner) binds to the test DB.
+
+How the isolated database is chosen (`tests/resolveTestDb.js`):
+
+- If **`TEST_DATABASE_URL`** is set, it is used — but only after verifying it is a
+  *different* physical database than `DATABASE_URL` (else the run aborts).
+- Otherwise one is **auto-derived** on the same server by suffixing the database
+  name with `_setup_test` (e.g. `echoai` → `echoai_setup_test`).
+- Either way the run **fails fast** (non-zero exit, clear message, no mutation) if
+  it looks like production: `NODE_ENV=production`, `REPLIT_DEPLOYMENT` set, the URL
+  equals `PROD_DATABASE_URL`/`PRODUCTION_DATABASE_URL`, or the host/database name
+  contains `prod`. There is **no fallback that runs against the real database.**
+
 **Runner requirements** (the same env the app boots with):
 
-- `DATABASE_URL` — a reachable Postgres database with migrations applied
-  (`npm run migrate`). Tests create and clean up their own rows, but the schema
-  must already exist.
+- `DATABASE_URL` — a reachable Postgres server. It is **never used as the test
+  database**; the suite derives/uses a separate database on it (and needs
+  create-database rights unless `TEST_DATABASE_URL` points at a pre-provisioned
+  test DB). Schema is applied automatically to the test DB — no manual
+  `npm run migrate` needed for tests.
+- `TEST_DATABASE_URL` *(optional)* — point at a pre-provisioned, dedicated test
+  database to use instead of the auto-derived one. Must be a different physical
+  database than `DATABASE_URL`.
 - `JWT_SECRET` — used to mint test auth tokens.
 - `SESSION_SECRET`, `ENCRYPTION_KEY` — required at module load (boot fails fast
   without them, so the tests can't `require` the app either).

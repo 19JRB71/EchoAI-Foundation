@@ -15,3 +15,4 @@
 - [EchoAI affiliate attribution](echoai-affiliate-attribution.md) — await referral attribution before returning the signup token, else a fast first-payment webhook misses the row and credits a renewal.
 - [EchoAI white-label ownership](echoai-white-label.md) — agencies.owner_user_id is UNIQUE (1/account); admin createAgency takes optional ownerEmail to assign agencies to other users, else multi-agency overview + per-owner portal can't coexist.
 - [EchoAI cross-tier embedded buttons](echoai-cross-tier-embedded-buttons.md) — a higher-tier action button living in a lower-tier section must be gated client-side too (meetsTier), or the backend 403 looks like a bug.
+- [Node test runner preload](node-test-preload.md) — `node --test` child processes inherit parent env + `--require`; use `--require` to inject a DB guard before config/db, and marker-guard env rewrites so children don't re-derive.
