@@ -1,0 +1,417 @@
+/**
+ * End-to-end test for the AI Setup Agent.
+ *
+ * Drives a fresh, non-admin user through the whole onboarding flow the way the
+ * client does — interview → consent → the /execute action loop → completion —
+ * against a real Express router (real auth, lockout, requireOwner, and
+ * requireSetupConsent middleware) and the real orchestrated controllers writing
+ * to the real database.
+ *
+ * Only the Anthropic client is stubbed (deterministic, offline, no spend): the
+ * shared singleton's `messages.create` is replaced with a fake that returns
+ * schema-valid JSON per system prompt, so every controller the setup agent
+ * orchestrates (brand discovery, appointments, content calendar, ad creatives,
+ * social schedule, email drip) runs for real.
+ *
+ * Coverage:
+ *   - A Professional user completes every configuration step end-to-end, real DB
+ *     rows are created, and consent is auto-revoked on completion.
+ *   - A Starter user's Pro-gated steps are skipped gracefully (flow still
+ *     completes) while baseline steps run.
+ *   - An invited team member is blocked (403) by requireOwner.
+ *   - Consent is auto-revoked on dismiss, and a finished session can't be re-run.
+ *
+ * Run with:  node --test test/setupAgent.e2e.test.js   (from EchoAI/)
+ */
+
+require("dotenv").config();
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const http = require("node:http");
+const express = require("express");
+const jwt = require("jsonwebtoken");
+
+const db = require("../config/db");
+const anthropicModule = require("../config/anthropic");
+const setupAgentRoutes = require("../routes/setupAgentRoutes");
+
+// ---------------------------------------------------------------------------
+// Deterministic AI stub — replaces the shared Anthropic singleton's create().
+// Branches on the system prompt so each orchestrated controller gets a valid
+// response shape. Never calls the network.
+// ---------------------------------------------------------------------------
+
+function textResponse(payload) {
+  const text = typeof payload === "string" ? payload : JSON.stringify(payload);
+  return { content: [{ type: "text", text }] };
+}
+
+const originalCreate = anthropicModule.anthropic.messages.create;
+
+function installAiStub() {
+  anthropicModule.anthropic.messages.create = async ({ system, messages }) => {
+    const sys = String(system || "");
+
+    // 1. Setup interview — complete after a couple of answers.
+    if (sys.includes("You are EchoAI's Setup Agent")) {
+      const userTurns = (messages || []).filter((m) => m.role === "user").length;
+      const complete = userTurns >= 3;
+      return textResponse({
+        message: complete
+          ? "Perfect, I have everything I need to set things up!"
+          : "Got it — tell me a little more.",
+        suggestion: "",
+        collects: complete ? "" : `field_${userTurns}`,
+        complete,
+      });
+    }
+
+    // 2. Brand profile synthesis (brand discovery confirm path).
+    if (sys.includes("extracting a structured brand profile")) {
+      return textResponse({
+        brand_name: "Test Bakery Co",
+        brand_personality: "warm, artisanal, community-focused",
+        voice_description: "friendly, inviting, and down-to-earth",
+        visual_style_preferences: {
+          description: "rustic warm tones with natural textures",
+          palette: ["#8B4513", "#F5DEB3"],
+          mood: "cozy",
+        },
+        target_audience: {
+          description: "local families who value fresh, handmade food",
+          demographics: "ages 25-55, local neighborhood",
+          interests: ["baking", "local food", "community"],
+        },
+      });
+    }
+
+    // 3. Content calendar — return plenty of valid slots (mapped by index).
+    if (sys.includes("AI Content Calendar agent")) {
+      const posts = Array.from({ length: 250 }, (_, i) => ({
+        slot: i + 1,
+        contentType: "educational",
+        postText: `Fresh from the oven: on-brand bakery post number ${i + 1}.`,
+        hashtags: ["bakery", "local"],
+        visualIdea: "A photo of fresh bread on a rustic table.",
+        callToAction: "Visit us today!",
+        bestPostingTime: "13:00",
+      }));
+      return textResponse(posts);
+    }
+
+    // 4. Ad creative director — exactly five complete packages.
+    if (sys.includes("Ad Creative Director")) {
+      const pkg = (n) => ({
+        conceptName: `Concept ${n}`,
+        angle: "benefit-led",
+        headline: `Fresh Bread Daily ${n}`,
+        bodyCopyVariations: [
+          "Warm bread, baked fresh every morning.",
+          "Taste the difference real ingredients make.",
+        ],
+        imageDescription:
+          "A rustic sourdough loaf on a wooden table with warm morning light.",
+        videoScript: {
+          hook: "Smell that?",
+          scenes: ["The oven opens", "Bread cooling on a rack", "A happy customer"],
+          cta: "Come taste it today",
+        },
+        audienceTargeting: {
+          description: "Local food lovers who value handmade quality",
+          ageMin: 25,
+          ageMax: 60,
+          interests: ["baking", "local food"],
+          demographics: "families in the neighborhood",
+        },
+        recommendedPlacements: ["Facebook Feed", "Instagram Stories"],
+        callToAction: "Learn More",
+      });
+      return textResponse({ packages: [pkg(1), pkg(2), pkg(3), pkg(4), pkg(5)] });
+    }
+
+    // 5. Email drip designer — five valid drip emails.
+    if (sys.includes("Drip Sequence Designer")) {
+      const email = (i) => ({
+        sendDelayDays: i === 0 ? 0 : i * 2,
+        subjectVariations: [`Welcome ${i}`, `Hello there ${i}`, `Glad you're here ${i}`],
+        previewText: "Thanks for joining our bakery family",
+        bodyHtml: `<p>Welcome email number ${i} from Test Bakery Co.</p>`,
+        bodyPlainText: `Welcome email number ${i} from Test Bakery Co.`,
+      });
+      return textResponse([email(0), email(1), email(2), email(3), email(4)]);
+    }
+
+    throw new Error(`Unexpected AI call in test for system prompt: ${sys.slice(0, 80)}`);
+  };
+}
+
+function restoreAiStub() {
+  anthropicModule.anthropic.messages.create = originalCreate;
+}
+
+// ---------------------------------------------------------------------------
+// Test HTTP harness + fixtures
+// ---------------------------------------------------------------------------
+
+let server;
+let baseUrl;
+const createdUserIds = [];
+
+function apiRequest(token, method, path, body) {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetch(`${baseUrl}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }).then(async (res) => ({ status: res.status, body: await res.json().catch(() => null) }));
+}
+
+async function createUser({ tier = "pro", role = "user" } = {}) {
+  const email = `setup-e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  const { rows } = await db.query(
+    `INSERT INTO users (email, password_hash, role, subscription_tier)
+     VALUES ($1, $2, $3::user_role, $4::subscription_tier)
+     RETURNING user_id`,
+    [email, "not-a-real-hash", role, tier],
+  );
+  const userId = rows[0].user_id;
+  createdUserIds.push(userId);
+
+  // The tier source of truth is the subscriptions table (getUserTier reads it).
+  await db.query(
+    `INSERT INTO subscriptions (user_id, subscription_tier, payment_status, is_locked)
+     VALUES ($1, $2::subscription_tier, 'active', FALSE)`,
+    [userId, tier],
+  );
+
+  const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "1h" });
+  return { userId, email, token };
+}
+
+async function createTeamMember(ownerId) {
+  const { token, userId } = await createUser({ tier: "pro" });
+  await db.query(
+    `INSERT INTO team_members
+       (account_owner_user_id, invited_user_id, email, role, status, accepted_at)
+     VALUES ($1, $2, $3, 'manager', 'active', NOW())`,
+    [ownerId, userId, `member-${userId}@example.com`],
+  );
+  return { token, userId };
+}
+
+// Drive the interview to completion, then return the session.
+async function completeInterview(token) {
+  let res = await apiRequest(token, "POST", "/session", {});
+  assert.equal(res.status, 200, `initiateSession failed: ${JSON.stringify(res.body)}`);
+  let session = res.body.session;
+  let question = res.body.question;
+
+  let guard = 0;
+  while (question && !question.complete && guard++ < 15) {
+    res = await apiRequest(token, "POST", "/answer", {
+      sessionId: session.sessionId,
+      answer: "We are a small local bakery selling fresh bread and pastries to families.",
+    });
+    assert.equal(res.status, 200, `submitAnswer failed: ${JSON.stringify(res.body)}`);
+    session = res.body.session;
+    question = res.body.question;
+  }
+  assert.ok(question && question.complete, "interview never completed");
+  return session;
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// /execute releases its concurrency claim in a `finally` that runs *after* the
+// HTTP response is sent, so a tightly-sequenced next call can momentarily see
+// the lock (409 "already running"). The real client retries; so do we.
+async function executeStep(token, body) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const res = await apiRequest(token, "POST", "/execute", body);
+    if (res.status === 409 && res.body && /already running/i.test(res.body.error || "")) {
+      await sleep(25);
+      continue;
+    }
+    return res;
+  }
+  throw new Error("execute stayed locked after repeated retries");
+}
+
+// Run the /execute loop like the client: skip OAuth handoffs, collect outcomes.
+async function runExecuteLoop(token, sessionId) {
+  const steps = [];
+  let finalSession = null;
+  let guard = 0;
+  while (guard++ < 25) {
+    const res = await executeStep(token, { sessionId });
+    assert.equal(res.status, 200, `execute failed: ${JSON.stringify(res.body)}`);
+    const b = res.body;
+    if (b.allComplete) {
+      finalSession = b.session;
+      break;
+    }
+    if (b.status === "needs_connection") {
+      // Client resolves/declines the OAuth handoff; here we skip past it.
+      const skipRes = await executeStep(token, { sessionId, skip: true });
+      assert.equal(skipRes.status, 200, `skip failed: ${JSON.stringify(skipRes.body)}`);
+      steps.push({ key: skipRes.body.step.key, status: skipRes.body.status });
+      continue;
+    }
+    steps.push({ key: b.step.key, status: b.status });
+  }
+  assert.ok(finalSession, "execute loop never reached allComplete");
+  return { steps, finalSession };
+}
+
+test.before(async () => {
+  installAiStub();
+  const app = express();
+  app.use(express.json());
+  app.use("/api/setup-agent", setupAgentRoutes);
+  server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, resolve));
+  baseUrl = `http://127.0.0.1:${server.address().port}/api/setup-agent`;
+});
+
+test.after(async () => {
+  restoreAiStub();
+  if (server) await new Promise((resolve) => server.close(resolve));
+  if (createdUserIds.length) {
+    await db.query(`DELETE FROM users WHERE user_id = ANY($1::uuid[])`, [createdUserIds]);
+  }
+  await db.pool.end();
+});
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+test("Professional user completes the full setup flow end-to-end", async () => {
+  const { userId, token } = await createUser({ tier: "pro" });
+
+  const session = await completeInterview(token);
+  assert.equal(session.interviewComplete, true);
+  assert.equal(session.consentGranted, false);
+
+  // Consent is required before any action runs.
+  const denied = await apiRequest(token, "POST", "/execute", { sessionId: session.sessionId });
+  assert.equal(denied.status, 403, "execute should be blocked before consent");
+  assert.equal(denied.body.consentRequired, true);
+
+  const consent = await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  assert.equal(consent.status, 200);
+  assert.equal(consent.body.session.consentGranted, true);
+
+  const { steps, finalSession } = await runExecuteLoop(token, session.sessionId);
+  const byKey = Object.fromEntries(steps.map((s) => [s.key, s.status]));
+
+  // Every configuration step ran; baseline + Pro-gated steps all executed.
+  assert.equal(byKey.create_brand_profile, "done");
+  assert.equal(byKey.set_availability, "done");
+  assert.equal(byKey.connect_google, "skipped"); // OAuth handoff skipped in test
+  assert.equal(byKey.content_calendar, "done");
+  assert.equal(byKey.ad_creatives, "done");
+  assert.equal(byKey.social_schedule, "done");
+  assert.equal(byKey.email_preferences, "done");
+
+  // Completion state + consent auto-revoke.
+  assert.equal(finalSession.status, "completed");
+  assert.equal(finalSession.consentGranted, false);
+
+  // Real rows were written by the orchestrated controllers.
+  const brandId = finalSession.brandId;
+  assert.ok(brandId, "a brand should have been created");
+
+  const [cal, creatives, series, scheduled, avail] = await Promise.all([
+    db.query("SELECT 1 FROM content_calendars WHERE brand_id = $1", [brandId]),
+    db.query("SELECT 1 FROM ad_creatives WHERE brand_id = $1", [brandId]),
+    db.query(
+      "SELECT 1 FROM email_marketing_campaigns WHERE brand_id = $1 AND campaign_name = 'Welcome Series'",
+      [brandId],
+    ),
+    db.query("SELECT 1 FROM social_posts WHERE brand_id = $1 AND status = 'scheduled'", [brandId]),
+    db.query("SELECT 1 FROM availability_schedules WHERE brand_id = $1", [brandId]),
+  ]);
+  assert.ok(cal.rows.length > 0, "content calendar row missing");
+  assert.ok(creatives.rows.length > 0, "ad creatives row missing");
+  assert.ok(series.rows.length > 0, "welcome email series missing");
+  assert.ok(scheduled.rows.length > 0, "social posts were not scheduled");
+  assert.ok(avail.rows.length > 0, "availability schedule missing");
+
+  // A finished session can never be re-run without a fresh grant.
+  const rerun = await apiRequest(token, "POST", "/execute", { sessionId: session.sessionId });
+  assert.equal(rerun.status, 409, "finished session should reject further execution");
+
+  // Sanity: the brand belongs to this user.
+  const owned = await db.query("SELECT 1 FROM brands WHERE brand_id = $1 AND user_id = $2", [
+    brandId,
+    userId,
+  ]);
+  assert.ok(owned.rows.length > 0, "brand ownership mismatch");
+});
+
+test("Starter user skips Pro-gated steps gracefully and still completes", async () => {
+  const { token } = await createUser({ tier: "starter" });
+
+  const session = await completeInterview(token);
+  await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+
+  const { steps, finalSession } = await runExecuteLoop(token, session.sessionId);
+  const byKey = Object.fromEntries(steps.map((s) => [s.key, s.status]));
+
+  // Baseline step still runs.
+  assert.equal(byKey.create_brand_profile, "done");
+  // Pro-gated steps are skipped gracefully rather than blocking the flow.
+  assert.equal(byKey.set_availability, "skipped");
+  assert.equal(byKey.content_calendar, "skipped");
+  assert.equal(byKey.ad_creatives, "skipped");
+  assert.equal(byKey.email_preferences, "skipped");
+  // Social schedule is baseline but no-ops when there's no calendar to activate.
+  assert.equal(byKey.social_schedule, "skipped");
+
+  assert.equal(finalSession.status, "completed");
+  assert.equal(finalSession.consentGranted, false);
+
+  // A Starter brand exists, but no Pro-gated resources were created.
+  const brandId = finalSession.brandId;
+  const [cal, creatives, series] = await Promise.all([
+    db.query("SELECT 1 FROM content_calendars WHERE brand_id = $1", [brandId]),
+    db.query("SELECT 1 FROM ad_creatives WHERE brand_id = $1", [brandId]),
+    db.query("SELECT 1 FROM email_marketing_campaigns WHERE brand_id = $1", [brandId]),
+  ]);
+  assert.equal(cal.rows.length, 0, "Starter should not get a content calendar");
+  assert.equal(creatives.rows.length, 0, "Starter should not get ad creatives");
+  assert.equal(series.rows.length, 0, "Starter should not get an email series");
+});
+
+test("Invited team member is blocked from the setup agent (403)", async () => {
+  const { userId: ownerId } = await createUser({ tier: "pro" });
+  const { token: memberToken } = await createTeamMember(ownerId);
+
+  const res = await apiRequest(memberToken, "POST", "/session", {});
+  assert.equal(res.status, 403, "team member should be blocked by requireOwner");
+});
+
+test("Consent is auto-revoked on dismiss and the session becomes unusable", async () => {
+  const { token } = await createUser({ tier: "pro" });
+
+  const session = await completeInterview(token);
+  const consent = await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  assert.equal(consent.body.session.consentGranted, true);
+
+  const dismiss = await apiRequest(token, "POST", "/dismiss", { sessionId: session.sessionId });
+  assert.equal(dismiss.status, 200);
+  assert.equal(dismiss.body.session.status, "dismissed");
+  assert.equal(dismiss.body.session.consentGranted, false, "dismiss must revoke consent");
+
+  // The dismissed session can no longer configure the account.
+  const blocked = await apiRequest(token, "POST", "/execute", { sessionId: session.sessionId });
+  assert.equal(blocked.status, 409, "dismissed session should reject execution");
+});
+
+test("Unauthenticated requests are rejected (401)", async () => {
+  const res = await apiRequest(null, "POST", "/session", {});
+  assert.equal(res.status, 401);
+});
