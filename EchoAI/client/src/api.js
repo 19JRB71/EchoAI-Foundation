@@ -85,6 +85,18 @@ export const api = {
   completeTour: (tourType) =>
     request("/api/tour/complete", { method: "POST", body: { tourType } }),
 
+  // AI Setup Agent — conversational onboarding that configures the account
+  getSetupLatest: () => request("/api/setup-agent/latest"),
+  startSetupSession: () => request("/api/setup-agent/session", { method: "POST" }),
+  submitSetupAnswer: (sessionId, answer) =>
+    request("/api/setup-agent/answer", { method: "POST", body: { sessionId, answer } }),
+  grantSetupConsent: (sessionId) =>
+    request("/api/setup-agent/consent", { method: "POST", body: { sessionId } }),
+  runSetupAction: (sessionId, skip = false) =>
+    request("/api/setup-agent/execute", { method: "POST", body: { sessionId, skip } }),
+  dismissSetupSession: (sessionId) =>
+    request("/api/setup-agent/dismiss", { method: "POST", body: { sessionId } }),
+
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),
   updateOnboarding: (payload) =>

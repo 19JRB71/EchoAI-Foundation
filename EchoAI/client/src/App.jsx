@@ -27,6 +27,7 @@ import Feedback from "./sections/Feedback.jsx";
 import ZapierIntegration from "./sections/ZapierIntegration.jsx";
 import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
+import SetupAgent from "./onboarding/SetupAgent.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
 import AgencyPortal from "./sections/AgencyPortal.jsx";
 import AffiliateProgram from "./sections/AffiliateProgram.jsx";
@@ -76,6 +77,9 @@ export default function App() {
     }
   });
   const [inviteNotice, setInviteNotice] = useState("");
+  // AI Setup Agent overlay — auto-launches for brand-new users and resumes any
+  // in-progress session; can also be opened manually from Settings.
+  const [showSetup, setShowSetup] = useState(false);
 
   function handleUseImageInSocial(image) {
     setSocialPrefillImage(image);
@@ -177,6 +181,43 @@ export default function App() {
     if (authed && onboardingCompleted) loadBrands();
   }, [authed, onboardingCompleted, loadBrands]);
 
+  // Decide whether to auto-launch the AI Setup Agent: resume any in-progress
+  // session (e.g. returning from Google OAuth), otherwise offer it to a brand-new
+  // user who hasn't created any brands yet. Team members never see it (they join
+  // an existing workspace). Also listens for a manual open from Settings.
+  useEffect(() => {
+    if (!authed || !onboardingCompleted || isTeamMember) return;
+    let active = true;
+    (async () => {
+      try {
+        const { session } = await api.getSetupLatest();
+        if (!active) return;
+        if (session && session.status === "in_progress") {
+          setShowSetup(true);
+          return;
+        }
+        if (!session) {
+          const data = await api.getBrands();
+          if (active && (data.brands || []).length === 0) setShowSetup(true);
+        }
+      } catch {
+        /* If we can't read setup status, just don't auto-launch. */
+      }
+    })();
+    const openHandler = () => setShowSetup(true);
+    window.addEventListener("echoai:open-setup-agent", openHandler);
+    return () => {
+      active = false;
+      window.removeEventListener("echoai:open-setup-agent", openHandler);
+    };
+  }, [authed, onboardingCompleted, isTeamMember]);
+
+  const handleSetupClosed = useCallback(() => {
+    setShowSetup(false);
+    loadBrands();
+    loadBillingStatus();
+  }, [loadBrands, loadBillingStatus]);
+
   // Consume a pending team invitation once authenticated. Accepting joins the
   // owner's workspace; we then re-read the profile so the remapped role/context
   // takes effect, and strip the token from the URL.
@@ -274,6 +315,12 @@ export default function App() {
   // New users go through the setup wizard; it disappears for good once complete.
   if (!onboardingCompleted) {
     return <OnboardingWizard onComplete={() => setOnboardingCompleted(true)} />;
+  }
+
+  // The AI Setup Agent takes over the screen while active (auto-launched for new
+  // users / resumed sessions, or opened manually from Settings).
+  if (showSetup) {
+    return <SetupAgent onClose={handleSetupClosed} />;
   }
 
   // Effective tier for client-side gating. Admins bypass every gate (treated as

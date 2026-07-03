@@ -497,12 +497,22 @@ function BrandCard({ brandId, onBrandsChanged }) {
         </p>
       )}
       <ErrorBanner message={error} />
-      <button
-        onClick={() => setShowDiscovery(true)}
-        className={`${primaryBtn} mt-4`}
-      >
-        {brand ? "Restart brand discovery" : "Start brand discovery"}
-      </button>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          onClick={() => setShowDiscovery(true)}
+          className={primaryBtn}
+        >
+          {brand ? "Restart brand discovery" : "Start brand discovery"}
+        </button>
+        <button
+          onClick={() =>
+            window.dispatchEvent(new Event("echoai:open-setup-agent"))
+          }
+          className="rounded-lg border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-sm font-semibold text-teal-300 hover:bg-teal-500/20"
+        >
+          Set up with the AI agent
+        </button>
+      </div>
 
       {showDiscovery && (
         <BrandDiscovery
