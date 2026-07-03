@@ -24,6 +24,10 @@ args = "test"
 task = "workflow.run"
 args = "client-build"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "client-test"
+
 [[workflows.workflow]]
 name = "test"
 author = "agent"
@@ -42,6 +46,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd EchoAI && npm run build:client"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "client-test"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd EchoAI/client && npm install && npm test"
 
 [workflows.workflow.metadata]
 isValidation = true

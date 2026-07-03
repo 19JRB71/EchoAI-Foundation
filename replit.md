@@ -185,10 +185,19 @@ open that file when working inside a specific subsystem.
 
 ## Validation
 
-Two registered validation steps gate task completion (see the `validation` skill):
+Three registered validation steps gate task completion (see the `validation` skill):
 
 - **`test`** — `cd EchoAI && npm test` (server-side: setup-agent routes/controllers
   + other `test/**` and `tests/**` node:test suites).
+- **`client-test`** — `cd EchoAI/client && npm install && npm test`. Runs the
+  client's **vitest + @testing-library/react + jsdom** component tests
+  (`client/src/**/*.test.{js,jsx}`), e.g. `onboarding/SetupAgent.test.jsx` which
+  renders the real `SetupAgent` against a mocked `api` and asserts the visible
+  raced-outcome branches (paused panel + Resume button / dismissed → onClose /
+  session-less 409 → retryable error banner in the running phase). Self-installs
+  its dev deps (needs npm-registry access); config in `client/vitest.config.js`
+  + `client/vitest.setup.js`. Complements the pure-logic node:test in
+  `tests/setupAgent.executeError.test.js` (which runs under the `test` step).
 - **`client-build`** — `cd EchoAI && npm run build:client`. Builds the React SPA
   (`vite build` → `client/dist`) so a broken client (bad import, syntax error,
   failed Vite build) blocks completion instead of shipping a blank/stale
