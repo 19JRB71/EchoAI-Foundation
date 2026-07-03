@@ -192,7 +192,10 @@ export default function App() {
       try {
         const { session } = await api.getSetupLatest();
         if (!active) return;
-        if (session && session.status === "in_progress") {
+        // Auto-resume an unfinished session — either actively in progress (e.g.
+        // returning from Google OAuth) or paused because the user navigated away
+        // mid-interview (SetupAgent pauses on unmount).
+        if (session && (session.status === "in_progress" || session.status === "paused")) {
           setShowSetup(true);
           return;
         }

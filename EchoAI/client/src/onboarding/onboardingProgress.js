@@ -10,12 +10,15 @@ import { api } from "../api.js";
 
 // The wizard steps, in order. The 1-based index of each entry is the value
 // stored in users.onboarding_step.
+// Brand discovery is intentionally NOT an onboarding step: a brand-new user is
+// handed to the AI Setup Agent right after account creation + plan selection,
+// and the agent creates the brand + runs discovery itself. Keeping a manual
+// brand-discovery step here would create a brand first and suppress the agent.
 export const ONBOARDING_STEPS = [
   { key: "welcome", title: "Welcome" },
   { key: "facebook", title: "Connect Facebook" },
   { key: "subscription", title: "Choose your plan" },
   { key: "team", title: "Invite your team" },
-  { key: "brand", title: "Brand discovery" },
   { key: "launch", title: "Launch" },
 ];
 
