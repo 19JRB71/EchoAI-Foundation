@@ -183,6 +183,23 @@ open that file when working inside a specific subsystem.
   per-file transactions, tracks `schema_migrations`, skips applied, fails hard on
   real errors (relies on idempotent migrations).
 
+## Validation
+
+Two registered validation steps gate task completion (see the `validation` skill):
+
+- **`test`** — `cd EchoAI && npm test` (server-side: setup-agent routes/controllers
+  + other `test/**` and `tests/**` node:test suites).
+- **`client-build`** — `cd EchoAI && npm run build:client`. Builds the React SPA
+  (`vite build` → `client/dist`) so a broken client (bad import, syntax error,
+  failed Vite build) blocks completion instead of shipping a blank/stale
+  dashboard (the server serves the pre-built `client/dist`, so a bad build would
+  otherwise only surface on the next manual rebuild + workflow restart).
+  - **Runner requirement:** `build:client` = `cd client && npm install && npm run
+    build`, so it self-installs the client's dev deps (Vite, plugins, Tailwind) on
+    a fresh runner and needs network access to the npm registry. No `DATABASE_URL`
+    or other server env is required — the build is env-independent. Allow ~1-2 min
+    for a cold `npm install` + build.
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._
