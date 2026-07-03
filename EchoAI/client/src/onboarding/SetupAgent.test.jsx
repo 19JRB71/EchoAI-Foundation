@@ -227,6 +227,40 @@ describe("SetupAgent needs_connection handoff", () => {
   });
 });
 
+describe("SetupAgent bootstrap failure (can't even start)", () => {
+  test("a rejected startSetupSession renders the error phase with a working Close button", async () => {
+    // The very first bootstrap call fails (e.g. backend briefly unavailable).
+    api.startSetupSession.mockRejectedValueOnce(new Error("Setup service is unavailable."));
+    const onClose = vi.fn();
+
+    render(<SetupAgent onClose={onClose} />);
+
+    // The error phase surfaces the server message (not the generic fallback) and
+    // never lands on the loading spinner or any other phase.
+    expect(await screen.findByText("Setup service is unavailable.")).toBeInTheDocument();
+    expect(screen.queryByText("Setting up your account…")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // The only escape hatch — "Close" — hands control back to the dashboard.
+    const closeBtn = screen.getByRole("button", { name: /close/i });
+    fireEvent.click(closeBtn);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test("a rejection with no message falls back to a generic error and still closes", async () => {
+    // A thrown error without a message must not blank the screen — the generic
+    // fallback copy renders and Close still works.
+    api.startSetupSession.mockRejectedValueOnce(new Error(""));
+    const onClose = vi.fn();
+
+    render(<SetupAgent onClose={onClose} />);
+
+    expect(await screen.findByText("Could not start the setup agent.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /close/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("SetupAgent raced-outcome render branches", () => {
   test("409 with a paused session renders the resumable 'Setup paused' panel", async () => {
     api.runSetupAction.mockRejectedValueOnce(
