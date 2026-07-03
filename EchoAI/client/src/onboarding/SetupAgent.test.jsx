@@ -260,6 +260,60 @@ describe("SetupAgent needs_connection handoff", () => {
     }
   });
 
+  test("a failed Connect launch shows the error banner and a retry Connect that succeeds navigates to Google", async () => {
+    // The sibling of the failed-skip branch: clicking "Connect Google Calendar"
+    // issues api.startGoogleOAuth(), which can reject (e.g. OAuth not configured
+    // or the backend is briefly down). When it does, connectGoogle must surface an
+    // actionable error WITHOUT crashing or closing — and because it never cleared
+    // needsConnection, the approval panel stays put so the user can retry the
+    // connect (or skip) instead of being stuck at a dead button.
+    api.runSetupAction.mockResolvedValueOnce({
+      step: { key: "calendar", label: "Connect Google Calendar" },
+      status: "needs_connection",
+      connect: { provider: "google" },
+      detail: "Connect your Google Calendar to enable booking.",
+    });
+    // First Connect attempt fails, the retry succeeds with a real authUrl.
+    api.startGoogleOAuth
+      .mockRejectedValueOnce(new Error("Could not start Google connection."))
+      .mockResolvedValueOnce({ authUrl: "https://accounts.google.com/o/oauth2" });
+
+    // Stub navigation so the component's window.location.href assignment is inert.
+    const originalLocation = window.location;
+    delete window.location;
+    window.location = { href: "" };
+
+    const onClose = vi.fn();
+    try {
+      render(<SetupAgent onClose={onClose} />);
+
+      // Drive into the approval panel, then click "Connect Google Calendar".
+      expect(await screen.findByText("One quick approval needed")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /connect google calendar/i }));
+
+      // The launch rejected → the error banner renders. We stay in the running
+      // phase, onClose never fires, the approval panel is still on screen (no dead
+      // button), and we never navigated away.
+      await waitFor(() => expect(api.startGoogleOAuth).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText("Could not start Google connection.")).toBeInTheDocument();
+      expect(screen.getByText("Setting up your account…")).toBeInTheDocument();
+      expect(screen.getByText("One quick approval needed")).toBeInTheDocument();
+      expect(screen.queryByText("Setup paused")).not.toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(window.location.href).toBe("");
+
+      // Retry: the still-present "Connect Google Calendar" button launches OAuth
+      // again, which now succeeds and hands off to Google's consent screen.
+      fireEvent.click(screen.getByRole("button", { name: /connect google calendar/i }));
+      await waitFor(() => expect(api.startGoogleOAuth).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(window.location.href).toBe("https://accounts.google.com/o/oauth2"),
+      );
+    } finally {
+      window.location = originalLocation;
+    }
+  });
+
   test("'I've connected — continue' resumes the run after the user approves", async () => {
     api.runSetupAction
       .mockResolvedValueOnce({
