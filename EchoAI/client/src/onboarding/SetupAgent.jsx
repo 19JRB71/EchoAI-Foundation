@@ -89,6 +89,12 @@ export default function SetupAgent({ onClose }) {
   //      unmount effect and a normal fetch are both unreliable. The Beacon API
   //      can't set an Authorization header, so it hits the no-auth /pause-beacon
   //      endpoint with the JWT in the body.
+  //   3. `visibilitychange` → hidden sendBeacon — fires when the tab is merely
+  //      backgrounded (switching tab/app) without closing, the most common
+  //      "I'll come back later" exit. On mobile the OS can silently discard a
+  //      backgrounded tab and `pagehide` may never fire, so this closes the gap.
+  //      When the tab becomes visible again we re-arm the guard so a later real
+  //      close still pauses — without ever double-pausing while hidden.
   const pausedRef = useRef(false);
   useEffect(() => {
     const shouldPause = () => {
@@ -97,15 +103,28 @@ export default function SetupAgent({ onClose }) {
       return Boolean(sid) && (p === "interview" || p === "consent");
     };
 
-    const onPageHide = () => {
+    const pauseViaBeacon = () => {
       if (pausedRef.current || !shouldPause()) return;
       pausedRef.current = true;
       api.pauseSetupSessionBeacon(sessionIdRef.current);
     };
+
+    const onPageHide = pauseViaBeacon;
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        pauseViaBeacon();
+      } else if (shouldPause()) {
+        // Returned to the tab and still mid-flow — re-arm so a later
+        // background/close pauses again.
+        pausedRef.current = false;
+      }
+    };
     window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (pausedRef.current || !shouldPause()) return;
       pausedRef.current = true;
       api.pauseSetupSession(sessionIdRef.current).catch(() => {});
