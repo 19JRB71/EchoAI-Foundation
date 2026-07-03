@@ -174,6 +174,61 @@ describe("SetupAgent needs_connection handoff", () => {
     expect(screen.queryByText("One quick approval needed")).not.toBeInTheDocument();
   });
 
+  test("a failed skip shows the retryable error banner, and re-skipping recovers the run", async () => {
+    // The needs_connection handoff has its own failure branch: clicking "Skip
+    // this step" issues runSetupAction(sid, true), which can reject. When it does,
+    // skipConnection must surface the retryable error banner WITHOUT crashing or
+    // closing — and because it never cleared needsConnection, the approval panel
+    // stays put so the user can simply skip again (or hit Retry) to move forward.
+    api.runSetupAction
+      // Bootstrap run loop → the step needs a Google connection.
+      .mockResolvedValueOnce({
+        step: { key: "calendar", label: "Connect Google Calendar" },
+        status: "needs_connection",
+        connect: { provider: "google" },
+        detail: "Connect your Google Calendar to enable booking.",
+      })
+      // First skip attempt (runSetupAction(sid, true)) fails with a plain error.
+      .mockRejectedValueOnce(new Error("Could not reach the setup service."))
+      // Re-skip succeeds…
+      .mockResolvedValueOnce({
+        step: { key: "calendar", label: "Connect Google Calendar" },
+        status: "skipped",
+        detail: "Skipped.",
+      })
+      // …then the resumed loop finishes.
+      .mockResolvedValueOnce({ allComplete: true });
+
+    const onClose = vi.fn();
+    render(<SetupAgent onClose={onClose} />);
+
+    // Drive into the approval panel, then click "Skip this step".
+    expect(await screen.findByText("One quick approval needed")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /skip this step/i }));
+
+    // The skip issued the skip flag and rejected → the retryable error banner
+    // renders. We stay in the running phase, onClose never fires, and the approval
+    // panel is still on screen (no dead-end), so there's a way forward.
+    await waitFor(() => expect(api.runSetupAction).toHaveBeenCalledWith("sess-1", true));
+    expect(await screen.findByText("Could not reach the setup service.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByText("Setting up your account…")).toBeInTheDocument();
+    expect(screen.getByText("One quick approval needed")).toBeInTheDocument();
+    expect(screen.queryByText("Setup paused")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Re-skip: the still-present "Skip this step" button retries the skip, which
+    // now succeeds and drives the run to completion — the error clears and we
+    // reach the success panel.
+    fireEvent.click(screen.getByRole("button", { name: /skip this step/i }));
+
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+    expect(screen.queryByText("Could not reach the setup service.")).not.toBeInTheDocument();
+    expect(screen.queryByText("One quick approval needed")).not.toBeInTheDocument();
+    // bootstrap(needs_connection) + failed skip + re-skip(skipped) + allComplete.
+    expect(api.runSetupAction).toHaveBeenCalledTimes(4);
+  });
+
   test("the Connect button launches Google OAuth", async () => {
     api.runSetupAction.mockResolvedValueOnce({
       step: { key: "calendar", label: "Connect Google Calendar" },
