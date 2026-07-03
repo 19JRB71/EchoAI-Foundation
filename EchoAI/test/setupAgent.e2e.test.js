@@ -31,12 +31,14 @@ require("dotenv").config();
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
+const crypto = require("node:crypto");
 const express = require("express");
 const jwt = require("jsonwebtoken");
 
 const db = require("../config/db");
 const anthropicModule = require("../config/anthropic");
 const setupAgentRoutes = require("../routes/setupAgentRoutes");
+const { EXECUTION_LEASE_SECONDS } = require("../controllers/setupAgentController");
 
 // ---------------------------------------------------------------------------
 // Deterministic AI stub — replaces the shared Anthropic singleton's create().
@@ -284,6 +286,48 @@ async function runExecuteLoop(token, sessionId) {
   return { steps, finalSession };
 }
 
+// Run the /execute loop like runExecuteLoop, but stop as soon as `stopKey` has
+// been processed (without triggering the final allComplete finalization), so the
+// session is left mid-flight with real side effects already written. Returns the
+// collected steps and the last /execute response body (carries session.brandId).
+async function runUntilStep(token, sessionId, stopKey) {
+  const steps = [];
+  let lastBody = null;
+  let guard = 0;
+  while (guard++ < 25) {
+    const res = await executeStep(token, { sessionId });
+    assert.equal(res.status, 200, `execute failed: ${JSON.stringify(res.body)}`);
+    const b = res.body;
+    lastBody = b;
+    assert.ok(!b.allComplete, `reached allComplete before stop step "${stopKey}"`);
+    if (b.status === "needs_connection") {
+      const skipRes = await executeStep(token, { sessionId, skip: true });
+      assert.equal(skipRes.status, 200, `skip failed: ${JSON.stringify(skipRes.body)}`);
+      lastBody = skipRes.body;
+      steps.push({ key: skipRes.body.step.key, status: skipRes.body.status });
+      if (skipRes.body.step.key === stopKey) return { steps, lastBody };
+      continue;
+    }
+    steps.push({ key: b.step.key, status: b.status });
+    if (b.step.key === stopKey) return { steps, lastBody };
+  }
+  throw new Error(`runUntilStep never reached "${stopKey}"`);
+}
+
+// Count the three headline side effects for a brand, so a resumed step that
+// re-runs its work can be proven idempotent (counts must not grow).
+async function countSideEffects(brandId) {
+  const [cal, creatives, series] = await Promise.all([
+    db.query("SELECT COUNT(*)::int AS n FROM content_calendars WHERE brand_id = $1", [brandId]),
+    db.query("SELECT COUNT(*)::int AS n FROM ad_creatives WHERE brand_id = $1", [brandId]),
+    db.query(
+      "SELECT COUNT(*)::int AS n FROM email_marketing_campaigns WHERE brand_id = $1 AND campaign_name = 'Welcome Series'",
+      [brandId],
+    ),
+  ]);
+  return { cal: cal.rows[0].n, creatives: creatives.rows[0].n, series: series.rows[0].n };
+}
+
 test.before(async () => {
   installAiStub();
   const app = express();
@@ -514,4 +558,81 @@ test("Consent is auto-revoked on dismiss and the session becomes unusable", asyn
 test("Unauthenticated requests are rejected (401)", async () => {
   const res = await apiRequest(null, "POST", "/session", {});
   assert.equal(res.status, 401);
+});
+
+// Crash recovery: a holder that dies mid-step (never releases the lease, never
+// heartbeats) must NOT let another /execute take over until the lease window has
+// elapsed — but once it has, the next call must reclaim cleanly and resume, and
+// every idempotent step's existence-check must prevent duplicate side effects.
+test("a crashed holder's lease is reclaimed only after the window, and resume creates no duplicate side effects", async () => {
+  const { token } = await createUser({ tier: "pro" });
+
+  const session = await completeInterview(token);
+  await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  const sessionId = session.sessionId;
+
+  // Drive the flow to the last configuration step so all three headline side
+  // effects (content calendar, ad creatives, welcome email series) are written,
+  // but the session is left mid-flight (not finalized).
+  const { steps, lastBody } = await runUntilStep(token, sessionId, "email_preferences");
+  const byKey = Object.fromEntries(steps.map((s) => [s.key, s.status]));
+  assert.equal(byKey.content_calendar, "done");
+  assert.equal(byKey.ad_creatives, "done");
+  assert.equal(byKey.email_preferences, "done");
+
+  const brandId = lastBody.session.brandId;
+  assert.ok(brandId, "a brand should have been created by the partial run");
+  const before = await countSideEffects(brandId);
+  assert.equal(before.cal, 1, "expected exactly one content calendar after the partial run");
+  assert.equal(before.series, 1, "expected exactly one welcome series after the partial run");
+  assert.ok(before.creatives > 0, "expected ad creatives after the partial run");
+
+  // Simulate a crash: the process died holding the lease with the idempotent
+  // steps' side effects already written, but their completion never recorded and
+  // the lease never released — and, being dead, it never heartbeats. We drop the
+  // three side-effect steps from completed_steps and re-assert a *fresh* held
+  // lease (executing_at = NOW()) owned by a token nobody will release/heartbeat.
+  const { rows } = await db.query(
+    "SELECT completed_steps FROM setup_sessions WHERE session_id = $1",
+    [sessionId],
+  );
+  const crashResume = ["content_calendar", "ad_creatives", "email_preferences"];
+  const trimmed = (rows[0].completed_steps || []).filter((k) => !crashResume.includes(k));
+  await db.query(
+    `UPDATE setup_sessions
+       SET completed_steps = $2::jsonb, executing = TRUE, executing_at = NOW(), executing_token = $3
+     WHERE session_id = $1`,
+    [sessionId, JSON.stringify(trimmed), crypto.randomUUID()],
+  );
+
+  // Within the lease window, the crashed holder's lease must NOT be reclaimable:
+  // a fresh /execute is refused so a slow-but-alive step can never be run twice.
+  const tooSoon = await apiRequest(token, "POST", "/execute", { sessionId });
+  assert.equal(tooSoon.status, 409, "a lease still inside its window must not be reclaimable");
+  assert.match(tooSoon.body.error || "", /already running/i);
+
+  // Now let the lease window elapse with no heartbeat (the crashed process is
+  // gone). The lease becomes dead and the next /execute reclaims it.
+  await db.query(
+    "UPDATE setup_sessions SET executing_at = NOW() - (($2::int + 60) || ' seconds')::interval WHERE session_id = $1",
+    [sessionId, EXECUTION_LEASE_SECONDS],
+  );
+
+  // The reclaiming call resumes the pending steps; each idempotent step finds its
+  // existing row and returns done without redoing the work, then setup finalizes.
+  const { steps: resumeSteps, finalSession } = await runExecuteLoop(token, sessionId);
+  const resumeByKey = Object.fromEntries(resumeSteps.map((s) => [s.key, s.status]));
+  assert.equal(resumeByKey.content_calendar, "done", "content calendar step should resume");
+  assert.equal(resumeByKey.ad_creatives, "done", "ad creatives step should resume");
+  assert.equal(resumeByKey.email_preferences, "done", "welcome email step should resume");
+  assert.equal(finalSession.status, "completed", "setup must reach completion after reclaim");
+  assert.equal(finalSession.consentGranted, false, "consent is auto-revoked on completion");
+
+  // The crash-recovery guarantee: resuming duplicated nothing.
+  const after = await countSideEffects(brandId);
+  assert.deepEqual(
+    after,
+    before,
+    `resume duplicated side effects: before=${JSON.stringify(before)} after=${JSON.stringify(after)}`,
+  );
 });
