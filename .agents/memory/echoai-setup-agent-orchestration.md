@@ -47,6 +47,16 @@ browser/cursor automation. OAuth stays user-driven (`needs_connection` handoff).
   closed)**, else `meetsTier`. **Why fail closed:** a mistyped/removed feature key
   must never silently unlock a gated setup step. All setup actions are pro-gated or
   baseline (no enterprise-only setup step), so Enterprise unlocks every gated step.
+- **Connection-dependent steps skip gracefully (not gate, not fail).** A setup
+  action that needs a user-connected third party (Google Calendar OAuth, Facebook
+  ad-account link) returns status 'skipped' + a "connect in Settings" detail when
+  the integration is absent — it must never hard-fail the whole run and never
+  fabricate the resource. **Why:** the client `needs_connection` panel is
+  Google-specific, so Facebook (and any non-Google) connection gaps skip rather
+  than attempt an unsupported OAuth handoff. The e2e "nothing wrongly gated" test
+  keeps a CONNECTION_STEPS allowlist (connect_google, create_facebook_campaign)
+  excluded from the "no skips" assertion — extend that set when adding another
+  connection-dependent step, or the test will read the skip as a tier regression.
 - **AI failures → 502, never mocked** (matches the platform-wide convention).
 - **First action (create_brand_profile) is crash-replay safe.** It persists
   `discovery_session_id` on the setup_sessions row BEFORE calling brand-discovery

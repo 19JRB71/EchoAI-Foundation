@@ -7,6 +7,7 @@ const { getUserTier } = require("../middleware/featureGate");
 const { FEATURES, meetsTier } = require("../config/tiers");
 
 const brandDiscoveryController = require("../controllers/brandDiscoveryController");
+const campaignController = require("../controllers/campaignController");
 const appointmentController = require("../controllers/appointmentController");
 const contentCalendarController = require("../controllers/contentCalendarController");
 const adCreativeStudioController = require("../controllers/adCreativeStudioController");
@@ -150,6 +151,20 @@ function pickCampaignGoal(answers) {
   if (blob.includes("traffic") || blob.includes("visit")) return "traffic";
   if (blob.includes("engage")) return "engagement";
   return "lead_generation";
+}
+
+// Derive a sensible DAILY ad budget (dollars) for the first campaign from the
+// interview answers. A figure over ~200 is read as a monthly budget and divided
+// down to a daily amount; otherwise it is treated as a daily figure. Falls back
+// to a conservative $20/day when nothing usable was collected.
+function pickAdBudget(answers) {
+  const raw = firstAnswer(answers, ["budget", "spend"]);
+  const match = raw && raw.replace(/,/g, "").match(/\d+(\.\d+)?/);
+  const parsed = match ? Number(match[0]) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed > 200 ? Math.max(5, Math.round(parsed / 30)) : Math.round(parsed);
+  }
+  return 20;
 }
 
 function compiledBusinessSummary(answers) {
@@ -417,6 +432,49 @@ const ACTIONS = [
       return {
         status: "done",
         detail: `Generated ${gen.packages.length} ad creative packages.`,
+      };
+    },
+  },
+
+  {
+    key: "create_facebook_campaign",
+    label: "Creating your first Facebook ad campaign",
+    feature: null,
+    async run({ userId, session, answers }) {
+      if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
+      // Idempotency: don't launch a second campaign on a retry after a crash
+      // between the Graph API side effect and the completed-steps write.
+      const existing = await db.query(
+        "SELECT 1 FROM campaigns WHERE brand_id = $1 LIMIT 1",
+        [session.brand_id],
+      );
+      if (existing.rows.length > 0) {
+        return { status: "done", detail: "Your first ad campaign is already set up." };
+      }
+      // A real Facebook ad campaign needs a connected ad account. Without one we
+      // skip gracefully (they can connect in Settings and launch later) rather
+      // than failing the whole setup — a campaign is never faked.
+      const connected = await db.query(
+        `SELECT 1 FROM api_integrations
+         WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected'`,
+        [userId],
+      );
+      if (connected.rows.length === 0) {
+        return {
+          status: "skipped",
+          detail: "Connect a Facebook ad account in Settings to launch your first campaign.",
+        };
+      }
+
+      const goal = pickCampaignGoal(answers);
+      const budget = pickAdBudget(answers);
+      const result = await invoke(campaignController.createCampaign, userId, {
+        body: { brandId: session.brand_id, goal, budget, targetAudience: {} },
+      });
+      ensureOk(result, "Failed to create your first Facebook ad campaign.");
+      return {
+        status: "done",
+        detail: `Launched a paused Facebook ad campaign ($${budget}/day) ready for review.`,
       };
     },
   },

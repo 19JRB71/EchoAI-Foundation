@@ -458,9 +458,14 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   assert.equal(byKey.email_preferences, "done");
   // The Enterprise-only survey step runs to completion for an Enterprise account.
   assert.equal(byKey.create_survey, "done");
+  // The first-campaign step skips because no Facebook ad account is connected in
+  // the test (a connection handoff, not a tier gate) — same class as connect_google.
+  assert.equal(byKey.create_facebook_campaign, "skipped");
 
-  // No step was skipped for a tier/gating reason — the only skip is the OAuth one.
-  const gateSkipped = steps.filter((s) => s.status === "skipped" && s.key !== "connect_google");
+  // No step was skipped for a tier/gating reason — the only skips are the
+  // connection-dependent ones (Google OAuth handoff + Facebook ad-account link).
+  const CONNECTION_STEPS = new Set(["connect_google", "create_facebook_campaign"]);
+  const gateSkipped = steps.filter((s) => s.status === "skipped" && !CONNECTION_STEPS.has(s.key));
   assert.equal(gateSkipped.length, 0, `Enterprise wrongly skipped: ${JSON.stringify(gateSkipped)}`);
 
   // Completion state + consent auto-revoke.
