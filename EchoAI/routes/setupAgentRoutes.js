@@ -6,6 +6,7 @@ const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
 const { requireOwner } = require("../middleware/rolePermissions");
 const { requireSetupConsent } = require("../middleware/setupConsent");
+const { uploadAudio } = require("../middleware/audioUpload");
 const controller = require("../controllers/setupAgentController");
 
 // sendBeacon pause fires during a hard tab/window close and can't set an
@@ -24,6 +25,11 @@ router.use(auth, lockout, requireOwner);
 router.get("/latest", controller.getLatestSession);
 router.post("/session", controller.initiateSession);
 router.post("/answer", controller.submitAnswer);
+
+// Voice input fallback: transcribe a recorded answer with OpenAI Whisper when the
+// browser has no Web Speech API. Multipart audio, so multer parses it (the global
+// JSON parser leaves multipart bodies untouched).
+router.post("/transcribe", uploadAudio, controller.transcribeVoiceInput);
 router.post("/consent", controller.grantConsent);
 router.post("/pause", controller.pauseSession);
 router.post("/dismiss", controller.dismissSession);

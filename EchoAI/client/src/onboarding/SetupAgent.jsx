@@ -2,6 +2,24 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import { classifyExecuteError } from "./executeError.js";
+import { useVoiceInput, detectIsMobile } from "./useVoiceInput.js";
+
+const VOICE_MODE_KEY = "echoai_setup_voice_mode";
+
+function MicIcon({ className = "h-8 w-8" }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Z"
+        fill="currentColor"
+      />
+      <path
+        d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 // Full-screen AI Setup Agent. Runs a short conversational interview, then — with
 // explicit consent — configures the user's account server-side by orchestrating
@@ -69,6 +87,27 @@ export default function SetupAgent({ onClose, onExitToSection }) {
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Voice input: default to voice on mobile (typing is harder) and text on
+  // desktop, but honor a stored preference. Persisted so it survives reloads.
+  const [isMobile] = useState(detectIsMobile);
+  const [voiceMode, setVoiceMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem(VOICE_MODE_KEY);
+      if (stored === "voice") return true;
+      if (stored === "text") return false;
+    } catch {
+      /* localStorage unavailable — fall back to device default */
+    }
+    return detectIsMobile();
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(VOICE_MODE_KEY, voiceMode ? "voice" : "text");
+    } catch {
+      /* ignore */
+    }
+  }, [voiceMode]);
 
   const [steps, setSteps] = useState([]);
   const [results, setResults] = useState({}); // key -> { status, detail }
@@ -233,27 +272,53 @@ export default function SetupAgent({ onClose, onExitToSection }) {
 
   // ---- Interview -------------------------------------------------------------
 
-  async function submitAnswer(e) {
-    e.preventDefault();
-    if (!answer.trim() || busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const data = await api.submitSetupAnswer(sessionId, answer.trim());
-      setSession(data.session);
-      setAnswer("");
-      if (data.question && data.question.complete) {
-        setQuestion(data.question);
-        setPhase("consent");
-      } else {
-        setQuestion(data.question);
+  // Submit the given text (or the current answer field). Accepting an explicit
+  // value lets voice auto-submit pass its transcript directly, avoiding a race
+  // with the async `answer` state update.
+  const doSubmit = useCallback(
+    async (raw) => {
+      const value = (raw != null ? raw : answer).trim();
+      if (!value || busy) return;
+      setBusy(true);
+      setError("");
+      try {
+        const data = await api.submitSetupAnswer(sessionId, value);
+        setSession(data.session);
+        setAnswer("");
+        if (data.question && data.question.complete) {
+          setQuestion(data.question);
+          setPhase("consent");
+        } else {
+          setQuestion(data.question);
+        }
+      } catch (err) {
+        setError(err.message || "Could not send your answer.");
+      } finally {
+        setBusy(false);
       }
-    } catch (err) {
-      setError(err.message || "Could not send your answer.");
-    } finally {
-      setBusy(false);
-    }
+    },
+    [answer, busy, sessionId],
+  );
+
+  function submitAnswer(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    doSubmit();
   }
+
+  // Voice engine: transcript populates the answer field for review/edit; on
+  // mobile a natural pause auto-submits so users don't have to tap twice.
+  const voice = useVoiceInput({
+    onTranscript: (text) => setAnswer(text),
+    onAutoSubmit: (text) => doSubmit(text),
+    isMobile,
+  });
+
+  // Stop any live capture when the user switches to text mode or leaves the
+  // interview, so the mic never keeps recording out of view.
+  const stopVoice = voice.stop;
+  useEffect(() => {
+    if (!voiceMode || phase !== "interview") stopVoice();
+  }, [voiceMode, phase, stopVoice]);
 
   // ---- Consent ---------------------------------------------------------------
 
@@ -459,15 +524,45 @@ export default function SetupAgent({ onClose, onExitToSection }) {
           <p className="text-sm text-white/60">I&apos;ll set up your account for you.</p>
         </div>
       </div>
-      {phase !== "done" && (
-        <button
-          onClick={skipSetup}
-          disabled={busy}
-          className="text-sm text-white/50 hover:text-white/80 disabled:opacity-50"
-        >
-          Skip for now
-        </button>
-      )}
+      <div className="flex items-center gap-4">
+        {phase === "interview" && voice.supported ? (
+          <div
+            role="group"
+            aria-label="Answer input mode"
+            className="flex items-center rounded-full border border-white/15 bg-white/5 p-0.5 text-xs font-semibold"
+          >
+            <button
+              type="button"
+              onClick={() => setVoiceMode(true)}
+              aria-pressed={voiceMode}
+              className={`rounded-full px-3 py-1.5 transition ${
+                voiceMode ? "bg-teal-500 text-black" : "text-white/60 hover:text-white"
+              }`}
+            >
+              🎤 Voice
+            </button>
+            <button
+              type="button"
+              onClick={() => setVoiceMode(false)}
+              aria-pressed={!voiceMode}
+              className={`rounded-full px-3 py-1.5 transition ${
+                !voiceMode ? "bg-teal-500 text-black" : "text-white/60 hover:text-white"
+              }`}
+            >
+              ⌨️ Text
+            </button>
+          </div>
+        ) : null}
+        {phase !== "done" && (
+          <button
+            onClick={skipSetup}
+            disabled={busy}
+            className="text-sm text-white/50 hover:text-white/80 disabled:opacity-50"
+          >
+            Skip for now
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -483,6 +578,11 @@ export default function SetupAgent({ onClose, onExitToSection }) {
             {question && question.suggestion ? (
               <p className="mt-3 text-sm text-teal-300/80">{question.suggestion}</p>
             ) : null}
+            {voice.supported ? (
+              <p className="mt-3 text-sm text-white/50">
+                You can speak your answers or type them — whichever feels more natural.
+              </p>
+            ) : null}
             <form onSubmit={submitAnswer} className="mt-8">
               <textarea
                 autoFocus
@@ -492,9 +592,57 @@ export default function SetupAgent({ onClose, onExitToSection }) {
                   if (e.key === "Enter" && !e.shiftKey) submitAnswer(e);
                 }}
                 rows={3}
-                placeholder="Type your answer…"
+                placeholder={
+                  voiceMode && voice.supported ? "Speak your answer, or type it here…" : "Type your answer…"
+                }
                 className="w-full resize-none rounded-xl border border-white/15 bg-black/40 p-4 text-lg text-white outline-none focus:border-teal-400"
               />
+
+              {voiceMode && voice.supported ? (
+                <div className="mt-6 flex flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={voice.toggle}
+                    disabled={busy || voice.transcribing}
+                    aria-pressed={voice.recording}
+                    aria-label={voice.recording ? "Stop recording" : "Start voice input"}
+                    className={`relative flex h-20 w-20 items-center justify-center rounded-full text-white shadow-lg transition disabled:opacity-50 ${
+                      voice.recording
+                        ? "bg-red-500 hover:bg-red-400"
+                        : "bg-teal-500 text-black hover:bg-teal-400"
+                    }`}
+                  >
+                    {voice.recording ? (
+                      <span className="absolute inset-0 animate-ping rounded-full bg-red-500 opacity-60" />
+                    ) : null}
+                    <MicIcon className="relative h-8 w-8" />
+                  </button>
+
+                  {voice.recording ? (
+                    <div className="flex items-center gap-2 text-red-400">
+                      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+                      <span className="font-semibold">Listening…</span>
+                    </div>
+                  ) : voice.transcribing ? (
+                    <span className="text-sm text-white/60">Transcribing…</span>
+                  ) : (
+                    <span className="text-sm text-white/50">
+                      {isMobile ? "Tap to speak" : "Click to speak"}
+                    </span>
+                  )}
+
+                  <span className="text-xs text-white/40">
+                    {voice.method === "webspeech"
+                      ? "⚡ Instant voice recognition"
+                      : "Voice transcription"}
+                  </span>
+
+                  {voice.error ? (
+                    <p className="max-w-sm text-center text-sm text-red-400">{voice.error}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
               {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
               <div className="mt-4 flex justify-end">
                 <button
@@ -537,6 +685,14 @@ export default function SetupAgent({ onClose, onExitToSection }) {
               like connecting Google Calendar — will always ask for your approval on the provider&apos;s
               own screen. Features not on your plan are skipped. This permission ends the moment setup
               finishes.
+              {voiceMode && voice.supported ? (
+                <>
+                  {" "}
+                  If you answered by voice, your spoken answers were processed only to set up your
+                  account. You can switch to text mode any time from the toggle at the top of the
+                  screen.
+                </>
+              ) : null}
             </div>
             {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
             <div className="mt-8 flex flex-wrap gap-3">

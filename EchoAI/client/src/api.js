@@ -849,4 +849,28 @@ export const api = {
     }
     return data;
   },
+
+  // Setup Agent voice-input fallback (protected). Used only when the browser has
+  // no Web Speech API: sends the recorded answer as multipart audio and returns
+  // { text }. Content-Type is left unset so the browser adds the multipart
+  // boundary.
+  transcribeSetupVoice: async (audioBlob) => {
+    const headers = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const form = new FormData();
+    form.append("audio", audioBlob, "answer.webm");
+    const res = await fetch(`${BASE_URL}/api/setup-agent/transcribe`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `Request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  },
 };

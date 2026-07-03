@@ -14,6 +14,7 @@ const adCreativeStudioController = require("../controllers/adCreativeStudioContr
 const emailMarketingController = require("../controllers/emailMarketingController");
 const feedbackController = require("../controllers/feedbackController");
 const { generateKeywordSuggestions } = require("../prompts/seoContentPrompt");
+const voiceController = require("../controllers/voiceController");
 
 // ---------------------------------------------------------------------------
 // AI helpers (real Anthropic; malformed output → 502, never guessed)
@@ -1294,9 +1295,31 @@ async function getLatestSession(req, res) {
   }
 }
 
+/**
+ * POST /api/setup-agent/transcribe  (auth → lockout → requireOwner)
+ * Fallback transcription for the Setup Agent's voice input, used when the
+ * browser has no Web Speech API. Accepts a recorded audio blob ("audio"),
+ * transcribes it with the existing OpenAI Whisper infrastructure, and returns
+ * { text }. AI/upstream failures map to 502 (never mocked), matching the rest
+ * of the Setup Agent.
+ */
+async function transcribeVoiceInput(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ error: "An audio recording is required" });
+  }
+  try {
+    const text = await voiceController.transcribeAudio(req.file);
+    return res.json({ text: typeof text === "string" ? text.trim() : "" });
+  } catch (err) {
+    console.error("Setup agent transcription error:", err.message);
+    return res.status(502).json({ error: "Could not transcribe your voice. Please try again or type your answer." });
+  }
+}
+
 module.exports = {
   initiateSession,
   submitAnswer,
+  transcribeVoiceInput,
   grantConsent,
   executeNextAction,
   pauseSession,

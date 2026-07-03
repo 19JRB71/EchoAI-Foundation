@@ -26,3 +26,16 @@ and attach the Bearer token manually (see `textToSpeech`/`speechToText`).
 Replit preview iframe (no `allow="microphone"`) — voice only works in a real
 browser tab / deployed app; show a hint and fall back to typing. TTS autoplay
 after an async fetch can be blocked; offer a per-message replay button.
+
+**Setup Agent voice input (separate from the Pro-gated chatbot voice):** the
+Setup Agent adds its own `POST /api/setup-agent/transcribe` (Whisper fallback,
+used only when the browser lacks the Web Speech API). It reuses
+`voiceController.transcribeAudio` + the shared `middleware/audioUpload.js` multer
+(25MB, `audio/*` only), but is **owner-only setup, NOT `voice_chatbot`-gated** —
+onboarding runs on every tier, so gating it would break Starter setup.
+Whisper failure → **502** (setup-agent AI convention), not 500. Web Speech is
+primary/real-time; method is detected once on load. **jsdom has no
+SpeechRecognition/MediaRecorder → voice `supported=false` → text mode**, which is
+why the placeholder `Type your answer…` and the existing SetupAgent tests stay
+green; force voice on by mocking `window.SpeechRecognition` + setting the
+`echoai_setup_voice_mode` localStorage key.
