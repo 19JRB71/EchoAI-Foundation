@@ -178,6 +178,33 @@ async function reloadSession(sessionId) {
   return rows[0];
 }
 
+// Persist completed_steps for an in-flight run, but ONLY while the session is
+// still 'in_progress'. A concurrent /pause or /dismiss (which flip status with a
+// plain UPDATE that does not consult the execution lease) may commit while this
+// step is genuinely mid-run; the status guard makes this write a no-op in that
+// case so an in-flight step can never clobber a lifecycle change the user just
+// made. Returns the updated row, or null when the session is no longer runnable.
+async function writeCompletedSteps(sessionId, completed) {
+  const { rows } = await db.query(
+    `UPDATE setup_sessions SET completed_steps = $1::jsonb, updated_at = NOW()
+       WHERE session_id = $2 AND status = 'in_progress'
+       RETURNING *`,
+    [JSON.stringify(completed), sessionId],
+  );
+  return rows[0] || null;
+}
+
+// Uniform response when a lifecycle change (pause/dismiss) raced an in-flight
+// step and won: report the session's real current state instead of pretending
+// the step advanced the run. 409 = the execute conflicted with that change.
+async function respondCancelledMidStep(res, sessionId) {
+  const current = await reloadSession(sessionId);
+  return res.status(409).json({
+    error: "This setup session was paused or dismissed while a step was running.",
+    session: serializeSession(current),
+  });
+}
+
 /**
  * Ordered action definitions. `feature` (a key in config/tiers FEATURES) gates the
  * action; null means baseline (available on every paid plan). Each `run` returns
@@ -782,14 +809,21 @@ async function executeNextAction(req, res) {
     const nextAction = ACTIONS.find((a) => !completed.includes(a.key));
 
     if (!nextAction) {
-      // Everything done — finalize and auto-revoke consent.
+      // Everything done — finalize and auto-revoke consent. Guarded on
+      // status = 'in_progress' so a pause/dismiss that committed while this step
+      // ran can never be resurrected back to 'completed' (the "dismissed → later
+      // completed" flip). If the guard matched nothing, the session was cancelled
+      // mid-flight; report its real state instead of a bogus completion.
       const finalized = await db.query(
         `UPDATE setup_sessions
            SET status = 'completed', consent_granted = FALSE, completed_at = NOW(), updated_at = NOW()
-         WHERE session_id = $1
+         WHERE session_id = $1 AND status = 'in_progress'
          RETURNING *`,
         [session.session_id],
       );
+      if (finalized.rows.length === 0) {
+        return respondCancelledMidStep(res, session.session_id);
+      }
       return res.json({
         allComplete: true,
         session: serializeSession(finalized.rows[0]),
@@ -799,11 +833,8 @@ async function executeNextAction(req, res) {
     // Explicit skip of the current pending action (e.g. user declines an OAuth handoff).
     if (skip) {
       completed.push(nextAction.key);
-      const updated = await db.query(
-        `UPDATE setup_sessions SET completed_steps = $1::jsonb, updated_at = NOW()
-         WHERE session_id = $2 RETURNING *`,
-        [JSON.stringify(completed), session.session_id],
-      );
+      const updatedRow = await writeCompletedSteps(session.session_id, completed);
+      if (!updatedRow) return respondCancelledMidStep(res, session.session_id);
       const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
       return res.json({
         allComplete: false,
@@ -811,7 +842,7 @@ async function executeNextAction(req, res) {
         status: "skipped",
         detail: "Skipped.",
         remaining,
-        session: serializeSession(updated.rows[0]),
+        session: serializeSession(updatedRow),
       });
     }
 
@@ -821,11 +852,8 @@ async function executeNextAction(req, res) {
       const allowed = isActionAllowed(nextAction, tier, role);
       if (!allowed) {
         completed.push(nextAction.key);
-        const updated = await db.query(
-          `UPDATE setup_sessions SET completed_steps = $1::jsonb, updated_at = NOW()
-           WHERE session_id = $2 RETURNING *`,
-          [JSON.stringify(completed), session.session_id],
-        );
+        const updatedRow = await writeCompletedSteps(session.session_id, completed);
+        if (!updatedRow) return respondCancelledMidStep(res, session.session_id);
         const feat = FEATURES[nextAction.feature] || { name: nextAction.label, tier: "a higher" };
         const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
         return res.json({
@@ -834,7 +862,7 @@ async function executeNextAction(req, res) {
           status: "skipped",
           detail: `Skipped — needs the ${feat.name} feature (${feat.tier} plan).`,
           remaining,
-          session: serializeSession(updated.rows[0]),
+          session: serializeSession(updatedRow),
         });
       }
     }
@@ -860,11 +888,8 @@ async function executeNextAction(req, res) {
     }
 
     completed.push(nextAction.key);
-    const updated = await db.query(
-      `UPDATE setup_sessions SET completed_steps = $1::jsonb, updated_at = NOW()
-       WHERE session_id = $2 RETURNING *`,
-      [JSON.stringify(completed), session.session_id],
-    );
+    const updatedRow = await writeCompletedSteps(session.session_id, completed);
+    if (!updatedRow) return respondCancelledMidStep(res, session.session_id);
     const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
     return res.json({
       allComplete: false,
@@ -872,7 +897,7 @@ async function executeNextAction(req, res) {
       status: outcome.status,
       detail: outcome.detail,
       remaining,
-      session: serializeSession(updated.rows[0]),
+      session: serializeSession(updatedRow),
     });
   } catch (err) {
     const status = err.statusCode || 500;

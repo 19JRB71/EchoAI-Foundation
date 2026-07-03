@@ -43,7 +43,11 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const anthropicModule = require("../config/anthropic");
 const setupAgentRoutes = require("../routes/setupAgentRoutes");
-const { EXECUTION_LEASE_SECONDS } = require("../controllers/setupAgentController");
+const {
+  EXECUTION_LEASE_SECONDS,
+  executeNextAction,
+  ACTIONS,
+} = require("../controllers/setupAgentController");
 
 // ---------------------------------------------------------------------------
 // Deterministic AI stub — replaces the shared Anthropic singleton's create().
@@ -715,4 +719,221 @@ test("concurrent /execute calls for one session run the step exactly once (HTTP 
     1,
     "concurrent /execute must create exactly one brand (no duplicated side effect)",
   );
+});
+
+// ---------------------------------------------------------------------------
+// Lifecycle-vs-execute interleaving.
+//
+// /pause and /dismiss flip status (and dismiss revokes consent) with a plain
+// UPDATE that does not consult the execution lease, while an in-flight /execute
+// still writes completed_steps and — when the last step finishes — flips
+// status='completed'. If those execute writes ignored the lifecycle status, a
+// pause/dismiss that landed mid-step could be silently clobbered: a "dismissed"
+// session could be resurrected to "completed", or a cancelled run could keep
+// recording progress. These tests fire /pause and /dismiss while a step is
+// genuinely mid-run (lease held via the AI-stub delay trick) and assert the
+// resulting state is coherent under both orderings.
+// ---------------------------------------------------------------------------
+
+// Wrap the AI stub so create_brand_profile's synthesis call blocks for `ms`,
+// holding the execution lease across the delay. Returns a restore fn.
+function delayBrandSynthesis(ms) {
+  const inner = anthropicModule.anthropic.messages.create;
+  anthropicModule.anthropic.messages.create = async (args) => {
+    if (String(args.system || "").includes("extracting a structured brand profile")) {
+      await sleep(ms);
+    }
+    return inner(args);
+  };
+  return () => {
+    anthropicModule.anthropic.messages.create = inner;
+  };
+}
+
+// Read the raw setup_sessions row (as the requireSetupConsent middleware would).
+async function loadSessionRow(sessionId) {
+  const { rows } = await db.query("SELECT * FROM setup_sessions WHERE session_id = $1", [sessionId]);
+  return rows[0];
+}
+
+// Invoke executeNextAction directly with a hand-built req/res, so we can hand it
+// a *stale* in_progress session snapshot (exactly what the middleware attaches)
+// and model the TOCTOU where a pause/dismiss commits after that read but before
+// the handler's finalize UPDATE.
+function invokeExecute({ userId, setupSession, body = {} }) {
+  return new Promise((resolve, reject) => {
+    const req = { user: { userId }, setupSession, body };
+    const res = {
+      statusCode: 200,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        resolve({ status: this.statusCode, body: payload });
+      },
+    };
+    Promise.resolve(executeNextAction(req, res)).catch(reject);
+  });
+}
+
+test("dismiss during an in-flight step cancels coherently (no resurrection to completed)", async () => {
+  const { userId, token } = await createUser({ tier: "pro" });
+  const session = await completeInterview(token);
+  await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  const sessionId = session.sessionId;
+
+  // Make the first step (create_brand_profile) slow so the lease is genuinely
+  // held mid-run when dismiss lands. Fire /execute without awaiting, wait for the
+  // lease to be claimed and the step to be mid-flight, then /dismiss.
+  const restore = delayBrandSynthesis(400);
+  try {
+    const executing = apiRequest(token, "POST", "/execute", { sessionId });
+    await sleep(120); // lease claimed; step is inside the 400ms synthesis delay
+
+    const dismiss = await apiRequest(token, "POST", "/dismiss", { sessionId });
+    assert.equal(dismiss.status, 200, `dismiss failed: ${JSON.stringify(dismiss.body)}`);
+    assert.equal(dismiss.body.session.status, "dismissed");
+    assert.equal(dismiss.body.session.consentGranted, false, "dismiss must revoke consent");
+
+    const execRes = await executing;
+    // The in-flight step ran, but its completed_steps write is guarded on
+    // status='in_progress', so it could not advance a cancelled run. It reports a
+    // 409 conflict carrying the real (dismissed) session — never a false success.
+    assert.equal(execRes.status, 409, `execute should conflict, got: ${JSON.stringify(execRes.body)}`);
+    assert.equal(execRes.body.session.status, "dismissed");
+  } finally {
+    restore();
+  }
+
+  // Final state is coherent under this ordering: dismissed + consent revoked, and
+  // NOT resurrected to completed by the in-flight step.
+  const finalRow = await loadSessionRow(sessionId);
+  assert.equal(finalRow.status, "dismissed", "an in-flight step must not un-dismiss the session");
+  assert.equal(finalRow.consent_granted, false, "consent must stay revoked after dismiss");
+
+  // The in-flight step's side effect (brand creation) is idempotent — exactly one
+  // brand exists, never a duplicate.
+  const brands = await db.query("SELECT brand_id FROM brands WHERE user_id = $1", [userId]);
+  assert.equal(brands.rows.length, 1, "dismiss mid-step must not duplicate the brand side effect");
+
+  // The dismissed session is terminal — a late /execute is refused by the guard.
+  const late = await apiRequest(token, "POST", "/execute", { sessionId });
+  assert.equal(late.status, 409, "a dismissed session must reject further execution");
+});
+
+test("pause during an in-flight step is preserved (not overwritten by the step)", async () => {
+  const { userId, token } = await createUser({ tier: "pro" });
+  const session = await completeInterview(token);
+  await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  const sessionId = session.sessionId;
+
+  const restore = delayBrandSynthesis(400);
+  try {
+    const executing = apiRequest(token, "POST", "/execute", { sessionId });
+    await sleep(120);
+
+    const pause = await apiRequest(token, "POST", "/pause", { sessionId });
+    assert.equal(pause.status, 200, `pause failed: ${JSON.stringify(pause.body)}`);
+
+    const execRes = await executing;
+    // The step ran, but its guarded write can't advance a session the user paused.
+    assert.equal(execRes.status, 409, `execute should conflict, got: ${JSON.stringify(execRes.body)}`);
+    assert.equal(execRes.body.session.status, "paused");
+  } finally {
+    restore();
+  }
+
+  // The pause is preserved (not flipped to completed/in_progress by the step).
+  const finalRow = await loadSessionRow(sessionId);
+  assert.equal(finalRow.status, "paused", "an in-flight step must not overwrite a pause");
+  assert.equal(finalRow.consent_granted, true, "pause must not revoke consent");
+
+  // The paused session resumes cleanly and finishes — the idempotent steps find
+  // the already-created brand and duplicate nothing.
+  const resume = await apiRequest(token, "POST", "/session", {});
+  assert.equal(resume.status, 200);
+  assert.equal(resume.body.resumed, true);
+  const { finalSession } = await runExecuteLoop(token, sessionId);
+  assert.equal(finalSession.status, "completed", "a resumed paused session must complete");
+
+  const brands = await db.query("SELECT brand_id FROM brands WHERE user_id = $1", [userId]);
+  assert.equal(brands.rows.length, 1, "pause + resume must not duplicate the brand side effect");
+});
+
+// The finalize UPDATE (status → 'completed') is the sharpest corruption risk:
+// the requireSetupConsent middleware reads the session at request start, so a
+// dismiss that commits AFTER that read but BEFORE the handler's finalize UPDATE
+// leaves the handler holding a stale in_progress snapshot. We reproduce that
+// exact interleaving deterministically by invoking executeNextAction with the
+// stale snapshot after committing the dismiss/pause, proving the finalize guard
+// refuses to resurrect a cancelled session.
+test("finalize can't resurrect a session dismissed after the consent-middleware read (TOCTOU)", async () => {
+  const { userId, token } = await createUser({ tier: "pro" });
+  const session = await completeInterview(token);
+  await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  const sessionId = session.sessionId;
+
+  // Bring the session to "every step done, still in_progress" so the next execute
+  // would hit the finalize branch. Run through the real steps, then mark all
+  // action keys complete (the pending gated survey included) so nothing is left.
+  await runUntilStep(token, sessionId, "email_preferences");
+  await db.query(
+    `UPDATE setup_sessions
+       SET completed_steps = $2::jsonb, status = 'in_progress', consent_granted = TRUE,
+           executing = FALSE, executing_at = NULL, executing_token = NULL
+     WHERE session_id = $1`,
+    [sessionId, JSON.stringify(ACTIONS.map((a) => a.key))],
+  );
+
+  // Model the middleware read: a fresh in_progress snapshot the handler will act on.
+  const staleSnapshot = await loadSessionRow(sessionId);
+  assert.equal(staleSnapshot.status, "in_progress");
+
+  // The user dismisses AFTER that read but BEFORE the finalize UPDATE.
+  const dismiss = await apiRequest(token, "POST", "/dismiss", { sessionId });
+  assert.equal(dismiss.status, 200);
+  assert.equal(dismiss.body.session.status, "dismissed");
+
+  // The in-flight finalize now runs against the stale in_progress snapshot.
+  const execRes = await invokeExecute({ userId, setupSession: staleSnapshot, body: { sessionId } });
+  // The finalize is guarded on status='in_progress', so it matches no row and
+  // does NOT flip the dismissed session to completed. It reports the real state.
+  assert.equal(execRes.status, 409, `finalize should conflict, got: ${JSON.stringify(execRes.body)}`);
+  assert.notEqual(execRes.body.allComplete, true, "finalize must not claim completion of a dismissed run");
+  assert.equal(execRes.body.session.status, "dismissed");
+
+  const finalRow = await loadSessionRow(sessionId);
+  assert.equal(finalRow.status, "dismissed", "finalize must never un-dismiss the session");
+  assert.equal(finalRow.consent_granted, false, "consent must stay revoked after dismiss");
+});
+
+test("finalize can't complete a session paused after the consent-middleware read (TOCTOU)", async () => {
+  const { userId, token } = await createUser({ tier: "pro" });
+  const session = await completeInterview(token);
+  await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  const sessionId = session.sessionId;
+
+  await runUntilStep(token, sessionId, "email_preferences");
+  await db.query(
+    `UPDATE setup_sessions
+       SET completed_steps = $2::jsonb, status = 'in_progress', consent_granted = TRUE,
+           executing = FALSE, executing_at = NULL, executing_token = NULL
+     WHERE session_id = $1`,
+    [sessionId, JSON.stringify(ACTIONS.map((a) => a.key))],
+  );
+
+  const staleSnapshot = await loadSessionRow(sessionId);
+
+  const pause = await apiRequest(token, "POST", "/pause", { sessionId });
+  assert.equal(pause.status, 200);
+
+  const execRes = await invokeExecute({ userId, setupSession: staleSnapshot, body: { sessionId } });
+  assert.equal(execRes.status, 409, `finalize should conflict, got: ${JSON.stringify(execRes.body)}`);
+  assert.notEqual(execRes.body.allComplete, true, "finalize must not complete a paused run");
+  assert.equal(execRes.body.session.status, "paused");
+
+  const finalRow = await loadSessionRow(sessionId);
+  assert.equal(finalRow.status, "paused", "finalize must not overwrite a pause with completion");
+  assert.equal(finalRow.consent_granted, true, "pause must not revoke consent");
 });
