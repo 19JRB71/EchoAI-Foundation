@@ -107,6 +107,22 @@ export default function SetupAgent({ onClose }) {
           res = await api.runSetupAction(sid);
         } catch (err) {
           setRunningKey(null);
+          // A 409 carrying the real session means a user-initiated pause/dismiss
+          // raced this step and won — the cancellation was honored server-side,
+          // so reflect the true state instead of a scary error screen.
+          const cancelledSession = err && err.status === 409 && err.data && err.data.session;
+          if (cancelledSession) {
+            const s = err.data.session;
+            if (s.status === "dismissed") {
+              onClose();
+              return;
+            }
+            if (s.status === "paused") {
+              setSession(s);
+              setPhase("paused");
+              return;
+            }
+          }
           setError(err.message || "A setup step failed. You can retry.");
           return;
         }
@@ -125,7 +141,7 @@ export default function SetupAgent({ onClose }) {
         done.add(step.key);
       }
     },
-    [],
+    [onClose],
   );
 
   // ---- Bootstrap / resume ----------------------------------------------------
@@ -258,6 +274,34 @@ export default function SetupAgent({ onClose }) {
     }
   }
 
+  // ---- Resume (after a mid-step pause) ---------------------------------------
+
+  async function resumeSetup() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      // startSetupSession flips a paused session back to in_progress and returns
+      // its current state (including already-completed steps); the server resumes
+      // idempotently, so we just re-seed progress and continue the run.
+      const data = await api.startSetupSession();
+      const s = data.session;
+      setSession(s);
+      setSteps(s.steps || []);
+      if (Array.isArray(s.completedSteps) && s.completedSteps.length > 0) {
+        const seeded = {};
+        for (const key of s.completedSteps) seeded[key] = { status: "done", detail: "Done." };
+        setResults(seeded);
+      }
+      await runLoop(s.sessionId);
+    } catch (err) {
+      setError(err.message || "Could not resume setup.");
+      setPhase("error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // ---- Dismiss ---------------------------------------------------------------
 
   async function skipSetup() {
@@ -299,6 +343,37 @@ export default function SetupAgent({ onClose }) {
         >
           Close
         </button>
+      </div>,
+    );
+  }
+
+  if (phase === "paused") {
+    return shell(
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
+        <Avatar />
+        <div>
+          <h2 className="text-2xl font-bold">Setup paused</h2>
+          <p className="mx-auto mt-2 max-w-md text-white/70">
+            No problem — nothing was lost. Your progress is saved and you can pick up right where you
+            left off whenever you&apos;re ready.
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-3">
+          <button
+            onClick={resumeSetup}
+            disabled={busy}
+            className="rounded-lg bg-teal-500 px-6 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+          >
+            {busy ? "Resuming…" : "Resume setup"}
+          </button>
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-lg bg-white/10 px-6 py-2.5 font-semibold hover:bg-white/20 disabled:opacity-50"
+          >
+            Not now
+          </button>
+        </div>
       </div>,
     );
   }
