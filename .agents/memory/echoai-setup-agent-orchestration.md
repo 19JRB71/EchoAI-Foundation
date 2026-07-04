@@ -74,6 +74,16 @@ browser/cursor automation. OAuth stays user-driven (`needs_connection` handoff).
   "no skips" assertion (the e2e runner auto-skips any needs_connection step) —
   extend that set when adding another connection-dependent step, or the test will
   read the skip as a tier regression.
+- **A single failed step never blocks setup completion.** `executeNextAction`
+  wraps ONLY `nextAction.run(...)` in a local try/catch: any throw → log, mark the
+  step completed, return status 'skipped' with the action's optional `skipMessage`
+  (else a generic fallback), and continue to the next step. The lost-lease/cancel
+  race is still honored (guarded `writeCompletedSteps` null → `respondCancelledMidStep`)
+  and the outer catch still surfaces genuine infra errors (reloadSession/DB). **Why:**
+  onboarding must always reach `allComplete`; e.g. if the AI drip designer fails
+  after its retries the user is told to set email up later, not shown an error wall.
+  Downstream brand-scoped steps already self-skip when an upstream step (e.g.
+  create_brand_profile) is skipped, so completion stays coherent.
 - **AI failures → 502, never mocked** (matches the platform-wide convention).
 - **First action (create_brand_profile) is crash-replay safe.** It persists
   `discovery_session_id` on the setup_sessions row BEFORE calling brand-discovery

@@ -719,6 +719,10 @@ const ACTIONS = [
     key: "email_preferences",
     label: "Setting up your email campaigns",
     feature: "email_marketing",
+    // If the AI drip designer fails even after its retries, don't stop setup —
+    // record this step as skipped with a friendly, actionable message.
+    skipMessage:
+      "We'll set up your email campaigns later — you can do this from the Email Marketing section.",
     async run({ userId, session, answers }) {
       if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
       // Idempotency: don't recreate the welcome series if one already exists.
@@ -1131,7 +1135,30 @@ async function executeNextAction(req, res) {
     // Run the action. A fresh copy of the session row is passed so create_brand_profile
     // can persist and reuse brand_id within the run.
     const liveSession = await reloadSession(session.session_id);
-    const outcome = await nextAction.run({ userId, session: liveSession, answers });
+    let outcome;
+    try {
+      outcome = await nextAction.run({ userId, session: liveSession, answers });
+    } catch (stepErr) {
+      // Never block setup completion on a single failed step. If a step throws
+      // (e.g. the AI drip designer fails even after its retries), record it as
+      // skipped with a friendly message and move on to the next step instead of
+      // aborting the whole run. The failure is logged for diagnosis.
+      console.error(`Setup agent step "${nextAction.key}" failed (skipping):`, stepErr.message);
+      completed.push(nextAction.key);
+      const skippedRow = await writeCompletedSteps(session.session_id, completed);
+      if (!skippedRow) return respondCancelledMidStep(res, session.session_id);
+      const remainingAfterSkip = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
+      return res.json({
+        allComplete: false,
+        step: { key: nextAction.key, label: nextAction.label },
+        status: "skipped",
+        detail:
+          nextAction.skipMessage ||
+          "We couldn't finish this step automatically — you can set it up later from your dashboard.",
+        remaining: remainingAfterSkip,
+        session: serializeSession(skippedRow),
+      });
+    }
 
     // needs_connection does NOT mark the step complete — the UI resolves the OAuth
     // handoff and calls execute again (or sends skip:true to move on).

@@ -741,6 +741,64 @@ test("concurrent /execute calls for one session run the step exactly once (HTTP 
   );
 });
 
+// A single AI-heavy step failing (e.g. the drip designer erroring after all its
+// upstream retries) must NEVER block setup completion: the step is recorded as
+// skipped with a friendly, actionable message and the run continues to
+// allComplete. This guards the "one failed step can't stop setup" guarantee.
+test("a failing step (drip designer) is skipped with a friendly message and setup still completes", async () => {
+  const { token } = await createUser({ tier: "pro" });
+  const session = await completeInterview(token);
+  await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
+  const sessionId = session.sessionId;
+
+  // Force the Drip Sequence Designer to fail as if all retries were exhausted.
+  const inner = anthropicModule.anthropic.messages.create;
+  anthropicModule.anthropic.messages.create = async (args) => {
+    if (String(args.system || "").includes("Drip Sequence Designer")) {
+      const err = new Error("AI provider unavailable");
+      err.status = 502;
+      throw err;
+    }
+    return inner(args);
+  };
+
+  // Drive /execute like the client, capturing the email step's full outcome.
+  let emailOutcome = null;
+  let finalSession = null;
+  let guard = 0;
+  try {
+    while (guard++ < 25) {
+      const res = await executeStep(token, { sessionId });
+      assert.equal(res.status, 200, `execute failed: ${JSON.stringify(res.body)}`);
+      const b = res.body;
+      if (b.allComplete) {
+        finalSession = b.session;
+        break;
+      }
+      if (b.status === "needs_connection") {
+        const skipRes = await executeStep(token, { sessionId, skip: true });
+        assert.equal(skipRes.status, 200, `skip failed: ${JSON.stringify(skipRes.body)}`);
+        if (skipRes.body.step && skipRes.body.step.key === "email_preferences") {
+          emailOutcome = skipRes.body;
+        }
+        continue;
+      }
+      if (b.step.key === "email_preferences") emailOutcome = b;
+    }
+  } finally {
+    anthropicModule.anthropic.messages.create = inner;
+  }
+
+  // The whole run finished despite the failed step.
+  assert.ok(finalSession, "setup should reach allComplete even when a step fails");
+
+  // The email step ran, was marked skipped (not fatal), and carried the friendly
+  // message pointing the user to the Email Marketing section.
+  assert.ok(emailOutcome, "email_preferences step should have been attempted");
+  assert.equal(emailOutcome.status, "skipped", "a failed drip step must be skipped, not fatal");
+  assert.match(emailOutcome.detail, /Email Marketing section/);
+});
+
 // ---------------------------------------------------------------------------
 // Lifecycle-vs-execute interleaving.
 //
