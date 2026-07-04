@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api";
+import EchoBrain from "./EchoBrain.jsx";
 
 // Echo — the persistent AI companion panel. Bottom-right on desktop (collapsible),
 // fullscreen on mobile. Three modes, surfaced as the header label:
@@ -154,6 +155,7 @@ export default function EchoCompanion({ autoOpen = false }) {
   const [connecting, setConnecting] = useState(false);
   const [recording, setRecording] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [showBrain, setShowBrain] = useState(false);
 
   const scrollRef = useRef(null);
   const mediaRef = useRef(null);
@@ -421,10 +423,23 @@ export default function EchoCompanion({ autoOpen = false }) {
             <ModePill mode={mode} />
           </div>
         </div>
-        <button type="button" style={styles.iconBtn} onClick={() => setOpen(false)} aria-label="Minimize">
-          –
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button
+            type="button"
+            style={styles.iconBtn}
+            onClick={() => setShowBrain(true)}
+            aria-label="Echo's memory and Autonomous Growth"
+            title="Memory & Autonomous Growth"
+          >
+            🧠
+          </button>
+          <button type="button" style={styles.iconBtn} onClick={() => setOpen(false)} aria-label="Minimize">
+            –
+          </button>
+        </div>
       </div>
+
+      {showBrain ? <EchoBrain onClose={() => setShowBrain(false)} /> : null}
 
       <div style={styles.body} ref={scrollRef}>
         {loading ? (

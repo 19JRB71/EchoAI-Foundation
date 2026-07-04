@@ -157,6 +157,20 @@ export const api = {
     return data;
   },
 
+  // AI Marketing Department — team roster, per-agent detail, Mission Control.
+  getAgents: () => request("/api/agents"),
+  getMissionControl: () => request("/api/agents/mission-control"),
+  getAgentDetail: (agentId) => request(`/api/agents/${agentId}`),
+
+  // Echo memory (persistent recall) + Autonomous Growth Mode.
+  getEchoMemory: () => request("/api/echo/memory"),
+  recallEchoMemory: (query) =>
+    request("/api/echo/memory/recall", { method: "POST", body: { query } }),
+  getEchoGrowth: () => request("/api/echo/growth"),
+  updateEchoGrowth: (settings) =>
+    request("/api/echo/growth", { method: "PUT", body: settings }),
+  getEchoGrowthActions: () => request("/api/echo/growth/actions"),
+
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),
   updateOnboarding: (payload) =>

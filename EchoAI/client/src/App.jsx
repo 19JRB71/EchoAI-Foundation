@@ -5,6 +5,8 @@ import Sidebar, { accentTierForSection } from "./components/Sidebar.jsx";
 import Spinner from "./components/Spinner.jsx";
 import TierBadge from "./components/TierBadge.jsx";
 import Login from "./sections/Login.jsx";
+import MissionControl from "./sections/MissionControl.jsx";
+import AiTeam from "./sections/AiTeam.jsx";
 import Overview from "./sections/Overview.jsx";
 import Leads from "./sections/Leads.jsx";
 import Campaigns from "./sections/Campaigns.jsx";
@@ -44,7 +46,7 @@ import EchoCompanion from "./companion/EchoCompanion.jsx";
 export default function App() {
   const navigate = useNavigate();
   const [authed, setAuthed] = useState(Boolean(getToken()));
-  const [section, setSection] = useState("overview");
+  const [section, setSection] = useState("missioncontrol");
   const [brands, setBrands] = useState([]);
   const [selectedBrandId, setSelectedBrandId] = useState("");
   const [loadingBrands, setLoadingBrands] = useState(false);
@@ -106,12 +108,28 @@ export default function App() {
     setSection("settings");
   }
 
+  // Whether the current user can actually open a given section. The Command
+  // Center (Mission Control / AI Team) is owner-only (its APIs are gated with
+  // requireOwner), and the admin console only renders for admins. Used to gate
+  // agent "Open workspace" CTAs and as a defensive guard in navigation.
+  const canOpenSection = useCallback(
+    (s) => {
+      if (!s) return false;
+      if ((s === "missioncontrol" || s === "aiteam") && isTeamMember) return false;
+      if (s === "admin") return isAdmin;
+      return true;
+    },
+    [isTeamMember, isAdmin],
+  );
+
   // Manual navigation (sidebar) resets the billing deep-link flags so Settings
-  // opens on its default Account tab without auto-opening the card form.
+  // opens on its default Account tab without auto-opening the card form. Targets
+  // the user can't open (owner-only / admin-only) fall back to the dashboard so
+  // an agent CTA or stale link can never land on a blank view.
   function handleSelectSection(next) {
     setBillingTab("account");
     setOpenPaymentModal(false);
-    setSection(next);
+    setSection(canOpenSection(next) ? next : "overview");
   }
 
   const handleLogout = useCallback(() => {
@@ -155,6 +173,11 @@ export default function App() {
           setIsAdmin(profile.role === "admin");
           setWorkspaceRole(profile.workspaceRole || "owner");
           setIsTeamMember(Boolean(profile.isTeamMember));
+          // Command Center is owner-only; send team members to the dashboard so
+          // they never land on a 403'ing default section.
+          if (Boolean(profile.isTeamMember)) {
+            setSection((s) => (s === "missioncontrol" || s === "aiteam" ? "overview" : s));
+          }
           setOwnerBusinessName(profile.ownerBusinessName || null);
           setUserEmail(profile.email || "");
           setBusinessName(profile.businessName || profile.ownerBusinessName || "");
@@ -314,7 +337,7 @@ export default function App() {
   function handleLogin(token) {
     setToken(token);
     setAuthed(true);
-    setSection("overview");
+    setSection("missioncontrol");
     // On first login, ask to enable push so the owner gets instant hot-lead
     // alerts on their phone. Best-effort — never blocks the login flow.
     enablePushNotifications(token).catch(() => {});
@@ -468,6 +491,12 @@ export default function App() {
                 loading={loadingBrands}
                 error={brandsError}
               />
+              {section === "missioncontrol" && (
+                <MissionControl onNavigate={handleSelectSection} />
+              )}
+              {section === "aiteam" && (
+                <AiTeam onNavigate={handleSelectSection} canOpenSection={canOpenSection} />
+              )}
               {section === "overview" && <Overview brandId={selectedBrandId} />}
               {section === "leads" && <Leads brandId={selectedBrandId} />}
               {section === "campaigns" && <Campaigns />}

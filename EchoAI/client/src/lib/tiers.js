@@ -17,9 +17,9 @@ export const TIER_RANK = {
 
 // Display metadata for the three sellable tiers.
 export const PLAN_META = {
-  starter: { tier: "starter", name: "Starter", monthlyPrice: 100, includedSeats: 1 },
-  pro: { tier: "pro", name: "Professional", monthlyPrice: 350, includedSeats: 5 },
-  enterprise: { tier: "enterprise", name: "Enterprise", monthlyPrice: 550, includedSeats: null },
+  starter: { tier: "starter", name: "Starter", monthlyPrice: 197, includedSeats: 1 },
+  pro: { tier: "pro", name: "Professional", monthlyPrice: 497, includedSeats: 5 },
+  enterprise: { tier: "enterprise", name: "Enterprise", monthlyPrice: 997, includedSeats: null },
 };
 
 // Sidebar sections that require a minimum tier. Sections not listed here are
@@ -97,6 +97,8 @@ export function requiredTierForSection(sectionKey) {
 // Keep in sync with the backend FEATURES map.
 export const SECTION_TIERS = {
   // Starter (baseline)
+  missioncontrol: "starter",
+  aiteam: "starter",
   overview: "starter",
   leads: "starter",
   campaigns: "starter",

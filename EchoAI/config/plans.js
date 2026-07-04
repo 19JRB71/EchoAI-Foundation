@@ -20,7 +20,7 @@ const PLANS = {
   starter: {
     tier: "starter",
     name: "Starter",
-    monthlyPrice: 100,
+    monthlyPrice: 197,
     // First seat is included in the base price; extra seats are $50/seat/mo.
     includedSeats: 1,
     seats: 1,
@@ -51,7 +51,7 @@ const PLANS = {
   pro: {
     tier: "pro",
     name: "Professional",
-    monthlyPrice: 350,
+    monthlyPrice: 497,
     includedSeats: 5,
     seats: 5,
     seatLabel: "Up to 5 users included",
@@ -72,7 +72,7 @@ const PLANS = {
   enterprise: {
     tier: "enterprise",
     name: "Enterprise",
-    monthlyPrice: 550,
+    monthlyPrice: 997,
     // Unlimited seats — never accrues per-seat add-on charges.
     includedSeats: null,
     seats: null,

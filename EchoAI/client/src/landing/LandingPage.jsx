@@ -259,7 +259,7 @@ function Pricing() {
   const tiers = [
     {
       name: "Starter",
-      price: "$100",
+      price: "$197",
       unit: "/month",
       tagline: "For solo operators",
       accent: "#3B82F6",
@@ -274,7 +274,7 @@ function Pricing() {
     },
     {
       name: "Professional",
-      price: "$350",
+      price: "$497",
       unit: "/month",
       tagline: "For growing teams",
       accent: "#8B5CF6",
@@ -289,7 +289,7 @@ function Pricing() {
     },
     {
       name: "Enterprise",
-      price: "$550",
+      price: "$997",
       unit: "/month",
       tagline: "For agencies & at scale",
       accent: "#F59E0B",

@@ -55,6 +55,16 @@ function TierPill({ tier, active = false, locked = false }) {
 // lock state is driven separately by SECTION_GATES.
 const NAV_GROUPS = [
   {
+    key: "command",
+    label: "Command Center",
+    icon: "g-command",
+    alwaysOpen: true,
+    items: [
+      { key: "missioncontrol", label: "Mission Control", icon: "missioncontrol" },
+      { key: "aiteam", label: "AI Team", icon: "aiteam" },
+    ],
+  },
+  {
     key: "overview",
     label: "Overview",
     icon: "g-overview",
@@ -140,6 +150,36 @@ function NavIcon({ name }) {
     stroke: "currentColor",
   };
   switch (name) {
+    case "missioncontrol":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0v-4.5m0-9V3m9 9h-4.5m-9 0H3m14.25 0a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z"
+          />
+        </svg>
+      );
+    case "aiteam":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
+          />
+        </svg>
+      );
+    case "g-command":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"
+          />
+        </svg>
+      );
     case "overview":
       return (
         <svg {...common}>
@@ -526,6 +566,9 @@ export default function Sidebar({
   const brandTeal = branding.primaryColor || "#14B8A6";
   const ctx = { tier, isAgencyOwner };
   const activeGroup = groupKeyForSection(section);
+  // Command Center (Mission Control / AI Team) is owner-only, so hide that group
+  // from team members — their APIs are gated with requireOwner.
+  const visibleGroups = isTeamMember ? NAV_GROUPS.filter((g) => g.key !== "command") : NAV_GROUPS;
 
   // Persisted open/closed state per group. First load: only the group with the
   // active section (plus always-open groups) is expanded to keep things compact.
@@ -592,7 +635,7 @@ export default function Sidebar({
         )}
 
         <nav className="flex flex-1 flex-col gap-3">
-          {NAV_GROUPS.map((group) => {
+          {visibleGroups.map((group) => {
             const open = Boolean(openGroups[group.key]) || group.key === activeGroup;
             const lockCount = groupLockCount(group, ctx);
             const lockTierColor = accentColor(groupLockTier(group, ctx));
@@ -717,7 +760,7 @@ export default function Sidebar({
 
       {/* ---------- Mobile bottom nav (group icons) ---------- */}
       <nav className="fixed inset-x-0 bottom-0 z-50 flex items-stretch justify-around border-t border-gray-800 bg-black md:hidden">
-        {NAV_GROUPS.map((group) => {
+        {visibleGroups.map((group) => {
           const isActiveGroup = group.key === activeGroup;
           const open = mobilePanel === group.key;
           const color = isActiveGroup ? brandTeal : undefined;
