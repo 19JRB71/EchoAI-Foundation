@@ -1,0 +1,28 @@
+Here's Prompt 56: Department Structure and Team Member Deep Dive for EchoAI:
+EchoAI is an AI-powered SaaS marketing platform. You've just transformed the dashboard into an AI Marketing Department with eight named team members. Now you need to make each team member clickable so users can drill down into their department and access all the tools and features that team member manages. The old sidebar navigation disappears completely and is replaced by navigating through team members and their departments.
+When a user clicks on a team member card from the AI Team screen or Mission Control they enter that team member's Department View. The Department View shows the team member's name, title, avatar, current status, a one sentence description of what they are working on right now, and a grid of department tools below.
+Build the following department structures for each team member.
+Echo — Marketing Director
+Department tools include Morning Briefing showing today's AI generated strategic brief, Autonomous Growth Mode showing current guardrails and recent autonomous actions, Memory showing searchable history of everything Echo remembers, Weekly Intelligence showing the customer intelligence report, and Team Overview showing all eight team members and their status.
+Scout — Research Specialist
+Department tools include Competitor Intelligence showing what competitors are doing and opportunities identified, Google and SEO showing keyword rankings and SEO recommendations, Market Trends showing trending topics and content opportunities in the business's niche, and Keyword Research showing recommended keywords for ads and content.
+Atlas — Advertising Manager
+Department tools include Facebook Campaigns showing all active campaigns with performance metrics, Google Ads showing keyword campaigns and performance, Ad Creative Studio showing all generated creative packages, Budget Overview showing total ad spend versus results and ROI, and the Facebook Setup Wizard for first time connection.
+Nova — Social Media Manager
+Department tools include Content Calendar showing the full monthly posting schedule, Social Posts showing all scheduled and published posts, Connected Accounts showing which platforms are connected, and Post Performance showing engagement metrics across all platforms.
+Pulse — CRM Manager
+Department tools include Leads showing the full CRM with temperature badges, Follow-Up Sequences showing all active automated sequences, Appointments showing the calendar and booking settings, Email Marketing showing campaigns and drip sequences, and SMS Marketing showing campaigns and conversations.
+Voice — AI Receptionist
+Department tools include Phone Agent showing call history and settings, Website Chatbot showing embed code and session history, Call History showing all inbound and outbound calls with summaries, and Voice Settings showing Twilio configuration and availability.
+Forge — Creative Director
+Department tools include Image Studio showing all generated images and the generation tool, Video Scripts showing all saved scripts and the generator, Ad Creatives showing all creative packages, and Sales Scripts showing all saved sales scripts.
+Sentinel — Oversight Agent
+Department tools include Health Monitor showing current platform health status, Auto-Fix Log showing everything Sentinel fixed automatically, Error History showing all past issues and their resolution, and Platform Status showing all integrations and their connection status. Note that Sentinel is only accessible to account owners and admins, not team members.
+Each department tool is a clickable card that opens the full feature. When a user clicks Leads inside Pulse's department they see the full leads CRM exactly as it exists today. When they click Facebook Campaigns inside Atlas they see the full campaigns section. All existing functionality is preserved — it is just accessed through the team member department structure instead of the sidebar.
+Add breadcrumb navigation at the top of every screen showing exactly where the user is. For example Home then Atlas then Facebook Campaigns. Clicking any breadcrumb navigates back to that level.
+Update the sidebar to be minimal. Instead of listing every feature the sidebar now shows only the eight team member names with their colored avatar icon and a status dot. Clicking a team member in the sidebar jumps directly to their department view. The sidebar also shows Mission Control at the top and Settings at the bottom. Nothing else. Clean and simple.
+Add a Back button on every department view and feature view so users can always get back to where they came from without getting lost.
+On mobile the sidebar collapses completely and navigation happens through the Mission Control screen and team member cards only.
+Wire every department tool to its existing backend feature. No new backend is needed — this is purely a navigation and presentation layer change that makes existing features accessible through team members instead of a sidebar menu.
+Rebuild the React client after all changes. Output all files created and updated.
+Ready to paste that into Replit?
