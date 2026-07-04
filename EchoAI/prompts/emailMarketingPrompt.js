@@ -15,7 +15,7 @@
  * upstream billing/rate failures, which the controller also maps to 502.
  */
 
-const { anthropic, MODEL } = require("../config/anthropic");
+const { anthropic, MODEL, createMessage, HEAVY_AI_TIMEOUT_MS } = require("../config/anthropic");
 
 const NUM_SUBJECTS = 3;
 const MIN_DRIP_EMAILS = 3;
@@ -186,17 +186,23 @@ async function generateDripSequence(brand, { goal, audienceSegment, numEmails })
     .filter(Boolean)
     .join("\n");
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 4096,
-    system,
-    messages: [
-      {
-        role: "user",
-        content: `Design the ${count}-email drip sequence for goal: ${goal}. Respond with only the JSON array.`,
-      },
-    ],
-  });
+  // Drip generation is AI-heavy (a full multi-email JSON sequence), so it gets a
+  // longer per-request timeout and automatic retry on transient upstream
+  // failures before the error ever reaches the user.
+  const response = await createMessage(
+    {
+      model: MODEL,
+      max_tokens: 4096,
+      system,
+      messages: [
+        {
+          role: "user",
+          content: `Design the ${count}-email drip sequence for goal: ${goal}. Respond with only the JSON array.`,
+        },
+      ],
+    },
+    { timeout: HEAVY_AI_TIMEOUT_MS, label: "Drip Sequence Designer" },
+  );
 
   const text = extractText(response);
   let emails;
