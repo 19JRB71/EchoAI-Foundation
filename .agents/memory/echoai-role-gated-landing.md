@@ -25,3 +25,19 @@ owner. Gating only the route (or only the default) leaves dead/403 views.
 **How to apply:** Any new default landing or cross-linking card in `App.jsx` /
 `Sidebar.jsx` — derive one `canOpenSection` predicate from `isTeamMember`/`isAdmin`
 and reuse it for nav filtering, the navigation guard, and every jump CTA.
+
+**Department-centric nav (team-member model).** When the dashboard is organized
+around agent "departments" (sidebar + Mission Control + AiTeam all call
+`onOpenDepartment(agentId)` → DepartmentView tool grid), add a SECOND predicate
+`canOpenDepartment(agentId)` alongside `canOpenSection`. Sentinel is the only
+staff-hidden department (owner/admin-only); gate it in every entry point:
+sidebar roster filter, `openDepartment` guard, the `/api/agents` roster (backend
+filters Sentinel for staff), AND the direct `section==="sentinelhealth"` render.
+
+**UI hiding ≠ backend authorization.** Hiding a department only removes the nav
+path. The health-monitor routes (`/api/health-monitor/:brandId/*`) stay
+auth+lockout+ownership only and resolve ownership via the team userId→owner
+remap, so staff CAN still hit those APIs directly. That is intentional: health
+monitoring is documented as workspace-wide ("all tiers, protects the account")
+and the staff TopBar health dot polls it. Do NOT add `requireOwner` there under a
+pure nav task — it would break the staff health dot and contradict that design.

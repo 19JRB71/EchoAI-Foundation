@@ -46,7 +46,7 @@ function when(iso) {
   }
 }
 
-function AgentDetailModal({ agentId, onClose, onNavigate, onConnectFacebook, canOpenSection }) {
+function AgentDetailModal({ agentId, onClose, onOpenDepartment, onConnectFacebook }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -155,14 +155,15 @@ function AgentDetailModal({ agentId, onClose, onNavigate, onConnectFacebook, can
               )}
             </div>
 
-            {!canOpenSection || canOpenSection(agent.section) ? (
-              <button
-                onClick={() => onNavigate && onNavigate(agent.section)}
-                className="mt-5 w-full rounded-lg border border-gray-700 py-2.5 text-sm font-semibold text-teal-300 hover:bg-gray-800"
-              >
-                Open {agent.name}'s workspace →
-              </button>
-            ) : null}
+            <button
+              onClick={() => {
+                onClose();
+                onOpenDepartment && onOpenDepartment(agent.id);
+              }}
+              className="mt-5 w-full rounded-lg border border-gray-700 py-2.5 text-sm font-semibold text-teal-300 hover:bg-gray-800"
+            >
+              Open {agent.name}'s department →
+            </button>
           </>
         )}
       </div>
@@ -170,7 +171,7 @@ function AgentDetailModal({ agentId, onClose, onNavigate, onConnectFacebook, can
   );
 }
 
-export default function AiTeam({ onNavigate, canOpenSection }) {
+export default function AiTeam({ onOpenDepartment }) {
   const [agents, setAgents] = useState([]);
   const [brandName, setBrandName] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -228,7 +229,13 @@ export default function AiTeam({ onNavigate, canOpenSection }) {
         {agents.map((a) => (
           <div
             key={a.id}
-            className="flex flex-col rounded-2xl border border-gray-800 bg-gray-900/60 p-5 transition hover:border-gray-600"
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenDepartment && onOpenDepartment(a.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") onOpenDepartment && onOpenDepartment(a.id);
+            }}
+            className="flex cursor-pointer flex-col rounded-2xl border border-gray-800 bg-gray-900/60 p-5 transition hover:border-gray-600"
             style={{ borderTop: `3px solid ${a.color}` }}
           >
             <div className="flex items-start justify-between">
@@ -261,20 +268,24 @@ export default function AiTeam({ onNavigate, canOpenSection }) {
 
             <div className="mt-4 flex gap-2 pt-1">
               <button
-                onClick={() => setOpenId(a.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenId(a.id);
+                }}
                 className="flex-1 rounded-lg border border-gray-700 py-2 text-xs font-semibold text-gray-200 hover:bg-gray-800"
               >
                 Details
               </button>
-              {!canOpenSection || canOpenSection(a.section) ? (
-                <button
-                  onClick={() => onNavigate && onNavigate(a.section)}
-                  className="flex-1 rounded-lg py-2 text-xs font-bold text-black"
-                  style={{ backgroundColor: a.color }}
-                >
-                  Open
-                </button>
-              ) : null}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDepartment && onOpenDepartment(a.id);
+                }}
+                className="flex-1 rounded-lg py-2 text-xs font-bold text-black"
+                style={{ backgroundColor: a.color }}
+              >
+                Open department
+              </button>
             </div>
           </div>
         ))}
@@ -284,8 +295,7 @@ export default function AiTeam({ onNavigate, canOpenSection }) {
         <AgentDetailModal
           agentId={openId}
           onClose={() => setOpenId(null)}
-          onNavigate={onNavigate}
-          canOpenSection={canOpenSection}
+          onOpenDepartment={onOpenDepartment}
           onConnectFacebook={() => {
             setOpenId(null);
             setShowFbWizard(true);

@@ -22,7 +22,7 @@ function fmt(iso) {
 const RISK_COLOR = { low: "#22c55e", medium: "#f59e0b", high: "#ef4444" };
 const STATUS_COLOR = { proposed: "#a78bfa", approved: "#22c55e", executed: "#38bdf8", declined: "#94a3b8", failed: "#ef4444" };
 
-function MemoryTab() {
+export function MemoryTab() {
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState("");
   const [events, setEvents] = useState([]);
@@ -97,7 +97,7 @@ function MemoryTab() {
   );
 }
 
-function AutonomousTab() {
+export function AutonomousTab({ readOnly = false }) {
   const [settings, setSettings] = useState(null);
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -162,6 +162,7 @@ function AutonomousTab() {
           type="checkbox"
           checked={!!(settings && settings.enabled)}
           onChange={(e) => update({ enabled: e.target.checked })}
+          disabled={readOnly}
         />
       </label>
 
@@ -174,6 +175,7 @@ function AutonomousTab() {
           value={settings.monthlyBudgetCap ?? ""}
           onChange={(e) => update({ monthlyBudgetCap: e.target.value === "" ? "" : Number(e.target.value) })}
           placeholder="e.g. 2000"
+          disabled={readOnly}
         />
       </div>
 
@@ -186,6 +188,7 @@ function AutonomousTab() {
           value={settings.approvalThreshold ?? ""}
           onChange={(e) => update({ approvalThreshold: e.target.value === "" ? "" : Number(e.target.value) })}
           placeholder="e.g. 200"
+          disabled={readOnly}
         />
       </div>
 
@@ -196,6 +199,7 @@ function AutonomousTab() {
           value={settings.brandVoiceRules ?? ""}
           onChange={(e) => update({ brandVoiceRules: e.target.value })}
           placeholder="Tone, phrases to use/avoid, dos & don'ts…"
+          disabled={readOnly}
         />
       </div>
 
@@ -206,13 +210,21 @@ function AutonomousTab() {
           value={settings.geoTargeting ?? ""}
           onChange={(e) => update({ geoTargeting: e.target.value })}
           placeholder="e.g. Austin, TX + 25mi"
+          disabled={readOnly}
         />
       </div>
 
       {error ? <div style={styles.error}>{error}</div> : null}
-      <button style={styles.primaryBtn} onClick={save} disabled={saving}>
-        {saving ? "Saving…" : saved ? "Saved ✓" : "Save guardrails"}
-      </button>
+      {readOnly ? (
+        <div style={styles.empty}>
+          These guardrails are managed by the account owner. You can review Echo's
+          proposals and actions below.
+        </div>
+      ) : (
+        <button style={styles.primaryBtn} onClick={save} disabled={saving}>
+          {saving ? "Saving…" : saved ? "Saved ✓" : "Save guardrails"}
+        </button>
+      )}
 
       <div style={styles.sectionLabel}>Echo's proposals & actions</div>
       {actions.length === 0 ? (

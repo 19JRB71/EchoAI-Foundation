@@ -42,6 +42,12 @@ import SectionHelp from "./tour/SectionHelp.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
 import EchoCompanion from "./companion/EchoCompanion.jsx";
+import DepartmentView from "./sections/DepartmentView.jsx";
+import SentinelHealth from "./sections/SentinelHealth.jsx";
+import Breadcrumbs from "./components/Breadcrumbs.jsx";
+import FacebookWizard from "./components/FacebookWizard.jsx";
+import { MemoryTab, AutonomousTab } from "./companion/EchoBrain.jsx";
+import { agentMeta, sectionTitle } from "./lib/departments.js";
 
 export default function App() {
   const navigate = useNavigate();
@@ -88,6 +94,16 @@ export default function App() {
   // social) and still has an unfinished session to return to. Drives the floating
   // "Finish setup" button so they can jump back into the flow.
   const [setupPending, setSetupPending] = useState(false);
+  // Team-based navigation. The dashboard is organized around the eight AI team
+  // members: opening a department (deptAgentId) shows that member's tool grid;
+  // a tool card then sets `section` to the underlying feature while deptAgentId
+  // stays put so the breadcrumb/back trail reflects the department context.
+  const [deptAgentId, setDeptAgentId] = useState(null);
+  // Sub-tab handed to a section when a tool card targets a specific tab (e.g.
+  // Sentinel's Health tabs).
+  const [activeToolTab, setActiveToolTab] = useState(null);
+  // App-level Facebook connect wizard (Atlas's "Connect Facebook" tool action).
+  const [showFbWizard, setShowFbWizard] = useState(false);
 
   function handleUseImageInSocial(image) {
     setSocialPrefillImage(image);
@@ -108,28 +124,105 @@ export default function App() {
     setSection("settings");
   }
 
-  // Whether the current user can actually open a given section. The Command
-  // Center (Mission Control / AI Team) is owner-only (its APIs are gated with
-  // requireOwner), and the admin console only renders for admins. Used to gate
-  // agent "Open workspace" CTAs and as a defensive guard in navigation.
+  // Whether the current user can actually open a given section. Sentinel's health
+  // oversight is owner/admin-only (staff never see that department), and the admin
+  // console only renders for admins. Used to gate tool CTAs and as a defensive
+  // navigation guard.
   const canOpenSection = useCallback(
     (s) => {
       if (!s) return false;
-      if ((s === "missioncontrol" || s === "aiteam") && isTeamMember) return false;
+      if (s === "sentinelhealth") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
       return true;
     },
     [isTeamMember, isAdmin],
   );
 
-  // Manual navigation (sidebar) resets the billing deep-link flags so Settings
-  // opens on its default Account tab without auto-opening the card form. Targets
-  // the user can't open (owner-only / admin-only) fall back to the dashboard so
-  // an agent CTA or stale link can never land on a blank view.
+  // Sentinel is the only department hidden from staff; every other team member's
+  // department is open to owners and staff alike.
+  const canOpenDepartment = useCallback(
+    (id) => {
+      if (id === "sentinel") return isAdmin || !isTeamMember;
+      return true;
+    },
+    [isTeamMember, isAdmin],
+  );
+
+  // Mission Control is home. Manual navigation (sidebar) resets the billing
+  // deep-link flags and clears any open department so top-level sections open
+  // cleanly. Targets the user can't open fall back to home.
   function handleSelectSection(next) {
     setBillingTab("account");
     setOpenPaymentModal(false);
-    setSection(canOpenSection(next) ? next : "overview");
+    setDeptAgentId(null);
+    setActiveToolTab(null);
+    setSection(canOpenSection(next) ? next : "missioncontrol");
+  }
+
+  // Open a team member's Department View (the hub of clickable tool cards).
+  function openDepartment(agentId) {
+    if (!canOpenDepartment(agentId)) return;
+    setDeptAgentId(agentId);
+    setActiveToolTab(null);
+    setSection("department");
+  }
+
+  // Open a specific tool from a Department View. deptAgentId stays set so the
+  // breadcrumb/back trail keeps the department context; a tool may request a
+  // sub-tab (e.g. Sentinel's Health tabs) or an App-level action.
+  function openTool(tool) {
+    if (!tool) return;
+    if (tool.action) {
+      handleToolAction(tool.action);
+      return;
+    }
+    if (!canOpenSection(tool.section)) return;
+    setActiveToolTab(tool.tab || null);
+    setSection(tool.section);
+  }
+
+  // App-level actions a tool card can trigger instead of navigating to a section.
+  function handleToolAction(action) {
+    if (action === "facebook") setShowFbWizard(true);
+  }
+
+  // Mission Control is home.
+  function goHome() {
+    setDeptAgentId(null);
+    setActiveToolTab(null);
+    setSection("missioncontrol");
+  }
+
+  // Back button: from a tool, return to its department; otherwise go home.
+  function handleBack() {
+    if (section !== "department" && deptAgentId) {
+      setActiveToolTab(null);
+      setSection("department");
+    } else {
+      goHome();
+    }
+  }
+
+  // Breadcrumb trail for the current view (Home > Department > Tool).
+  function buildCrumbs() {
+    const crumbs = [{ label: "Home", onClick: goHome }];
+    const meta = deptAgentId ? agentMeta(deptAgentId) : null;
+    if (section === "department" && meta) {
+      crumbs.push({ label: meta.name });
+      return crumbs;
+    }
+    if (meta) {
+      crumbs.push({
+        label: meta.name,
+        onClick: () => {
+          setActiveToolTab(null);
+          setSection("department");
+        },
+      });
+    }
+    const title = sectionTitle(section);
+    if (title) crumbs.push({ label: title });
+    return crumbs;
   }
 
   const handleLogout = useCallback(() => {
@@ -173,11 +266,6 @@ export default function App() {
           setIsAdmin(profile.role === "admin");
           setWorkspaceRole(profile.workspaceRole || "owner");
           setIsTeamMember(Boolean(profile.isTeamMember));
-          // Command Center is owner-only; send team members to the dashboard so
-          // they never land on a 403'ing default section.
-          if (Boolean(profile.isTeamMember)) {
-            setSection((s) => (s === "missioncontrol" || s === "aiteam" ? "overview" : s));
-          }
           setOwnerBusinessName(profile.ownerBusinessName || null);
           setUserEmail(profile.email || "");
           setBusinessName(profile.businessName || profile.ownerBusinessName || "");
@@ -401,13 +489,14 @@ export default function App() {
     <div className="flex min-h-screen flex-col bg-black md:flex-row">
       <Sidebar
         section={section}
-        onSelect={handleSelectSection}
+        deptAgentId={deptAgentId}
+        onSelectSection={handleSelectSection}
+        onOpenDepartment={openDepartment}
         onLogout={handleLogout}
         isAdmin={isAdmin}
-        isAgencyOwner={isAgencyOwner}
-        tier={currentTier}
-        workspaceRole={workspaceRole}
         isTeamMember={isTeamMember}
+        canOpenDepartment={canOpenDepartment}
+        workspaceRole={workspaceRole}
         ownerBusinessName={ownerBusinessName}
       />
       {setupPending ? (
@@ -431,12 +520,33 @@ export default function App() {
             section={section}
             brandId={selectedBrandId}
           />
+          {section !== "missioncontrol" && (
+            <div className="mb-5 flex items-center gap-3">
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-sm font-medium text-gray-300 hover:bg-gray-800"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                </svg>
+                Back
+              </button>
+              <Breadcrumbs crumbs={buildCrumbs()} />
+            </div>
+          )}
           <div
             className="border-l-2 pl-3 md:pl-4"
             style={{ borderLeftColor: "var(--tier-accent)" }}
           >
-          <ErrorBoundary key={section}>
-          {section === "admin" && isAdmin ? (
+          <ErrorBoundary key={`${section}:${deptAgentId || ""}`}>
+          {section === "department" ? (
+            <DepartmentView
+              agentId={deptAgentId}
+              onOpenTool={openTool}
+              onAction={handleToolAction}
+              canOpenSection={canOpenSection}
+            />
+          ) : section === "admin" && isAdmin ? (
             <AdminPanel />
           ) : section === "agency" ? (
             isAgencyOwner ? (
@@ -492,11 +602,25 @@ export default function App() {
                 error={brandsError}
               />
               {section === "missioncontrol" && (
-                <MissionControl onNavigate={handleSelectSection} />
+                <MissionControl onNavigate={handleSelectSection} onOpenDepartment={openDepartment} />
               )}
               {section === "aiteam" && (
-                <AiTeam onNavigate={handleSelectSection} canOpenSection={canOpenSection} />
+                <AiTeam onOpenDepartment={openDepartment} />
               )}
+              {section === "echomemory" && (
+                <div className="mx-auto max-w-3xl">
+                  <MemoryTab />
+                </div>
+              )}
+              {section === "echogrowth" && (
+                <div className="mx-auto max-w-3xl">
+                  <AutonomousTab readOnly={isTeamMember || workspaceRole !== "owner"} />
+                </div>
+              )}
+              {section === "sentinelhealth" &&
+                (canOpenSection("sentinelhealth") ? (
+                  <SentinelHealth brandId={selectedBrandId} initialTab={activeToolTab || "monitor"} />
+                ) : null)}
               {section === "overview" && <Overview brandId={selectedBrandId} />}
               {section === "leads" && <Leads brandId={selectedBrandId} />}
               {section === "campaigns" && <Campaigns />}
@@ -601,6 +725,11 @@ export default function App() {
           <EchoCompanion />
         </ErrorBoundary>
       ) : null}
+      {showFbWizard && (
+        <ErrorBoundary silent>
+          <FacebookWizard onClose={() => setShowFbWizard(false)} />
+        </ErrorBoundary>
+      )}
     </div>
   );
 }

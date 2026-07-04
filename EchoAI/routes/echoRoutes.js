@@ -10,28 +10,30 @@ const controller = require("../controllers/echoCompanionController");
 const memory = require("../controllers/echoMemoryController");
 const growth = require("../controllers/growthController");
 
-// Echo manages the whole workspace on the owner's behalf, so — like the Setup
-// Agent — it is restricted to the account owner (or platform admin). Invited team
-// members are blocked server-side, not just hidden in the UI.
-router.use(auth, lockout, requireOwner);
+// All Echo routes require an authenticated, non-locked account. Echo is now a
+// department in the team-based navigation, so its READ views (briefing, memory,
+// autonomous-growth log) are visible to invited team members too. The owner-only
+// controls — the activation companion (state/advance/approve/decline/message/
+// transcribe) and mutating the growth guardrails — stay behind `requireOwner`.
+router.use(auth, lockout);
 
 // Current companion state: activation status, chat log, and any pending approval.
-router.get("/state", controller.getState);
+router.get("/state", requireOwner, controller.getState);
 
 // Advance the activation journey by one step (auto-called in a loop by the client
 // for info steps; stops on a preview/approval or a connection hand-off).
-router.post("/advance", controller.advance);
+router.post("/advance", requireOwner, controller.advance);
 
 // Approve / decline the action currently awaiting review.
-router.post("/approve", controller.approve);
-router.post("/decline", controller.decline);
+router.post("/approve", requireOwner, controller.approve);
+router.post("/decline", requireOwner, controller.decline);
 
 // Free-form chat with Echo (typed or transcribed voice).
-router.post("/message", controller.sendMessage);
+router.post("/message", requireOwner, controller.sendMessage);
 
 // Voice input: transcribe a recorded clip with Whisper (multipart audio). Not
 // feature-gated — Echo's mic is core to the companion, mirroring the setup agent.
-router.post("/transcribe", uploadAudio, controller.transcribe);
+router.post("/transcribe", requireOwner, uploadAudio, controller.transcribe);
 
 // Daily briefing: what happened, what's live, what needs approval.
 router.get("/briefing", controller.briefing);
@@ -41,9 +43,10 @@ router.get("/briefing", controller.briefing);
 router.get("/memory", memory.timeline);
 router.post("/memory/recall", memory.recall);
 
-// Autonomous Growth Mode: guardrail settings + the log of proposed/auto actions.
+// Autonomous Growth Mode: guardrail settings + the log of proposed/auto actions
+// are readable by the team; only the owner can change the guardrails.
 router.get("/growth", growth.getSettings);
-router.put("/growth", growth.updateSettings);
+router.put("/growth", requireOwner, growth.updateSettings);
 router.get("/growth/actions", growth.listActions);
 
 module.exports = router;

@@ -44,7 +44,7 @@ function whenLabel(iso) {
   }
 }
 
-export default function MissionControl({ onNavigate }) {
+export default function MissionControl({ onNavigate, onOpenDepartment }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -134,7 +134,7 @@ export default function MissionControl({ onNavigate }) {
             {attention.map((a) => (
               <button
                 key={a.id}
-                onClick={() => onNavigate && onNavigate("aiteam")}
+                onClick={() => onOpenDepartment && onOpenDepartment(a.id)}
                 className="rounded-full border px-3 py-1 text-xs font-medium"
                 style={{ borderColor: `${a.color}66`, color: a.color, backgroundColor: `${a.color}14` }}
               >
@@ -161,7 +161,7 @@ export default function MissionControl({ onNavigate }) {
             {agents.map((a) => (
               <button
                 key={a.id}
-                onClick={() => onNavigate && onNavigate("aiteam")}
+                onClick={() => onOpenDepartment && onOpenDepartment(a.id)}
                 className="flex items-start gap-3 rounded-2xl border border-gray-800 bg-gray-900/60 p-4 text-left transition hover:border-gray-600"
               >
                 <span

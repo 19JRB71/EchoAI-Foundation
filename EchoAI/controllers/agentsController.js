@@ -107,6 +107,19 @@ async function getBrand(userId) {
   return r[0] || null;
 }
 
+// Sentinel is the owner-facing oversight/health agent — invited team members
+// never see it (only the account owner or a platform admin). Applied to every
+// roster response so a team member can use the same team-based navigation for
+// every OTHER department.
+function canSeeSentinel(req) {
+  return Boolean(
+    req.user && (req.user.isPlatformAdmin || req.user.workspaceRole === "owner"),
+  );
+}
+function filterAgentsFor(req, agents) {
+  return canSeeSentinel(req) ? agents : agents.filter((a) => a.id !== "sentinel");
+}
+
 const WEEK = "created_at > NOW() - INTERVAL '7 days'";
 
 // ---------------------------------------------------------------------------
@@ -242,7 +255,7 @@ async function getAgents(req, res) {
   try {
     const userId = req.user.userId;
     const brand = await getBrand(userId);
-    const agents = await computeAgents(userId, brand);
+    const agents = filterAgentsFor(req, await computeAgents(userId, brand));
     return res.json({ agents, brandName: brand ? brand.brand_name : null });
   } catch (err) {
     console.error("getAgents error:", err.message);
@@ -259,6 +272,10 @@ async function getAgentDetail(req, res) {
     const agentId = req.params.agentId;
     const meta = AGENTS.find((a) => a.id === agentId);
     if (!meta) return res.status(404).json({ error: "Unknown team member." });
+    // Team members can't open the owner-only Sentinel oversight department.
+    if (agentId === "sentinel" && !canSeeSentinel(req)) {
+      return res.status(404).json({ error: "Unknown team member." });
+    }
     const brand = await getBrand(userId);
     const bid = brand ? brand.brand_id : null;
     const all = await computeAgents(userId, brand);
@@ -299,7 +316,7 @@ async function getMissionControl(req, res) {
     const userId = req.user.userId;
     const brand = await getBrand(userId);
     const bid = brand ? brand.brand_id : null;
-    const agents = await computeAgents(userId, brand);
+    const agents = filterAgentsFor(req, await computeAgents(userId, brand));
 
     const leadsWeek = bid ? await n(`SELECT COUNT(*)::int AS n FROM leads WHERE brand_id = $1 AND ${WEEK}`, [bid]) : 0;
     const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
