@@ -56,6 +56,7 @@ const followUpRoutes = require("./routes/followUpRoutes");
 const smsRoutes = require("./routes/smsRoutes");
 const tourRoutes = require("./routes/tourRoutes");
 const setupAgentRoutes = require("./routes/setupAgentRoutes");
+const echoRoutes = require("./routes/echoRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const salesAgentRoutes = require("./routes/salesAgentRoutes");
 
@@ -237,6 +238,7 @@ app.use("/api/follow-ups", followUpRoutes);
 app.use("/api/sms", smsRoutes);
 app.use("/api/tour", tourRoutes);
 app.use("/api/setup-agent", setupAgentRoutes);
+app.use("/api/echo", echoRoutes);
 app.use("/api/health-monitor", healthRoutes);
 app.use("/api/sales-agent", salesAgentRoutes);
 

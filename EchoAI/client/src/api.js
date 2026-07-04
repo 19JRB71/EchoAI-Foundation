@@ -127,6 +127,36 @@ export const api = {
   resetSetupAgent: () =>
     request("/api/setup-agent/reset", { method: "POST" }),
 
+  // Echo — the persistent AI companion. Drives post-setup activation and ongoing
+  // management via one-click approvals.
+  getEchoState: () => request("/api/echo/state"),
+  advanceEcho: () => request("/api/echo/advance", { method: "POST" }),
+  approveEcho: () => request("/api/echo/approve", { method: "POST" }),
+  declineEcho: () => request("/api/echo/decline", { method: "POST" }),
+  sendEchoMessage: (text) =>
+    request("/api/echo/message", { method: "POST", body: { text } }),
+  getEchoBriefing: () => request("/api/echo/briefing"),
+  // Voice input: POST a recorded clip as multipart to be transcribed with Whisper.
+  transcribeEchoAudio: async (blob) => {
+    const form = new FormData();
+    form.append("audio", blob, "echo-input.webm");
+    const headers = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}/api/echo/transcribe`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `Transcription failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  },
+
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),
   updateOnboarding: (payload) =>

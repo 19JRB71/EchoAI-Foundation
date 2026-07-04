@@ -39,6 +39,7 @@ import TourProvider from "./tour/TourProvider.jsx";
 import SectionHelp from "./tour/SectionHelp.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
+import EchoCompanion from "./companion/EchoCompanion.jsx";
 
 export default function App() {
   const navigate = useNavigate();
@@ -566,6 +567,11 @@ export default function App() {
       <ErrorBoundary silent>
         <HealthSupportWidget brandId={selectedBrandId} />
       </ErrorBoundary>
+      {!isTeamMember ? (
+        <ErrorBoundary silent>
+          <EchoCompanion />
+        </ErrorBoundary>
+      ) : null}
     </div>
   );
 }
