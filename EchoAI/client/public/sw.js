@@ -9,7 +9,13 @@
  *   3. Shows a push notification when the backend pushes a hot-lead alert.
  */
 
-const CACHE = "echoai-shell-v1";
+// Bump this version string on every client release that must invalidate the
+// cached app shell. The `activate` handler deletes every cache whose name does
+// not match the current CACHE, so bumping it purges the previously cached
+// index.html + hashed JS/CSS. Without a bump, a returning PWA user keeps being
+// served the old precached shell (old bundle) forever, regardless of HTTP
+// Cache-Control headers — the service worker answers from its own cache first.
+const CACHE = "echoai-shell-v2";
 
 // The app shell. Hashed Vite asset filenames are cached at runtime (see fetch
 // handler), so we only need the entry points here.

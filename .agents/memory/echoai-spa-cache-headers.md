@@ -33,3 +33,27 @@ fallback `sendFile`. Verify with `curl -sI localhost:80/` (expect no-cache) and
 A cache-header fix does NOT refresh an already-open tab — that tab still holds the
 old bundle. The user must hard-refresh once; after that, future deploys are
 picked up automatically because index.html is always revalidated.
+
+## The bigger trap: the PWA service worker (this is usually the real cause)
+EchoAI is an installable PWA. `client/public/sw.js` registers on every load
+(`main.jsx` → `registerServiceWorker()`) and **answers from its own Cache Storage
+first — HTTP `Cache-Control` headers are irrelevant to what it serves.** It
+precaches the app shell (`/`, `/dashboard`) into a named cache and its `activate`
+handler deletes only caches whose name != the current `CACHE` constant.
+
+**Failure mode:** the `CACHE` name is a static string (e.g. `echoai-shell-v1`).
+If it never changes, the old precached shell + old hashed bundle live in Cache
+Storage forever, so a returning PWA user is served the pre-feature bundle across
+reloads no matter what the server sends. New client features "do nothing" and
+their endpoints never appear in the log — identical symptom to the HTTP-cache
+stale bundle, but headers won't fix it.
+
+**Fix / release ritual:** bump the `CACHE` version string in `sw.js` on any
+release that must invalidate the shell. The `activate` cleanup then deletes the
+old cache; with `skipWaiting()` + `clients.claim()` the new SW takes over. It can
+take up to two reloads (reload 1 installs/activates the new SW and purges the old
+cache; reload 2 fetches the fresh shell). Verify the served worker with
+`curl -s localhost:80/sw.js | rg echoai-shell-v`.
+
+**Why:** the service worker is a caching layer ABOVE the HTTP cache; a
+server-only header change can look correct in `curl` yet never reach a PWA user.
