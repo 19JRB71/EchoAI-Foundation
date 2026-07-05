@@ -112,6 +112,11 @@ export default function App() {
   const [activeToolTab, setActiveToolTab] = useState(null);
   // App-level Facebook connect wizard (Atlas's "Connect Facebook" tool action).
   const [showFbWizard, setShowFbWizard] = useState(false);
+  // When Facebook redirects back after OAuth (?fb=connected), resume the wizard
+  // straight at the verify/test step instead of the welcome screen.
+  const [fbStartAtVerify, setFbStartAtVerify] = useState(false);
+  // Error message surfaced when Facebook redirects back with ?fb=error.
+  const [fbOauthError, setFbOauthError] = useState("");
   // Sales Presentation Mode (admin-only): when live, the dashboard points at the
   // demo brand and the presenter toolbar is shown.
   const [demoActive, setDemoActive] = useState(false);
@@ -416,6 +421,41 @@ export default function App() {
       active = false;
     };
   }, [authed, inviteToken]);
+
+  // Handle Facebook's post-OAuth redirect (?fb=connected|error). On success we
+  // reopen the Setup Wizard at the verify/test step so the owner sees their
+  // connection confirmed; either way we strip the query params from the URL.
+  useEffect(() => {
+    if (!authed) return;
+    let fb;
+    let fbMessage = "";
+    try {
+      const params = new URLSearchParams(window.location.search);
+      fb = params.get("fb");
+      fbMessage = params.get("fb_message") || "";
+    } catch {
+      return;
+    }
+    if (!fb) return;
+    if (fb === "connected") {
+      setFbStartAtVerify(true);
+      setShowFbWizard(true);
+    } else if (fb === "error") {
+      setFbOauthError(
+        fbMessage ||
+          "Facebook couldn't complete the connection. Please try again.",
+      );
+      setShowFbWizard(true);
+    }
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("fb");
+      url.searchParams.delete("fb_message");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    } catch {
+      /* no-op */
+    }
+  }, [authed]);
 
   useEffect(() => {
     if (!authed || !onboardingCompleted) return;
@@ -817,7 +857,16 @@ export default function App() {
       ) : null}
       {showFbWizard && (
         <ErrorBoundary silent>
-          <FacebookWizard onClose={() => setShowFbWizard(false)} />
+          <FacebookWizard
+            onClose={() => {
+              setShowFbWizard(false);
+              setFbStartAtVerify(false);
+              setFbOauthError("");
+            }}
+            brandId={selectedBrandId}
+            startAtVerify={fbStartAtVerify}
+            oauthError={fbOauthError}
+          />
         </ErrorBoundary>
       )}
       {isAdmin && demoActive ? (

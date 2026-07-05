@@ -76,7 +76,7 @@ async function getOwnedBrand(brandId, userId) {
  */
 async function getFacebookIntegration(userId) {
   const result = await db.query(
-    `SELECT api_token_encrypted, account_ref, connection_status
+    `SELECT api_token_encrypted, account_ref, page_ref, connection_status
      FROM api_integrations
      WHERE user_id = $1 AND platform = 'facebook'`,
     [userId]
@@ -92,6 +92,7 @@ async function getFacebookIntegration(userId) {
   return {
     accessToken: decrypt(row.api_token_encrypted),
     accountRef: row.account_ref,
+    pageRef: row.page_ref,
   };
 }
 
@@ -346,19 +347,22 @@ async function launchCreative(req, res) {
       return res.status(400).json({ error: "packageIndex is out of range" });
     }
 
+    const { accessToken, accountRef, pageRef } = await getFacebookIntegration(userId);
+
     // A real, deliverable launch needs an ad creative, which requires a Facebook
-    // Page + destination link. Fail fast (before creating any campaign/ad set) so
-    // we never report success for a campaign that can't actually serve ads.
-    const pageId = process.env.FACEBOOK_PAGE_ID;
+    // Page + destination link. The Page comes from the owner's Setup Wizard
+    // selection (page_ref); fall back to FACEBOOK_PAGE_ID for legacy setups.
+    // Fail fast (before creating any campaign/ad set) so we never report success
+    // for a campaign that can't actually serve ads.
+    const pageId = pageRef || process.env.FACEBOOK_PAGE_ID;
     const linkUrl = process.env.FACEBOOK_LINK_URL;
     if (!pageId || !linkUrl) {
       return res.status(503).json({
-        error:
-          "Facebook ad creation is not configured. Set FACEBOOK_PAGE_ID and FACEBOOK_LINK_URL to launch creatives.",
+        error: !pageId
+          ? "No Facebook Page is connected. Finish the Facebook Setup Wizard to pick a Page, then try again."
+          : "Facebook ad creation is not configured. Set FACEBOOK_LINK_URL to launch creatives.",
       });
     }
-
-    const { accessToken, accountRef } = await getFacebookIntegration(userId);
     const objective = GOAL_TO_OBJECTIVE[creative.campaign_goal] || GOAL_TO_OBJECTIVE.lead_generation;
     const campaignName = `${creative.brand_name} - ${pkg.conceptName || pkg.angle || "Creative"}`;
     const dailyBudgetCents = Math.round(Number(budget) * 100);

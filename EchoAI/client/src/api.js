@@ -287,6 +287,12 @@ export const api = {
       method: "POST",
       body: { accountId },
     }),
+  selectFacebookPage: (pageId) =>
+    request("/api/facebook/select-page", {
+      method: "POST",
+      body: { pageId },
+    }),
+  verifyFacebookConnection: () => request("/api/facebook/verify"),
   disconnectFacebook: () =>
     request("/api/facebook/disconnect", { method: "POST" }),
   // Authenticated initiation: returns the Facebook dialog URL the client should

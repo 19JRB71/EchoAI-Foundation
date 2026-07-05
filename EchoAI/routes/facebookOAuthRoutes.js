@@ -15,6 +15,8 @@ router.get("/oauth/callback", fbOAuth.oauthCallback);
 // Management endpoints use the normal JWT auth header (called via fetch).
 router.get("/accounts", auth, fbOAuth.getConnectedAccounts);
 router.post("/select-account", auth, fbOAuth.selectAccount);
+router.post("/select-page", auth, fbOAuth.selectPage);
+router.get("/verify", auth, fbOAuth.verifyConnection);
 router.post("/disconnect", auth, fbOAuth.disconnectAccount);
 
 module.exports = router;
