@@ -25,4 +25,5 @@
 - [EchoAI SPA/PWA stale shell](echoai-spa-cache-headers.md) — new client feature "does nothing" (endpoints never hit) = stale shell; index.html no-cache AND bump sw.js CACHE version — the PWA SW caches above HTTP, so headers alone won't reach the user.
 - [EchoAI CRM monitoring gate](echoai-crm-monitoring-gate.md) — Sentinel call-monitoring reads are owner/admin-only (requireRole admin); Pulse queue overview is manager-visible (denySalesRep). Don't collapse to one guard.
 - [EchoAI Facebook scoping](echoai-facebook-scoping.md) — FB connection (token/account/page) is user-scoped by design (api_integrations user_id+platform); don't refactor to brand-scoped as a side task.
+- [EchoAI demo auto-advance](echoai-demo-autoadvance.md) — voice onPlayed fires only on natural completion; auto-advancing steps needs a fallback timer or muted/blocked/error stalls the demo.
 - [EchoAI controller file-name collisions](echoai-controller-file-collisions.md) — generic controller/route names may already exist & be mounted; edit not overwrite, or boot breaks with undefined-callback.
