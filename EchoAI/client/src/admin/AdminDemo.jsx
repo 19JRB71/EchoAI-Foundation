@@ -118,6 +118,56 @@ export default function AdminDemo() {
           </span>
         </div>
 
+        {/* Master on/off toggle so the admin can jump in and out of Demo Mode
+            instantly during a live sales call. */}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/60 p-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={active}
+              aria-label={active ? "Demo Mode is on" : "Demo Mode is off"}
+              onClick={active ? handleStop : handleStart}
+              disabled={!!busy || (!active && !seeded)}
+              title={!active && !seeded ? "Seed the demo first" : ""}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                active ? "bg-green-500" : "bg-gray-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                  active ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+            <span
+              className={`text-sm font-semibold ${
+                active ? "text-green-300" : "text-gray-400"
+              }`}
+            >
+              {active ? "Demo Mode ON" : "Demo Mode OFF"}
+            </span>
+          </div>
+          {active ? (
+            <button
+              onClick={handleStop}
+              disabled={!!busy}
+              className="rounded-lg bg-red-500/90 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+            >
+              {busy === "stop" ? "Stopping…" : "Stop Demo Mode"}
+            </button>
+          ) : (
+            <button
+              onClick={handleStart}
+              disabled={!!busy || !seeded}
+              title={seeded ? "" : "Seed the demo first"}
+              className="rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+            >
+              {busy === "start" ? "Starting…" : "Start Presentation Mode"}
+            </button>
+          )}
+        </div>
+
         {error && (
           <div className="mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">
             {error}
@@ -194,29 +244,11 @@ export default function AdminDemo() {
       <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-5">
         <h4 className="text-sm font-semibold text-gray-200">Presentation</h4>
         <p className="mt-1 text-sm text-gray-400">
-          Starting Presentation Mode switches your dashboard to the demo dealership
-          and shows a presenter toolbar with guided steps and Echo's spoken pitch.
+          Use the Demo Mode toggle at the top to start or stop Presentation Mode.
+          Starting it switches your dashboard to the demo dealership and shows a
+          presenter toolbar with guided steps and Echo's spoken pitch. Stopping it
+          returns the dashboard to your real brands.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {!active ? (
-            <button
-              onClick={handleStart}
-              disabled={!!busy || !seeded}
-              className="rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
-              title={seeded ? "" : "Seed the demo first"}
-            >
-              {busy === "start" ? "Starting…" : "Start Presentation Mode"}
-            </button>
-          ) : (
-            <button
-              onClick={handleStop}
-              disabled={!!busy}
-              className="rounded-lg bg-red-500/90 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
-            >
-              {busy === "stop" ? "Stopping…" : "Stop Presentation Mode"}
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );

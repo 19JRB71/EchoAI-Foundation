@@ -255,6 +255,15 @@ export default function App() {
     navigate("/");
   }, [navigate]);
 
+  // The demo dealership ("Premier Auto Group") is a real brand row flagged
+  // is_demo. Pick the first NON-demo brand so a fresh login / demo-stop never
+  // lands the selector on the demo brand. Falls back to the raw first brand.
+  const firstRealBrandId = (list) => {
+    const real = (list || []).filter((b) => !b.is_demo);
+    if (real[0]) return real[0].brand_id;
+    return list && list[0] ? list[0].brand_id : "";
+  };
+
   const loadBrands = useCallback(async () => {
     setLoadingBrands(true);
     setBrandsError("");
@@ -262,13 +271,15 @@ export default function App() {
       const data = await api.getBrands();
       const list = data.brands || [];
       setBrands(list);
-      setSelectedBrandId((prev) => prev || (list[0] ? list[0].brand_id : ""));
+      setSelectedBrandId((prev) => prev || firstRealBrandId(list));
+      return list;
     } catch (err) {
       if (err.status === 401) {
         handleLogout();
-        return;
+        return [];
       }
       setBrandsError(err.message);
+      return [];
     } finally {
       setLoadingBrands(false);
     }
@@ -510,7 +521,13 @@ export default function App() {
       setSection("missioncontrol");
       setDemoActive(true);
     };
-    const onStop = () => setDemoActive(false);
+    const onStop = async () => {
+      // Reload real brands and move the selector off the demo brand so the admin
+      // is never left "stuck" showing Premier Auto Group after a demo.
+      const list = await loadBrands();
+      setSelectedBrandId(firstRealBrandId(list));
+      setDemoActive(false);
+    };
     window.addEventListener("echoai:demo-start", onStart);
     window.addEventListener("echoai:demo-stop", onStop);
     return () => {
@@ -713,7 +730,7 @@ export default function App() {
                 </div>
               )}
               <BrandBar
-                brands={brands}
+                brands={demoActive ? brands : brands.filter((b) => !b.is_demo)}
                 selectedBrandId={selectedBrandId}
                 onSelect={setSelectedBrandId}
                 loading={loadingBrands}
@@ -869,7 +886,9 @@ export default function App() {
           <PresenterOverlay
             onNavigate={handleSelectSection}
             onOpenDepartment={openDepartment}
-            onEnd={() => setDemoActive(false)}
+            onEnd={() =>
+              window.dispatchEvent(new CustomEvent("echoai:demo-stop"))
+            }
           />
         </ErrorBoundary>
       ) : null}
