@@ -115,6 +115,12 @@ async function login(req, res) {
 
     const token = generateToken({ userId: user.user_id, email: user.email });
 
+    // Stamp last_login_at so Echo's morning briefing can summarize "everything
+    // since you were last here". Best-effort — never block a successful login.
+    db.query("UPDATE users SET last_login_at = NOW() WHERE user_id = $1", [user.user_id]).catch(
+      (err) => console.error("last_login_at update failed:", err.message)
+    );
+
     return res.json({
       token,
       user: { userId: user.user_id, email: user.email },
@@ -138,7 +144,7 @@ async function getProfile(req, res) {
     const workspaceId = req.user.userId;
 
     const result = await db.query(
-      `SELECT user_id, email, subscription_tier, team_size, business_name, industry,
+      `SELECT user_id, email, first_name, subscription_tier, team_size, business_name, industry,
               role, onboarding_completed, onboarding_step, created_at, updated_at
        FROM users
        WHERE user_id = $1`,
@@ -167,6 +173,7 @@ async function getProfile(req, res) {
     return res.json({
       userId: user.user_id,
       email: user.email,
+      firstName: user.first_name || null,
       subscriptionTier: workspace.subscription_tier,
       teamSize: workspace.team_size,
       businessName: workspace.business_name,

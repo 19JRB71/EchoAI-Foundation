@@ -21,6 +21,10 @@ const {
   generateWeeklyIntelligence,
 } = require("../controllers/customerIntelligenceController");
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
+const {
+  sweepDueReminders,
+  enqueueClosingSummaries,
+} = require("./echoVoiceReminders");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -200,9 +204,25 @@ function startScheduler() {
     });
   });
 
+  // Every minute: enqueue any due Echo voice reminders (appointment 15m/5m,
+  // follow-up-call-due). Idempotent dedup keys make overlapping ticks safe.
+  cron.schedule("* * * * *", () => {
+    sweepDueReminders().catch((err) => {
+      console.error("Scheduled Echo voice reminder sweep errored:", err.message);
+    });
+  });
+
+  // 18:00 daily: enqueue Echo's end-of-day closing summary for every owner.
+  cron.schedule("0 18 * * *", () => {
+    enqueueClosingSummaries().catch((err) => {
+      console.error("Scheduled Echo closing summary run errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
-      "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly)."
+      "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
+      "Echo voice reminders: every minute; Echo closing summary: daily 18:00)."
   );
 }
 

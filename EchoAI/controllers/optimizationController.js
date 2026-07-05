@@ -3,6 +3,7 @@ const { anthropic, MODEL } = require("../config/anthropic");
 const { graphGet, graphPost } = require("../utils/facebookApi");
 const { decrypt } = require("../utils/encryption");
 const { generateCreativeVariations } = require("../prompts/adCreativePrompt");
+const { enqueueOwnerVoiceEvent } = require("../utils/echoVoiceNotifications");
 const {
   COMPETITOR_ANALYSIS_SYSTEM_PROMPT,
   CAMPAIGN_OPTIMIZATION_SYSTEM_PROMPT,
@@ -220,6 +221,7 @@ async function autoOptimizeCampaignsForBrand(brand) {
       : generateCreativeVariations(brand, { count: 3 });
 
   const optimizations = [];
+  const underfundedCampaigns = [];
 
   for (const c of campaigns) {
     const rec = budgetRecs.find(
@@ -318,6 +320,32 @@ async function autoOptimizeCampaignsForBrand(brand) {
       budgetAction: action,
       appliedDailyBudget: appliedBudget,
     });
+
+    // An "increase" recommendation means the campaign is performing but
+    // budget-starved — a real "budget running low" signal for the owner.
+    if (action === "increase") underfundedCampaigns.push(c.campaign_name);
+  }
+
+  // Speak a budget-low alert via Echo when campaigns are underfunded. Best-effort;
+  // honors voice settings, dedup per brand per day so it speaks once per run.
+  if (underfundedCampaigns.length > 0) {
+    const n = underfundedCampaigns.length;
+    const dayKey = new Date().toISOString().slice(0, 10);
+    enqueueOwnerVoiceEvent(
+      brand.user_id,
+      "budget_low",
+      (firstName) =>
+        n === 1
+          ? `${firstName}, heads up — your campaign "${underfundedCampaigns[0]}" is performing well but running low on budget. I recommend increasing its daily spend to capture more leads.`
+          : `${firstName}, heads up — ${n} of your campaigns are performing well but running low on budget. I recommend increasing their daily spend to capture more leads.`,
+      {
+        brandId: brand.brand_id,
+        title: "Budget running low",
+        payload: { campaigns: underfundedCampaigns },
+        dedupKey: `budgetlow:${brand.brand_id}:${dayKey}`,
+        expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+      }
+    ).catch((err) => console.error("Budget-low voice enqueue failed:", err.message));
   }
 
   return {

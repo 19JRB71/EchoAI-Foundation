@@ -42,6 +42,9 @@ import SectionHelp from "./tour/SectionHelp.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
 import EchoCompanion from "./companion/EchoCompanion.jsx";
+import { VoiceProvider, useVoice } from "./voice/VoiceContext.jsx";
+import VoicePlayer from "./voice/VoicePlayer.jsx";
+import VoiceSettings from "./sections/VoiceSettings.jsx";
 import DepartmentView from "./sections/DepartmentView.jsx";
 import SentinelHealth from "./sections/SentinelHealth.jsx";
 import SalesRepConsole from "./sections/crm/SalesRepConsole.jsx";
@@ -138,6 +141,8 @@ export default function App() {
       if (s === "sentinelhealth") return isAdmin || !isTeamMember;
       // Call monitoring lives in Sentinel — same owner/admin-only visibility.
       if (s === "callmonitor") return isAdmin || !isTeamMember;
+      // Echo's voice is the owner's personal assistant (owner/admin only).
+      if (s === "voicesettings") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
       return true;
     },
@@ -510,6 +515,7 @@ export default function App() {
   }
 
   return (
+    <VoiceProvider active={!isTeamMember}>
     <div className="flex min-h-screen flex-col bg-black md:flex-row">
       <Sidebar
         section={section}
@@ -643,6 +649,8 @@ export default function App() {
                   <AutonomousTab readOnly={isTeamMember || workspaceRole !== "owner"} />
                 </div>
               )}
+              {section === "voicesettings" &&
+                (canOpenSection("voicesettings") ? <VoiceSettings /> : null)}
               {section === "sentinelhealth" &&
                 (canOpenSection("sentinelhealth") ? (
                   <SentinelHealth brandId={selectedBrandId} initialTab={activeToolTab || "monitor"} />
@@ -756,12 +764,18 @@ export default function App() {
           <EchoCompanion />
         </ErrorBoundary>
       ) : null}
+      {!isTeamMember ? (
+        <ErrorBoundary silent>
+          <VoicePlayer />
+        </ErrorBoundary>
+      ) : null}
       {showFbWizard && (
         <ErrorBoundary silent>
           <FacebookWizard onClose={() => setShowFbWizard(false)} />
         </ErrorBoundary>
       )}
     </div>
+    </VoiceProvider>
   );
 }
 
@@ -802,11 +816,43 @@ function TopBar({
             {roleLabel(workspaceRole)}
           </span>
         )}
+        {!isTeamMember && <VoiceSpeakerButton />}
         <HealthIndicator brandId={brandId} />
         <SectionHelp sectionKey={section} tourAnchor />
         <TierBadge tier={tier} isAdmin={isAdmin} />
       </div>
     </div>
+  );
+}
+
+// Top-bar mute toggle for Echo's spoken voice. A quick, always-reachable way to
+// silence briefings/reminders/alerts without opening Voice Settings.
+function VoiceSpeakerButton() {
+  const voice = useVoice();
+  if (!voice || !voice.active) return null;
+  const { muted, playing } = voice;
+  return (
+    <button
+      onClick={voice.toggleMute}
+      title={muted ? "Unmute Echo's voice" : "Mute Echo's voice"}
+      aria-label={muted ? "Unmute Echo's voice" : "Mute Echo's voice"}
+      aria-pressed={muted}
+      className={`relative flex h-7 w-7 items-center justify-center rounded-full transition ${
+        muted ? "text-gray-500 hover:text-gray-300" : "text-teal-300 hover:text-teal-200"
+      }`}
+    >
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 9v6h3l4.5 4.5V4.5L9 9H6z" />
+        {muted ? (
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16 9l4 4m0-4l-4 4" />
+        ) : (
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 8.5a5 5 0 010 7" />
+        )}
+      </svg>
+      {!muted && playing && (
+        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-teal-400" />
+      )}
+    </button>
   );
 }
 

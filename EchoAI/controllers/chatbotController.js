@@ -8,6 +8,7 @@ const emailController = require("./emailController");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
 const followUpController = require("./followUpController");
+const { enqueueOwnerVoiceEvent } = require("../utils/echoVoiceNotifications");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 
@@ -225,6 +226,23 @@ async function chat(req, res) {
             data: { type: "hot_lead", leadId: String(leadId) },
           })
           .catch((err) => console.error("Hot lead mobile push failed:", err.message));
+
+        // Speak the hot-lead alert to the owner via Echo. Best-effort; the
+        // enqueue helper honors the owner's voice settings and never throws.
+        const spokenLead = row.lead_name || "A new lead";
+        enqueueOwnerVoiceEvent(
+          row.owner_user_id,
+          "hot_lead",
+          (firstName) =>
+            `${firstName}, you have a new hot lead. ${spokenLead} just finished a conversation and is very interested. They want to be contacted today. Want me to connect you now?`,
+          {
+            brandId: row.brand_id,
+            title: "New hot lead",
+            payload: { leadId, lead: spokenLead, phone: row.phone || null },
+            dedupKey: `hotlead:${leadId}`,
+            expiresAt: new Date(Date.now() + 12 * 3600 * 1000),
+          }
+        ).catch((err) => console.error("Hot lead voice enqueue failed:", err.message));
       }
     }
 

@@ -1,0 +1,25 @@
+Here's Prompt 58: Echo Voice Reminders and Daily Briefing for EchoAI:
+EchoAI is an AI-powered SaaS marketing platform. You've built a complete AI Marketing Department with eight named team members and Mission Control. Now you need to give Echo a real voice so it speaks to the business owner every morning with a personalized briefing, reminds them of appointments and calls throughout the day, and alerts them to important events as they happen — all out loud like a real assistant talking to them.
+PART 1 — MORNING VOICE BRIEFING
+When the business owner logs into EchoAI each morning Echo automatically speaks a personalized morning briefing out loud using the existing OpenAI text to speech infrastructure. The briefing uses the owner's first name pulled from their profile.
+The spoken briefing covers everything that happened since they last logged in including new leads that came in, campaigns that ran and their results, follow-ups that Pulse completed automatically, appointments scheduled for today, any issues Sentinel detected and fixed overnight, competitor activity Scout identified, and anything waiting for the owner's approval.
+After delivering the briefing Echo asks are you ready to get started or would you like me to go into more detail on anything. The owner can respond by voice or by typing.
+Show a visual waveform animation while Echo is speaking so the owner knows Echo is talking. Show a Skip button so they can skip the briefing if they are in a hurry. Show a Replay button so they can hear it again. Store whether the briefing has been delivered today so it only plays once per login session not every time they refresh the page.
+PART 2 — APPOINTMENT AND CALL REMINDERS
+Build a reminder system that monitors the owner's calendar and scheduled calls throughout the day and speaks reminder alerts at the right times.
+Fifteen minutes before any appointment Echo speaks — Good morning James your eleven o'clock appointment with Robert who is interested in the sixty five thousand dollar shell kit starts in fifteen minutes. He mentioned during his chatbot conversation that he wants to do a homeowner build. Here are his contact details.
+Five minutes before any appointment Echo speaks again — James your eleven o'clock starts in five minutes.
+When a scheduled follow-up call is due Echo speaks — James it is time to follow up with Sarah. She was a warm lead who requested a callback. Her last interaction was three days ago. Want me to connect the call now?
+At the end of each day Echo delivers a closing summary — Good evening James. Here is what your team accomplished today. Then lists the day's results and previews tomorrow's schedule.
+PART 3 — REAL TIME EVENT ALERTS
+Build real time voice alerts for important events that happen during the day.
+When a hot lead comes in Echo speaks immediately — James you have a new hot lead. Mike from Gainesville just finished a conversation with Voice and is very interested in the thirty five thousand dollar starter kit. He wants to be contacted today. Want me to connect you now?
+When a campaign runs low on budget Echo speaks — James your Blacor Homes Facebook campaign is running low on budget. You have about twelve dollars left for today. Want me to pause it or add more budget?
+When Sentinel fixes a problem Echo speaks — James I noticed your Facebook connection had an issue overnight. Sentinel fixed it automatically and your campaigns are running normally.
+When a Sales Rep completes a lead interaction Echo speaks — James your sales rep just finished a call with a lead and marked them as gave quote. The call was recorded and saved.
+PART 4 — VOICE SETTINGS AND CONTROLS
+Add a voice settings panel to Echo's department in the AI Team. Settings include enable or disable Echo's voice, choose from three voice styles — professional, friendly, or energetic, set the volume level, choose which events trigger voice alerts, set quiet hours during which Echo does not speak such as after 8pm and before 8am, and toggle whether the morning briefing plays automatically on login or requires a manual trigger.
+Add a small speaker icon in the top navigation bar that shows whether Echo's voice is enabled or muted. Clicking it toggles voice on and off instantly.
+PART 5 — VOICE BRIEFING TRIGGER
+Add a Talk to Echo button that is always visible in the companion panel. When clicked Echo speaks the current status of the business — what is happening right now, what needs attention, and what is coming up today. This is different from the morning briefing which is a full daily summary. The on-demand briefing is a quick current status update the owner can request any time during the day.
+Wire all reminders into the existing appointment controller, lead controller, phone controller, and scheduler. Use the existing OpenAI text to speech API already integrated. Store voice preferences in the user profile. Output all files created and updated.

@@ -876,6 +876,51 @@ export const api = {
     return await res.blob();
   },
 
+  // --- Echo Voice (owner-only spoken assistant: briefings, reminders, alerts) ---
+  echoVoiceGetSettings: () => request("/api/echo-voice/settings"),
+  echoVoiceSaveSettings: ({ settings, firstName }) =>
+    request("/api/echo-voice/settings", {
+      method: "PUT",
+      body: { settings, firstName },
+    }),
+  // Synthesize spoken text in the owner's voice style; returns an MP3 Blob.
+  echoVoiceSpeak: async (text, style) => {
+    const headers = { "Content-Type": "application/json" };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}/api/echo-voice/speak`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text, style }),
+    });
+    if (!res.ok) {
+      if (res.status === 401) {
+        clearToken();
+        window.dispatchEvent(new Event("echoai:unauthorized"));
+      }
+      const data = await res.json().catch(() => null);
+      const err = new Error((data && data.error) || `Request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return await res.blob();
+  },
+  echoVoiceGetBriefing: () => request("/api/echo-voice/briefing"),
+  echoVoiceMarkBriefingDelivered: () =>
+    request("/api/echo-voice/briefing/delivered", { method: "POST" }),
+  echoVoiceGetStatus: () => request("/api/echo-voice/status"),
+  echoVoiceGetPending: (clientHour) =>
+    request(
+      `/api/echo-voice/pending${
+        Number.isInteger(clientHour) ? `?clientHour=${clientHour}` : ""
+      }`,
+    ),
+  echoVoiceMarkNotification: (id, status) =>
+    request(`/api/echo-voice/notifications/${id}/delivered`, {
+      method: "POST",
+      body: status ? { status } : {},
+    }),
+
   // --- AI Health Monitor + Screenshot Support ---
   healthGetStatus: (brandId) =>
     request(`/api/health-monitor/${brandId}/status`),

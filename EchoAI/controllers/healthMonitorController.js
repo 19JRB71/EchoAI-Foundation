@@ -449,6 +449,29 @@ async function runHealthCheck(brand, opts = {}) {
     );
   }
 
+  // Speak a Sentinel "I fixed it" update via Echo whenever an auto-fix landed.
+  // Best-effort; honors the owner's voice settings. Dedup by check_id so it
+  // speaks once per sweep, never repeats for the same recorded check.
+  if (notify && issuesAutoFixed.length > 0) {
+    const n = issuesAutoFixed.length;
+    const what = issuesAutoFixed[0].message || issuesAutoFixed[0].type || "an issue";
+    enqueueOwnerVoiceEvent(
+      brand.user_id,
+      "sentinel_fixed",
+      (firstName) =>
+        n === 1
+          ? `${firstName}, Sentinel just auto-fixed an issue on ${brand.brand_name || "your account"}: ${what}. Everything's back to normal.`
+          : `${firstName}, Sentinel just auto-fixed ${n} issues on ${brand.brand_name || "your account"}. Everything's back to normal.`,
+      {
+        brandId: brand.brand_id,
+        title: "Sentinel auto-fix",
+        payload: { checkId: record.check_id, fixed: n },
+        dedupKey: `sentinel:${record.check_id}`,
+        expiresAt: new Date(Date.now() + 12 * 3600 * 1000),
+      }
+    ).catch((err) => console.error("Sentinel voice enqueue failed:", err.message));
+  }
+
   return record;
 }
 

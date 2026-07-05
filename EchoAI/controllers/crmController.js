@@ -8,6 +8,7 @@ const {
   validateTwilioRequest,
 } = require("../config/twilio");
 const twilioLib = require("twilio");
+const { enqueueOwnerVoiceEvent } = require("../utils/echoVoiceNotifications");
 
 // ---------------------------------------------------------------------------
 // Employee Accountability CRM
@@ -273,7 +274,7 @@ async function completeCurrentLead(req, res) {
 
   try {
     const leadRes = await db.query(
-      `SELECT l.lead_id FROM leads l
+      `SELECT l.lead_id, l.lead_name, l.brand_id FROM leads l
          JOIN brands b ON b.brand_id = l.brand_id
         WHERE b.user_id = $1 AND l.assigned_rep_user_id = $2
           AND l.queue_state = 'assigned'
@@ -306,6 +307,29 @@ async function completeCurrentLead(req, res) {
       notes: notes || undefined,
       conversionStatus: conversionStatus || undefined,
     });
+
+    // Speak a rep-completed update to the owner via Echo. Best-effort; honors
+    // the owner's voice settings and never affects the completion response.
+    const repLabel = req.user.email || "A rep";
+    const leadLabel = lead.lead_name || "a lead";
+    const outcomeNote =
+      conversionStatus === "converted"
+        ? " It converted — nice work."
+        : conversionStatus === "lost"
+          ? " It was marked lost."
+          : "";
+    enqueueOwnerVoiceEvent(
+      ownerId,
+      "rep_completed",
+      (firstName) =>
+        `${firstName}, ${repLabel} just finished working ${leadLabel}. Outcome: ${outcome}.${outcomeNote}`,
+      {
+        brandId: lead.brand_id,
+        title: "Lead completed",
+        payload: { leadId: lead.lead_id, outcome, conversionStatus: conversionStatus || null },
+        dedupKey: `repdone:${lead.lead_id}:${Date.now()}`,
+      }
+    ).catch((err) => console.error("Rep-completed voice enqueue failed:", err.message));
 
     const remaining = await countRepQueue(ownerId, repId);
     return res.json({ completed: true, remaining });
