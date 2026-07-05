@@ -201,16 +201,60 @@ export const api = {
 
   // Team members & roles
   getTeam: () => request("/api/team"),
-  inviteTeamMember: (email, role) =>
-    request("/api/team/invite", { method: "POST", body: { email, role } }),
+  inviteTeamMember: (email, role, phone) =>
+    request("/api/team/invite", { method: "POST", body: { email, role, phone } }),
   resendTeamInvite: (teamMemberId) =>
     request("/api/team/resend", { method: "POST", body: { teamMemberId } }),
-  changeTeamRole: (teamMemberId, role) =>
-    request("/api/team/role", { method: "PUT", body: { teamMemberId, role } }),
+  changeTeamRole: (teamMemberId, role, phone) =>
+    request("/api/team/role", { method: "PUT", body: { teamMemberId, role, phone } }),
+  deactivateTeamMember: (teamMemberId) =>
+    request("/api/team/deactivate", { method: "POST", body: { teamMemberId } }),
+  reactivateTeamMember: (teamMemberId) =>
+    request("/api/team/reactivate", { method: "POST", body: { teamMemberId } }),
   removeTeamMember: (teamMemberId) =>
     request(`/api/team/${teamMemberId}`, { method: "DELETE" }),
   acceptTeamInvite: (token) =>
     request("/api/team/accept", { method: "POST", body: { token } }),
+
+  // Employee Accountability CRM — sales-rep queue, queue management, monitoring
+  crmGetCurrentLead: () => request("/api/crm/current"),
+  crmCallCurrentLead: () => request("/api/crm/call", { method: "POST" }),
+  crmCompleteLead: (payload) =>
+    request("/api/crm/complete", { method: "POST", body: payload }),
+  crmGetQueue: () => request("/api/crm/queue"),
+  crmQueueOverview: () => request("/api/crm/queue/overview"),
+  crmAssignToQueue: (leadId, repUserId) =>
+    request("/api/crm/queue/assign", {
+      method: "POST",
+      body: { leadId, repUserId },
+    }),
+  crmSetPriority: (leadId, priority) =>
+    request("/api/crm/queue/priority", {
+      method: "POST",
+      body: { leadId, priority },
+    }),
+  crmRemoveFromQueue: (leadId) =>
+    request("/api/crm/queue/remove", { method: "POST", body: { leadId } }),
+  crmCallsToday: () => request("/api/crm/calls/today"),
+  crmLeadLog: (leadId) => request(`/api/crm/leads/${leadId}/log`),
+  // The recording endpoint is auth-protected, so an <audio src> can't attach the
+  // Bearer token. Fetch the media as a blob with the token and return an object
+  // URL the caller can play (and must revoke when done).
+  crmRecordingBlobUrl: async (callId) => {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/api/crm/recording/${callId}/audio`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      if (res.status === 401) {
+        clearToken();
+        window.dispatchEvent(new Event("echoai:unauthorized"));
+      }
+      throw new Error("Could not load the recording.");
+    }
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
 
   // Brands
   getBrands: () => request("/api/brands"),

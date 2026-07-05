@@ -4,7 +4,10 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
 const featureGate = require("../middleware/featureGate");
-const { denyViewerMutations } = require("../middleware/rolePermissions");
+const {
+  denyReadOnlyMutations,
+  denySalesRep,
+} = require("../middleware/rolePermissions");
 const phoneController = require("../controllers/phoneController");
 
 // ---------------------------------------------------------------------------
@@ -18,7 +21,9 @@ router.post("/status", phoneController.handleCallStatus);
 // ---------------------------------------------------------------------------
 // Customer-facing routes — auth + account in good standing.
 // ---------------------------------------------------------------------------
-router.use(auth, lockout, featureGate("phone_agent"), denyViewerMutations);
+// Sales reps never see raw call history / caller numbers here — they call leads
+// only through the masked CRM bridge (/api/crm/call).
+router.use(auth, lockout, featureGate("phone_agent"), denySalesRep, denyReadOnlyMutations);
 
 // Twilio config (Settings panel)
 router.post("/config", phoneController.saveTwilioConfig);

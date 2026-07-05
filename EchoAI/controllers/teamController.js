@@ -14,7 +14,12 @@ const {
   ADDITIONAL_SEAT_PRICE,
 } = require("../config/plans");
 
-const VALID_ROLES = ["viewer", "manager", "admin"];
+const { normalizeE164 } = require("../utils/phone");
+
+// New invites/role changes use these three. `viewer` is retired from the UI but
+// still accepted at the DB level (legacy members) and treated as read-only.
+const VALID_ROLES = ["admin", "manager", "sales_rep"];
+const ROLE_LABEL = "admin, manager, or sales_rep";
 const INVITE_TTL_HOURS = 48;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -105,14 +110,32 @@ async function inviteMember(req, res) {
   const ownerId = req.user.userId;
   const email = normalizeEmail(req.body.email);
   const role = String(req.body.role || "").trim();
+  const rawPhone = req.body.phone;
 
   if (!EMAIL_RE.test(email)) {
     return res.status(400).json({ error: "A valid email address is required." });
   }
   if (!VALID_ROLES.includes(role)) {
-    return res
-      .status(400)
-      .json({ error: "Role must be one of: viewer, manager, admin." });
+    return res.status(400).json({ error: `Role must be one of: ${ROLE_LABEL}.` });
+  }
+
+  // Sales reps call leads through the phone bridge, which rings THEIR phone
+  // first — so a valid number is required at invite time. Other roles may
+  // optionally store one.
+  let phone = null;
+  if (rawPhone !== undefined && rawPhone !== null && String(rawPhone).trim()) {
+    phone = normalizeE164(rawPhone);
+    if (!phone) {
+      return res.status(400).json({
+        error: "Enter a valid phone number in E.164 format, e.g. +15551234567.",
+      });
+    }
+  }
+  if (role === "sales_rep" && !phone) {
+    return res.status(400).json({
+      error:
+        "A sales rep needs a phone number — the platform calls their phone first, then connects the lead.",
+    });
   }
 
   try {
@@ -141,9 +164,9 @@ async function inviteMember(req, res) {
 
     await db.query(
       `INSERT INTO team_invitations
-         (account_owner_user_id, invited_email, role, token, expires_at)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [ownerId, email, role, token, expiresAt]
+         (account_owner_user_id, invited_email, role, token, expires_at, phone)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [ownerId, email, role, token, expiresAt, phone]
     );
 
     const status = existingUserId ? "active" : "pending";
@@ -151,17 +174,18 @@ async function inviteMember(req, res) {
 
     const upsert = await db.query(
       `INSERT INTO team_members
-         (account_owner_user_id, invited_user_id, email, role, status, accepted_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (account_owner_user_id, invited_user_id, email, role, status, accepted_at, phone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (account_owner_user_id, lower(email)) DO UPDATE
          SET role = EXCLUDED.role,
              status = EXCLUDED.status,
              invited_user_id = COALESCE(EXCLUDED.invited_user_id, team_members.invited_user_id),
              accepted_at = EXCLUDED.accepted_at,
+             phone = COALESCE(EXCLUDED.phone, team_members.phone),
              invited_at = NOW()
          WHERE team_members.status <> 'active'
        RETURNING *`,
-      [ownerId, existingUserId, email, role, status, acceptedAt]
+      [ownerId, existingUserId, email, role, status, acceptedAt, phone]
     );
 
     if (upsert.rows.length === 0) {
@@ -238,7 +262,7 @@ async function acceptInvitation(req, res) {
     // Look up the (unconsumed, unexpired) invitation WITHOUT burning it, so a
     // leaked token presented by the wrong user can't deny the real invitee.
     const lookup = await db.query(
-      `SELECT account_owner_user_id, invited_email, role
+      `SELECT account_owner_user_id, invited_email, role, phone
          FROM team_invitations
         WHERE token = $1 AND accepted_at IS NULL AND expires_at > NOW()`,
       [token]
@@ -250,7 +274,12 @@ async function acceptInvitation(req, res) {
         .json({ error: "This invitation is invalid, already used, or expired." });
     }
 
-    const { account_owner_user_id: ownerId, invited_email, role } = lookup.rows[0];
+    const {
+      account_owner_user_id: ownerId,
+      invited_email,
+      role,
+      phone: invitePhone,
+    } = lookup.rows[0];
 
     if (ownerId === userId) {
       return res
@@ -285,13 +314,14 @@ async function acceptInvitation(req, res) {
 
     await db.query(
       `INSERT INTO team_members
-         (account_owner_user_id, invited_user_id, email, role, status, accepted_at)
-       VALUES ($1, $2, $3, $4, 'active', NOW())
+         (account_owner_user_id, invited_user_id, email, role, status, accepted_at, phone)
+       VALUES ($1, $2, $3, $4, 'active', NOW(), $5)
        ON CONFLICT (account_owner_user_id, lower(email)) DO UPDATE
          SET invited_user_id = EXCLUDED.invited_user_id,
              status = 'active',
-             accepted_at = NOW()`,
-      [ownerId, userId, invited_email, role]
+             accepted_at = NOW(),
+             phone = COALESCE(EXCLUDED.phone, team_members.phone)`,
+      [ownerId, userId, invited_email, role, invitePhone || null]
     );
 
     await recomputeOwnerSeats(ownerId);
@@ -319,8 +349,9 @@ async function listMembers(req, res) {
   const ownerId = req.user.userId;
   try {
     const { rows } = await db.query(
-      `SELECT tm.team_member_id, tm.email, tm.role, tm.status,
-              tm.invited_at, tm.accepted_at, u.email AS account_email
+      `SELECT tm.team_member_id, tm.email, tm.role, tm.status, tm.phone,
+              tm.invited_user_id, tm.invited_at, tm.accepted_at,
+              u.email AS account_email
          FROM team_members tm
          LEFT JOIN users u ON u.user_id = tm.invited_user_id
         WHERE tm.account_owner_user_id = $1 AND tm.status <> 'removed'
@@ -328,14 +359,66 @@ async function listMembers(req, res) {
       [ownerId]
     );
 
+    // Weekly accountability stats, keyed by the member's real user id. Calls are
+    // attributed to the agent who placed them; "leads worked" counts leads the
+    // rep completed from their queue this week. Both are scoped to this owner's
+    // workspace via the brand ownership join.
+    const memberUserIds = rows
+      .map((m) => m.invited_user_id)
+      .filter((id) => id);
+    const callStats = new Map();
+    const leadStats = new Map();
+    const lastActive = new Map();
+    if (memberUserIds.length) {
+      const { rows: cRows } = await db.query(
+        `SELECT c.agent_user_id,
+                COUNT(*) FILTER (WHERE c.created_at >= NOW() - INTERVAL '7 days')::int AS week_calls,
+                MAX(c.created_at) AS last_call
+           FROM calls c
+           JOIN brands b ON b.brand_id = c.brand_id
+          WHERE b.user_id = $1 AND c.agent_user_id = ANY($2::uuid[])
+          GROUP BY c.agent_user_id`,
+        [ownerId, memberUserIds]
+      );
+      cRows.forEach((r) => {
+        callStats.set(r.agent_user_id, r.week_calls || 0);
+        if (r.last_call) lastActive.set(r.agent_user_id, r.last_call);
+      });
+
+      const { rows: lRows } = await db.query(
+        `SELECT l.assigned_rep_user_id,
+                COUNT(*) FILTER (
+                  WHERE l.queue_state = 'completed'
+                    AND l.worked_at >= NOW() - INTERVAL '7 days'
+                )::int AS week_leads,
+                MAX(l.worked_at) AS last_worked
+           FROM leads l
+           JOIN brands b ON b.brand_id = l.brand_id
+          WHERE b.user_id = $1 AND l.assigned_rep_user_id = ANY($2::uuid[])
+          GROUP BY l.assigned_rep_user_id`,
+        [ownerId, memberUserIds]
+      );
+      lRows.forEach((r) => {
+        leadStats.set(r.assigned_rep_user_id, r.week_leads || 0);
+        const prev = lastActive.get(r.assigned_rep_user_id);
+        if (r.last_worked && (!prev || new Date(r.last_worked) > new Date(prev))) {
+          lastActive.set(r.assigned_rep_user_id, r.last_worked);
+        }
+      });
+    }
+
     const members = rows.map((m) => ({
       teamMemberId: m.team_member_id,
       email: m.account_email || m.email,
       role: m.role,
       status: m.status,
+      phone: m.phone || null,
       invitedAt: m.invited_at,
       acceptedAt: m.accepted_at,
-      lastActiveAt: m.accepted_at,
+      lastActiveAt:
+        (m.invited_user_id && lastActive.get(m.invited_user_id)) || m.accepted_at,
+      weekCalls: (m.invited_user_id && callStats.get(m.invited_user_id)) || 0,
+      weekLeadsWorked: (m.invited_user_id && leadStats.get(m.invited_user_id)) || 0,
     }));
 
     const owner = await getOwnerContext(ownerId);
@@ -429,22 +512,53 @@ async function changeRole(req, res) {
   const ownerId = req.user.userId;
   const teamMemberId = String(req.body.teamMemberId || req.body.memberId || "").trim();
   const role = String(req.body.role || "").trim();
+  const rawPhone = req.body.phone;
 
   if (!teamMemberId) {
     return res.status(400).json({ error: "A team member id is required." });
   }
   if (!VALID_ROLES.includes(role)) {
-    return res
-      .status(400)
-      .json({ error: "Role must be one of: viewer, manager, admin." });
+    return res.status(400).json({ error: `Role must be one of: ${ROLE_LABEL}.` });
+  }
+
+  let phone; // undefined = leave unchanged
+  if (rawPhone !== undefined) {
+    if (rawPhone === null || !String(rawPhone).trim()) {
+      phone = null;
+    } else {
+      phone = normalizeE164(rawPhone);
+      if (!phone) {
+        return res.status(400).json({
+          error: "Enter a valid phone number in E.164 format, e.g. +15551234567.",
+        });
+      }
+    }
   }
 
   try {
+    const existing = await db.query(
+      `SELECT phone FROM team_members
+        WHERE team_member_id = $1 AND account_owner_user_id = $2 AND status <> 'removed'`,
+      [teamMemberId, ownerId]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "Team member not found." });
+    }
+    const effectivePhone = phone !== undefined ? phone : existing.rows[0].phone;
+    if (role === "sales_rep" && !effectivePhone) {
+      return res.status(400).json({
+        error:
+          "A sales rep needs a phone number so the platform can bridge their calls. Add one to switch this person to Sales Rep.",
+      });
+    }
+
     const { rows } = await db.query(
-      `UPDATE team_members SET role = $1
-        WHERE team_member_id = $2 AND account_owner_user_id = $3 AND status <> 'removed'
-        RETURNING team_member_id, email, role, status`,
-      [role, teamMemberId, ownerId]
+      `UPDATE team_members
+          SET role = $1,
+              phone = COALESCE($2, phone)
+        WHERE team_member_id = $3 AND account_owner_user_id = $4 AND status <> 'removed'
+        RETURNING team_member_id, email, role, status, phone`,
+      [role, phone === undefined ? null : phone, teamMemberId, ownerId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: "Team member not found." });
@@ -454,10 +568,81 @@ async function changeRole(req, res) {
       email: rows[0].email,
       role: rows[0].role,
       status: rows[0].status,
+      phone: rows[0].phone || null,
     });
   } catch (err) {
     console.error("Change role error:", err);
     return res.status(500).json({ error: "Failed to change the role." });
+  }
+}
+
+/**
+ * POST /api/team/deactivate  (auth, lockout, admin+)
+ * Deactivates a member: revokes access immediately (auth only remaps
+ * status='active' members) while KEEPING the row and all their history —
+ * calls, worked leads, and accountability logs stay attributed to them. Frees
+ * their billed seat.
+ */
+async function deactivateMember(req, res) {
+  const ownerId = req.user.userId;
+  const teamMemberId = String(req.body.teamMemberId || req.body.memberId || "").trim();
+
+  if (!teamMemberId) {
+    return res.status(400).json({ error: "A team member id is required." });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `UPDATE team_members
+          SET status = 'deactivated'
+        WHERE team_member_id = $1 AND account_owner_user_id = $2 AND status = 'active'
+        RETURNING team_member_id`,
+      [teamMemberId, ownerId]
+    );
+    if (rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "Active team member not found." });
+    }
+    const seats = await recomputeOwnerSeats(ownerId);
+    return res.json({ deactivated: true, seats });
+  } catch (err) {
+    console.error("Deactivate member error:", err);
+    return res.status(500).json({ error: "Failed to deactivate the team member." });
+  }
+}
+
+/**
+ * POST /api/team/reactivate  (auth, lockout, admin+)
+ * Restores a previously deactivated member to active (re-granting access) and
+ * re-consumes a seat.
+ */
+async function reactivateMember(req, res) {
+  const ownerId = req.user.userId;
+  const teamMemberId = String(req.body.teamMemberId || req.body.memberId || "").trim();
+
+  if (!teamMemberId) {
+    return res.status(400).json({ error: "A team member id is required." });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `UPDATE team_members
+          SET status = 'active', accepted_at = COALESCE(accepted_at, NOW())
+        WHERE team_member_id = $1 AND account_owner_user_id = $2 AND status = 'deactivated'
+        RETURNING team_member_id, invited_user_id`,
+      [teamMemberId, ownerId]
+    );
+    if (rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "Deactivated team member not found." });
+    }
+    const seats = await recomputeOwnerSeats(ownerId);
+    return res.json({ reactivated: true, seats });
+  } catch (err) {
+    console.error("Reactivate member error:", err);
+    return res.status(500).json({ error: "Failed to reactivate the team member." });
   }
 }
 
@@ -500,6 +685,8 @@ module.exports = {
   listMembers,
   resendInvite,
   changeRole,
+  deactivateMember,
+  reactivateMember,
   removeMember,
   recomputeOwnerSeats,
 };

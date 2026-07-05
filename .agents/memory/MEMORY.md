@@ -21,3 +21,4 @@
 - [EchoAI Echo companion](echoai-echo-companion.md) — persistent panel drives post-setup activation via in-process controller invoke; never-block-on-fail, FB step waits for connect, owner-only both sides, auto-open while not active.
 - [EchoAI AI timeout + retry](echoai-ai-timeout-retry.md) — createMessage wraps AI calls w/ per-req timeout + transient-only retry (SDK retry off); heavy gens use 5m; interval heartbeat keeps long AI steps lease-safe.
 - [EchoAI large base64 uploads](echoai-large-body-uploads.md) — screenshot/image endpoints need a scoped express.json({limit}) + global-parser skip; the default 100 KB limit silently rejects real images before any handler.
+- [EchoAI CRM monitoring gate](echoai-crm-monitoring-gate.md) — Sentinel call-monitoring reads are owner/admin-only (requireRole admin); Pulse queue overview is manager-visible (denySalesRep). Don't collapse to one guard.

@@ -54,6 +54,7 @@ export const DEPARTMENTS = {
   ],
   pulse: [
     { label: "Leads", desc: "Every lead with temperature and status.", section: "leads" },
+    { label: "Sales Queue", desc: "Rep workload, throughput and the live working queue.", section: "queueoverview" },
     { label: "Follow-Up Sequences", desc: "Automated nurture sequences.", section: "followups" },
     { label: "Appointments", desc: "Booked and upcoming appointments.", section: "appointments" },
     { label: "Email Marketing", desc: "Campaigns and drip sequences.", section: "email" },
@@ -70,6 +71,7 @@ export const DEPARTMENTS = {
     { label: "Sales Scripts", desc: "AI-generated sales scripts.", section: "sales" },
   ],
   sentinel: [
+    { label: "Call Monitoring", desc: "Every call placed today, with recordings and accountability logs.", section: "callmonitor" },
     { label: "Health Monitor", desc: "Live health status and detected issues.", section: "sentinelhealth", tab: "monitor" },
     { label: "Auto-Fix Log", desc: "Issues Sentinel resolved automatically.", section: "sentinelhealth", tab: "autofix" },
     { label: "Error History", desc: "Past health sweeps and their outcomes.", section: "sentinelhealth", tab: "errors" },
@@ -115,6 +117,8 @@ export const SECTION_TITLES = {
   echomemory: "Echo · Memory",
   echogrowth: "Echo · Autonomous Growth",
   sentinelhealth: "Sentinel · Health",
+  callmonitor: "Sentinel · Call Monitoring",
+  queueoverview: "Pulse · Sales Queue",
 };
 
 export function sectionTitle(section) {

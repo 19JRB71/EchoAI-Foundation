@@ -20,6 +20,8 @@ router.get("/", teamController.listMembers);
 router.post("/invite", teamController.inviteMember);
 router.post("/resend", teamController.resendInvite);
 router.put("/role", teamController.changeRole);
+router.post("/deactivate", teamController.deactivateMember);
+router.post("/reactivate", teamController.reactivateMember);
 router.delete("/:teamMemberId", teamController.removeMember);
 
 module.exports = router;

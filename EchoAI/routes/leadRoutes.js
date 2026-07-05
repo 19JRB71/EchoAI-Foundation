@@ -4,7 +4,10 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
-const { denyViewerMutations } = require("../middleware/rolePermissions");
+const {
+  denyReadOnlyMutations,
+  denySalesRep,
+} = require("../middleware/rolePermissions");
 const leadController = require("../controllers/leadController");
 const chatbotController = require("../controllers/chatbotController");
 
@@ -12,8 +15,10 @@ const chatbotController = require("../controllers/chatbotController");
 router.post("/chat", chatbotController.chat);
 
 // All remaining lead routes require authentication and an active subscription.
-// Viewers may read leads/CRM but not create/convert/modify them.
-router.use(auth, lockout, denyViewerMutations);
+// Managers/viewers may READ leads/CRM but not create/convert/modify them.
+// Sales reps are blocked entirely — they only ever work their masked CRM queue
+// (see /api/crm), never the full lead list or raw contact numbers.
+router.use(auth, lockout, denySalesRep, denyReadOnlyMutations);
 
 router.post("/", leadController.createLead);
 router.get("/", leadController.getLeads);

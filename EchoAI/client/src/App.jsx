@@ -44,6 +44,10 @@ import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
 import EchoCompanion from "./companion/EchoCompanion.jsx";
 import DepartmentView from "./sections/DepartmentView.jsx";
 import SentinelHealth from "./sections/SentinelHealth.jsx";
+import SalesRepConsole from "./sections/crm/SalesRepConsole.jsx";
+import QueueOverview from "./sections/crm/QueueOverview.jsx";
+import CallMonitoring from "./sections/crm/CallMonitoring.jsx";
+import { roleLabel, roleBadgeClass, canWrite } from "./lib/roles.js";
 import Breadcrumbs from "./components/Breadcrumbs.jsx";
 import FacebookWizard from "./components/FacebookWizard.jsx";
 import { MemoryTab, AutonomousTab } from "./companion/EchoBrain.jsx";
@@ -132,6 +136,8 @@ export default function App() {
     (s) => {
       if (!s) return false;
       if (s === "sentinelhealth") return isAdmin || !isTeamMember;
+      // Call monitoring lives in Sentinel — same owner/admin-only visibility.
+      if (s === "callmonitor") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
       return true;
     },
@@ -443,6 +449,19 @@ export default function App() {
     );
   }
 
+  // Sales reps get a dedicated, focused console instead of the full dashboard:
+  // one assigned lead at a time, masked phone numbers, bridge calling. They never
+  // see the sidebar, other reps' work, or any other section.
+  if (workspaceRole === "sales_rep") {
+    return (
+      <SalesRepConsole
+        email={userEmail}
+        ownerBusinessName={ownerBusinessName}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   // New users go through the setup wizard; it disappears for good once complete.
   if (!onboardingCompleted) {
     return <OnboardingWizard onComplete={() => setOnboardingCompleted(true)} />;
@@ -464,6 +483,11 @@ export default function App() {
     : billingStatus
       ? billingStatus.subscriptionTier
       : null;
+
+  // Managers (and legacy viewers) are read-only everywhere: they can view every
+  // section but must not see write controls. Owner, workspace-admin and the
+  // platform admin can write. Passed down to sections that expose mutations.
+  const readOnly = !canWrite({ isAdmin, workspaceRole });
 
   // Accent color for the section currently being viewed — reinforces the tier
   // association on the content cards (blue/purple/gold, teal for core sections).
@@ -517,6 +541,8 @@ export default function App() {
             email={userEmail}
             tier={currentTier}
             isAdmin={isAdmin}
+            workspaceRole={workspaceRole}
+            isTeamMember={isTeamMember}
             section={section}
             brandId={selectedBrandId}
           />
@@ -621,6 +647,11 @@ export default function App() {
                 (canOpenSection("sentinelhealth") ? (
                   <SentinelHealth brandId={selectedBrandId} initialTab={activeToolTab || "monitor"} />
                 ) : null)}
+              {section === "callmonitor" &&
+                (canOpenSection("callmonitor") ? <CallMonitoring /> : null)}
+              {section === "queueoverview" && (
+                <QueueOverview readOnly={readOnly} />
+              )}
               {section === "overview" && <Overview brandId={selectedBrandId} />}
               {section === "leads" && <Leads brandId={selectedBrandId} />}
               {section === "campaigns" && <Campaigns />}
@@ -736,9 +767,20 @@ export default function App() {
 
 // Top bar shown above every dashboard view: the business name / email on the
 // left and the tier badge on the right so the current plan is always visible.
-function TopBar({ businessName, email, tier, isAdmin, section, brandId }) {
+function TopBar({
+  businessName,
+  email,
+  tier,
+  isAdmin,
+  workspaceRole,
+  isTeamMember,
+  section,
+  brandId,
+}) {
   const primary = businessName || email || "Your account";
   const secondary = businessName && email ? email : "";
+  // Show a workspace-role badge for team members (owners don't need one).
+  const showRole = isTeamMember && workspaceRole && workspaceRole !== "owner";
   return (
     <div className="mb-6 flex items-center justify-between gap-3 border-b border-gray-800 pb-4">
       <div className="min-w-0">
@@ -750,6 +792,16 @@ function TopBar({ businessName, email, tier, isAdmin, section, brandId }) {
         )}
       </div>
       <div className="flex shrink-0 items-center gap-3">
+        {showRole && (
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleBadgeClass(
+              workspaceRole,
+            )}`}
+            title={`Your workspace role: ${roleLabel(workspaceRole)}`}
+          >
+            {roleLabel(workspaceRole)}
+          </span>
+        )}
         <HealthIndicator brandId={brandId} />
         <SectionHelp sectionKey={section} tourAnchor />
         <TierBadge tier={tier} isAdmin={isAdmin} />

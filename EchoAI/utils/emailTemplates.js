@@ -235,11 +235,13 @@ function platformInquiryEmail({ name, businessType, phone, email }) {
 
 const ROLE_BLURB = {
   viewer:
-    "As a Viewer you'll be able to see leads, reports, analytics, and the CRM.",
+    "As a Viewer you'll have read-only access to leads, reports, analytics, and the CRM.",
+  sales_rep:
+    "As a Sales Rep you'll work one assigned lead at a time from your queue, call them right through the platform, and log the outcome. You won't see the full lead list or any contact numbers.",
   manager:
-    "As a Manager you'll be able to run campaigns, generate content, manage leads, and use all the AI tools.",
+    "As a Manager you'll have read-only access to everything — leads, reports, analytics, campaigns, and the CRM. You can review the whole workspace, but only admins can make changes.",
   admin:
-    "As an Admin you'll be able to do everything a Manager can, plus manage team members and billing.",
+    "As an Admin you'll be able to run everything, plus manage team members and billing.",
 };
 
 /**
