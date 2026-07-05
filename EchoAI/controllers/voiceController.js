@@ -139,4 +139,10 @@ async function voiceChat(req, res) {
   }
 }
 
-module.exports = { generateSpeech, transcribeSpeech, transcribeAudio, voiceChat };
+module.exports = {
+  synthesizeSpeech,
+  generateSpeech,
+  transcribeSpeech,
+  transcribeAudio,
+  voiceChat,
+};
