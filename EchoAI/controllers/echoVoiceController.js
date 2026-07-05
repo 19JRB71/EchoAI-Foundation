@@ -12,7 +12,7 @@
 const db = require("../config/db");
 const { synthesizeSpeech } = require("./voiceController");
 const { normalizeSettings, voiceForStyle, isQuietHour } = require("../config/echoVoice");
-const { gatherBriefingData, narrate } = require("../utils/echoBriefing");
+const { gatherBriefingData, gatherWeeklyData, narrate } = require("../utils/echoBriefing");
 const { toJsonbParam } = require("../utils/jsonb");
 
 /** Load the owner's row (first name, timestamps, stored settings). */
@@ -175,6 +175,41 @@ async function markBriefingDelivered(req, res) {
   }
 }
 
+/**
+ * GET /api/echo-voice/weekly-briefing — the weekly strategy briefing text.
+ * Synthesizes the past 7 days across ALL of the owner's businesses into a short
+ * spoken review plus the top opportunities and risks. `weekKey` (the ISO-week
+ * identifier) lets the client auto-play it at most once per week.
+ */
+async function getWeeklyBriefing(req, res) {
+  try {
+    const user = await loadUser(req.user.userId);
+    const settings = normalizeSettings(user && user.voice_settings);
+    const data = await gatherWeeklyData(req.user.userId);
+    const { text, aiNarrated } = await narrate("weekly", displayName(user), data);
+    return res.json({
+      text,
+      aiNarrated,
+      style: settings.style,
+      firstName: displayName(user),
+      weekKey: isoWeekKey(new Date()),
+    });
+  } catch (err) {
+    console.error("getWeeklyBriefing error:", err.message);
+    return res.status(500).json({ error: "Failed to build weekly briefing" });
+  }
+}
+
+/** ISO-week identifier like "2026-W27" (Monday-based) for once-per-week gating. */
+function isoWeekKey(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7; // Sunday -> 7
+  date.setUTCDate(date.getUTCDate() + 4 - day); // nearest Thursday
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
 /** GET /api/echo-voice/status — the on-demand "Talk to Echo" status update. */
 async function getStatus(req, res) {
   try {
@@ -284,6 +319,7 @@ module.exports = {
   speak,
   getBriefing,
   markBriefingDelivered,
+  getWeeklyBriefing,
   getStatus,
   getPending,
   markNotificationDelivered,

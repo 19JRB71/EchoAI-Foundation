@@ -24,6 +24,9 @@ router.post("/speak", controller.speak);
 router.get("/briefing", controller.getBriefing);
 router.post("/briefing/delivered", controller.markBriefingDelivered);
 
+// Weekly strategy briefing (7-day cross-business review + opportunities/risks).
+router.get("/weekly-briefing", controller.getWeeklyBriefing);
+
 // On-demand "Talk to Echo" current-status update.
 router.get("/status", controller.getStatus);
 

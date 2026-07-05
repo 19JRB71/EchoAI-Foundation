@@ -29,3 +29,4 @@
 - [EchoAI Facebook scoping](echoai-facebook-scoping.md) — FB connection (token/account/page) is user-scoped by design (api_integrations user_id+platform); don't refactor to brand-scoped as a side task.
 - [EchoAI demo auto-advance](echoai-demo-autoadvance.md) — voice onPlayed fires only on natural completion; auto-advancing steps needs a fallback timer or muted/blocked/error stalls the demo.
 - [EchoAI controller file-name collisions](echoai-controller-file-collisions.md) — generic controller/route names may already exist & be mounted; edit not overwrite, or boot breaks with undefined-callback.
+- [EchoAI weekly briefing guard](echoai-weekly-briefing-guard.md) — claim the per-ISO-week localStorage guard synchronously at enqueue (not onPlayed) so auto + manual weekly triggers can't double-play; manual button never gated.

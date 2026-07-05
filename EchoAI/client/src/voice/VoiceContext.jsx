@@ -37,6 +37,19 @@ const VoiceContext = createContext(null);
 // How often to poll the server for pending spoken events while the app is open.
 const POLL_MS = 30 * 1000;
 const MUTE_KEY = "echoai_voice_muted";
+// Per-ISO-week guard so the weekly strategy briefing auto-plays at most once a
+// week (persisted across logins/reloads, unlike the per-session morning guard).
+const WEEKLY_KEY_PREFIX = "echoai_weekly_";
+
+/** ISO-week identifier like "2026-W27" (matches the server's key for the guard). */
+function isoWeekKey(d = new Date()) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7; // Sunday -> 7
+  date.setUTCDate(date.getUTCDate() + 4 - day); // nearest Thursday
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
 // Anti-reload guard for the morning greeting, scoped to the current auth token.
 // A fresh login mints a new JWT, so its key is absent → the greeting plays again
 // on EVERY login. A bare page reload keeps the same token (and sessionStorage),
@@ -426,6 +439,37 @@ export function VoiceProvider({ active, children }) {
     }
   }, [enqueue]);
 
+  // On-demand weekly strategy briefing (the "Weekly" button). Plays immediately
+  // (front of queue) and stamps this week's guard so it won't also auto-play.
+  const weeklyBriefing = useCallback(async () => {
+    try {
+      setError("");
+      const data = await api.echoVoiceGetWeekly();
+      const key = WEEKLY_KEY_PREFIX + (data.weekKey || isoWeekKey());
+      // Claim this week SYNCHRONOUSLY (not in onPlayed) so the auto-play effect
+      // can't also fire an unsolicited second briefing — a deliberate manual play
+      // satisfies the week. The button itself is never gated by the guard, so the
+      // owner can always re-play on demand (it just re-stamps the same week).
+      try {
+        localStorage.setItem(key, "1");
+      } catch {
+        /* noop */
+      }
+      enqueue(
+        {
+          type: "weekly_briefing",
+          title: "Weekly strategy briefing",
+          text: data.text,
+        },
+        { front: true },
+      );
+      return data;
+    } catch (err) {
+      setError(err.message || "Couldn't reach Echo");
+      throw err;
+    }
+  }, [enqueue]);
+
   // ---- morning briefing (once/day) -------------------------------------
   const briefingTriedRef = useRef(false);
   useEffect(() => {
@@ -465,6 +509,57 @@ export function VoiceProvider({ active, children }) {
         });
       } catch {
         /* briefing is best-effort; never block the app */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active, settingsLoaded, muted, enqueue]);
+
+  // ---- weekly strategy briefing (once/week) -----------------------------
+  // Auto-plays the weekly briefing at most once per ISO week, appended after the
+  // morning greeting. Guarded in localStorage (persists across logins) and gated
+  // by the same enabled + autoBriefing prefs as the morning briefing. The
+  // per-week guard is checked BEFORE the request so we never spend an AI call we
+  // won't use.
+  const weeklyTriedRef = useRef(false);
+  useEffect(() => {
+    if (!active || !settingsLoaded) return;
+    if (muted) return;
+    if (weeklyTriedRef.current) return;
+    weeklyTriedRef.current = true;
+    const s = settingsRef.current;
+    if (!s.enabled || !s.autoBriefing) return;
+    const key = WEEKLY_KEY_PREFIX + isoWeekKey();
+    try {
+      if (localStorage.getItem(key)) return;
+    } catch {
+      /* noop */
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.echoVoiceGetWeekly();
+        if (cancelled) return;
+        const guardKey = WEEKLY_KEY_PREFIX + (data.weekKey || isoWeekKey());
+        // Re-check after the async fetch: a manual "Weekly" click could have
+        // claimed the week in the meantime. Then claim SYNCHRONOUSLY before
+        // enqueue so this path can't double up with a concurrent trigger. A
+        // blocked (autoplay-gated) item is re-queued in-session by the drain
+        // loop, so claiming up front doesn't lose the briefing within the session.
+        try {
+          if (localStorage.getItem(guardKey)) return;
+          localStorage.setItem(guardKey, "1");
+        } catch {
+          /* noop */
+        }
+        enqueue({
+          type: "weekly_briefing",
+          title: "Weekly strategy briefing",
+          text: data.text,
+        });
+      } catch {
+        /* best-effort; never block the app */
       }
     })();
     return () => {
@@ -532,6 +627,7 @@ export function VoiceProvider({ active, children }) {
     stopAll();
     deliveredIds.current = new Set();
     briefingTriedRef.current = false;
+    weeklyTriedRef.current = false;
     setNeedsGesture(false);
   }, [active, stopAll]);
 
@@ -550,6 +646,7 @@ export function VoiceProvider({ active, children }) {
       saveSettings,
       toggleMute,
       talkToEcho,
+      weeklyBriefing,
       replay,
       skip,
       stopAll,
@@ -569,6 +666,7 @@ export function VoiceProvider({ active, children }) {
       saveSettings,
       toggleMute,
       talkToEcho,
+      weeklyBriefing,
       replay,
       skip,
       stopAll,

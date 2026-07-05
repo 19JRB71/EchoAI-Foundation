@@ -925,6 +925,7 @@ export const api = {
   echoVoiceGetBriefing: () => request("/api/echo-voice/briefing"),
   echoVoiceMarkBriefingDelivered: () =>
     request("/api/echo-voice/briefing/delivered", { method: "POST" }),
+  echoVoiceGetWeekly: () => request("/api/echo-voice/weekly-briefing"),
   echoVoiceGetStatus: () => request("/api/echo-voice/status"),
   echoVoiceGetPending: (clientHour) =>
     request(

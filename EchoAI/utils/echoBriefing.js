@@ -14,6 +14,7 @@
  */
 const db = require("../config/db");
 const { createMessage, MODEL } = require("../config/anthropic");
+const { buildBriefingSystem } = require("../prompts/echoPersona");
 
 /** Owner's brand ids + names. */
 async function ownerBrands(userId) {
@@ -94,18 +95,18 @@ async function gatherBriefingData(userId, since) {
   const [newLeads, appts, followUps, campaigns, health, approvals, competitor] =
     await Promise.all([
       safeRows(
-        `SELECT lead_name, temperature, created_at
-           FROM leads
-          WHERE brand_id = ANY($1) AND created_at > $2
-          ORDER BY created_at DESC LIMIT 25`,
+        `SELECT l.lead_name, l.temperature, l.created_at, b.brand_name
+           FROM leads l JOIN brands b ON b.brand_id = l.brand_id
+          WHERE l.brand_id = ANY($1) AND l.created_at > $2
+          ORDER BY l.created_at DESC LIMIT 25`,
         [brandIds, sinceParam]
       ),
       safeRows(
-        `SELECT title, contact_name, start_time, description, location
-           FROM appointments
-          WHERE brand_id = ANY($1) AND status = 'scheduled'
-            AND start_time::date = CURRENT_DATE
-          ORDER BY start_time ASC`,
+        `SELECT a.title, a.contact_name, a.start_time, a.description, a.location, b.brand_name
+           FROM appointments a JOIN brands b ON b.brand_id = a.brand_id
+          WHERE a.brand_id = ANY($1) AND a.status = 'scheduled'
+            AND a.start_time::date = CURRENT_DATE
+          ORDER BY a.start_time ASC`,
         [brandIds]
       ),
       safeRows(
@@ -117,10 +118,10 @@ async function gatherBriefingData(userId, since) {
         [brandIds, sinceParam]
       ),
       safeRows(
-        `SELECT campaign_name, status, cost_per_lead, conversion_rate
-           FROM campaigns
-          WHERE brand_id = ANY($1) AND status = 'active'
-          ORDER BY updated_at DESC LIMIT 10`,
+        `SELECT c.campaign_name, c.status, c.cost_per_lead, c.conversion_rate, b.brand_name
+           FROM campaigns c JOIN brands b ON b.brand_id = c.brand_id
+          WHERE c.brand_id = ANY($1) AND c.status = 'active'
+          ORDER BY c.updated_at DESC LIMIT 10`,
         [brandIds]
       ),
       safeRows(
@@ -182,6 +183,249 @@ function summarizeCompetitor(report) {
   return null;
 }
 
+/** Normalize a jsonb list (of strings or objects) into short display strings. */
+function normalizeList(val) {
+  let arr = val;
+  if (typeof val === "string") {
+    try {
+      arr = JSON.parse(val);
+    } catch {
+      return [String(val).slice(0, 200)];
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((x) => {
+      if (typeof x === "string") return x;
+      if (x && typeof x === "object") {
+        return x.recommendation || x.opportunity || x.title || x.text || x.summary || x.trend || null;
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .map((s) => String(s).slice(0, 200));
+}
+
+/**
+ * Gather a week's worth of cross-business numbers for the weekly strategy
+ * briefing, and derive deterministic top opportunities/risks from the real data
+ * (shared by both the AI prompt and the template fallback). Same defensive
+ * pattern as gatherBriefingData: every source degrades to zero, never throws.
+ */
+async function gatherWeeklyData(userId) {
+  const brands = await ownerBrands(userId);
+  const brandIds = brands.map((b) => b.brand_id);
+  const fbConnected = await facebookConnected(userId);
+  const base = {
+    brands,
+    facebookConnected: fbConnected,
+    periodDays: 7,
+    newLeadsCount: 0,
+    newLeadsPrevCount: 0,
+    leadDeltaPct: null,
+    hotLeads: 0,
+    leadsByBrand: [],
+    appointmentsCompleted: 0,
+    appointmentsUpcoming: 0,
+    followUpsCompleted: 0,
+    campaigns: [],
+    bestCampaign: null,
+    worstCampaign: null,
+    sentinelFixes: 0,
+    pendingApprovals: 0,
+    competitorNote: null,
+    intelligence: { recommendations: [], trends: [] },
+    opportunities: [],
+    risks: [],
+  };
+  if (brandIds.length === 0) return { ...base, isEmpty: true };
+
+  const now = Date.now();
+  const weekAgo = new Date(now - 7 * 24 * 3600 * 1000);
+  const twoWeeksAgo = new Date(now - 14 * 24 * 3600 * 1000);
+
+  const [
+    leadsThisWeek,
+    leadsPrevWeek,
+    apptsDone,
+    apptsUpcoming,
+    followUps,
+    campaignRows,
+    health,
+    approvals,
+    competitor,
+    intel,
+  ] = await Promise.all([
+    safeRows(
+      `SELECT l.temperature, b.brand_name
+         FROM leads l JOIN brands b ON b.brand_id = l.brand_id
+        WHERE l.brand_id = ANY($1) AND l.created_at > $2`,
+      [brandIds, weekAgo]
+    ),
+    safeRows(
+      `SELECT COUNT(*)::int AS n FROM leads
+        WHERE brand_id = ANY($1) AND created_at > $2 AND created_at <= $3`,
+      [brandIds, twoWeeksAgo, weekAgo]
+    ),
+    safeRows(
+      `SELECT COUNT(*)::int AS n FROM appointments
+        WHERE brand_id = ANY($1) AND status = 'completed' AND start_time > $2`,
+      [brandIds, weekAgo]
+    ),
+    safeRows(
+      `SELECT COUNT(*)::int AS n FROM appointments
+        WHERE brand_id = ANY($1) AND status = 'scheduled' AND start_time >= NOW()`,
+      [brandIds]
+    ),
+    safeRows(
+      `SELECT COUNT(*)::int AS n
+         FROM sequence_touchpoints t
+         JOIN follow_up_sequences s ON s.sequence_id = t.sequence_id
+        WHERE s.brand_id = ANY($1) AND t.status = 'sent' AND t.scheduled_at > $2`,
+      [brandIds, weekAgo]
+    ),
+    safeRows(
+      `SELECT c.campaign_name, c.cost_per_lead, c.conversion_rate, b.brand_name
+         FROM campaigns c JOIN brands b ON b.brand_id = c.brand_id
+        WHERE c.brand_id = ANY($1) AND c.status = 'active'
+        ORDER BY c.updated_at DESC LIMIT 25`,
+      [brandIds]
+    ),
+    safeRows(
+      `SELECT COALESCE(SUM(
+          CASE WHEN jsonb_typeof(issues_auto_fixed) = 'array'
+               THEN jsonb_array_length(issues_auto_fixed) ELSE 0 END), 0)::int AS n
+         FROM health_checks
+        WHERE brand_id = ANY($1) AND check_time > $2`,
+      [brandIds, weekAgo]
+    ),
+    safeRows(
+      `SELECT COUNT(*)::int AS n FROM echo_companion
+        WHERE user_id = $1 AND pending_action IS NOT NULL`,
+      [userId]
+    ),
+    safeRows(
+      `SELECT intelligence_report FROM competitor_intelligence
+        WHERE brand_id = ANY($1) ORDER BY created_at DESC LIMIT 1`,
+      [brandIds]
+    ),
+    safeRows(
+      `SELECT recommendations, trends_identified FROM customer_intelligence
+        WHERE brand_id = ANY($1) ORDER BY created_at DESC LIMIT 3`,
+      [brandIds]
+    ),
+  ]);
+
+  const newLeadsCount = leadsThisWeek.length;
+  const hotLeads = leadsThisWeek.filter((l) => l.temperature === "hot").length;
+  const newLeadsPrevCount = leadsPrevWeek[0] ? leadsPrevWeek[0].n : 0;
+  const leadDeltaPct =
+    newLeadsPrevCount > 0
+      ? Math.round(((newLeadsCount - newLeadsPrevCount) / newLeadsPrevCount) * 100)
+      : null;
+
+  const byBrand = {};
+  for (const l of leadsThisWeek) {
+    const b = l.brand_name || "your business";
+    byBrand[b] = (byBrand[b] || 0) + 1;
+  }
+  const leadsByBrand = Object.keys(byBrand).map((name) => ({ brand: name, count: byBrand[name] }));
+
+  const campaigns = campaignRows.map((c) => ({
+    name: c.campaign_name,
+    brand: c.brand_name,
+    costPerLead: c.cost_per_lead != null ? Number(c.cost_per_lead) : null,
+    conversionRate: c.conversion_rate != null ? Number(c.conversion_rate) : null,
+  }));
+  const withCpl = campaigns.filter((c) => Number.isFinite(c.costPerLead) && c.costPerLead > 0);
+  let bestCampaign = null;
+  let worstCampaign = null;
+  if (withCpl.length) {
+    bestCampaign = withCpl.reduce((a, b) => (b.costPerLead < a.costPerLead ? b : a));
+    worstCampaign = withCpl.reduce((a, b) => (b.costPerLead > a.costPerLead ? b : a));
+  }
+
+  const recommendations = [];
+  const trends = [];
+  for (const row of intel) {
+    for (const r of normalizeList(row.recommendations)) recommendations.push(r);
+    for (const t of normalizeList(row.trends_identified)) trends.push(t);
+  }
+
+  const sentinelFixes = health[0] ? health[0].n : 0;
+  const pendingApprovals = approvals[0] ? approvals[0].n : 0;
+  const competitorNote =
+    competitor[0] && competitor[0].intelligence_report
+      ? summarizeCompetitor(competitor[0].intelligence_report)
+      : null;
+
+  const multi = brands.length > 1;
+  const tag = (brand) => (multi && brand ? ` at ${brand}` : "");
+
+  const opportunities = [];
+  if (hotLeads > 0) {
+    opportunities.push(
+      `${hotLeads} hot lead${hotLeads === 1 ? "" : "s"} ${hotLeads === 1 ? "is" : "are"} ready to close now`
+    );
+  }
+  if (bestCampaign) {
+    opportunities.push(
+      `Put more budget behind ${bestCampaign.name}${tag(bestCampaign.brand)}, your lowest cost per lead at $${bestCampaign.costPerLead.toFixed(2)}`
+    );
+  }
+  if (leadDeltaPct != null && leadDeltaPct >= 15) {
+    opportunities.push(`Lead flow is up ${leadDeltaPct}% over last week, worth pressing on`);
+  }
+  for (const rec of recommendations) {
+    if (opportunities.length >= 3) break;
+    opportunities.push(rec);
+  }
+
+  const risks = [];
+  if (campaigns.length === 0) {
+    risks.push("No campaigns are running right now, so the lead pipeline will dry up without them");
+  }
+  if (worstCampaign && (!bestCampaign || worstCampaign.name !== bestCampaign.name)) {
+    risks.push(
+      `${worstCampaign.name}${tag(worstCampaign.brand)} has your highest cost per lead at $${worstCampaign.costPerLead.toFixed(2)}, worth reviewing`
+    );
+  }
+  if (leadDeltaPct != null && leadDeltaPct <= -15) {
+    risks.push(`Lead flow dropped ${Math.abs(leadDeltaPct)}% from last week, worth digging into`);
+  }
+  if (competitorNote) {
+    risks.push(`Scout flagged competitor movement: ${competitorNote}`);
+  }
+  if (pendingApprovals > 0) {
+    risks.push(
+      `${pendingApprovals} item${pendingApprovals === 1 ? " is" : "s are"} still waiting for your approval`
+    );
+  }
+
+  return {
+    brands,
+    facebookConnected: fbConnected,
+    periodDays: 7,
+    newLeadsCount,
+    newLeadsPrevCount,
+    leadDeltaPct,
+    hotLeads,
+    leadsByBrand,
+    appointmentsCompleted: apptsDone[0] ? apptsDone[0].n : 0,
+    appointmentsUpcoming: apptsUpcoming[0] ? apptsUpcoming[0].n : 0,
+    followUpsCompleted: followUps[0] ? followUps[0].n : 0,
+    campaigns,
+    bestCampaign,
+    worstCampaign,
+    sentinelFixes,
+    pendingApprovals,
+    competitorNote,
+    intelligence: { recommendations, trends },
+    opportunities,
+    risks,
+  };
+}
+
 /** Deterministic template narration for the morning briefing (AI fallback). */
 function templateMorning(firstName, data) {
   const name = firstName || "there";
@@ -210,6 +454,8 @@ function templateMorning(firstName, data) {
   if (data.newLeads.length) {
     const hot = data.hotLeads ? ` — ${data.hotLeads} of them hot` : "";
     parts.push(`You have ${data.newLeads.length} new lead${data.newLeads.length === 1 ? "" : "s"}${hot}.`);
+    const breakdown = leadBrandBreakdown(data);
+    if (breakdown) parts.push(breakdown);
   } else {
     parts.push("No new leads since you were last here.");
   }
@@ -220,7 +466,7 @@ function templateMorning(firstName, data) {
     const first = data.todaysAppointments[0];
     const who = first.contact_name ? ` with ${first.contact_name}` : "";
     parts.push(
-      `You have ${data.todaysAppointments.length} appointment${data.todaysAppointments.length === 1 ? "" : "s"} today, starting${who} at ${formatTime(first.start_time)}.`
+      `You have ${data.todaysAppointments.length} appointment${data.todaysAppointments.length === 1 ? "" : "s"} today, starting${who}${brandTag(first, data)} at ${formatTime(first.start_time)}.`
     );
   }
   if (data.campaigns.length) {
@@ -275,6 +521,96 @@ function templateStatus(firstName, data) {
   return parts.join(" ");
 }
 
+function multiBrand(data) {
+  return Boolean(data && data.brands && data.brands.length > 1);
+}
+
+/** ` at <brand>` when the owner runs multiple businesses (else empty). */
+function brandTag(row, data) {
+  return multiBrand(data) && row && row.brand_name ? ` at ${row.brand_name}` : "";
+}
+
+/** Per-business split of new leads, spoken only when >1 business is represented. */
+function leadBrandBreakdown(data) {
+  if (!multiBrand(data) || !data.newLeads || !data.newLeads.length) return "";
+  const counts = {};
+  for (const l of data.newLeads) {
+    const b = l.brand_name || "your business";
+    counts[b] = (counts[b] || 0) + 1;
+  }
+  const names = Object.keys(counts);
+  if (names.length < 2) return "";
+  return `That's ${names.map((n) => `${counts[n]} at ${n}`).join(", ")}.`;
+}
+
+function joinList(items) {
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function stripTrailing(s) {
+  return String(s).trim().replace(/[.\s]+$/, "");
+}
+
+/** "First, X. Second, Y. Third, Z." for a short spoken ranked list. */
+function numberedList(items) {
+  const ord = ["First", "Second", "Third", "Fourth", "Fifth"];
+  return items.map((it, i) => `${ord[i] || `${i + 1}.`}, ${stripTrailing(it)}.`).join(" ");
+}
+
+/** Deterministic template narration for the weekly strategy briefing (AI fallback). */
+function templateWeekly(firstName, data) {
+  const name = firstName || "there";
+  const hasSubstance =
+    data.newLeadsCount ||
+    (data.campaigns && data.campaigns.length) ||
+    data.appointmentsCompleted ||
+    data.followUpsCompleted ||
+    (data.opportunities && data.opportunities.length);
+
+  if (data.isEmpty || !hasSubstance) {
+    const parts = [`Good morning ${name}. Here's your weekly strategy briefing.`];
+    parts.push("It's been a quiet week — your AI marketing department is set up and ready to go.");
+    if (!data.facebookConnected) {
+      parts.push(
+        "The single biggest move this week is connecting your Facebook account, so Atlas can start bringing in leads."
+      );
+    }
+    parts.push("Want me to walk you through getting your first campaign live?");
+    return parts.join(" ");
+  }
+
+  const parts = [`Good morning ${name}. Here's your weekly strategy briefing.`];
+  const syn = [];
+  if (data.newLeadsCount) {
+    syn.push(`${data.newLeadsCount} new lead${data.newLeadsCount === 1 ? "" : "s"} came in`);
+  }
+  if (data.appointmentsCompleted) {
+    syn.push(`${data.appointmentsCompleted} appointment${data.appointmentsCompleted === 1 ? "" : "s"} happened`);
+  }
+  if (data.followUpsCompleted) {
+    syn.push(`${data.followUpsCompleted} follow-up${data.followUpsCompleted === 1 ? "" : "s"} went out`);
+  }
+  if (data.sentinelFixes) {
+    syn.push(`Sentinel fixed ${data.sentinelFixes} issue${data.sentinelFixes === 1 ? "" : "s"}`);
+  }
+  parts.push(syn.length ? `This week, ${joinList(syn)}.` : "This week was quiet on activity.");
+
+  const opps = (data.opportunities || []).slice(0, 3);
+  if (opps.length) {
+    parts.push(
+      `${opps.length === 1 ? "Your top opportunity" : "Your top opportunities"}: ${numberedList(opps)}`
+    );
+  }
+  const risks = (data.risks || []).slice(0, 3);
+  if (risks.length) {
+    parts.push(`Keep an eye on: ${numberedList(risks)}`);
+  }
+  parts.push("Which one do you want to tackle first?");
+  return parts.join(" ");
+}
+
 function formatTime(ts) {
   try {
     return new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -286,7 +622,7 @@ function formatTime(ts) {
 /**
  * Narrate the briefing with the AI for a natural, conversational feel. Falls back
  * to the deterministic template (same real data) if the AI call fails.
- * @param {"morning"|"closing"|"status"} kind
+ * @param {"morning"|"weekly"|"closing"|"status"} kind
  */
 async function narrate(kind, firstName, data, opts = {}) {
   const template =
@@ -294,34 +630,31 @@ async function narrate(kind, firstName, data, opts = {}) {
       ? templateClosing(firstName, data)
       : kind === "status"
         ? templateStatus(firstName, data)
-        : templateMorning(firstName, data);
+        : kind === "weekly"
+          ? templateWeekly(firstName, data)
+          : templateMorning(firstName, data);
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return { text: template, aiNarrated: false };
   }
 
-  const morningEmpty = kind === "morning" && !hasActivity(data);
-  const goal =
-    kind === "closing"
-      ? "an end-of-day closing summary of what the team accomplished and a preview of tomorrow"
-      : kind === "status"
-        ? "a short, current 'right now' status update: what's happening, what needs attention, what's coming up today"
-        : morningEmpty
-          ? "a short, warm welcome for an owner whose account has no activity yet: greet them by first name, reassure them their AI marketing department is ready and standing by, and — only if the data shows facebookConnected is false — encourage them to connect their Facebook account so the ads agent (Atlas) can start bringing in leads. Close warmly that their team is here and ready to work for them. Do NOT mention zero counts or that there is 'no' data"
-          : "a personalized morning briefing of everything since the owner last logged in, ending by asking if they're ready to start or want more detail on anything";
-
-  const system =
-    "You are Echo, the owner's AI marketing assistant, speaking OUT LOUD to the business owner. " +
-    "Write ONLY the words to be spoken — no headings, no markdown, no bullet points, no stage directions. " +
-    "Warm, concise, natural spoken English. Use the owner's first name once near the start. " +
-    "Use ONLY the facts in the provided data — never invent numbers, names, or events. " +
-    `Produce ${goal}. Keep it under 130 words.`;
+  // Persona-composed system prompt: one consistent Echo voice for every kind.
+  // `empty` only applies to the morning briefing; `multiBrand` drives the unified
+  // cross-business synthesis in both morning and weekly briefings.
+  const ctx = {
+    empty: kind === "morning" && !hasActivity(data),
+    multiBrand: Boolean(data.brands && data.brands.length > 1),
+  };
+  // The weekly strategy briefing is longer (synthesis + 3 opportunities + 3 risks).
+  const wordCap = kind === "weekly" ? 220 : 130;
+  const maxTokens = kind === "weekly" ? 800 : 500;
+  const system = buildBriefingSystem(kind, ctx, wordCap);
 
   try {
     const resp = await createMessage(
       {
         model: MODEL,
-        max_tokens: 500,
+        max_tokens: maxTokens,
         system,
         messages: [
           {
@@ -350,4 +683,14 @@ async function narrate(kind, firstName, data, opts = {}) {
   return { text: template, aiNarrated: false };
 }
 
-module.exports = { gatherBriefingData, narrate };
+module.exports = {
+  gatherBriefingData,
+  gatherWeeklyData,
+  narrate,
+  hasActivity,
+  normalizeList,
+  templateMorning,
+  templateWeekly,
+  templateClosing,
+  templateStatus,
+};

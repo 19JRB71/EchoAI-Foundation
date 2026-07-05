@@ -70,6 +70,7 @@ function MicIcon() {
 export default function VoicePlayer() {
   const voice = useVoice();
   const [busyStatus, setBusyStatus] = useState(false);
+  const [busyWeekly, setBusyWeekly] = useState(false);
 
   if (!voice || !voice.active) return null;
 
@@ -86,10 +87,25 @@ export default function VoicePlayer() {
     }
   };
 
+  const handleWeekly = async () => {
+    setBusyWeekly(true);
+    try {
+      await voice.weeklyBriefing();
+    } catch {
+      /* error surfaced via context */
+    } finally {
+      setBusyWeekly(false);
+    }
+  };
+
   // The popover only appears when there's something to show, keeping the top-bar
   // footprint to a single small icon the rest of the time.
   const expanded =
-    busyStatus || Boolean(current) || Boolean(error) || (needsGesture && !playing);
+    busyStatus ||
+    busyWeekly ||
+    Boolean(current) ||
+    Boolean(error) ||
+    (needsGesture && !playing);
 
   return (
     <div className="relative">
@@ -114,7 +130,13 @@ export default function VoicePlayer() {
         <div className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-800 bg-gray-950/95 p-3 shadow-xl shadow-black/40 backdrop-blur">
           <div className="mb-1 flex items-center justify-between gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-teal-300">
-              {current ? current.title || "Echo" : busyStatus ? "Asking Echo…" : "Echo"}
+              {current
+                ? current.title || "Echo"
+                : busyWeekly
+                  ? "Reviewing your week…"
+                  : busyStatus
+                    ? "Asking Echo…"
+                    : "Echo"}
             </span>
             {playing && <span className="text-[10px] text-gray-500">speaking…</span>}
           </div>
@@ -150,9 +172,17 @@ export default function VoicePlayer() {
               Replay
             </button>
             <button
+              onClick={handleWeekly}
+              disabled={busyWeekly || muted}
+              title={muted ? "Unmute to hear the weekly briefing" : "Weekly strategy briefing"}
+              className="ml-auto rounded-lg border border-teal-700/60 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-200 hover:bg-teal-500/20 disabled:opacity-50"
+            >
+              {busyWeekly ? "…" : "Weekly"}
+            </button>
+            <button
               onClick={handleTalk}
               disabled={busyStatus || muted}
-              className="ml-auto rounded-lg bg-teal-500/90 px-2.5 py-1 text-xs font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+              className="rounded-lg bg-teal-500/90 px-2.5 py-1 text-xs font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
             >
               {busyStatus ? "Asking…" : "Talk to Echo"}
             </button>
