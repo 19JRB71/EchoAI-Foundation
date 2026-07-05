@@ -8,6 +8,7 @@ const { requireOwner } = require("../middleware/rolePermissions");
 const { uploadAudio } = require("../middleware/audioUpload");
 const controller = require("../controllers/echoCompanionController");
 const memory = require("../controllers/echoMemoryController");
+const profile = require("../controllers/echoProfileController");
 const growth = require("../controllers/growthController");
 
 // All Echo routes require an authenticated, non-locked account. Echo is now a
@@ -38,10 +39,21 @@ router.post("/transcribe", requireOwner, uploadAudio, controller.transcribe);
 // Daily briefing: what happened, what's live, what needs approval.
 router.get("/briefing", controller.briefing);
 
-// Persistent memory: recent timeline + natural-language recall ("what happened
-// with Bob?").
-router.get("/memory", memory.timeline);
-router.post("/memory/recall", memory.recall);
+// Persistent memory: timeline, search, natural-language recall, manual capture
+// and delete. Memory now holds the owner's personal context, preferences, values
+// and per-person relationship notes, so the whole surface is OWNER-ONLY.
+router.get("/memory", requireOwner, memory.timeline);
+router.get("/memory/search", requireOwner, memory.search);
+router.post("/memory/recall", requireOwner, memory.recall);
+router.post("/memory", requireOwner, memory.capture);
+router.delete("/memory/:id", requireOwner, memory.remove);
+
+// Relationship profiles (People) and the owner profile (About You) — owner-only.
+router.get("/profiles", requireOwner, profile.listProfiles);
+router.put("/profiles", requireOwner, profile.saveProfile);
+router.delete("/profiles/:id", requireOwner, profile.removeProfile);
+router.get("/owner-profile", requireOwner, profile.getOwnerProfile);
+router.put("/owner-profile", requireOwner, profile.saveOwnerProfile);
 
 // Autonomous Growth Mode: guardrail settings + the log of proposed/auto actions
 // are readable by the team; only the owner can change the guardrails.

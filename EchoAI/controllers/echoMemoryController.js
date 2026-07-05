@@ -1,13 +1,15 @@
-// Echo's persistent memory — recall and timeline.
+// Echo's persistent memory — recall, timeline, search, capture and delete.
 //
-// Two sources feed recall: (1) the explicit `echo_memory` event log, and (2) live
-// aggregation across the subsystems (leads, calls, chatbot sessions, appointments,
-// campaigns) matched by a name / phone / email. Echo then synthesizes a plain-
-// language recollection with the AI. AI/upstream failures map to 502 (never a
-// fabricated answer).
+// Two sources feed recall: (1) the explicit `echo_memory` event log (now including
+// owner-shared conversations, preferences, goals, concerns and decisions), plus the
+// owner profile + per-person relationship profiles, and (2) live aggregation across
+// the subsystems (leads, calls, chatbot sessions, appointments, campaigns) matched
+// by a name / phone / email. Echo then synthesizes a plain-language recollection
+// with the AI. AI/upstream failures map to 502 (never a fabricated answer).
 
 const db = require("../config/db");
 const { createMessage, MODEL } = require("../config/anthropic");
+const echoContext = require("../utils/echoContext");
 
 async function getBrand(userId) {
   const { rows } = await db.query(
@@ -32,41 +34,136 @@ async function safeRows(sql, params) {
 }
 
 // Reusable helper so any subsystem can drop a notable event into Echo's memory.
-async function logEvent(userId, brandId, { entityType = null, entityRef = null, eventType, title, detail = "", occurredAt = null }) {
-  try {
-    await db.query(
-      `INSERT INTO echo_memory (user_id, brand_id, entity_type, entity_ref, event_type, title, detail, occurred_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7, COALESCE($8, NOW()))`,
-      [userId, brandId || null, entityType, entityRef, eventType, title, detail, occurredAt],
-    );
-  } catch (e) {
-    console.error("echo_memory logEvent failed:", e.message);
-  }
+// Delegates to echoContext.insertMemory so the category/source columns are always
+// populated (defaults to an event/system memory for legacy callers).
+async function logEvent(userId, brandId, opts = {}) {
+  return echoContext.insertMemory(userId, brandId, {
+    category: opts.category || "event",
+    source: opts.source || "system",
+    entityType: opts.entityType || null,
+    entityRef: opts.entityRef || null,
+    eventType: opts.eventType,
+    title: opts.title,
+    detail: opts.detail || "",
+    importance: opts.importance || 0,
+    occurredAt: opts.occurredAt || null,
+  });
 }
 
-// GET /api/echo/memory — recent memory timeline.
+function mapEvent(r) {
+  return {
+    id: r.memory_id,
+    entityType: r.entity_type,
+    entityRef: r.entity_ref,
+    eventType: r.event_type,
+    category: r.category,
+    source: r.source,
+    title: r.title,
+    detail: r.detail,
+    occurredAt: r.occurred_at,
+  };
+}
+
+// GET /api/echo/memory — recent memory timeline (excludes soft-deleted).
 async function timeline(req, res) {
   try {
     const userId = req.user.userId;
     const rows = await safeRows(
-      `SELECT memory_id, entity_type, entity_ref, event_type, title, detail, occurred_at
-       FROM echo_memory WHERE user_id = $1 ORDER BY occurred_at DESC LIMIT 50`,
+      `SELECT memory_id, entity_type, entity_ref, event_type, category, source, title, detail, occurred_at
+       FROM echo_memory WHERE user_id = $1 AND deleted_at IS NULL
+       ORDER BY occurred_at DESC LIMIT 50`,
       [userId],
     );
-    return res.json({
-      events: rows.map((r) => ({
-        id: r.memory_id,
-        entityType: r.entity_type,
-        entityRef: r.entity_ref,
-        eventType: r.event_type,
-        title: r.title,
-        detail: r.detail,
-        occurredAt: r.occurred_at,
-      })),
-    });
+    return res.json({ events: rows.map(mapEvent) });
   } catch (err) {
     console.error("echo timeline error:", err.message);
     return res.status(500).json({ error: "Failed to load Echo's memory." });
+  }
+}
+
+// GET /api/echo/memory/search?q= — full-text (with ILIKE fallback) over memory.
+async function search(req, res) {
+  try {
+    const userId = req.user.userId;
+    const q = req.query && typeof req.query.q === "string" ? req.query.q.trim() : "";
+    if (!q) {
+      const recent = await safeRows(
+        `SELECT memory_id, entity_type, entity_ref, event_type, category, source, title, detail, occurred_at
+         FROM echo_memory WHERE user_id = $1 AND deleted_at IS NULL
+         ORDER BY occurred_at DESC LIMIT 50`,
+        [userId],
+      );
+      return res.json({ query: "", events: recent.map(mapEvent) });
+    }
+    // Prefer full-text ranking; fall back to ILIKE so partial words still match.
+    let rows = await safeRows(
+      `SELECT memory_id, entity_type, entity_ref, event_type, category, source, title, detail, occurred_at,
+              ts_rank(search_tsv, websearch_to_tsquery('english', $2)) AS rank
+       FROM echo_memory
+       WHERE user_id = $1 AND deleted_at IS NULL
+         AND search_tsv @@ websearch_to_tsquery('english', $2)
+       ORDER BY rank DESC, occurred_at DESC LIMIT 60`,
+      [userId, q],
+    );
+    if (rows.length === 0) {
+      const like = `%${q}%`;
+      rows = await safeRows(
+        `SELECT memory_id, entity_type, entity_ref, event_type, category, source, title, detail, occurred_at
+         FROM echo_memory
+         WHERE user_id = $1 AND deleted_at IS NULL
+           AND (title ILIKE $2 OR detail ILIKE $2 OR entity_ref ILIKE $2)
+         ORDER BY occurred_at DESC LIMIT 60`,
+        [userId, like],
+      );
+    }
+    return res.json({ query: q, events: rows.map(mapEvent) });
+  } catch (err) {
+    console.error("echo memory search error:", err.message);
+    return res.status(500).json({ error: "Failed to search Echo's memory." });
+  }
+}
+
+// POST /api/echo/memory — owner manually records something for Echo to remember.
+async function capture(req, res) {
+  try {
+    const userId = req.user.userId;
+    const b = req.body || {};
+    const title = typeof b.title === "string" ? b.title.trim() : "";
+    if (!title) return res.status(400).json({ error: "Give the memory a short title." });
+    const category = echoContext.MEMORY_CATEGORIES.has(b.category) ? b.category : "note";
+    const brand = await getBrand(userId);
+    await echoContext.insertMemory(userId, brand ? brand.brand_id : null, {
+      category,
+      source: "owner",
+      eventType: "note",
+      entityType: typeof b.entityType === "string" ? b.entityType.slice(0, 60) : null,
+      entityRef: typeof b.entityRef === "string" ? b.entityRef.slice(0, 200) : null,
+      title: title.slice(0, 200),
+      detail: typeof b.detail === "string" ? b.detail.slice(0, 4000) : "",
+      importance: 2,
+    });
+    return res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error("echo memory capture error:", err.message);
+    return res.status(500).json({ error: "Failed to save that memory." });
+  }
+}
+
+// DELETE /api/echo/memory/:id — soft-delete one of the owner's memories.
+async function remove(req, res) {
+  try {
+    const userId = req.user.userId;
+    const id = req.params.id;
+    const { rowCount } = await db.query(
+      `UPDATE echo_memory SET deleted_at = NOW()
+       WHERE memory_id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+      [id, userId],
+    );
+    if (rowCount === 0) return res.status(404).json({ error: "Memory not found." });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("echo memory remove error:", err.message);
+    return res.status(500).json({ error: "Failed to delete that memory." });
   }
 }
 
@@ -117,19 +214,29 @@ async function recall(req, res) {
       ));
     }
 
+    // Relationship profiles Echo maintains for this person.
+    const profs = await safeRows(
+      `SELECT person_name, person_type, cares_about, history, next_step, sentiment
+       FROM echo_relationship_profiles
+       WHERE user_id = $1 AND (person_name ILIKE $2 OR entity_ref ILIKE $2)
+       ORDER BY importance DESC, updated_at DESC LIMIT 5`, [userId, like]);
+    profs.forEach((p) => facts.push(
+      `RELATIONSHIP ${p.person_name} (${p.person_type || "contact"}) — ${[p.cares_about && "cares about " + p.cares_about, p.history, p.next_step && "next step: " + p.next_step, p.sentiment && "sentiment " + p.sentiment].filter(Boolean).join("; ")}.`,
+    ));
+
     const memRows = await safeRows(
-      `SELECT event_type, title, detail, occurred_at FROM echo_memory
-       WHERE user_id = $1 AND (entity_ref ILIKE $2 OR title ILIKE $2 OR detail ILIKE $2)
-       ORDER BY occurred_at DESC LIMIT 10`, [userId, like]);
-    memRows.forEach((m) => facts.push(`EVENT (${m.event_type}) ${m.title} — ${m.detail || ""} [${new Date(m.occurred_at).toDateString()}]`));
+      `SELECT event_type, category, title, detail, occurred_at FROM echo_memory
+       WHERE user_id = $1 AND deleted_at IS NULL AND (entity_ref ILIKE $2 OR title ILIKE $2 OR detail ILIKE $2)
+       ORDER BY occurred_at DESC LIMIT 12`, [userId, like]);
+    memRows.forEach((m) => facts.push(`MEMORY (${m.category || m.event_type}) ${m.title} — ${m.detail || ""} [${new Date(m.occurred_at).toDateString()}]`));
 
     if (facts.length === 0) {
-      return res.json({ answer: `I don't have anything on record matching "${query}" yet. Once there's a call, chat, lead or appointment involving them, I'll remember it.`, facts: [] });
+      return res.json({ answer: `I don't have anything on record matching "${query}" yet. Once there's a call, chat, lead, appointment or note involving them, I'll remember it.`, facts: [] });
     }
 
     const system = [
-      "You are Echo, an AI marketing director with perfect memory of a business's customers and marketing.",
-      "Answer the user's question using ONLY the records provided. Be specific — reference dates, outcomes and temperatures.",
+      "You are Echo, an AI marketing director with perfect memory of a business's customers, relationships and marketing.",
+      "Answer the user's question using ONLY the records provided. Be specific — reference dates, outcomes, temperatures and the right next step when it's in the records.",
       "Write a concise, natural recollection (2-5 sentences), as if you personally remember it. Never invent details not in the records.",
     ].join(" ");
     const user = `Question: ${query}\n\nRecords:\n${facts.join("\n")}`;
@@ -159,4 +266,4 @@ async function recall(req, res) {
   }
 }
 
-module.exports = { timeline, recall, logEvent };
+module.exports = { timeline, recall, search, capture, remove, logEvent };

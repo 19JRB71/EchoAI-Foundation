@@ -19,6 +19,7 @@ const adCreativeStudioController = require("./adCreativeStudioController");
 const campaignController = require("./campaignController");
 const contentCalendarController = require("./contentCalendarController");
 const voiceController = require("./voiceController");
+const echoContext = require("../utils/echoContext");
 
 // ---------------------------------------------------------------------------
 // In-process controller invocation (same pattern as setupAgentController.invoke)
@@ -479,6 +480,16 @@ async function sendMessage(req, res) {
     const state = await getOrCreateState(userId);
     const brand = await getBrand(userId);
 
+    // Everything Echo remembers about this owner + their key relationships, plus
+    // a guardrail so Echo flags requests that conflict with the owner's values.
+    const knowledge = await echoContext.buildKnowledgeContext(
+      userId,
+      brand ? brand.brand_id : null,
+      { mode: "chat" },
+    );
+    const ownerProfile = await echoContext.getOwnerProfileRow(userId);
+    const guardrail = echoContext.valuesGuardrail(ownerProfile);
+
     const system = [
       "You are Echo, the AI marketing companion built into EchoAI — an AI marketing platform.",
       `The user's business is ${brand ? brand.brand_name : "their business"}.`,
@@ -489,7 +500,11 @@ async function sendMessage(req, res) {
       "You run their marketing for them: you can launch Facebook ad campaigns, schedule social posts, send email campaigns, and report performance.",
       "Every action you take requires their one-click approval (or a Facebook password) first — if they ask you to do something, tell them you'll prepare a preview for them to approve.",
       "Be warm, concise, and action-oriented. Keep replies to 1-3 short sentences. Never invent results or data.",
-    ].join(" ");
+      knowledge,
+      guardrail,
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     let reply;
     try {
@@ -515,6 +530,13 @@ async function sendMessage(req, res) {
       messages: pushMsg(state.messages, uMsg, eMsg),
       pendingAction: state.pending_action || null,
     });
+
+    // Remember the exchange and learn durable facts from it — fire-and-forget so
+    // the reply is never delayed and a capture failure never breaks the chat.
+    echoContext
+      .captureFromConversation(userId, brand ? brand.brand_id : null, text, reply)
+      .catch((e) => console.error("Echo capture (background) failed:", e.message));
+
     return res.json({ userMessage: uMsg, message: eMsg });
   } catch (err) {
     const status = err.statusCode || 500;

@@ -54,7 +54,8 @@ import { roleLabel, roleBadgeClass, canWrite } from "./lib/roles.js";
 import Breadcrumbs from "./components/Breadcrumbs.jsx";
 import FacebookWizard from "./components/FacebookWizard.jsx";
 import PresenterOverlay from "./components/PresenterOverlay.jsx";
-import { MemoryTab, AutonomousTab } from "./companion/EchoBrain.jsx";
+import { AutonomousTab } from "./companion/EchoBrain.jsx";
+import EchoMemory from "./sections/EchoMemory.jsx";
 import { agentMeta, sectionTitle } from "./lib/departments.js";
 
 export default function App() {
@@ -152,6 +153,8 @@ export default function App() {
       if (s === "callmonitor") return isAdmin || !isTeamMember;
       // Echo's voice is the owner's personal assistant (owner/admin only).
       if (s === "voicesettings") return isAdmin || !isTeamMember;
+      // Echo's Memory is the owner's private knowledge base (owner/admin only).
+      if (s === "echomemory") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
       return true;
     },
@@ -742,11 +745,8 @@ export default function App() {
               {section === "aiteam" && (
                 <AiTeam onOpenDepartment={openDepartment} />
               )}
-              {section === "echomemory" && (
-                <div className="mx-auto max-w-3xl">
-                  <MemoryTab />
-                </div>
-              )}
+              {section === "echomemory" &&
+                (canOpenSection("echomemory") ? <EchoMemory /> : null)}
               {section === "echogrowth" && (
                 <div className="mx-auto max-w-3xl">
                   <AutonomousTab readOnly={isTeamMember || workspaceRole !== "owner"} />

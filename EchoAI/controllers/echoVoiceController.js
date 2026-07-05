@@ -14,6 +14,20 @@ const { synthesizeSpeech } = require("./voiceController");
 const { normalizeSettings, voiceForStyle, isQuietHour } = require("../config/echoVoice");
 const { gatherBriefingData, gatherWeeklyData, narrate } = require("../utils/echoBriefing");
 const { toJsonbParam } = require("../utils/jsonb");
+const echoContext = require("../utils/echoContext");
+
+/**
+ * Speech-mode personalization block for a spoken briefing. Best-effort: returns
+ * "" on any failure so the briefing still renders. It is tone/priority guidance
+ * only — the spoken invariant (facts only from `data`) is preserved by framing.
+ */
+async function speechKnowledge(userId) {
+  try {
+    return await echoContext.buildKnowledgeContext(userId, null, { mode: "speech" });
+  } catch (_e) {
+    return "";
+  }
+}
 
 /** Load the owner's row (first name, timestamps, stored settings). */
 async function loadUser(userId) {
@@ -146,6 +160,7 @@ async function getBriefing(req, res) {
     const { text, aiNarrated } = await narrate("morning", displayName(user), data, {
       timeout: 1500,
       attempts: 1,
+      knowledge: await speechKnowledge(req.user.userId),
     });
     return res.json({
       text,
@@ -186,7 +201,9 @@ async function getWeeklyBriefing(req, res) {
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
     const data = await gatherWeeklyData(req.user.userId);
-    const { text, aiNarrated } = await narrate("weekly", displayName(user), data);
+    const { text, aiNarrated } = await narrate("weekly", displayName(user), data, {
+      knowledge: await speechKnowledge(req.user.userId),
+    });
     return res.json({
       text,
       aiNarrated,
@@ -219,7 +236,9 @@ async function getStatus(req, res) {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const data = await gatherBriefingData(req.user.userId, startOfDay);
-    const { text, aiNarrated } = await narrate("status", displayName(user), data);
+    const { text, aiNarrated } = await narrate("status", displayName(user), data, {
+      knowledge: await speechKnowledge(req.user.userId),
+    });
     return res.json({ text, aiNarrated, style: settings.style, firstName: displayName(user) });
   } catch (err) {
     console.error("getStatus error:", err.message);

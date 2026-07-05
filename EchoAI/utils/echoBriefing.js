@@ -648,7 +648,9 @@ async function narrate(kind, firstName, data, opts = {}) {
   // The weekly strategy briefing is longer (synthesis + 3 opportunities + 3 risks).
   const wordCap = kind === "weekly" ? 220 : 130;
   const maxTokens = kind === "weekly" ? 800 : 500;
-  const system = buildBriefingSystem(kind, ctx, wordCap);
+  // opts.knowledge is a personalization block (tone/priority guidance only — it
+  // must NOT introduce spoken facts; see echoContext.formatKnowledge mode:speech).
+  const system = buildBriefingSystem(kind, ctx, wordCap) + (opts.knowledge ? "\n\n" + opts.knowledge : "");
 
   try {
     const resp = await createMessage(

@@ -166,6 +166,20 @@ export const api = {
   getEchoMemory: () => request("/api/echo/memory"),
   recallEchoMemory: (query) =>
     request("/api/echo/memory/recall", { method: "POST", body: { query } }),
+  searchEchoMemory: (q) =>
+    request(`/api/echo/memory/search?q=${encodeURIComponent(q || "")}`),
+  captureEchoMemory: (body) =>
+    request("/api/echo/memory", { method: "POST", body }),
+  deleteEchoMemory: (id) =>
+    request(`/api/echo/memory/${id}`, { method: "DELETE" }),
+  getEchoProfiles: () => request("/api/echo/profiles"),
+  saveEchoProfile: (body) =>
+    request("/api/echo/profiles", { method: "PUT", body }),
+  deleteEchoProfile: (id) =>
+    request(`/api/echo/profiles/${id}`, { method: "DELETE" }),
+  getEchoOwnerProfile: () => request("/api/echo/owner-profile"),
+  saveEchoOwnerProfile: (body) =>
+    request("/api/echo/owner-profile", { method: "PUT", body }),
   getEchoGrowth: () => request("/api/echo/growth"),
   updateEchoGrowth: (settings) =>
     request("/api/echo/growth", { method: "PUT", body: settings }),
