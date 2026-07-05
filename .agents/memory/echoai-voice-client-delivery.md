@@ -42,6 +42,20 @@ was gone for the session.
 off and re-drains, so the first interaction anywhere plays the pending briefing.
 Surface a small "click anywhere to hear Echo" hint. Reset the flag on deactivate.
 
+## Rule: chunk long TTS scripts + prefetch so first audio plays in ~1-2s
+**Why:** Synthesizing a whole briefing (~570 chars) as one blob is ~11s of OpenAI
+TTS + a ~700KB download before a single word plays — the user perceives a
+20-30s dead wait after login.
+**How to apply:** Split the script into sentence-grouped chunks (first chunk kept
+small, e.g. <=120 chars) and play them sequentially with a ONE-chunk lookahead:
+kick off the next chunk's synthesis the moment the current chunk *starts* playing
+so TTS overlaps playback and there are no gaps. Keep all of this INSIDE `speakItem`
+so the briefing stays a single queue item — skip/replay/stopAll/mute and the
+autoplay-gesture gate keep working unchanged. `settle()` must force-resolve the
+in-flight chunk's playback promise (a `chunkDone` resolver) so an interrupt unwinds
+the awaited chunk; revoke each chunk's object URL as you advance; a mid-chunk error
+is skipped gracefully; a first-chunk autoplay `blocked` re-queues the whole item.
+
 ## Rule: owner-only voice UI is gated in 3 client places, mirroring backend
 The voice APIs are owner/admin-only (`auth + lockout + requireOwner`). The client
 must mirror this: add the section to the `canOpenSection` owner/admin predicate

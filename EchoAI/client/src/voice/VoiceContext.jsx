@@ -28,6 +28,7 @@ import {
   DEFAULT_SETTINGS,
   normalizeSettings,
   isQuietHour,
+  chunkForSpeech,
 } from "../lib/voiceSettings.js";
 
 const VoiceContext = createContext(null);
@@ -148,25 +149,56 @@ export function VoiceProvider({ active, children }) {
         // settle() fires at most once and clears the shared resolver so
         // skip()/stopAll() can force-advance a stuck item.
         let settled = false;
+        // Resolver for the chunk currently playing, so skip()/stopAll() can
+        // interrupt mid-chunk (settle → cleanupAudio pauses it, but the awaited
+        // playback promise must also unwind).
+        let chunkDone = null;
         const settle = (status) => {
           if (settled) return;
           settled = true;
           resolveRef.current = null;
+          if (chunkDone) {
+            const done = chunkDone;
+            chunkDone = null;
+            done("interrupted");
+          }
           cleanupAudio();
           resolve(status);
         };
         resolveRef.current = settle;
         (async () => {
-          try {
-            const blob = await api.echoVoiceSpeak(
-              item.text,
-              settingsRef.current.style,
-            );
-            // We may have been skipped/stopped while the TTS request was in
-            // flight. If already settled, do NOT start playback (it would speak
-            // after a stop and leak an Audio element / object URL).
+          // Split the script into small chunks so the first (short) chunk starts
+          // playing in ~1-2s while later chunks synthesize during playback. This
+          // cuts time-to-first-audio from ~10s (whole-script TTS) to ~1-2s.
+          const style = settingsRef.current.style;
+          const chunks = chunkForSpeech(item.text);
+          if (chunks.length === 0) {
+            settle("played");
+            return;
+          }
+          // Prefetch pipeline: `pending` is the synthesis promise for the chunk
+          // we're about to play. The next chunk's synthesis is kicked off as soon
+          // as the current chunk *starts* playing, overlapping network + TTS with
+          // playback so there are no gaps between chunks.
+          let pending = api.echoVoiceSpeak(chunks[0], style);
+          for (let i = 0; i < chunks.length; i++) {
+            let blob;
+            try {
+              blob = await pending;
+            } catch (err) {
+              // First chunk failed → surface the error. A later chunk failing
+              // just ends the briefing gracefully after what was already spoken.
+              if (i === 0) {
+                setError(err.message || "Voice playback failed");
+                settle("error");
+              } else {
+                settle("played");
+              }
+              return;
+            }
+            pending = null;
+            // Skipped/stopped/muted while synthesizing → bail without playing.
             if (settled) return;
-            // If we were muted/stopped while synthesizing, bail cleanly.
             if (mutedRef.current || !activeRef.current) {
               settle("stopped");
               return;
@@ -176,17 +208,47 @@ export function VoiceProvider({ active, children }) {
             const el = new Audio(url);
             el.volume = settingsRef.current.volume;
             audioRef.current = el;
-            el.onended = () => settle("played");
-            el.onerror = () => settle("error");
-            await el.play().catch(() => {
-              // Autoplay can be blocked before the first user gesture; halt the
-              // loop until a user gesture (Talk to Echo / replay) restarts it.
-              settle("blocked");
+            const status = await new Promise((res) => {
+              chunkDone = res;
+              el.onended = () => res("played");
+              el.onerror = () => res("error");
+              el.play()
+                .then(() => {
+                  // Playback started → prefetch the next chunk now so it's ready
+                  // the instant this one ends.
+                  if (i + 1 < chunks.length && !pending) {
+                    pending = api.echoVoiceSpeak(chunks[i + 1], style);
+                    // Neutralize an unhandled rejection if we bail before awaiting.
+                    pending.catch(() => {});
+                  }
+                })
+                .catch(() => res("blocked"));
             });
-          } catch (err) {
-            setError(err.message || "Voice playback failed");
-            settle("error");
+            chunkDone = null;
+            // Release this chunk's element/URL before advancing to the next one.
+            if (urlRef.current === url) {
+              try {
+                URL.revokeObjectURL(url);
+              } catch {
+                /* noop */
+              }
+              urlRef.current = null;
+            }
+            if (audioRef.current === el) audioRef.current = null;
+            if (settled) return;
+            if (status === "blocked") {
+              // Autoplay gated before the first user gesture (morning briefing).
+              // Halt; the drain loop re-queues the whole item for the next gesture.
+              settle("blocked");
+              return;
+            }
+            // "error" → skip this chunk but keep going. Either way, make sure the
+            // next chunk's synthesis is in flight before we loop.
+            if (i + 1 < chunks.length && !pending) {
+              pending = api.echoVoiceSpeak(chunks[i + 1], style);
+            }
           }
+          settle("played");
         })();
       }),
     [cleanupAudio],

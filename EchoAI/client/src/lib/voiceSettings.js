@@ -145,6 +145,39 @@ export function isQuietHour(hour, quietHours) {
   return hour >= start || hour < end;
 }
 
+/**
+ * Split a spoken script into small sequential chunks so the first (short) chunk
+ * can be synthesized and start playing in ~1-2s while later chunks synthesize in
+ * the background. The first chunk is kept deliberately small (fast time-to-first-
+ * audio); later chunks are larger to minimize request overhead. Sentence
+ * boundaries are preserved so speech sounds natural.
+ */
+export function chunkForSpeech(text, { firstMax = 120, max = 240 } = {}) {
+  const clean = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return [];
+  // Sentences (keeping terminal punctuation), or the trailing unpunctuated tail.
+  const sentences = clean.match(/[^.!?]+[.!?]+|\S[^.!?]*$/g) || [clean];
+  const chunks = [];
+  let buf = "";
+  for (const raw of sentences) {
+    const s = raw.trim();
+    if (!s) continue;
+    const limit = chunks.length === 0 ? firstMax : max;
+    if (!buf) {
+      buf = s;
+    } else if (buf.length + 1 + s.length <= limit) {
+      buf += " " + s;
+    } else {
+      chunks.push(buf);
+      buf = s;
+    }
+  }
+  if (buf) chunks.push(buf);
+  return chunks;
+}
+
 /** Format an hour (0..23) as a friendly 12h label, e.g. 20 → "8:00 PM". */
 export function formatHour(hour) {
   const h = ((Number(hour) % 24) + 24) % 24;
