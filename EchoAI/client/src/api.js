@@ -713,6 +713,34 @@ export const api = {
       body,
     }),
 
+  // Capital & Funding Intelligence (Enterprise)
+  getFundingOpportunities: (brandId) =>
+    request(`/api/capital/${brandId}/opportunities`),
+  scanFunding: (brandId) =>
+    request(`/api/capital/${brandId}/scan`, { method: "POST" }),
+  dismissFundingOpportunity: (brandId, opportunityId) =>
+    request(`/api/capital/${brandId}/opportunities/${opportunityId}/dismiss`, {
+      method: "POST",
+    }),
+  getOpportunityBriefing: (brandId) =>
+    request(`/api/capital/${brandId}/briefing`),
+  generateOpportunityBriefing: (brandId) =>
+    request(`/api/capital/${brandId}/briefing/generate`, { method: "POST" }),
+  getFundingPipeline: (brandId) => request(`/api/capital/${brandId}/pipeline`),
+  draftGrantApplication: (brandId, opportunityId) =>
+    request(`/api/capital/${brandId}/opportunities/${opportunityId}/draft`, {
+      method: "POST",
+    }),
+  getGrantApplications: (brandId) =>
+    request(`/api/capital/${brandId}/applications`),
+  getGrantApplication: (brandId, applicationId) =>
+    request(`/api/capital/${brandId}/applications/${applicationId}`),
+  updateGrantApplication: (brandId, applicationId, body) =>
+    request(`/api/capital/${brandId}/applications/${applicationId}`, {
+      method: "PATCH",
+      body,
+    }),
+
   // Reputation Management (reviews)
   getReviews: (brandId) => request(`/api/reputation/${brandId}`),
   fetchReviews: (brandId) =>

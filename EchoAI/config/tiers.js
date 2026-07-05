@@ -61,6 +61,7 @@ const FEATURES = {
   advanced_analytics: { name: "Advanced Analytics", tier: "enterprise", description: "Deeper reporting and ROI analytics." },
   advanced_roi: { name: "Advanced ROI Dashboard", tier: "enterprise", description: "Multi-channel dollar attribution, AI ROI analyst, and weekly ROI snapshot history." },
   customer_intelligence: { name: "Customer Intelligence Engine", tier: "enterprise", description: "An AI brain that studies every channel weekly to build a growing strategic intelligence profile with ranked recommendations and a trajectory score." },
+  capital_funding: { name: "Capital & Funding Intelligence", tier: "enterprise", description: "Scout scans grants and funding programs weekly, ranks business opportunities, and Echo drafts complete grant applications from your brand and story." },
   api_marketplace: { name: "API Marketplace Access", tier: "enterprise", description: "Access the EchoAI API marketplace." },
   feedback: { name: "Customer Feedback & Surveys", tier: "enterprise", description: "AI survey designer and feedback analyst." },
   priority_support: { name: "Priority Support", tier: "enterprise", description: "Priority access to the EchoAI support team." },

@@ -19,6 +19,7 @@ import ImageStudio from "./sections/ImageStudio.jsx";
 import GoogleSeo from "./sections/GoogleSeo.jsx";
 import RoiDashboard from "./sections/RoiDashboard.jsx";
 import CustomerIntelligence from "./sections/CustomerIntelligence.jsx";
+import CapitalFunding from "./sections/CapitalFunding.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
 import Appointments from "./sections/Appointments.jsx";
@@ -811,6 +812,11 @@ export default function App() {
                 gate(
                   "intelligence",
                   <CustomerIntelligence brandId={selectedBrandId} />,
+                )}
+              {section === "capitalfunding" &&
+                gate(
+                  "capitalfunding",
+                  <CapitalFunding brandId={selectedBrandId} />,
                 )}
               {section === "reputation" &&
                 gate("reputation", <Reputation brandId={selectedBrandId} />)}

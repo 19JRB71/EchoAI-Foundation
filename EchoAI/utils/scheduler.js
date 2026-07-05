@@ -20,6 +20,9 @@ const { generateWeeklyRoiSnapshot } = require("../controllers/roiDashboardContro
 const {
   generateWeeklyIntelligence,
 } = require("../controllers/customerIntelligenceController");
+const {
+  runWeeklyOpportunityScanForBrand,
+} = require("../controllers/capitalFundingController");
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
 const {
   sweepDueReminders,
@@ -160,6 +163,15 @@ async function runWeeklyAnalytics() {
       await generateWeeklyIntelligence(brand);
     } catch (err) {
       console.error(`Weekly intelligence build failed for brand ${brand.brand_id}:`, err.message);
+    }
+
+    // Scout's Capital & Funding scan (Enterprise-gated at the source): refresh
+    // funding opportunities and this week's ranked opportunity briefing. Best-
+    // effort — an AI failure is logged and never stops the rest of the run.
+    try {
+      await runWeeklyOpportunityScanForBrand(brand);
+    } catch (err) {
+      console.error(`Weekly opportunity scan failed for brand ${brand.brand_id}:`, err.message);
     }
   }
 

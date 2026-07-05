@@ -41,6 +41,7 @@ export const DEPARTMENTS = {
   ],
   scout: [
     { label: "Customer Intelligence", desc: "Competitor and market intelligence briefs.", section: "intelligence" },
+    { label: "Capital & Funding", desc: "Grants, funding programs, opportunity briefings and Echo-drafted applications.", section: "capitalfunding" },
     { label: "Google & SEO", desc: "Keyword rankings and SEO content recommendations.", section: "googleseo" },
   ],
   atlas: [
@@ -107,6 +108,7 @@ export const SECTION_TITLES = {
   googleseo: "Google & SEO",
   roi: "ROI Dashboard",
   intelligence: "Customer Intelligence",
+  capitalfunding: "Capital & Funding",
   reputation: "Reputation",
   phone: "Phone Agent",
   appointments: "Appointments",
