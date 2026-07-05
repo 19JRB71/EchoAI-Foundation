@@ -82,7 +82,7 @@ export default function VoicePlayer() {
 
   if (!voice || !voice.active) return null;
 
-  const { muted, playing, current, error, settings } = voice;
+  const { muted, playing, current, error, settings, needsGesture } = voice;
 
   const handleTalk = async () => {
     setBusyStatus(true);
@@ -148,6 +148,12 @@ export default function VoicePlayer() {
 
         {error ? (
           <p className="max-w-xs text-xs text-amber-400">{error}</p>
+        ) : null}
+
+        {needsGesture && !playing ? (
+          <p className="max-w-xs text-xs text-teal-300">
+            Click anywhere to hear Echo’s briefing.
+          </p>
         ) : null}
 
         {expanded ? (

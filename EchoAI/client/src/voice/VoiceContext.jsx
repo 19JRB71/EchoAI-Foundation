@@ -58,6 +58,8 @@ export function VoiceProvider({ active, children }) {
   const [current, setCurrent] = useState(null); // { id, type, title, text }
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
+  // True when the browser blocked autoplay; the next user gesture resumes playback.
+  const [needsGesture, setNeedsGesture] = useState(false);
 
   // Internal refs (not state, to avoid re-renders / stale closures).
   const queueRef = useRef([]); // pending items to speak
@@ -228,9 +230,17 @@ export function VoiceProvider({ active, children }) {
             /* noop */
           }
         }
-        // Autoplay blocked or muted/stopped mid-flight → halt; a user gesture
-        // will restart the loop. "skipped"/"error" fall through to the next item.
-        if (status === "blocked" || status === "stopped") break;
+        if (status === "blocked") {
+          // Autoplay was gated before a user gesture. Put the item back at the
+          // front (it has no notificationId, so nothing would re-serve it) and
+          // flag that we need a gesture; the next click/keypress resumes playback.
+          queueRef.current.unshift(item);
+          setNeedsGesture(true);
+          break;
+        }
+        // Muted/stopped mid-flight → halt; a user gesture will restart the loop.
+        // "skipped"/"error" fall through to the next item.
+        if (status === "stopped") break;
       }
     } finally {
       busyRef.current = false;
@@ -248,6 +258,23 @@ export function VoiceProvider({ active, children }) {
     },
     [drain],
   );
+
+  // Resume autoplay-gated playback on the next user gesture. The morning
+  // briefing is enqueued before any click, so browsers block it; the first
+  // interaction anywhere flips the gate and drains the pending item.
+  useEffect(() => {
+    if (!needsGesture || !active) return;
+    const resume = () => {
+      setNeedsGesture(false);
+      drain();
+    };
+    window.addEventListener("pointerdown", resume, { once: true });
+    window.addEventListener("keydown", resume, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", resume);
+      window.removeEventListener("keydown", resume);
+    };
+  }, [needsGesture, active, drain]);
 
   // ---- public actions ---------------------------------------------------
   const skip = useCallback(() => {
@@ -274,6 +301,9 @@ export function VoiceProvider({ active, children }) {
     setPlaying(false);
     setCurrent(null);
     currentRef.current = null;
+    // An explicit stop/mute clears the queue, so drop the stale "click to hear"
+    // hint too — there's nothing left waiting on a gesture.
+    setNeedsGesture(false);
   }, [cleanupAudio]);
 
   const toggleMute = useCallback(() => {
@@ -413,6 +443,7 @@ export function VoiceProvider({ active, children }) {
     stopAll();
     deliveredIds.current = new Set();
     briefingTriedRef.current = false;
+    setNeedsGesture(false);
   }, [active, stopAll]);
 
   const value = useMemo(
@@ -425,6 +456,7 @@ export function VoiceProvider({ active, children }) {
       playing,
       current,
       error,
+      needsGesture,
       refreshSettings,
       saveSettings,
       toggleMute,
@@ -442,6 +474,7 @@ export function VoiceProvider({ active, children }) {
       playing,
       current,
       error,
+      needsGesture,
       refreshSettings,
       saveSettings,
       toggleMute,

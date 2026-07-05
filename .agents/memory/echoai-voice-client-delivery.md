@@ -29,6 +29,19 @@ TTS fetch is still pending; without an `if (settled) return;` after the await, a
 new `Audio` element is created and plays AFTER the stop, leaking the element and
 object URL.
 
+## Rule: autoplay-gated items must be re-queued and resumed on a user gesture
+**Why:** The morning briefing is enqueued right after login, before any click in
+the freshly-mounted dashboard, and it plays *after* an `await` for the briefing
+fetch — so the login gesture is already consumed and the browser blocks
+`Audio.play()` (status `blocked`). The user gets no greeting at all. Worse, the
+briefing has no `notificationId`, so the poll never re-serves it — once blocked it
+was gone for the session.
+**How to apply:** On `blocked`, `unshift` the item back to the front of the queue
+(don't drop it) and set a `needsGesture` flag. A one-shot document
+`pointerdown`/`keydown` listener (gated on `needsGesture && active`) flips the flag
+off and re-drains, so the first interaction anywhere plays the pending briefing.
+Surface a small "click anywhere to hear Echo" hint. Reset the flag on deactivate.
+
 ## Rule: owner-only voice UI is gated in 3 client places, mirroring backend
 The voice APIs are owner/admin-only (`auth + lockout + requireOwner`). The client
 must mirror this: add the section to the `canOpenSection` owner/admin predicate
