@@ -5,12 +5,16 @@
  * apply the owner's preferences identically.
  */
 
-// The three user-facing "voice styles" map onto real OpenAI TTS voices. `nova`
-// is warm/natural, `shimmer` is bright/upbeat, `onyx` is deep/measured.
+// The user-facing "voice styles" map onto real OpenAI TTS voices (all six are
+// supported by the `tts-1` model). Keep this in sync with the client mirror in
+// `client/src/lib/voiceSettings.js` (VOICE_STYLE_META).
 const VOICE_STYLES = {
-  professional: "onyx",
-  friendly: "nova",
-  energetic: "shimmer",
+  professional: "onyx", // deep/measured
+  friendly: "nova", // warm/natural (default)
+  energetic: "shimmer", // bright/upbeat
+  balanced: "alloy", // neutral/even-keeled
+  expressive: "fable", // characterful/storyteller
+  confident: "echo", // crisp/assured
 };
 
 const DEFAULT_STYLE = "friendly";

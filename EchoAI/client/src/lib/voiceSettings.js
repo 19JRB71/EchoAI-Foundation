@@ -19,6 +19,18 @@ export const VOICE_STYLE_META = {
     label: "Energetic",
     description: "Bright and upbeat — great for a high-momentum day.",
   },
+  balanced: {
+    label: "Balanced",
+    description: "Neutral and clear — even-keeled and easy to listen to.",
+  },
+  expressive: {
+    label: "Expressive",
+    description: "Characterful and warm — a storyteller's cadence.",
+  },
+  confident: {
+    label: "Confident",
+    description: "Crisp and assured — direct and to the point.",
+  },
 };
 
 export const DEFAULT_STYLE = "friendly";
