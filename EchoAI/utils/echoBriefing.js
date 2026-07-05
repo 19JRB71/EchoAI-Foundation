@@ -236,7 +236,7 @@ function formatTime(ts) {
  * to the deterministic template (same real data) if the AI call fails.
  * @param {"morning"|"closing"|"status"} kind
  */
-async function narrate(kind, firstName, data) {
+async function narrate(kind, firstName, data, opts = {}) {
   const template =
     kind === "closing"
       ? templateClosing(firstName, data)
@@ -277,7 +277,11 @@ async function narrate(kind, firstName, data) {
           },
         ],
       },
-      { label: `Echo ${kind} briefing`, timeout: 60000 }
+      {
+        label: `Echo ${kind} briefing`,
+        timeout: opts.timeout || 60000,
+        attempts: opts.attempts || undefined,
+      }
     );
     const text = (resp.content || [])
       .filter((b) => b.type === "text")

@@ -140,7 +140,13 @@ async function getBriefing(req, res) {
     const settings = normalizeSettings(user && user.voice_settings);
     const since = user && user.last_login_at ? user.last_login_at : null;
     const data = await gatherBriefingData(req.user.userId, since);
-    const { text, aiNarrated } = await narrate("morning", displayName(user), data);
+    // The morning briefing auto-plays on login, so it must be ready fast: give
+    // the AI narration a tight budget and a single attempt, then fall back to the
+    // instant deterministic template so speech starts within ~2s of login.
+    const { text, aiNarrated } = await narrate("morning", displayName(user), data, {
+      timeout: 1500,
+      attempts: 1,
+    });
     return res.json({
       text,
       aiNarrated,

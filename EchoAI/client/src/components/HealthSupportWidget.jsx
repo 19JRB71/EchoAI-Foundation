@@ -339,7 +339,7 @@ export default function HealthSupportWidget({ brandId, isPublic = false }) {
       <button
         onClick={() => setOpen(true)}
         className={`fixed right-5 z-[900] flex items-center gap-2 rounded-full bg-gray-800 px-4 py-2.5 text-sm font-semibold text-gray-100 shadow-lg transition hover:bg-gray-700 ${
-          isPublic ? "bottom-5" : "bottom-20"
+          isPublic ? "bottom-5" : "bottom-24"
         }`}
         aria-label="Help and support"
       >

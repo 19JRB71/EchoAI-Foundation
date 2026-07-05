@@ -850,11 +850,6 @@ export default function App() {
           <EchoCompanion />
         </ErrorBoundary>
       ) : null}
-      {!isTeamMember ? (
-        <ErrorBoundary silent>
-          <VoicePlayer />
-        </ErrorBoundary>
-      ) : null}
       {showFbWizard && (
         <ErrorBoundary silent>
           <FacebookWizard
@@ -921,6 +916,11 @@ function TopBar({
           </span>
         )}
         {!isTeamMember && <VoiceSpeakerButton />}
+        {!isTeamMember && (
+          <ErrorBoundary silent>
+            <VoicePlayer />
+          </ErrorBoundary>
+        )}
         <HealthIndicator brandId={brandId} />
         <SectionHelp sectionKey={section} tourAnchor />
         <TierBadge tier={tier} isAdmin={isAdmin} />
