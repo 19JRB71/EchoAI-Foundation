@@ -88,7 +88,7 @@ async function listActions(req, res) {
   try {
     const userId = req.user.userId;
     const { rows } = await db.query(
-      `SELECT action_id, agent, kind, risk, title, detail, status, created_at
+      `SELECT action_id, agent, kind, category, risk, title, detail, status, created_at, executed_at
        FROM growth_actions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
       [userId],
     );
@@ -97,11 +97,13 @@ async function listActions(req, res) {
         id: r.action_id,
         agent: r.agent,
         kind: r.kind,
+        category: r.category,
         risk: r.risk,
         title: r.title,
         detail: r.detail,
         status: r.status,
         createdAt: r.created_at,
+        executedAt: r.executed_at,
       })),
     });
   } catch (err) {
@@ -111,16 +113,49 @@ async function listActions(req, res) {
 }
 
 // Reusable: record an autonomous/proposed action (best-effort; never throws).
-async function logAction(userId, brandId, { agent = "echo", kind, risk = "low", title, detail = "", status = "proposed" }) {
+// `payload` carries the structured data an approved proposal needs to execute
+// later (e.g. the ad set id + target daily budget). `executed` stamps
+// executed_at so auto-run/approved actions are distinguishable from proposals.
+async function logAction(
+  userId,
+  brandId,
+  {
+    agent = "echo",
+    kind,
+    category = null,
+    risk = "low",
+    title,
+    detail = "",
+    status = "proposed",
+    payload = null,
+    executed = false,
+  },
+) {
   try {
-    await db.query(
-      `INSERT INTO growth_actions (user_id, brand_id, agent, kind, risk, title, detail, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [userId, brandId || null, agent, kind, risk, title, detail, status],
+    const { rows } = await db.query(
+      `INSERT INTO growth_actions
+         (user_id, brand_id, agent, kind, category, risk, title, detail, status, payload, executed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $11 THEN NOW() ELSE NULL END)
+       RETURNING action_id`,
+      [
+        userId,
+        brandId || null,
+        agent,
+        kind,
+        category,
+        risk,
+        title,
+        detail,
+        status,
+        JSON.stringify(payload || {}),
+        !!executed,
+      ],
     );
+    return rows[0] ? rows[0].action_id : null;
   } catch (e) {
     console.error("growth logAction failed:", e.message);
+    return null;
   }
 }
 
-module.exports = { getSettings, updateSettings, listActions, logAction };
+module.exports = { getSettings, updateSettings, listActions, logAction, getSettingsRow, serialize };

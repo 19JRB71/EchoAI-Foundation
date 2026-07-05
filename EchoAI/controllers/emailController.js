@@ -148,6 +148,25 @@ async function sendPlatformInquiryNotification({ name, businessType, phone, emai
   return sendEmail({ to, subject, html });
 }
 
+/**
+ * Delivers Echo's once-daily recap of everything Autonomous Growth did today.
+ * Accepts { email, firstName, summary } where summary is a plain-English,
+ * newline-separated recap.
+ */
+async function sendAutonomousSummaryEmail({ email, firstName, summary }) {
+  const safe = String(summary || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;color:#0f172a">` +
+    `<h2 style="margin:0 0 12px">Today's autonomous actions</h2>` +
+    `<pre style="white-space:pre-wrap;font-family:inherit;font-size:15px;margin:0">${safe}</pre>` +
+    `<p style="margin-top:16px;color:#64748b;font-size:13px">— Echo, your AI growth partner</p></div>`;
+  return sendEmail({
+    to: email,
+    subject: `${firstName ? firstName + ", " : ""}here's what Echo did today`,
+    html,
+  });
+}
+
 module.exports = {
   sendWelcomeEmail,
   sendWeeklyReportEmail,
@@ -155,5 +174,6 @@ module.exports = {
   sendPaymentReminderEmail,
   sendAccountLockedEmail,
   sendPlatformInquiryNotification,
+  sendAutonomousSummaryEmail,
   triggerTestEmail,
 };

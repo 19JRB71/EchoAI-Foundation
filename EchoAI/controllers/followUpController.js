@@ -165,6 +165,24 @@ async function persistSequence({ brandId, leadId, goal, sequenceType, touchpoint
   try {
     await client.query("BEGIN");
 
+    // Apply the brand's learned follow-up timing factor (set by Autonomous
+    // Growth from the recent response rate): <1 sends touchpoints sooner, >1
+    // spaces them out. Defaults to 1.0 when no state exists yet. Step 0 (day 0)
+    // stays immediate regardless.
+    let timingFactor = 1.0;
+    try {
+      const stateRes = await client.query(
+        "SELECT followup_timing_factor FROM growth_brand_state WHERE brand_id = $1",
+        [brandId],
+      );
+      if (stateRes.rows[0] && stateRes.rows[0].followup_timing_factor != null) {
+        const f = Number(stateRes.rows[0].followup_timing_factor);
+        if (Number.isFinite(f) && f > 0) timingFactor = f;
+      }
+    } catch (_) {
+      /* growth_brand_state may not exist in some deployments — default to 1.0 */
+    }
+
     const seqResult = await client.query(
       `INSERT INTO follow_up_sequences
          (brand_id, lead_id, goal, sequence_type, status, current_step, total_steps, source)
@@ -176,11 +194,12 @@ async function persistSequence({ brandId, leadId, goal, sequenceType, touchpoint
     const sequence = seqResult.rows[0];
 
     for (const tp of touchpoints) {
+      const scheduledOffset = Math.round((Number(tp.dayOffset) || 0) * timingFactor);
       await client.query(
         `INSERT INTO sequence_touchpoints
            (sequence_id, step_number, channel, scheduled_at, subject, body)
          VALUES ($1, $2, $3, NOW() + ($4 || ' days')::interval, $5, $6)`,
-        [sequence.sequence_id, tp.stepNumber, tp.channel, String(tp.dayOffset), tp.subject || null, tp.body],
+        [sequence.sequence_id, tp.stepNumber, tp.channel, String(scheduledOffset), tp.subject || null, tp.body],
       );
     }
 

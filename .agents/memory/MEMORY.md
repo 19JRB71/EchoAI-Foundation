@@ -1,6 +1,7 @@
 - [EchoAI public widget endpoints](echoai-public-widget-endpoints.md) — method-aware CORS (never path-prefix) + gate owner alerts on real state transitions, not raw public POSTs.
 - [EchoAI leads dedup](echoai-leads-dedup.md) — dedup leads in app code (email/phone), no table-wide unique index; the leads table is shared by multiple insert paths.
-- [EchoAI Setup Agent orchestration](echoai-setup-agent-orchestration.md) — server-side onboarding runner: owner-only guard, token-fenced renewable execution lease (heartbeat, no stall on crash), fail-closed tier gating, app-code idempotency (no per-brand unique), AI→502; node:test suite is the `test` validation step.
+- [EchoAI Setup Agent orchestration](echoai-setup-agent-orchestration.md) — onboarding runner: owner guard, token-fenced renewable lease, fail-closed gating, app-code idempotency, AI→502.
+- [EchoAI Autonomous Growth Mode](echoai-autonomous-growth.md) — daily guardrail engine: atomic per-day claim, atomic approve/decline, enforce every guardrail (geo too), $→cents to FB.
 - [EchoAI blank screen triage](echoai-blank-screen.md) — blank dashboard = workflow down (free 8080, restart) OR a client render throw (now caught by layered ErrorBoundary); rule out server first.
 - [EchoAI brand field shapes](echoai-brand-field-shapes.md) — brand-discovery fields (target_audience etc.) can be JSON objects; coerce to text before JSX or React error #31 blanks the app.
 - [EchoAI voice feature](echoai-voice-feature.md) — reuse existing /api/voice TTS/STT (Pro-gated); voice UI in all-tier/onboarding flows must degrade gracefully; mic blocked in preview iframe.

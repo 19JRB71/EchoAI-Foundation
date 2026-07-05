@@ -10,6 +10,7 @@ const controller = require("../controllers/echoCompanionController");
 const memory = require("../controllers/echoMemoryController");
 const profile = require("../controllers/echoProfileController");
 const growth = require("../controllers/growthController");
+const autonomousGrowth = require("../controllers/autonomousGrowthController");
 
 // All Echo routes require an authenticated, non-locked account. Echo is now a
 // department in the team-based navigation, so its READ views (briefing, memory,
@@ -56,9 +57,12 @@ router.get("/owner-profile", requireOwner, profile.getOwnerProfile);
 router.put("/owner-profile", requireOwner, profile.saveOwnerProfile);
 
 // Autonomous Growth Mode: guardrail settings + the log of proposed/auto actions
-// are readable by the team; only the owner can change the guardrails.
+// are readable by the team; only the owner can change the guardrails or act on a
+// proposal (approve/decline).
 router.get("/growth", growth.getSettings);
 router.put("/growth", requireOwner, growth.updateSettings);
 router.get("/growth/actions", growth.listActions);
+router.post("/growth/actions/:id/approve", requireOwner, autonomousGrowth.approveAction);
+router.post("/growth/actions/:id/decline", requireOwner, autonomousGrowth.declineAction);
 
 module.exports = router;

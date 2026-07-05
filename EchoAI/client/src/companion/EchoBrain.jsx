@@ -104,6 +104,7 @@ export function AutonomousTab({ readOnly = false }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [actingId, setActingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,6 +146,23 @@ export function AutonomousTab({ readOnly = false }) {
       setError(e.message || "Couldn't save.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function act(id, kind) {
+    if (actingId) return;
+    setActingId(id);
+    setError("");
+    try {
+      if (kind === "approve") await api.approveEchoGrowthAction(id);
+      else await api.declineEchoGrowthAction(id);
+      setActions((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: kind === "approve" ? "approved" : "declined" } : a)),
+      );
+    } catch (e) {
+      setError(e.message || "Couldn't update that action.");
+    } finally {
+      setActingId(null);
     }
   }
 
@@ -244,6 +262,24 @@ export function AutonomousTab({ readOnly = false }) {
                 <span style={{ color: RISK_COLOR[a.risk] || "#94a3b8" }}>{a.risk || "low"} risk</span>
                 {a.createdAt ? ` · ${fmt(a.createdAt)}` : ""}
               </div>
+              {!readOnly && a.status === "proposed" ? (
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    style={styles.approveBtn}
+                    onClick={() => act(a.id, "approve")}
+                    disabled={actingId === a.id}
+                  >
+                    {actingId === a.id ? "…" : "Approve"}
+                  </button>
+                  <button
+                    style={styles.declineBtn}
+                    onClick={() => act(a.id, "decline")}
+                    disabled={actingId === a.id}
+                  >
+                    Decline
+                  </button>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -343,6 +379,26 @@ const styles = {
     cursor: "pointer",
     fontSize: 13,
     whiteSpace: "nowrap",
+  },
+  approveBtn: {
+    background: "#22c55e",
+    color: "#04211d",
+    border: "none",
+    borderRadius: 7,
+    padding: "6px 14px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontSize: 12,
+  },
+  declineBtn: {
+    background: "transparent",
+    color: "#94a3b8",
+    border: "1px solid #33415a",
+    borderRadius: 7,
+    padding: "6px 14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontSize: 12,
   },
   answer: {
     background: "#111c30",

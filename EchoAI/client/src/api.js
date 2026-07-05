@@ -184,6 +184,10 @@ export const api = {
   updateEchoGrowth: (settings) =>
     request("/api/echo/growth", { method: "PUT", body: settings }),
   getEchoGrowthActions: () => request("/api/echo/growth/actions"),
+  approveEchoGrowthAction: (id) =>
+    request(`/api/echo/growth/actions/${id}/approve`, { method: "POST" }),
+  declineEchoGrowthAction: (id) =>
+    request(`/api/echo/growth/actions/${id}/decline`, { method: "POST" }),
 
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),

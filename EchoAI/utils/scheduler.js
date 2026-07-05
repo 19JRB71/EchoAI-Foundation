@@ -25,6 +25,10 @@ const {
   sweepDueReminders,
   enqueueClosingSummaries,
 } = require("./echoVoiceReminders");
+const {
+  runDailyAutonomousGrowth,
+  sendDailyAutonomousSummary,
+} = require("../controllers/autonomousGrowthController");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -220,10 +224,31 @@ function startScheduler() {
     });
   });
 
+  // 07:00 daily: Autonomous Growth Mode. For every owner who turned it on, Echo
+  // reviews each brand's campaigns and — strictly within the owner's guardrails —
+  // adjusts budgets, pauses losers and reallocates to winners, refreshes fatigued
+  // ads, tunes follow-up timing, and learns from conversion data. Anything beyond
+  // a guardrail is logged as a proposal instead of acted on.
+  cron.schedule("0 7 * * *", () => {
+    console.log("Autonomous Growth: starting the daily review of every enabled brand.");
+    runDailyAutonomousGrowth().catch((err) => {
+      console.error("Scheduled Autonomous Growth run errored:", err.message);
+    });
+  });
+
+  // 20:00 daily: send each owner the plain-English recap of everything Echo did
+  // autonomously today (deduped per owner per day).
+  cron.schedule("0 20 * * *", () => {
+    sendDailyAutonomousSummary().catch((err) => {
+      console.error("Scheduled Autonomous Growth summary errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
       "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
-      "Echo voice reminders: every minute; Echo closing summary: daily 18:00)."
+      "Echo voice reminders: every minute; Echo closing summary: daily 18:00; " +
+      "Autonomous Growth: daily 07:00, summary daily 20:00)."
   );
 }
 
