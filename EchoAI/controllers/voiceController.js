@@ -1,5 +1,6 @@
 const { toFile } = require("openai");
 const { openai, STT_MODEL, TTS_MODEL, TTS_VOICE } = require("../config/openai");
+const elevenlabs = require("../utils/elevenlabs");
 const chatbotController = require("./chatbotController");
 
 // OpenAI's supported TTS voices. Any other "voice style" falls back to default.
@@ -9,11 +10,8 @@ function resolveVoice(voice) {
   return VALID_VOICES.includes(voice) ? voice : TTS_VOICE;
 }
 
-/**
- * Converts text into natural-sounding speech (MP3) using the OpenAI TTS API.
- * Returns the audio as a Buffer.
- */
-async function synthesizeSpeech(text, voice) {
+/** OpenAI TTS synthesis (the fallback path). Returns an MP3 Buffer. */
+async function openaiSpeech(text, voice) {
   const speech = await openai.audio.speech.create({
     model: TTS_MODEL,
     voice: resolveVoice(voice),
@@ -21,6 +19,30 @@ async function synthesizeSpeech(text, voice) {
   });
   const arrayBuffer = await speech.arrayBuffer();
   return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Converts text into natural-sounding speech (MP3), returned as a Buffer.
+ *
+ * Prefers ElevenLabs (the configured voice) for every spoken surface — briefings,
+ * reminders, alerts, Talk to Echo, and the public voice chat all flow through
+ * here. If ElevenLabs is not configured, or the ElevenLabs API errors, we fall
+ * back to OpenAI TTS so voice never goes dark.
+ */
+async function synthesizeSpeech(text, voice) {
+  if (elevenlabs.ttsConfigured()) {
+    try {
+      return await elevenlabs.synthesize(text);
+    } catch (err) {
+      console.error("ElevenLabs TTS failed; falling back to OpenAI TTS:", err.message);
+    }
+  }
+  return openaiSpeech(text, voice);
+}
+
+/** True when at least one TTS provider (ElevenLabs or OpenAI) is configured. */
+function isVoiceConfigured() {
+  return elevenlabs.ttsConfigured() || Boolean(process.env.OPENAI_API_KEY);
 }
 
 /**
@@ -141,6 +163,7 @@ async function voiceChat(req, res) {
 
 module.exports = {
   synthesizeSpeech,
+  isVoiceConfigured,
   generateSpeech,
   transcribeSpeech,
   transcribeAudio,

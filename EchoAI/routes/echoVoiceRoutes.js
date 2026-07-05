@@ -20,6 +20,10 @@ router.put("/settings", controller.updateSettings);
 // Owner-only, ungated TTS in the owner's chosen voice style (returns audio/mpeg).
 router.post("/speak", controller.speak);
 
+// Morning wake-up music intro (ElevenLabs sound generation, ~3-4s). Returns
+// audio/mpeg, or 204 when ElevenLabs isn't configured so the client just skips it.
+router.get("/wakeup-intro", controller.wakeupIntro);
+
 // Morning briefing text + once-per-day delivery bookkeeping.
 router.get("/briefing", controller.getBriefing);
 router.post("/briefing/delivered", controller.markBriefingDelivered);

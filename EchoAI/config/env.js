@@ -28,6 +28,10 @@ const FEATURES = [
     vars: ["OPENAI_API_KEY"],
   },
   {
+    name: "ElevenLabs voice + wake-up sound (falls back to OpenAI TTS)",
+    vars: ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"],
+  },
+  {
     name: "Billing (Stripe)",
     vars: ["STRIPE_SECRET_KEY"],
     optional: ["STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_STARTER", "STRIPE_PRICE_GROWTH", "STRIPE_PRICE_PRO", "STRIPE_PRICE_ENTERPRISE"],

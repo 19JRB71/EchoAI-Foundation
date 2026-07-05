@@ -11,8 +11,10 @@
  *  - Expose on-demand actions: "Talk to Echo" status briefing, replay, skip.
  *  - A global mute (TopBar speaker) that halts playback without losing settings.
  *
- * All TTS reuses POST /api/echo-voice/speak (OpenAI under the hood). Audio is a
- * per-item Blob → object URL, revoked when playback ends.
+ * All TTS reuses POST /api/echo-voice/speak (ElevenLabs, falling back to OpenAI).
+ * The morning briefing first plays an upbeat ElevenLabs wake-up music intro
+ * (GET /api/echo-voice/wakeup-intro). Audio is a per-item Blob → object URL,
+ * revoked when playback ends.
  */
 import {
   createContext,
@@ -197,6 +199,48 @@ export function VoiceProvider({ active, children }) {
           // playing in ~1-2s while later chunks synthesize during playback. This
           // cuts time-to-first-audio from ~10s (whole-script TTS) to ~1-2s.
           const style = settingsRef.current.style;
+          // Morning briefing only: play the upbeat wake-up music intro first, then
+          // speak. Best-effort — a missing/failed intro (204/error → null) or an
+          // autoplay block just falls through to the spoken briefing.
+          if (item.playIntro) {
+            try {
+              const introBlob = await api.echoVoiceWakeupIntro();
+              if (settled) return;
+              if (introBlob && !mutedRef.current && activeRef.current) {
+                const iurl = URL.createObjectURL(introBlob);
+                urlRef.current = iurl;
+                const el = getWarmAudio() || new Audio();
+                try {
+                  el.pause();
+                } catch {
+                  /* noop */
+                }
+                el.muted = false;
+                el.src = iurl;
+                el.volume = settingsRef.current.volume;
+                audioRef.current = el;
+                await new Promise((res) => {
+                  chunkDone = res;
+                  el.onended = () => res("played");
+                  el.onerror = () => res("error");
+                  el.play().catch(() => res("blocked"));
+                });
+                chunkDone = null;
+                if (urlRef.current === iurl) {
+                  try {
+                    URL.revokeObjectURL(iurl);
+                  } catch {
+                    /* noop */
+                  }
+                  urlRef.current = null;
+                }
+                if (audioRef.current === el) audioRef.current = null;
+              }
+            } catch {
+              /* intro is best-effort; never block the briefing */
+            }
+            if (settled) return;
+          }
           const chunks = chunkForSpeech(item.text);
           if (chunks.length === 0) {
             settle("played");
@@ -498,6 +542,8 @@ export function VoiceProvider({ active, children }) {
           type: "morning_briefing",
           title: "Morning briefing",
           text: b.text,
+          // Play the upbeat ElevenLabs wake-up sting before Echo speaks.
+          playIntro: true,
           onPlayed: async () => {
             try {
               sessionStorage.setItem(key, "1");

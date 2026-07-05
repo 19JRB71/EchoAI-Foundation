@@ -6,11 +6,15 @@
  * tiers, mirroring the setup-agent voice precedent (owner-only, ungated). Team
  * members never receive the owner's spoken briefings/alerts.
  *
- * TTS reuses the existing OpenAI synthesis (config → voiceController); the only
- * addition here is mapping the owner's chosen style to a concrete OpenAI voice.
+ * TTS reuses the shared synthesis (voiceController → ElevenLabs, falling back to
+ * OpenAI); this controller maps the owner's chosen style to a concrete OpenAI
+ * voice (used only when the OpenAI fallback runs) and serves the wake-up intro.
  */
+const fs = require("fs");
+const path = require("path");
 const db = require("../config/db");
-const { synthesizeSpeech } = require("./voiceController");
+const { synthesizeSpeech, isVoiceConfigured } = require("./voiceController");
+const elevenlabs = require("../utils/elevenlabs");
 const { normalizeSettings, voiceForStyle, isQuietHour } = require("../config/echoVoice");
 const { gatherBriefingData, gatherWeeklyData, narrate } = require("../utils/echoBriefing");
 const { toJsonbParam } = require("../utils/jsonb");
@@ -111,7 +115,7 @@ async function speak(req, res) {
   if (!text || !String(text).trim()) {
     return res.status(400).json({ error: "text is required" });
   }
-  if (!process.env.OPENAI_API_KEY) {
+  if (!isVoiceConfigured()) {
     return res.status(503).json({ error: "Voice is not configured" });
   }
   try {
@@ -125,6 +129,69 @@ async function speak(req, res) {
     console.error("Echo speak error:", err.message);
     // Upstream AI (OpenAI) failure → 502, matching the AI-call convention.
     return res.status(502).json({ error: "Failed to generate speech" });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Morning wake-up music intro (ElevenLabs sound generation)
+// ---------------------------------------------------------------------------
+
+// An upbeat, energetic 3-4s sting played right before the morning briefing —
+// think a high-tech hero striding into their lab. Generated once and cached to
+// disk (it's identical for every owner) so we don't pay the generation cost or
+// latency on every login.
+const WAKEUP_PROMPT =
+  "Upbeat, energetic cinematic intro sting: a triumphant futuristic synth swell " +
+  "with a punchy rhythmic pulse, like a high-tech hero confidently walking into " +
+  "their lab. Bright, motivating, powerful. Instrumental only, no vocals.";
+const WAKEUP_DURATION = 4;
+const AUDIO_DIR = path.join(__dirname, "..", "uploads", "audio");
+const WAKEUP_FILE = path.join(AUDIO_DIR, "wakeup-intro.mp3");
+
+// Dedupe concurrent generations (multiple logins racing the first request).
+let wakeupGenerating = null;
+
+async function ensureWakeupIntro() {
+  try {
+    const stat = fs.statSync(WAKEUP_FILE);
+    if (stat.size > 0) return fs.readFileSync(WAKEUP_FILE);
+  } catch (_e) {
+    /* not cached yet — generate below */
+  }
+  if (!wakeupGenerating) {
+    wakeupGenerating = (async () => {
+      const buf = await elevenlabs.generateSound(WAKEUP_PROMPT, {
+        durationSeconds: WAKEUP_DURATION,
+        promptInfluence: 0.6,
+      });
+      fs.mkdirSync(AUDIO_DIR, { recursive: true });
+      fs.writeFileSync(WAKEUP_FILE, buf);
+      return buf;
+    })().finally(() => {
+      wakeupGenerating = null;
+    });
+  }
+  return wakeupGenerating;
+}
+
+/**
+ * GET /api/echo-voice/wakeup-intro — the upbeat music intro that plays before the
+ * morning briefing. Returns audio/mpeg. Best-effort: if ElevenLabs isn't
+ * configured or generation fails, responds 204 so the client simply skips the
+ * intro and goes straight into the spoken briefing (the intro must never block).
+ */
+async function wakeupIntro(req, res) {
+  if (!elevenlabs.soundConfigured()) {
+    return res.status(204).end();
+  }
+  try {
+    const audio = await ensureWakeupIntro();
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.send(audio);
+  } catch (err) {
+    console.error("wakeupIntro error:", err.message);
+    return res.status(204).end();
   }
 }
 
@@ -336,6 +403,7 @@ module.exports = {
   getSettings,
   updateSettings,
   speak,
+  wakeupIntro,
   getBriefing,
   markBriefingDelivered,
   getWeeklyBriefing,

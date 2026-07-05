@@ -980,6 +980,20 @@ export const api = {
     }
     return await res.blob();
   },
+  // Fetch the morning wake-up music intro (ElevenLabs). Returns an MP3 Blob, or
+  // null when there's no intro to play (204 / any error) so the caller skips it.
+  echoVoiceWakeupIntro: async () => {
+    try {
+      const headers = {};
+      const token = getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/echo-voice/wakeup-intro`, { headers });
+      if (res.status === 204 || !res.ok) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    }
+  },
   echoVoiceGetBriefing: () => request("/api/echo-voice/briefing"),
   echoVoiceMarkBriefingDelivered: () =>
     request("/api/echo-voice/briefing/delivered", { method: "POST" }),
