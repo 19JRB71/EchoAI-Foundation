@@ -45,6 +45,10 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
 import EchoCompanion from "./companion/EchoCompanion.jsx";
 import { VoiceProvider, useVoice } from "./voice/VoiceContext.jsx";
+import {
+  EchoConversationProvider,
+  useEchoConversation,
+} from "./voice/EchoConversationContext.jsx";
 import VoicePlayer from "./voice/VoicePlayer.jsx";
 import VoiceSettings from "./sections/VoiceSettings.jsx";
 import DepartmentView from "./sections/DepartmentView.jsx";
@@ -626,6 +630,7 @@ export default function App() {
 
   return (
     <VoiceProvider active={!isTeamMember}>
+    <EchoConversationProvider active={!isTeamMember} onNavigate={handleSelectSection}>
     <div className="flex min-h-screen flex-col bg-black md:flex-row">
       <Sidebar
         section={section}
@@ -878,6 +883,11 @@ export default function App() {
           <EchoCompanion />
         </ErrorBoundary>
       ) : null}
+      {!isTeamMember ? (
+        <ErrorBoundary silent>
+          <EchoConversationOverlay />
+        </ErrorBoundary>
+      ) : null}
       {showFbWizard && (
         <ErrorBoundary silent>
           <FacebookWizard
@@ -904,6 +914,7 @@ export default function App() {
         </ErrorBoundary>
       ) : null}
     </div>
+    </EchoConversationProvider>
     </VoiceProvider>
   );
 }
@@ -945,6 +956,7 @@ function TopBar({
             {roleLabel(workspaceRole)}
           </span>
         )}
+        {!isTeamMember && <VoiceMicButton />}
         {!isTeamMember && <VoiceSpeakerButton />}
         {!isTeamMember && (
           <ErrorBoundary silent>
@@ -987,6 +999,175 @@ function VoiceSpeakerButton() {
         <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-teal-400" />
       )}
     </button>
+  );
+}
+
+// Top-bar hands-free mic toggle for Echo's always-on voice conversation. The
+// colour/animation encodes state: passive = steady green ("listening for Hey
+// Echo"), active/processing/speaking = pulsing green ring (in conversation),
+// muted/off = grey with a slash. Click toggles mute; if the user hasn't opted in
+// yet (or was denied), it opens the warm permission prompt.
+function VoiceMicButton() {
+  const conv = useEchoConversation();
+  if (!conv || !conv.supported) return null; // fall back to push-to-talk silently
+  const s = conv.micState; // unsupported|denied|off|muted|passive|active|processing|speaking
+  const conversing = s === "active" || s === "processing" || s === "speaking";
+  const silenced = s === "muted" || s === "off" || s === "denied";
+  const title = silenced
+    ? "Turn on hands-free voice (Hey Echo)"
+    : conversing
+      ? "Echo is listening — click to mute"
+      : "Listening for “Hey Echo” — click to mute";
+  const color = silenced
+    ? "text-gray-500 hover:text-gray-300"
+    : "text-green-400 hover:text-green-300";
+  return (
+    <button
+      onClick={conv.toggleMic}
+      title={title}
+      aria-label={title}
+      aria-pressed={!silenced}
+      className={`relative flex h-7 w-7 items-center justify-center rounded-full transition ${color}`}
+    >
+      {conversing && (
+        <span className="absolute inset-0 animate-ping rounded-full bg-green-500/30" />
+      )}
+      <svg className="relative h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M19 10v2a7 7 0 01-14 0v-2M12 19v3"
+        />
+        {silenced && (
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4l16 16" />
+        )}
+      </svg>
+    </button>
+  );
+}
+
+// Simple animated bars for the "Echo is listening / speaking" indicator.
+function Waveform({ color }) {
+  return (
+    <span className="flex items-end gap-0.5" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span
+          key={i}
+          className="w-0.5 rounded-full"
+          style={{
+            height: 14,
+            background: color,
+            transformOrigin: "bottom",
+            animation: `echoWave 900ms ease-in-out ${i * 120}ms infinite`,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+// Bottom-of-screen conversation overlay: the warm mic-permission prompt, a live
+// "listening / thinking / speaking" pill with a waveform and follow-up
+// countdown, and a mid-session "mic disconnected" notice. All owner-only.
+function EchoConversationOverlay() {
+  const conv = useEchoConversation();
+  if (!conv) return null;
+  const {
+    showPermission,
+    enableHandsFree,
+    declineHandsFree,
+    supported,
+    micState,
+    listeningText,
+    followupSeconds,
+    micLost,
+    convState,
+    isConversing,
+  } = conv;
+
+  const stateLabel =
+    micState === "active"
+      ? "Listening…"
+      : micState === "processing"
+        ? "Thinking…"
+        : micState === "speaking"
+          ? "Echo is speaking…"
+          : "";
+
+  return (
+    <>
+      <style>{`@keyframes echoWave{0%,100%{transform:scaleY(0.35)}50%{transform:scaleY(1)}}`}</style>
+
+      {showPermission && supported ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-green-500/30 bg-gray-950 p-6 shadow-2xl">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/15 text-green-400">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v3" />
+                </svg>
+              </span>
+              <h3 className="text-lg font-semibold text-white">Go hands-free with Echo</h3>
+            </div>
+            <p className="mb-2 text-sm text-gray-300">
+              Turn on always-on voice and just say <b className="text-green-400">“Hey Echo”</b> any
+              time — no clicking. Echo will listen, answer out loud, and keep the
+              conversation going naturally.
+            </p>
+            <p className="mb-5 text-xs text-gray-500">
+              Your browser will ask to use the microphone. Wake-word listening stays
+              on your device. You can mute the mic any time from the top bar, and the
+              push-to-talk button in the chat always works instead.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={declineHandsFree}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200"
+              >
+                Not now
+              </button>
+              <button
+                onClick={enableHandsFree}
+                className="rounded-lg bg-green-500 px-4 py-2 text-sm font-semibold text-black hover:bg-green-400"
+              >
+                Enable “Hey Echo”
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isConversing && stateLabel ? (
+        <div className="fixed bottom-24 right-6 z-40 flex items-center gap-3 rounded-full border border-green-500/30 bg-gray-950/95 px-4 py-2 shadow-lg shadow-green-500/10">
+          <Waveform color={convState === "speaking" ? "#5eead4" : "#4ade80"} />
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-green-300">{stateLabel}</div>
+            {micState === "active" && listeningText ? (
+              <div className="max-w-[220px] truncate text-[11px] text-gray-400">
+                {listeningText}
+              </div>
+            ) : null}
+          </div>
+          {micState === "active" && followupSeconds != null ? (
+            <span className="ml-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[11px] font-semibold text-green-300">
+              {followupSeconds}s
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {micLost ? (
+        <div className="fixed bottom-24 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-amber-500/40 bg-amber-950/90 px-4 py-2 text-xs text-amber-200 shadow-lg">
+          Microphone disconnected — reconnect it, or use the push-to-talk button in the chat.
+        </div>
+      ) : null}
+    </>
   );
 }
 

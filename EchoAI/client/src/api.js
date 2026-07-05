@@ -1002,6 +1002,27 @@ export const api = {
       clearTimeout(timer);
     }
   },
+  // Fetch a named personality sound effect (wake/goodbye/thinking/hotlead/
+  // celebration/error). Returns an MP3 Blob, or null (204/error) so callers skip.
+  echoVoiceSound: async (name) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const headers = {};
+      const token = getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/echo-voice/sound/${encodeURIComponent(name)}`, {
+        headers,
+        signal: ctrl.signal,
+      });
+      if (res.status === 204 || !res.ok) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
   echoVoiceGetBriefing: () => request("/api/echo-voice/briefing"),
   echoVoiceMarkBriefingDelivered: () =>
     request("/api/echo-voice/briefing/delivered", { method: "POST" }),

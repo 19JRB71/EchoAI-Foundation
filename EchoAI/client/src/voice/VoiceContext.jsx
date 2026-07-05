@@ -551,6 +551,13 @@ export function VoiceProvider({ active, children }) {
               /* noop */
             }
             api.echoVoiceMarkBriefingDelivered().catch(() => {});
+            // Hand off to the always-on conversation engine: after the briefing,
+            // Echo asks what to tackle first and starts listening (if enabled).
+            try {
+              window.dispatchEvent(new CustomEvent("echo:briefing-done"));
+            } catch {
+              /* noop */
+            }
           },
         });
       } catch {

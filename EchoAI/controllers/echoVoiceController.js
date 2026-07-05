@@ -136,63 +136,156 @@ async function speak(req, res) {
 // Morning wake-up music intro (ElevenLabs sound generation)
 // ---------------------------------------------------------------------------
 
-// An upbeat, energetic 3-4s sting played right before the morning briefing —
-// think a high-tech hero striding into their lab. Generated once and cached to
-// disk (it's identical for every owner) so we don't pay the generation cost or
-// latency on every login.
-const WAKEUP_PROMPT =
-  "Upbeat, energetic cinematic intro sting: a triumphant futuristic synth swell " +
-  "with a punchy rhythmic pulse, like a high-tech hero confidently walking into " +
-  "their lab. Bright, motivating, powerful. Instrumental only, no vocals.";
-const WAKEUP_DURATION = 4;
 const AUDIO_DIR = path.join(__dirname, "..", "uploads", "audio");
-const WAKEUP_FILE = path.join(AUDIO_DIR, "wakeup-intro.mp3");
 
-// Dedupe concurrent generations (multiple logins racing the first request).
-let wakeupGenerating = null;
+// The morning wake-up music: a short, punchy AC/DC-style electric guitar riff
+// that plays right before the briefing. Generated once and cached to disk (it's
+// identical for every owner) so we don't pay the generation cost/latency on
+// every login. The filename is VERSIONED (`-v2`) so changing the prompt below
+// naturally invalidates any previously-cached synth sting from the old prompt.
+const WAKEUP_PROMPT =
+  "Short punchy electric guitar riff, AC/DC style hard rock: bold, energetic, " +
+  "high-octane wake-up music with driving power chords and attitude. " +
+  "Instrumental only, no vocals.";
+const WAKEUP_DURATION = 4;
+const WAKEUP_KEY = "wakeup-intro-v2";
 
-async function ensureWakeupIntro() {
+// Named sound-effect catalog — tasteful, professional stings that give Echo
+// personality through audio. Each is generated once and cached to disk. Keep
+// them short so they enhance rather than interrupt the conversation.
+const SOUND_EFFECTS = {
+  // Played the instant Echo hears the wake word — "I'm listening".
+  wake: {
+    prompt:
+      "Short soft UI activation chime: a single bright, friendly two-note ascending " +
+      "digital confirmation tone. Clean, subtle, modern assistant wake sound.",
+    duration: 1,
+    influence: 0.4,
+  },
+  // Played when Echo goes quiet / the conversation closes.
+  goodbye: {
+    prompt:
+      "Short soft UI sign-off chime: a gentle two-note descending tone, calm and " +
+      "friendly, signalling an assistant going quiet. Subtle and warm.",
+    duration: 1,
+    influence: 0.4,
+  },
+  // Subtle ambient bed while Echo is processing a request.
+  thinking: {
+    prompt:
+      "Very subtle ambient processing sound: soft warm synth shimmer with a faint " +
+      "pulse, calm and unobtrusive, indicating a system quietly working.",
+    duration: 2,
+    influence: 0.3,
+  },
+  // Energetic alert before Echo speaks a hot-lead notification.
+  hotlead: {
+    prompt:
+      "Short energetic positive alert: a bright, exciting upward notification sting " +
+      "that grabs attention in a good way, signalling an important opportunity.",
+    duration: 1,
+    influence: 0.5,
+  },
+  // Brief celebration when a goal or milestone is hit.
+  celebration: {
+    prompt:
+      "Short celebratory success sting: a brief triumphant sparkle with an uplifting " +
+      "resolve, signalling an achievement. Joyful but tasteful, no vocals.",
+    duration: 2,
+    influence: 0.5,
+  },
+  // Subtle, non-alarming tone before Echo delivers bad news.
+  error: {
+    prompt:
+      "Short subtle alert tone: a soft, low two-note cue signalling that something " +
+      "needs attention. Serious but calm and professional, not harsh.",
+    duration: 1,
+    influence: 0.4,
+  },
+};
+
+// Dedupe concurrent generations per cache key (multiple logins racing the first
+// request for the same sound).
+const soundGenerating = new Map();
+
+/**
+ * Return a cached ElevenLabs sound (generating + caching it on first request).
+ * Concurrent callers for the same key share one in-flight generation.
+ */
+async function ensureCachedSound(key, prompt, durationSeconds, promptInfluence) {
+  const file = path.join(AUDIO_DIR, `${key}.mp3`);
   try {
-    const stat = fs.statSync(WAKEUP_FILE);
-    if (stat.size > 0) return fs.readFileSync(WAKEUP_FILE);
+    const stat = fs.statSync(file);
+    if (stat.size > 0) return fs.readFileSync(file);
   } catch (_e) {
     /* not cached yet — generate below */
   }
-  if (!wakeupGenerating) {
-    wakeupGenerating = (async () => {
-      const buf = await elevenlabs.generateSound(WAKEUP_PROMPT, {
-        durationSeconds: WAKEUP_DURATION,
-        promptInfluence: 0.6,
+  if (!soundGenerating.has(key)) {
+    const p = (async () => {
+      const buf = await elevenlabs.generateSound(prompt, {
+        durationSeconds,
+        promptInfluence,
       });
       fs.mkdirSync(AUDIO_DIR, { recursive: true });
-      fs.writeFileSync(WAKEUP_FILE, buf);
+      fs.writeFileSync(file, buf);
       return buf;
     })().finally(() => {
-      wakeupGenerating = null;
+      soundGenerating.delete(key);
     });
+    soundGenerating.set(key, p);
   }
-  return wakeupGenerating;
+  return soundGenerating.get(key);
 }
 
-/**
- * GET /api/echo-voice/wakeup-intro — the upbeat music intro that plays before the
- * morning briefing. Returns audio/mpeg. Best-effort: if ElevenLabs isn't
- * configured or generation fails, responds 204 so the client simply skips the
- * intro and goes straight into the spoken briefing (the intro must never block).
- */
-async function wakeupIntro(req, res) {
+// Shared responder: stream a cached sound as audio/mpeg, or 204 (best-effort) so
+// the client simply skips it — a sound must never block or error the caller.
+async function serveCachedSound(res, key, prompt, duration, influence, label) {
   if (!elevenlabs.soundConfigured()) {
     return res.status(204).end();
   }
   try {
-    const audio = await ensureWakeupIntro();
+    const audio = await ensureCachedSound(key, prompt, duration, influence);
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "public, max-age=86400");
     return res.send(audio);
   } catch (err) {
-    console.error("wakeupIntro error:", err.message);
+    console.error(`${label} error:`, err.message);
     return res.status(204).end();
   }
+}
+
+/**
+ * GET /api/echo-voice/wakeup-intro — the upbeat AC/DC-style music intro that
+ * plays before the morning briefing. audio/mpeg, or 204 when ElevenLabs isn't
+ * configured / generation fails (the intro must never block the briefing).
+ */
+async function wakeupIntro(req, res) {
+  return serveCachedSound(
+    res,
+    WAKEUP_KEY,
+    WAKEUP_PROMPT,
+    WAKEUP_DURATION,
+    0.6,
+    "wakeupIntro",
+  );
+}
+
+/**
+ * GET /api/echo-voice/sound/:name — a named personality sound effect (wake,
+ * goodbye, thinking, hotlead, celebration, error). audio/mpeg, or 204 for an
+ * unknown name / unconfigured ElevenLabs / failure so the client just skips it.
+ */
+async function sound(req, res) {
+  const spec = SOUND_EFFECTS[req.params.name];
+  if (!spec) return res.status(204).end();
+  return serveCachedSound(
+    res,
+    `sfx-${req.params.name}`,
+    spec.prompt,
+    spec.duration,
+    spec.influence,
+    `sound:${req.params.name}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +497,7 @@ module.exports = {
   updateSettings,
   speak,
   wakeupIntro,
+  sound,
   getBriefing,
   markBriefingDelivered,
   getWeeklyBriefing,

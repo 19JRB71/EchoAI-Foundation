@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api";
 import EchoBrain from "./EchoBrain.jsx";
+import { useEchoConversation } from "../voice/EchoConversationContext.jsx";
+import { isQuestion } from "../voice/conversationHelpers.js";
 
 // Echo — the persistent AI companion panel. Bottom-right on desktop (collapsible),
 // fullscreen on mobile. Three modes, surfaced as the header label:
@@ -356,6 +358,50 @@ export default function EchoCompanion({ autoOpen = false }) {
     },
     [input, busy, scrollToBottom, activeBrandId],
   );
+
+  // Voice-command entry point used by the always-on conversation engine. It runs
+  // the exact same Echo message pipeline as typing, so every capability Echo has
+  // is reachable by voice; it just also RETURNS the reply text so the engine can
+  // speak it and decide whether Echo asked a follow-up question.
+  const handleVoiceCommand = useCallback(
+    async (text) => {
+      const value = (text || "").trim();
+      if (!value) return { reply: "", isQuestion: false };
+      setOpen(true);
+      const optimistic = { id: `local-${Date.now()}`, role: "user", type: "text", text: value };
+      setMessages((prev) => [...prev, optimistic]);
+      scrollToBottom();
+      try {
+        const res = await api.sendEchoMessage(value, activeBrandId);
+        setMessages((prev) => {
+          const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
+          const next = [...withoutOptimistic];
+          if (res.userMessage) next.push(res.userMessage);
+          if (res.message) next.push(res.message);
+          return next;
+        });
+        scrollToBottom();
+        const reply = (res.message && res.message.text) || "";
+        return { reply, isQuestion: isQuestion(reply) };
+      } catch (e) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        return { reply: "", isQuestion: false };
+      }
+    },
+    [activeBrandId, scrollToBottom],
+  );
+
+  const conversation = useEchoConversation();
+  const conversing = conversation ? conversation.isConversing : false;
+  // Register the voice-command handler with the conversation engine.
+  useEffect(() => {
+    if (!conversation || !conversation.registerCommandHandler) return undefined;
+    return conversation.registerCommandHandler(handleVoiceCommand);
+  }, [conversation, handleVoiceCommand]);
+  // Keep the panel open while a spoken conversation is in progress.
+  useEffect(() => {
+    if (conversing) setOpen(true);
+  }, [conversing]);
 
   const handleBriefing = useCallback(async () => {
     if (busy) return;

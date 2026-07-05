@@ -24,6 +24,10 @@ router.post("/speak", controller.speak);
 // audio/mpeg, or 204 when ElevenLabs isn't configured so the client just skips it.
 router.get("/wakeup-intro", controller.wakeupIntro);
 
+// Named personality sound effects (wake, goodbye, thinking, hotlead,
+// celebration, error). Returns audio/mpeg, or 204 so the client just skips it.
+router.get("/sound/:name", controller.sound);
+
 // Morning briefing text + once-per-day delivery bookkeeping.
 router.get("/briefing", controller.getBriefing);
 router.post("/briefing/delivered", controller.markBriefingDelivered);
