@@ -33,3 +33,4 @@
 - [EchoAI demo auto-advance](echoai-demo-autoadvance.md) — voice onPlayed fires only on natural completion; auto-advancing steps needs a fallback timer or muted/blocked/error stalls the demo.
 - [EchoAI controller file-name collisions](echoai-controller-file-collisions.md) — generic controller/route names may already exist & be mounted; edit not overwrite, or boot breaks with undefined-callback.
 - [EchoAI weekly briefing guard](echoai-weekly-briefing-guard.md) — claim the per-ISO-week localStorage guard synchronously at enqueue (not onPlayed) so auto + manual weekly triggers can't double-play; manual button never gated.
+- [EchoAI portfolio demo exclusion](echoai-portfolio-demo-exclusion.md) — every multi-business calc/query/display must exclude is_demo brands at the data-gathering layer (one realBrands()/is_demo=false gate), never in the UI.

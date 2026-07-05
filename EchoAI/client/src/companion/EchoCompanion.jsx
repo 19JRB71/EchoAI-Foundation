@@ -156,6 +156,8 @@ export default function EchoCompanion({ autoOpen = false }) {
   const [recording, setRecording] = useState(false);
   const [unread, setUnread] = useState(0);
   const [showBrain, setShowBrain] = useState(false);
+  const [businesses, setBusinesses] = useState([]);
+  const [activeBrandId, setActiveBrandId] = useState(null);
 
   const scrollRef = useRef(null);
   const mediaRef = useRef(null);
@@ -201,6 +203,10 @@ export default function EchoCompanion({ autoOpen = false }) {
       setMode(state.mode || "idle");
       setActivationStatus(state.activationStatus || "pending");
       setPending(state.pendingAction || null);
+      setBusinesses(state.businesses || []);
+      setActiveBrandId((prev) =>
+        prev ?? (state.activeBrandId != null ? String(state.activeBrandId) : null),
+      );
       return state;
     } catch (e) {
       setError(e.message || "Failed to load Echo.");
@@ -333,7 +339,7 @@ export default function EchoCompanion({ autoOpen = false }) {
       setMessages((prev) => [...prev, optimistic]);
       scrollToBottom();
       try {
-        const res = await api.sendEchoMessage(value);
+        const res = await api.sendEchoMessage(value, activeBrandId);
         setMessages((prev) => {
           const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
           const next = [...withoutOptimistic];
@@ -348,7 +354,7 @@ export default function EchoCompanion({ autoOpen = false }) {
         setBusy(false);
       }
     },
-    [input, busy, scrollToBottom],
+    [input, busy, scrollToBottom, activeBrandId],
   );
 
   const handleBriefing = useCallback(async () => {
@@ -424,6 +430,22 @@ export default function EchoCompanion({ autoOpen = false }) {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {businesses.length > 1 ? (
+            <select
+              value={activeBrandId ?? ""}
+              onChange={(e) => setActiveBrandId(e.target.value || null)}
+              style={styles.businessSelect}
+              aria-label="Active business"
+              title="Which business should Echo focus on?"
+            >
+              <option value="">All businesses</option>
+              {businesses.map((b) => (
+                <option key={b.brandId} value={b.brandId}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <button
             type="button"
             style={styles.iconBtn}
@@ -588,6 +610,16 @@ const styles = {
     boxShadow: `0 0 14px ${TEAL}88`,
   },
   headerTitle: { fontWeight: 700, fontSize: 15, lineHeight: 1.1 },
+  businessSelect: {
+    background: "#0f172a",
+    color: "#e2e8f0",
+    border: "1px solid #334155",
+    borderRadius: 8,
+    fontSize: 12,
+    padding: "4px 6px",
+    maxWidth: 140,
+    cursor: "pointer",
+  },
   iconBtn: {
     background: "transparent",
     color: "#94a3b8",

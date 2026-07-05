@@ -98,6 +98,7 @@ export function requiredTierForSection(sectionKey) {
 // Keep in sync with the backend FEATURES map.
 export const SECTION_TIERS = {
   // Starter (baseline)
+  portfolio: "starter",
   missioncontrol: "starter",
   aiteam: "starter",
   overview: "starter",

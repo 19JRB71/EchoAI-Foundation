@@ -133,8 +133,11 @@ export const api = {
   advanceEcho: () => request("/api/echo/advance", { method: "POST" }),
   approveEcho: () => request("/api/echo/approve", { method: "POST" }),
   declineEcho: () => request("/api/echo/decline", { method: "POST" }),
-  sendEchoMessage: (text) =>
-    request("/api/echo/message", { method: "POST", body: { text } }),
+  sendEchoMessage: (text, brandId) =>
+    request("/api/echo/message", {
+      method: "POST",
+      body: brandId ? { text, brandId } : { text },
+    }),
   getEchoBriefing: () => request("/api/echo/briefing"),
   // Voice input: POST a recorded clip as multipart to be transcribed with Whisper.
   transcribeEchoAudio: async (blob) => {
@@ -712,6 +715,15 @@ export const api = {
       method: "PATCH",
       body,
     }),
+
+  // Portfolio — Echo, the Multi-Business Chief of Staff (owner/admin-only)
+  getPortfolioOverview: () => request("/api/portfolio/overview"),
+  getPortfolioHealth: () => request("/api/portfolio/health"),
+  runPortfolioHealth: () => request("/api/portfolio/health/run", { method: "POST" }),
+  getPortfolioIntelligence: () => request("/api/portfolio/intelligence"),
+  generatePortfolioIntelligence: () =>
+    request("/api/portfolio/intelligence/generate", { method: "POST" }),
+  getPortfolioTeam: () => request("/api/portfolio/team"),
 
   // Capital & Funding Intelligence (Enterprise)
   getFundingOpportunities: (brandId) =>

@@ -93,10 +93,38 @@ async function getOrCreateState(userId) {
 
 async function getBrand(userId) {
   const { rows } = await db.query(
-    `SELECT brand_id, brand_name FROM brands WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1`,
+    `SELECT brand_id, brand_name FROM brands
+     WHERE user_id = $1 AND is_demo = false ORDER BY created_at ASC LIMIT 1`,
     [userId],
   );
   return rows[0] || null;
+}
+
+/** All of the owner's REAL businesses (demo excluded), for the chat switcher. */
+async function listBusinesses(userId) {
+  const { rows } = await db.query(
+    `SELECT brand_id, brand_name FROM brands
+     WHERE user_id = $1 AND is_demo = false ORDER BY created_at ASC`,
+    [userId],
+  );
+  return rows;
+}
+
+/**
+ * Resolve the business Echo's chat should be about. When the owner has picked a
+ * business (context switch) we honor that id after verifying ownership + that it
+ * isn't the demo brand; otherwise we default to their first real business.
+ */
+async function resolveChatBrand(userId, brandId) {
+  if (brandId) {
+    const { rows } = await db.query(
+      `SELECT brand_id, brand_name FROM brands
+       WHERE brand_id = $1 AND user_id = $2 AND is_demo = false`,
+      [brandId, userId],
+    );
+    if (rows[0]) return rows[0];
+  }
+  return getBrand(userId);
 }
 
 // pendingAction: pass an object to set, or null to clear. activation_status /
@@ -293,13 +321,18 @@ async function getState(req, res) {
   try {
     const userId = req.user.userId;
     const state = await getOrCreateState(userId);
-    const brand = await getBrand(userId);
+    const [brand, businesses] = await Promise.all([
+      getBrand(userId),
+      listBusinesses(userId),
+    ]);
     return res.json({
       activationStatus: state.activation_status,
       mode: modeFor(state),
       messages: arr(state.messages),
       pendingAction: sanitizePending(state.pending_action),
       brandName: brand ? brand.brand_name : null,
+      activeBrandId: brand ? brand.brand_id : null,
+      businesses: businesses.map((b) => ({ brandId: b.brand_id, name: b.brand_name })),
     });
   } catch (err) {
     console.error("Echo getState error:", err.message);
@@ -478,7 +511,15 @@ async function sendMessage(req, res) {
     if (!text) return res.status(400).json({ error: "Please enter a message." });
 
     const state = await getOrCreateState(userId);
-    const brand = await getBrand(userId);
+    const requestedBrandId =
+      req.body && typeof req.body.brandId === "string" && req.body.brandId.trim()
+        ? req.body.brandId.trim()
+        : null;
+    const [brand, businesses] = await Promise.all([
+      resolveChatBrand(userId, requestedBrandId),
+      listBusinesses(userId),
+    ]);
+    const isMultiBusiness = businesses.length > 1;
 
     // Everything Echo remembers about this owner + their key relationships, plus
     // a guardrail so Echo flags requests that conflict with the owner's values.
@@ -492,7 +533,13 @@ async function sendMessage(req, res) {
 
     const system = [
       "You are Echo, the AI marketing companion built into EchoAI — an AI marketing platform.",
-      `The user's business is ${brand ? brand.brand_name : "their business"}.`,
+      isMultiBusiness
+        ? `The owner runs ${businesses.length} businesses: ${businesses
+            .map((b) => b.brand_name)
+            .join(", ")}. This conversation is currently about ${
+            brand ? brand.brand_name : "their business"
+          }. Keep your answers and any data scoped to that business unless they ask you to switch or compare.`
+        : `The user's business is ${brand ? brand.brand_name : "their business"}.`,
       `Their activation status is "${state.activation_status}".`,
       state.pending_action
         ? "There is an action awaiting their one-click approval in the companion panel."

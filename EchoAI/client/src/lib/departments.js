@@ -32,6 +32,7 @@ export function agentMeta(agentId) {
 // Per-department tool cards. Order matters (rendered top-to-bottom, left-to-right).
 export const DEPARTMENTS = {
   echo: [
+    { label: "Portfolio", desc: "Every business you run — health, results and one unified approval queue.", section: "portfolio" },
     { label: "Morning Briefing", desc: "Today's AI-generated strategic brief and team roll-up.", section: "missioncontrol" },
     { label: "Team Overview", desc: "All team members, live status and this week's results.", section: "aiteam" },
     { label: "Weekly Intelligence", desc: "Echo's latest customer-intelligence report.", section: "intelligence" },
@@ -89,6 +90,7 @@ export function departmentTools(agentId) {
 // department (sidebar Settings, admin console, cross-feature hand-offs). Drives
 // the "Home > <Title>" breadcrumb when there is no department context.
 export const SECTION_TITLES = {
+  portfolio: "Portfolio",
   missioncontrol: "Mission Control",
   aiteam: "AI Team",
   settings: "Settings",

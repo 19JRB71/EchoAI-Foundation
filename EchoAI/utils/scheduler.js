@@ -32,6 +32,15 @@ const {
   runDailyAutonomousGrowth,
   sendDailyAutonomousSummary,
 } = require("../controllers/autonomousGrowthController");
+const {
+  snapshotHealth,
+  ownersWithRealBrands,
+  portfolioBusinessesForAI,
+  weekDateFor,
+} = require("./portfolio");
+const {
+  generateCrossBusinessIntelligence,
+} = require("../prompts/crossBusinessPrompt");
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -182,6 +191,58 @@ async function runWeeklyAnalytics() {
 }
 
 /**
+ * Daily portfolio health snapshot (Part 5). Computes a deterministic 1-10 score
+ * for every REAL brand (demo excluded) so the 12-week trajectory keeps building
+ * without any manual action. Scoring is deterministic (no AI), so a single
+ * brand's failure is logged and never stops the sweep.
+ */
+async function runDailyHealthSnapshots() {
+  const { rows } = await db.query(
+    `SELECT brand_id FROM brands WHERE is_demo = false`,
+  );
+  let ok = 0;
+  for (const b of rows) {
+    try {
+      await snapshotHealth(b.brand_id);
+      ok += 1;
+    } catch (err) {
+      console.error(`Portfolio health snapshot failed for brand ${b.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Portfolio health snapshots complete: ${ok}/${rows.length} brands scored.`);
+}
+
+/**
+ * Weekly cross-business intelligence (Part 3). For every owner with 2+ real
+ * businesses, Echo synthesizes an AI report of the connections across them and
+ * upserts it for the current ISO week. Best-effort per owner: an AI failure is
+ * logged and never stops the rest of the run.
+ */
+async function runWeeklyCrossBusinessIntelligence() {
+  const owners = await ownersWithRealBrands();
+  const weekDate = weekDateFor();
+  let generated = 0;
+  for (const userId of owners) {
+    try {
+      const businesses = await portfolioBusinessesForAI(userId);
+      if (businesses.length < 2) continue;
+      const result = await generateCrossBusinessIntelligence(businesses);
+      await db.query(
+        `INSERT INTO cross_business_intelligence (user_id, week_date, report, ai_analysis)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_id, week_date)
+         DO UPDATE SET report = EXCLUDED.report, ai_analysis = EXCLUDED.ai_analysis`,
+        [userId, weekDate, JSON.stringify(result), result.summary],
+      );
+      generated += 1;
+    } catch (err) {
+      console.error(`Cross-business intelligence failed for owner ${userId}:`, err.message);
+    }
+  }
+  console.log(`Cross-business intelligence complete: ${generated} owner report(s) generated.`);
+}
+
+/**
  * Schedules the weekly analytics job for every Monday at 08:00.
  */
 function startScheduler() {
@@ -256,12 +317,34 @@ function startScheduler() {
     });
   });
 
+  // 06:00 daily: snapshot every real business's portfolio health score so the
+  // Multi-Business Chief of Staff's 12-week trajectory keeps building itself.
+  cron.schedule("0 6 * * *", () => {
+    runDailyHealthSnapshots().catch((err) => {
+      console.error("Scheduled portfolio health snapshot run errored:", err.message);
+    });
+  });
+
+  // Mondays 08:15 (after the weekly analytics run at 08:00): generate each
+  // multi-business owner's weekly cross-business intelligence report.
+  cron.schedule("15 8 * * 1", () => {
+    runWeeklyCrossBusinessIntelligence().catch((err) => {
+      console.error("Scheduled cross-business intelligence run errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
       "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
       "Echo voice reminders: every minute; Echo closing summary: daily 18:00; " +
-      "Autonomous Growth: daily 07:00, summary daily 20:00)."
+      "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
+      "cross-business intelligence: Mondays 08:15)."
   );
 }
 
-module.exports = { startScheduler, runWeeklyAnalytics };
+module.exports = {
+  startScheduler,
+  runWeeklyAnalytics,
+  runDailyHealthSnapshots,
+  runWeeklyCrossBusinessIntelligence,
+};

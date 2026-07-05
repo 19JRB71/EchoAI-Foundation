@@ -16,11 +16,11 @@ const db = require("../config/db");
 const { createMessage, MODEL } = require("../config/anthropic");
 const { buildBriefingSystem } = require("../prompts/echoPersona");
 
-/** Owner's brand ids + names. */
+/** Owner's REAL brand ids + names (the demo brand is excluded from briefings). */
 async function ownerBrands(userId) {
   try {
     const r = await db.query(
-      "SELECT brand_id, brand_name FROM brands WHERE user_id = $1",
+      "SELECT brand_id, brand_name FROM brands WHERE user_id = $1 AND is_demo = false",
       [userId]
     );
     return r.rows;

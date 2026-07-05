@@ -20,6 +20,7 @@ import GoogleSeo from "./sections/GoogleSeo.jsx";
 import RoiDashboard from "./sections/RoiDashboard.jsx";
 import CustomerIntelligence from "./sections/CustomerIntelligence.jsx";
 import CapitalFunding from "./sections/CapitalFunding.jsx";
+import Portfolio from "./sections/Portfolio.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
 import Appointments from "./sections/Appointments.jsx";
@@ -149,6 +150,8 @@ export default function App() {
   const canOpenSection = useCallback(
     (s) => {
       if (!s) return false;
+      // Echo's Multi-Business Chief of Staff spans the whole account (owner/admin).
+      if (s === "portfolio") return isAdmin || !isTeamMember;
       if (s === "sentinelhealth") return isAdmin || !isTeamMember;
       // Call monitoring lives in Sentinel — same owner/admin-only visibility.
       if (s === "callmonitor") return isAdmin || !isTeamMember;
@@ -740,6 +743,8 @@ export default function App() {
                 loading={loadingBrands}
                 error={brandsError}
               />
+              {section === "portfolio" &&
+                (canOpenSection("portfolio") ? <Portfolio /> : null)}
               {section === "missioncontrol" && (
                 <MissionControl onNavigate={handleSelectSection} onOpenDepartment={openDepartment} />
               )}
