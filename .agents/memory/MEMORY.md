@@ -5,6 +5,7 @@
 - [EchoAI blank screen triage](echoai-blank-screen.md) — blank dashboard = workflow down (free 8080, restart) OR a client render throw (now caught by layered ErrorBoundary); rule out server first.
 - [EchoAI brand field shapes](echoai-brand-field-shapes.md) — brand-discovery fields (target_audience etc.) can be JSON objects; coerce to text before JSX or React error #31 blanks the app.
 - [EchoAI voice feature](echoai-voice-feature.md) — reuse existing /api/voice TTS/STT (Pro-gated); voice UI in all-tier/onboarding flows must degrade gracefully; mic blocked in preview iframe.
+- [EchoAI TTS provider fallback](echoai-tts-provider-fallback.md) — all speech via voiceController.synthesizeSpeech chokepoint; ElevenLabs primary → OpenAI fallback; wake-up intro is best-effort/non-blocking.
 - [EchoAI weekly scheduler scope](echoai-weekly-scheduler-scope.md) — Monday run only iterates active-campaign brands by design; don't make one job iterate all brands separately.
 - [EchoAI JSONB write safety](echoai-jsonb-writes.md) — route req.body values through utils/jsonb.js toJsonbParam before any ::jsonb cast; bare strings crash Postgres.
 - [Email click-tracker redirect safety](email-click-tracker-redirect.md) — public click/redirect trackers must encrypt the destination URL, never take a raw `?url=`, or they become open redirectors.

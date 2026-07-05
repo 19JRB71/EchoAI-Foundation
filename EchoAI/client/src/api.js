@@ -983,15 +983,23 @@ export const api = {
   // Fetch the morning wake-up music intro (ElevenLabs). Returns an MP3 Blob, or
   // null when there's no intro to play (204 / any error) so the caller skips it.
   echoVoiceWakeupIntro: async () => {
+    // Abort after 8s so a hung network can never block the morning briefing.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
       const headers = {};
       const token = getToken();
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${BASE_URL}/api/echo-voice/wakeup-intro`, { headers });
+      const res = await fetch(`${BASE_URL}/api/echo-voice/wakeup-intro`, {
+        headers,
+        signal: ctrl.signal,
+      });
       if (res.status === 204 || !res.ok) return null;
       return await res.blob();
     } catch {
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   },
   echoVoiceGetBriefing: () => request("/api/echo-voice/briefing"),
