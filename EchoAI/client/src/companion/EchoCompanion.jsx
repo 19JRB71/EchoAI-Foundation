@@ -536,7 +536,7 @@ const styles = {
   fab: {
     position: "fixed",
     bottom: 20,
-    right: 20,
+    left: 20,
     zIndex: 1000,
     display: "flex",
     alignItems: "center",
@@ -571,7 +571,7 @@ const styles = {
     flexDirection: "column",
     ...(isMobile
       ? { inset: 0, borderRadius: 0 }
-      : { bottom: 20, right: 20, width: 380, height: 560, borderRadius: 16 }),
+      : { bottom: 20, left: 20, width: 380, height: 560, borderRadius: 16 }),
   },
   header: {
     display: "flex",

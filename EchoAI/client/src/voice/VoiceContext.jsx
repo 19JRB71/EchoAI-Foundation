@@ -30,6 +30,7 @@ import {
   isQuietHour,
   chunkForSpeech,
 } from "../lib/voiceSettings.js";
+import { getWarmAudio } from "./audioUnlock.js";
 
 const VoiceContext = createContext(null);
 
@@ -122,7 +123,8 @@ export function VoiceProvider({ active, children }) {
         el.oncanplay = null;
         el.onended = null;
         el.onerror = null;
-        el.src = "";
+        el.removeAttribute("src");
+        el.load();
       } catch {
         /* noop */
       }
@@ -205,7 +207,18 @@ export function VoiceProvider({ active, children }) {
             }
             const url = URL.createObjectURL(blob);
             urlRef.current = url;
-            const el = new Audio(url);
+            // Reuse the ONE warm <audio> element that was unlocked during the
+            // login gesture (see audioUnlock.js). Playing that same element again
+            // is permitted with no fresh gesture, so the morning briefing
+            // auto-plays reliably. Fall back to a new element if unavailable.
+            const el = getWarmAudio() || new Audio();
+            try {
+              el.pause();
+            } catch {
+              /* noop */
+            }
+            el.muted = false;
+            el.src = url;
             el.volume = settingsRef.current.volume;
             audioRef.current = el;
             const status = await new Promise((res) => {

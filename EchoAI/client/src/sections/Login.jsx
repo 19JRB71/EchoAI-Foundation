@@ -4,6 +4,7 @@ import ErrorBanner from "../components/ErrorBanner.jsx";
 import { useBranding } from "../lib/BrandingContext.jsx";
 import { getReferralCode, clearReferralCode } from "../lib/referral.js";
 import HealthSupportWidget from "../components/HealthSupportWidget.jsx";
+import { unlockAudio } from "../voice/audioUnlock.js";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
@@ -20,6 +21,9 @@ export default function Login({ onLogin, invitePending = false }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    // This submit is a genuine user gesture: prime audio now so Echo's morning
+    // briefing can auto-play right after login without a further click.
+    unlockAudio();
     setError("");
     setLoading(true);
     try {
