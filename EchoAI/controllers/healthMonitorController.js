@@ -716,7 +716,8 @@ async function runHourlyHealthSweep() {
   const brands = await db.query(
     `SELECT b.brand_id, b.brand_name, b.user_id
      FROM brands b
-     JOIN users u ON u.user_id = b.user_id`,
+     JOIN users u ON u.user_id = b.user_id
+     WHERE b.is_demo = false`,
   );
 
   let checked = 0;

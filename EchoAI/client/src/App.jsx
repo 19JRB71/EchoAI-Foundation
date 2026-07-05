@@ -53,6 +53,7 @@ import CallMonitoring from "./sections/crm/CallMonitoring.jsx";
 import { roleLabel, roleBadgeClass, canWrite } from "./lib/roles.js";
 import Breadcrumbs from "./components/Breadcrumbs.jsx";
 import FacebookWizard from "./components/FacebookWizard.jsx";
+import PresenterOverlay from "./components/PresenterOverlay.jsx";
 import { MemoryTab, AutonomousTab } from "./companion/EchoBrain.jsx";
 import { agentMeta, sectionTitle } from "./lib/departments.js";
 
@@ -111,6 +112,9 @@ export default function App() {
   const [activeToolTab, setActiveToolTab] = useState(null);
   // App-level Facebook connect wizard (Atlas's "Connect Facebook" tool action).
   const [showFbWizard, setShowFbWizard] = useState(false);
+  // Sales Presentation Mode (admin-only): when live, the dashboard points at the
+  // demo brand and the presenter toolbar is shown.
+  const [demoActive, setDemoActive] = useState(false);
 
   function handleUseImageInSocial(image) {
     setSocialPrefillImage(image);
@@ -432,6 +436,48 @@ export default function App() {
     window.addEventListener("echoai:unauthorized", handleLogout);
     return () => window.removeEventListener("echoai:unauthorized", handleLogout);
   }, [handleLogout]);
+
+  // Rehydrate Presentation Mode after a page refresh: if an admin left it live,
+  // re-point the dashboard at the demo brand and re-show the presenter toolbar.
+  useEffect(() => {
+    if (!authed || !onboardingCompleted || !isAdmin) return;
+    let alive = true;
+    (async () => {
+      try {
+        const status = await api.demoGetStatus();
+        if (!alive || !status || !status.active) return;
+        if (status.demoBrandId) setSelectedBrandId(status.demoBrandId);
+        setDemoActive(true);
+      } catch {
+        /* not seeded / not admin — nothing to rehydrate */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [authed, onboardingCompleted, isAdmin]);
+
+  // Sales Presentation Mode start/stop (dispatched from the admin Demo tab).
+  // Starting reloads brands (so the just-seeded demo brand is present), points
+  // the dashboard at it, and lands on Mission Control for the briefing.
+  useEffect(() => {
+    const onStart = async (e) => {
+      const brandId = e.detail && e.detail.demoBrandId;
+      await loadBrands();
+      if (brandId) setSelectedBrandId(brandId);
+      setDeptAgentId(null);
+      setActiveToolTab(null);
+      setSection("missioncontrol");
+      setDemoActive(true);
+    };
+    const onStop = () => setDemoActive(false);
+    window.addEventListener("echoai:demo-start", onStart);
+    window.addEventListener("echoai:demo-stop", onStop);
+    return () => {
+      window.removeEventListener("echoai:demo-start", onStart);
+      window.removeEventListener("echoai:demo-stop", onStop);
+    };
+  }, [loadBrands]);
 
   function handleLogin(token) {
     setToken(token);
@@ -774,6 +820,15 @@ export default function App() {
           <FacebookWizard onClose={() => setShowFbWizard(false)} />
         </ErrorBoundary>
       )}
+      {isAdmin && demoActive ? (
+        <ErrorBoundary silent>
+          <PresenterOverlay
+            onNavigate={handleSelectSection}
+            onOpenDepartment={openDepartment}
+            onEnd={() => setDemoActive(false)}
+          />
+        </ErrorBoundary>
+      ) : null}
     </div>
     </VoiceProvider>
   );

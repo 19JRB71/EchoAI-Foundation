@@ -157,11 +157,24 @@ async function getPlatformStats(req, res) {
           WHERE s.payment_status = 'active' AND s.subscription_tier <> 'free'`,
         [PRICE_PER_SEAT]
       ),
-      db.query("SELECT COUNT(*)::int AS count FROM leads"),
       db.query(
-        "SELECT COUNT(*)::int AS count FROM campaigns WHERE status = 'active'"
+        `SELECT COUNT(*)::int AS count
+           FROM leads l
+           JOIN brands b ON b.brand_id = l.brand_id
+          WHERE b.is_demo = false`
       ),
-      db.query("SELECT COALESCE(SUM(budget), 0)::numeric AS spend FROM campaigns"),
+      db.query(
+        `SELECT COUNT(*)::int AS count
+           FROM campaigns c
+           JOIN brands b ON b.brand_id = c.brand_id
+          WHERE c.status = 'active' AND b.is_demo = false`
+      ),
+      db.query(
+        `SELECT COALESCE(SUM(c.budget), 0)::numeric AS spend
+           FROM campaigns c
+           JOIN brands b ON b.brand_id = c.brand_id
+          WHERE b.is_demo = false`
+      ),
     ]);
 
     return res.json({

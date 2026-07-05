@@ -649,9 +649,11 @@ async function executeDueTouchpoints() {
     `SELECT t.touchpoint_id
      FROM sequence_touchpoints t
      JOIN follow_up_sequences s ON s.sequence_id = t.sequence_id
+     JOIN brands b ON b.brand_id = s.brand_id
      WHERE t.status = 'pending'
        AND t.scheduled_at <= NOW()
        AND s.status = 'active'
+       AND b.is_demo = false
      ORDER BY t.scheduled_at ASC
      LIMIT 100`,
   );

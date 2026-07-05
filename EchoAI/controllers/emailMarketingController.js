@@ -524,9 +524,11 @@ async function sendDueDripEmails() {
     `SELECT r.recipient_id
      FROM email_marketing_recipients r
      JOIN email_marketing_campaigns c ON c.campaign_id = r.campaign_id
+     JOIN brands b ON b.brand_id = c.brand_id
      WHERE c.campaign_type = 'drip' AND c.status = 'sending'
        AND r.delivery_status = 'pending'
        AND r.next_send_at IS NOT NULL AND r.next_send_at <= NOW()
+       AND b.is_demo = false
      ORDER BY r.next_send_at ASC
      LIMIT 500`
   );

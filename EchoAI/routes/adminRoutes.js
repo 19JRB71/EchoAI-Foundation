@@ -3,6 +3,7 @@ const express = require("express");
 const authMiddleware = require("../middleware/auth");
 const adminMiddleware = require("../middleware/admin");
 const adminController = require("../controllers/adminController");
+const demoController = require("../controllers/demoController");
 
 const router = express.Router();
 
@@ -20,5 +21,14 @@ router.put("/users/:userId/subscription", adminController.updateUserSubscription
 router.post("/users/:userId/unlock", adminController.unlockAccount);
 router.post("/users/:userId/lock", adminController.lockAccount);
 router.delete("/users/:userId", adminController.deleteUser);
+
+// Demo Account & Sales Presentation Mode.
+router.get("/demo/status", demoController.getStatus);
+router.get("/demo/script", demoController.getScript);
+router.post("/demo/seed", demoController.seed);
+router.post("/demo/reset", demoController.reset);
+router.post("/demo/activate", demoController.activate);
+router.post("/demo/deactivate", demoController.deactivate);
+router.put("/demo/config", demoController.updateConfig);
 
 module.exports = router;

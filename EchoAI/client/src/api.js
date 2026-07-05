@@ -316,6 +316,17 @@ export const api = {
   adminDeleteUser: (userId) =>
     request(`/api/admin/users/${userId}`, { method: "DELETE" }),
 
+  // Demo Account & Sales Presentation Mode (admin-only).
+  demoGetStatus: () => request("/api/admin/demo/status"),
+  demoGetScript: () => request("/api/admin/demo/script"),
+  demoSeed: (businessName) =>
+    request("/api/admin/demo/seed", { method: "POST", body: { businessName } }),
+  demoReset: () => request("/api/admin/demo/reset", { method: "POST" }),
+  demoActivate: () => request("/api/admin/demo/activate", { method: "POST" }),
+  demoDeactivate: () => request("/api/admin/demo/deactivate", { method: "POST" }),
+  demoUpdateConfig: (payload) =>
+    request("/api/admin/demo/config", { method: "PUT", body: payload }),
+
   // Social media
   getSocialCalendar: (brandId) => request(`/api/social/calendar/${brandId}`),
   getSocialPerformance: (brandId) => request(`/api/social/performance/${brandId}`),

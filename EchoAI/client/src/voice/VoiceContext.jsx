@@ -526,6 +526,7 @@ export function VoiceProvider({ active, children }) {
       replay,
       skip,
       stopAll,
+      enqueue,
     }),
     [
       active,
@@ -544,6 +545,7 @@ export function VoiceProvider({ active, children }) {
       replay,
       skip,
       stopAll,
+      enqueue,
     ],
   );
 

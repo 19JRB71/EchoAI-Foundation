@@ -63,6 +63,7 @@ async function sweepAppointmentReminders() {
          JOIN users  u ON u.user_id = b.user_id
          LEFT JOIN leads l ON l.lead_id = a.lead_id
         WHERE a.status = 'scheduled'
+          AND b.is_demo = false
           AND a.start_time > NOW()
           AND a.start_time <= NOW() + INTERVAL '16 minutes'`
     )
@@ -128,6 +129,7 @@ async function sweepFollowUpReminders() {
          JOIN users  u ON u.user_id = b.user_id
          LEFT JOIN leads l ON l.lead_id = s.lead_id
         WHERE t.channel = 'phone'
+          AND b.is_demo = false
           AND t.status = 'pending'
           AND t.scheduled_at <= NOW()
           AND t.scheduled_at > NOW() - INTERVAL '2 hours'
@@ -190,7 +192,8 @@ async function enqueueClosingSummaries() {
     await db.query(
       `SELECT DISTINCT b.user_id, u.first_name, u.voice_settings
          FROM brands b
-         JOIN users u ON u.user_id = b.user_id`
+         JOIN users u ON u.user_id = b.user_id
+        WHERE b.is_demo = false`
     )
   ).rows;
 

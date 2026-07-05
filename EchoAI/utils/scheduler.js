@@ -38,7 +38,8 @@ async function runWeeklyAnalytics() {
     `SELECT DISTINCT b.brand_id, b.user_id
      FROM brands b
      JOIN campaigns c ON c.brand_id = b.brand_id
-     WHERE c.status = 'active'`
+     WHERE c.status = 'active'
+       AND b.is_demo = false`
   );
 
   let succeeded = 0;

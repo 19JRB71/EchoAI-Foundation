@@ -434,17 +434,19 @@ async function publishDuePosts() {
     `UPDATE social_posts
      SET status = 'publishing'
      WHERE post_id IN (
-       SELECT post_id FROM social_posts
-       WHERE status = 'scheduled' AND scheduled_time <= NOW()
+       SELECT sp.post_id FROM social_posts sp
+       JOIN brands b ON b.brand_id = sp.brand_id
+       WHERE sp.status = 'scheduled' AND sp.scheduled_time <= NOW()
+         AND b.is_demo = false
          AND (
-           calendar_id IS NULL
-           OR calendar_id IN (
+           sp.calendar_id IS NULL
+           OR sp.calendar_id IN (
              SELECT calendar_id FROM content_calendars WHERE status = 'active'
            )
          )
-       ORDER BY scheduled_time ASC
+       ORDER BY sp.scheduled_time ASC
        LIMIT 50
-       FOR UPDATE SKIP LOCKED
+       FOR UPDATE OF sp SKIP LOCKED
      )
      RETURNING post_id, brand_id, platform, post_content`
   );
