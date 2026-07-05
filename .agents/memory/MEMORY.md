@@ -24,6 +24,7 @@
 - [EchoAI voice client delivery](echoai-voice-client-delivery.md) — polled voice queue: dedup vs terminal set + live queue (never permanent "seen"), settle delivered/dismissed centrally in drain, guard playback after TTS await, gate owner-only UI in canOpenSection.
 - [EchoAI SPA/PWA stale shell](echoai-spa-cache-headers.md) — new client feature "does nothing" (endpoints never hit) = stale shell; index.html no-cache AND bump sw.js CACHE version — the PWA SW caches above HTTP, so headers alone won't reach the user.
 - [EchoAI CRM monitoring gate](echoai-crm-monitoring-gate.md) — Sentinel call-monitoring reads are owner/admin-only (requireRole admin); Pulse queue overview is manager-visible (denySalesRep). Don't collapse to one guard.
+- [EchoAI morning briefing](echoai-morning-briefing.md) — greeting fires every login (token-scoped reload guard, ignore alreadyDeliveredToday); empty accounts get warm welcome + FB-connect nudge.
 - [EchoAI audio autoplay unlock](echoai-audio-autoplay-unlock.md) — auto-play needs a warm <audio> element unlocked on the login-click gesture + reused for every chunk; zero-gesture reloads can't autoplay (browser policy).
 - [EchoAI Facebook scoping](echoai-facebook-scoping.md) — FB connection (token/account/page) is user-scoped by design (api_integrations user_id+platform); don't refactor to brand-scoped as a side task.
 - [EchoAI demo auto-advance](echoai-demo-autoadvance.md) — voice onPlayed fires only on natural completion; auto-advancing steps needs a fallback timer or muted/blocked/error stalls the demo.

@@ -38,12 +38,42 @@ async function safeRows(sql, params) {
   }
 }
 
+/** Whether the owner has a connected Facebook integration (drives the nudge). */
+async function facebookConnected(userId) {
+  try {
+    const r = await db.query(
+      `SELECT 1 FROM api_integrations
+        WHERE user_id = $1 AND platform = 'facebook'
+          AND connection_status = 'connected'
+        LIMIT 1`,
+      [userId]
+    );
+    return r.rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** True when the morning briefing has no real activity to report. */
+function hasActivity(data) {
+  return Boolean(
+    (data.newLeads && data.newLeads.length) ||
+      (data.todaysAppointments && data.todaysAppointments.length) ||
+      data.followUpsCompleted ||
+      (data.campaigns && data.campaigns.length) ||
+      (data.sentinelFixes && data.sentinelFixes.length) ||
+      data.pendingApprovals ||
+      data.competitorNote
+  );
+}
+
 /**
  * Gather the raw numbers/names for a morning briefing since `since`.
  */
 async function gatherBriefingData(userId, since) {
   const brands = await ownerBrands(userId);
   const brandIds = brands.map((b) => b.brand_id);
+  const fbConnected = await facebookConnected(userId);
   const empty = {
     brands,
     sinceISO: since ? new Date(since).toISOString() : null,
@@ -55,6 +85,7 @@ async function gatherBriefingData(userId, since) {
     sentinelFixes: [],
     pendingApprovals: 0,
     competitorNote: null,
+    facebookConnected: fbConnected,
   };
   if (brandIds.length === 0) return empty;
 
@@ -138,6 +169,7 @@ async function gatherBriefingData(userId, since) {
       competitor[0] && competitor[0].intelligence_report
         ? summarizeCompetitor(competitor[0].intelligence_report)
         : null,
+    facebookConnected: fbConnected,
   };
 }
 
@@ -153,6 +185,26 @@ function summarizeCompetitor(report) {
 /** Deterministic template narration for the morning briefing (AI fallback). */
 function templateMorning(firstName, data) {
   const name = firstName || "there";
+
+  // A brand-new / empty account still gets a warm welcome and a concrete next
+  // step — the briefing must never be silent just because there's no data yet.
+  if (!hasActivity(data)) {
+    const parts = [
+      `Good morning ${name}. Your marketing department is ready and standing by.`,
+    ];
+    if (!data.facebookConnected) {
+      parts.push(
+        "Connect your Facebook account so Atlas can start bringing you leads."
+      );
+    } else {
+      parts.push(
+        "Your channels are connected and your agents are ready to start bringing in leads."
+      );
+    }
+    parts.push("Your team is here and ready to work for you.");
+    return parts.join(" ");
+  }
+
   const parts = [`Good morning ${name}. Here's your briefing.`];
 
   if (data.newLeads.length) {
@@ -248,12 +300,15 @@ async function narrate(kind, firstName, data, opts = {}) {
     return { text: template, aiNarrated: false };
   }
 
+  const morningEmpty = kind === "morning" && !hasActivity(data);
   const goal =
     kind === "closing"
       ? "an end-of-day closing summary of what the team accomplished and a preview of tomorrow"
       : kind === "status"
         ? "a short, current 'right now' status update: what's happening, what needs attention, what's coming up today"
-        : "a personalized morning briefing of everything since the owner last logged in, ending by asking if they're ready to start or want more detail on anything";
+        : morningEmpty
+          ? "a short, warm welcome for an owner whose account has no activity yet: greet them by first name, reassure them their AI marketing department is ready and standing by, and — only if the data shows facebookConnected is false — encourage them to connect their Facebook account so the ads agent (Atlas) can start bringing in leads. Close warmly that their team is here and ready to work for them. Do NOT mention zero counts or that there is 'no' data"
+          : "a personalized morning briefing of everything since the owner last logged in, ending by asking if they're ready to start or want more detail on anything";
 
   const system =
     "You are Echo, the owner's AI marketing assistant, speaking OUT LOUD to the business owner. " +

@@ -23,7 +23,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "../api.js";
+import { api, getToken } from "../api.js";
 import {
   DEFAULT_SETTINGS,
   normalizeSettings,
@@ -37,6 +37,17 @@ const VoiceContext = createContext(null);
 // How often to poll the server for pending spoken events while the app is open.
 const POLL_MS = 30 * 1000;
 const MUTE_KEY = "echoai_voice_muted";
+// Anti-reload guard for the morning greeting, scoped to the current auth token.
+// A fresh login mints a new JWT, so its key is absent → the greeting plays again
+// on EVERY login. A bare page reload keeps the same token (and sessionStorage),
+// so the key is present → we don't replay within the same login session.
+function briefingSessionKey() {
+  const t = getToken();
+  // Signature tail is unique per issued JWT; falls back to a shared key if the
+  // token is somehow unavailable (still suppresses reload spam within a session).
+  const tail = t ? t.slice(-24) : "anon";
+  return `echoai_briefing_${tail}`;
+}
 
 let itemSeq = 0;
 function nextItemId() {
@@ -428,9 +439,12 @@ export function VoiceProvider({ active, children }) {
         const b = await api.echoVoiceGetBriefing();
         if (cancelled) return;
         if (!b.enabled || !b.autoBriefing) return;
-        if (b.alreadyDeliveredToday) return;
-        // Session guard: don't replay across tab reloads within the same day.
-        const key = `echoai_briefing_${new Date().toISOString().slice(0, 10)}`;
+        // Fire on EVERY login regardless of whether the account has data — the
+        // greeting must always play. The token-scoped guard only suppresses a
+        // bare page reload within the same login session; a new login mints a new
+        // token and greets again. We deliberately do NOT honor
+        // `alreadyDeliveredToday`.
+        const key = briefingSessionKey();
         try {
           if (sessionStorage.getItem(key)) return;
         } catch {
