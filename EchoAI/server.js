@@ -268,7 +268,21 @@ if (!fs.existsSync(clientIndex)) {
       "Run `cd client && npm run build` so the SPA can be served.",
   );
 }
-app.use(express.static(clientDist));
+// Hashed assets (index-<hash>.js/.css) are immutable — cache them hard. But
+// index.html must NEVER be cached: it's the only file that points at the current
+// hashed bundle, so a stale cached index.html pins the browser to an old build
+// (e.g. a dashboard without newly-shipped features). Always revalidate it.
+app.use(
+  express.static(clientDist, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith("index.html")) {
+        res.setHeader("Cache-Control", "no-cache");
+      } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  }),
+);
 
 // SPA fallback: non-API GET requests for non-file paths return index.html so
 // React Router can handle client-side routes (/, /dashboard, /voice/:brandId).
@@ -282,6 +296,8 @@ app.use((req, res, next) => {
   ) {
     return next();
   }
+  // Same rule as above: the SPA entry document must always be revalidated.
+  res.setHeader("Cache-Control", "no-cache");
   res.sendFile(clientIndex);
 });
 

@@ -180,6 +180,11 @@ _Populate as you build — explicit user instructions worth remembering across s
 - **Rebuild the client after changing `EchoAI/client/`**: `cd EchoAI/client &&
   npm run build`, then restart the `artifacts/api-server: EchoAI` workflow. The
   server serves pre-built `client/dist` (no dev HMR in the preview).
+- **Stale bundle**: `server.js` serves `index.html` with `Cache-Control:
+  no-cache` and hashed `assets/*` as `immutable`. If a shipped client feature
+  "does nothing" (its API endpoints never appear in the server log), the browser
+  is on an old cached bundle — hard-refresh once. Never make `index.html`
+  cacheable or new builds silently won't load.
 - The artifact's `development.run` runs from the artifact dir, so it uses an
   absolute path (`cd /home/runner/workspace/EchoAI && npm start`).
 - If port 8080 is stuck after a failed restart, free it with `fuser -k 8080/tcp`
