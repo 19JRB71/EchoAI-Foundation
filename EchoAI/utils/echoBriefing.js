@@ -17,6 +17,7 @@ const { createMessage, MODEL } = require("../config/anthropic");
 const { buildBriefingSystem } = require("../prompts/echoPersona");
 const { computeSuggestions } = require("./echoSuggestions");
 const { getMetric } = require("../config/goals");
+const { computeBrandGoals, monthWindow } = require("./goalMetrics");
 
 /** Owner's REAL brand ids + names (the demo brand is excluded from briefings). */
 async function ownerBrands(userId) {
@@ -332,8 +333,23 @@ async function gatherWeeklyData(userId) {
     opportunities: [],
     risks: [],
     suggestions: [],
+    goals: null,
   };
   if (brandIds.length === 0) return { ...base, isEmpty: true };
+
+  // Complete per-brand goal progress for the weekly briefing (best-effort: a
+  // failure for one brand never aborts the rest of the briefing).
+  const win = monthWindow();
+  const perBrandGoals = [];
+  for (const b of brands) {
+    try {
+      const { goals } = await computeBrandGoals(b.brand_id, win);
+      perBrandGoals.push({ brandId: b.brand_id, brandName: b.brand_name, goals });
+    } catch (err) {
+      console.error(`Weekly goal summary failed for brand ${b.brand_id}:`, err.message);
+    }
+  }
+  const goalsSummary = summarizeWeeklyGoals(perBrandGoals, win);
 
   const now = Date.now();
   const weekAgo = new Date(now - 7 * 24 * 3600 * 1000);
@@ -528,6 +544,7 @@ async function gatherWeeklyData(userId) {
     opportunities,
     risks,
     suggestions,
+    goals: goalsSummary,
   };
 }
 
@@ -705,6 +722,103 @@ function numberedList(items) {
   return items.map((it, i) => `${ord[i] || `${i + 1}.`}, ${stripTrailing(it)}.`).join(" ");
 }
 
+/**
+ * Plain-English weekly status clause for ONE goal progress object, using the
+ * pace concept the owner asked for: percent-to-goal vs percent of the month
+ * elapsed. Cumulative goals get a pace read; 'latest' rate goals and cost goals
+ * get an above/below-target read. Returns null for goals with no reading yet.
+ */
+function weeklyGoalClause(g, win = monthWindow()) {
+  if (g.percentToGoal == null || !Number.isFinite(Number(g.percentToGoal))) return null;
+  const pct = Math.round(Number(g.percentToGoal));
+  const label = g.label;
+
+  // Cost / "lower is better" goals: frame as % below/above target.
+  if (g.direction === "decrease") {
+    const target = Number(g.targetValue);
+    const current = Number(g.currentValue);
+    if (!Number.isFinite(target) || target <= 0 || !Number.isFinite(current)) return null;
+    if (current <= target) {
+      const below = Math.round((1 - current / target) * 100);
+      return below >= 1
+        ? `your ${label} is running ${below}% below target, which is excellent`
+        : `your ${label} is right on target`;
+    }
+    const above = Math.round((current / target - 1) * 100);
+    return `your ${label} is running ${above}% above target, which needs attention`;
+  }
+
+  // Already met an increase goal.
+  if (pct >= 100) {
+    return `you've already hit your ${label} goal at ${pct}% of target`;
+  }
+
+  // Cumulative "increase" goals get the pace read (percent-to-goal vs elapsed).
+  if (g.aggregation === "cumulative") {
+    const remaining = Math.round(100 - (win.dayOfMonth / win.daysInMonth) * 100);
+    const elapsed = 100 - remaining;
+    const diff = pct - elapsed;
+    let pace;
+    if (diff >= 15) pace = "well ahead of pace";
+    else if (diff >= 5) pace = "slightly ahead of pace";
+    else if (diff > -5) pace = "right on pace";
+    else if (diff > -15) pace = "slightly behind pace";
+    else pace = "behind pace";
+    return `you're ${pct}% of the way to your ${label} goal with ${remaining}% of the month remaining — ${pace}`;
+  }
+
+  // 'latest' rate goals (ROAS, CTR): simple share-of-target read.
+  const tone = pct >= 90 ? "just under target" : "below target and needs attention";
+  return `your ${label} is at ${pct}% of target, ${tone}`;
+}
+
+/**
+ * Fold per-brand goal progress objects into a compact structure for the weekly
+ * briefing: one clause per measurable goal, grouped by brand. Returns null when
+ * no brand has any measurable goal (so the briefing simply omits the section).
+ * `perBrand` = [{ brandId, brandName, goals: [progressObject...] }].
+ */
+function summarizeWeeklyGoals(perBrand, win = monthWindow()) {
+  const perBusiness = [];
+  for (const b of perBrand || []) {
+    const clauses = [];
+    for (const g of b.goals || []) {
+      const clause = weeklyGoalClause(g, win);
+      if (clause) clauses.push({ label: g.label, clause });
+    }
+    if (clauses.length) {
+      perBusiness.push({ brandId: b.brandId, brandName: b.brandName, goals: clauses });
+    }
+  }
+  return perBusiness.length ? { perBusiness } : null;
+}
+
+/** Capitalize the first letter of a clause so it reads as a standalone sentence. */
+function capitalizeFirst(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+/**
+ * Render the complete per-brand, per-goal weekly progress section. Every measured
+ * goal gets its own plain-English sentence so no goal is ever omitted.
+ */
+function renderWeeklyGoalSection(data) {
+  if (!data.goals || !Array.isArray(data.goals.perBusiness) || !data.goals.perBusiness.length) {
+    return [];
+  }
+  const multi = (data.brands || []).length > 1;
+  const out = [];
+  for (const b of data.goals.perBusiness) {
+    const clauses = b.goals.map((g) => g.clause);
+    if (!clauses.length) continue;
+    const [first, ...rest] = clauses;
+    const lead = multi ? `For ${b.brandName}, ` : "On your goals, ";
+    out.push(`${lead}${first}.`);
+    for (const c of rest) out.push(`${capitalizeFirst(c)}.`);
+  }
+  return out;
+}
+
 /** Deterministic template narration for the weekly strategy briefing (AI fallback). */
 function templateWeekly(firstName, data) {
   const name = firstName || "there";
@@ -715,7 +829,10 @@ function templateWeekly(firstName, data) {
     data.followUpsCompleted ||
     (data.opportunities && data.opportunities.length);
 
-  if (data.isEmpty || !hasSubstance) {
+  // Every weekly briefing must carry a complete per-goal progress read.
+  const goalSection = renderWeeklyGoalSection(data);
+
+  if (data.isEmpty || (!hasSubstance && !goalSection.length)) {
     const parts = [`Good morning ${name}. Here's your weekly strategy briefing.`];
     parts.push("It's been a quiet week — your AI marketing department is set up and ready to go.");
     if (!data.facebookConnected) {
@@ -742,6 +859,12 @@ function templateWeekly(firstName, data) {
     syn.push(`Sentinel fixed ${data.sentinelFixes} issue${data.sentinelFixes === 1 ? "" : "s"}`);
   }
   parts.push(syn.length ? `This week, ${joinList(syn)}.` : "This week was quiet on activity.");
+
+  // Complete goal progress — every active brand, every goal, before opportunities.
+  if (goalSection.length) {
+    parts.push("Here's where your goals stand.");
+    for (const line of goalSection) parts.push(line);
+  }
 
   const opps = (data.opportunities || []).slice(0, 3);
   if (opps.length) {
@@ -799,8 +922,18 @@ async function narrate(kind, firstName, data, opts = {}) {
     multiBrand: Boolean(data.brands && data.brands.length > 1),
   };
   // The weekly strategy briefing is longer (synthesis + 3 opportunities + 3 risks).
-  const wordCap = kind === "weekly" ? 220 : 130;
-  const maxTokens = kind === "weekly" ? 800 : 500;
+  // A complete per-goal progress section can add several sentences, so scale the
+  // budget by the number of goals being narrated (never omit a goal for length).
+  let wordCap = kind === "weekly" ? 220 : 130;
+  let maxTokens = kind === "weekly" ? 800 : 500;
+  if (kind === "weekly" && data.goals && Array.isArray(data.goals.perBusiness)) {
+    const goalCount = data.goals.perBusiness.reduce(
+      (n, b) => n + (b.goals ? b.goals.length : 0),
+      0
+    );
+    wordCap += Math.min(goalCount * 25, 300);
+    maxTokens += Math.min(goalCount * 120, 1400);
+  }
   // opts.knowledge is a personalization block (tone/priority guidance only — it
   // must NOT introduce spoken facts; see echoContext.formatKnowledge mode:speech).
   const system = buildBriefingSystem(kind, ctx, wordCap) + (opts.knowledge ? "\n\n" + opts.knowledge : "");
@@ -848,4 +981,6 @@ module.exports = {
   templateWeekly,
   templateClosing,
   templateStatus,
+  weeklyGoalClause,
+  summarizeWeeklyGoals,
 };

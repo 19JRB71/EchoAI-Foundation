@@ -15,7 +15,7 @@
 
 const db = require("../config/db");
 const { snapshotBrandGoals, monthWindow } = require("./goalMetrics");
-const { getMetric } = require("../config/goals");
+const { getMetric, suggestRaisedTarget } = require("../config/goals");
 const { enqueueOwnerVoiceEvent } = require("./echoVoiceNotifications");
 const pushController = require("../controllers/pushController");
 const mobilePushController = require("../controllers/mobilePushController");
@@ -27,12 +27,13 @@ const SWING_THRESHOLD = 20;
 // rather than an early heads-up.
 const URGENT_PROJECTED_PCT = 60;
 
-/** Human-readable value for a metric (currency / ratio / count). */
+/** Human-readable value for a metric (currency / ratio / percent / count). */
 function formatValue(value, unit) {
   if (value == null || !Number.isFinite(Number(value))) return "no data";
   const n = Number(value);
   if (unit === "currency") return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
   if (unit === "ratio") return `${n}x`;
+  if (unit === "percent") return `${n.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
   return `${Math.round(n)}`;
 }
 
@@ -70,9 +71,31 @@ function deriveAlertKinds(goal, priorPercent) {
 }
 
 /**
+ * A spoken "challenge to aim higher" clause appended to a hit/exceeding goal so
+ * Echo doesn't just celebrate but proposes a more ambitious next target. Returns
+ * "" when no raise is warranted. `daysRemaining` (from the month window) lets
+ * Echo note when a cumulative goal was hit ahead of schedule.
+ */
+function raiseChallenge(goal, kind, daysRemaining) {
+  if (kind !== "hit" && kind !== "exceeding") return "";
+  const newTarget = suggestRaisedTarget(goal);
+  if (newTarget == null) return "";
+  const meta = getMetric(goal.metricKey);
+  const unit = meta ? meta.unit : goal.unit || "count";
+  const newTargetStr = formatValue(newTarget, unit);
+  const days = daysRemaining == null ? null : Math.round(Number(daysRemaining));
+  const ahead =
+    days != null && days >= 3 && goal.aggregation === "cumulative"
+      ? `You're ahead of schedule with ${days} day${days === 1 ? "" : "s"} left in the month. `
+      : "";
+  return ` ${ahead}Want me to raise the target to ${newTargetStr} next month to keep pushing growth?`;
+}
+
+/**
  * Build the deterministic spoken line + short push body for a goal alert.
  * `kind` defaults to the goal's own status so older callers keep working;
- * `extra.delta` carries the swing size for momentum alerts.
+ * `extra.delta` carries the swing size for momentum alerts, and
+ * `extra.daysRemaining` lets an achieved-goal alert note it was hit early.
  */
 function buildAlertCopy(goal, brandName, kind = goal.status, extra = {}) {
   const meta = getMetric(goal.metricKey);
@@ -84,21 +107,25 @@ function buildAlertCopy(goal, brandName, kind = goal.status, extra = {}) {
   const delta = extra.delta == null ? null : Math.abs(Math.round(Number(extra.delta)));
 
   switch (kind) {
-    case "exceeding":
+    case "exceeding": {
+      const raise = raiseChallenge(goal, "exceeding", extra.daysRemaining);
       return {
         speak: (name) =>
           `Great news ${name} — you're exceeding your ${label} goal for ${brandName}. ` +
-          `You're at ${current}, which is ${pct}% of your ${target} target.`,
+          `You're at ${current}, which is ${pct}% of your ${target} target.${raise}`,
         title: "Goal exceeded 🎉",
         body: `${brandName}: ${label} at ${pct}% of target (${current}).`,
       };
-    case "hit":
+    }
+    case "hit": {
+      const raise = raiseChallenge(goal, "hit", extra.daysRemaining);
       return {
         speak: (name) =>
-          `${name}, you just hit your ${label} goal for ${brandName} — ${current} against your ${target} target. Nicely done.`,
+          `${name}, you just hit your ${label} goal for ${brandName} — ${current} against your ${target} target. Nicely done.${raise}`,
         title: "Goal hit ✅",
         body: `${brandName}: ${label} goal reached (${current}).`,
       };
+    }
     case "at_risk_urgent":
       return {
         speak: (name) =>
@@ -149,6 +176,9 @@ function buildAlertCopy(goal, brandName, kind = goal.status, extra = {}) {
 async function runDailyGoalTracking() {
   const win = monthWindow();
   const today = new Date().toISOString().slice(0, 10);
+  // Days left in the calendar month — lets an achieved-goal alert note when the
+  // owner is ahead of schedule and warrants a raised target.
+  const daysRemaining = Math.max(0, win.daysInMonth - win.dayOfMonth);
 
   // Real brands (never demo/sample data) that actually have active goals, with
   // their owner. Demo brands must never generate real owner alerts.
@@ -249,7 +279,10 @@ async function runDailyGoalTracking() {
           }
           if (!claimed) continue;
 
-          const copy = module.exports.buildAlertCopy(goal, brand.brand_name, kind, { delta });
+          const copy = module.exports.buildAlertCopy(goal, brand.brand_name, kind, {
+            delta,
+            daysRemaining,
+          });
           // Voice dedup key backstops the claim above (overlapping voice enqueues).
           const dedupKey = `goal_alert:${goal.goalId}:${kind}:${today}`;
 

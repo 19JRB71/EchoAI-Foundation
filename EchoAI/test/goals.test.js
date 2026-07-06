@@ -1183,3 +1183,285 @@ test("runDailyGoalTracking: a malformed goal's derivation throw never silences t
     goalAlerts.deriveAlertKinds = origDerive;
   }
 });
+
+// --- config/goals.js suggestRaisedTarget (aim-higher challenge) --------------
+
+test("suggestRaisedTarget: below 100% never suggests a raise", () => {
+  assert.strictEqual(
+    goals.suggestRaisedTarget({
+      direction: "increase",
+      aggregation: "cumulative",
+      unit: "count",
+      currentValue: 40,
+      targetValue: 100,
+      projectedEom: 55,
+      percentToGoal: 40,
+    }),
+    null,
+  );
+});
+
+test("suggestRaisedTarget: hit cumulative goal stretches to the projected pace, rounded", () => {
+  // Hit 50-lead goal at day 22 with 52 leads, projecting ~71 by month end.
+  const raised = goals.suggestRaisedTarget({
+    direction: "increase",
+    aggregation: "cumulative",
+    unit: "count",
+    currentValue: 52,
+    targetValue: 50,
+    projectedEom: 71,
+    percentToGoal: 104,
+  });
+  assert.strictEqual(raised, 70); // nearest 5 above 20
+  assert.ok(raised > 50);
+});
+
+test("suggestRaisedTarget: exceeding rate goal raises at least 10% above target", () => {
+  const raised = goals.suggestRaisedTarget({
+    direction: "increase",
+    aggregation: "latest",
+    unit: "ratio",
+    currentValue: 4.1,
+    targetValue: 4,
+    projectedEom: null,
+    percentToGoal: 116,
+  });
+  // max(current 4.1, target*1.1=4.4) -> 4.4, one decimal.
+  assert.strictEqual(raised, 4.4);
+});
+
+test("suggestRaisedTarget: decrease (cost) goal tightens to a lower target", () => {
+  // Cost-per-lead target $15, currently beating it at $12 -> tighten ~10%.
+  const raised = goals.suggestRaisedTarget({
+    direction: "decrease",
+    aggregation: "latest",
+    unit: "currency",
+    currentValue: 12,
+    targetValue: 15,
+    projectedEom: null,
+    percentToGoal: 125,
+  });
+  assert.ok(raised != null && raised < 15, `expected a lower target, got ${raised}`);
+});
+
+test("buildAlertCopy: a hit goal appends a raise-the-target challenge", () => {
+  const goal = {
+    metricKey: "new_leads",
+    label: "New Leads",
+    unit: "count",
+    direction: "increase",
+    aggregation: "cumulative",
+    targetValue: 50,
+    currentValue: 52,
+    projectedEom: 71,
+    percentToGoal: 104,
+  };
+  const copy = goalAlerts.buildAlertCopy(goal, "Acme", "hit", { daysRemaining: 8 });
+  const spoken = copy.speak("Sam");
+  assert.ok(/raise the target to 70/.test(spoken), spoken);
+  assert.ok(/8 days left/.test(spoken), spoken);
+  // The short push body stays celebratory, without the challenge.
+  assert.ok(!/raise the target/.test(copy.body), copy.body);
+});
+
+test("buildAlertCopy: a hit percent-unit (CTR) goal renders the raise as a percentage", () => {
+  const goal = {
+    metricKey: "ctr",
+    label: "Click-Through Rate",
+    unit: "percent",
+    direction: "increase",
+    aggregation: "latest",
+    targetValue: 2.5,
+    currentValue: 2.6,
+    percentToGoal: 104,
+  };
+  const spoken = goalAlerts.buildAlertCopy(goal, "Acme", "hit").speak("Sam");
+  // max(current 2.6, target*1.1=2.75) -> 2.75 -> rounded 2.8%, with the % suffix.
+  assert.ok(/raise the target to 2\.8%/.test(spoken), spoken);
+});
+
+test("buildAlertCopy: at_risk copy carries no raise challenge", () => {
+  const goal = {
+    metricKey: "new_leads",
+    label: "New Leads",
+    unit: "count",
+    direction: "increase",
+    aggregation: "cumulative",
+    targetValue: 100,
+    currentValue: 20,
+    percentToGoal: 20,
+  };
+  const copy = goalAlerts.buildAlertCopy(goal, "Acme", "at_risk_urgent", { daysRemaining: 5 });
+  assert.ok(!/raise the target/.test(copy.speak("Sam")));
+});
+
+// --- utils/echoBriefing.js weekly goal progress summary ---------------------
+
+const win30 = { startIso: "2026-07-01T00:00:00.000Z", daysInMonth: 30, dayOfMonth: 6 };
+
+test("weeklyGoalClause: cumulative goal reports percent-to-goal, month remaining, and pace", () => {
+  // Day 6 of 30 -> 80% of month remaining, 20% elapsed. 35% to goal -> ahead.
+  const clause = echoBriefing.weeklyGoalClause(
+    {
+      label: "New Leads",
+      direction: "increase",
+      aggregation: "cumulative",
+      currentValue: 35,
+      targetValue: 100,
+      percentToGoal: 35,
+    },
+    win30,
+  );
+  assert.ok(/35% of the way to your New Leads goal/.test(clause), clause);
+  assert.ok(/80% of the month remaining/.test(clause), clause);
+  assert.ok(/ahead of pace/.test(clause), clause);
+});
+
+test("weeklyGoalClause: a behind cumulative goal is called out as behind pace", () => {
+  // 20% elapsed but only 3% to goal -> behind.
+  const clause = echoBriefing.weeklyGoalClause(
+    {
+      label: "New Leads",
+      direction: "increase",
+      aggregation: "cumulative",
+      currentValue: 3,
+      targetValue: 100,
+      percentToGoal: 3,
+    },
+    win30,
+  );
+  assert.ok(/behind pace/.test(clause), clause);
+});
+
+test("weeklyGoalClause: cost goal framed as percent below/above target", () => {
+  const below = echoBriefing.weeklyGoalClause(
+    {
+      label: "Cost Per Lead",
+      direction: "decrease",
+      aggregation: "latest",
+      currentValue: 12,
+      targetValue: 15,
+      percentToGoal: 125,
+    },
+    win30,
+  );
+  assert.ok(/20% below target/.test(below), below);
+  assert.ok(/excellent/.test(below), below);
+
+  const above = echoBriefing.weeklyGoalClause(
+    {
+      label: "Cost Per Lead",
+      direction: "decrease",
+      aggregation: "latest",
+      currentValue: 18,
+      targetValue: 15,
+      percentToGoal: 83,
+    },
+    win30,
+  );
+  assert.ok(/20% above target/.test(above), above);
+  assert.ok(/needs attention/.test(above), above);
+});
+
+test("weeklyGoalClause: no measurable reading returns null (goal is skipped)", () => {
+  assert.strictEqual(
+    echoBriefing.weeklyGoalClause(
+      { label: "New Leads", direction: "increase", aggregation: "cumulative", percentToGoal: null },
+      win30,
+    ),
+    null,
+  );
+});
+
+test("summarizeWeeklyGoals: groups measurable clauses by brand, drops empty brands", () => {
+  const summary = echoBriefing.summarizeWeeklyGoals(
+    [
+      {
+        brandId: "b1",
+        brandName: "Acme",
+        goals: [
+          {
+            label: "New Leads",
+            direction: "increase",
+            aggregation: "cumulative",
+            currentValue: 35,
+            targetValue: 100,
+            percentToGoal: 35,
+          },
+          { label: "ROAS", direction: "increase", aggregation: "latest", percentToGoal: null },
+        ],
+      },
+      { brandId: "b2", brandName: "Empty Co", goals: [] },
+    ],
+    win30,
+  );
+  assert.strictEqual(summary.perBusiness.length, 1);
+  assert.strictEqual(summary.perBusiness[0].brandName, "Acme");
+  assert.strictEqual(summary.perBusiness[0].goals.length, 1); // null-reading ROAS dropped
+});
+
+test("summarizeWeeklyGoals: no measurable goal anywhere returns null", () => {
+  assert.strictEqual(
+    echoBriefing.summarizeWeeklyGoals(
+      [{ brandId: "b1", brandName: "Acme", goals: [{ label: "X", percentToGoal: null }] }],
+      win30,
+    ),
+    null,
+  );
+});
+
+test("templateWeekly: narrates a complete per-goal progress section", () => {
+  const data = {
+    brands: [{ brand_id: "b1", brand_name: "Acme" }],
+    facebookConnected: true,
+    newLeadsCount: 12,
+    campaigns: [],
+    appointmentsCompleted: 0,
+    followUpsCompleted: 0,
+    opportunities: [],
+    risks: [],
+    suggestions: [],
+    goals: {
+      perBusiness: [
+        {
+          brandId: "b1",
+          brandName: "Acme",
+          goals: [
+            { label: "New Leads", clause: "you're 35% of the way to your New Leads goal with 80% of the month remaining — slightly ahead of pace" },
+            { label: "Cost Per Lead", clause: "your Cost Per Lead is running 20% below target, which is excellent" },
+          ],
+        },
+      ],
+    },
+  };
+  const text = echoBriefing.templateWeekly("Sam", data);
+  assert.ok(/where your goals stand/.test(text), text);
+  assert.ok(/New Leads goal with 80% of the month remaining/.test(text), text);
+  assert.ok(/Cost Per Lead is running 20% below target/.test(text), text);
+});
+
+test("templateWeekly: a quiet week that still has goals narrates them, not the empty welcome", () => {
+  const data = {
+    brands: [{ brand_id: "b1", brand_name: "Acme" }],
+    facebookConnected: true,
+    newLeadsCount: 0,
+    campaigns: [],
+    appointmentsCompleted: 0,
+    followUpsCompleted: 0,
+    opportunities: [],
+    risks: [],
+    suggestions: [],
+    goals: {
+      perBusiness: [
+        {
+          brandId: "b1",
+          brandName: "Acme",
+          goals: [{ label: "New Leads", clause: "you're 35% of the way to your New Leads goal with 80% of the month remaining — slightly ahead of pace" }],
+        },
+      ],
+    },
+  };
+  const text = echoBriefing.templateWeekly("Sam", data);
+  assert.ok(/where your goals stand/.test(text), text);
+  assert.ok(!/quiet week/.test(text), text);
+});

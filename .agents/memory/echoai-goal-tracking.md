@@ -1,9 +1,32 @@
 ---
 name: EchoAI goal tracking (Target Goals & KPI)
-description: Durable rules for the per-brand goals/KPI subsystem — no-data snapshot semantics, snapshot/briefing cron ordering, demo exclusion, and multi-alert-per-goal dedup.
+description: Durable rules for the per-brand goals/KPI subsystem — no-data snapshot semantics, snapshot/briefing cron ordering, demo exclusion, multi-alert-per-goal dedup, aim-higher raise suggestions, and complete weekly goal narration.
 ---
 
 # EchoAI goal tracking rules
+
+- **Achieved goals must challenge the owner to aim higher, not just celebrate.**
+  When a goal hits/exceeds target, Echo's spoken alert appends a raise-the-target
+  suggestion for next cycle. Suggested basis: for cumulative goals use the
+  projected end-of-month pace (captures "at this rate you'll reach X"); for rate
+  goals stretch from the current beat; always at least +10% over the old target;
+  decrease/cost goals tighten ~10% lower. Round to human-friendly numbers by unit.
+  **How to apply:** the suggestion helper gates on percentToGoal >= 100 and returns
+  null when the ambitious target isn't meaningfully different. Only hit/exceeding
+  spoken copy carries it (never the short push body). CRITICAL: any spoken value
+  formatter must cover EVERY unit (currency/ratio/percent/count) — a missing
+  percent branch silently drops the `%` and mis-rounds CTR/rate suggestions.
+
+- **Every weekly briefing must carry a complete per-brand, per-goal progress
+  read.** For each active brand, each measurable goal gets its own plain-English
+  sentence: percent-to-goal plus a pace assessment (percent-to-goal vs percent of
+  the month elapsed) for cumulative goals; cost/decrease goals framed as % below/
+  above target. The goal section renders BEFORE opportunities, is included even on
+  otherwise-quiet weeks, and no goal is ever omitted for length (the AI word/token
+  budget scales with goal count). **How to apply:** gather goals best-effort with a
+  per-brand try/catch so one brand's failure never aborts the whole briefing;
+  goals with no measurable reading are skipped, and a brand with no measurable
+  goals drops out of the section entirely.
 
 - **No-data goals snapshot as NULL, never 0.** A percent/score snapshot that
   "isn't measurable yet" must persist NULL; readers must treat NULL as no-data

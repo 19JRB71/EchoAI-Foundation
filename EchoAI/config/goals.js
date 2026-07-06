@@ -273,6 +273,65 @@ function classifyProgress(percent, projectedPercent) {
   return STATUS_AT_RISK;
 }
 
+/** Round a raw suggested target to a clean, human-friendly number by unit. */
+function roundNiceTarget(n, unit) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return null;
+  if (unit === "ratio" || unit === "percent") {
+    return Math.round(v * 10) / 10; // one decimal (ROAS, CTR)
+  }
+  // currency + count share the same "nice number" ladder.
+  if (v >= 100) return Math.round(v / 10) * 10;
+  if (v >= 20) return Math.round(v / 5) * 5;
+  return Math.round(v);
+}
+
+/**
+ * When a goal has been met, suggest a more ambitious target for next cycle so
+ * Echo can challenge the owner to aim higher. Returns a rounded number (the new
+ * target) or null when a raise isn't warranted — the goal isn't met yet, there's
+ * no measurable reading, or the ambitious target wouldn't be meaningfully
+ * different from the current one.
+ *
+ * `progress` is a goal progress object (see utils/goalMetrics.buildGoalProgress):
+ * { direction, aggregation, unit, currentValue, targetValue, projectedEom,
+ * percentToGoal }.
+ */
+function suggestRaisedTarget(progress) {
+  if (!progress) return null;
+  const target = Number(progress.targetValue);
+  const current = Number(progress.currentValue);
+  const pct = progress.percentToGoal == null ? null : Number(progress.percentToGoal);
+  if (!Number.isFinite(target) || target <= 0) return null;
+  if (!Number.isFinite(current)) return null;
+  // Only challenge higher once the goal is actually met (>= 100% of target).
+  if (pct == null || !Number.isFinite(pct) || pct < 100) return null;
+
+  const direction = progress.direction === "decrease" ? "decrease" : "increase";
+
+  if (direction === "increase") {
+    // Basis: the month-to-date pace (projected end-of-month) for cumulative
+    // metrics captures "at this rate you'll reach X" — the natural next target.
+    // Rate metrics (no projection) stretch up from the current beat.
+    const projected =
+      progress.aggregation === "cumulative" && Number.isFinite(Number(progress.projectedEom))
+        ? Number(progress.projectedEom)
+        : current;
+    const basis = Math.max(projected, current, target);
+    // Aim at least 10% above the old target; never suggest a lower number.
+    const raised = Math.max(basis, target * 1.1);
+    const nice = roundNiceTarget(raised, progress.unit);
+    return nice != null && nice > target ? nice : null;
+  }
+
+  // decrease (lower is better): a more ambitious target is a lower one. Tighten
+  // ~10% below the current (already at/below target) reading.
+  if (current <= 0) return null;
+  const tightened = Math.min(current, target) * 0.9;
+  const nice = roundNiceTarget(tightened, progress.unit);
+  return nice != null && nice > 0 && nice < target ? nice : null;
+}
+
 module.exports = {
   CATEGORIES,
   GOAL_METRICS,
@@ -288,6 +347,8 @@ module.exports = {
   computePercent,
   clampScore,
   classifyProgress,
+  roundNiceTarget,
+  suggestRaisedTarget,
   STATUS_HIT,
   STATUS_EXCEEDING,
   STATUS_ON_TRACK,
