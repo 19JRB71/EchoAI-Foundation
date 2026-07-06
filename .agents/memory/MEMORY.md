@@ -43,3 +43,4 @@
 - [EchoAI stale-claim rescue](echoai-stale-claim-rescue.md) — non-transactional status-flip claims need a stale-row rescue sweep (updated_at window); mark failed w/ owner-visible error, never retry (double-post risk).
 - [EchoAI failed-post reschedule](echoai-failed-post-reschedule.md) — only failed→scheduled, atomic row-count branch; client detects interrupted publishes by the rescue sweep's marker text — reword both in lockstep.
 - [EchoAI social publish retry](echoai-publish-retry.md) — retry only explicitly-transient errors (err.transient/429/5xx); unclassified errors fail-closed (double-post risk); reschedule resets publish_attempts.
+- [EchoAI credential-failure detection](echoai-credential-failure-detection.md) — client regex over stored publish-error strings drives the Reconnect shortcut; keep in sync with server messages; Reconnect stays visible for "connected" rows.

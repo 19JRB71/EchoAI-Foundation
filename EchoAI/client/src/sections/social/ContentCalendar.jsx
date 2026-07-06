@@ -3,7 +3,7 @@ import { api } from "../../api.js";
 import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PlatformBadge, PlatformDot, platformMeta } from "./platformMeta.jsx";
-import { postFailureReason } from "./postFailure.js";
+import { postFailureReason, isCredentialFailure } from "./postFailure.js";
 import ReschedulePost from "./ReschedulePost.jsx";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -43,7 +43,7 @@ function formatDateTime(value) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
 }
 
-export default function ContentCalendar({ brandId }) {
+export default function ContentCalendar({ brandId, onReconnect }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -261,6 +261,7 @@ export default function ContentCalendar({ brandId }) {
         <PostDetailModal
           post={activePost}
           onClose={() => setActivePost(null)}
+          onReconnect={onReconnect}
           onRescheduled={async (updated) => {
             setActivePost(updated);
             await load();
@@ -271,10 +272,11 @@ export default function ContentCalendar({ brandId }) {
   );
 }
 
-function PostDetailModal({ post, onClose, onRescheduled }) {
+function PostDetailModal({ post, onClose, onRescheduled, onReconnect }) {
   const meta = platformMeta(post.platform);
   const metrics = post.engagement_metrics || null;
   const failReason = postFailureReason(post);
+  const credentialFailure = isCredentialFailure(post);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -325,6 +327,13 @@ function PostDetailModal({ post, onClose, onRescheduled }) {
           <div className="mt-3 rounded-lg border border-red-800/60 bg-red-900/20 p-3 text-xs">
             <p className="mb-1 font-semibold text-red-300">Why this post failed</p>
             <p className="text-red-200">{failReason}</p>
+            {credentialFailure && (
+              <p className="mt-2 text-red-200/80">
+                This looks like an expired or revoked account login — reconnect
+                your {meta.label} account first, or rescheduling will fail
+                again.
+              </p>
+            )}
           </div>
         ) : (
           metrics &&
@@ -339,7 +348,22 @@ function PostDetailModal({ post, onClose, onRescheduled }) {
         )}
 
         {post.status === "failed" && (
-          <ReschedulePost post={post} onRescheduled={onRescheduled} />
+          <>
+            {credentialFailure && onReconnect && (
+              <div className="mt-3">
+                <button
+                  onClick={() => {
+                    onClose();
+                    onReconnect(post.platform);
+                  }}
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600"
+                >
+                  Reconnect account
+                </button>
+              </div>
+            )}
+            <ReschedulePost post={post} onRescheduled={onRescheduled} />
+          </>
         )}
 
         <div className="mt-5 text-right">

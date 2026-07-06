@@ -3,7 +3,7 @@ import { api } from "../../api.js";
 import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PLATFORMS, PlatformBadge, PlatformDot, platformMeta } from "./platformMeta.jsx";
-import { postFailureReason } from "./postFailure.js";
+import { postFailureReason, isCredentialFailure } from "./postFailure.js";
 import ReschedulePost from "./ReschedulePost.jsx";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -57,7 +57,7 @@ function formatDateTime(value) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
 }
 
-export default function AICalendar({ brandId }) {
+export default function AICalendar({ brandId, onReconnect }) {
   const [calendar, setCalendar] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -415,6 +415,7 @@ export default function AICalendar({ brandId }) {
         <PostPanel
           post={activePost}
           onClose={() => setActivePost(null)}
+          onReconnect={onReconnect}
           onChanged={async () => {
             await load();
           }}
@@ -640,10 +641,11 @@ function PreviewPanel({ brandId, preview, onCancel, onSaved }) {
   );
 }
 
-function PostPanel({ post, onClose, onChanged, setActivePost }) {
+function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
   const meta = platformMeta(post.platform);
   const editable = post.status !== "published" && post.status !== "publishing";
   const failReason = postFailureReason(post);
+  const credentialFailure = isCredentialFailure(post);
   const [content, setContent] = useState(post.post_content || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -718,11 +720,31 @@ function PostPanel({ post, onClose, onChanged, setActivePost }) {
           <div className="mb-4 rounded-lg border border-red-800/60 bg-red-900/20 p-3 text-xs">
             <p className="mb-1 font-semibold text-red-300">Why this post failed</p>
             <p className="text-red-200">{failReason}</p>
+            {credentialFailure && (
+              <p className="mt-2 text-red-200/80">
+                This looks like an expired or revoked account login — reconnect
+                your {meta.label} account first, or rescheduling will fail
+                again.
+              </p>
+            )}
           </div>
         )}
 
         {post.status === "failed" && (
           <div className="mb-4">
+            {credentialFailure && onReconnect && (
+              <div className="mb-3">
+                <button
+                  onClick={() => {
+                    onClose();
+                    onReconnect(post.platform);
+                  }}
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600"
+                >
+                  Reconnect account
+                </button>
+              </div>
+            )}
             <ReschedulePost
               post={post}
               onRescheduled={async (updated) => {

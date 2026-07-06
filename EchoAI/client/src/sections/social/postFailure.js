@@ -26,3 +26,37 @@ export function isInterruptedPublish(post) {
   const reason = postFailureReason(post);
   return !!reason && /may or may not have gone out/i.test(reason);
 }
+
+// Matches the credential/auth failure messages our publish path stores in
+// engagement_metrics.error: platform API auth errors surfaced by socialApi's
+// httpJson ("401 …", "Error validating access token: Session has expired",
+// "Invalid OAuth access token"), missing-credential errors from
+// requireFields ("Missing credentials for …", "Missing required … credential
+// field(s)"), and loadConnectedAccount's "No connected <platform> account".
+const CREDENTIAL_FAILURE_RE = new RegExp(
+  [
+    "access token",
+    "\\btoken\\b",
+    "credential",
+    "unauthori[sz]ed",
+    "\\b401\\b",
+    "session (has )?expired",
+    "revoked",
+    "re-?authenticat",
+    "log ?in (again|expired|required)",
+    "invalid (grant|signature|session|login)",
+    "\\boauth\\b",
+    "no connected \\w+ account",
+  ].join("|"),
+  "i"
+);
+
+// True when the failure came from expired/revoked/invalid stored credentials
+// (or a missing account connection) — rescheduling alone will just fail again,
+// so the UI should offer a "Reconnect account" shortcut. Interrupted publishes
+// are excluded: they are a double-post risk, not a credentials problem.
+export function isCredentialFailure(post) {
+  const reason = postFailureReason(post);
+  if (!reason || isInterruptedPublish(post)) return false;
+  return CREDENTIAL_FAILURE_RE.test(reason);
+}

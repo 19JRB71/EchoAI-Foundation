@@ -19,6 +19,14 @@ export default function SocialMedia({ brandId, tier, prefillImage, onPrefillCons
   const [tab, setTab] = useState(
     prefillImage ? "generate" : initialTab || "ai-calendar",
   );
+  // Platform whose connect form should open when jumping to the accounts tab
+  // (the failed-post "Reconnect account" shortcut).
+  const [reconnectPlatform, setReconnectPlatform] = useState(null);
+
+  function openReconnect(platform) {
+    setReconnectPlatform(platform || null);
+    setTab("accounts");
+  }
 
   return (
     <div className="space-y-6">
@@ -46,8 +54,12 @@ export default function SocialMedia({ brandId, tier, prefillImage, onPrefillCons
             ))}
           </div>
 
-          {tab === "ai-calendar" && <AICalendar brandId={brandId} />}
-          {tab === "schedule" && <ContentCalendar brandId={brandId} />}
+          {tab === "ai-calendar" && (
+            <AICalendar brandId={brandId} onReconnect={openReconnect} />
+          )}
+          {tab === "schedule" && (
+            <ContentCalendar brandId={brandId} onReconnect={openReconnect} />
+          )}
           {tab === "generate" && (
             <ContentGenerator
               brandId={brandId}
@@ -56,7 +68,13 @@ export default function SocialMedia({ brandId, tier, prefillImage, onPrefillCons
               onClearAttachedImage={onPrefillConsumed}
             />
           )}
-          {tab === "accounts" && <ConnectedAccounts brandId={brandId} />}
+          {tab === "accounts" && (
+            <ConnectedAccounts
+              brandId={brandId}
+              focusPlatform={reconnectPlatform}
+              onFocusConsumed={() => setReconnectPlatform(null)}
+            />
+          )}
           {tab === "performance" && <Performance brandId={brandId} />}
         </>
       )}

@@ -16,7 +16,7 @@ vi.mock("../../api.js", () => ({
 
 import { api } from "../../api.js";
 import ContentCalendar from "./ContentCalendar.jsx";
-import { postFailureReason } from "./postFailure.js";
+import { postFailureReason, isCredentialFailure } from "./postFailure.js";
 
 const FAIL_MSG =
   "Publishing was interrupted by a server restart. The post may or may not have gone out — check the platform and reschedule if needed.";
@@ -65,6 +65,32 @@ describe("postFailureReason", () => {
   });
 });
 
+describe("isCredentialFailure", () => {
+  const failed = (error) => ({ status: "failed", engagement_metrics: { error } });
+
+  test("recognizes the credential/auth failure messages the publish path stores", () => {
+    expect(isCredentialFailure(failed("400 Error validating access token: Session has expired"))).toBe(true);
+    expect(isCredentialFailure(failed("401 Invalid OAuth access token"))).toBe(true);
+    expect(isCredentialFailure(failed("The access token expired"))).toBe(true);
+    expect(isCredentialFailure(failed("Missing credentials for facebook"))).toBe(true);
+    expect(isCredentialFailure(failed("Missing required linkedin credential field(s): accessToken"))).toBe(true);
+    expect(isCredentialFailure(failed("No connected twitter account for this brand"))).toBe(true);
+    expect(isCredentialFailure(failed("403 Unauthorized"))).toBe(true);
+    expect(isCredentialFailure(failed("Token has been revoked"))).toBe(true);
+  });
+
+  test("ignores non-credential failures", () => {
+    expect(isCredentialFailure(failed("Network error contacting platform: fetch failed"))).toBe(false);
+    expect(
+      isCredentialFailure(failed("Platform did not return a post id; treating publish as failed"))
+    ).toBe(false);
+    expect(isCredentialFailure(failed("500 Internal server error"))).toBe(false);
+    expect(isCredentialFailure(failed(FAIL_MSG))).toBe(false); // interrupted publish
+    expect(isCredentialFailure({ status: "failed", engagement_metrics: null })).toBe(false);
+    expect(isCredentialFailure({ status: "published", engagement_metrics: { error: "401" } })).toBe(false);
+  });
+});
+
 describe("ContentCalendar failed post reason", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -101,6 +127,66 @@ describe("ContentCalendar failed post reason", () => {
     fireEvent.click(listItem);
     expect(await screen.findByText("Why this post failed")).toBeInTheDocument();
     expect(screen.getAllByText(FAIL_MSG).length).toBeGreaterThan(0);
+  });
+
+  test("credential failure shows a Reconnect account shortcut that jumps to the connect flow", async () => {
+    api.getSocialCalendar.mockResolvedValue({
+      posts: [
+        {
+          post_id: "p-cred",
+          platform: "facebook",
+          post_content: "Flash sale!",
+          scheduled_time: todayNoonIso(),
+          published_time: null,
+          status: "failed",
+          engagement_metrics: { error: "401 Invalid OAuth access token" },
+        },
+      ],
+    });
+
+    const onReconnect = vi.fn();
+    render(<ContentCalendar brandId="b1" onReconnect={onReconnect} />);
+    await waitFor(() => expect(api.getSocialCalendar).toHaveBeenCalled());
+
+    const dayCell = await findDayCellWithPosts();
+    fireEvent.click(dayCell);
+    const listItem = (await screen.findByText("Flash sale!")).closest("button");
+    fireEvent.click(listItem);
+
+    // The failure box explains the fix and the shortcut sits next to Reschedule.
+    expect(await screen.findByText(/expired or revoked account login/)).toBeInTheDocument();
+    expect(screen.getByText("Reschedule")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Reconnect account"));
+    expect(onReconnect).toHaveBeenCalledWith("facebook");
+    // The modal closes so the accounts tab is visible after the jump.
+    expect(screen.queryByText("Why this post failed")).not.toBeInTheDocument();
+  });
+
+  test("non-credential failure shows Reschedule but no Reconnect shortcut", async () => {
+    api.getSocialCalendar.mockResolvedValue({
+      posts: [
+        {
+          post_id: "p-generic",
+          platform: "facebook",
+          post_content: "Weekend hours",
+          scheduled_time: todayNoonIso(),
+          published_time: null,
+          status: "failed",
+          engagement_metrics: { error: "500 Internal server error" },
+        },
+      ],
+    });
+
+    render(<ContentCalendar brandId="b1" onReconnect={vi.fn()} />);
+    await waitFor(() => expect(api.getSocialCalendar).toHaveBeenCalled());
+
+    const dayCell = await findDayCellWithPosts();
+    fireEvent.click(dayCell);
+    fireEvent.click((await screen.findByText("Weekend hours")).closest("button"));
+
+    expect(await screen.findByText("Why this post failed")).toBeInTheDocument();
+    expect(screen.getByText("Reschedule")).toBeInTheDocument();
+    expect(screen.queryByText("Reconnect account")).not.toBeInTheDocument();
   });
 
   test("posts without an error render unchanged (no failure block)", async () => {

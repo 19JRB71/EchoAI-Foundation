@@ -4,11 +4,19 @@ import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PLATFORMS, PlatformBadge, platformMeta } from "./platformMeta.jsx";
 
-export default function ConnectedAccounts({ brandId }) {
+// focusPlatform (optional): opens that platform's connect form immediately —
+// used by the failed-post "Reconnect account" shortcut. onFocusConsumed lets
+// the parent clear it so revisiting the tab later doesn't reopen the form.
+export default function ConnectedAccounts({ brandId, focusPlatform, onFocusConsumed }) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [connecting, setConnecting] = useState(null); // platform key or null
+  const [connecting, setConnecting] = useState(focusPlatform || null); // platform key or null
+
+  useEffect(() => {
+    if (focusPlatform && onFocusConsumed) onFocusConsumed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = useCallback(async () => {
     if (!brandId) return;
@@ -78,23 +86,29 @@ export default function ConnectedAccounts({ brandId }) {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {connected ? (
+                    {connected && (
                       <button
                         onClick={() => handleDisconnect(platform)}
                         className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
                       >
                         Disconnect
                       </button>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          setConnecting(connecting === platform ? null : platform)
-                        }
-                        className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-600"
-                      >
-                        {connecting === platform ? "Cancel" : "Connect"}
-                      </button>
                     )}
+                    {/* Connected accounts still get a Reconnect button: an
+                        expired/revoked token keeps the row "connected", and
+                        re-entering credentials upserts them server-side. */}
+                    <button
+                      onClick={() =>
+                        setConnecting(connecting === platform ? null : platform)
+                      }
+                      className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-600"
+                    >
+                      {connecting === platform
+                        ? "Cancel"
+                        : connected
+                          ? "Reconnect"
+                          : "Connect"}
+                    </button>
                   </div>
                 </div>
 
