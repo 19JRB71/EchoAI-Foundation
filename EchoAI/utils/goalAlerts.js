@@ -211,69 +211,78 @@ async function runDailyGoalTracking() {
     }
 
     for (const goal of goals) {
-      if (muted.has(goal.goalId)) continue;
-      const priorPercent = prior.has(goal.goalId) ? prior.get(goal.goalId) : null;
-      const kinds = deriveAlertKinds(goal, priorPercent);
+      // Best-effort throughout: a throw anywhere in this goal's body (kind
+      // derivation, copy building, claim, or dispatch) must not silence the
+      // remaining goals or brands in the sweep.
+      try {
+        if (muted.has(goal.goalId)) continue;
+        const priorPercent = prior.has(goal.goalId) ? prior.get(goal.goalId) : null;
+        // Called via module.exports so tests can stub a throw here and prove
+        // the per-goal guard contains it (the functions themselves are pure).
+        const kinds = module.exports.deriveAlertKinds(goal, priorPercent);
 
-      for (const { kind, delta } of kinds) {
-        // Atomically CLAIM this (goal, kind, day) before dispatching ANY channel.
-        // The unique PK + ON CONFLICT DO NOTHING means only the first tick to
-        // reach a given alert wins the claim; overlapping/re-run ticks get no row
-        // and skip the whole fan-out, so push/mobile can never be double-sent.
-        // This claim is channel-agnostic (independent of the per-user voice dedup
-        // key) so push delivery is not coupled to voice-notification settings.
-        let claimed = false;
-        try {
-          const { rowCount } = await db.query(
-            `INSERT INTO goal_alert_log (goal_id, kind, alert_date, percent_to_goal)
-               VALUES ($1, $2, CURRENT_DATE, $3)
-             ON CONFLICT (goal_id, kind, alert_date) DO NOTHING`,
-            [
-              goal.goalId,
-              kind,
-              goal.percentToGoal == null || !Number.isFinite(Number(goal.percentToGoal))
-                ? null
-                : Number(goal.percentToGoal),
-            ]
-          );
-          claimed = rowCount > 0;
-        } catch (err) {
-          console.error(`Goal alert claim failed for goal ${goal.goalId}:`, err.message);
-          continue;
+        for (const { kind, delta } of kinds) {
+          // Atomically CLAIM this (goal, kind, day) before dispatching ANY channel.
+          // The unique PK + ON CONFLICT DO NOTHING means only the first tick to
+          // reach a given alert wins the claim; overlapping/re-run ticks get no row
+          // and skip the whole fan-out, so push/mobile can never be double-sent.
+          // This claim is channel-agnostic (independent of the per-user voice dedup
+          // key) so push delivery is not coupled to voice-notification settings.
+          let claimed = false;
+          try {
+            const { rowCount } = await db.query(
+              `INSERT INTO goal_alert_log (goal_id, kind, alert_date, percent_to_goal)
+                 VALUES ($1, $2, CURRENT_DATE, $3)
+               ON CONFLICT (goal_id, kind, alert_date) DO NOTHING`,
+              [
+                goal.goalId,
+                kind,
+                goal.percentToGoal == null || !Number.isFinite(Number(goal.percentToGoal))
+                  ? null
+                  : Number(goal.percentToGoal),
+              ]
+            );
+            claimed = rowCount > 0;
+          } catch (err) {
+            console.error(`Goal alert claim failed for goal ${goal.goalId}:`, err.message);
+            continue;
+          }
+          if (!claimed) continue;
+
+          const copy = module.exports.buildAlertCopy(goal, brand.brand_name, kind, { delta });
+          // Voice dedup key backstops the claim above (overlapping voice enqueues).
+          const dedupKey = `goal_alert:${goal.goalId}:${kind}:${today}`;
+
+          try {
+            await enqueueOwnerVoiceEvent(brand.user_id, "goal_alert", copy.speak, {
+              brandId: brand.brand_id,
+              title: copy.title,
+              dedupKey,
+              payload: {
+                goalId: goal.goalId,
+                metricKey: goal.metricKey,
+                status: goal.status,
+                kind,
+                percentToGoal: goal.percentToGoal,
+              },
+            });
+
+            // Web + mobile push run best-effort; they fan out exactly once because
+            // the claim above already guaranteed this is the only winning tick.
+            const pushPayload = {
+              title: copy.title,
+              body: copy.body,
+              data: { type: "goal_alert", brandId: brand.brand_id, goalId: goal.goalId, kind },
+            };
+            pushController.sendPushToUser(brand.user_id, pushPayload).catch(() => {});
+            mobilePushController.sendToUser(brand.user_id, pushPayload).catch(() => {});
+            alertsSent += 1;
+          } catch (err) {
+            console.error(`Goal alert dispatch failed for goal ${goal.goalId}:`, err.message);
+          }
         }
-        if (!claimed) continue;
-
-        const copy = buildAlertCopy(goal, brand.brand_name, kind, { delta });
-        // Voice dedup key backstops the claim above (overlapping voice enqueues).
-        const dedupKey = `goal_alert:${goal.goalId}:${kind}:${today}`;
-
-        try {
-          await enqueueOwnerVoiceEvent(brand.user_id, "goal_alert", copy.speak, {
-            brandId: brand.brand_id,
-            title: copy.title,
-            dedupKey,
-            payload: {
-              goalId: goal.goalId,
-              metricKey: goal.metricKey,
-              status: goal.status,
-              kind,
-              percentToGoal: goal.percentToGoal,
-            },
-          });
-
-          // Web + mobile push run best-effort; they fan out exactly once because
-          // the claim above already guaranteed this is the only winning tick.
-          const pushPayload = {
-            title: copy.title,
-            body: copy.body,
-            data: { type: "goal_alert", brandId: brand.brand_id, goalId: goal.goalId, kind },
-          };
-          pushController.sendPushToUser(brand.user_id, pushPayload).catch(() => {});
-          mobilePushController.sendToUser(brand.user_id, pushPayload).catch(() => {});
-          alertsSent += 1;
-        } catch (err) {
-          console.error(`Goal alert dispatch failed for goal ${goal.goalId}:`, err.message);
-        }
+      } catch (err) {
+        console.error(`Goal alert processing failed for goal ${goal.goalId}:`, err.message);
       }
     }
   }

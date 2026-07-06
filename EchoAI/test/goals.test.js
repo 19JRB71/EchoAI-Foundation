@@ -1117,3 +1117,69 @@ test("runDailyGoalTracking: a dispatch throw for one goal never skips the next",
     mobilePushController.sendToUser = origMobile;
   }
 });
+
+test("runDailyGoalTracking: a malformed goal's derivation throw never silences the next goal", async () => {
+  // deriveAlertKinds/buildAlertCopy run in the per-goal body BEFORE the
+  // per-alert claim/dispatch try blocks. They are pure today, but a future
+  // change could make them throw on a malformed goal row — that throw must be
+  // contained by the per-goal guard, not abort the whole sweep. The sweep calls
+  // them via module.exports precisely so this test can force that throw for g1.
+  const fake = makeGoalSweepDb({
+    brands: [{ brand_id: "b1", brand_name: "Acme", user_id: "u1", is_demo: false }],
+    goals: [
+      { goal_id: "g1", brand_id: "b1", metric_key: "new_leads", category: "lead", label: "New Leads", target_value: 100, sort_order: 0, status: "active" },
+      { goal_id: "g2", brand_id: "b1", metric_key: "hot_leads", category: "lead", label: "Hot Leads", target_value: 100, sort_order: 1, status: "active" },
+    ],
+    metrics: { b1: { new_leads: 130, hot_leads: 140 } },
+    snapshots: [],
+  });
+
+  const pushCalls = [];
+  const origQuery = db.query;
+  const origPush = pushController.sendPushToUser;
+  const origMobile = mobilePushController.sendToUser;
+  const origDerive = goalAlerts.deriveAlertKinds;
+  db.query = fake.query;
+  pushController.sendPushToUser = async (userId, payload) => {
+    pushCalls.push({ userId, ...payload.data });
+  };
+  mobilePushController.sendToUser = async () => {};
+  goalAlerts.deriveAlertKinds = (goal, priorPercent) => {
+    if (goal.goalId === "g1") {
+      // Simulates a malformed goal row blowing up kind derivation for g1 only.
+      throw new Error("malformed goal metadata");
+    }
+    return origDerive(goal, priorPercent);
+  };
+
+  try {
+    const run = await goalAlerts.runDailyGoalTracking();
+
+    // The brand still counts as processed — its snapshot succeeded before the
+    // per-goal loop, and g1's throw is contained by the per-goal guard.
+    assert.strictEqual(run.brandsProcessed, 1);
+
+    // g2 (the NEXT goal after the malformed one) still alerts on every channel.
+    assert.deepStrictEqual(
+      pushCalls.map((c) => [c.goalId, c.kind]),
+      [["g2", "exceeding"]],
+      "goal 2 must still alert after goal 1's derivation throw",
+    );
+    assert.strictEqual(run.alertsSent, 1);
+    assert.ok(
+      fake.state.voiceRows.every((v) => v.payload.goalId === "g2"),
+      "no voice event may reference the malformed goal",
+    );
+
+    // g1 never reached the claim (the throw happened before it), so its claim
+    // slot stays open — a fixed rerun could still alert it the same day.
+    const today = new Date().toISOString().slice(0, 10);
+    assert.ok(!fake.state.alertLog.has(`g1:exceeding:${today}`));
+    assert.ok(fake.state.alertLog.has(`g2:exceeding:${today}`));
+  } finally {
+    db.query = origQuery;
+    pushController.sendPushToUser = origPush;
+    mobilePushController.sendToUser = origMobile;
+    goalAlerts.deriveAlertKinds = origDerive;
+  }
+});
