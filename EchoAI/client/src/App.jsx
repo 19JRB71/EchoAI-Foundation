@@ -46,6 +46,7 @@ import SectionHelp from "./tour/SectionHelp.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
 import EchoCompanion from "./companion/EchoCompanion.jsx";
+import { DemoSuggestionProvider } from "./demo/DemoSuggestionContext.jsx";
 import { VoiceProvider, useVoice } from "./voice/VoiceContext.jsx";
 import {
   EchoConversationProvider,
@@ -678,6 +679,7 @@ export default function App() {
   return (
     <MusicProvider>
     <VoiceProvider active={!isTeamMember}>
+    <DemoSuggestionProvider>
     <EchoConversationProvider active={!isTeamMember}>
     <div className="flex min-h-screen flex-col bg-black md:flex-row">
       <Sidebar
@@ -963,6 +965,7 @@ export default function App() {
       ) : null}
     </div>
     </EchoConversationProvider>
+    </DemoSuggestionProvider>
     </VoiceProvider>
     </MusicProvider>
   );

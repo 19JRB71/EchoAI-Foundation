@@ -189,8 +189,8 @@ const ENT_EXTRA_STEPS = [
   {
     id: "enterprise-perks",
     target: null,
-    title: "Unlimited seats & priority support",
-    body: "Enterprise unlocks unlimited team seats, priority support, and every feature EchoAI offers. Invite your whole team from Settings — there's no per-seat ceiling on your plan.",
+    title: "Every feature & priority support",
+    body: "Enterprise unlocks every feature EchoAI offers plus priority support. Each plan includes 1 seat; invite your whole team from Settings and add extra seats any time for $50/seat per month.",
     placement: "center",
   },
 ];

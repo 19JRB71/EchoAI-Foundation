@@ -22,6 +22,9 @@ function buildDemoScript({ businessName, prospectName, morningBriefing } = {}) {
     campaigns:
       `Atlas is running four live Facebook campaigns for ${business}, and Forge has ` +
       `already generated five ad creative packages ready to launch.`,
+    social:
+      `Nova keeps ${business} everywhere your customers are — posting across ` +
+      `Instagram, Facebook, and more on a schedule tuned to when your audience is watching.`,
     competitor:
       `Scout analyzed your top competitors in Orlando and found exactly where they're ` +
       `weak — slow response times — so you can win every lead they let slip.`,
@@ -41,6 +44,7 @@ const DEMO_STEPS = [
   { key: "team", label: "Meet Your Team", section: "aiteam", speak: "team" },
   { key: "hotLeads", label: "Hot Leads", section: "leads", department: "pulse", speak: "hotLeads" },
   { key: "campaigns", label: "Live Campaigns", section: "campaigns", department: "atlas", speak: "campaigns" },
+  { key: "social", label: "Social Media", section: "social", department: "nova", speak: "social" },
   { key: "competitor", label: "Competitor Report", section: "intelligence", department: "scout", speak: "competitor" },
   { key: "roi", label: "ROI Dashboard", section: "roi", speak: "roi" },
   { key: "close", label: "Close the Deal", section: "missioncontrol", speak: "close" },

@@ -30,5 +30,6 @@ router.post("/demo/reset", demoController.reset);
 router.post("/demo/activate", demoController.activate);
 router.post("/demo/deactivate", demoController.deactivate);
 router.put("/demo/config", demoController.updateConfig);
+router.post("/demo/suggestions/adapt", demoController.adaptSuggestions);
 
 module.exports = router;

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { useVoice } from "../voice/VoiceContext.jsx";
+import { useDemoSuggestions } from "../demo/DemoSuggestionContext.jsx";
+
+// Extra dwell after a step's line finishes when that step carries an AI
+// suggestion: leaves room for Echo to speak the suggestion and for the presenter
+// to Accept / Dismiss before the demo auto-advances.
+const SUGGESTION_DWELL_BUFFER_MS = 9000;
 
 // How long to wait after Echo finishes a step's line before auto-advancing to
 // the next step. Gives the prospect a beat to absorb the current screen.
@@ -29,6 +35,11 @@ function estimateSpeechMs(line) {
 // useVoice().enqueue — no new audio pipeline.
 export default function PresenterOverlay({ onNavigate, onOpenDepartment, onEnd }) {
   const voice = useVoice();
+  // The demo-suggestion controller lives in a context above this overlay. Kept in
+  // a ref so goToStep's callback always sees the latest without dep churn.
+  const demo = useDemoSuggestions();
+  const demoRef = useRef(demo);
+  demoRef.current = demo;
   const [script, setScript] = useState(null);
   const [error, setError] = useState("");
   const [activeStep, setActiveStep] = useState(null);
@@ -129,6 +140,9 @@ export default function PresenterOverlay({ onNavigate, onOpenDepartment, onEnd }
       const step = steps[i];
       setActiveStep(step.key);
 
+      // Any suggestion from the previous step is no longer relevant.
+      if (demoRef.current) demoRef.current.clear();
+
       // Put the real demo data on screen (hot leads, live campaigns, ROI).
       if (step.section && onNavigate) {
         onNavigate(step.section);
@@ -136,9 +150,16 @@ export default function PresenterOverlay({ onNavigate, onOpenDepartment, onEnd }
         onOpenDepartment(step.department);
       }
 
-      const lines = scriptRef.current && scriptRef.current.lines;
+      const sc = scriptRef.current;
+      const lines = sc && sc.lines;
       const line = lines ? lines[step.speak] : null;
       const wasPlaying = !!(voice && voice.playing);
+
+      // Does this step carry a live AI suggestion (and are suggestions enabled)?
+      const suggestion =
+        sc && sc.suggestionsEnabled && Array.isArray(sc.suggestions)
+          ? sc.suggestions.find((s) => s.step === step.key)
+          : null;
 
       if (line && voice && voice.enqueue) {
         voice.enqueue(
@@ -150,7 +171,13 @@ export default function PresenterOverlay({ onNavigate, onOpenDepartment, onEnd }
               // Ignore if a newer step superseded this one, or we're paused.
               if (runTokenRef.current !== token) return;
               if (pausedRef.current) return;
-              scheduleAdvance(i);
+              // On suggestion steps, dwell longer so Echo can speak the
+              // suggestion and the presenter can Accept / Dismiss.
+              if (suggestion) {
+                armAdvance(i, estimateSpeechMs(suggestion.text) + SUGGESTION_DWELL_BUFFER_MS);
+              } else {
+                scheduleAdvance(i);
+              }
             },
           },
           { front: true },
@@ -160,10 +187,17 @@ export default function PresenterOverlay({ onNavigate, onOpenDepartment, onEnd }
         if (wasPlaying && voice.skip) voice.skip();
       }
 
+      // Show the suggestion card + queue Echo's pitch (plays right after the
+      // step line). Presenting here (not in onPlayed) means the card also shows
+      // when muted/autoplay-blocked, where onPlayed never fires.
+      if (suggestion && demoRef.current) demoRef.current.present(suggestion);
+
       // Always arm the safety-net timer (unless paused). In the normal case the
       // line finishes and onPlayed swaps in the shorter hop; if the line never
       // plays (muted/blocked/error) this guarantees the demo still advances.
-      if (!pausedRef.current) armFallback(i, line);
+      if (!pausedRef.current) {
+        armFallback(i, suggestion ? `${line || ""} ${suggestion.text}` : line);
+      }
     },
     [
       onNavigate,
@@ -221,6 +255,7 @@ export default function PresenterOverlay({ onNavigate, onOpenDepartment, onEnd }
   async function handleEnd() {
     clearAdvanceTimer();
     pausedRef.current = true;
+    if (demoRef.current) demoRef.current.clear();
     try {
       await api.demoDeactivate();
     } catch {

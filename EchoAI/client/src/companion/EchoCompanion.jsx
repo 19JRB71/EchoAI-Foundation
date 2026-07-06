@@ -3,6 +3,7 @@ import { api } from "../api";
 import EchoBrain from "./EchoBrain.jsx";
 import { useEchoConversation } from "../voice/EchoConversationContext.jsx";
 import { isQuestion } from "../voice/conversationHelpers.js";
+import { useDemoSuggestions } from "../demo/DemoSuggestionContext.jsx";
 
 // Echo — the persistent AI companion panel. Bottom-right on desktop (collapsible),
 // fullscreen on mobile. Three modes, surfaced as the header label:
@@ -15,6 +16,60 @@ import { isQuestion } from "../voice/conversationHelpers.js";
 
 const TEAL = "#14b8a6";
 const RED = "#ef4444";
+
+// Live AI marketing suggestion card (Sales Presentation Mode). Shows the
+// suggestion Echo just voiced, with Accept / Dismiss. Accepting runs a brief
+// "executing" animation then a success state; both are driven by `phase`.
+function SuggestionCard({ suggestion, phase, onAccept, onDismiss }) {
+  const color = suggestion.agentColor || TEAL;
+  const presenting = phase === "presenting";
+  const executing = phase === "executing";
+  const done = phase === "done";
+  const dismissed = phase === "dismissed";
+  return (
+    <div style={{ ...styles.suggCard, borderColor: `${color}66` }}>
+      <style>{SUGGESTION_KEYFRAMES}</style>
+      <div style={styles.suggHead}>
+        <span style={{ ...styles.suggDot, background: color }} />
+        <span style={styles.suggTag}>AI Suggestion</span>
+        <span style={styles.suggTitle}>{suggestion.title}</span>
+      </div>
+      <div style={styles.suggText}>{suggestion.text}</div>
+
+      {presenting ? (
+        <div style={styles.suggActions}>
+          <button type="button" style={{ ...styles.suggAccept, background: color }} onClick={onAccept}>
+            Accept
+          </button>
+          <button type="button" style={styles.suggDismiss} onClick={onDismiss}>
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {executing ? (
+        <div style={styles.suggExec}>
+          <span style={{ ...styles.suggSpinner, borderTopColor: color }} />
+          <span style={styles.suggExecText}>{suggestion.action || "Making that change now…"}</span>
+        </div>
+      ) : null}
+
+      {done ? (
+        <div style={styles.suggDone}>
+          <span style={styles.suggCheck}>✓</span>
+          <span>Done — Echo handled it.</span>
+        </div>
+      ) : null}
+
+      {dismissed ? <div style={styles.suggDismissed}>Dismissed — Echo will keep watching.</div> : null}
+    </div>
+  );
+}
+
+const SUGGESTION_KEYFRAMES = `
+@keyframes echoSuggSpin { to { transform: rotate(360deg); } }
+@keyframes echoSuggIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+`;
 
 function ModePill({ mode }) {
   const map = {
@@ -165,6 +220,15 @@ export default function EchoCompanion() {
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
   const advancingRef = useRef(false);
+
+  // Live AI marketing suggestion (Sales Presentation Mode). When one is active
+  // Echo auto-opens so the prospect always sees the card.
+  const demoSuggest = useDemoSuggestions();
+  const suggestion = demoSuggest.active;
+  const suggestionPhase = demoSuggest.phase;
+  useEffect(() => {
+    if (suggestion) setOpen(true);
+  }, [suggestion]);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -508,6 +572,14 @@ export default function EchoCompanion() {
       {showBrain ? <EchoBrain onClose={() => setShowBrain(false)} /> : null}
 
       <div style={styles.body} ref={scrollRef}>
+        {suggestion ? (
+          <SuggestionCard
+            suggestion={suggestion}
+            phase={suggestionPhase}
+            onAccept={demoSuggest.accept}
+            onDismiss={demoSuggest.dismiss}
+          />
+        ) : null}
         {loading ? (
           <div style={styles.loading}>Waking Echo up…</div>
         ) : messages.length === 0 ? (
@@ -703,6 +775,65 @@ const styles = {
     borderRadius: 12,
     padding: 12,
   },
+  suggCard: {
+    background: "linear-gradient(180deg, #0d1830 0%, #0b1220 100%)",
+    border: "1px solid",
+    borderRadius: 12,
+    padding: 12,
+    animation: "echoSuggIn 260ms ease-out",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+  },
+  suggHead: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  suggDot: { width: 9, height: 9, borderRadius: "50%", flexShrink: 0 },
+  suggTag: { fontSize: 10, textTransform: "uppercase", letterSpacing: 0.7, color: "#94a3b8", fontWeight: 800 },
+  suggTitle: { fontSize: 13, fontWeight: 700, color: "#f8fafc" },
+  suggText: { fontSize: 13, marginTop: 8, color: "#e2e8f0", lineHeight: 1.5 },
+  suggActions: { marginTop: 12, display: "flex", gap: 8 },
+  suggAccept: {
+    flex: 1,
+    color: "#04211d",
+    border: "none",
+    borderRadius: 9,
+    padding: "9px 12px",
+    fontWeight: 800,
+    cursor: "pointer",
+    fontSize: 13,
+  },
+  suggDismiss: {
+    flex: 1,
+    background: "transparent",
+    color: "#94a3b8",
+    border: "1px solid #334155",
+    borderRadius: 9,
+    padding: "9px 12px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontSize: 13,
+  },
+  suggExec: { marginTop: 12, display: "flex", alignItems: "center", gap: 10 },
+  suggSpinner: {
+    width: 16,
+    height: 16,
+    borderRadius: "50%",
+    border: "2px solid #1e293b",
+    borderTopColor: TEAL,
+    animation: "echoSuggSpin 700ms linear infinite",
+    flexShrink: 0,
+  },
+  suggExecText: { fontSize: 12.5, color: "#cbd5e1", fontWeight: 600 },
+  suggDone: { marginTop: 12, display: "flex", alignItems: "center", gap: 8, color: "#4ade80", fontSize: 13, fontWeight: 700 },
+  suggCheck: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 18,
+    height: 18,
+    borderRadius: "50%",
+    background: "#16321f",
+    color: "#4ade80",
+    fontSize: 12,
+  },
+  suggDismissed: { marginTop: 10, fontSize: 12.5, color: "#94a3b8", fontStyle: "italic" },
   cardTitle: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, color: "#7dd3fc", fontWeight: 700 },
   cardHeadline: { fontSize: 15, fontWeight: 700, marginTop: 6, color: "#f8fafc" },
   cardBody: { fontSize: 13, marginTop: 4, color: "#cbd5e1" },

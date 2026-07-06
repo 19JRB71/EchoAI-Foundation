@@ -376,6 +376,11 @@ export const api = {
   demoDeactivate: () => request("/api/admin/demo/deactivate", { method: "POST" }),
   demoUpdateConfig: (payload) =>
     request("/api/admin/demo/config", { method: "PUT", body: payload }),
+  demoAdaptSuggestions: (scenario) =>
+    request("/api/admin/demo/suggestions/adapt", {
+      method: "POST",
+      body: { scenario },
+    }),
 
   // Social media
   getSocialCalendar: (brandId) => request(`/api/social/calendar/${brandId}`),
