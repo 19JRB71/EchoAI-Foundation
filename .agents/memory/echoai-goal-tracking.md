@@ -92,6 +92,15 @@ description: Durable rules for the per-brand goals/KPI subsystem — no-data sna
   notifications off. **How to apply:** the claim, not the voice enqueue result,
   gates the push fan-out.
 
+- **Testing the sweep's best-effort guards: the voice enqueuer never throws.**
+  `enqueueOwnerVoiceEvent` swallows all errors internally (returns null), so a
+  test that wants a dispatch-path throw must force it at another call inside the
+  same per-alert try (e.g. a synchronous throw from the push stub). Per-brand
+  failure is simulated by making the fake db's metric query throw for that brand
+  (it escapes `snapshotBrandGoals` into the per-brand catch). **How to apply:**
+  extend `makeGoalSweepDb` (seed `failMetricsForBrands`) rather than trying to
+  monkey-patch the destructured voice import — it's captured at module load.
+
 - **Atlas optimization guardrails follow the brand's goal type — affiliate = CTR
   + CPA (this is a literal spec requirement, not an interpretation).** The campaign
   optimizer passes active goal targets into the prompt as guardrails: cost-per-lead

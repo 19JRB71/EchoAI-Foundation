@@ -610,8 +610,13 @@ function makeGoalSweepDb(seed) {
       };
     }
 
-    // 4) Metric measurements (only lead metrics used in this scenario).
+    // 4) Metric measurements (only lead metrics used in this scenario). A brand
+    // listed in seed.failMetricsForBrands simulates a broken metric source
+    // (the throw escapes snapshotBrandGoals into the sweep's per-brand guard).
     if (/FROM leads/i.test(sql)) {
+      if ((seed.failMetricsForBrands || []).includes(params[0])) {
+        throw new Error(`metric source unavailable for ${params[0]}`);
+      }
       const metrics = seed.metrics[params[0]] || {};
       const key = /temperature = 'hot'/i.test(sql) ? "hot_leads" : "new_leads";
       return { rows: [{ value: metrics[key] == null ? 0 : metrics[key] }] };
@@ -992,4 +997,123 @@ test("setGoalAlertMute validates the body and updates the goal", async () => {
       assert.strictEqual(res.body.muted, true);
     },
   );
+});
+
+test("runDailyGoalTracking: one brand's metric failure never silences the others", async () => {
+  // Brand A ("Broken Co") is listed FIRST so a regression that lets its throw
+  // escape the per-brand guard would abort the sweep before brand B. Its metric
+  // source query throws, so snapshotBrandGoals(bA) rejects. Brand B ("Acme")
+  // has an exceeding goal that must still snapshot and alert.
+  const fake = makeGoalSweepDb({
+    brands: [
+      { brand_id: "bA", brand_name: "Broken Co", user_id: "u1", is_demo: false },
+      { brand_id: "bB", brand_name: "Acme", user_id: "u2", is_demo: false },
+    ],
+    goals: [
+      { goal_id: "gA", brand_id: "bA", metric_key: "new_leads", category: "lead", label: "New Leads", target_value: 100, sort_order: 0, status: "active" },
+      { goal_id: "gB", brand_id: "bB", metric_key: "new_leads", category: "lead", label: "New Leads", target_value: 100, sort_order: 0, status: "active" },
+    ],
+    metrics: { bB: { new_leads: 130 } },
+    snapshots: [],
+    failMetricsForBrands: ["bA"],
+  });
+
+  const pushCalls = [];
+  const origQuery = db.query;
+  const origPush = pushController.sendPushToUser;
+  const origMobile = mobilePushController.sendToUser;
+  db.query = fake.query;
+  pushController.sendPushToUser = async (userId, payload) => {
+    pushCalls.push({ userId, ...payload.data });
+  };
+  mobilePushController.sendToUser = async () => {};
+
+  try {
+    const run = await goalAlerts.runDailyGoalTracking();
+
+    // Only the healthy brand counts as processed; the broken one is skipped.
+    assert.strictEqual(run.brandsProcessed, 1, "only brand B snapshots successfully");
+
+    // Brand B still snapshots today and alerts its owner.
+    const today = new Date().toISOString().slice(0, 10);
+    const todayRows = fake.state.snapshots.filter((s) => s.snapshot_date === today);
+    assert.deepStrictEqual(
+      todayRows.map((s) => [s.goal_id, s.percent_to_goal]),
+      [["gB", 130]],
+      "brand B's snapshot lands; broken brand A writes nothing",
+    );
+    assert.deepStrictEqual(
+      pushCalls.map((c) => [c.goalId, c.kind]),
+      [["gB", "exceeding"]],
+      "brand B's alert still dispatches after brand A's failure",
+    );
+    assert.strictEqual(run.alertsSent, 1);
+    assert.ok(
+      fake.state.voiceRows.every((v) => v.brandId === "bB"),
+      "no voice event may reference the broken brand",
+    );
+  } finally {
+    db.query = origQuery;
+    pushController.sendPushToUser = origPush;
+    mobilePushController.sendToUser = origMobile;
+  }
+});
+
+test("runDailyGoalTracking: a dispatch throw for one goal never skips the next", async () => {
+  // Both goals warrant an "exceeding" alert (no prior snapshots => no swings).
+  // The dispatch fan-out for g1 throws from inside the per-alert try block
+  // (enqueueOwnerVoiceEvent swallows its own errors, so we force the throw at
+  // the next call in the same guarded block). g2's alert must still go out and
+  // the summary must count only alerts whose dispatch actually completed.
+  const fake = makeGoalSweepDb({
+    brands: [{ brand_id: "b1", brand_name: "Acme", user_id: "u1", is_demo: false }],
+    goals: [
+      { goal_id: "g1", brand_id: "b1", metric_key: "new_leads", category: "lead", label: "New Leads", target_value: 100, sort_order: 0, status: "active" },
+      { goal_id: "g2", brand_id: "b1", metric_key: "hot_leads", category: "lead", label: "Hot Leads", target_value: 100, sort_order: 1, status: "active" },
+    ],
+    metrics: { b1: { new_leads: 130, hot_leads: 140 } },
+    snapshots: [],
+  });
+
+  const pushCalls = [];
+  const origQuery = db.query;
+  const origPush = pushController.sendPushToUser;
+  const origMobile = mobilePushController.sendToUser;
+  db.query = fake.query;
+  pushController.sendPushToUser = (userId, payload) => {
+    if (payload.data.goalId === "g1") {
+      // Synchronous throw inside runDailyGoalTracking's dispatch try/catch.
+      throw new Error("dispatch pipeline exploded");
+    }
+    pushCalls.push({ userId, ...payload.data });
+    return Promise.resolve();
+  };
+  mobilePushController.sendToUser = async () => {};
+
+  try {
+    const run = await goalAlerts.runDailyGoalTracking();
+
+    // The brand itself snapshots fine; g1's dispatch failure is contained.
+    assert.strictEqual(run.brandsProcessed, 1);
+
+    // g2's alert still dispatches after g1's throw.
+    assert.deepStrictEqual(
+      pushCalls.map((c) => [c.goalId, c.kind]),
+      [["g2", "exceeding"]],
+      "the next goal's alert must still go out",
+    );
+
+    // The summary reflects only real (completed) sends — g1 must not count.
+    assert.strictEqual(run.alertsSent, 1, "only the completed dispatch counts");
+
+    // Both alerts were claimed before dispatch (the claim is what dedups), so
+    // g1's failed dispatch consumed its claim — a rerun must not double-send g2.
+    const today = new Date().toISOString().slice(0, 10);
+    assert.ok(fake.state.alertLog.has(`g1:exceeding:${today}`));
+    assert.ok(fake.state.alertLog.has(`g2:exceeding:${today}`));
+  } finally {
+    db.query = origQuery;
+    pushController.sendPushToUser = origPush;
+    mobilePushController.sendToUser = origMobile;
+  }
 });
