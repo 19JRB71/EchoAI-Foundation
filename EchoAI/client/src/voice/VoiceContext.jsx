@@ -86,6 +86,11 @@ export function VoiceProvider({ active, children }) {
   const [current, setCurrent] = useState(null); // { id, type, title, text }
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
+  // Set during Presentation Mode when ElevenLabs can't speak: rather than switch
+  // to a different (OpenAI) voice mid-demo, we surface the spoken text here so the
+  // presenter still sees exactly what Echo would have said. Cleared on the next
+  // successful playback / stop.
+  const [notice, setNotice] = useState("");
   // True when the browser blocked autoplay; the next user gesture resumes playback.
   const [needsGesture, setNeedsGesture] = useState(false);
   // Proactive channel/tool suggestions returned with the weekly briefing. The
@@ -108,6 +113,10 @@ export function VoiceProvider({ active, children }) {
   const settingsRef = useRef(settings);
   const mutedRef = useRef(muted);
   const activeRef = useRef(active);
+  // True while Sales Presentation Mode is running. Read at synth time so EVERY
+  // spoken surface (briefing, scripted lines, suggestions, nav confirmations)
+  // requests the strict ElevenLabs-only path — the voice never switches mid-demo.
+  const presentationRef = useRef(false);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -118,6 +127,24 @@ export function VoiceProvider({ active, children }) {
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
+
+  // Track Presentation Mode so every spoken surface requests the strict
+  // ElevenLabs-only path while a demo is live (see synth calls in speakItem).
+  useEffect(() => {
+    const onStart = () => {
+      presentationRef.current = true;
+    };
+    const onStop = () => {
+      presentationRef.current = false;
+      setNotice("");
+    };
+    window.addEventListener("echoai:demo-start", onStart);
+    window.addEventListener("echoai:demo-stop", onStop);
+    return () => {
+      window.removeEventListener("echoai:demo-start", onStart);
+      window.removeEventListener("echoai:demo-stop", onStop);
+    };
+  }, []);
 
   // ---- settings ---------------------------------------------------------
   const refreshSettings = useCallback(async () => {
@@ -268,12 +295,23 @@ export function VoiceProvider({ active, children }) {
           // we're about to play. The next chunk's synthesis is kicked off as soon
           // as the current chunk *starts* playing, overlapping network + TTS with
           // playback so there are no gaps between chunks.
-          let pending = api.echoVoiceSpeak(chunks[0], style);
+          const presenting = presentationRef.current;
+          let pending = api.echoVoiceSpeak(chunks[0], style, { presentation: presenting });
           for (let i = 0; i < chunks.length; i++) {
             let blob;
             try {
               blob = await pending;
             } catch (err) {
+              // Presentation Mode + ElevenLabs unavailable: NEVER switch to a
+              // different voice. Show the spoken text as a notification and treat
+              // the item as delivered so the demo keeps moving.
+              if (err && err.code === "tts_unavailable") {
+                setNotice(
+                  "Voice paused — the presentation voice is temporarily unavailable, so Echo is showing the text instead.",
+                );
+                settle("played");
+                return;
+              }
               // First chunk failed → surface the error. A later chunk failing
               // just ends the briefing gracefully after what was already spoken.
               if (i === 0) {
@@ -316,7 +354,9 @@ export function VoiceProvider({ active, children }) {
                   // Playback started → prefetch the next chunk now so it's ready
                   // the instant this one ends.
                   if (i + 1 < chunks.length && !pending) {
-                    pending = api.echoVoiceSpeak(chunks[i + 1], style);
+                    pending = api.echoVoiceSpeak(chunks[i + 1], style, {
+                      presentation: presenting,
+                    });
                     // Neutralize an unhandled rejection if we bail before awaiting.
                     pending.catch(() => {});
                   }
@@ -344,7 +384,9 @@ export function VoiceProvider({ active, children }) {
             // "error" → skip this chunk but keep going. Either way, make sure the
             // next chunk's synthesis is in flight before we loop.
             if (i + 1 < chunks.length && !pending) {
-              pending = api.echoVoiceSpeak(chunks[i + 1], style);
+              pending = api.echoVoiceSpeak(chunks[i + 1], style, {
+                presentation: presenting,
+              });
             }
           }
           settle("played");
@@ -367,6 +409,7 @@ export function VoiceProvider({ active, children }) {
         setCurrent(item);
         setPlaying(true);
         setError("");
+        setNotice("");
         const status = await speakItem(item);
         setPlaying(false);
         currentRef.current = null;
@@ -462,6 +505,7 @@ export function VoiceProvider({ active, children }) {
     setPlaying(false);
     setCurrent(null);
     currentRef.current = null;
+    setNotice("");
     // An explicit stop/mute clears the queue, so drop the stale "click to hear"
     // hint too — there's nothing left waiting on a gesture.
     setNeedsGesture(false);
@@ -737,6 +781,7 @@ export function VoiceProvider({ active, children }) {
       playing,
       current,
       error,
+      notice,
       needsGesture,
       suggestions,
       acceptSuggestion,
@@ -760,6 +805,7 @@ export function VoiceProvider({ active, children }) {
       playing,
       current,
       error,
+      notice,
       needsGesture,
       suggestions,
       acceptSuggestion,

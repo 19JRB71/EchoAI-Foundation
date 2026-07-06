@@ -28,14 +28,29 @@ async function openaiSpeech(text, voice) {
  * reminders, alerts, Talk to Echo, and the public voice chat all flow through
  * here. If ElevenLabs is not configured, or the ElevenLabs API errors, we fall
  * back to OpenAI TTS so voice never goes dark.
+ *
+ * `opts.strict` disables the OpenAI fallback: during Sales Presentation Mode the
+ * spoken voice must never switch mid-demo, so if ElevenLabs is unconfigured or
+ * errors we throw an `tts_unavailable`-tagged error and let the caller surface a
+ * text notification instead of speaking in a different (OpenAI) voice.
  */
-async function synthesizeSpeech(text, voice) {
+async function synthesizeSpeech(text, voice, opts = {}) {
+  const strict = Boolean(opts && opts.strict);
   if (elevenlabs.ttsConfigured()) {
     try {
       return await elevenlabs.synthesize(text);
     } catch (err) {
+      if (strict) {
+        const e = new Error("ElevenLabs TTS unavailable");
+        e.code = "tts_unavailable";
+        throw e;
+      }
       console.error("ElevenLabs TTS failed; falling back to OpenAI TTS:", err.message);
     }
+  } else if (strict) {
+    const e = new Error("ElevenLabs TTS is not configured");
+    e.code = "tts_unavailable";
+    throw e;
   }
   return openaiSpeech(text, voice);
 }

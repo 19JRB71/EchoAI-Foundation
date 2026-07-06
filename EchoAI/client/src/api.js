@@ -990,9 +990,13 @@ export const api = {
   // Short, frequently-repeated phrases ("Paused.", "Here you go.", "Skipping
   // ahead.") are cached in memory so Echo replays them instantly instead of
   // re-synthesizing on every command. Long text (briefings) is never cached.
-  echoVoiceSpeak: async (text, style) => {
+  echoVoiceSpeak: async (text, style, opts = {}) => {
+    // In Presentation Mode the server requires ElevenLabs (no OpenAI fallback),
+    // so a presentation blob must never be served from — or written to — the
+    // same cache slot as a normal (possibly OpenAI) blob. Namespace by mode.
+    const presentation = Boolean(opts.presentation);
     const cacheable = typeof text === "string" && text.length <= 80;
-    const cacheKey = cacheable ? `${style || ""}|${text}` : null;
+    const cacheKey = cacheable ? `${presentation ? "p" : "n"}|${style || ""}|${text}` : null;
     if (cacheKey && echoSpeakCache.has(cacheKey)) {
       return echoSpeakCache.get(cacheKey);
     }
@@ -1002,7 +1006,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/echo-voice/speak`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ text, style }),
+      body: JSON.stringify({ text, style, presentation }),
     });
     if (!res.ok) {
       if (res.status === 401) {
@@ -1012,6 +1016,9 @@ export const api = {
       const data = await res.json().catch(() => null);
       const err = new Error((data && data.error) || `Request failed (${res.status})`);
       err.status = res.status;
+      // "tts_unavailable" (presentation, ElevenLabs down) lets the voice engine
+      // show a text notification instead of switching to a different voice.
+      if (data && data.code) err.code = data.code;
       throw err;
     }
     const blob = await res.blob();

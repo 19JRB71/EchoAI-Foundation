@@ -74,7 +74,7 @@ export default function VoicePlayer() {
 
   if (!voice || !voice.active) return null;
 
-  const { muted, playing, current, error, needsGesture, suggestions } = voice;
+  const { muted, playing, current, error, notice, needsGesture, suggestions } = voice;
   const sugList = suggestions || [];
 
   const handleTalk = async () => {
@@ -106,6 +106,7 @@ export default function VoicePlayer() {
     busyWeekly ||
     Boolean(current) ||
     Boolean(error) ||
+    Boolean(notice) ||
     sugList.length > 0 ||
     (needsGesture && !playing);
 
@@ -152,6 +153,8 @@ export default function VoicePlayer() {
           ) : null}
 
           {error ? <p className="mt-1 text-xs text-amber-400">{error}</p> : null}
+
+          {notice ? <p className="mt-1 text-xs text-amber-300">{notice}</p> : null}
 
           {needsGesture && !playing ? (
             <p className="mt-1 text-xs text-teal-300">

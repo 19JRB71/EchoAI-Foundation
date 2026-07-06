@@ -192,3 +192,78 @@ test("synthesizeSpeech uses OpenAI directly when ElevenLabs is not configured", 
     openaiConfig.openai.audio.speech.create = savedCreate;
   }
 });
+
+/* --------- Presentation Mode: strict ElevenLabs-only (no fallback) -------- */
+
+test("synthesizeSpeech strict returns ElevenLabs audio (no OpenAI) when configured", async () => {
+  process.env.ELEVENLABS_API_KEY = "k";
+  process.env.ELEVENLABS_VOICE_ID = "v";
+  global.fetch = async () => okAudio([7, 7, 7]);
+
+  const savedCreate = openaiConfig.openai.audio.speech.create;
+  let openaiCalled = false;
+  openaiConfig.openai.audio.speech.create = async () => {
+    openaiCalled = true;
+    return { arrayBuffer: async () => Uint8Array.from([0]).buffer };
+  };
+  try {
+    const buf = await synthesizeSpeech("hi", "friendly", { strict: true });
+    assert.deepStrictEqual([...buf], [7, 7, 7]);
+    assert.strictEqual(openaiCalled, false);
+  } finally {
+    openaiConfig.openai.audio.speech.create = savedCreate;
+  }
+});
+
+test("synthesizeSpeech strict throws tts_unavailable (never OpenAI) when ElevenLabs errors", async () => {
+  process.env.ELEVENLABS_API_KEY = "k";
+  process.env.ELEVENLABS_VOICE_ID = "v";
+  global.fetch = async () => ({
+    ok: false,
+    status: 500,
+    text: async () => "boom",
+    statusText: "Server Error",
+  });
+
+  const savedCreate = openaiConfig.openai.audio.speech.create;
+  let openaiCalled = false;
+  openaiConfig.openai.audio.speech.create = async () => {
+    openaiCalled = true;
+    return { arrayBuffer: async () => Uint8Array.from([5, 5]).buffer };
+  };
+  try {
+    await assert.rejects(
+      () => synthesizeSpeech("hi", "friendly", { strict: true }),
+      (err) => err && err.code === "tts_unavailable",
+    );
+    assert.strictEqual(openaiCalled, false, "OpenAI must never be called in strict mode");
+  } finally {
+    openaiConfig.openai.audio.speech.create = savedCreate;
+  }
+});
+
+test("synthesizeSpeech strict throws tts_unavailable when ElevenLabs is not configured", async () => {
+  process.env.ELEVENLABS_API_KEY = "";
+  process.env.ELEVENLABS_VOICE_ID = "";
+  let fetchCalled = false;
+  global.fetch = async () => {
+    fetchCalled = true;
+    return okAudio();
+  };
+  const savedCreate = openaiConfig.openai.audio.speech.create;
+  let openaiCalled = false;
+  openaiConfig.openai.audio.speech.create = async () => {
+    openaiCalled = true;
+    return { arrayBuffer: async () => Uint8Array.from([2, 2]).buffer };
+  };
+  try {
+    await assert.rejects(
+      () => synthesizeSpeech("hi", "friendly", { strict: true }),
+      (err) => err && err.code === "tts_unavailable",
+    );
+    assert.strictEqual(fetchCalled, false, "ElevenLabs never contacted (unconfigured)");
+    assert.strictEqual(openaiCalled, false, "OpenAI must never be called in strict mode");
+  } finally {
+    openaiConfig.openai.audio.speech.create = savedCreate;
+  }
+});

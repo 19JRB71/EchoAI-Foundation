@@ -112,21 +112,37 @@ async function updateSettings(req, res) {
  * briefings/reminders so voice works on every tier.
  */
 async function speak(req, res) {
-  const { text, style } = req.body || {};
+  const { text, style, presentation } = req.body || {};
   if (!text || !String(text).trim()) {
     return res.status(400).json({ error: "text is required" });
   }
-  if (!isVoiceConfigured()) {
+  // Sales Presentation Mode: the voice must never switch providers mid-demo, so
+  // ElevenLabs is REQUIRED (no OpenAI fallback). If it can't speak, tell the
+  // client to show a text notification instead of a different voice.
+  const strict = Boolean(presentation);
+  if (strict && !elevenlabs.ttsConfigured()) {
+    return res
+      .status(503)
+      .json({ error: "Presentation voice unavailable", code: "tts_unavailable" });
+  }
+  if (!strict && !isVoiceConfigured()) {
     return res.status(503).json({ error: "Voice is not configured" });
   }
   try {
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
     const voice = voiceForStyle(style || settings.style);
-    const audio = await synthesizeSpeech(String(text).slice(0, 4000), voice);
+    const audio = await synthesizeSpeech(String(text).slice(0, 4000), voice, { strict });
     res.setHeader("Content-Type", "audio/mpeg");
     return res.send(audio);
   } catch (err) {
+    // Presentation mode with ElevenLabs down → 503 so the client shows text and
+    // never falls back to a different voice.
+    if (err && err.code === "tts_unavailable") {
+      return res
+        .status(503)
+        .json({ error: "Presentation voice unavailable", code: "tts_unavailable" });
+    }
     console.error("Echo speak error:", err.message);
     // Upstream AI (OpenAI) failure → 502, matching the AI-call convention.
     return res.status(502).json({ error: "Failed to generate speech" });
