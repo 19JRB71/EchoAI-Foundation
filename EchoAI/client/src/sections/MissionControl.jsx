@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api";
 import Spinner from "../components/Spinner.jsx";
-import { ScoreRing } from "../components/GoalsPanel.jsx";
-import { statusMeta, formatPercent, brandTypeLabel } from "../lib/goals.js";
+import { ScoreRing, GoalRow } from "../components/GoalsPanel.jsx";
+import { brandTypeLabel } from "../lib/goals.js";
 
 // Mission Control — the command center that opens the dashboard. It rolls up the
 // live status of the whole AI Marketing Department (from /api/agents/
@@ -148,59 +148,46 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
             </button>
           </div>
 
-          {/* Per-brand score chips */}
+          {/* Every goal for every real business, grouped by business */}
           {Array.isArray(goals.perBrand) && goals.perBrand.length > 0 && (
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 space-y-4">
               {goals.perBrand.map((b) => (
                 <div
                   key={b.brandId}
                   className="rounded-xl border border-gray-800 bg-gray-950/50 p-3"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold text-gray-100">
-                      {b.brandName}
-                    </span>
-                    <span className="text-sm font-bold text-gray-200">
-                      {b.score == null ? "—" : `${b.score}`}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-gray-400">
-                    <span>{brandTypeLabel(b.brandType)}</span>
-                    <span>
-                      {b.goalCount} goal{b.goalCount === 1 ? "" : "s"}
-                      {b.atRisk > 0 ? ` · ${b.atRisk} at risk` : ""}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* At-risk / milestone attention */}
-          {Array.isArray(goals.attention) && goals.attention.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {goals.attention.slice(0, 6).map((g) => {
-                const m = statusMeta(g.status);
-                return (
-                  <div
-                    key={`${g.brandId}-${g.goalId}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2"
-                  >
+                  <div className="flex items-center justify-between gap-2 border-b border-gray-800 pb-2">
                     <div className="min-w-0">
-                      <span className="text-sm text-gray-100">{g.label}</span>
-                      <span className="ml-2 text-xs text-gray-500">
-                        {g.brandName}
+                      <span className="truncate text-sm font-semibold text-gray-100">
+                        {b.brandName}
+                      </span>
+                      <span className="ml-2 text-[11px] text-gray-500">
+                        {brandTypeLabel(b.brandType)}
                       </span>
                     </div>
-                    <span
-                      className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                      style={{ color: m.color, backgroundColor: m.bg }}
-                    >
-                      {m.label} · {formatPercent(g.percentToGoal)}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2 text-[11px] text-gray-400">
+                      <span>
+                        {b.goalCount} goal{b.goalCount === 1 ? "" : "s"}
+                        {b.atRisk > 0 ? ` · ${b.atRisk} at risk` : ""}
+                      </span>
+                      <span className="rounded-full bg-gray-800 px-2 py-0.5 font-bold text-gray-200">
+                        {b.score == null ? "—" : `${b.score}`}
+                      </span>
+                    </div>
                   </div>
-                );
-              })}
+                  {Array.isArray(b.goals) && b.goals.length > 0 ? (
+                    <div className="mt-2 space-y-2">
+                      {b.goals.map((g) => (
+                        <GoalRow key={g.goalId} goal={g} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-500">
+                      No active goals for this business.
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

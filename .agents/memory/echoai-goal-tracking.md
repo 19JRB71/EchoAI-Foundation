@@ -36,28 +36,39 @@ description: Durable rules for the per-brand goals/KPI subsystem — no-data sna
   not by the raw `status`, so new kinds need their own copy branch + dedup suffix.
 
 - **Department goal panels are strict per-category (Atlas=campaign, Nova=content,
-  Pulse=lead+appointment, ROI=revenue).** `DEPARTMENT_CATEGORIES` in
-  `config/goals.js` must map each department to ONLY its spec categories — no
-  cross-contamination (Atlas is campaign-only, ROI is revenue-only; affiliate
-  goals intentionally have no department panel). **Why:** the spec assigns exact
-  categories; leaking revenue into Atlas or campaign into ROI surfaces goals in the
-  wrong dashboard. **How to apply:** if you widen a department's categories,
-  confirm it against the spec — the department test in `test/goals.test.js`
-  asserts the exact arrays.
+  Pulse=lead+appointment, ROI=revenue).** Each department maps to ONLY its spec
+  categories — no cross-contamination (Atlas is campaign-only, ROI is
+  revenue-only; affiliate goals intentionally have no department panel). **Why:**
+  the spec assigns exact categories; leaking revenue into Atlas or campaign into
+  ROI surfaces goals in the wrong dashboard. **How to apply:** never widen a
+  department's categories without re-checking the spec.
 
-- **Mission Control cross-brand aggregates exclude demo brands too.** Not just the
-  alert sweep — the Goals Overview query in `getOverview` must also filter
-  `brands.is_demo = false`, or demo data pollutes the portfolio score/attention.
+- **Every cross-brand goal aggregate excludes demo brands.** Not just the alert
+  sweep — the Mission Control Goals Overview must also filter out demo brands, or
+  demo data pollutes the portfolio score and attention list.
+
+- **Mission Control's Goals Overview lists EVERY goal for every real business.**
+  The spec wants the full per-goal listing (per-goal status + progress) grouped by
+  business, not just per-brand summary chips or a truncated at-risk list. **How to
+  apply:** render all goals the overview returns; don't cap or collapse them to a
+  summary.
 
 - **The post-onboarding goal wizard is conversational + AI-parsed, and MUST be
-  non-blocking.** `POST /api/goals/:brandId/parse` (ownership-scoped) feeds the
-  owner's plain-English goals to Anthropic via a catalog-constrained prompt and
-  returns validated `{metricKey,targetValue}` suggestions; the pure parser
-  (`prompts/goalSetupPrompt.js parseGoalSuggestions`) drops anything not in the
-  brand's catalog so no goal is ever fabricated. Upstream AI failure → 502, and
-  the wizard UI catches it (and any error) to fall through to manual selection so
-  onboarding never stalls. **How to apply:** keep the parse-vs-save split — parse
-  only suggests; the owner confirms before `createGoal` persists.
+  non-blocking.** The owner's plain-English goals go to the AI via a
+  catalog-constrained prompt; the parser drops anything not in the brand's metric
+  catalog so a goal is never fabricated. Upstream AI failure → 502, and the wizard
+  falls through to manual selection on ANY error so onboarding never stalls.
+  **How to apply:** keep the parse-vs-save split — parsing only suggests; the
+  owner confirms before anything persists.
+
+- **The daily alert fan-out is claimed channel-agnostically per (goal, kind,
+  day).** Before dispatching ANY channel (voice / web push / mobile push), win an
+  atomic unique-row claim for that (goal, kind, day); only the winning tick
+  dispatches. **Why:** the per-user voice dedup key only de-dupes voice, so
+  push/mobile would double-send on overlapping or re-run ticks — and gating push
+  on the voice enqueue instead would wrongly suppress push when a user has voice
+  notifications off. **How to apply:** the claim, not the voice enqueue result,
+  gates the push fan-out.
 
 - **Atlas optimization guardrails follow the brand's goal type.** The campaign
   optimizer passes active goal targets into the prompt as guardrails: cost-per-lead

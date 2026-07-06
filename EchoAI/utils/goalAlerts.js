@@ -198,31 +198,47 @@ async function runDailyGoalTracking() {
       const kinds = deriveAlertKinds(goal, priorPercent);
 
       for (const { kind, delta } of kinds) {
+        // Atomically CLAIM this (goal, kind, day) before dispatching ANY channel.
+        // The unique PK + ON CONFLICT DO NOTHING means only the first tick to
+        // reach a given alert wins the claim; overlapping/re-run ticks get no row
+        // and skip the whole fan-out, so push/mobile can never be double-sent.
+        // This claim is channel-agnostic (independent of the per-user voice dedup
+        // key) so push delivery is not coupled to voice-notification settings.
+        let claimed = false;
+        try {
+          const { rowCount } = await db.query(
+            `INSERT INTO goal_alert_log (goal_id, kind, alert_date)
+               VALUES ($1, $2, CURRENT_DATE)
+             ON CONFLICT (goal_id, kind, alert_date) DO NOTHING`,
+            [goal.goalId, kind]
+          );
+          claimed = rowCount > 0;
+        } catch (err) {
+          console.error(`Goal alert claim failed for goal ${goal.goalId}:`, err.message);
+          continue;
+        }
+        if (!claimed) continue;
+
         const copy = buildAlertCopy(goal, brand.brand_name, kind, { delta });
-        // Once per goal per alert kind per day.
+        // Voice dedup key backstops the claim above (overlapping voice enqueues).
         const dedupKey = `goal_alert:${goal.goalId}:${kind}:${today}`;
 
         try {
-          const enqueued = await enqueueOwnerVoiceEvent(
-            brand.user_id,
-            "goal_alert",
-            copy.speak,
-            {
-              brandId: brand.brand_id,
-              title: copy.title,
-              dedupKey,
-              payload: {
-                goalId: goal.goalId,
-                metricKey: goal.metricKey,
-                status: goal.status,
-                kind,
-                percentToGoal: goal.percentToGoal,
-              },
-            }
-          );
-          if (enqueued) alertsSent += 1;
+          await enqueueOwnerVoiceEvent(brand.user_id, "goal_alert", copy.speak, {
+            brandId: brand.brand_id,
+            title: copy.title,
+            dedupKey,
+            payload: {
+              goalId: goal.goalId,
+              metricKey: goal.metricKey,
+              status: goal.status,
+              kind,
+              percentToGoal: goal.percentToGoal,
+            },
+          });
 
-          // Web + mobile push run best-effort alongside voice.
+          // Web + mobile push run best-effort; they fan out exactly once because
+          // the claim above already guaranteed this is the only winning tick.
           const pushPayload = {
             title: copy.title,
             body: copy.body,
@@ -230,6 +246,7 @@ async function runDailyGoalTracking() {
           };
           pushController.sendPushToUser(brand.user_id, pushPayload).catch(() => {});
           mobilePushController.sendToUser(brand.user_id, pushPayload).catch(() => {});
+          alertsSent += 1;
         } catch (err) {
           console.error(`Goal alert dispatch failed for goal ${goal.goalId}:`, err.message);
         }
