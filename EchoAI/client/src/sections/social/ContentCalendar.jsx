@@ -3,6 +3,7 @@ import { api } from "../../api.js";
 import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PlatformBadge, PlatformDot, platformMeta } from "./platformMeta.jsx";
+import { postFailureReason } from "./postFailure.js";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -219,26 +220,37 @@ export default function ContentCalendar({ brandId }) {
             <p className="text-sm text-gray-400">No posts this day.</p>
           ) : (
             <ul className="divide-y divide-gray-800">
-              {selectedPosts.map((post) => (
-                <li key={post.post_id}>
-                  <button
-                    onClick={() => setActivePost(post)}
-                    className="flex w-full items-center gap-3 py-3 text-left hover:bg-gray-800"
-                  >
-                    <PlatformBadge platform={post.platform} />
-                    <span className="flex-1 truncate text-sm text-gray-300">
-                      {post.post_content}
-                    </span>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyle(
-                        post.status
-                      )}`}
+              {selectedPosts.map((post) => {
+                const failReason = postFailureReason(post);
+                return (
+                  <li key={post.post_id}>
+                    <button
+                      onClick={() => setActivePost(post)}
+                      title={failReason || undefined}
+                      className="flex w-full items-center gap-3 py-3 text-left hover:bg-gray-800"
                     >
-                      {post.status}
-                    </span>
-                  </button>
-                </li>
-              ))}
+                      <PlatformBadge platform={post.platform} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-gray-300">
+                          {post.post_content}
+                        </span>
+                        {failReason && (
+                          <span className="mt-0.5 block truncate text-xs text-red-400">
+                            {failReason}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyle(
+                          post.status
+                        )}`}
+                      >
+                        {post.status}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -254,6 +266,7 @@ export default function ContentCalendar({ brandId }) {
 function PostDetailModal({ post, onClose }) {
   const meta = platformMeta(post.platform);
   const metrics = post.engagement_metrics || null;
+  const failReason = postFailureReason(post);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -300,17 +313,21 @@ function PostDetailModal({ post, onClose }) {
           )}
         </dl>
 
-        {metrics && (
-          <div className="mt-3 rounded-lg bg-gray-800 p-3 text-xs text-gray-400">
-            {metrics.error ? (
-              <span className="text-red-600">{metrics.error}</span>
-            ) : (
+        {failReason ? (
+          <div className="mt-3 rounded-lg border border-red-800/60 bg-red-900/20 p-3 text-xs">
+            <p className="mb-1 font-semibold text-red-300">Why this post failed</p>
+            <p className="text-red-200">{failReason}</p>
+          </div>
+        ) : (
+          metrics &&
+          !metrics.error && (
+            <div className="mt-3 rounded-lg bg-gray-800 p-3 text-xs text-gray-400">
               <span>
                 Likes {metrics.likes ?? "—"} · Shares {metrics.shares ?? "—"} ·
                 Reach {metrics.reach ?? "—"}
               </span>
-            )}
-          </div>
+            </div>
+          )
         )}
 
         <div className="mt-5 text-right">
