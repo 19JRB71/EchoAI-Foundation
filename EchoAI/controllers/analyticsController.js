@@ -92,12 +92,14 @@ async function recordWeeklyAnalyticsForBrand(brand) {
   let totalSpend = 0;
   let totalLeads = 0;
   let totalRevenue = 0;
+  let totalClicks = 0;
+  let totalImpressions = 0;
 
   for (const c of campaigns.rows) {
     const insights = await graphGet(
       `${c.facebook_campaign_id}/insights`,
       {
-        fields: "spend,actions,action_values",
+        fields: "spend,actions,action_values,clicks,impressions",
         date_preset: "last_7d",
       },
       accessToken
@@ -107,6 +109,8 @@ async function recordWeeklyAnalyticsForBrand(brand) {
     totalSpend += Number(row.spend || 0);
     totalLeads += extractLeads(row.actions);
     totalRevenue += extractRevenue(row.action_values);
+    totalClicks += Number(row.clicks || 0);
+    totalImpressions += Number(row.impressions || 0);
   }
 
   const weekDate = weekStartDate();
@@ -126,17 +130,24 @@ async function recordWeeklyAnalyticsForBrand(brand) {
   const costPerLead = totalLeads > 0 ? totalSpend / totalLeads : null;
   // Weighted weekly ROAS: total attributed revenue / total spend.
   const returnOnAdSpend = totalSpend > 0 && totalRevenue > 0 ? totalRevenue / totalSpend : null;
+  // Weighted weekly click-through rate (percent): total clicks / total impressions.
+  // Real, non-fabricated — null when there were no impressions to measure.
+  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : null;
 
   const inserted = await db.query(
     `INSERT INTO analytics
-       (brand_id, week_date, total_spend, total_leads, cost_per_lead, conversions, return_on_ad_spend)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (brand_id, week_date, total_spend, total_leads, cost_per_lead, conversions,
+        return_on_ad_spend, clicks, impressions, ctr)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (brand_id, week_date) DO UPDATE
        SET total_spend = EXCLUDED.total_spend,
            total_leads = EXCLUDED.total_leads,
            cost_per_lead = EXCLUDED.cost_per_lead,
            conversions = EXCLUDED.conversions,
-           return_on_ad_spend = EXCLUDED.return_on_ad_spend
+           return_on_ad_spend = EXCLUDED.return_on_ad_spend,
+           clicks = EXCLUDED.clicks,
+           impressions = EXCLUDED.impressions,
+           ctr = EXCLUDED.ctr
      RETURNING *`,
     [
       brand.brand_id,
@@ -146,6 +157,9 @@ async function recordWeeklyAnalyticsForBrand(brand) {
       costPerLead !== null ? costPerLead.toFixed(2) : null,
       conversions,
       returnOnAdSpend !== null ? returnOnAdSpend.toFixed(4) : null,
+      totalClicks,
+      totalImpressions,
+      ctr !== null ? ctr.toFixed(4) : null,
     ]
   );
 

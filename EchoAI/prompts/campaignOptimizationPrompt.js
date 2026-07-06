@@ -130,6 +130,21 @@ function describeGoalTargets(goalTargets = {}) {
         "Prioritize changes that grow commission-generating referred conversions toward this target."
     );
   }
+  if (Number.isFinite(Number(goalTargets.ctr))) {
+    lines.push(
+      `- Click-through rate target: ${Number(goalTargets.ctr)}% or higher. ` +
+        "This is an affiliate business, so optimize specifically for click-through rate — " +
+        "favor creative and audiences that drive more clicks through to the offer, and treat " +
+        "this as a hard guardrail: do not recommend changes that would push click-through rate below it."
+    );
+  }
+  if (Number.isFinite(Number(goalTargets.cpa))) {
+    lines.push(
+      `- Cost per acquisition target: $${Number(goalTargets.cpa)} or lower. ` +
+        "This is an affiliate business, so optimize specifically for cost per acquisition — " +
+        "prioritize keeping cost per acquisition at or under this number and stop cutting budget once it is achieved."
+    );
+  }
   return lines;
 }
 

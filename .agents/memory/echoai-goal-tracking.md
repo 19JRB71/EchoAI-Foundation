@@ -83,10 +83,19 @@ description: Durable rules for the per-brand goals/KPI subsystem — no-data sna
   notifications off. **How to apply:** the claim, not the voice enqueue result,
   gates the push fan-out.
 
-- **Atlas optimization guardrails follow the brand's goal type.** The campaign
+- **Atlas optimization guardrails follow the brand's goal type — affiliate = CTR
+  + CPA (this is a literal spec requirement, not an interpretation).** The campaign
   optimizer passes active goal targets into the prompt as guardrails: cost-per-lead
-  and ROAS for ad-performance brands, plus referrals and commission for
-  affiliate/referral brands (the affiliate metrics in `config/goals.js` — there is
-  no CTR/CPA metric in this system). **How to apply:** when adding a goal metric
-  that should steer optimization, extend both the controller's `IN (...)` metric
-  filter and `describeGoalTargets` in the prompt.
+  and ROAS for standard ad brands; click-through rate (`ctr`) and cost per
+  acquisition (`cpa`), plus referrals/commission, for affiliate brands. CTR/CPA
+  live in the `affiliate` category so only affiliate brands can set them → only they
+  inject them, matching the spec's "when the brand is configured as an affiliate
+  business." **Why:** an earlier pass wrongly concluded "no CTR/CPA metric exists"
+  and mapped affiliate to referrals/commission only; the spec explicitly says
+  "Atlas specifically optimizes for click through rate and cost per acquisition"
+  for affiliate brands — do not drop CTR/CPA again. **Data source:** CPA derives
+  from `analytics` (`total_spend / conversions`); CTR needed a real source, so the
+  weekly analytics writer now stores `clicks/impressions/ctr` from FB insights
+  (`ctr` column added). **How to apply:** when adding a goal metric that should
+  steer optimization, extend the controller's `IN (...)` filter, `describeGoalTargets`
+  in the prompt, `METRIC_SQL` in goalMetrics, and the client `formatValue` unit.

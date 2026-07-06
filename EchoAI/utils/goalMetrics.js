@@ -63,6 +63,12 @@ const METRIC_SQL = {
               JOIN affiliates a ON a.affiliate_id = r.affiliate_id
               JOIN brands b ON b.user_id = a.user_id
               WHERE b.brand_id = $1 AND r.created_at >= $2`,
+  ctr: `SELECT ctr::float AS value FROM analytics
+              WHERE brand_id = $1 AND ctr IS NOT NULL
+              ORDER BY week_date DESC LIMIT 1`,
+  cpa: `SELECT (total_spend / conversions)::float AS value FROM analytics
+              WHERE brand_id = $1 AND conversions > 0
+              ORDER BY week_date DESC LIMIT 1`,
 };
 
 /**

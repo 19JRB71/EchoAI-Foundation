@@ -50,9 +50,26 @@ test("brand type gating exposes only allowed metrics", () => {
   // Standard brands get campaign metrics; affiliate brands don't.
   assert.ok(goals.metricAllowedForBrandType("cost_per_lead", "standard"));
   assert.ok(!goals.metricAllowedForBrandType("cost_per_lead", "affiliate"));
+  // Affiliate brands optimize by click-through rate and cost per acquisition
+  // (spec: "Atlas specifically optimizes for CTR and CPA for affiliate brands");
+  // standard brands do not get these affiliate ad-efficiency metrics.
+  assert.ok(goals.metricAllowedForBrandType("ctr", "affiliate"));
+  assert.ok(goals.metricAllowedForBrandType("cpa", "affiliate"));
+  assert.ok(!goals.metricAllowedForBrandType("ctr", "standard"));
+  assert.ok(!goals.metricAllowedForBrandType("cpa", "standard"));
   // Unknown brand type falls back to the standard category set.
   const std = goals.metricsForBrandType("standard");
   assert.deepStrictEqual(goals.metricsForBrandType("nonsense"), std);
+});
+
+test("ctr/cpa metrics carry the right direction + unit for optimization", () => {
+  const ctr = goals.getMetric("ctr");
+  const cpa = goals.getMetric("cpa");
+  // Higher CTR is better; lower CPA is better.
+  assert.strictEqual(ctr.direction, "increase");
+  assert.strictEqual(ctr.unit, "percent");
+  assert.strictEqual(cpa.direction, "decrease");
+  assert.strictEqual(cpa.unit, "currency");
 });
 
 test("isValidBrandType / isValidMetric reject unknowns", () => {
@@ -338,6 +355,38 @@ test("DEPARTMENT_CATEGORIES: Atlas = campaign only, ROI = revenue only", () => {
   assert.deepStrictEqual(goals.DEPARTMENT_CATEGORIES.roi, ["revenue"]);
   assert.deepStrictEqual(goals.DEPARTMENT_CATEGORIES.nova, ["content"]);
   assert.deepStrictEqual(goals.DEPARTMENT_CATEGORIES.pulse, ["lead", "appointment"]);
+});
+
+// --- Atlas affiliate optimization guardrails (CTR / CPA) --------------------
+
+const {
+  buildCampaignOptimizationPrompt,
+} = require("../prompts/campaignOptimizationPrompt");
+
+test("affiliate goal targets inject CTR + CPA optimization guardrails", () => {
+  // An affiliate brand that set click-through-rate and cost-per-acquisition
+  // goals steers Atlas by those metrics.
+  const prompt = buildCampaignOptimizationPrompt({
+    brand: { brand_name: "Acme" },
+    performance: [],
+    goalTargets: { ctr: 2.5, cpa: 18 },
+  });
+  assert.ok(/Click-through rate target: 2\.5%/.test(prompt), prompt);
+  assert.ok(/Cost per acquisition target: \$18/.test(prompt), prompt);
+  // The guardrails frame it as affiliate-specific optimization.
+  assert.ok(/optimize specifically for click-through rate/.test(prompt));
+  assert.ok(/optimize specifically for cost per acquisition/.test(prompt));
+});
+
+test("standard CPL/ROAS targets do not emit affiliate CTR/CPA lines", () => {
+  const prompt = buildCampaignOptimizationPrompt({
+    brand: { brand_name: "Acme" },
+    performance: [],
+    goalTargets: { costPerLead: 15, roas: 4 },
+  });
+  assert.ok(/Cost per lead target: \$15/.test(prompt));
+  assert.ok(!/Cost per acquisition target/.test(prompt));
+  assert.ok(!/Click-through rate target/.test(prompt));
 });
 
 // --- Goal setup AI parse helpers (conversational wizard) ---------------------

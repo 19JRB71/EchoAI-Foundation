@@ -130,6 +130,27 @@ const GOAL_METRICS = {
     department: "atlas",
     description: "Affiliate commission earned this month.",
   },
+  // Affiliate ad-efficiency metrics. Affiliate brands drive traffic to an offer,
+  // so Atlas steers their optimization by click-through rate and cost per
+  // acquisition (not cost-per-lead / ROAS). Both are 'latest' weekly rates.
+  ctr: {
+    label: "Click-Through Rate",
+    category: "affiliate",
+    unit: "percent",
+    direction: "increase",
+    aggregation: "latest",
+    department: "atlas",
+    description: "Most recent weekly ad click-through rate.",
+  },
+  cpa: {
+    label: "Cost Per Acquisition",
+    category: "affiliate",
+    unit: "currency",
+    direction: "decrease",
+    aggregation: "latest",
+    department: "atlas",
+    description: "Most recent weekly cost per acquisition (spend ÷ conversions).",
+  },
 };
 
 // Brand types decide which categories (and therefore which metrics) are offered.

@@ -65,6 +65,7 @@ export function formatValue(value, unit) {
       : `$${(Math.round(n * 100) / 100).toLocaleString()}`;
   }
   if (unit === "ratio") return `${Math.round(n * 100) / 100}x`;
+  if (unit === "percent") return `${Math.round(n * 10) / 10}%`;
   return Math.round(n).toLocaleString();
 }
 
