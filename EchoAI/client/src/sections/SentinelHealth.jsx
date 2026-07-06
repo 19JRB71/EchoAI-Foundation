@@ -22,6 +22,22 @@ const TABS = [
   { key: "platform", label: "Platform Status" },
 ];
 
+// Status → label + color for the admin-only API Credits tab.
+const QUOTA_STATUS = {
+  ok: { label: "Healthy", color: "#22c55e" },
+  low: { label: "Running low", color: "#f59e0b" },
+  critical: { label: "Critical", color: "#ef4444" },
+  unavailable: { label: "Not available", color: "#6b7280" },
+  not_configured: { label: "Not configured", color: "#6b7280" },
+  error: { label: "Check failed", color: "#ef4444" },
+};
+
+function pctText(p) {
+  // Postgres NUMERIC comes back as a string over JSON — coerce before formatting.
+  const n = typeof p === "string" ? Number(p) : p;
+  return typeof n === "number" && Number.isFinite(n) ? `${n.toFixed(1)}%` : null;
+}
+
 function when(iso) {
   try {
     return new Date(iso).toLocaleString(undefined, {
@@ -67,17 +83,27 @@ function IssueRow({ issue }) {
   );
 }
 
-export default function SentinelHealth({ brandId, initialTab = "monitor" }) {
-  const [tab, setTab] = useState(initialTab);
+export default function SentinelHealth({ brandId, initialTab = "monitor", isAdmin = false }) {
+  const tabs = isAdmin ? [...TABS, { key: "apiCredits", label: "API Credits" }] : TABS;
+  const validKeys = tabs.map((t) => t.key);
+  const [tab, setTab] = useState(validKeys.includes(initialTab) ? initialTab : "monitor");
   const [status, setStatus] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
 
+  // Admin-only API credit/quota levels (lazy-loaded on first view of the tab).
+  const [credits, setCredits] = useState(null);
+  const [creditsCheckedAt, setCreditsCheckedAt] = useState(null);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+  const [creditsError, setCreditsError] = useState("");
+  const [creditsRefreshing, setCreditsRefreshing] = useState(false);
+
   useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
+    setTab(validKeys.includes(initialTab) ? initialTab : "monitor");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab, isAdmin]);
 
   const load = useCallback(async () => {
     if (!brandId) {
@@ -115,6 +141,42 @@ export default function SentinelHealth({ brandId, initialTab = "monitor" }) {
       setError(err.message || "Health check failed.");
     } finally {
       setRunning(false);
+    }
+  }
+
+  const loadCredits = useCallback(async () => {
+    setCreditsLoading(true);
+    setCreditsError("");
+    try {
+      const res = await api.healthGetApiCredits();
+      setCredits(asArray(res.providers));
+      setCreditsCheckedAt(res.checkedAt || null);
+    } catch (err) {
+      setCreditsError(err.message || "Couldn't load API credit levels.");
+    } finally {
+      setCreditsLoading(false);
+    }
+  }, []);
+
+  // Lazy-load the admin-only credit levels the first time the tab is opened.
+  useEffect(() => {
+    if (isAdmin && tab === "apiCredits" && credits === null && !creditsLoading) {
+      loadCredits();
+    }
+  }, [isAdmin, tab, credits, creditsLoading, loadCredits]);
+
+  async function refreshCredits() {
+    if (creditsRefreshing) return;
+    setCreditsRefreshing(true);
+    setCreditsError("");
+    try {
+      const res = await api.healthRefreshApiCredits();
+      setCredits(asArray(res.providers));
+      setCreditsCheckedAt(res.checkedAt || null);
+    } catch (err) {
+      setCreditsError(err.message || "Couldn't refresh API credit levels.");
+    } finally {
+      setCreditsRefreshing(false);
     }
   }
 
@@ -161,13 +223,23 @@ export default function SentinelHealth({ brandId, initialTab = "monitor" }) {
             </div>
           </div>
         </div>
-        <button
-          onClick={runCheck}
-          disabled={running}
-          className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-semibold text-gray-200 hover:bg-gray-800 disabled:opacity-50"
-        >
-          {running ? "Running…" : "Run check now"}
-        </button>
+        {tab === "apiCredits" ? (
+          <button
+            onClick={refreshCredits}
+            disabled={creditsRefreshing}
+            className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-semibold text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+          >
+            {creditsRefreshing ? "Checking…" : "Refresh credits"}
+          </button>
+        ) : (
+          <button
+            onClick={runCheck}
+            disabled={running}
+            className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-semibold text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+          >
+            {running ? "Running…" : "Run check now"}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -178,7 +250,7 @@ export default function SentinelHealth({ brandId, initialTab = "monitor" }) {
 
       {/* Tabs */}
       <div className="mb-5 flex flex-wrap gap-2">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -285,6 +357,58 @@ export default function SentinelHealth({ brandId, initialTab = "monitor" }) {
           </div>
           <p className="mt-3 text-xs text-gray-500">
             A system shows as needing attention when Sentinel's latest sweep flagged an issue for it.
+          </p>
+        </div>
+      )}
+
+      {isAdmin && tab === "apiCredits" && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-bold uppercase tracking-wide text-gray-300">API credit levels</div>
+            <div className="text-xs text-gray-500">
+              {creditsCheckedAt ? `Last checked ${when(creditsCheckedAt)}` : "Not checked yet"}
+            </div>
+          </div>
+          {creditsError && (
+            <div className="mb-4 rounded-lg border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-300">
+              {creditsError}
+            </div>
+          )}
+          {creditsLoading && credits === null ? (
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6 text-sm text-gray-400">
+              Checking provider credit levels…
+            </div>
+          ) : asArray(credits).length === 0 ? (
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6 text-sm text-gray-400">
+              No provider data yet. Run a refresh to check current credit levels.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {asArray(credits).map((p) => {
+                const meta = QUOTA_STATUS[p.status] || QUOTA_STATUS.unavailable;
+                const pct = pctText(p.pct_remaining);
+                return (
+                  <div key={p.provider} className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: meta.color }} />
+                      <div className="truncate text-sm font-semibold capitalize text-gray-100">
+                        {p.label || p.provider}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-xs font-semibold" style={{ color: meta.color }}>
+                      {meta.label}
+                      {pct ? ` · ${pct} remaining` : ""}
+                    </div>
+                    {p.detail && (
+                      <div className="mt-1 text-xs text-gray-500">{p.detail}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <p className="mt-3 text-xs text-gray-500">
+            Sentinel checks provider credits hourly and alerts you by voice and push when any drop below 20% or hit a critical threshold. Levels reflect real provider data; providers without a usage API show as not available.
           </p>
         </div>
       )}

@@ -920,7 +920,7 @@ export default function App() {
                 (canOpenSection("voicesettings") ? <VoiceSettings /> : null)}
               {section === "sentinelhealth" &&
                 (canOpenSection("sentinelhealth") ? (
-                  <SentinelHealth brandId={selectedBrandId} initialTab={activeToolTab || "monitor"} />
+                  <SentinelHealth brandId={selectedBrandId} initialTab={activeToolTab || "monitor"} isAdmin={isAdmin} />
                 ) : null)}
               {section === "callmonitor" &&
                 (canOpenSection("callmonitor") ? <CallMonitoring /> : null)}

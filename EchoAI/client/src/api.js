@@ -1141,6 +1141,10 @@ export const api = {
     request(`/api/health-monitor/${brandId}/check`, { method: "POST" }),
   healthGetHistory: (brandId) =>
     request(`/api/health-monitor/${brandId}/history`),
+  // Platform-level API credit / quota levels (admin-only).
+  healthGetApiCredits: () => request("/api/health-monitor/api-credits"),
+  healthRefreshApiCredits: () =>
+    request("/api/health-monitor/api-credits/refresh", { method: "POST" }),
   submitSupportTicket: ({ brandId, description, screenshot }) =>
     request("/api/health-monitor/support", {
       method: "POST",

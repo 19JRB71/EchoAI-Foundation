@@ -4,6 +4,7 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const admin = require("../middleware/admin");
 const healthMonitorController = require("../controllers/healthMonitorController");
 
 // --- Authenticated health monitor + support. ---
@@ -22,6 +23,12 @@ router.post(
   healthMonitorController.submitSupportTicket,
 );
 router.get("/support", healthMonitorController.listSupportTickets);
+
+// API credit / quota monitoring is PLATFORM-level (the platform's own API keys),
+// so it is admin-only — a regular customer must never see the platform's credit
+// levels. Registered before the /:brandId/* routes so the literal path wins.
+router.get("/api-credits", admin, healthMonitorController.getApiCredits);
+router.post("/api-credits/refresh", admin, healthMonitorController.refreshApiCredits);
 
 // Health-check reads/runs require an active (non-locked) account.
 router.get("/:brandId/status", lockout, healthMonitorController.getStatus);

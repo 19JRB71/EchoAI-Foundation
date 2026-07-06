@@ -30,6 +30,7 @@ const {
   runWeeklyOpportunityScanForBrand,
 } = require("../controllers/capitalFundingController");
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
+const { runApiQuotaSweep } = require("./apiQuotaMonitor");
 const { runDailyGoalTracking } = require("./goalAlerts");
 const { warmMorningBriefings } = require("../controllers/echoVoiceController");
 const {
@@ -316,6 +317,16 @@ function startScheduler() {
     });
   });
 
+  // Top of every hour: Sentinel checks the platform's third-party API credit /
+  // quota levels (ElevenLabs, OpenAI, Anthropic, Twilio, Google Cloud) and alerts
+  // the platform owner by voice + push the moment any drops below 20% remaining or
+  // a critical threshold — so no service ever runs out silently.
+  cron.schedule("0 * * * *", () => {
+    runApiQuotaSweep({ notify: true }).catch((err) => {
+      console.error("Scheduled API quota sweep errored:", err.message);
+    });
+  });
+
   // Every minute: enqueue any due Echo voice reminders (appointment 15m/5m,
   // follow-up-call-due). Idempotent dedup keys make overlapping ticks safe.
   cron.schedule("* * * * *", () => {
@@ -402,6 +413,7 @@ function startScheduler() {
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
       "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
+      "API quota monitor: hourly; " +
       "Echo voice reminders: every minute; Echo closing summary: daily 18:00; " +
       "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
       "goal tracking: daily 05:45; " +
@@ -417,4 +429,5 @@ module.exports = {
   runWeeklyCrossBusinessIntelligence,
   runCompetitorScan,
   runDailyGoalTracking,
+  runApiQuotaSweep,
 };

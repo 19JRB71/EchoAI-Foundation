@@ -28,6 +28,7 @@ const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
 const { sendEmail } = require("../utils/email");
 const { alertOwnerOfFailedSmsCampaign } = require("./smsMarketingController");
+const apiQuotaMonitor = require("../utils/apiQuotaMonitor");
 
 const UPLOADS_DIR = path.join(__dirname, "..", "uploads", "support");
 const PUBLIC_PREFIX = "/uploads/support";
@@ -749,6 +750,48 @@ async function runHourlyHealthSweep() {
   console.log(`Hourly health sweep complete: ${checked}/${brands.rows.length} brands checked, ${alerted} critical.`);
 }
 
+/**
+ * Newest checked_at across the stored provider snapshots (or null when none).
+ */
+function latestCheckedAt(providers) {
+  return providers.reduce((acc, p) => {
+    if (!p.checked_at) return acc;
+    const t = new Date(p.checked_at).getTime();
+    return !acc || t > acc.getTime() ? new Date(p.checked_at) : acc;
+  }, null);
+}
+
+/**
+ * GET /api/health-monitor/api-credits (admin-only). Returns the latest stored
+ * credit/quota level for every monitored provider so Sentinel's health monitor
+ * can show them all at a glance.
+ */
+async function getApiCredits(req, res) {
+  try {
+    const providers = await apiQuotaMonitor.getSnapshots();
+    return res.json({ providers, checkedAt: latestCheckedAt(providers) });
+  } catch (err) {
+    console.error("getApiCredits failed:", err.message);
+    return res.status(500).json({ error: "Failed to load API credit levels" });
+  }
+}
+
+/**
+ * POST /api/health-monitor/api-credits/refresh (admin-only). Runs an on-demand
+ * quota sweep (which also fires any low/critical owner alerts, deduped per day)
+ * and returns the freshly-stored levels.
+ */
+async function refreshApiCredits(req, res) {
+  try {
+    await apiQuotaMonitor.runApiQuotaSweep({ notify: true });
+    const providers = await apiQuotaMonitor.getSnapshots();
+    return res.json({ providers, checkedAt: latestCheckedAt(providers) });
+  } catch (err) {
+    console.error("refreshApiCredits failed:", err.message);
+    return res.status(500).json({ error: "Failed to refresh API credit levels" });
+  }
+}
+
 module.exports = {
   runHealthCheck,
   runHourlyHealthSweep,
@@ -758,6 +801,8 @@ module.exports = {
   submitSupportTicket,
   submitPublicSupportTicket,
   listSupportTickets,
+  getApiCredits,
+  refreshApiCredits,
   // exported for tests
   statusFromIssues,
   persistScreenshot,
