@@ -60,3 +60,16 @@ export function isCredentialFailure(post) {
   if (!reason || isInterruptedPublish(post)) return false;
   return CREDENTIAL_FAILURE_RE.test(reason);
 }
+
+// True when a scheduled post has already survived at least one failed publish
+// attempt — the server hit a transient platform error and quietly pushed the
+// post back to 'scheduled' a few minutes out. Surfacing this stops the moved
+// time from looking like a glitch. Only applies to 'scheduled' posts; once a
+// post publishes or permanently fails its rendering is unchanged.
+export function isRetryingPost(post) {
+  return (
+    !!post &&
+    post.status === "scheduled" &&
+    Number(post.publish_attempts) > 0
+  );
+}

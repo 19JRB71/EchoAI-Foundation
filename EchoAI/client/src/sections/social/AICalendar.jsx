@@ -3,7 +3,8 @@ import { api } from "../../api.js";
 import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PLATFORMS, PlatformBadge, PlatformDot, platformMeta } from "./platformMeta.jsx";
-import { postFailureReason, isCredentialFailure } from "./postFailure.js";
+import { postFailureReason, isCredentialFailure, isRetryingPost } from "./postFailure.js";
+import RetryBadge from "./RetryBadge.jsx";
 import ReschedulePost from "./ReschedulePost.jsx";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -392,6 +393,11 @@ export default function AICalendar({ brandId, onReconnect }) {
                                 {failReason}
                               </span>
                             )}
+                            {isRetryingPost(post) && (
+                              <span className="mt-0.5 block">
+                                <RetryBadge />
+                              </span>
+                            )}
                           </span>
                           <span
                             className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyle(
@@ -702,6 +708,12 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
             {post.status}
           </span>
         </div>
+
+        {isRetryingPost(post) && (
+          <div className="mb-4">
+            <RetryBadge />
+          </div>
+        )}
 
         <dl className="mb-4 space-y-1 border-b border-gray-800 pb-4 text-xs text-gray-400">
           <div className="flex justify-between">

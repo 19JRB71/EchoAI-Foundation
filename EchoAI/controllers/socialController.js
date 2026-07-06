@@ -339,7 +339,7 @@ async function getSocialCalendar(req, res) {
 
     const result = await db.query(
       `SELECT post_id, platform, post_content, scheduled_time, published_time,
-              status, engagement_metrics, external_post_id, created_at
+              status, engagement_metrics, external_post_id, publish_attempts, created_at
        FROM social_posts
        WHERE brand_id = $1
        ORDER BY COALESCE(scheduled_time, published_time, created_at) ASC`,
