@@ -54,7 +54,11 @@ async function httpJson(url, { method = "GET", headers = {}, body } = {}) {
             : JSON.stringify(body),
     });
   } catch (err) {
-    throw new Error(`Network error contacting platform: ${err.message}`);
+    // A network-level failure (timeout, DNS, connection reset) never reached
+    // the platform, so it's safe to retry — mark it transient for callers.
+    const wrapped = new Error(`Network error contacting platform: ${err.message}`);
+    wrapped.transient = true;
+    throw wrapped;
   }
 
   const text = await response.text();

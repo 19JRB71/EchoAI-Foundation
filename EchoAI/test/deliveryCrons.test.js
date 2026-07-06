@@ -50,7 +50,7 @@ const { sendDueDripEmails } = require("../controllers/emailMarketingController")
  * contained by the loop's per-post guard. Every unrecognized query throws.
  */
 function makeSocialDb(seed) {
-  const state = { published: [], failed: [], rescued: [] };
+  const state = { published: [], failed: [], failedErrors: [], retried: [], rescued: [] };
 
   async function query(sql, params = []) {
     // 0) The stale-'publishing' rescue sweep that runs before the claim.
@@ -95,6 +95,18 @@ function makeSocialDb(seed) {
     // 4) Failure path — the per-post guard marking the broken post failed.
     if (/UPDATE social_posts/i.test(sql) && /SET status = 'failed'/i.test(sql)) {
       state.failed.push(params[1]);
+      state.failedErrors.push(params[0]);
+      return { rows: [] };
+    }
+
+    // 5) Transient-retry path — the post is re-queued as 'scheduled' for one
+    // automatic retry a few minutes out (guarded on status = 'publishing').
+    if (
+      /UPDATE social_posts/i.test(sql) &&
+      /SET status = 'scheduled'/i.test(sql) &&
+      /status = 'publishing'/i.test(sql)
+    ) {
+      state.retried.push(params[0]);
       return { rows: [] };
     }
 
@@ -214,6 +226,166 @@ test("publishDuePosts: a post stranded in 'publishing' by a crash is marked fail
     // Rescue never re-publishes — double-posting risk.
     assert.deepStrictEqual(platformCalls, [], "the rescue sweep must never call the platform API");
     assert.deepStrictEqual(summary, { due: 0, published: 0 });
+  } finally {
+    db.query = origQuery;
+    socialApi.publishPost = origPublish;
+  }
+});
+
+test("publishDuePosts: a transient platform error re-queues the post for one automatic retry instead of failing it", async () => {
+  // Timeouts, 5xx responses, and rate limits are one-off hiccups a retry a few
+  // minutes later usually resolves — the owner should never have to reschedule
+  // by hand for those.
+  const transientErrors = [
+    Object.assign(new Error("503 Service Unavailable"), { statusCode: 503 }),
+    Object.assign(new Error("429 Too Many Requests"), { statusCode: 429 }),
+    Object.assign(new Error("Network error contacting platform: timeout"), {
+      transient: true,
+    }),
+  ];
+
+  for (const boom of transientErrors) {
+    const fake = makeSocialDb({
+      posts: [
+        {
+          post_id: "p1",
+          brand_id: "b1",
+          platform: "facebook",
+          post_content: "flaky",
+          publish_attempts: 0,
+        },
+      ],
+    });
+
+    const origQuery = db.query;
+    const origPublish = socialApi.publishPost;
+    db.query = fake.query;
+    socialApi.publishPost = async () => {
+      throw boom;
+    };
+
+    try {
+      const summary = await publishDuePosts();
+
+      assert.deepStrictEqual(
+        fake.state.retried,
+        ["p1"],
+        `'${boom.message}' must re-queue the post for a retry`,
+      );
+      assert.deepStrictEqual(
+        fake.state.failed,
+        [],
+        `'${boom.message}' must not mark the post failed on the first attempt`,
+      );
+      assert.deepStrictEqual(summary, { due: 1, published: 0 });
+    } finally {
+      db.query = origQuery;
+      socialApi.publishPost = origPublish;
+    }
+  }
+});
+
+test("publishDuePosts: after the retry limit a transient error fails the post with the stored reason", async () => {
+  // publish_attempts = 1 means this claim is the post's second (and last)
+  // attempt — another transient error must resolve to 'failed', not loop.
+  const fake = makeSocialDb({
+    posts: [
+      {
+        post_id: "p1",
+        brand_id: "b1",
+        platform: "facebook",
+        post_content: "still flaky",
+        publish_attempts: 1,
+      },
+    ],
+  });
+
+  const origQuery = db.query;
+  const origPublish = socialApi.publishPost;
+  db.query = fake.query;
+  socialApi.publishPost = async () => {
+    throw Object.assign(new Error("503 Service Unavailable"), { statusCode: 503 });
+  };
+
+  try {
+    const summary = await publishDuePosts();
+
+    assert.deepStrictEqual(fake.state.retried, [], "no third attempt is allowed");
+    assert.deepStrictEqual(fake.state.failed, ["p1"]);
+    assert.match(
+      JSON.parse(fake.state.failedErrors[0]).error,
+      /503/,
+      "the stored reason must carry the platform error",
+    );
+    assert.deepStrictEqual(summary, { due: 1, published: 0 });
+  } finally {
+    db.query = origQuery;
+    socialApi.publishPost = origPublish;
+  }
+});
+
+test("publishDuePosts: hard errors (expired token, rejected content) fail immediately — never retried", async () => {
+  // A 4xx means the platform rejected the request outright; retrying the same
+  // payload can't succeed and would just delay the owner seeing the reason.
+  const fake = makeSocialDb({
+    posts: [
+      {
+        post_id: "p1",
+        brand_id: "b1",
+        platform: "facebook",
+        post_content: "rejected",
+        publish_attempts: 0,
+      },
+    ],
+  });
+
+  const origQuery = db.query;
+  const origPublish = socialApi.publishPost;
+  db.query = fake.query;
+  socialApi.publishPost = async () => {
+    throw Object.assign(new Error("401 token expired"), { statusCode: 401 });
+  };
+
+  try {
+    const summary = await publishDuePosts();
+
+    assert.deepStrictEqual(fake.state.retried, [], "hard errors must never re-queue");
+    assert.deepStrictEqual(fake.state.failed, ["p1"]);
+    assert.match(JSON.parse(fake.state.failedErrors[0]).error, /token expired/);
+    assert.deepStrictEqual(summary, { due: 1, published: 0 });
+  } finally {
+    db.query = origQuery;
+    socialApi.publishPost = origPublish;
+  }
+});
+
+test("publishDuePosts: a missing platform post id is a hard failure — the publish may have gone out, so no retry", async () => {
+  // publishStoredPost throws AFTER the platform call when no external id came
+  // back. That error has no transient signal, and retrying it could
+  // double-post — it must take the 'failed' path even on attempt 1.
+  const fake = makeSocialDb({
+    posts: [
+      {
+        post_id: "p1",
+        brand_id: "b1",
+        platform: "facebook",
+        post_content: "no id back",
+        publish_attempts: 0,
+      },
+    ],
+  });
+
+  const origQuery = db.query;
+  const origPublish = socialApi.publishPost;
+  db.query = fake.query;
+  socialApi.publishPost = async () => ({ externalId: null });
+
+  try {
+    await publishDuePosts();
+
+    assert.deepStrictEqual(fake.state.retried, [], "must not risk a double-post");
+    assert.deepStrictEqual(fake.state.failed, ["p1"]);
+    assert.match(JSON.parse(fake.state.failedErrors[0]).error, /did not return a post id/i);
   } finally {
     db.query = origQuery;
     socialApi.publishPost = origPublish;

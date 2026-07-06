@@ -287,7 +287,8 @@ async function reschedulePost(req, res) {
   try {
     const result = await db.query(
       `UPDATE social_posts sp
-       SET status = 'scheduled', scheduled_time = $1, engagement_metrics = NULL
+       SET status = 'scheduled', scheduled_time = $1, engagement_metrics = NULL,
+           publish_attempts = 0
        FROM brands b
        WHERE sp.post_id = $2
          AND b.brand_id = sp.brand_id
@@ -497,6 +498,29 @@ async function publishStoredPost(post) {
   return result;
 }
 
+// A post gets this many total publish attempts before it is marked 'failed'
+// for a transient platform error. Hard errors (expired token, rejected
+// content, bad credentials) never retry — they fail on the first attempt.
+const MAX_PUBLISH_ATTEMPTS = 2;
+// How long a transiently-failed post waits before the scheduler picks it up
+// again (the every-minute tick republishes it once scheduled_time passes).
+const PUBLISH_RETRY_DELAY_MINUTES = 5;
+
+/**
+ * Transient publish failures are worth one automatic retry: network-level
+ * errors that never reached the platform (socialApi marks them
+ * `err.transient`), platform 5xx responses, and 429 rate limits. Everything
+ * else — 4xx auth/content rejections, missing accounts, and any error without
+ * an explicit transient signal (e.g. "no post id returned", where the platform
+ * call may have succeeded) — is treated as hard, because retrying those either
+ * cannot help or risks double-posting.
+ */
+function isTransientPublishError(err) {
+  if (err && err.transient === true) return true;
+  const status = err && err.statusCode;
+  return status === 429 || (typeof status === "number" && status >= 500);
+}
+
 /**
  * Publishes every scheduled post whose scheduled_time has passed. Posts are
  * claimed atomically (status -> 'publishing') so overlapping scheduler ticks
@@ -545,7 +569,7 @@ async function publishDuePosts() {
        LIMIT 50
        FOR UPDATE OF sp SKIP LOCKED
      )
-     RETURNING post_id, brand_id, platform, post_content`
+     RETURNING post_id, brand_id, platform, post_content, publish_attempts`
   );
 
   let published = 0;
@@ -554,9 +578,35 @@ async function publishDuePosts() {
       await publishStoredPost(post);
       published += 1;
     } catch (err) {
+      const attemptsUsed = (post.publish_attempts || 0) + 1;
+      // One transient hiccup (timeout, 5xx, rate limit) shouldn't force the
+      // owner to reschedule by hand: put the post back to 'scheduled' a few
+      // minutes out and let the regular tick retry it. The status guard keeps
+      // this from clobbering a row something else already resolved. Hard
+      // errors and exhausted retries fall through to 'failed' as before.
+      if (isTransientPublishError(err) && attemptsUsed < MAX_PUBLISH_ATTEMPTS) {
+        console.warn(
+          `Social publish hit a transient error for post ${post.post_id} ` +
+            `(attempt ${attemptsUsed}/${MAX_PUBLISH_ATTEMPTS}), retrying in ` +
+            `${PUBLISH_RETRY_DELAY_MINUTES} minutes:`,
+          err.message
+        );
+        await db.query(
+          `UPDATE social_posts
+           SET status = 'scheduled',
+               scheduled_time = NOW() + make_interval(mins => ${PUBLISH_RETRY_DELAY_MINUTES}),
+               publish_attempts = publish_attempts + 1
+           WHERE post_id = $1 AND status = 'publishing'`,
+          [post.post_id]
+        );
+        continue;
+      }
       console.error(`Social publish failed for post ${post.post_id}:`, err.message);
       await db.query(
-        "UPDATE social_posts SET status = 'failed', engagement_metrics = $1 WHERE post_id = $2",
+        `UPDATE social_posts
+         SET status = 'failed', engagement_metrics = $1,
+             publish_attempts = publish_attempts + 1
+         WHERE post_id = $2`,
         [JSON.stringify({ error: err.message }), post.post_id]
       );
     }

@@ -42,3 +42,4 @@
 - [EchoAI sweep guard seam](echoai-sweep-guard-seam.md) — every recurring loop-over-items sweep guards each iteration (and each sub-sweep); test via module.exports per-row helper stubbed to throw.
 - [EchoAI stale-claim rescue](echoai-stale-claim-rescue.md) — non-transactional status-flip claims need a stale-row rescue sweep (updated_at window); mark failed w/ owner-visible error, never retry (double-post risk).
 - [EchoAI failed-post reschedule](echoai-failed-post-reschedule.md) — only failed→scheduled, atomic row-count branch; client detects interrupted publishes by the rescue sweep's marker text — reword both in lockstep.
+- [EchoAI social publish retry](echoai-publish-retry.md) — retry only explicitly-transient errors (err.transient/429/5xx); unclassified errors fail-closed (double-post risk); reschedule resets publish_attempts.
