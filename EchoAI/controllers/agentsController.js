@@ -358,6 +358,24 @@ async function getMissionControl(req, res) {
       [userId]
     );
 
+    // Posts currently stuck in 'failed' across ALL the user's real brands.
+    // Push already alerts installed-PWA owners the moment a publish fails;
+    // this feed catches everyone else at next login. Rows disappear on their
+    // own once the post is rescheduled (failed -> scheduled) or deleted,
+    // because the query keys off the live status — no separate log to clear.
+    const failedPosts = await rows(
+      `SELECT sp.post_id, sp.platform, sp.scheduled_time, sp.updated_at,
+              sp.engagement_metrics->>'error' AS reason,
+              b.brand_id, b.brand_name
+         FROM social_posts sp
+         JOIN brands b ON b.brand_id = sp.brand_id
+        WHERE b.user_id = $1 AND b.is_demo = false
+          AND sp.status = 'failed'
+        ORDER BY sp.updated_at DESC
+        LIMIT 20`,
+      [userId]
+    );
+
     const attention = agents.filter((a) => a.status === "attention").map((a) => a.name);
     const briefing =
       `Good morning. ${leadsWeek} new lead${leadsWeek === 1 ? "" : "s"} this week and ${activeCampaigns} live campaign${activeCampaigns === 1 ? "" : "s"}. ` +
@@ -389,6 +407,15 @@ async function getMissionControl(req, res) {
         createdAt: a.created_at,
         percentToGoal: a.percent_to_goal == null ? null : Number(a.percent_to_goal),
         muted: a.alerts_muted === true,
+      })),
+      failedPosts: failedPosts.map((p) => ({
+        postId: p.post_id,
+        platform: p.platform,
+        brandId: p.brand_id,
+        brandName: p.brand_name,
+        reason: p.reason || "Unknown error",
+        scheduledTime: p.scheduled_time,
+        failedAt: p.updated_at,
       })),
     });
   } catch (err) {

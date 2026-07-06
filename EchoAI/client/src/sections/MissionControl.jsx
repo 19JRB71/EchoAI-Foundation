@@ -50,6 +50,7 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
   const [data, setData] = useState(null);
   const [goals, setGoals] = useState(null);
   const [goalAlerts, setGoalAlerts] = useState([]);
+  const [failedPosts, setFailedPosts] = useState([]);
   const [alertBusy, setAlertBusy] = useState(null); // alertId or goalId in flight
   const [alertError, setAlertError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -66,6 +67,7 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
       setData(mc);
       setGoals(goalsOverview);
       setGoalAlerts(Array.isArray(mc && mc.goalAlerts) ? mc.goalAlerts : []);
+      setFailedPosts(Array.isArray(mc && mc.failedPosts) ? mc.failedPosts : []);
       setAlertError("");
     } catch (err) {
       setError(err.message || "Couldn't load Mission Control.");
@@ -276,6 +278,50 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
                 style={{ borderColor: `${a.color}66`, color: a.color, backgroundColor: `${a.color}14` }}
               >
                 {a.name}: {a.currentTask}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Failed scheduled posts (push is also sent the moment one fails; this
+          feed catches owners without the PWA/notifications at next login).
+          Rows come straight from posts in 'failed' status, so an entry
+          disappears on its own once the post is rescheduled or deleted. */}
+      {failedPosts.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-red-900/50 bg-red-950/20 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-red-200">
+              {failedPosts.length} post{failedPosts.length === 1 ? "" : "s"} failed to publish
+            </div>
+            <button
+              onClick={() => onNavigate && onNavigate("social")}
+              className="text-xs font-semibold text-red-300 hover:text-red-200"
+            >
+              Open calendar →
+            </button>
+          </div>
+          <div className="mt-3 space-y-2">
+            {failedPosts.map((p) => (
+              <button
+                key={p.postId}
+                onClick={() => onNavigate && onNavigate("social")}
+                title="Open the Social Media calendar to reschedule"
+                className="block w-full rounded-lg border border-red-900/40 bg-gray-950/40 px-3 py-2 text-left hover:border-red-700/60"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-red-900/40 px-2 py-0.5 text-[11px] font-semibold capitalize text-red-200">
+                    {p.platform}
+                  </span>
+                  <span className="text-sm text-gray-100">{p.brandName}</span>
+                  <span className="text-[11px] text-gray-500">
+                    {whenLabel(p.failedAt || p.scheduledTime)}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-gray-400">{p.reason}</div>
+                <div className="mt-0.5 text-[11px] font-semibold text-red-300">
+                  Reschedule in calendar →
+                </div>
               </button>
             ))}
           </div>
