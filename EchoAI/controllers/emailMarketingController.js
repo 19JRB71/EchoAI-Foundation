@@ -519,6 +519,13 @@ async function sendCampaign(req, res) {
 // retries silently on the next tick.
 const MAX_DRIP_SEND_ATTEMPTS = 3;
 
+// During a multi-hour SMTP outage, different recipients of the same campaign
+// exhaust their attempts in different hourly runs — without a cooldown that
+// means one owner alert per run. A campaign alerts at most once per this many
+// hours; the claim is an atomic UPDATE on last_failure_alert_at (branch on
+// row count) so overlapping ticks can't double-alert either.
+const DRIP_FAILURE_ALERT_COOLDOWN_HOURS = 24;
+
 /**
  * Sends every due drip email. Each recipient is claimed atomically with
  * SELECT ... FOR UPDATE SKIP LOCKED inside its own transaction so overlapping
@@ -530,6 +537,9 @@ const MAX_DRIP_SEND_ATTEMPTS = 3;
  * inside its claim transaction — only recipients that really made that
  * transition are counted, and after the loop the owner gets one push per
  * affected campaign (tag per campaign) deep-linking to the Email section.
+ * A per-campaign cooldown (DRIP_FAILURE_ALERT_COOLDOWN_HOURS, claimed via an
+ * atomic UPDATE on last_failure_alert_at) keeps a multi-hour outage from
+ * re-alerting the same campaign every hourly run.
  */
 async function sendDueDripEmails() {
   const baseUrl = getPublicBaseUrl(null);
@@ -701,7 +711,37 @@ async function sendDueDripEmails() {
   // recipients whose pending -> failed flip really hit a row are counted, and
   // the per-campaign tag collapses any duplicate deliveries. Best-effort:
   // alertOwnerOfFailedSend never throws and skips demo brands itself.
+  //
+  // Cross-run cooldown: an outage that spans several hourly runs makes NEW
+  // recipients of the same campaign exhaust their attempts each run — the
+  // per-run aggregation alone would still buzz the owner every hour (FCM
+  // doesn't collapse by tag). Claim last_failure_alert_at atomically and
+  // branch on the row count: only the run that wins the claim alerts, and the
+  // same campaign stays silent for the cooldown window. The recipient rows
+  // still flip to 'failed' regardless, so nothing is lost — only the repeat
+  // notification is suppressed. Claim failures (DB error) skip the alert
+  // rather than risk a spam loop; the next run retries the claim.
   for (const [campaignId, f] of failedByCampaign) {
+    let claimed;
+    try {
+      claimed = await db.query(
+        `UPDATE email_marketing_campaigns
+         SET last_failure_alert_at = NOW(), updated_at = NOW()
+         WHERE campaign_id = $1
+           AND (last_failure_alert_at IS NULL
+                OR last_failure_alert_at <= NOW() - ($2 * INTERVAL '1 hour'))
+         RETURNING campaign_id`,
+        [campaignId, DRIP_FAILURE_ALERT_COOLDOWN_HOURS]
+      );
+    } catch (err) {
+      console.error(
+        `Failed-email-campaign alert cooldown claim failed (campaign ${campaignId}):`,
+        err.message
+      );
+      continue;
+    }
+    if (claimed.rows.length === 0) continue; // alerted within the cooldown window
+
     const why = String(f.reason || "Unknown error").slice(0, 160);
     const label = f.campaignName ? `"${f.campaignName}"` : "your email campaign";
     await alertOwnerOfFailedSend({

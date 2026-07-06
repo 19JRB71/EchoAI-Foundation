@@ -66,16 +66,32 @@ async function withStubs({ fakeQuery, fakeGetClient, onPush, onMobilePush }, fn)
  * Fake db for sendDueDripEmails where every recipient's SMTP send fails.
  * `recipients` rows carry send_attempts so tests control distance from the
  * limit. Brands lookups serve the alert helper.
+ *
+ * The fake is STATEFUL across runs so tests can call sendDueDripEmails twice
+ * to model consecutive hourly ticks: attempt bumps persist, recipients that
+ * flip to 'failed' drop out of the due/claim queries, and the per-campaign
+ * failure-alert cooldown claim (UPDATE email_marketing_campaigns SET
+ * last_failure_alert_at ...) mirrors production — it hits a row only if the
+ * campaign has never claimed the cooldown, or the test aged it out via
+ * `expireCooldown(campaignId)`.
  */
 function makeDripDb({ recipients, brands }) {
-  const state = { failedFlips: [], attemptBumps: [], brandLookups: [] };
+  const state = {
+    failedFlips: [],
+    attemptBumps: [],
+    brandLookups: [],
+    cooldownClaims: [], // every claim attempt: { campaignId, hit }
+  };
+  const failed = new Set();
+  const cooldownClaimed = new Set(); // campaigns holding an unexpired cooldown
 
   async function clientQuery(sql, params = []) {
     const bare = sql.trim();
     if (/^(BEGIN|COMMIT|ROLLBACK)$/i.test(bare)) return { rows: [] };
     if (/FROM email_marketing_recipients r/i.test(sql) && /FOR UPDATE/i.test(sql)) {
       const rec = recipients[params[0]];
-      return { rows: rec ? [{ ...rec }] : [] };
+      if (!rec || failed.has(rec.recipient_id)) return { rows: [] };
+      return { rows: [{ ...rec }] };
     }
     if (/FROM email_opt_outs/i.test(sql)) return { rows: [] };
     if (/FROM email_marketing_emails/i.test(sql)) {
@@ -90,10 +106,13 @@ function makeDripDb({ recipients, brands }) {
       /delivery_status = 'failed'/i.test(sql)
     ) {
       state.failedFlips.push(params[1]);
+      failed.add(params[1]);
       return { rows: [{ recipient_id: params[1] }] };
     }
     if (/UPDATE email_marketing_recipients/i.test(sql) && /SET send_attempts =/i.test(sql)) {
       state.attemptBumps.push({ recipientId: params[1], attempts: params[0] });
+      const rec = recipients[params[1]];
+      if (rec) rec.send_attempts = params[0];
       return { rows: [] };
     }
     throw new Error(`makeDripDb: unexpected client query: ${sql.slice(0, 80)}`);
@@ -104,7 +123,21 @@ function makeDripDb({ recipients, brands }) {
       /FROM email_marketing_recipients r/i.test(sql) &&
       /JOIN email_marketing_campaigns c/i.test(sql)
     ) {
-      return { rows: Object.keys(recipients).map((recipient_id) => ({ recipient_id })) };
+      return {
+        rows: Object.keys(recipients)
+          .filter((id) => !failed.has(id))
+          .map((recipient_id) => ({ recipient_id })),
+      };
+    }
+    if (
+      /UPDATE email_marketing_campaigns/i.test(sql) &&
+      /last_failure_alert_at/i.test(sql)
+    ) {
+      const campaignId = params[0];
+      const hit = !cooldownClaimed.has(campaignId);
+      state.cooldownClaims.push({ campaignId, hit });
+      if (hit) cooldownClaimed.add(campaignId);
+      return { rows: hit ? [{ campaign_id: campaignId }] : [] };
     }
     if (/SELECT brand_name, user_id, is_demo FROM brands/i.test(sql)) {
       state.brandLookups.push(params[0]);
@@ -118,7 +151,12 @@ function makeDripDb({ recipients, brands }) {
     return { query: clientQuery, release: () => {} };
   }
 
-  return { query, getClient, state };
+  /** Ages the campaign's cooldown past the window (as if 24h elapsed). */
+  function expireCooldown(campaignId) {
+    cooldownClaimed.delete(campaignId);
+  }
+
+  return { query, getClient, state, expireCooldown };
 }
 
 test("drip recipient at the attempt limit flips to failed and alerts the owner once per campaign", async () => {
@@ -255,6 +293,133 @@ test("drip failure on a demo brand flips but never alerts", async () => {
   assert.deepStrictEqual(fake.state.failedFlips, ["r1"], "the failed flip still happens");
   assert.deepStrictEqual(fake.state.brandLookups, ["b-demo"], "the brand was considered");
   assert.strictEqual(pushes.length, 0, "demo brands never alert");
+});
+
+// --- Cross-run cooldown: a multi-hour outage alerts once, not once per run ----
+
+test("a multi-hour outage where recipients fail in different runs alerts the campaign once, not once per run", async () => {
+  // Simulates an SMTP outage spanning two hourly ticks: r1 exhausts its
+  // attempts in run 1, r2 (one attempt behind) exhausts in run 2. Without the
+  // per-campaign cooldown each run would fire its own alert — and FCM mobile
+  // pushes don't collapse by tag, so the owner's phone would buzz hourly.
+  // Run 2's flip must still happen (data stays honest); only the repeat
+  // notification is suppressed.
+  const fake = makeDripDb({
+    recipients: {
+      r1: {
+        recipient_id: "r1", campaign_id: "c1", email_address: "a@x.com",
+        current_step: 1, send_attempts: 2, brand_id: "b1", campaign_name: "Welcome Drip",
+      },
+      r2: {
+        recipient_id: "r2", campaign_id: "c1", email_address: "b@x.com",
+        current_step: 1, send_attempts: 1, brand_id: "b1", campaign_name: "Welcome Drip",
+      },
+    },
+    brands: { b1: { brand_name: "Acme", user_id: "owner-1", is_demo: false } },
+  });
+  const origSendMail = sendMailImpl;
+  sendMailImpl = async () => {
+    throw new Error("SMTP connection refused");
+  };
+  const pushes = [];
+  const mobilePushes = [];
+  try {
+    await withStubs(
+      {
+        fakeQuery: fake.query,
+        fakeGetClient: fake.getClient,
+        onPush: async (userId, payload) => {
+          pushes.push({ userId, payload });
+          return { sent: 1, failed: 0 };
+        },
+        onMobilePush: async (userId, payload) => {
+          mobilePushes.push({ userId, payload });
+          return { sent: 1, failed: 0 };
+        },
+      },
+      async () => {
+        // Run 1 (hour N): r1 hits the limit and flips; r2 just bumps to 2.
+        const run1 = await sendDueDripEmails();
+        assert.strictEqual(run1.failed, 1, "run 1: one campaign had failures");
+        assert.strictEqual(pushes.length, 1, "run 1 alerts the owner");
+
+        // Run 2 (hour N+1): r2 now hits the limit and flips — same campaign,
+        // same outage, still inside the cooldown window.
+        const run2 = await sendDueDripEmails();
+        assert.strictEqual(run2.failed, 1, "run 2: the campaign had new failures");
+      },
+    );
+  } finally {
+    sendMailImpl = origSendMail;
+  }
+
+  assert.deepStrictEqual(
+    fake.state.failedFlips,
+    ["r1", "r2"],
+    "both recipients flipped to failed across the two runs",
+  );
+  assert.deepStrictEqual(
+    fake.state.cooldownClaims,
+    [
+      { campaignId: "c1", hit: true },
+      { campaignId: "c1", hit: false },
+    ],
+    "run 2 attempted the claim but lost to the unexpired cooldown",
+  );
+  assert.strictEqual(pushes.length, 1, "one web-push alert across both runs, not one per run");
+  assert.strictEqual(mobilePushes.length, 1, "one FCM alert across both runs (FCM can't collapse by tag)");
+  assert.strictEqual(pushes[0].payload.tag, "email-campaign-failed-c1");
+});
+
+test("a campaign whose cooldown has expired alerts again on new failures", async () => {
+  // Two waves of failures more than the cooldown window apart must each
+  // alert: the cooldown suppresses hourly repeats, not a genuinely new
+  // outage the next day.
+  const fake = makeDripDb({
+    recipients: {
+      r1: {
+        recipient_id: "r1", campaign_id: "c1", email_address: "a@x.com",
+        current_step: 1, send_attempts: 2, brand_id: "b1", campaign_name: "Welcome Drip",
+      },
+      r2: {
+        recipient_id: "r2", campaign_id: "c1", email_address: "b@x.com",
+        current_step: 1, send_attempts: 1, brand_id: "b1", campaign_name: "Welcome Drip",
+      },
+    },
+    brands: { b1: { brand_name: "Acme", user_id: "owner-1", is_demo: false } },
+  });
+  const origSendMail = sendMailImpl;
+  sendMailImpl = async () => {
+    throw new Error("SMTP connection refused");
+  };
+  const pushes = [];
+  try {
+    await withStubs(
+      {
+        fakeQuery: fake.query,
+        fakeGetClient: fake.getClient,
+        onPush: async (userId, payload) => {
+          pushes.push(payload);
+          return { sent: 1, failed: 0 };
+        },
+      },
+      async () => {
+        await sendDueDripEmails(); // r1 flips, alert #1, cooldown claimed
+        fake.expireCooldown("c1"); // > 24h pass
+        await sendDueDripEmails(); // r2 flips, cooldown expired -> alert #2
+      },
+    );
+  } finally {
+    sendMailImpl = origSendMail;
+  }
+
+  assert.deepStrictEqual(fake.state.failedFlips, ["r1", "r2"]);
+  assert.strictEqual(pushes.length, 2, "an expired cooldown re-alerts on new failures");
+  assert.deepStrictEqual(
+    fake.state.cooldownClaims.map((c) => c.hit),
+    [true, true],
+    "both claims hit once the cooldown aged out",
+  );
 });
 
 // --- SMS blast: total failure -> campaign 'failed' -> owner alert -------------
