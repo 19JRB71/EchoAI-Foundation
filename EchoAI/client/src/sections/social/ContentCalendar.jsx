@@ -4,6 +4,7 @@ import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PlatformBadge, PlatformDot, platformMeta } from "./platformMeta.jsx";
 import { postFailureReason } from "./postFailure.js";
+import ReschedulePost from "./ReschedulePost.jsx";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -257,13 +258,20 @@ export default function ContentCalendar({ brandId }) {
       )}
 
       {activePost && (
-        <PostDetailModal post={activePost} onClose={() => setActivePost(null)} />
+        <PostDetailModal
+          post={activePost}
+          onClose={() => setActivePost(null)}
+          onRescheduled={async (updated) => {
+            setActivePost(updated);
+            await load();
+          }}
+        />
       )}
     </div>
   );
 }
 
-function PostDetailModal({ post, onClose }) {
+function PostDetailModal({ post, onClose, onRescheduled }) {
   const meta = platformMeta(post.platform);
   const metrics = post.engagement_metrics || null;
   const failReason = postFailureReason(post);
@@ -328,6 +336,10 @@ function PostDetailModal({ post, onClose }) {
               </span>
             </div>
           )
+        )}
+
+        {post.status === "failed" && (
+          <ReschedulePost post={post} onRescheduled={onRescheduled} />
         )}
 
         <div className="mt-5 text-right">

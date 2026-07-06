@@ -422,6 +422,11 @@ export const api = {
       method: "POST",
       body: { brandId, platform, postContent, scheduledTime },
     }),
+  rescheduleSocialPost: (postId, scheduledTime) =>
+    request(`/api/social/posts/${postId}/reschedule`, {
+      method: "PUT",
+      body: { scheduledTime },
+    }),
   connectSocial: ({ brandId, platform, credentials, username }) =>
     request("/api/social/connect", {
       method: "POST",

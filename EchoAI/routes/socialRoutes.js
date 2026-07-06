@@ -14,6 +14,7 @@ router.use(auth, lockout, denyViewerMutations);
 router.post("/connect", socialController.connectSocialAccount);
 router.post("/generate", socialController.generateSocialContent);
 router.post("/schedule", socialController.schedulePost);
+router.put("/posts/:postId/reschedule", socialController.reschedulePost);
 router.get("/calendar/:brandId", socialController.getSocialCalendar);
 router.get("/accounts/:brandId", socialController.getSocialAccounts);
 router.delete("/accounts/:brandId/:platform", socialController.disconnectSocialAccount);

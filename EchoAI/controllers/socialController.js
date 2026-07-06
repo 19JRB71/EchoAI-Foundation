@@ -250,6 +250,79 @@ async function schedulePost(req, res) {
 }
 
 /**
+ * PUT /api/social/posts/:postId/reschedule
+ * Puts a FAILED post back on the schedule at a new future time and clears the
+ * stored failure reason. Ownership is enforced with a join to brands on
+ * user_id; only the failed -> scheduled transition is allowed so a published
+ * or in-flight post can never be re-queued (double-post risk). Branches on
+ * the atomic UPDATE's row count, never a pre-read.
+ */
+async function reschedulePost(req, res) {
+  const userId = req.user.userId;
+  const { postId } = req.params;
+  const { scheduledTime } = req.body || {};
+
+  // post_id is a UUID; reject malformed ids up front so they surface as a
+  // clean 400 instead of a Postgres cast error.
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!postId || !UUID_RE.test(postId)) {
+    return res.status(400).json({ error: "Invalid post id" });
+  }
+  if (!scheduledTime) {
+    return res.status(400).json({ error: "scheduledTime is required" });
+  }
+  const when = new Date(scheduledTime);
+  if (Number.isNaN(when.getTime())) {
+    return res
+      .status(400)
+      .json({ error: "scheduledTime must be a valid date/time" });
+  }
+  if (when.getTime() <= Date.now()) {
+    return res
+      .status(400)
+      .json({ error: "scheduledTime must be in the future" });
+  }
+
+  try {
+    const result = await db.query(
+      `UPDATE social_posts sp
+       SET status = 'scheduled', scheduled_time = $1, engagement_metrics = NULL
+       FROM brands b
+       WHERE sp.post_id = $2
+         AND b.brand_id = sp.brand_id
+         AND b.user_id = $3
+         AND sp.status = 'failed'
+       RETURNING sp.post_id, sp.brand_id, sp.platform, sp.post_content,
+                 sp.scheduled_time, sp.published_time, sp.status,
+                 sp.engagement_metrics, sp.external_post_id, sp.created_at`,
+      [when.toISOString(), postId, userId]
+    );
+    if (result.rows.length > 0) {
+      return res.json({ post: result.rows[0] });
+    }
+
+    // Nothing updated: either the post isn't ours (404, same as any foreign
+    // resource) or it exists but isn't in 'failed' (409 with the real status).
+    const check = await db.query(
+      `SELECT sp.status FROM social_posts sp
+       JOIN brands b ON b.brand_id = sp.brand_id AND b.user_id = $2
+       WHERE sp.post_id = $1`,
+      [postId, userId]
+    );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    return res.status(409).json({
+      error: `Only failed posts can be rescheduled (this post is '${check.rows[0].status}')`,
+    });
+  } catch (err) {
+    console.error("Reschedule post error:", err.message);
+    return res.status(500).json({ error: "Failed to reschedule post" });
+  }
+}
+
+/**
  * GET /api/social/calendar/:brandId
  * Returns all scheduled and published posts for a brand across all platforms.
  */
@@ -501,6 +574,7 @@ module.exports = {
   connectSocialAccount,
   generateSocialContent,
   schedulePost,
+  reschedulePost,
   getSocialCalendar,
   getSocialAccounts,
   disconnectSocialAccount,

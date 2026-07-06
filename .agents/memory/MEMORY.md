@@ -41,3 +41,4 @@
 - [EchoAI proactive suggestions](echoai-proactive-suggestions.md) — gap-detect from owner's OWN usage (never fabricated), fail CLOSED on probe error, dedup 30d-shown/90d-declined/accepted-never; gather stays read-only, record shown at delivery.
 - [EchoAI sweep guard seam](echoai-sweep-guard-seam.md) — every recurring loop-over-items sweep guards each iteration (and each sub-sweep); test via module.exports per-row helper stubbed to throw.
 - [EchoAI stale-claim rescue](echoai-stale-claim-rescue.md) — non-transactional status-flip claims need a stale-row rescue sweep (updated_at window); mark failed w/ owner-visible error, never retry (double-post risk).
+- [EchoAI failed-post reschedule](echoai-failed-post-reschedule.md) — only failed→scheduled, atomic row-count branch; client detects interrupted publishes by the rescue sweep's marker text — reword both in lockstep.

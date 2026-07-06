@@ -4,6 +4,7 @@ import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PLATFORMS, PlatformBadge, PlatformDot, platformMeta } from "./platformMeta.jsx";
 import { postFailureReason } from "./postFailure.js";
+import ReschedulePost from "./ReschedulePost.jsx";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -717,6 +718,18 @@ function PostPanel({ post, onClose, onChanged, setActivePost }) {
           <div className="mb-4 rounded-lg border border-red-800/60 bg-red-900/20 p-3 text-xs">
             <p className="mb-1 font-semibold text-red-300">Why this post failed</p>
             <p className="text-red-200">{failReason}</p>
+          </div>
+        )}
+
+        {post.status === "failed" && (
+          <div className="mb-4">
+            <ReschedulePost
+              post={post}
+              onRescheduled={async (updated) => {
+                setActivePost(updated);
+                await onChanged();
+              }}
+            />
           </div>
         )}
 
