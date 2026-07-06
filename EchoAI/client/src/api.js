@@ -183,7 +183,8 @@ export const api = {
     return data;
   },
 
-  // Sage — Industry Intelligence Agent (ungated, all-tier / all-roles).
+  // Sage — Industry Intelligence Agent (ungated / all-tier; access is
+  // brand-owner-scoped like other brand resources).
   getSageBrief: (brandId) =>
     request(`/api/sage/brief?brandId=${encodeURIComponent(brandId)}`),
   refreshSageBrief: (brandId) =>

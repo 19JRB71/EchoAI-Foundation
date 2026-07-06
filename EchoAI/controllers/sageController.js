@@ -313,10 +313,15 @@ async function getBrief(req, res) {
 /** POST /api/sage/brief/refresh {brandId} — run deep research now. */
 async function refreshBrief(req, res) {
   const brandId = brandIdOf(req);
-  const runKey = `deep:${new Date().toISOString().slice(0, 13)}`;
+  // Manual owner-triggered refresh: use a manual-scoped run key (millisecond
+  // granularity) so it always runs on demand and never collides with the
+  // scheduler's hourly "deep:" bucket, while still recording a claimed run row
+  // for consistent observability.
+  const runKey = `manual:${new Date().toISOString()}`;
   try {
     const brand = await getOwnedBrand(req.user.userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
+    await claimRun(brandId, "deep", runKey);
     const brief = await runDeepCycleForBrand(brand);
     await finishRun(brandId, "deep", runKey, "done");
     return res.json({ brief });
