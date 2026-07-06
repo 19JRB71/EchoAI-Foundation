@@ -138,6 +138,18 @@ describe("matchNavIntent", () => {
     expect(matchNavIntent("show me the ad studio")).toBe("adstudio");
   });
 
+  it("routes bare agent names 'voice' and 'sage' to their departments", () => {
+    // Regression: "go to Voice" and "go to Sage" previously returned null —
+    // the Voice dept regex lacked the bare word and Sage had no target at all.
+    expect(matchNavIntent("go to voice")).toBe("dept:voice");
+    expect(matchNavIntent("take me to voice")).toBe("dept:voice");
+    expect(matchNavIntent("go to sage")).toBe("dept:sage");
+    expect(matchNavIntent("show me sage")).toBe("dept:sage");
+    expect(matchNavIntent("open the industry brief")).toBe("dept:sage");
+    // Bare "voice" needs a nav verb so casual mentions don't hijack navigation.
+    expect(matchNavIntent("i like the voice feature")).toBe(null);
+  });
+
   it("keeps multi-word sections from being swallowed by generic ones", () => {
     // "voice settings" must win over the "settings" section and the Voice dept.
     expect(matchNavIntent("open voice settings")).toBe("voicesettings");

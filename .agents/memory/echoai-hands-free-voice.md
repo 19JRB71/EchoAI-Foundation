@@ -19,6 +19,24 @@ NOT always the obvious word:
 `lib/tiers.js` + the `section === "..."` switch in `App.jsx`, and add a unit test
 per key in `conversationHelpers.test.js` to catch drift.
 
+## Every new AI agent must be added to the voice nav map
+Adding a new agent to the roster (`lib/departments.js`) does NOT make it
+voice-navigable. `matchNavIntent` has its own `NAV_TARGETS` list plus a
+`DEPT_NAMES` label map — both must be updated by hand, or "go to <agent>"
+falls through to Echo's AI, which then says it can't navigate (looks like a
+broken feature, not a missing entry).
+**Why:** a real bug — the 9th agent Sage and the Voice agent both returned
+`null` from `matchNavIntent`: Sage had no `NAV_TARGETS` entry at all, and
+`dept:voice`'s regex listed only role aliases (receptionist/answering service),
+never the bare agent word "voice".
+**How to apply:** for each agent, add a `dept:<id>` target AND a `DEPT_NAMES[id]`
+label. Bare agent names that are also common English words (e.g. "voice") must be
+`standalone:false` (nav verb required) so casual speech can't hijack nav. Watch
+`NAV_TARGETS` ORDER — first match wins, so a new alias containing an
+earlier-listed word collides (e.g. "industry intelligence" matched the
+Customer-Intelligence `intelligence` target; Sage uses "industry brief/report"
+instead). Verify by feeding every command through the real `matchNavIntent`.
+
 ## Best-effort sound endpoints (204, never error)
 `GET /api/echo-voice/sound/:name` (auth+lockout+requireOwner) returns **204** for
 an unknown name, when ElevenLabs sound generation isn't configured, or on upstream

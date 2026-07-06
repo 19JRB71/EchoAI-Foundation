@@ -322,6 +322,10 @@ export function EchoConversationProvider({ active, children }) {
       // confirm what we just opened.
       const navKey = matchNavIntent(text);
       if (navKey) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Echo voice] nav intent detected → "${navKey}" (from utterance: "${text}"); dispatching echoai:navigate-section`,
+        );
         suspendRef.current = true;
         setConvState("speaking");
         try {

@@ -154,12 +154,21 @@ const NAV_TARGETS = [
     standalone: true,
   },
   { key: "dept:sentinel", re: /\bsentinel\b/, standalone: true },
+  {
+    key: "dept:sage",
+    re: /\b(sage|industry brief|industry report)\b/,
+    standalone: true,
+  },
   // Generic single-noun department aliases — verb REQUIRED (no standalone) so an
   // ordinary statement like "competition is rough" can't trigger navigation.
   { key: "dept:atlas", re: /\badvertising\b/, standalone: false },
   { key: "dept:scout", re: /\b(competitors?|competition)\b/, standalone: false },
   { key: "dept:pulse", re: /\bcrm\b/, standalone: false },
   { key: "dept:sentinel", re: /\boversight\b/, standalone: false },
+  // Bare "voice" is the Voice agent's name but also a common word, so it needs a
+  // nav verb ("go to voice"). It sits after the "voice settings" target above,
+  // which is checked first, so "voice settings" still opens voice settings.
+  { key: "dept:voice", re: /\bvoice\b/, standalone: false },
   // ── Group C: single-word / generic feature sections (verb required). ──
   { key: "leads", re: /\bleads?\b/, standalone: false },
   { key: "campaigns", re: /\b(ad campaigns?|campaigns?)\b/, standalone: false },
@@ -254,6 +263,7 @@ const DEPT_NAMES = {
   voice: "Voice",
   forge: "Forge",
   sentinel: "Sentinel",
+  sage: "Sage",
 };
 
 /**

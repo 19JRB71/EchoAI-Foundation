@@ -609,8 +609,16 @@ export default function App() {
       // "dept:<agentId>" opens a team member's Department View; anything else is
       // a plain top-level section id.
       if (next.startsWith("dept:")) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Echo nav] echoai:navigate-section received → opening department "${next.slice(5)}"`,
+        );
         openDepartmentRef.current(next.slice(5));
       } else {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Echo nav] echoai:navigate-section received → opening section "${next}"`,
+        );
         selectSectionRef.current(next);
       }
     };
