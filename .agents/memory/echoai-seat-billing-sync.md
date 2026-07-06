@@ -23,3 +23,21 @@ Prompt 39 architect review.
 **How to apply:** when adding a new code path that touches the Stripe
 subscription, call the seat-sync helper after the mutation. The helper no-ops
 gracefully when the seat price id env var is unset, so the call is always safe.
+
+## Every tier includes exactly 1 seat (no more Enterprise-unlimited)
+
+As of the Prompt 65 pricing change, all three sellable tiers include exactly
+**1** seat; extra seats are $50/seat/mo on **every** tier (Starter,
+Professional, Enterprise). `config/plans.js` and client `lib/tiers.js`
+PLAN_META set `includedSeats: 1` for all three.
+
+**Why:** Enterprise used to be "unlimited seats" via `includedSeats: null`,
+which several call sites branched on to *exempt* Enterprise from seat charges
+(TeamManagement seat-confirm dialog, `syncSeatItem`/`additionalSeats`). Setting
+it to 1 makes Enterprise bill add-on seats through the same path as the other
+tiers — no special-casing.
+
+**How to apply:** `includedSeats == null` no longer maps to any real tier; treat
+it only as a defensive skip (effectively just the platform admin). Do NOT
+re-introduce "Enterprise = unlimited/free seats" copy or logic anywhere
+(onboarding StepSubscription, landing pricing table, TeamManagement comments).

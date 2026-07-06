@@ -4,7 +4,10 @@ const {
   recordWeeklyAnalyticsForBrand,
   generateWeeklyReport,
 } = require("../controllers/analyticsController");
-const { autoOptimizeCampaignsForBrand } = require("../controllers/optimizationController");
+const {
+  autoOptimizeCampaignsForBrand,
+  runCompetitorAnalysisForBrand,
+} = require("../controllers/optimizationController");
 const { updateCreativePerformanceForBrand } = require("../controllers/adCreativeStudioController");
 const { sendWeeklyReportEmail } = require("../controllers/emailController");
 const { publishDuePosts } = require("../controllers/socialController");
@@ -192,6 +195,32 @@ async function runWeeklyAnalytics() {
 }
 
 /**
+ * Scout's competitor intelligence scan. Runs every 6 hours so each active brand
+ * always has a fresh competitor/market briefing ready without any manual trigger
+ * (the manual "Run analysis" button still works on top of this). Scoped to
+ * brands with at least one active campaign — the same "active work" scope the
+ * weekly run uses — and demo brands are excluded. Best-effort per brand: one
+ * failure (e.g. AI down, no niche) is logged and never stops the rest of the run.
+ */
+async function runCompetitorScan() {
+  const { rows } = await db.query(
+    `SELECT * FROM brands
+     WHERE is_demo = false
+       AND brand_id IN (SELECT DISTINCT brand_id FROM campaigns WHERE status = 'active')`
+  );
+  let ok = 0;
+  for (const brand of rows) {
+    try {
+      await runCompetitorAnalysisForBrand(brand, [], null);
+      ok += 1;
+    } catch (err) {
+      console.error(`Competitor scan failed for brand ${brand.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Competitor scan complete: ${ok}/${rows.length} brands scanned.`);
+}
+
+/**
  * Daily portfolio health snapshot (Part 5). Computes a deterministic 1-10 score
  * for every REAL brand (demo excluded) so the 12-week trajectory keeps building
  * without any manual action. Scoring is deterministic (no AI), so a single
@@ -339,12 +368,20 @@ function startScheduler() {
     });
   });
 
+  // Every 6 hours (00:00, 06:00, 12:00, 18:00): Scout scans competitor/market
+  // activity for every active brand and refreshes its intelligence briefing.
+  cron.schedule("0 */6 * * *", () => {
+    runCompetitorScan().catch((err) => {
+      console.error("Scheduled competitor scan run errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
       "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
       "Echo voice reminders: every minute; Echo closing summary: daily 18:00; " +
       "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
-      "cross-business intelligence: Mondays 08:15)."
+      "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours)."
   );
 }
 
@@ -353,4 +390,5 @@ module.exports = {
   runWeeklyAnalytics,
   runDailyHealthSnapshots,
   runWeeklyCrossBusinessIntelligence,
+  runCompetitorScan,
 };

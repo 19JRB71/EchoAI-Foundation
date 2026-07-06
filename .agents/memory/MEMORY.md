@@ -11,7 +11,7 @@
 - [Email click-tracker redirect safety](email-click-tracker-redirect.md) — public click/redirect trackers must encrypt the destination URL, never take a raw `?url=`, or they become open redirectors.
 - [EchoAI gating on background paths](echoai-gating-background-paths.md) — auto/background flows that create a tier-gated resource must enforce the gate themselves; route featureGate alone misses them.
 - [Appointment booking safety](appointments-booking.md) — every time-reserving write (book AND reschedule) serializes under the per-brand advisory lock; AI slot check fails closed on calendar outage; score chat temperature before replying.
-- [EchoAI seat-item sync](echoai-seat-billing-sync.md) — every Stripe subscription mutation (create/upgrade/team-size/downgrade) must resync the per-seat add-on item, or first cycle mis-bills.
+- [EchoAI seat-item sync](echoai-seat-billing-sync.md) — every Stripe subscription mutation must resync the per-seat add-on item; ALL tiers now include exactly 1 seat ($50/extra, no Enterprise-unlimited); includedSeats==null is just a defensive skip.
 - [EchoAI idempotent public records](echoai-idempotent-public-records.md) — public "fill once" endpoints: branch on the atomic UPDATE row count, never a stale pre-read, or concurrent double-submits leak a false success.
 - [EchoAI AI-call 502 mapping](echoai-ai-call-502-mapping.md) — wrap every Anthropic/OpenAI call to force 502 (SDK errors lack `.status`); re-validate AI output at save endpoints (bad payload = 400).
 - [EchoAI affiliate attribution](echoai-affiliate-attribution.md) — await referral attribution before returning the signup token, else a fast first-payment webhook misses the row and credits a renewal.

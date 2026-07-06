@@ -108,8 +108,8 @@ export default function TeamManagement({ isAdmin = false }) {
     }
     // Seat-charge confirmation: when this addition exceeds the plan's included
     // seats, surface the $50/seat charge and require explicit confirmation.
-    // Enterprise (unlimited seats → includedSeats null) and the platform admin
-    // are exempt — no limit, no confirmation.
+    // Every tier includes 1 seat, so this applies on all plans; the platform
+    // admin is exempt, and includedSeats == null stays a defensive skip.
     const exceedsSeats =
       !isAdmin &&
       seats &&

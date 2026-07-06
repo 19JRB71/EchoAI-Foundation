@@ -18,8 +18,8 @@ export const TIER_RANK = {
 // Display metadata for the three sellable tiers.
 export const PLAN_META = {
   starter: { tier: "starter", name: "Starter", monthlyPrice: 197, includedSeats: 1 },
-  pro: { tier: "pro", name: "Professional", monthlyPrice: 497, includedSeats: 5 },
-  enterprise: { tier: "enterprise", name: "Enterprise", monthlyPrice: 997, includedSeats: null },
+  pro: { tier: "pro", name: "Professional", monthlyPrice: 497, includedSeats: 1 },
+  enterprise: { tier: "enterprise", name: "Enterprise", monthlyPrice: 997, includedSeats: 1 },
 };
 
 // Sidebar sections that require a minimum tier. Sections not listed here are

@@ -1,10 +1,10 @@
 /**
  * Subscription plan catalog (single source of truth for tier metadata).
  *
- * Three sellable tiers — Starter, Professional, Enterprise — each with a flat
- * monthly base price that includes a set number of user seats. Additional seats
- * beyond the included count are billed at ADDITIONAL_SEAT_PRICE / seat / month
- * (Enterprise includes unlimited seats, so it never accrues per-seat charges).
+ * Three sellable tiers — Starter, Professional, Enterprise — each of which
+ * includes exactly one user seat in its flat monthly base price. Additional
+ * seats beyond that one included seat are billed at ADDITIONAL_SEAT_PRICE /
+ * seat / month on every tier.
  *
  * Prices here are the *listed* monthly prices shown in the UI plan selector and
  * current-plan card. The amount a customer is actually charged on their next
@@ -12,8 +12,8 @@
  * the display/fallback values.
  */
 
-// Per-seat add-on price (USD / seat / month) for seats beyond a plan's included
-// count. Applies to Starter and Professional; Enterprise is unlimited.
+// Per-seat add-on price (USD / seat / month) for seats beyond the single seat
+// included in every plan's base price. Applies to all tiers.
 const ADDITIONAL_SEAT_PRICE = 50;
 
 const PLANS = {
@@ -52,11 +52,12 @@ const PLANS = {
     tier: "pro",
     name: "Professional",
     monthlyPrice: 497,
-    includedSeats: 5,
-    seats: 5,
-    seatLabel: "Up to 5 users included",
+    // First seat is included in the base price; extra seats are $50/seat/mo.
+    includedSeats: 1,
+    seats: 1,
+    seatLabel: "1 user included",
     features: [
-      "Up to 5 users included",
+      "1 user included",
       "Everything in Starter",
       "Voice chatbot",
       "AI phone agent (Twilio)",
@@ -73,12 +74,12 @@ const PLANS = {
     tier: "enterprise",
     name: "Enterprise",
     monthlyPrice: 997,
-    // Unlimited seats — never accrues per-seat add-on charges.
-    includedSeats: null,
-    seats: null,
-    seatLabel: "Unlimited users",
+    // First seat is included in the base price; extra seats are $50/seat/mo.
+    includedSeats: 1,
+    seats: 1,
+    seatLabel: "1 user included",
     features: [
-      "Unlimited users",
+      "1 user included",
       "Everything in Professional",
       "White-label agency system",
       "Affiliate program",

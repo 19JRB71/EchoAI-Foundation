@@ -1,0 +1,37 @@
+Here's Prompt 65: Full Hands-Off Audit, Pricing Update, and Landing Page Redesign for EchoAI:
+EchoAI is an AI-powered SaaS marketing platform. You've built a complete autonomous system. Now you need to do a full audit of every workflow in the platform to identify any step that still requires manual user action beyond password entry and one-time approvals, fix every gap found, update the pricing to one seat per tier with additional seats at fifty dollars each, and redesign the landing page to match the energy and visual style of the dashboard.
+PART 1 — COMPLETE HANDS-OFF AUDIT AND FIX
+Audit every single workflow in EchoAI and identify anywhere the system requires manual user action beyond the following approved interactions. Approved manual interactions are entering passwords for third party account connections, approving a campaign or content before it goes live for the first time, and approving any action that spends more than the approved monthly budget guardrail.
+Everything else must happen automatically without the user touching anything.
+Audit and fix the following specific workflows.
+Morning briefing — must start automatically on login with no clicks. Echo must speak within 2 seconds of the dashboard loading. No button pressing required. If this is not working fix it.
+Campaign optimization — Atlas must automatically optimize campaigns every morning without any user trigger. Check that the Monday morning scheduler is actually running the optimization job and fix any gaps.
+Social media posting — Nova must automatically publish scheduled posts at their scheduled times without any user action. Verify the every-minute scheduler is checking for due posts and fix any gaps.
+Lead follow-up — Pulse must automatically send follow-up emails, SMS messages, and trigger phone calls based on the follow-up sequences without any user action. Verify the every-5-minute scheduler is executing due touchpoints and fix any gaps.
+Appointment reminders — Echo must automatically speak appointment reminders 15 minutes and 5 minutes before every appointment without any user trigger. Verify this is working and fix any gaps.
+Hot lead alerts — when a lead is scored as hot Echo must immediately speak an alert and send an SMS to the owner without any user action. Verify this is working end to end and fix any gaps.
+Weekly reports — Echo must automatically generate and deliver the weekly report every Monday morning without any user trigger. Verify the scheduler is running this and fix any gaps.
+Competitor intelligence — Scout must automatically scan for competitor activity every 6 hours and prepare a briefing without any user trigger. Verify this is running and fix any gaps.
+Health monitoring — Sentinel must automatically run health checks every hour and fix issues silently without any user trigger. Verify this is running and fix any gaps.
+Autonomous growth — Echo must automatically run the autonomous growth optimization every morning and send the daily summary every evening without any user trigger. Verify both are running and fix any gaps.
+Opportunity scouting — Scout must automatically scan for grants and business opportunities every week and add them to the funding pipeline without any user trigger. Verify this is running and fix any gaps.
+Customer intelligence — Echo must automatically generate the weekly strategic intelligence report every Monday and deliver it without any user trigger. Verify this is running and fix any gaps.
+Voice navigation — when the user gives a voice command to navigate anywhere in the app Echo must immediately navigate there with no clicks required. Fix any voice navigation commands that are not working.
+Voice execution — when the user verbally approves an action Echo must immediately execute it with no clicks required. Fix any voice execution that is not working.
+For every gap found fix it immediately and document what was broken and what was fixed.
+PART 2 — PRICING UPDATE
+Update the pricing across the entire platform to reflect the new structure. Every tier includes exactly one seat. Additional seats cost fifty dollars per month each on every tier.
+Starter is one hundred ninety seven dollars per month and includes one seat.
+Professional is four hundred ninety seven dollars per month and includes one seat.
+Enterprise is nine hundred ninety seven dollars per month and includes one seat.
+Additional seats are fifty dollars per month per seat on all tiers.
+Update the pricing in the following locations. The landing page pricing section and comparison table. The onboarding subscription selection step. The feature gate upgrade prompt messages. The Stripe subscription creation logic so it charges correctly. The team member invitation flow where it shows seat pricing. The admin panel where pricing is referenced. Any other location in the codebase where pricing appears.
+PART 3 — LANDING PAGE REDESIGN
+Redesign the EchoAI landing page to match the energy, color scheme, and visual style of the dashboard. The landing page should feel like a preview of what the user is about to experience inside the platform.
+Use the same dark background as the dashboard. Use the same color accents — teal for core features, blue for Starter tier, purple for Professional tier, and gold for Enterprise tier. Make it bold, colorful, and alive.
+The hero section should show the eight AI team members — Echo, Scout, Atlas, Nova, Pulse, Voice, Forge, and Sentinel — each with their colored avatar, their title, and a one sentence description of what they do. Show them as a team grid below the main headline. The headline should be something like Meet Your AI Marketing Department. Eight specialists working around the clock so you never have to think about marketing again.
+Below the team grid show the Mission Control preview — a screenshot or mockup of the Mission Control dashboard showing the morning briefing, team status, and coming up panel. Show it as if the visitor is looking through a window into their future dashboard.
+Show the three pricing tiers with the new pricing in the tier colors — blue for Starter, purple for Professional, gold for Enterprise. Each card shows the price, one seat included, features list, and additional seats at fifty dollars each.
+Show a demo request form at the bottom where visitors enter their name, business type, phone, and email to book their free onboarding call.
+Make the landing page mobile responsive and fast loading. Keep the EchoAI logo and branding consistent with the dashboard.
+Output all files created and updated. Document every gap found in the audit and every fix applied.

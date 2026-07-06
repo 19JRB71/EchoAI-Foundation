@@ -3,6 +3,20 @@ import { Link } from "react-router-dom";
 import DemoForm from "./DemoForm.jsx";
 import { api } from "../api.js";
 import { setReferralCode } from "../lib/referral.js";
+import { AGENTS_META } from "../lib/departments.js";
+
+// One-line pitch for each AI team member, keyed by the agent id in AGENTS_META.
+// (AGENTS_META is the single source of truth for id / name / title / color.)
+const AGENT_PITCH = {
+  echo: "Your marketing director — briefs you every morning and runs the whole team.",
+  scout: "Watches competitors and hunts down market openings, keywords and grants.",
+  atlas: "Launches and optimizes your ad campaigns to get more leads for less.",
+  nova: "Plans and publishes your content across every social platform.",
+  pulse: "Qualifies leads and follows up by email, text and phone — automatically.",
+  voice: "Answers your phone and website chat, booking qualified leads day and night.",
+  forge: "Creates on-brand images, videos and ad creative on demand.",
+  sentinel: "Watches your systems and fixes issues before you ever notice.",
+};
 
 function scrollToDemo(e) {
   e.preventDefault();
@@ -25,7 +39,8 @@ export default function LandingPage() {
     <div className="min-h-screen bg-black text-white antialiased">
       <Nav />
       <Hero />
-      <Problem />
+      <TeamGrid />
+      <MissionControlPreview />
       <Solution />
       <SocialProof />
       <Pricing />
@@ -35,13 +50,19 @@ export default function LandingPage() {
   );
 }
 
+function Logo({ className = "" }) {
+  return (
+    <span className={`font-extrabold tracking-tight ${className}`}>
+      Echo<span className="text-teal-400">AI</span>
+    </span>
+  );
+}
+
 function Nav() {
   return (
     <header className="sticky top-0 z-20 border-b border-white/5 bg-black/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <span className="text-xl font-extrabold tracking-tight">
-          Echo<span className="text-amber-400">AI</span>
-        </span>
+        <Logo className="text-xl" />
         <div className="flex items-center gap-3">
           <Link
             to="/dashboard"
@@ -52,7 +73,7 @@ function Nav() {
           <a
             href="#demo"
             onClick={scrollToDemo}
-            className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-black transition hover:brightness-110"
+            className="rounded-lg bg-teal-400 px-4 py-2 text-sm font-bold text-black transition hover:brightness-110"
           >
             Book Demo
           </a>
@@ -65,27 +86,28 @@ function Nav() {
 function Hero() {
   return (
     <section className="relative overflow-hidden">
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full bg-amber-500/20 blur-3xl" />
-      <div className="pointer-events-none absolute top-20 right-0 h-72 w-72 rounded-full bg-yellow-600/20 blur-3xl" />
-      <div className="relative mx-auto max-w-4xl px-6 py-24 text-center sm:py-32">
-        <span className="inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-1.5 text-sm font-medium text-amber-300">
-          AI-powered marketing on autopilot
+      <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full bg-teal-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute top-24 right-0 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl" />
+      <div className="pointer-events-none absolute top-40 left-0 h-72 w-72 rounded-full bg-purple-600/20 blur-3xl" />
+      <div className="relative mx-auto max-w-4xl px-6 pt-24 pb-12 text-center sm:pt-32">
+        <span className="inline-block rounded-full border border-teal-400/30 bg-teal-400/10 px-4 py-1.5 text-sm font-medium text-teal-300">
+          Your AI marketing department — always on
         </span>
         <h1 className="mt-6 text-4xl font-black leading-tight tracking-tight sm:text-6xl">
-          Stop lighting money on fire with{" "}
-          <span className="bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
-            Facebook ads that don't work.
+          Meet Your{" "}
+          <span className="bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+            AI Marketing Department.
           </span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-300 sm:text-xl">
-          EchoAI runs, optimizes, and follows up on your ad campaigns for you —
-          so you get more leads for less money without touching a dashboard.
+          Eight specialists working around the clock so you never have to think
+          about marketing again.
         </p>
         <div className="mt-10">
           <a
             href="#demo"
             onClick={scrollToDemo}
-            className="inline-block rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 px-8 py-4 text-lg font-bold text-black shadow-lg shadow-amber-500/25 transition hover:brightness-110"
+            className="inline-block rounded-xl bg-gradient-to-r from-teal-400 to-cyan-500 px-8 py-4 text-lg font-bold text-black shadow-lg shadow-teal-500/25 transition hover:brightness-110"
           >
             Book Your Free Demo
           </a>
@@ -98,41 +120,182 @@ function Hero() {
   );
 }
 
-function Problem() {
-  const pains = [
-    {
-      icon: "🔥",
-      title: "You're burning cash on ads that don't convert",
-      body: "You boost a post, money disappears, and you've got nothing to show for it. You can't tell what's working — so you keep paying for what isn't.",
-    },
-    {
-      icon: "⏰",
-      title: "You have zero time to run campaigns or chase leads",
-      body: "You're already doing three jobs. Tweaking ad sets and following up with every lead at 11pm isn't happening — so leads go cold and slip away.",
-    },
-    {
-      icon: "🕵️",
-      title: "You have no idea what your competitors are doing",
-      body: "They're clearly running ads that work. You're guessing in the dark while they take the customers that should be yours.",
-    },
-  ];
+function AgentAvatar({ name, color }) {
   return (
-    <section className="border-t border-white/5 bg-black py-24">
+    <div
+      className="flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-black text-black shadow-lg"
+      style={{
+        background: `linear-gradient(135deg, ${color}, ${color}bb)`,
+        boxShadow: `0 12px 26px -12px ${color}`,
+      }}
+      aria-hidden="true"
+    >
+      {name[0]}
+    </div>
+  );
+}
+
+function TeamGrid() {
+  return (
+    <section className="border-t border-white/5 py-20">
       <div className="mx-auto max-w-6xl px-6">
-        <h2 className="text-center text-3xl font-bold sm:text-4xl">
-          If you run a small business, this probably sounds familiar.
-        </h2>
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {pains.map((p) => (
+        <div className="text-center">
+          <span className="text-sm font-semibold uppercase tracking-widest text-teal-400">
+            Your team
+          </span>
+          <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
+            Eight AI specialists. One relentless team.
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-slate-400">
+            Each one owns a part of your marketing and works 24/7 — no hiring, no
+            managing, no burnout.
+          </p>
+        </div>
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {AGENTS_META.map((agent) => (
             <div
-              key={p.title}
-              className="rounded-2xl border border-white/10 bg-slate-900/50 p-7"
+              key={agent.id}
+              className="group flex flex-col rounded-2xl border border-white/10 bg-slate-900/50 p-6 transition hover:-translate-y-1 hover:border-white/20"
+              style={{ boxShadow: `inset 0 1px 0 0 ${agent.color}22` }}
             >
-              <div className="text-3xl">{p.icon}</div>
-              <h3 className="mt-4 text-lg font-bold text-white">{p.title}</h3>
-              <p className="mt-3 text-slate-400">{p.body}</p>
+              <AgentAvatar name={agent.name} color={agent.color} />
+              <h3 className="mt-4 text-lg font-bold text-white">{agent.name}</h3>
+              <p
+                className="text-sm font-semibold"
+                style={{ color: agent.color }}
+              >
+                {agent.title}
+              </p>
+              <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-400">
+                {AGENT_PITCH[agent.id]}
+              </p>
             </div>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MissionControlPreview() {
+  const teamStatus = AGENTS_META.map((a) => ({
+    ...a,
+    state: a.id === "sentinel" ? "Auto-fixing" : a.id === "atlas" ? "Optimizing" : "Active",
+  }));
+  const comingUp = [
+    { icon: "📞", label: "Reminder: consult with Dana R.", when: "in 15 min" },
+    { icon: "📣", label: "Nova publishes 3 scheduled posts", when: "in 42 min" },
+    { icon: "📊", label: "Echo delivers your weekly report", when: "Monday 8:00 AM" },
+    { icon: "🕵️", label: "Scout's competitor scan refreshes", when: "in 3 hrs" },
+  ];
+  return (
+    <section className="relative overflow-hidden border-t border-white/5 py-24">
+      <div className="pointer-events-none absolute left-1/2 top-1/3 h-96 w-[44rem] -translate-x-1/2 rounded-full bg-teal-600/10 blur-3xl" />
+      <div className="relative mx-auto max-w-6xl px-6">
+        <div className="text-center">
+          <span className="text-sm font-semibold uppercase tracking-widest text-teal-400">
+            A window into your dashboard
+          </span>
+          <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
+            This is Mission Control.
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-slate-400">
+            Log in and your whole operation is already running. Here's what you'd
+            see this morning.
+          </p>
+        </div>
+
+        <div className="mx-auto mt-12 max-w-5xl rounded-3xl border border-white/10 bg-slate-900/60 p-4 shadow-2xl sm:p-6">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <Logo className="text-lg" />
+            <span className="flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+              All systems live
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-5 lg:grid-cols-3">
+            {/* Morning briefing */}
+            <div className="rounded-2xl border border-teal-400/20 bg-gradient-to-b from-teal-500/10 to-transparent p-5 lg:col-span-2">
+              <div className="flex items-center gap-3">
+                <AgentAvatar name="Echo" color="#14B8A6" />
+                <div>
+                  <p className="text-sm font-bold text-white">Morning Briefing</p>
+                  <p className="flex items-center gap-1.5 text-xs text-teal-300">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-400" />
+                    Echo is speaking…
+                  </p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-slate-300">
+                "Good morning! You booked{" "}
+                <span className="font-semibold text-white">7 new leads</span>{" "}
+                overnight — 2 are hot and already texted. Atlas shifted{" "}
+                <span className="font-semibold text-white">$40</span> into your
+                best-performing ad, and your cost per lead is down{" "}
+                <span className="font-semibold text-emerald-300">18%</span> this
+                week. Nothing needs your attention. Have a great day."
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-2">
+                  <p className="text-lg font-black text-white">7</p>
+                  <p className="text-[11px] text-slate-400">New leads</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-2">
+                  <p className="text-lg font-black text-white">3</p>
+                  <p className="text-[11px] text-slate-400">Active campaigns</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-2">
+                  <p className="text-lg font-black text-emerald-300">$212</p>
+                  <p className="text-[11px] text-slate-400">Cost / lead ↓</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Coming up */}
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+              <p className="text-sm font-bold text-white">Coming up</p>
+              <ul className="mt-4 space-y-3">
+                {comingUp.map((item) => (
+                  <li key={item.label} className="flex items-start gap-3">
+                    <span className="text-base">{item.icon}</span>
+                    <div>
+                      <p className="text-sm leading-snug text-slate-200">
+                        {item.label}
+                      </p>
+                      <p className="text-xs text-slate-500">{item.when}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Team status */}
+          <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-5">
+            <p className="text-sm font-bold text-white">Team status</p>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {teamStatus.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center gap-2.5 rounded-xl border border-white/5 bg-slate-900/60 px-3 py-2.5"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: a.color }}
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">
+                      {a.name}
+                    </p>
+                    <p className="truncate text-[11px] text-slate-400">
+                      {a.state}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -144,29 +307,29 @@ function Solution() {
     {
       icon: "⚙️",
       title: "Campaigns that run and optimize themselves",
-      body: "EchoAI launches your ads and automatically shifts budget toward what's converting — every day, without you lifting a finger.",
+      body: "Atlas launches your ads and automatically shifts budget toward what's converting — every day, without you lifting a finger.",
     },
     {
       icon: "🤖",
-      title: "An AI voice chatbot that qualifies leads instantly",
-      body: "Every lead gets answered and qualified in seconds, day or night. The hot ones land straight in your inbox, ready for you to close.",
+      title: "Leads answered and followed up in seconds",
+      body: "Voice qualifies every lead day or night, and Pulse follows up by email, text and phone — so nothing slips away.",
     },
     {
       icon: "📡",
-      title: "Competitor intelligence built in",
-      body: "See exactly what ads are working in your market, so you can do more of what wins and stop guessing.",
+      title: "Competitor intelligence, refreshed all day",
+      body: "Scout scans your market every few hours so you always know what's working — and Echo turns it into a plan.",
     },
   ];
   return (
     <section className="relative overflow-hidden border-t border-white/5 py-24">
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-96 w-[40rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-600/10 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-96 w-[40rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600/10 blur-3xl" />
       <div className="relative mx-auto max-w-6xl px-6">
         <div className="text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-amber-400">
-            The fix
+          <span className="text-sm font-semibold uppercase tracking-widest text-teal-400">
+            How it works
           </span>
           <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
-            EchoAI does the marketing work for you.
+            Your team does the marketing work for you.
           </h2>
         </div>
         <div className="mt-14 grid gap-6 md:grid-cols-3">
@@ -175,7 +338,7 @@ function Solution() {
               key={it.title}
               className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900/80 to-slate-900/30 p-7"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400/15 text-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-400/15 text-2xl">
                 {it.icon}
               </div>
               <h3 className="mt-5 text-lg font-bold text-white">{it.title}</h3>
@@ -223,7 +386,7 @@ function SocialProof() {
         <div className="mt-12 grid gap-6 rounded-2xl border border-white/10 bg-slate-900/40 p-8 sm:grid-cols-3">
           {stats.map((s) => (
             <div key={s.label} className="text-center">
-              <div className="text-4xl font-black text-amber-400 sm:text-5xl">
+              <div className="text-4xl font-black text-teal-400 sm:text-5xl">
                 {s.value}
               </div>
               <div className="mt-2 text-sm text-slate-400">{s.label}</div>
@@ -236,7 +399,7 @@ function SocialProof() {
               key={t.name}
               className="flex flex-col rounded-2xl border border-white/10 bg-slate-900/50 p-7"
             >
-              <div className="text-amber-400">★★★★★</div>
+              <div className="text-teal-400">★★★★★</div>
               <blockquote className="mt-4 flex-1 text-slate-200">
                 "{t.quote}"
               </blockquote>
@@ -283,7 +446,7 @@ function Pricing() {
         "AI phone agent & voice chatbot",
         "Reputation & content calendar",
         "Ad creative studio & Zapier",
-        "Up to 5 users included",
+        "1 user included",
       ],
       featured: true,
     },
@@ -298,7 +461,7 @@ function Pricing() {
         "White-label agency system",
         "Affiliate program & mobile API",
         "Customer feedback & surveys",
-        "Unlimited users included",
+        "1 user included",
       ],
       featured: false,
     },
@@ -326,8 +489,8 @@ function Pricing() {
     { feature: "Advanced analytics", starter: false, pro: false, enterprise: true },
     { feature: "API marketplace access", starter: false, pro: false, enterprise: true },
     { feature: "Priority support", starter: false, pro: false, enterprise: true },
-    { feature: "Included users", starter: "1", pro: "5", enterprise: "Unlimited" },
-    { feature: "Additional seats", starter: "$50/seat", pro: "$50/seat", enterprise: "Included" },
+    { feature: "Included users", starter: "1", pro: "1", enterprise: "1" },
+    { feature: "Additional seats", starter: "$50/seat", pro: "$50/seat", enterprise: "$50/seat" },
   ];
   const cell = (v, color) => {
     if (v === true) return <span style={{ color }}>✓</span>;
@@ -345,7 +508,8 @@ function Pricing() {
             Every plan includes a free onboarding call with me, personally.
           </p>
           <p className="mt-1 text-sm text-slate-500">
-            Need more seats? Add extra users to Starter or Professional for $50 / seat / month.
+            Every plan includes 1 user. Add more team members for $50 / seat /
+            month on any tier.
           </p>
         </div>
         <div className="mt-14 grid gap-6 lg:grid-cols-3">
@@ -466,26 +630,26 @@ function DemoSection() {
       id="demo"
       className="relative overflow-hidden border-t border-white/5 py-24"
     >
-      <div className="pointer-events-none absolute -bottom-32 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full bg-amber-500/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full bg-teal-500/15 blur-3xl" />
       <div className="relative mx-auto grid max-w-6xl gap-12 px-6 lg:grid-cols-2 lg:items-center">
         <div>
           <h2 className="text-3xl font-bold sm:text-4xl">
             Book your free demo.
           </h2>
           <p className="mt-4 text-lg text-slate-300">
-            Tell us a little about your business. We'll show you exactly how
-            EchoAI can get you more leads for less — and we'll call you within 24
+            Tell us a little about your business. We'll show you exactly how your
+            AI team gets you more leads for less — and we'll call you within 24
             hours to set up your free onboarding.
           </p>
           <ul className="mt-8 space-y-3 text-slate-300">
             <li className="flex items-center gap-3">
-              <span className="text-amber-400">✓</span> A real call, not a sales bot
+              <span className="text-teal-400">✓</span> A real call, not a sales bot
             </li>
             <li className="flex items-center gap-3">
-              <span className="text-amber-400">✓</span> Free personal onboarding
+              <span className="text-teal-400">✓</span> Free personal onboarding
             </li>
             <li className="flex items-center gap-3">
-              <span className="text-amber-400">✓</span> No commitment required
+              <span className="text-teal-400">✓</span> No commitment required
             </li>
           </ul>
         </div>
@@ -499,10 +663,8 @@ function Footer() {
   return (
     <footer className="border-t border-white/5 bg-black py-10">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 text-sm text-slate-500 sm:flex-row">
-        <span className="font-extrabold text-white">
-          Echo<span className="text-amber-400">AI</span>
-        </span>
-        <span>© {new Date().getFullYear()} EchoAI. AI-powered marketing on autopilot.</span>
+        <Logo className="text-white" />
+        <span>© {new Date().getFullYear()} EchoAI. Your AI marketing department, always on.</span>
       </div>
     </footer>
   );

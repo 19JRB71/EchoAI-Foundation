@@ -22,7 +22,7 @@ const TIERS = [
   {
     value: "starter",
     name: "Starter",
-    price: 100,
+    price: 197,
     seats: "1 user included",
     features: [
       "1 user included",
@@ -35,11 +35,11 @@ const TIERS = [
   {
     value: "pro",
     name: "Professional",
-    price: 350,
-    seats: "Up to 5 users included",
+    price: 497,
+    seats: "1 user included",
     highlighted: true,
     features: [
-      "Up to 5 users included",
+      "1 user included",
       "Everything in Starter",
       "AI phone agent & voice chatbot",
       "Reputation, content calendar & ad studio",
@@ -49,10 +49,10 @@ const TIERS = [
   {
     value: "enterprise",
     name: "Enterprise",
-    price: 550,
-    seats: "Unlimited users",
+    price: 997,
+    seats: "1 user included",
     features: [
-      "Unlimited users included",
+      "1 user included",
       "Everything in Professional",
       "White-label agency & affiliate program",
       "Customer feedback & surveys",
@@ -78,8 +78,8 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
     <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm sm:p-8">
       <h1 className="text-2xl font-bold text-gray-100">Choose your plan</h1>
       <p className="mt-3 text-sm leading-relaxed text-gray-400">
-        Pick the plan that fits your business — you can change it any time. Need
-        more seats? Add extra users to Starter or Professional for{" "}
+        Pick the plan that fits your business — you can change it any time. Every
+        plan includes 1 user. Need more seats? Add extra users on any tier for{" "}
         <span className="font-semibold text-gray-200">
           ${ADDITIONAL_SEAT_PRICE} / seat / month
         </span>
