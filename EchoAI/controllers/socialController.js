@@ -237,6 +237,30 @@ async function schedulePost(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    // Refuse to queue a post that is guaranteed to fail at publish time: if
+    // the brand's stored connection for this platform is flagged 'error'
+    // (expired/revoked login), tell the owner to reconnect first. Once they
+    // reconnect, connection_status flips back to 'connected' and this check
+    // passes with no extra steps.
+    const accountCheck = await db.query(
+      `SELECT connection_status FROM social_accounts
+       WHERE brand_id = $1 AND platform = $2
+       LIMIT 1`,
+      [brandId, normalizedPlatform]
+    );
+    if (
+      accountCheck.rows.length > 0 &&
+      accountCheck.rows[0].connection_status === "error"
+    ) {
+      const label =
+        normalizedPlatform.charAt(0).toUpperCase() + normalizedPlatform.slice(1);
+      return res.status(409).json({
+        error: `Your ${label} connection stopped working, so this post would fail to publish. Reconnect ${label} in Connected Accounts, then schedule it again.`,
+        connectionError: true,
+        platform: normalizedPlatform,
+      });
+    }
+
     const result = await db.query(
       `INSERT INTO social_posts (brand_id, platform, post_content, scheduled_time, status)
        VALUES ($1, $2, $3, $4, 'scheduled')

@@ -111,6 +111,18 @@ async function generateCalendar(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    // Warn about platforms whose stored connection is flagged 'error'
+    // (expired/revoked login): every post scheduled to them would fail at
+    // publish time. Generation still proceeds (posts are saved as drafts and
+    // the owner can reconnect before activating), but the response carries a
+    // clear warning so the UI can surface it.
+    const brokenCheck = await db.query(
+      `SELECT platform FROM social_accounts
+       WHERE brand_id = $1 AND platform = ANY($2) AND connection_status = 'error'`,
+      [brandId, selected]
+    );
+    const brokenPlatforms = brokenCheck.rows.map((r) => r.platform);
+
     const theme = String(contentTheme || "").trim() || null;
     const slots = computeSlots(freq, selected);
     const generated = await generateCalendarPosts(brand, {
@@ -134,7 +146,7 @@ async function generateCalendar(req, res) {
     });
 
     const now = new Date();
-    return res.json({
+    const response = {
       calendar: {
         postingFrequency: freq,
         contentTheme: theme,
@@ -143,7 +155,15 @@ async function generateCalendar(req, res) {
       },
       count: posts.length,
       posts,
-    });
+    };
+    if (brokenPlatforms.length > 0) {
+      const labels = brokenPlatforms
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(", ");
+      response.brokenPlatforms = brokenPlatforms;
+      response.connectionWarning = `Your ${labels} connection stopped working, so posts scheduled there will fail to publish. Reconnect in Connected Accounts before activating this calendar.`;
+    }
+    return res.json(response);
   } catch (err) {
     console.error("Generate content calendar error:", err.message);
     if (isUpstreamAiError(err)) {

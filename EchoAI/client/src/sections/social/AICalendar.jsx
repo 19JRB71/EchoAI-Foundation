@@ -472,6 +472,7 @@ function GenerateForm({ brandId, onClose, onGenerated }) {
         posts: data.posts || [],
         postingFrequency: frequency,
         contentTheme: theme.trim() || null,
+        connectionWarning: data.connectionWarning || null,
       });
     } catch (err) {
       setError(err.message);
@@ -625,6 +626,15 @@ function PreviewPanel({ brandId, preview, onCancel, onSaved }) {
       </div>
 
       <ErrorBanner message={error} />
+
+      {preview.connectionWarning && (
+        <div
+          data-testid="calendar-connection-warning"
+          className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+        >
+          ⚠️ {preview.connectionWarning}
+        </div>
+      )}
 
       <ul className="max-h-96 space-y-2 overflow-y-auto pr-1">
         {preview.posts.map((post, i) => (

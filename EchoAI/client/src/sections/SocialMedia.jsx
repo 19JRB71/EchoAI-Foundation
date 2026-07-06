@@ -66,6 +66,7 @@ export default function SocialMedia({ brandId, tier, prefillImage, onPrefillCons
               tier={tier}
               attachedImage={prefillImage}
               onClearAttachedImage={onPrefillConsumed}
+              onReconnect={openReconnect}
             />
           )}
           {tab === "accounts" && (

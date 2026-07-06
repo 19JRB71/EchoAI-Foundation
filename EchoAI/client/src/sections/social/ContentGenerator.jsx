@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api.js";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
+import AccountHealthBanner from "./AccountHealthBanner.jsx";
 import GeneratedImageCard from "../image/GeneratedImageCard.jsx";
 import { meetsTier } from "../../lib/tiers.js";
 import {
@@ -43,6 +44,7 @@ export default function ContentGenerator({
   tier,
   attachedImage,
   onClearAttachedImage,
+  onReconnect,
 }) {
   const isPro = meetsTier(tier, "pro");
   const [topic, setTopic] = useState("");
@@ -136,6 +138,8 @@ export default function ContentGenerator({
 
   return (
     <div className="space-y-6">
+      <AccountHealthBanner brandId={brandId} onReconnect={onReconnect} />
+
       {attachedImage && (
         <div className="flex items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
           <img
