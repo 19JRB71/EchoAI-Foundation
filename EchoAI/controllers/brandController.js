@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { toJsonbParam } = require("../utils/jsonb");
+const { isValidBrandType } = require("../config/goals");
 
 /**
  * POST /api/brands
@@ -38,7 +39,7 @@ async function getBrands(req, res) {
   try {
     const result = await db.query(
       `SELECT brand_id, brand_name, brand_personality, voice_description,
-              visual_style_preferences, target_audience, is_demo,
+              visual_style_preferences, target_audience, brand_type, is_demo,
               created_at, updated_at
        FROM brands
        WHERE user_id = $1
@@ -64,7 +65,8 @@ async function getBrandProfile(req, res) {
   try {
     const result = await db.query(
       `SELECT brand_id, user_id, brand_name, brand_personality, voice_description,
-              visual_style_preferences, target_audience, created_at, updated_at
+              visual_style_preferences, target_audience, brand_type,
+              created_at, updated_at
        FROM brands
        WHERE brand_id = $1 AND user_id = $2`,
       [brandId, userId]
@@ -89,6 +91,9 @@ async function updateBrand(req, res) {
   const userId = req.user.userId;
   const { brandId } = req.params;
   const { name, personality, voiceDescription, visualStylePreferences, targetAudience } = req.body;
+  // Accept both camelCase and snake_case for brand type: clients (goal editor +
+  // setup wizard) post `brand_type`, but keep `brandType` for compatibility.
+  const brandType = req.body.brandType !== undefined ? req.body.brandType : req.body.brand_type;
 
   const fields = [];
   const values = [];
@@ -97,6 +102,13 @@ async function updateBrand(req, res) {
   if (name !== undefined) {
     fields.push(`brand_name = $${idx++}`);
     values.push(name);
+  }
+  if (brandType !== undefined) {
+    if (!isValidBrandType(brandType)) {
+      return res.status(400).json({ error: "Invalid brandType" });
+    }
+    fields.push(`brand_type = $${idx++}`);
+    values.push(brandType);
   }
   if (personality !== undefined) {
     fields.push(`brand_personality = $${idx++}`);
@@ -127,7 +139,7 @@ async function updateBrand(req, res) {
          SET ${fields.join(", ")}
        WHERE brand_id = $${idx++} AND user_id = $${idx}
        RETURNING brand_id, brand_name, brand_personality, voice_description,
-                 visual_style_preferences, target_audience, updated_at`,
+                 visual_style_preferences, target_audience, brand_type, updated_at`,
       values
     );
 

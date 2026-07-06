@@ -16,6 +16,7 @@ const db = require("../config/db");
 const { createMessage, MODEL } = require("../config/anthropic");
 const { buildBriefingSystem } = require("../prompts/echoPersona");
 const { computeSuggestions } = require("./echoSuggestions");
+const { getMetric } = require("../config/goals");
 
 /** Owner's REAL brand ids + names (the demo brand is excluded from briefings). */
 async function ownerBrands(userId) {
@@ -88,12 +89,13 @@ async function gatherBriefingData(userId, since) {
     pendingApprovals: 0,
     competitorNote: null,
     facebookConnected: fbConnected,
+    goals: null,
   };
   if (brandIds.length === 0) return empty;
 
   const sinceParam = since ? new Date(since) : new Date(Date.now() - 24 * 3600 * 1000);
 
-  const [newLeads, appts, followUps, campaigns, health, approvals, competitor] =
+  const [newLeads, appts, followUps, campaigns, health, approvals, competitor, goalRows] =
     await Promise.all([
       safeRows(
         `SELECT l.lead_name, l.temperature, l.created_at, b.brand_name
@@ -146,6 +148,16 @@ async function gatherBriefingData(userId, since) {
           ORDER BY created_at DESC LIMIT 1`,
         [brandIds]
       ),
+      // Latest daily snapshot per active goal (trend + percent for the briefing).
+      safeRows(
+        `SELECT DISTINCT ON (g.goal_id)
+                g.goal_id, g.metric_key, g.label, s.percent_to_goal
+           FROM brand_goals g
+           JOIN goal_snapshots s ON s.goal_id = g.goal_id
+          WHERE g.brand_id = ANY($1) AND g.status = 'active'
+          ORDER BY g.goal_id, s.snapshot_date DESC`,
+        [brandIds]
+      ),
     ]);
 
   const sentinelFixes = [];
@@ -156,6 +168,8 @@ async function gatherBriefingData(userId, since) {
       if (label) sentinelFixes.push(String(label));
     }
   }
+
+  const goals = summarizeGoals(goalRows);
 
   return {
     brands,
@@ -172,6 +186,40 @@ async function gatherBriefingData(userId, since) {
         ? summarizeCompetitor(competitor[0].intelligence_report)
         : null,
     facebookConnected: fbConnected,
+    goals,
+  };
+}
+
+/**
+ * Roll up the latest goal snapshots into a briefing-friendly summary: an average
+ * achievement score, an on-track count, and the labels of goals that are behind
+ * pace (percent < 90). Returns null when the owner has no active goals.
+ */
+function summarizeGoals(goalRows) {
+  const rows = Array.isArray(goalRows) ? goalRows : [];
+  if (rows.length === 0) return null;
+
+  let sum = 0;
+  let counted = 0;
+  let onTrack = 0;
+  const atRisk = [];
+  for (const r of rows) {
+    const pct = r.percent_to_goal == null ? null : Number(r.percent_to_goal);
+    if (pct == null || !Number.isFinite(pct)) continue;
+    counted += 1;
+    sum += Math.max(0, Math.min(100, pct));
+    if (pct >= 90) onTrack += 1;
+    else {
+      const meta = getMetric(r.metric_key);
+      atRisk.push(r.label || (meta ? meta.label : r.metric_key));
+    }
+  }
+  if (counted === 0) return null;
+  return {
+    score: Math.round(sum / counted),
+    total: counted,
+    onTrack,
+    atRisk: atRisk.slice(0, 3),
   };
 }
 
@@ -462,6 +510,18 @@ function templateMorning(firstName, data) {
   }
 
   const parts = [`Good morning ${name}. Here's your briefing.`];
+
+  if (data.goals) {
+    const g = data.goals;
+    if (g.atRisk && g.atRisk.length) {
+      parts.push(
+        `Your goals are at ${g.score}% overall, and ${joinList(g.atRisk)} ` +
+          `${g.atRisk.length === 1 ? "is" : "are"} behind pace.`
+      );
+    } else {
+      parts.push(`Your goals are on track at ${g.score}% overall.`);
+    }
+  }
 
   if (data.newLeads.length) {
     const hot = data.hotLeads ? ` — ${data.hotLeads} of them hot` : "";

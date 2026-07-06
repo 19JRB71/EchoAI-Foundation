@@ -55,6 +55,7 @@ import {
 import VoicePlayer from "./voice/VoicePlayer.jsx";
 import VoiceSettings from "./sections/VoiceSettings.jsx";
 import DepartmentView from "./sections/DepartmentView.jsx";
+import GoalSetupWizard from "./components/GoalSetupWizard.jsx";
 import SentinelHealth from "./sections/SentinelHealth.jsx";
 import SalesRepConsole from "./sections/crm/SalesRepConsole.jsx";
 import QueueOverview from "./sections/crm/QueueOverview.jsx";
@@ -113,6 +114,9 @@ export default function App() {
   // AI Setup Agent overlay — auto-launches for brand-new users and resumes any
   // in-progress session; can also be opened manually from Settings.
   const [showSetup, setShowSetup] = useState(false);
+  // One-time conversational goal-setup wizard shown right after onboarding.
+  const [showGoalWizard, setShowGoalWizard] = useState(false);
+  const [goalWizardBrandId, setGoalWizardBrandId] = useState("");
   // True when the user stepped out of the Setup Agent to connect an account (e.g.
   // social) and still has an unfinished session to return to. Drives the floating
   // "Finish setup" button so they can jump back into the flow.
@@ -394,12 +398,26 @@ export default function App() {
     }
   }, []);
 
-  const handleSetupClosed = useCallback(() => {
+  const handleSetupClosed = useCallback(async () => {
     setShowSetup(false);
     setSetupPending(false);
-    loadBrands();
+    const list = await loadBrands();
     loadBillingStatus();
-  }, [loadBrands, loadBillingStatus]);
+    // After onboarding, offer a one-time goal-setup wizard when the brand has
+    // no goals yet. Failures here are non-fatal — never block the dashboard.
+    const bid = firstRealBrandId(list) || selectedBrandId;
+    if (bid) {
+      try {
+        const g = await api.getGoals(bid);
+        if (!g.goalCount) {
+          setGoalWizardBrandId(bid);
+          setShowGoalWizard(true);
+        }
+      } catch {
+        /* ignore — goal wizard is optional */
+      }
+    }
+  }, [loadBrands, loadBillingStatus, selectedBrandId]);
 
   // Step out of the Setup Agent to a dashboard section (e.g. Social Accounts) to
   // connect something, keeping the unfinished session so the user can return via
@@ -739,6 +757,7 @@ export default function App() {
           {section === "department" ? (
             <DepartmentView
               agentId={deptAgentId}
+              selectedBrandId={selectedBrandId}
               onOpenTool={openTool}
               onAction={handleToolAction}
               canOpenSection={canOpenSection}
@@ -928,6 +947,15 @@ export default function App() {
       <ErrorBoundary silent>
         <HealthSupportWidget brandId={selectedBrandId} />
       </ErrorBoundary>
+      {showGoalWizard && goalWizardBrandId && (
+        <ErrorBoundary silent>
+          <GoalSetupWizard
+            brandId={goalWizardBrandId}
+            onClose={() => setShowGoalWizard(false)}
+            onComplete={() => setSection("missioncontrol")}
+          />
+        </ErrorBoundary>
+      )}
       {!isTeamMember ? (
         <ErrorBoundary silent>
           <EchoCompanion />

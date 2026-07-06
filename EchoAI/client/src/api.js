@@ -188,6 +188,19 @@ export const api = {
   getMissionControl: () => request("/api/agents/mission-control"),
   getAgentDetail: (agentId) => request(`/api/agents/${agentId}`),
 
+  // Target Goals & KPI tracking (Prompt 67).
+  getGoalCatalog: (brandId) => request(`/api/goals/catalog/${brandId}`),
+  getGoals: (brandId) => request(`/api/goals/${brandId}`),
+  getDepartmentGoals: (brandId, department) =>
+    request(`/api/goals/${brandId}/department/${department}`),
+  getGoalsOverview: () => request("/api/goals/overview"),
+  createGoal: (brandId, body) =>
+    request(`/api/goals/${brandId}`, { method: "POST", body }),
+  updateGoal: (brandId, goalId, body) =>
+    request(`/api/goals/${brandId}/${goalId}`, { method: "PUT", body }),
+  deleteGoal: (brandId, goalId) =>
+    request(`/api/goals/${brandId}/${goalId}`, { method: "DELETE" }),
+
   // Echo memory (persistent recall) + Autonomous Growth Mode.
   getEchoMemory: () => request("/api/echo/memory"),
   recallEchoMemory: (query) =>
@@ -303,6 +316,8 @@ export const api = {
   // Brands
   getBrands: () => request("/api/brands"),
   getBrand: (brandId) => request(`/api/brands/${brandId}`),
+  updateBrand: (brandId, payload) =>
+    request(`/api/brands/${brandId}`, { method: "PUT", body: payload }),
   discovery: (payload) =>
     request("/api/brands/discovery", { method: "POST", body: payload }),
 

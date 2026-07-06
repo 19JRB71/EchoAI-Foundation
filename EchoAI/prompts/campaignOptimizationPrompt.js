@@ -102,11 +102,30 @@ function buildCompetitorAnalysisPrompt({ niche, competitors = [], targetAudience
  * @param {object} opts.competitorIntel  Latest competitor intelligence report (or null).
  * @param {Array}  opts.analytics        Historical weekly analytics rows.
  */
-function buildCampaignOptimizationPrompt({ brand = {}, performance = [], competitorIntel, analytics = [] } = {}) {
+function describeGoalTargets(goalTargets = {}) {
+  const lines = [];
+  if (Number.isFinite(Number(goalTargets.costPerLead))) {
+    lines.push(
+      `- Cost per lead target: $${Number(goalTargets.costPerLead)} or lower. ` +
+        "Treat this as a hard guardrail — do not recommend changes that would push cost per lead above it; " +
+        "prioritize keeping cost per lead at or under this number."
+    );
+  }
+  if (Number.isFinite(Number(goalTargets.roas))) {
+    lines.push(
+      `- Return on ad spend target: ${Number(goalTargets.roas)}x or higher. ` +
+        "Favor reallocations that protect or improve ROAS toward this target."
+    );
+  }
+  return lines;
+}
+
+function buildCampaignOptimizationPrompt({ brand = {}, performance = [], competitorIntel, analytics = [], goalTargets = {} } = {}) {
   const name = brand.brand_name || "the brand";
   const personality = brand.brand_personality || "professional and approachable";
   const voice = brand.voice_description || "clear, friendly, and benefit-focused";
   const audience = describeAudience(brand.target_audience);
+  const targetLines = describeGoalTargets(goalTargets);
 
   return [
     "You are optimizing the advertising for the brand described below.",
@@ -118,6 +137,9 @@ function buildCampaignOptimizationPrompt({ brand = {}, performance = [], competi
     `- Target audience: ${audience}`,
     `- Niche: ${deriveNiche(brand)}`,
     "",
+    ...(targetLines.length
+      ? ["Owner's performance goals (optimize toward these as guardrails):", ...targetLines, ""]
+      : []),
     "Current campaign performance (active campaigns):",
     JSON.stringify(performance, null, 2),
     "",

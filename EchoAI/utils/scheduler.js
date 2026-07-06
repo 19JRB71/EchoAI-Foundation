@@ -27,6 +27,7 @@ const {
   runWeeklyOpportunityScanForBrand,
 } = require("../controllers/capitalFundingController");
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
+const { runDailyGoalTracking } = require("./goalAlerts");
 const { warmMorningBriefings } = require("../controllers/echoVoiceController");
 const {
   sweepDueReminders,
@@ -360,6 +361,16 @@ function startScheduler() {
     });
   });
 
+  // 05:45 daily: snapshot every brand's goal progress (trend + history) and
+  // alert owners on at-risk / hit / exceeding goals via voice + push. Runs
+  // BEFORE the 06:00 briefing warm so the pre-generated morning briefing reads
+  // that morning's fresh goal snapshots (not yesterday's).
+  cron.schedule("45 5 * * *", () => {
+    runDailyGoalTracking().catch((err) => {
+      console.error("Scheduled goal tracking run errored:", err.message);
+    });
+  });
+
   // Mondays 08:15 (after the weekly analytics run at 08:00): generate each
   // multi-business owner's weekly cross-business intelligence report.
   cron.schedule("15 8 * * 1", () => {
@@ -381,6 +392,7 @@ function startScheduler() {
       "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
       "Echo voice reminders: every minute; Echo closing summary: daily 18:00; " +
       "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
+      "goal tracking: daily 05:45; " +
       "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours)."
   );
 }
@@ -391,4 +403,5 @@ module.exports = {
   runDailyHealthSnapshots,
   runWeeklyCrossBusinessIntelligence,
   runCompetitorScan,
+  runDailyGoalTracking,
 };

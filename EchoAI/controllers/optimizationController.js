@@ -183,6 +183,24 @@ async function autoOptimizeCampaignsForBrand(brand) {
   );
   const competitorIntel = intelResult.rows[0] ? intelResult.rows[0].intelligence_report : null;
 
+  // Atlas honors the owner's active cost-per-lead / ROAS goals as optimization
+  // guardrails so budget/audience changes are steered toward those targets.
+  let goalTargets = {};
+  try {
+    const goalRes = await db.query(
+      `SELECT metric_key, target_value FROM brand_goals
+        WHERE brand_id = $1 AND status = 'active'
+          AND metric_key IN ('cost_per_lead', 'roas')`,
+      [brand.brand_id]
+    );
+    for (const g of goalRes.rows) {
+      if (g.metric_key === "cost_per_lead") goalTargets.costPerLead = Number(g.target_value);
+      if (g.metric_key === "roas") goalTargets.roas = Number(g.target_value);
+    }
+  } catch (err) {
+    console.error(`Could not load goal targets for brand ${brand.brand_id}:`, err.message);
+  }
+
   // Snapshot current performance (the "before" state) for each campaign.
   const performance = campaigns.map((c) => ({
     campaignId: c.campaign_id,
@@ -198,6 +216,7 @@ async function autoOptimizeCampaignsForBrand(brand) {
     performance,
     competitorIntel,
     analytics: analyticsResult.rows,
+    goalTargets,
   });
 
   const response = await anthropic.messages.create({

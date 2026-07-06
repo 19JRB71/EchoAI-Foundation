@@ -31,6 +31,7 @@ const EVENT_TYPES = [
   "budget_low",
   "sentinel_fixed",
   "rep_completed",
+  "goal_alert",
 ];
 
 // Defaults applied when a user has no stored voice_settings (or is missing keys).
@@ -49,6 +50,7 @@ const DEFAULT_SETTINGS = {
     budget_low: true,
     sentinel_fixed: true,
     rep_completed: true,
+    goal_alert: true,
   },
 };
 

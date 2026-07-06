@@ -64,6 +64,7 @@ const echoVoiceRoutes = require("./routes/echoVoiceRoutes");
 const agentRoutes = require("./routes/agentRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const salesAgentRoutes = require("./routes/salesAgentRoutes");
+const goalRoutes = require("./routes/goalRoutes");
 const musicRoutes = require("./routes/musicRoutes");
 
 // Mobile API (v2) — lean payloads, cursor pagination, standard envelopes.
@@ -252,6 +253,7 @@ app.use("/api/echo-voice", echoVoiceRoutes);
 app.use("/api/agents", agentRoutes);
 app.use("/api/health-monitor", healthRoutes);
 app.use("/api/sales-agent", salesAgentRoutes);
+app.use("/api/goals", goalRoutes);
 app.use("/api/music", musicRoutes);
 
 // Mobile API (v2). Mounted under /api so the rate limiter covers it, and before

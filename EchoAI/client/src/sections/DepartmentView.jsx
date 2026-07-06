@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api";
 import Spinner from "../components/Spinner.jsx";
+import DepartmentGoals from "../components/DepartmentGoals.jsx";
 import { agentMeta, departmentTools } from "../lib/departments.js";
+
+// Departments whose dashboards surface a goals panel (mirror backend
+// DEPARTMENT_CATEGORIES keys that map to an agent id).
+const GOAL_DEPARTMENTS = new Set(["atlas", "nova", "pulse"]);
 
 // Department View — a single team member's landing page. Shows the member's
 // header (avatar, name, title, live status, current task) pulled from
@@ -27,7 +32,7 @@ function StatusBadge({ status }) {
   );
 }
 
-export default function DepartmentView({ agentId, onOpenTool, onAction, canOpenSection }) {
+export default function DepartmentView({ agentId, selectedBrandId, onOpenTool, onAction, canOpenSection }) {
   const meta = agentMeta(agentId);
   const [agent, setAgent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,6 +105,16 @@ export default function DepartmentView({ agentId, onOpenTool, onAction, canOpenS
           </div>
         )}
       </div>
+
+      {/* Department goals dashboard (atlas/nova/pulse) */}
+      {GOAL_DEPARTMENTS.has(agentId) && selectedBrandId && (
+        <DepartmentGoals
+          brandId={selectedBrandId}
+          department={agentId}
+          title={`${name}'s Goals`}
+          onManage={() => onOpenTool && onOpenTool({ section: "settings" })}
+        />
+      )}
 
       {/* Tool cards */}
       <div className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-300">

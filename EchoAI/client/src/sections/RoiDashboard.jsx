@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import RoiTrendChart from "../components/RoiTrendChart.jsx";
+import DepartmentGoals from "../components/DepartmentGoals.jsx";
 import AdvancedRoiDashboard from "./roi/AdvancedRoiDashboard.jsx";
 import { meetsTier, tierName, tierPrice, accentColor } from "../lib/tiers.js";
 
@@ -258,6 +259,9 @@ function BasicRoiDashboard({ brandId }) {
               sub={`On ${money(roi.subscription?.monthlyPrice)}/mo plan`}
             />
           </div>
+
+          {/* Revenue & campaign goals */}
+          <DepartmentGoals brandId={brandId} department="roi" title="Revenue Goals" />
 
           {/* 12-week trend */}
           <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm">

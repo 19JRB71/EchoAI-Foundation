@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api";
 import Spinner from "../components/Spinner.jsx";
+import { ScoreRing } from "../components/GoalsPanel.jsx";
+import { statusMeta, formatPercent, brandTypeLabel } from "../lib/goals.js";
 
 // Mission Control — the command center that opens the dashboard. It rolls up the
 // live status of the whole AI Marketing Department (from /api/agents/
@@ -46,6 +48,7 @@ function whenLabel(iso) {
 
 export default function MissionControl({ onNavigate, onOpenDepartment }) {
   const [data, setData] = useState(null);
+  const [goals, setGoals] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -53,7 +56,12 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
     setLoading(true);
     setError("");
     try {
-      setData(await api.getMissionControl());
+      const [mc, goalsOverview] = await Promise.all([
+        api.getMissionControl(),
+        api.getGoalsOverview().catch(() => null),
+      ]);
+      setData(mc);
+      setGoals(goalsOverview);
     } catch (err) {
       setError(err.message || "Couldn't load Mission Control.");
     } finally {
@@ -114,6 +122,89 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
         </div>
         <p className="mt-3 text-[15px] leading-relaxed text-gray-100">{data && data.briefing}</p>
       </div>
+
+      {/* Goals Overview — cross-brand achievement score + attention */}
+      {goals && goals.brandsWithGoals > 0 && (
+        <div className="mb-6 rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <ScoreRing score={goals.overallScore} label="Goal score" size={72} />
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-200">
+                  Goals Overview
+                </h3>
+                <p className="mt-1 text-xs text-gray-400">
+                  {goals.brandsWithGoals} business
+                  {goals.brandsWithGoals === 1 ? "" : "es"} with active goals ·
+                  overall achievement across all your goals this month
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigate && onNavigate("settings")}
+              className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-gray-800"
+            >
+              Manage Goals
+            </button>
+          </div>
+
+          {/* Per-brand score chips */}
+          {Array.isArray(goals.perBrand) && goals.perBrand.length > 0 && (
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {goals.perBrand.map((b) => (
+                <div
+                  key={b.brandId}
+                  className="rounded-xl border border-gray-800 bg-gray-950/50 p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-semibold text-gray-100">
+                      {b.brandName}
+                    </span>
+                    <span className="text-sm font-bold text-gray-200">
+                      {b.score == null ? "—" : `${b.score}`}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-gray-400">
+                    <span>{brandTypeLabel(b.brandType)}</span>
+                    <span>
+                      {b.goalCount} goal{b.goalCount === 1 ? "" : "s"}
+                      {b.atRisk > 0 ? ` · ${b.atRisk} at risk` : ""}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* At-risk / milestone attention */}
+          {Array.isArray(goals.attention) && goals.attention.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {goals.attention.slice(0, 6).map((g) => {
+                const m = statusMeta(g.status);
+                return (
+                  <div
+                    key={`${g.brandId}-${g.goalId}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-sm text-gray-100">{g.label}</span>
+                      <span className="ml-2 text-xs text-gray-500">
+                        {g.brandName}
+                      </span>
+                    </div>
+                    <span
+                      className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                      style={{ color: m.color, backgroundColor: m.bg }}
+                    >
+                      {m.label} · {formatPercent(g.percentToGoal)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* This week's numbers */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
