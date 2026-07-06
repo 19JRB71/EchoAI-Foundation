@@ -643,6 +643,11 @@ export const api = {
     request(`/api/email-marketing/campaigns/${campaignId}/resume`, { method: "POST" }),
   cancelEmailCampaign: (campaignId) =>
     request(`/api/email-marketing/campaigns/${campaignId}`, { method: "DELETE" }),
+  retryEmailDripRecipient: (campaignId, recipientId) =>
+    request(
+      `/api/email-marketing/campaigns/${campaignId}/recipients/${recipientId}/retry`,
+      { method: "POST" }
+    ),
   getEmailCampaigns: (brandId) =>
     request(`/api/email-marketing/campaigns/${brandId}`),
   getEmailCampaignDetail: (campaignId) =>
@@ -912,6 +917,8 @@ export const api = {
     }),
   sendSmsCampaign: (campaignId) =>
     request(`/api/sms/campaigns/${campaignId}/send`, { method: "POST" }),
+  retrySmsCampaign: (campaignId) =>
+    request(`/api/sms/campaigns/${campaignId}/retry`, { method: "POST" }),
   getSmsCampaigns: (brandId) => request(`/api/sms/campaigns/${brandId}`),
   getSmsCampaignDetail: (campaignId) => request(`/api/sms/campaign/${campaignId}`),
   getSmsConversations: (brandId) => request(`/api/sms/conversations/${brandId}`),

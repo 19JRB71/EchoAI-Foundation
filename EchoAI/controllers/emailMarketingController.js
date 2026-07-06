@@ -759,6 +759,79 @@ async function sendDueDripEmails() {
   return { processed, sent, failed: failedByCampaign.size };
 }
 
+// Both ids in the retry route are UUIDs; reject malformed values up front so
+// they surface as a clean 400 instead of a Postgres cast error.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * POST /api/email-marketing/campaigns/:campaignId/recipients/:recipientId/retry
+ * One-tap recovery for a drip recipient stuck at delivery_status='failed':
+ * atomically flips failed -> pending, resets send_attempts to 0, and sets
+ * next_send_at = NOW() so the next hourly drip tick picks it up. Mirrors the
+ * social failed-post reschedule pattern: ownership enforced inside the UPDATE
+ * via the brands join, and the handler branches on the atomic UPDATE's row
+ * count (404 foreign / 409 wrong-state decided by a follow-up read only when
+ * nothing was updated).
+ */
+async function retryDripRecipient(req, res) {
+  const userId = req.user.userId;
+  const { campaignId, recipientId } = req.params;
+  if (!campaignId || !UUID_RE.test(campaignId)) {
+    return res.status(400).json({ error: "Invalid campaign id" });
+  }
+  if (!recipientId || !UUID_RE.test(recipientId)) {
+    return res.status(400).json({ error: "Invalid recipient id" });
+  }
+  try {
+    const result = await db.query(
+      `UPDATE email_marketing_recipients r
+       SET delivery_status = 'pending', send_attempts = 0,
+           next_send_at = NOW(), updated_at = NOW()
+       FROM email_marketing_campaigns c
+       JOIN brands b ON b.brand_id = c.brand_id
+       WHERE r.recipient_id = $1
+         AND r.campaign_id = $2
+         AND c.campaign_id = r.campaign_id
+         AND c.campaign_type = 'drip'
+         AND b.user_id = $3
+         AND r.delivery_status = 'failed'
+       RETURNING r.recipient_id, r.email_address, r.delivery_status,
+                 r.current_step, r.send_attempts, r.next_send_at`,
+      [recipientId, campaignId, userId]
+    );
+    if (result.rows.length > 0) {
+      return res.json({ recipient: result.rows[0] });
+    }
+
+    // Nothing updated: either the recipient isn't ours (404, same as any
+    // foreign resource), the campaign isn't a drip (400), or the recipient
+    // isn't in 'failed' (409 with the real status).
+    const check = await db.query(
+      `SELECT r.delivery_status, c.campaign_type
+       FROM email_marketing_recipients r
+       JOIN email_marketing_campaigns c ON c.campaign_id = r.campaign_id
+       JOIN brands b ON b.brand_id = c.brand_id AND b.user_id = $3
+       WHERE r.recipient_id = $1 AND r.campaign_id = $2`,
+      [recipientId, campaignId, userId]
+    );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: "Recipient not found" });
+    }
+    if (check.rows[0].campaign_type !== "drip") {
+      return res
+        .status(400)
+        .json({ error: "Only drip sequence recipients can be retried" });
+    }
+    return res.status(409).json({
+      error: `Only failed recipients can be retried (this recipient is '${check.rows[0].delivery_status}')`,
+    });
+  } catch (err) {
+    console.error("Retry drip recipient error:", err.message);
+    return res.status(500).json({ error: "Failed to retry recipient" });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -771,12 +844,20 @@ async function getCampaigns(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
     const result = await db.query(
-      `SELECT campaign_id, campaign_name, campaign_type, goal, segment_filter,
-              status, recipient_count, sent_count, open_count, click_count,
-              scheduled_at, sent_at, created_at, updated_at
-       FROM email_marketing_campaigns
-       WHERE brand_id = $1
-       ORDER BY created_at DESC`,
+      `SELECT c.campaign_id, c.campaign_name, c.campaign_type, c.goal,
+              c.segment_filter, c.status, c.recipient_count, c.sent_count,
+              c.open_count, c.click_count, c.scheduled_at, c.sent_at,
+              c.created_at, c.updated_at,
+              COALESCE(f.failed_count, 0)::int AS failed_count
+       FROM email_marketing_campaigns c
+       LEFT JOIN (
+         SELECT campaign_id, COUNT(*) AS failed_count
+         FROM email_marketing_recipients
+         WHERE delivery_status = 'failed'
+         GROUP BY campaign_id
+       ) f ON f.campaign_id = c.campaign_id
+       WHERE c.brand_id = $1
+       ORDER BY c.created_at DESC`,
       [brandId]
     );
     const rate = (num, denom) => (denom > 0 ? num / denom : 0);
@@ -791,6 +872,7 @@ async function getCampaigns(req, res) {
       sentCount: row.sent_count,
       openCount: row.open_count,
       clickCount: row.click_count,
+      failedCount: row.failed_count,
       openRate: rate(row.open_count, row.sent_count),
       clickRate: rate(row.click_count, row.sent_count),
       scheduledAt: row.scheduled_at,
@@ -1126,6 +1208,7 @@ module.exports = {
   createDripSequence,
   sendCampaign,
   sendDueDripEmails,
+  retryDripRecipient,
   getCampaigns,
   getCampaignDetail,
   pauseCampaign,

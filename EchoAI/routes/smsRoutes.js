@@ -22,6 +22,7 @@ router.use(auth, lockout, featureGate("sms_marketing"), denyViewerMutations);
 router.post("/generate", sms.generateMessages);
 router.post("/campaigns", sms.createCampaign);
 router.post("/campaigns/:campaignId/send", sms.sendCampaign);
+router.post("/campaigns/:campaignId/retry", sms.retryCampaign);
 router.get("/campaigns/:brandId", sms.getCampaigns);
 router.get("/campaign/:campaignId", sms.getCampaignDetail);
 

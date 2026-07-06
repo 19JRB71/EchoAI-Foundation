@@ -138,6 +138,21 @@ function Campaigns({ brandId }) {
     }
   }
 
+  // One-tap recovery for a failed blast: the retry endpoint re-queues the
+  // undelivered messages before sending, so already-texted contacts are safe.
+  async function retry(id) {
+    setBusyId(id);
+    setError("");
+    try {
+      await api.retrySmsCampaign(id);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (showBuilder) {
     return (
       <CampaignBuilder
@@ -195,13 +210,22 @@ function Campaigns({ brandId }) {
                     <span>{c.sent_at ? `Sent ${fmt(c.sent_at)}` : `Created ${fmt(c.created_at)}`}</span>
                   </div>
                 </div>
-                {(c.status === "draft" || c.status === "failed") && (
+                {c.status === "draft" && (
                   <button
                     onClick={() => send(c.campaign_id)}
                     disabled={busyId === c.campaign_id}
                     className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-emerald-400 disabled:opacity-50"
                   >
                     {busyId === c.campaign_id ? "Sending…" : "Send Now"}
+                  </button>
+                )}
+                {c.status === "failed" && (
+                  <button
+                    onClick={() => retry(c.campaign_id)}
+                    disabled={busyId === c.campaign_id}
+                    className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-400 disabled:opacity-50"
+                  >
+                    {busyId === c.campaign_id ? "Retrying…" : "Retry Blast"}
                   </button>
                 )}
               </div>

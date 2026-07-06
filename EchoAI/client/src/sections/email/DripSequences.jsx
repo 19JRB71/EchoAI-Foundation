@@ -73,6 +73,7 @@ export default function DripSequences({ brandId, refreshKey, onChange }) {
 function DripRow({ campaign, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showFailed, setShowFailed] = useState(false);
 
   async function act(fn) {
     setBusy(true);
@@ -134,7 +135,115 @@ function DripRow({ campaign, onChanged }) {
         <Stat label="Opens" value={`${campaign.openCount} (${pct(campaign.openRate)})`} />
         <Stat label="Clicks" value={`${campaign.clickCount} (${pct(campaign.clickRate)})`} />
       </div>
+      {campaign.failedCount > 0 && (
+        <div className="mt-3">
+          <button
+            onClick={() => setShowFailed((v) => !v)}
+            className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20"
+          >
+            {showFailed
+              ? "Hide failed recipients"
+              : `${campaign.failedCount} failed recipient${campaign.failedCount === 1 ? "" : "s"} — view & retry`}
+          </button>
+          {showFailed && (
+            <FailedRecipients campaignId={campaign.campaignId} onRetried={onChanged} />
+          )}
+        </div>
+      )}
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Lists a drip sequence's failed recipients with a one-tap Retry that flips
+ * each back to pending so the next hourly drip run re-attempts delivery.
+ */
+function FailedRecipients({ campaignId, onRetried }) {
+  const [recipients, setRecipients] = useState(null);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
+  const [retriedIds, setRetriedIds] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.getEmailCampaignDetail(campaignId);
+        if (!cancelled) {
+          setRecipients(
+            (data.recipients || []).filter((r) => r.delivery_status === "failed")
+          );
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId]);
+
+  async function retry(recipientId) {
+    setBusyId(recipientId);
+    setError("");
+    try {
+      await api.retryEmailDripRecipient(campaignId, recipientId);
+      setRetriedIds((ids) => [...ids, recipientId]);
+      onRetried && onRetried();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (error && !recipients) {
+    return <p className="mt-2 text-xs text-red-400">{error}</p>;
+  }
+  if (!recipients) {
+    return <p className="mt-2 text-xs text-gray-400">Loading failed recipients…</p>;
+  }
+  if (recipients.length === 0) {
+    return (
+      <p className="mt-2 text-xs text-gray-400">
+        No failed recipients right now — they may have already been retried.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      {recipients.map((r) => {
+        const retried = retriedIds.includes(r.recipient_id);
+        return (
+          <div
+            key={r.recipient_id}
+            className="flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/60 px-3 py-2"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-xs text-gray-200">{r.email_address}</p>
+              <p className="text-[11px] text-gray-500">
+                Stopped at email {(r.current_step || 0) + 1}
+              </p>
+            </div>
+            {retried ? (
+              <span className="shrink-0 text-xs font-medium text-emerald-400">
+                Queued for retry
+              </span>
+            ) : (
+              <button
+                onClick={() => retry(r.recipient_id)}
+                disabled={busyId === r.recipient_id}
+                className="shrink-0 rounded-lg bg-amber-500 px-3 py-1 text-xs font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+              >
+                {busyId === r.recipient_id ? "Retrying…" : "Retry"}
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );
 }

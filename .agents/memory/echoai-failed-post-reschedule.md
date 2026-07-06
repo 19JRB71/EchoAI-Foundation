@@ -25,3 +25,15 @@ rescheduling without the warning can silently double-post.
 **How to apply:** if the rescue sweep's error copy is ever reworded, update the
 client matcher in lockstep (and its tests), or the double-post confirmation
 silently disappears.
+
+## Same pattern reused for email/SMS one-tap retries
+
+- Email drip: failed recipient -> pending is one atomic UPDATE (brands-join
+  ownership, `delivery_status='failed'` guard, resets `send_attempts=0` and
+  `next_send_at=NOW()` in the same statement); next hourly drip tick resends.
+- SMS blast retry: the atomic `failed -> sending` claim MUST happen BEFORE
+  re-queueing the failed messages — sendCampaign claims from
+  `('draft','failed')`, so re-queueing first would let a concurrent send pick
+  up the rows. Only `delivery_status='failed'` outbound rows are re-queued
+  (sent rows never re-text). The final flip recomputes `delivered_count` from
+  the messages table, not this run's counter, so retries don't clobber totals.

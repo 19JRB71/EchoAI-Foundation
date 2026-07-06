@@ -34,6 +34,10 @@ router.post("/drip", controller.createDripSequence);
 router.post("/campaigns/:campaignId/send", controller.sendCampaign);
 router.post("/campaigns/:campaignId/pause", controller.pauseCampaign);
 router.post("/campaigns/:campaignId/resume", controller.resumeCampaign);
+router.post(
+  "/campaigns/:campaignId/recipients/:recipientId/retry",
+  controller.retryDripRecipient
+);
 router.delete("/campaigns/:campaignId", controller.cancelCampaign);
 
 // Reads (brand-scoped lists + single campaign detail)

@@ -252,6 +252,20 @@ async function sendCampaign(req, res) {
     return res.status(409).json({ error: "Campaign is already being sent" });
   }
 
+  const outcome = await deliverQueuedMessages(campaign, cfg);
+  return res.json(outcome);
+}
+
+/**
+ * Shared send engine for sendCampaign and retryCampaign. The caller MUST have
+ * already claimed the campaign atomically (status flipped to 'sending' with a
+ * row-count-checked UPDATE) so only one request can be in here per campaign.
+ * Sends every 'queued' outbound message, then makes the status-guarded final
+ * flip and fires the failure alert only when this run's flip really landed.
+ * Returns { campaign, delivered, skipped, failed }.
+ */
+async function deliverQueuedMessages(campaign, cfg) {
+  const campaignId = campaign.campaign_id;
   const { rows: queued } = await db.query(
     `SELECT m.message_id, m.message_body, l.phone
      FROM sms_messages m
@@ -312,13 +326,21 @@ async function sendCampaign(req, res) {
   // transition, and the row count tells us whether the transition really
   // happened here (the health monitor's stale-send rescue can steal it if the
   // loop ran unusually long — that path alerts the owner itself).
+  // delivered_count is recomputed from the messages table so a retry run
+  // reflects the campaign's TOTAL sent messages, not just this run's.
   const finalStatus = delivered > 0 || skipped > 0 ? "sent" : "failed";
   const { rows: updated } = await db.query(
     `UPDATE sms_campaigns
-     SET status = $2, delivered_count = $3, sent_at = NOW(), updated_at = NOW()
+     SET status = $2,
+         delivered_count = (
+           SELECT COUNT(*) FROM sms_messages
+           WHERE campaign_id = $1 AND direction = 'outbound'
+             AND delivery_status = 'sent'
+         ),
+         sent_at = NOW(), updated_at = NOW()
      WHERE campaign_id = $1 AND status = 'sending'
      RETURNING *`,
-    [campaignId, finalStatus, delivered],
+    [campaignId, finalStatus],
   );
 
   if (updated.length > 0 && finalStatus === "failed") {
@@ -339,7 +361,63 @@ async function sendCampaign(req, res) {
     (await db.query(`SELECT * FROM sms_campaigns WHERE campaign_id = $1`, [campaignId]))
       .rows[0];
 
-  return res.json({ campaign: campaignRow, delivered, skipped, failed });
+  return { campaign: campaignRow, delivered, skipped, failed };
+}
+
+/**
+ * POST /api/sms/campaigns/:campaignId/retry
+ * One-tap recovery for a failed SMS blast: atomically claims the campaign
+ * failed -> 'sending' (row-count guarded, so concurrent retries/sends can't
+ * both run), re-queues this campaign's failed outbound messages, and runs the
+ * shared send engine. Already-sent messages stay 'sent' and are never
+ * re-queued, so a retry can't double-text anyone; opted-out numbers are
+ * re-checked (and re-skipped) by the send loop.
+ */
+async function retryCampaign(req, res) {
+  const userId = req.user.userId;
+  const { campaignId } = req.params;
+
+  const { rows: campRows } = await db.query(
+    `SELECT c.*
+     FROM sms_campaigns c
+     JOIN brands b ON b.brand_id = c.brand_id
+     WHERE c.campaign_id = $1 AND b.user_id = $2`,
+    [campaignId, userId],
+  );
+  const campaign = campRows[0];
+  if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+  const cfg = await getTwilioConfig(campaign.brand_id);
+  if (!cfg) {
+    return res
+      .status(400)
+      .json({ error: "Connect a Twilio number for this brand before sending SMS" });
+  }
+
+  // Atomic single-flight claim, retry-specific: ONLY a failed campaign may be
+  // retried. Claiming before the re-queue means no concurrent send/retry can
+  // pick up the re-queued rows (sendCampaign only claims draft/failed).
+  const { rows: claimed } = await db.query(
+    `UPDATE sms_campaigns SET status = 'sending', updated_at = NOW()
+     WHERE campaign_id = $1 AND status = 'failed'
+     RETURNING campaign_id`,
+    [campaignId],
+  );
+  if (claimed.length === 0) {
+    return res.status(409).json({
+      error: `Only failed campaigns can be retried (this campaign is '${campaign.status}')`,
+    });
+  }
+
+  await db.query(
+    `UPDATE sms_messages
+     SET delivery_status = 'queued', twilio_message_sid = NULL, sent_at = NULL
+     WHERE campaign_id = $1 AND direction = 'outbound' AND delivery_status = 'failed'`,
+    [campaignId],
+  );
+
+  const outcome = await deliverQueuedMessages(campaign, cfg);
+  return res.json(outcome);
 }
 
 /**
@@ -827,6 +905,7 @@ module.exports = {
   generateMessages,
   createCampaign,
   sendCampaign,
+  retryCampaign,
   getCampaigns,
   getCampaignDetail,
   getConversations,
