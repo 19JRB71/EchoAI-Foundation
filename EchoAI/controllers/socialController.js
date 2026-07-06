@@ -7,6 +7,8 @@ const {
 const socialApi = require("../utils/socialApi");
 const { getUserTier } = require("../middleware/featureGate");
 const { meetsTier } = require("../config/tiers");
+const pushController = require("./pushController");
+const mobilePushController = require("./mobilePushController");
 
 // Starter accounts may connect at most this many distinct social platforms.
 // Professional and above are unlimited (all 6 platforms).
@@ -522,6 +524,65 @@ function isTransientPublishError(err) {
 }
 
 /**
+ * Alerts the brand owner the moment one of their scheduled posts flips to
+ * 'failed' so they can reschedule the same day instead of discovering it in
+ * the calendar next week. Mirrors the hot-lead alert pattern: web push to
+ * every installed device + FCM mirror to native mobile devices.
+ *
+ * Invariants:
+ *  - Best-effort: never throws into the scheduler loop.
+ *  - Demo brands never alert.
+ *  - One alert per failure: callers invoke this only where the atomic
+ *    scheduled/publishing -> failed UPDATE actually hit a row, and the
+ *    per-post notification tag collapses any duplicate deliveries.
+ *  - Deep-links to the calendar (/dashboard?section=social) so the owner can
+ *    use the one-click Reschedule immediately.
+ */
+async function alertOwnerOfFailedPost({ postId, brandId, platform, reason }) {
+  try {
+    const { rows } = await db.query(
+      "SELECT brand_name, user_id, is_demo FROM brands WHERE brand_id = $1",
+      [brandId]
+    );
+    const brand = rows[0];
+    if (!brand || brand.is_demo || !brand.user_id) return;
+
+    const platformLabel = platform
+      ? platform.charAt(0).toUpperCase() + platform.slice(1)
+      : "Social";
+    const why = String(reason || "Unknown error").slice(0, 160);
+    const body = `${platformLabel} post for ${brand.brand_name} didn't publish: ${why} Tap to reschedule.`;
+
+    await pushController
+      .sendPushToUser(brand.user_id, {
+        title: "⚠️ Post failed to publish",
+        body,
+        url: "/dashboard?section=social",
+        tag: `post-failed-${postId}`,
+      })
+      .catch((err) =>
+        console.error("Failed-post push alert failed:", err.message)
+      );
+
+    // Mirror to the owner's native mobile devices (no-ops without tokens).
+    await mobilePushController
+      .sendToUser(brand.user_id, {
+        title: "⚠️ Post failed to publish",
+        body,
+        data: { type: "post_failed", postId: String(postId) },
+      })
+      .catch((err) =>
+        console.error("Failed-post mobile push alert failed:", err.message)
+      );
+  } catch (err) {
+    console.error(
+      `Failed-post alert lookup failed for post ${postId}:`,
+      err.message
+    );
+  }
+}
+
+/**
  * Publishes every scheduled post whose scheduled_time has passed. Posts are
  * claimed atomically (status -> 'publishing') so overlapping scheduler ticks
  * cannot double-publish. Returns a summary of how many were processed.
@@ -533,22 +594,29 @@ async function publishDuePosts() {
   // retried) because the crash may have happened AFTER the platform call
   // succeeded — re-publishing could double-post; the owner sees the failure
   // and can reschedule if the post never actually went out.
+  const RESCUE_REASON =
+    "Publishing was interrupted by a server restart. The post may or may not have gone out — check the platform and reschedule if needed.";
   const rescued = await db.query(
     `UPDATE social_posts
      SET status = 'failed', engagement_metrics = $1
      WHERE status = 'publishing' AND updated_at < NOW() - INTERVAL '10 minutes'
-     RETURNING post_id`,
-    [
-      JSON.stringify({
-        error:
-          "Publishing was interrupted by a server restart. The post may or may not have gone out — check the platform and reschedule if needed.",
-      }),
-    ]
+     RETURNING post_id, brand_id, platform`,
+    [JSON.stringify({ error: RESCUE_REASON })]
   );
   if (rescued.rows.length > 0) {
     console.warn(
       `Social scheduler: rescued ${rescued.rows.length} post(s) stuck in 'publishing' and marked them failed.`
     );
+    // Alert each owner right away — the RETURNING rows are exactly the posts
+    // that transitioned to 'failed' in this sweep, so each alerts once.
+    for (const row of rescued.rows) {
+      await alertOwnerOfFailedPost({
+        postId: row.post_id,
+        brandId: row.brand_id,
+        platform: row.platform,
+        reason: RESCUE_REASON,
+      });
+    }
   }
 
   const due = await db.query(
@@ -602,13 +670,25 @@ async function publishDuePosts() {
         continue;
       }
       console.error(`Social publish failed for post ${post.post_id}:`, err.message);
-      await db.query(
+      // Status-guarded flip: only the row this tick claimed ('publishing') can
+      // transition, and the row count tells us whether the transition really
+      // happened here — the owner is alerted only for that real transition.
+      const marked = await db.query(
         `UPDATE social_posts
          SET status = 'failed', engagement_metrics = $1,
              publish_attempts = publish_attempts + 1
-         WHERE post_id = $2`,
+         WHERE post_id = $2 AND status = 'publishing'
+         RETURNING post_id`,
         [JSON.stringify({ error: err.message }), post.post_id]
       );
+      if (marked.rows.length > 0) {
+        await alertOwnerOfFailedPost({
+          postId: post.post_id,
+          brandId: post.brand_id,
+          platform: post.platform,
+          reason: err.message,
+        });
+      }
     }
   }
 

@@ -39,7 +39,7 @@ import AgencyPortal from "./sections/AgencyPortal.jsx";
 import AffiliateProgram from "./sections/AffiliateProgram.jsx";
 import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
 import FeatureGate from "./components/FeatureGate.jsx";
-import { requiredTierForSection, accentColor } from "./lib/tiers.js";
+import { requiredTierForSection, accentColor, SECTION_TIERS } from "./lib/tiers.js";
 import { enablePushNotifications } from "./push.js";
 import TourProvider from "./tour/TourProvider.jsx";
 import SectionHelp from "./tour/SectionHelp.jsx";
@@ -546,6 +546,33 @@ export default function App() {
       /* no-op */
     }
   }, [authed]);
+
+  // Deep link from a push notification (e.g. "post failed to publish") straight
+  // to a dashboard section: /dashboard?section=social. The param is stripped
+  // immediately so refreshes don't re-navigate, and only known, permitted
+  // sections are honored — anything else is ignored (never a blank view).
+  useEffect(() => {
+    if (!authed || !onboardingCompleted) return;
+    let target;
+    try {
+      target = new URLSearchParams(window.location.search).get("section");
+    } catch {
+      return;
+    }
+    if (!target) return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("section");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    } catch {
+      /* no-op */
+    }
+    if (SECTION_TIERS[target] && canOpenSection(target)) {
+      setDeptAgentId(null);
+      setActiveToolTab(null);
+      setSection(target);
+    }
+  }, [authed, onboardingCompleted, canOpenSection]);
 
   useEffect(() => {
     if (!authed || !onboardingCompleted) return;
