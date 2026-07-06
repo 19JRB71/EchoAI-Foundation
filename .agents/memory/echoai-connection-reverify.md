@@ -12,6 +12,7 @@ The scheduler re-verifies every stored social connection (real brands only) and 
 - Success on a previously-`'error'` account restores it to `'connected'` (owner may reauthorize platform-side without re-entering credentials).
 - Both flips are status-guarded in the WHERE clause (`<> 'error'` / `= 'error'`) so an owner reconnecting mid-sweep can't be clobbered by a stale result.
 - Per-row work goes through `module.exports.reverifyAccountRow` so the sweep-guard seam is stubbable in tests (standard sweep-guard pattern).
+- A real `connected → 'error'` flip (guarded UPDATE rowCount > 0) push-alerts the brand owner via the shared failed-send helper (per-account tag, reconnect deep link to the social calendar). A 0-row flip returns `"already-flagged"` — no re-alert on repeated sweeps over a still-broken account; transient skips and demo brands stay silent.
 
 **Why:** the banner warns owners BEFORE the next scheduled post fails; a sweep that flips on transient errors would surface bogus warnings, and an unguarded flip could resurrect an error state the owner just fixed.
 

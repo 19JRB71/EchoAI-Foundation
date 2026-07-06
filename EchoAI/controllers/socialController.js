@@ -675,11 +675,66 @@ async function publishDuePosts() {
 // --- Connection re-verify sweep (scheduler) ---------------------------------
 
 /**
+ * Alerts the brand owner that a social login just broke (real
+ * 'connected' -> 'error' transition only — the caller branches on the guarded
+ * UPDATE's row count, so repeated sweeps over a still-broken account never
+ * re-alert). Best-effort via the shared failed-send helper: demo brands never
+ * alert, delivery failures never throw into the sweep, and the per-account
+ * notification tag collapses any duplicate deliveries at the tray.
+ */
+async function alertOwnerOfBrokenConnection(row) {
+  const platform = row.platform;
+  const platformLabel = platform
+    ? platform.charAt(0).toUpperCase() + platform.slice(1)
+    : "Social";
+  await alertOwnerOfFailedSend({
+    brandId: row.brand_id,
+    title: `⚠️ ${platformLabel} connection needs attention`,
+    buildBody: (brand) =>
+      `Your ${platformLabel} login for ${brand.brand_name} stopped working. ` +
+      `Tap to reconnect before scheduled posts fail.`,
+    url: "/dashboard?section=social",
+    tag: `social-connection-error-${row.account_id}`,
+    mobileData: {
+      type: "social_connection_error",
+      accountId: String(row.account_id),
+      platform: String(platform || ""),
+    },
+    logLabel: "Broken-connection",
+  });
+}
+
+/**
+ * Flips one account to 'error', status-guarded, and alerts the brand owner
+ * only when the UPDATE actually hit a row (a real 'connected' -> 'error'
+ * transition). Returns the sweep outcome: "flagged" for a real flip,
+ * "already-flagged" when the account was in 'error' before this sweep pass.
+ */
+async function flagAccountRow(row) {
+  const result = await db.query(
+    `UPDATE social_accounts SET connection_status = 'error'
+     WHERE account_id = $1 AND connection_status <> 'error'`,
+    [row.account_id]
+  );
+  if (result.rowCount > 0) {
+    // Real transition: tell the owner NOW instead of waiting for them to
+    // open the dashboard. A still-'error' account hits 0 rows above, so
+    // repeated sweeps never re-alert (dedup by design, not by tag alone).
+    await alertOwnerOfBrokenConnection(row);
+    return "flagged";
+  }
+  return "already-flagged";
+}
+
+/**
  * Re-verifies one stored social account's credentials against its platform and
  * reconciles connection_status. Outcomes:
  *   - "flagged":  a hard verification failure (expired/revoked token, bad
- *     credentials) flipped the account to 'error' so the dashboard warns the
- *     owner BEFORE the next scheduled post fails.
+ *     credentials) flipped the account 'connected' -> 'error' (a REAL
+ *     transition — the guarded UPDATE hit a row) so the dashboard warns the
+ *     owner BEFORE the next scheduled post fails; the owner is also push-alerted.
+ *   - "already-flagged": hard failure on an account already in 'error' — no
+ *     transition happened, so no re-alert.
  *   - "restored": credentials verified fine for an account previously stuck in
  *     'error' (e.g. the owner reauthorized on the platform side), so status is
  *     flipped back to 'connected'.
@@ -695,12 +750,7 @@ async function reverifyAccountRow(row) {
     credentials = JSON.parse(decrypt(row.credentials_encrypted));
   } catch {
     // Undecryptable/corrupt credentials can never publish — hard failure.
-    await db.query(
-      `UPDATE social_accounts SET connection_status = 'error'
-       WHERE account_id = $1 AND connection_status <> 'error'`,
-      [row.account_id]
-    );
-    return "flagged";
+    return flagAccountRow(row);
   }
 
   try {
@@ -710,12 +760,7 @@ async function reverifyAccountRow(row) {
     // Transient errors never reached / weren't answered by the platform, so
     // flipping to 'error' would raise a false alarm on working credentials.
     if (isTransientPublishError(err)) return "skipped";
-    await db.query(
-      `UPDATE social_accounts SET connection_status = 'error'
-       WHERE account_id = $1 AND connection_status <> 'error'`,
-      [row.account_id]
-    );
-    return "flagged";
+    return flagAccountRow(row);
   }
 
   if (row.connection_status === "error") {
@@ -737,7 +782,7 @@ async function reverifyAccountRow(row) {
  */
 async function reverifySocialConnections() {
   const { rows } = await db.query(
-    `SELECT sa.account_id, sa.platform, sa.connection_status, sa.credentials_encrypted
+    `SELECT sa.account_id, sa.brand_id, sa.platform, sa.connection_status, sa.credentials_encrypted
      FROM social_accounts sa
      JOIN brands b ON b.brand_id = sa.brand_id
      WHERE b.is_demo = false
@@ -749,7 +794,8 @@ async function reverifySocialConnections() {
     try {
       const outcome = await module.exports.reverifyAccountRow(row);
       summary.checked += 1;
-      if (outcome === "flagged") summary.flagged += 1;
+      if (outcome === "flagged" || outcome === "already-flagged")
+        summary.flagged += 1;
       else if (outcome === "restored") summary.restored += 1;
       else if (outcome === "skipped") summary.skipped += 1;
     } catch (err) {
