@@ -538,3 +538,229 @@ test("parseGoals returns validated suggestions on a good AI reply", async () => 
     anthropicModule.anthropic.messages.create = origCreate;
   }
 });
+
+// --- runDailyGoalTracking() end-to-end sweep (stateful fake db) --------------
+//
+// Integration coverage for the daily sweep: it must read the PRIOR day's
+// snapshot before writing today's, fire momentum alerts on >=20pt swings,
+// never touch demo brands, allow a status + momentum alert for the same goal
+// on the same day, and never re-alert the same (goal, kind, day) twice.
+
+const pushController = require("../controllers/pushController");
+const mobilePushController = require("../controllers/mobilePushController");
+
+/**
+ * A stateful in-memory fake of every query runDailyGoalTracking touches
+ * (brand discovery, prior snapshots, brand_goals, metric reads, snapshot
+ * upserts, the goal_alert_log claim, and the voice-notification insert).
+ * It implements the same semantics as the real SQL so consecutive runs see
+ * the state left behind by earlier ones.
+ */
+function makeGoalSweepDb(seed) {
+  const today = new Date().toISOString().slice(0, 10);
+  const state = {
+    snapshots: seed.snapshots.map((s) => ({ ...s })),
+    alertLog: new Set(), // `${goalId}:${kind}:${date}` claims
+    voiceRows: [],
+    voiceDedup: new Set(),
+    sawDemoFilter: false,
+  };
+
+  async function query(sql, params = []) {
+    // 1) Real-brand discovery (the sweep's first query).
+    if (/FROM brand_goals g/i.test(sql) && /JOIN brands b/i.test(sql)) {
+      // The demo-brand exclusion must live in this SQL — flag its presence and
+      // implement the same filter so a removed clause would surface demo rows.
+      state.sawDemoFilter = /is_demo\s*=\s*false/i.test(sql);
+      const rows = seed.brands
+        .filter(
+          (b) =>
+            (state.sawDemoFilter ? !b.is_demo : true) &&
+            seed.goals.some((g) => g.brand_id === b.brand_id && g.status === "active"),
+        )
+        .map((b) => ({
+          brand_id: b.brand_id,
+          brand_name: b.brand_name,
+          user_id: b.user_id,
+        }));
+      return { rows };
+    }
+
+    // 2) Prior percent-to-goal per goal (read BEFORE today's snapshot lands).
+    if (/DISTINCT ON \(goal_id\)/i.test(sql)) {
+      const brandId = params[0];
+      const latest = new Map();
+      for (const s of state.snapshots) {
+        if (s.brand_id !== brandId || s.snapshot_date >= today) continue;
+        const cur = latest.get(s.goal_id);
+        if (!cur || s.snapshot_date > cur.snapshot_date) latest.set(s.goal_id, s);
+      }
+      return {
+        rows: [...latest.values()].map((s) => ({
+          goal_id: s.goal_id,
+          percent_to_goal: s.percent_to_goal,
+        })),
+      };
+    }
+
+    // 3) Active goals for a brand (computeBrandGoals).
+    if (/FROM brand_goals/i.test(sql) && /status = 'active'/i.test(sql)) {
+      return {
+        rows: seed.goals.filter((g) => g.brand_id === params[0] && g.status === "active"),
+      };
+    }
+
+    // 4) Metric measurements (only lead metrics used in this scenario).
+    if (/FROM leads/i.test(sql)) {
+      const metrics = seed.metrics[params[0]] || {};
+      const key = /temperature = 'hot'/i.test(sql) ? "hot_leads" : "new_leads";
+      return { rows: [{ value: metrics[key] == null ? 0 : metrics[key] }] };
+    }
+
+    // 5) Trend lookup (latest earlier snapshot for one goal).
+    if (/FROM goal_snapshots/i.test(sql) && /current_value/i.test(sql) && /LIMIT 1/i.test(sql)) {
+      const goalId = params[0];
+      const prior = state.snapshots
+        .filter((s) => s.goal_id === goalId && s.snapshot_date < today)
+        .sort((a, b) => (a.snapshot_date < b.snapshot_date ? 1 : -1))[0];
+      return { rows: prior ? [{ current_value: prior.current_value }] : [] };
+    }
+
+    // 6) Today's snapshot upsert.
+    if (/INSERT INTO goal_snapshots/i.test(sql)) {
+      const [goal_id, brand_id, snapshot_date, current_value, target_value, pct, proj] = params;
+      const existing = state.snapshots.find(
+        (s) => s.goal_id === goal_id && s.snapshot_date === snapshot_date,
+      );
+      const row = {
+        goal_id,
+        brand_id,
+        snapshot_date,
+        current_value,
+        target_value,
+        percent_to_goal: pct,
+        projected_eom: proj,
+      };
+      if (existing) Object.assign(existing, row);
+      else state.snapshots.push(row);
+      return { rowCount: 1, rows: [] };
+    }
+
+    // 7) The per-(goal, kind, day) alert claim — first tick wins, rest skip.
+    if (/INSERT INTO goal_alert_log/i.test(sql)) {
+      const key = `${params[0]}:${params[1]}:${today}`;
+      if (state.alertLog.has(key)) return { rowCount: 0, rows: [] };
+      state.alertLog.add(key);
+      return { rowCount: 1, rows: [] };
+    }
+
+    // 8) Owner lookup for the voice event (defaults => voice enabled).
+    if (/FROM users/i.test(sql)) {
+      return { rows: [{ first_name: "Sam", voice_settings: null }] };
+    }
+
+    // 9) Voice notification insert (dedup on user + dedup_key).
+    if (/INSERT INTO echo_voice_notifications/i.test(sql)) {
+      const [userId, brandId, eventType, , , payload, dedupKey] = params;
+      const key = `${userId}:${dedupKey}`;
+      if (dedupKey != null && state.voiceDedup.has(key)) return { rows: [] };
+      state.voiceDedup.add(key);
+      state.voiceRows.push({
+        userId,
+        brandId,
+        eventType,
+        payload: payload == null ? null : JSON.parse(payload),
+      });
+      return { rows: [{ notification_id: `n${state.voiceRows.length}` }] };
+    }
+
+    return { rows: [] };
+  }
+
+  return { query, state };
+}
+
+test("runDailyGoalTracking: swings alert, demo brands stay silent, dedup holds", async () => {
+  // Two consecutive days of data:
+  //  - g1 (Acme, new_leads/100): yesterday 100% -> today 130% (=> exceeding
+  //    status AND a +30pt swing_up on the SAME goal, same day).
+  //  - g2 (Acme, hot_leads/100): yesterday 40% -> today 10% (=> -30pt swing_down).
+  //  - g3 belongs to a DEMO brand with a huge jump — must never alert.
+  const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const fake = makeGoalSweepDb({
+    brands: [
+      { brand_id: "b1", brand_name: "Acme", user_id: "u1", is_demo: false },
+      { brand_id: "bdemo", brand_name: "Demo Co", user_id: "u1", is_demo: true },
+    ],
+    goals: [
+      { goal_id: "g1", brand_id: "b1", metric_key: "new_leads", category: "lead", label: "New Leads", target_value: 100, sort_order: 0, status: "active" },
+      { goal_id: "g2", brand_id: "b1", metric_key: "hot_leads", category: "lead", label: "Hot Leads", target_value: 100, sort_order: 1, status: "active" },
+      { goal_id: "g3", brand_id: "bdemo", metric_key: "new_leads", category: "lead", label: "New Leads", target_value: 100, sort_order: 0, status: "active" },
+    ],
+    metrics: {
+      b1: { new_leads: 130, hot_leads: 10 },
+      bdemo: { new_leads: 500 },
+    },
+    snapshots: [
+      { goal_id: "g1", brand_id: "b1", snapshot_date: yesterday, current_value: 100, target_value: 100, percent_to_goal: 100 },
+      { goal_id: "g2", brand_id: "b1", snapshot_date: yesterday, current_value: 40, target_value: 100, percent_to_goal: 40 },
+      { goal_id: "g3", brand_id: "bdemo", snapshot_date: yesterday, current_value: 5, target_value: 100, percent_to_goal: 5 },
+    ],
+  });
+
+  const pushCalls = [];
+  const origQuery = db.query;
+  const origPush = pushController.sendPushToUser;
+  const origMobile = mobilePushController.sendToUser;
+  db.query = fake.query;
+  pushController.sendPushToUser = async (userId, payload) => {
+    pushCalls.push({ userId, ...payload.data });
+  };
+  mobilePushController.sendToUser = async () => {};
+
+  try {
+    const first = await goalAlerts.runDailyGoalTracking();
+
+    // Only the real brand is swept; the demo brand is excluded in SQL.
+    assert.ok(fake.state.sawDemoFilter, "brand discovery SQL must filter is_demo = false");
+    assert.strictEqual(first.brandsProcessed, 1);
+
+    const kindsFor = (goalId) =>
+      pushCalls.filter((c) => c.goalId === goalId).map((c) => c.kind).sort();
+
+    // g1 fires BOTH a status alert and a momentum alert on the same day.
+    assert.deepStrictEqual(kindsFor("g1"), ["exceeding", "swing_up"]);
+    // g2's -30pt day-over-day drop fires swing_down.
+    assert.ok(kindsFor("g2").includes("swing_down"), `g2 kinds: ${kindsFor("g2")}`);
+    // The demo brand's goal never alerts anywhere (push, voice, or claim log).
+    assert.deepStrictEqual(kindsFor("g3"), []);
+    assert.ok(fake.state.voiceRows.every((v) => v.brandId !== "bdemo"));
+    assert.ok([...fake.state.alertLog].every((k) => !k.startsWith("g3:")));
+
+    // Voice events mirror the push alerts (voice enabled by default settings).
+    const voiceKinds = fake.state.voiceRows.map((v) => v.payload.kind).sort();
+    assert.deepStrictEqual(voiceKinds, pushCalls.map((c) => c.kind).sort());
+    assert.strictEqual(first.alertsSent, pushCalls.length);
+
+    // Today's snapshot was written for both real goals with the new percents.
+    const today = new Date().toISOString().slice(0, 10);
+    const todayRows = fake.state.snapshots.filter((s) => s.snapshot_date === today);
+    assert.deepStrictEqual(
+      todayRows.map((s) => [s.goal_id, s.percent_to_goal]).sort(),
+      [["g1", 130], ["g2", 10]],
+    );
+
+    // Second sweep the same day: same kinds derive again (prior read still
+    // excludes today's snapshot), but every (goal, kind, day) is already
+    // claimed — nothing is re-alerted.
+    const before = pushCalls.length;
+    const second = await goalAlerts.runDailyGoalTracking();
+    assert.strictEqual(second.brandsProcessed, 1);
+    assert.strictEqual(second.alertsSent, 0, "same-day rerun must dedup all alerts");
+    assert.strictEqual(pushCalls.length, before, "no push may be re-sent on rerun");
+  } finally {
+    db.query = origQuery;
+    pushController.sendPushToUser = origPush;
+    mobilePushController.sendToUser = origMobile;
+  }
+});
