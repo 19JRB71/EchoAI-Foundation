@@ -198,14 +198,32 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
                   className="rounded-xl border border-gray-800 bg-gray-950/50 p-3"
                 >
                   <div className="flex items-center justify-between gap-2 border-b border-gray-800 pb-2">
-                    <div className="min-w-0">
+                    {/* Clicking a business's header opens Settings with THAT
+                        business selected, landed on its goals + alert history
+                        cards — same deep link the alert feed rows use. */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onNavigate &&
+                        onNavigate("settings", {
+                          brandId: b.brandId,
+                          focus: "goals",
+                        })
+                      }
+                      title={`Open ${b.brandName}'s goals & alert history`}
+                      aria-label={`Open ${b.brandName}'s goals & alert history`}
+                      className="group min-w-0 rounded-md text-left hover:opacity-80"
+                    >
                       <span className="truncate text-sm font-semibold text-gray-100">
                         {b.brandName}
                       </span>
                       <span className="ml-2 text-[11px] text-gray-500">
                         {brandTypeLabel(b.brandType)}
                       </span>
-                    </div>
+                      <span className="ml-2 text-[11px] font-semibold text-teal-400 opacity-70 group-hover:opacity-100">
+                        Manage →
+                      </span>
+                    </button>
                     <div className="flex shrink-0 items-center gap-2 text-[11px] text-gray-400">
                       <span>
                         {b.goalCount} goal{b.goalCount === 1 ? "" : "s"}

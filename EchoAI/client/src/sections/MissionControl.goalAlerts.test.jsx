@@ -141,6 +141,81 @@ describe("MissionControl goal alerts", () => {
     expect(onNavigate).toHaveBeenCalledWith("settings", { focus: "goals" });
   });
 
+  test("clicking a business header in the Goals Overview deep-links to THAT business's goals", async () => {
+    api.getMissionControl.mockResolvedValue(payload([]));
+    api.getGoalsOverview.mockResolvedValue({
+      brandsWithGoals: 2,
+      overallScore: 71,
+      perBrand: [
+        {
+          brandId: "b1",
+          brandName: "Acme",
+          brandType: "local_service",
+          goalCount: 1,
+          atRisk: 0,
+          score: 80,
+          goals: [],
+        },
+        {
+          brandId: "b2",
+          brandName: "Globex",
+          brandType: "ecommerce",
+          goalCount: 2,
+          atRisk: 1,
+          score: 62,
+          goals: [],
+        },
+      ],
+    });
+    const onNavigate = vi.fn();
+
+    render(<MissionControl onNavigate={onNavigate} onOpenDepartment={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Globex")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Globex"));
+
+    expect(onNavigate).toHaveBeenCalledWith("settings", {
+      brandId: "b2",
+      focus: "goals",
+    });
+  });
+
+  test("single-business overview still renders the group and deep-links to that brand", async () => {
+    api.getMissionControl.mockResolvedValue(payload([]));
+    api.getGoalsOverview.mockResolvedValue({
+      brandsWithGoals: 1,
+      overallScore: 80,
+      perBrand: [
+        {
+          brandId: "b1",
+          brandName: "Acme",
+          brandType: "local_service",
+          goalCount: 1,
+          atRisk: 0,
+          score: 80,
+          goals: [],
+        },
+      ],
+    });
+    const onNavigate = vi.fn();
+
+    render(<MissionControl onNavigate={onNavigate} onOpenDepartment={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Goals Overview")).toBeInTheDocument();
+    });
+    // Group renders exactly as before for single-business accounts.
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Acme"));
+
+    expect(onNavigate).toHaveBeenCalledWith("settings", {
+      brandId: "b1",
+      focus: "goals",
+    });
+  });
+
   test("a failed dismiss keeps the alert and shows an error", async () => {
     api.getMissionControl.mockResolvedValue(payload([ALERT]));
     api.dismissGoalAlert.mockRejectedValue(new Error("nope"));
