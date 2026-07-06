@@ -157,6 +157,7 @@ async function buildGoalProgress(goal, win = monthWindow()) {
     previousValue,
     status,
     sortOrder: goal.sort_order,
+    alertsMuted: goal.alerts_muted === true,
   };
 }
 
@@ -167,7 +168,7 @@ async function buildGoalProgress(goal, win = monthWindow()) {
 async function computeBrandGoals(brandId, win = monthWindow()) {
   const { rows } = await db.query(
     `SELECT goal_id, brand_id, category, metric_key, label, target_value,
-            period, sort_order, status
+            period, sort_order, status, alerts_muted
        FROM brand_goals
       WHERE brand_id = $1 AND status = 'active'
       ORDER BY sort_order ASC, created_at ASC`,

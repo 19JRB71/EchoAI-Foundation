@@ -125,6 +125,26 @@ export default function GoalEditorCard({ brandId }) {
     }
   };
 
+  const [mutingId, setMutingId] = useState(null);
+
+  const toggleMute = async (goal) => {
+    const next = !goal.alertsMuted;
+    setError("");
+    setMutingId(goal.goalId);
+    try {
+      const data = await api.muteGoalAlerts(brandId, goal.goalId, next);
+      setGoals((prev) =>
+        prev.map((g) =>
+          g.goalId === goal.goalId ? { ...g, alertsMuted: data.muted === true } : g
+        )
+      );
+    } catch (err) {
+      setError(err.message || "Couldn't update alert settings.");
+    } finally {
+      setMutingId(null);
+    }
+  };
+
   if (!brandId) {
     return (
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 text-sm text-gray-400">
@@ -213,6 +233,11 @@ export default function GoalEditorCard({ brandId }) {
                     >
                       {m.label} · {formatPercent(g.percentToGoal)}
                     </span>
+                    {g.alertsMuted && (
+                      <span className="ml-2 rounded-full bg-gray-800 px-2 py-0.5 text-[11px] font-semibold text-gray-400">
+                        Alerts muted
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400">
@@ -226,6 +251,27 @@ export default function GoalEditorCard({ brandId }) {
                       onBlur={(e) => saveTarget(g, e.target.value)}
                       className="w-24 rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-100 focus:border-amber-500 focus:outline-none"
                     />
+                    <button
+                      onClick={() => toggleMute(g)}
+                      disabled={mutingId === g.goalId}
+                      title={
+                        g.alertsMuted
+                          ? "Resume voice & push alerts for this goal"
+                          : "Stop voice & push alerts for this goal"
+                      }
+                      className={[
+                        "rounded-md border px-2 py-1 text-xs disabled:opacity-60",
+                        g.alertsMuted
+                          ? "border-teal-700 text-teal-300 hover:bg-teal-950/40"
+                          : "border-gray-700 text-gray-300 hover:bg-gray-800",
+                      ].join(" ")}
+                    >
+                      {mutingId === g.goalId
+                        ? "…"
+                        : g.alertsMuted
+                          ? "Unmute alerts"
+                          : "Mute alerts"}
+                    </button>
                     <button
                       onClick={() => removeGoal(g)}
                       className="rounded-md border border-gray-700 px-2 py-1 text-xs text-red-300 hover:bg-red-950/40"

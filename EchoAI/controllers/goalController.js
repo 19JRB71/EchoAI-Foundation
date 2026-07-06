@@ -198,7 +198,7 @@ async function createGoal(req, res) {
                COALESCE((SELECT MAX(sort_order) + 1 FROM brand_goals
                          WHERE brand_id = $1 AND status = 'active'), 0))
        RETURNING goal_id, brand_id, category, metric_key, label, target_value,
-                 period, sort_order, status`,
+                 period, sort_order, status, alerts_muted`,
       [
         brand.brand_id,
         meta.category,
@@ -273,7 +273,7 @@ async function updateGoal(req, res) {
       `UPDATE brand_goals SET ${fields.join(", ")}
         WHERE goal_id = $${idx++} AND brand_id = $${idx}
         RETURNING goal_id, brand_id, category, metric_key, label, target_value,
-                  period, sort_order, status`,
+                  period, sort_order, status, alerts_muted`,
       values
     );
     if (!rows.length) return res.status(404).json({ error: "Goal not found" });
