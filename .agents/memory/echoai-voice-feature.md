@@ -51,3 +51,23 @@ questions ("how is my social media") don't navigate, and (2) common-word aliases
 (e.g. bare "social") hijack unrelated speech — pin to specific phrases
 ("social media") only. Confirmations must end in "." (not "?") or isQuestion adds
 the follow-up gate.
+
+**Full-coverage routing rule (every section + department voice-reachable).** A
+section and its owning department are BOTH reachable, so they need DISTINCT
+triggers: agent PROPER NAMES + distinctive role titles → `dept:<agent>`
+(standalone ok); FEATURE phrases → the section (verb required). So "campaigns"→
+campaigns section, "atlas"/"advertising manager"→dept:atlas; "social media"→social
+section, "nova"/"social media manager"→dept:nova. **Why:** an earlier iteration
+routed "campaigns"→dept:atlas / "social media"→dept:nova, which left the actual
+sections unreachable hands-free (one tool-card click away). **How to apply:**
+keep sections `standalone:false` (verb-gated) so short answers ("yes launch the
+campaign") fall through to the server pending_action approver; make generic
+single-noun dept aliases (advertising, crm, competition, oversight) their OWN
+`standalone:false` entries — a bare noun standalone hijacks ordinary talk
+("competition is rough"). Order multi-word/distinctive phrases before generic
+single words ("voice settings" before "settings"; "content calendar" before
+"calendar"; "sentinel health"/"health monitor" before bare "sentinel"). Reqs that
+already existed and needed NO change: verbal "yes" executing a pending action
+(server `classifyApprovalUtterance`+`runExec`), auto morning briefing on login
+(`autoBriefing` defaults **true**, once/session guard), and music voice
+(`matchMusicIntent`, evaluated before nav).

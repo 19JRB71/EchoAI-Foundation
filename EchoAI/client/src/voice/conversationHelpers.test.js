@@ -84,20 +84,76 @@ describe("matchNavIntent", () => {
     expect(matchNavIntent("show me the portfolio")).toBe("portfolio");
   });
 
-  it("routes department commands to 'dept:<agent>' keys (name or alias)", () => {
+  it("routes each department to its 'dept:<agent>' key (name or role alias)", () => {
+    // Proper agent names.
     expect(matchNavIntent("go to atlas")).toBe("dept:atlas");
-    expect(matchNavIntent("show me campaigns")).toBe("dept:atlas");
     expect(matchNavIntent("show me scout")).toBe("dept:scout");
-    expect(matchNavIntent("competitor report")).toBe("dept:scout");
     expect(matchNavIntent("go to nova")).toBe("dept:nova");
-    expect(matchNavIntent("social media")).toBe("dept:nova");
     expect(matchNavIntent("show me pulse")).toBe("dept:pulse");
+    expect(matchNavIntent("open forge")).toBe("dept:forge");
+    expect(matchNavIntent("go to sentinel")).toBe("dept:sentinel");
+    // Role / department aliases (agent name not spoken).
+    expect(matchNavIntent("marketing director")).toBe("dept:echo");
+    expect(matchNavIntent("competitor report")).toBe("dept:scout");
+    expect(matchNavIntent("advertising manager")).toBe("dept:atlas");
+    expect(matchNavIntent("social media manager")).toBe("dept:nova");
     expect(matchNavIntent("go to crm")).toBe("dept:pulse");
+    expect(matchNavIntent("receptionist")).toBe("dept:voice");
+  });
+
+  it("routes feature phrases to their own sections (not the owning department)", () => {
+    // A section and its department are BOTH reachable by voice: the feature
+    // phrase opens the section, the agent name/role opens the department.
+    expect(matchNavIntent("show me campaigns")).toBe("campaigns");
+    expect(matchNavIntent("show me social media")).toBe("social");
+    expect(matchNavIntent("take me to the image studio")).toBe("image");
+    expect(matchNavIntent("open video content")).toBe("video");
+    expect(matchNavIntent("go to my sales scripts")).toBe("sales");
+    expect(matchNavIntent("show me the content calendar")).toBe("contentcalendar");
+  });
+
+  it("covers the remaining sections so every section is voice-reachable", () => {
+    expect(matchNavIntent("show me the overview")).toBe("overview");
+    expect(matchNavIntent("go to my ai team")).toBe("aiteam");
+    expect(matchNavIntent("open echo growth")).toBe("echogrowth");
+    expect(matchNavIntent("take me to echo memory")).toBe("echomemory");
+    expect(matchNavIntent("open voice settings")).toBe("voicesettings");
+    expect(matchNavIntent("show me customer intelligence")).toBe("intelligence");
+    expect(matchNavIntent("go to capital funding")).toBe("capitalfunding");
+    expect(matchNavIntent("open customer feedback")).toBe("feedback");
+    expect(matchNavIntent("show me the affiliate program")).toBe("affiliate");
+    expect(matchNavIntent("go to the agency workspace")).toBe("agency");
+    expect(matchNavIntent("open zapier")).toBe("zapier");
+    expect(matchNavIntent("take me to the admin panel")).toBe("admin");
+    expect(matchNavIntent("show me the health monitor")).toBe("sentinelhealth");
+    expect(matchNavIntent("open call monitoring")).toBe("callmonitor");
+    expect(matchNavIntent("go to the sales queue")).toBe("queueoverview");
+    expect(matchNavIntent("show me email marketing")).toBe("email");
+    expect(matchNavIntent("go to sms")).toBe("sms");
+    expect(matchNavIntent("open follow ups")).toBe("followups");
+    expect(matchNavIntent("take me to appointments")).toBe("appointments");
+    expect(matchNavIntent("show me the chatbot")).toBe("chatbot");
+    expect(matchNavIntent("go to phone agent")).toBe("phone");
+    expect(matchNavIntent("open my roi dashboard")).toBe("roi");
+    expect(matchNavIntent("show me the ad studio")).toBe("adstudio");
+  });
+
+  it("keeps multi-word sections from being swallowed by generic ones", () => {
+    // "voice settings" must win over the "settings" section and the Voice dept.
+    expect(matchNavIntent("open voice settings")).toBe("voicesettings");
+    expect(matchNavIntent("go to settings")).toBe("settings");
+    // "content calendar" must win over the "calendar"→appointments alias.
+    expect(matchNavIntent("show me the content calendar")).toBe("contentcalendar");
+    expect(matchNavIntent("take me to the calendar")).toBe("appointments");
+    // "health monitor" must win over the bare "sentinel"→dept alias.
+    expect(matchNavIntent("show me the health monitor")).toBe("sentinelhealth");
+    expect(matchNavIntent("go to sentinel")).toBe("dept:sentinel");
   });
 
   it("sends 'mission control' / 'go home' to the home section", () => {
     expect(matchNavIntent("mission control")).toBe("missioncontrol");
     expect(matchNavIntent("go home")).toBe("missioncontrol");
+    expect(matchNavIntent("take me home")).toBe("missioncontrol");
   });
 
   it("routes SEO/Google commands to the real 'googleseo' section id", () => {
@@ -116,10 +172,26 @@ describe("matchNavIntent", () => {
     expect(matchNavIntent("")).toBe(null);
   });
 
-  it("does not fire on a bare 'social' that isn't 'social media'", () => {
-    // Nova is only reachable via "social media" (or "nova"), not any "social".
+  it("does not fire on section words without a nav verb (protects Echo answers)", () => {
+    // Sections require a verb, so a bare answer/utterance won't hijack Echo.
     expect(matchNavIntent("share this on social")).toBe(null);
-    expect(matchNavIntent("go to my social accounts")).toBe(null);
+    expect(matchNavIntent("yes launch the campaign")).toBe(null);
+    expect(matchNavIntent("email the customer back")).toBe(null);
+  });
+
+  it("does not let generic department nouns hijack ordinary statements", () => {
+    // These single nouns are department aliases only WITH a nav verb; a plain
+    // conversational statement must fall through to Echo, not navigate.
+    expect(matchNavIntent("competition is getting worse")).toBe(null);
+    expect(matchNavIntent("our crm is behind")).toBe(null);
+    expect(matchNavIntent("we need better oversight")).toBe(null);
+    expect(matchNavIntent("advertising costs are up")).toBe(null);
+    expect(matchNavIntent("i work from home")).toBe(null);
+    expect(matchNavIntent("the queue is long today")).toBe(null);
+    // ...but the same nouns DO navigate when paired with a nav verb.
+    expect(matchNavIntent("go to crm")).toBe("dept:pulse");
+    expect(matchNavIntent("take me to advertising")).toBe("dept:atlas");
+    expect(matchNavIntent("show me the competition")).toBe("dept:scout");
   });
 });
 

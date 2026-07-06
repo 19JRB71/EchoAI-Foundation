@@ -73,34 +73,121 @@ const NAV_QUESTION_RE =
 // verb (for direct commands / bare department names). Order matters — the first
 // matching target wins, so put more specific / higher-priority targets first.
 const NAV_TARGETS = [
+  // ── Group A: multi-word / distinctive phrases (must win before the generic
+  // single-word sections below that would otherwise swallow them). ──
+  { key: "voicesettings", re: /\bvoice settings\b/, standalone: true },
+  { key: "contentcalendar", re: /\bcontent calendar\b/, standalone: true },
+  {
+    key: "sentinelhealth",
+    re: /\b(sentinel health|health monitor|system health|health check)\b/,
+    standalone: true,
+  },
+  {
+    key: "callmonitor",
+    re: /\b(call monitor|call monitoring|monitor calls|call logs?)\b/,
+    standalone: true,
+  },
+  {
+    key: "queueoverview",
+    re: /\b(sales queue|queue overview|call queue)\b/,
+    standalone: true,
+  },
+  {
+    key: "capitalfunding",
+    re: /\b(capital funding|capital and funding|capital|funding)\b/,
+    standalone: false,
+  },
+  {
+    key: "echomemory",
+    re: /\b(echo memory|memory bank|my memory|memories)\b/,
+    standalone: false,
+  },
+  {
+    key: "echogrowth",
+    re: /\b(echo growth|autonomous growth|auto growth|growth engine)\b/,
+    standalone: false,
+  },
+  {
+    key: "aiteam",
+    re: /\b(ai team|my team|the team|team overview|ai staff|meet the team)\b/,
+    standalone: false,
+  },
+  {
+    key: "adstudio",
+    re: /\b(ad studio|ad creative|creative studio|ad creatives)\b/,
+    standalone: false,
+  },
+  { key: "sales", re: /\b(sales scripts?|sales script generator)\b/, standalone: false },
+  {
+    key: "intelligence",
+    re: /\b(customer intelligence|intelligence|strategy profile)\b/,
+    standalone: false,
+  },
+  // ── Group B: Department Views — agent name OR a distinctive role/department
+  // alias (standalone). Generic single-noun aliases are listed separately just
+  // below and require a nav verb, so a plain statement can't hijack navigation. ──
+  { key: "dept:echo", re: /\b(echo department|marketing director)\b/, standalone: true },
+  {
+    key: "dept:scout",
+    re: /\b(scout|research specialist|research department|competitor report|market research)\b/,
+    standalone: true,
+  },
+  {
+    key: "dept:atlas",
+    re: /\b(atlas|advertising manager|advertising department|ads? manager)\b/,
+    standalone: true,
+  },
+  {
+    key: "dept:nova",
+    re: /\b(nova|social media manager|social manager|social department)\b/,
+    standalone: true,
+  },
+  { key: "dept:pulse", re: /\b(pulse|crm manager)\b/, standalone: true },
+  {
+    key: "dept:voice",
+    re: /\b(receptionist|voice department|voice agent|answering service)\b/,
+    standalone: true,
+  },
+  {
+    key: "dept:forge",
+    re: /\b(forge|creative director|creative department)\b/,
+    standalone: true,
+  },
+  { key: "dept:sentinel", re: /\bsentinel\b/, standalone: true },
+  // Generic single-noun department aliases — verb REQUIRED (no standalone) so an
+  // ordinary statement like "competition is rough" can't trigger navigation.
+  { key: "dept:atlas", re: /\badvertising\b/, standalone: false },
+  { key: "dept:scout", re: /\b(competitors?|competition)\b/, standalone: false },
+  { key: "dept:pulse", re: /\bcrm\b/, standalone: false },
+  { key: "dept:sentinel", re: /\boversight\b/, standalone: false },
+  // ── Group C: single-word / generic feature sections (verb required). ──
   { key: "leads", re: /\bleads?\b/, standalone: false },
+  { key: "campaigns", re: /\b(ad campaigns?|campaigns?)\b/, standalone: false },
+  { key: "social", re: /\b(social media|social)\b/, standalone: false },
+  { key: "email", re: /\bemail( marketing)?\b/, standalone: false },
+  { key: "sms", re: /\b(sms|text messaging|texting)\b/, standalone: false },
+  { key: "reputation", re: /\b(reputation|reviews?)\b/, standalone: false },
+  { key: "phone", re: /\bphone( agent)?\b/, standalone: false },
+  { key: "appointments", re: /\b(appointments?|calendar|scheduling)\b/, standalone: false },
+  { key: "followups", re: /\bfollow ?ups?\b/, standalone: false },
+  { key: "chatbot", re: /\b(chatbot|website widget|web chat)\b/, standalone: false },
+  { key: "image", re: /\b(image studio|images?)\b/, standalone: false },
+  { key: "video", re: /\b(video content|videos?)\b/, standalone: false },
+  { key: "googleseo", re: /\b(seo|google)\b/, standalone: false },
+  { key: "roi", re: /\b(roi|return on investment)\b/, standalone: false },
+  { key: "feedback", re: /\b(customer feedback|feedback|surveys?)\b/, standalone: false },
+  { key: "affiliate", re: /\b(affiliates?|referrals?|referral program)\b/, standalone: false },
+  { key: "agency", re: /\b(agency|agencies|white label)\b/, standalone: false },
+  { key: "zapier", re: /\b(zapier|webhooks?)\b/, standalone: false },
+  { key: "overview", re: /\boverview\b/, standalone: false },
   { key: "portfolio", re: /\bportfolio\b/, standalone: false },
+  { key: "admin", re: /\b(admin panel|admin dashboard|admin)\b/, standalone: false },
+  { key: "settings", re: /\bsettings\b/, standalone: false },
   {
     key: "missioncontrol",
     re: /\b(mission control|go home|take me home|home screen)\b/,
     standalone: true,
   },
-  { key: "settings", re: /\bsettings\b/, standalone: false },
-  // Department views (agent name OR a natural-language alias for the department).
-  { key: "dept:atlas", re: /\b(atlas|campaigns?|advertising)\b/, standalone: true },
-  {
-    key: "dept:scout",
-    re: /\b(scout|competitors?|competition|competitor report|market intelligence)\b/,
-    standalone: true,
-  },
-  { key: "dept:nova", re: /\b(nova|social media)\b/, standalone: true },
-  { key: "dept:pulse", re: /\b(pulse|crm)\b/, standalone: true },
-  // Remaining top-level feature sections (verb required).
-  { key: "email", re: /\bemail( marketing)?\b/, standalone: false },
-  { key: "sms", re: /\b(sms|text messaging)\b/, standalone: false },
-  { key: "reputation", re: /\b(reputation|reviews?)\b/, standalone: false },
-  { key: "phone", re: /\bphone( agent)?\b/, standalone: false },
-  { key: "appointments", re: /\b(appointments?|calendar)\b/, standalone: false },
-  { key: "followups", re: /\bfollow ?ups?\b/, standalone: false },
-  { key: "chatbot", re: /\b(chatbot|website widget)\b/, standalone: false },
-  { key: "adstudio", re: /\b(ad studio|ad creative)\b/, standalone: false },
-  { key: "googleseo", re: /\b(seo|google)\b/, standalone: false },
-  { key: "roi", re: /\broi\b/, standalone: false },
 ];
 
 /**
@@ -124,20 +211,50 @@ export function matchNavIntent(text) {
 // Friendly labels for the spoken confirmation Echo gives after navigating.
 const NAV_LABELS = {
   leads: "your leads",
+  campaigns: "your ad campaigns",
+  social: "your social media",
   portfolio: "your portfolio",
+  overview: "your overview",
   settings: "your settings",
+  voicesettings: "your voice settings",
+  aiteam: "your AI team",
+  echomemory: "Echo's memory",
+  echogrowth: "autonomous growth",
   email: "email marketing",
   sms: "your SMS marketing",
   reputation: "your reputation dashboard",
   phone: "your phone agent",
   appointments: "your appointments",
   followups: "your follow-up sequences",
+  contentcalendar: "your content calendar",
   chatbot: "your website chatbot",
   adstudio: "the ad creative studio",
+  image: "the image studio",
+  video: "your video content",
+  sales: "your sales scripts",
   googleseo: "Google and SEO",
   roi: "your ROI dashboard",
+  intelligence: "customer intelligence",
+  capitalfunding: "capital and funding",
+  feedback: "customer feedback",
+  affiliate: "your affiliate program",
+  agency: "your agency workspace",
+  zapier: "your webhooks",
+  admin: "the admin panel",
+  sentinelhealth: "the health monitor",
+  callmonitor: "call monitoring",
+  queueoverview: "the sales queue",
 };
-const DEPT_NAMES = { atlas: "Atlas", scout: "Scout", nova: "Nova", pulse: "Pulse" };
+const DEPT_NAMES = {
+  echo: "Echo",
+  scout: "Scout",
+  atlas: "Atlas",
+  nova: "Nova",
+  pulse: "Pulse",
+  voice: "Voice",
+  forge: "Forge",
+  sentinel: "Sentinel",
+};
 
 /**
  * The verbal confirmation Echo speaks after acting on a navigation command.
