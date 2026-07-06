@@ -89,6 +89,36 @@ test("synthesize throws on a non-ok response (so callers can fall back)", async 
   await assert.rejects(() => elevenlabs.synthesize("hi"), /ElevenLabs 401/);
 });
 
+test("synthesize tags 4xx failures as reachableButRefused (fixable, no fallback)", async () => {
+  process.env.ELEVENLABS_API_KEY = "k";
+  process.env.ELEVENLABS_VOICE_ID = "v";
+  global.fetch = async () => ({
+    ok: false,
+    status: 401,
+    text: async () => '{"detail":{"code":"quota_exceeded"}}',
+    statusText: "Unauthorized",
+  });
+  await assert.rejects(
+    () => elevenlabs.synthesize("hi"),
+    (err) => err.reachableButRefused === true && err.elevenLabsStatus === 401,
+  );
+});
+
+test("synthesize tags 5xx failures as unreachable (transient, fallback ok)", async () => {
+  process.env.ELEVENLABS_API_KEY = "k";
+  process.env.ELEVENLABS_VOICE_ID = "v";
+  global.fetch = async () => ({
+    ok: false,
+    status: 503,
+    text: async () => "upstream down",
+    statusText: "Service Unavailable",
+  });
+  await assert.rejects(
+    () => elevenlabs.synthesize("hi"),
+    (err) => err.reachableButRefused === false && err.elevenLabsStatus === 503,
+  );
+});
+
 test("synthesize throws on empty audio", async () => {
   process.env.ELEVENLABS_API_KEY = "k";
   process.env.ELEVENLABS_VOICE_ID = "v";
@@ -172,6 +202,33 @@ test("synthesizeSpeech falls back to OpenAI when ElevenLabs errors", async () =>
   }
 });
 
+test("synthesizeSpeech does NOT fall back on a 4xx refusal (quota/bad key)", async () => {
+  process.env.ELEVENLABS_API_KEY = "k";
+  process.env.ELEVENLABS_VOICE_ID = "v";
+  global.fetch = async () => ({
+    ok: false,
+    status: 401,
+    text: async () => '{"detail":{"code":"quota_exceeded"}}',
+    statusText: "Unauthorized",
+  });
+
+  const savedCreate = openaiConfig.openai.audio.speech.create;
+  let openaiCalled = false;
+  openaiConfig.openai.audio.speech.create = async () => {
+    openaiCalled = true;
+    return { arrayBuffer: async () => Uint8Array.from([5, 5]).buffer };
+  };
+  try {
+    await assert.rejects(
+      () => synthesizeSpeech("hi", "friendly"),
+      (err) => err && err.code === "elevenlabs_error" && err.elevenLabsStatus === 401,
+    );
+    assert.strictEqual(openaiCalled, false, "must not switch voice on a fixable refusal");
+  } finally {
+    openaiConfig.openai.audio.speech.create = savedCreate;
+  }
+});
+
 test("synthesizeSpeech uses OpenAI directly when ElevenLabs is not configured", async () => {
   process.env.ELEVENLABS_API_KEY = "";
   process.env.ELEVENLABS_VOICE_ID = "";
@@ -237,6 +294,33 @@ test("synthesizeSpeech strict throws tts_unavailable (never OpenAI) when ElevenL
       (err) => err && err.code === "tts_unavailable",
     );
     assert.strictEqual(openaiCalled, false, "OpenAI must never be called in strict mode");
+  } finally {
+    openaiConfig.openai.audio.speech.create = savedCreate;
+  }
+});
+
+test("synthesizeSpeech strict throws tts_unavailable (not elevenlabs_error) on a 4xx refusal", async () => {
+  process.env.ELEVENLABS_API_KEY = "k";
+  process.env.ELEVENLABS_VOICE_ID = "v";
+  global.fetch = async () => ({
+    ok: false,
+    status: 401,
+    text: async () => '{"detail":{"code":"quota_exceeded"}}',
+    statusText: "Unauthorized",
+  });
+
+  const savedCreate = openaiConfig.openai.audio.speech.create;
+  let openaiCalled = false;
+  openaiConfig.openai.audio.speech.create = async () => {
+    openaiCalled = true;
+    return { arrayBuffer: async () => Uint8Array.from([5, 5]).buffer };
+  };
+  try {
+    await assert.rejects(
+      () => synthesizeSpeech("hi", "friendly", { strict: true }),
+      (err) => err && err.code === "tts_unavailable",
+    );
+    assert.strictEqual(openaiCalled, false, "strict mode must never call OpenAI, even on 4xx");
   } finally {
     openaiConfig.openai.audio.speech.create = savedCreate;
   }

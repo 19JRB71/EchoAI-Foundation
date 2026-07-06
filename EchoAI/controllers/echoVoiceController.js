@@ -132,7 +132,10 @@ async function speak(req, res) {
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
     const voice = voiceForStyle(style || settings.style);
-    const audio = await synthesizeSpeech(String(text).slice(0, 4000), voice, { strict });
+    const audio = await synthesizeSpeech(String(text).slice(0, 4000), voice, {
+      strict,
+      label: "echo-speak",
+    });
     res.setHeader("Content-Type", "audio/mpeg");
     return res.send(audio);
   } catch (err) {
@@ -142,6 +145,14 @@ async function speak(req, res) {
       return res
         .status(503)
         .json({ error: "Presentation voice unavailable", code: "tts_unavailable" });
+    }
+    // ElevenLabs reached us but refused (bad key / quota exceeded / unknown
+    // voice) → surface the exact reason instead of masking it with another voice.
+    if (err && err.code === "elevenlabs_error") {
+      console.error("Echo speak — ElevenLabs refused:", err.message);
+      return res
+        .status(502)
+        .json({ error: err.message, provider: "elevenlabs", code: "elevenlabs_error" });
     }
     console.error("Echo speak error:", err.message);
     // Upstream AI (OpenAI) failure → 502, matching the AI-call convention.

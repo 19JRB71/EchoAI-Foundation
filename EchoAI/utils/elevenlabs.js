@@ -36,7 +36,24 @@ const VOICE_SETTINGS = {
 
 async function readError(resp) {
   const body = await resp.text().catch(() => "");
-  return `ElevenLabs ${resp.status}: ${body.slice(0, 200) || resp.statusText}`;
+  return `ElevenLabs ${resp.status}: ${body.slice(0, 300) || resp.statusText}`;
+}
+
+/**
+ * Build a tagged Error from a non-ok ElevenLabs response. We distinguish two
+ * failure classes so callers can decide whether a fallback is legitimate:
+ *  - `reachableButRefused` (4xx): the service answered but rejected us — bad key,
+ *    quota exceeded, unknown voice, malformed request. These are FIXABLE
+ *    account/config problems; masking them behind another voice provider hides
+ *    the real issue, so callers must surface them instead of falling back.
+ *  - unreachable (5xx or a thrown network/timeout error): a transient outage
+ *    where a fallback keeps voice alive.
+ */
+async function makeHttpError(resp) {
+  const err = new Error(await readError(resp));
+  err.elevenLabsStatus = resp.status;
+  err.reachableButRefused = resp.status >= 400 && resp.status < 500;
+  return err;
 }
 
 /**
@@ -66,7 +83,7 @@ async function synthesize(text, { voiceId: overrideVoice } = {}) {
     }),
   });
 
-  if (!resp.ok) throw new Error(await readError(resp));
+  if (!resp.ok) throw await makeHttpError(resp);
   const buf = Buffer.from(await resp.arrayBuffer());
   if (!buf.length) throw new Error("ElevenLabs TTS returned empty audio");
   return buf;

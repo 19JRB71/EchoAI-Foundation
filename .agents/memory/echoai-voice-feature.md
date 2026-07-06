@@ -22,6 +22,19 @@ their `api.js` methods must **bypass the JSON `request()` wrapper** (which
 sets `Content-Type: application/json` and JSON.stringifies) — use raw `fetch`
 and attach the Bearer token manually (see `textToSpeech`/`speechToText`).
 
+**ElevenLabs-first TTS fallback policy (do not regress):** all spoken audio
+prefers ElevenLabs, but the fallback to OpenAI TTS is intentionally NARROW.
+`utils/elevenlabs.js` tags HTTP failures: 4xx = `reachableButRefused`
+(bad key / **quota_exceeded** / unknown voice — a FIXABLE account problem),
+5xx/network = unreachable. `voiceController.synthesizeSpeech` falls back to
+OpenAI ONLY on unreachable; on a 4xx refusal it throws `elevenlabs_error`
+(status attached) and the HTTP handlers return **502** with the exact ElevenLabs
+message — never masking a fixable refusal behind a different-sounding voice.
+Every call logs `[voice:<label>] provider=elevenlabs|openai`. **Why:** a
+silent OpenAI fallback made "ElevenLabs isn't being used" undiagnosable; the real
+cause is usually the ElevenLabs account being out of credits, which only the
+owner can fix (add credits / upgrade plan) — no code change makes it speak.
+
 **Browser realities:** mic (`getUserMedia`) is blocked inside the embedded
 Replit preview iframe (no `allow="microphone"`) — voice only works in a real
 browser tab / deployed app; show a hint and fall back to typing. TTS autoplay
