@@ -7,8 +7,7 @@ const {
 const socialApi = require("../utils/socialApi");
 const { getUserTier } = require("../middleware/featureGate");
 const { meetsTier } = require("../config/tiers");
-const pushController = require("./pushController");
-const mobilePushController = require("./mobilePushController");
+const { alertOwnerOfFailedSend } = require("../utils/failedSendAlerts");
 
 // Starter accounts may connect at most this many distinct social platforms.
 // Professional and above are unlimited (all 6 platforms).
@@ -539,47 +538,20 @@ function isTransientPublishError(err) {
  *    use the one-click Reschedule immediately.
  */
 async function alertOwnerOfFailedPost({ postId, brandId, platform, reason }) {
-  try {
-    const { rows } = await db.query(
-      "SELECT brand_name, user_id, is_demo FROM brands WHERE brand_id = $1",
-      [brandId]
-    );
-    const brand = rows[0];
-    if (!brand || brand.is_demo || !brand.user_id) return;
-
-    const platformLabel = platform
-      ? platform.charAt(0).toUpperCase() + platform.slice(1)
-      : "Social";
-    const why = String(reason || "Unknown error").slice(0, 160);
-    const body = `${platformLabel} post for ${brand.brand_name} didn't publish: ${why} Tap to reschedule.`;
-
-    await pushController
-      .sendPushToUser(brand.user_id, {
-        title: "⚠️ Post failed to publish",
-        body,
-        url: "/dashboard?section=social",
-        tag: `post-failed-${postId}`,
-      })
-      .catch((err) =>
-        console.error("Failed-post push alert failed:", err.message)
-      );
-
-    // Mirror to the owner's native mobile devices (no-ops without tokens).
-    await mobilePushController
-      .sendToUser(brand.user_id, {
-        title: "⚠️ Post failed to publish",
-        body,
-        data: { type: "post_failed", postId: String(postId) },
-      })
-      .catch((err) =>
-        console.error("Failed-post mobile push alert failed:", err.message)
-      );
-  } catch (err) {
-    console.error(
-      `Failed-post alert lookup failed for post ${postId}:`,
-      err.message
-    );
-  }
+  const platformLabel = platform
+    ? platform.charAt(0).toUpperCase() + platform.slice(1)
+    : "Social";
+  const why = String(reason || "Unknown error").slice(0, 160);
+  await alertOwnerOfFailedSend({
+    brandId,
+    title: "⚠️ Post failed to publish",
+    buildBody: (brand) =>
+      `${platformLabel} post for ${brand.brand_name} didn't publish: ${why} Tap to reschedule.`,
+    url: "/dashboard?section=social",
+    tag: `post-failed-${postId}`,
+    mobileData: { type: "post_failed", postId: String(postId) },
+    logLabel: "Failed-post",
+  });
 }
 
 /**

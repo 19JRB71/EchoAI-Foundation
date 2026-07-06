@@ -27,6 +27,7 @@ const {
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
 const { sendEmail } = require("../utils/email");
+const { alertOwnerOfFailedSmsCampaign } = require("./smsMarketingController");
 
 const UPLOADS_DIR = path.join(__dirname, "..", "uploads", "support");
 const PUBLIC_PREFIX = "/uploads/support";
@@ -327,14 +328,28 @@ async function safeProbe(fn, brand) {
 async function applyAutoFix(issue, brand) {
   switch (issue.type) {
     case "stale_sending_sms_campaign": {
-      await db.query(
+      const { rows } = await db.query(
         `UPDATE sms_campaigns
          SET status = 'failed'
          WHERE brand_id = $1
            AND status = 'sending'
-           AND updated_at < now() - interval '1 hour'`,
+           AND updated_at < now() - interval '1 hour'
+         RETURNING campaign_id, campaign_name`,
         [brand.brand_id],
       );
+      // Each RETURNING row is exactly a campaign that transitioned to 'failed'
+      // in this sweep — the blast died mid-send (crash/restart), so the owner
+      // must hear about it now instead of discovering it in the SMS section.
+      // Best-effort: the alert helper never throws and skips demo brands.
+      for (const c of rows) {
+        await alertOwnerOfFailedSmsCampaign({
+          campaignId: c.campaign_id,
+          brandId: brand.brand_id,
+          campaignName: c.campaign_name,
+          reason:
+            "The send was interrupted mid-blast and has been marked failed. Some messages may not have gone out.",
+        });
+      }
       return true;
     }
     default:
@@ -746,4 +761,5 @@ module.exports = {
   // exported for tests
   statusFromIssues,
   persistScreenshot,
+  applyAutoFix,
 };

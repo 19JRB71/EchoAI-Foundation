@@ -561,13 +561,18 @@ test("executeDueTouchpoints: touchpoint 1's hard failure never stops the rest of
 /**
  * In-memory stand-ins for db.query + db.getClient covering sendDueDripEmails.
  * Recipient 1's claim throws a hard db failure into the loop's per-recipient
- * guard; recipient 2's send dies at the (stubbed) SMTP layer, so its
- * transaction rolls back and the row stays pending for the next tick;
- * recipient 3's email must still send and advance. Every unrecognized query
- * throws.
+ * guard; recipient 2's send dies at the (stubbed) SMTP layer, so its attempt
+ * counter is bumped and the row stays pending for the next tick; recipient
+ * 3's email must still send and advance. Every unrecognized query throws.
  */
 function makeDripDb(seed) {
-  const state = { sentRecipients: [], campaignIncrements: [], rollbacks: 0 };
+  const state = {
+    sentRecipients: [],
+    campaignIncrements: [],
+    rollbacks: 0,
+    attemptBumps: [],
+    failedFlips: [],
+  };
 
   async function clientQuery(sql, params = []) {
     const bare = sql.trim();
@@ -610,6 +615,23 @@ function makeDripDb(seed) {
       /delivery_status = 'sent'/i.test(sql)
     ) {
       state.sentRecipients.push(params[1]);
+      return { rows: [] };
+    }
+
+    // 4b) Failed-send bookkeeping: below the attempt limit only the counter
+    // moves (row stays pending); at the limit the row flips to 'failed'.
+    if (
+      /UPDATE email_marketing_recipients/i.test(sql) &&
+      /delivery_status = 'failed'/i.test(sql)
+    ) {
+      state.failedFlips.push(params[1]);
+      return { rows: [{ recipient_id: params[1] }] };
+    }
+    if (
+      /UPDATE email_marketing_recipients/i.test(sql) &&
+      /SET send_attempts =/i.test(sql)
+    ) {
+      state.attemptBumps.push({ recipientId: params[1], attempts: params[0] });
       return { rows: [] };
     }
 
@@ -681,7 +703,8 @@ test("sendDueDripEmails: recipient 1's failure never stops the following emails"
     // Must resolve — r1's hard throw is contained by the per-recipient guard.
     const summary = await sendDueDripEmails();
 
-    // r1 never sent anything; r2's failed send rolled back (stays pending)...
+    // r1 never sent anything; r2's failed send only bumped its attempt
+    // counter (stays pending for the next tick)...
     assert.ok(
       !fake.state.sentRecipients.includes("r1") && !fake.state.sentRecipients.includes("r2"),
       "broken recipients must not be marked sent",
@@ -702,10 +725,17 @@ test("sendDueDripEmails: recipient 1's failure never stops the following emails"
       ["broken@example.com", "fine@example.com"],
       "both claimable recipients must attempt delivery in order",
     );
-    // r2 + r3 were claimed/processed; r2's send failure and r1's hard throw
-    // each rolled their transactions back.
-    assert.deepStrictEqual(summary, { processed: 2, sent: 1 });
-    assert.ok(fake.state.rollbacks >= 2, "failed items must roll back their transactions");
+    // r2 + r3 were claimed/processed; r1's hard throw rolled its transaction
+    // back; r2's first SMTP failure stayed pending with attempts = 1 (below
+    // the limit, so no failed flip and no alert).
+    assert.deepStrictEqual(summary, { processed: 2, sent: 1, failed: 0 });
+    assert.ok(fake.state.rollbacks >= 1, "hard-thrown items must roll back their transactions");
+    assert.deepStrictEqual(
+      fake.state.attemptBumps,
+      [{ recipientId: "r2", attempts: 1 }],
+      "the SMTP-failed recipient records one attempt and stays pending",
+    );
+    assert.deepStrictEqual(fake.state.failedFlips, [], "no recipient flips to failed below the limit");
   } finally {
     db.query = origQuery;
     db.getClient = origGetClient;

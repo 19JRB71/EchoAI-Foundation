@@ -28,6 +28,7 @@ const {
 const emailController = require("./emailController");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
+const { alertOwnerOfFailedSend } = require("../utils/failedSendAlerts");
 
 const SEGMENTS = ["all", "hot", "warm", "tire_kicker", "specific"];
 const STOP_KEYWORDS = ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"];
@@ -263,6 +264,7 @@ async function sendCampaign(req, res) {
   let delivered = 0;
   let skipped = 0;
   let failed = 0;
+  let lastError = null;
 
   for (const msg of queued) {
     if (!msg.phone) {
@@ -271,6 +273,7 @@ async function sendCampaign(req, res) {
         [msg.message_id],
       );
       failed += 1;
+      lastError = lastError || "Recipient has no phone number on file.";
       continue;
     }
     if (await isOptedOut(campaign.brand_id, msg.phone)) {
@@ -301,19 +304,63 @@ async function sendCampaign(req, res) {
         [msg.message_id],
       );
       failed += 1;
+      lastError = err.message;
     }
   }
 
+  // Status-guarded final flip: only the 'sending' row this request claimed can
+  // transition, and the row count tells us whether the transition really
+  // happened here (the health monitor's stale-send rescue can steal it if the
+  // loop ran unusually long — that path alerts the owner itself).
   const finalStatus = delivered > 0 || skipped > 0 ? "sent" : "failed";
   const { rows: updated } = await db.query(
     `UPDATE sms_campaigns
      SET status = $2, delivered_count = $3, sent_at = NOW(), updated_at = NOW()
-     WHERE campaign_id = $1
+     WHERE campaign_id = $1 AND status = 'sending'
      RETURNING *`,
     [campaignId, finalStatus, delivered],
   );
 
-  return res.json({ campaign: updated[0], delivered, skipped, failed });
+  if (updated.length > 0 && finalStatus === "failed") {
+    // Every recipient failed (Twilio outage, revoked credentials, bad
+    // numbers): a blast can finish long after the owner walked away, so push
+    // the failure alert too. Best-effort, demo brands skipped by the helper,
+    // per-campaign tag dedupes.
+    await alertOwnerOfFailedSmsCampaign({
+      campaignId,
+      brandId: campaign.brand_id,
+      campaignName: campaign.campaign_name,
+      reason: lastError || "No messages could be sent.",
+    });
+  }
+
+  const campaignRow =
+    updated[0] ||
+    (await db.query(`SELECT * FROM sms_campaigns WHERE campaign_id = $1`, [campaignId]))
+      .rows[0];
+
+  return res.json({ campaign: campaignRow, delivered, skipped, failed });
+}
+
+/**
+ * Alerts the brand owner that an SMS blast flipped to 'failed'. Callers invoke
+ * this only where the atomic -> 'failed' transition really happened (row-count
+ * branch); the per-campaign tag collapses duplicate deliveries; demo brands
+ * never alert. Deep-links to the SMS section for a one-tap retry.
+ */
+async function alertOwnerOfFailedSmsCampaign({ campaignId, brandId, campaignName, reason }) {
+  const why = String(reason || "Unknown error").slice(0, 160);
+  const label = campaignName ? `"${campaignName}"` : "your SMS blast";
+  await alertOwnerOfFailedSend({
+    brandId,
+    title: "⚠️ SMS blast failed to send",
+    buildBody: (brand) =>
+      `SMS blast ${label} for ${brand.brand_name} didn't send: ${why} Tap to review.`,
+    url: "/dashboard?section=sms",
+    tag: `sms-campaign-failed-${campaignId}`,
+    mobileData: { type: "sms_campaign_failed", campaignId: String(campaignId) },
+    logLabel: "Failed-SMS-campaign",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -788,4 +835,5 @@ module.exports = {
   resubscribe,
   getAnalytics,
   handleInbound,
+  alertOwnerOfFailedSmsCampaign,
 };

@@ -46,3 +46,4 @@
 - [EchoAI credential-failure detection](echoai-credential-failure-detection.md) — client regex over stored publish-error strings drives the Reconnect shortcut; keep in sync with server messages; Reconnect stays visible for "connected" rows.
 - [EchoAI section deep links](echoai-section-deeplink.md) — push alerts deep-link via /dashboard?section=<id>; client validates vs SECTION_TIERS + canOpenSection, param stripped once — never setSection an unvalidated id.
 - [EchoAI connection re-verify sweep](echoai-connection-reverify.md) — only hard auth failures flip to 'error' (transient never); verify success restores error→connected; flips status-guarded in WHERE.
+- [EchoAI email/SMS failure alerts](echoai-email-sms-failure-alerts.md) — one shared failed-send alert helper; alert only on the guarded flip's row count; drip alerts aggregate one per campaign per run.

@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { sendEmail } = require("../utils/email");
+const { alertOwnerOfFailedSend } = require("../utils/failedSendAlerts");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { getPublicBaseUrl } = require("../config/twilio");
 const {
@@ -512,11 +513,23 @@ async function sendCampaign(req, res) {
 // Drip scheduler worker (invoked hourly from utils/scheduler.js)
 // ---------------------------------------------------------------------------
 
+// A drip send that keeps dying at the SMTP layer (dead config, revoked
+// credentials) gets this many hourly attempts before the recipient flips to
+// 'failed' and the campaign's owner is alerted. A one-off hiccup still just
+// retries silently on the next tick.
+const MAX_DRIP_SEND_ATTEMPTS = 3;
+
 /**
  * Sends every due drip email. Each recipient is claimed atomically with
  * SELECT ... FOR UPDATE SKIP LOCKED inside its own transaction so overlapping
  * ticks can never double-send. Advances current_step / next_send_at, completing
  * the recipient once the sequence is exhausted. Returns { processed, sent }.
+ *
+ * Failure alerting: a recipient whose send has now failed
+ * MAX_DRIP_SEND_ATTEMPTS times is flipped to 'failed' (next_send_at cleared)
+ * inside its claim transaction — only recipients that really made that
+ * transition are counted, and after the loop the owner gets one push per
+ * affected campaign (tag per campaign) deep-linking to the Email section.
  */
 async function sendDueDripEmails() {
   const baseUrl = getPublicBaseUrl(null);
@@ -535,13 +548,17 @@ async function sendDueDripEmails() {
 
   let processed = 0;
   let sent = 0;
+  // campaign_id -> { brandId, campaignName, failedCount, reason } for the
+  // recipients that really flipped to 'failed' this run (alerted after the
+  // loop so one campaign alerts once per run, not once per recipient).
+  const failedByCampaign = new Map();
   for (const { recipient_id } of due.rows) {
     const client = await db.getClient();
     try {
       await client.query("BEGIN");
       const claim = await client.query(
         `SELECT r.recipient_id, r.campaign_id, r.email_address, r.current_step,
-                c.brand_id
+                r.send_attempts, c.brand_id, c.campaign_name
          FROM email_marketing_recipients r
          JOIN email_marketing_campaigns c ON c.campaign_id = r.campaign_id
          WHERE r.recipient_id = $1
@@ -593,6 +610,7 @@ async function sendDueDripEmails() {
       }
 
       let ok = true;
+      let sendError = null;
       try {
         const html = buildTrackedHtml(current.body_html, {
           recipientId: rec.recipient_id,
@@ -604,12 +622,45 @@ async function sendDueDripEmails() {
         sent += 1;
       } catch (err) {
         ok = false;
+        sendError = err;
         console.error(`Drip send failed (recipient ${rec.recipient_id}):`, err.message);
       }
 
       if (!ok) {
-        // Leave pending and retry on the next tick (do not advance the step).
-        await client.query("ROLLBACK");
+        // Count the attempt. Below the limit the row stays 'pending' (do not
+        // advance the step) and the next hourly tick retries it; at the limit
+        // it flips to 'failed' — the real state transition that alerts the
+        // owner. The row is FOR UPDATE-locked, so the flip cannot race.
+        const attemptsUsed = (rec.send_attempts || 0) + 1;
+        if (attemptsUsed >= MAX_DRIP_SEND_ATTEMPTS) {
+          const flipped = await client.query(
+            `UPDATE email_marketing_recipients
+             SET delivery_status = 'failed', send_attempts = $1,
+                 next_send_at = NULL, updated_at = NOW()
+             WHERE recipient_id = $2 AND delivery_status = 'pending'
+             RETURNING recipient_id`,
+            [attemptsUsed, rec.recipient_id]
+          );
+          await client.query("COMMIT");
+          if (flipped.rows.length > 0) {
+            const entry = failedByCampaign.get(rec.campaign_id) || {
+              brandId: rec.brand_id,
+              campaignName: rec.campaign_name,
+              failedCount: 0,
+              reason: sendError ? sendError.message : "Unknown error",
+            };
+            entry.failedCount += 1;
+            failedByCampaign.set(rec.campaign_id, entry);
+          }
+        } else {
+          await client.query(
+            `UPDATE email_marketing_recipients
+             SET send_attempts = $1, updated_at = NOW()
+             WHERE recipient_id = $2`,
+            [attemptsUsed, rec.recipient_id]
+          );
+          await client.query("COMMIT");
+        }
         continue;
       }
 
@@ -645,7 +696,27 @@ async function sendDueDripEmails() {
       client.release();
     }
   }
-  return { processed, sent };
+
+  // Alert each affected campaign's owner exactly once for this run. Only
+  // recipients whose pending -> failed flip really hit a row are counted, and
+  // the per-campaign tag collapses any duplicate deliveries. Best-effort:
+  // alertOwnerOfFailedSend never throws and skips demo brands itself.
+  for (const [campaignId, f] of failedByCampaign) {
+    const why = String(f.reason || "Unknown error").slice(0, 160);
+    const label = f.campaignName ? `"${f.campaignName}"` : "your email campaign";
+    await alertOwnerOfFailedSend({
+      brandId: f.brandId,
+      title: "⚠️ Email campaign send failed",
+      buildBody: (brand) =>
+        `${f.failedCount} email${f.failedCount === 1 ? "" : "s"} in ${label} for ${brand.brand_name} couldn't be sent: ${why} Tap to review.`,
+      url: "/dashboard?section=email",
+      tag: `email-campaign-failed-${campaignId}`,
+      mobileData: { type: "email_campaign_failed", campaignId: String(campaignId) },
+      logLabel: "Failed-email-campaign",
+    });
+  }
+
+  return { processed, sent, failed: failedByCampaign.size };
 }
 
 // ---------------------------------------------------------------------------
