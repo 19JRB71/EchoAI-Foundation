@@ -6,6 +6,7 @@ import BrandDiscovery from "./BrandDiscovery.jsx";
 import Billing from "./billing/Billing.jsx";
 import FacebookConnect from "../components/FacebookConnect.jsx";
 import GoalEditorCard from "../components/GoalEditorCard.jsx";
+import GoalAlertHistory from "../components/GoalAlertHistory.jsx";
 import TeamManagement from "./team/TeamManagement.jsx";
 import { tourTypeForTier } from "../tour/tourSteps.js";
 import { HELP_CONTENT } from "../tour/helpContent.js";
@@ -78,6 +79,7 @@ export default function Settings({
           <TwilioCard brandId={brandId} />
           <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
           <GoalEditorCard brandId={brandId} />
+          {(isAdmin || !isTeamMember) && <GoalAlertHistory brandId={brandId} />}
         </div>
       )}
     </div>

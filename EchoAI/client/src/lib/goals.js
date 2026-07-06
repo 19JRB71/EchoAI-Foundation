@@ -46,6 +46,21 @@ export function statusMeta(status) {
   return GOAL_STATUS[status] || GOAL_STATUS.no_data;
 }
 
+// Friendly label + color for a logged goal-alert kind (see the daily sweep).
+// Shared by the Mission Control feed and the Settings 30-day alert history.
+export const GOAL_ALERT_META = {
+  exceeding: { label: "Exceeding", color: "#22c55e" },
+  hit: { label: "Goal hit", color: "#22c55e" },
+  at_risk_urgent: { label: "Urgently behind", color: "#ef4444" },
+  at_risk_early: { label: "Behind pace", color: "#f59e0b" },
+  swing_up: { label: "Big jump", color: "#38bdf8" },
+  swing_down: { label: "Dropped", color: "#f97316" },
+};
+
+export function goalAlertMeta(kind) {
+  return GOAL_ALERT_META[kind] || { label: "Update", color: "#9ca3af" };
+}
+
 // Score coloring for the 0–100 achievement score.
 export function scoreColor(score) {
   if (score == null) return "#6B7280";
