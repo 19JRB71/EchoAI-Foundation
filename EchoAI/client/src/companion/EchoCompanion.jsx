@@ -144,7 +144,7 @@ function Bubble({ msg, onConnectFacebook, connecting }) {
   );
 }
 
-export default function EchoCompanion({ autoOpen = false }) {
+export default function EchoCompanion() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
@@ -237,9 +237,9 @@ export default function EchoCompanion({ autoOpen = false }) {
           "",
           window.location.pathname + (qs ? `?${qs}` : ""),
         );
-        setOpen(true);
         if (fb === "connected") {
-          // Resume the activation journey now that Facebook is linked.
+          // Resume the activation journey now that Facebook is linked. The panel
+          // stays closed — it only opens when the owner clicks the Echo button.
           runActivation();
         } else {
           setError("Facebook connection didn't complete. You can try again below.");
@@ -247,14 +247,11 @@ export default function EchoCompanion({ autoOpen = false }) {
         return;
       }
 
-      // Auto-open whenever activation is still incomplete (not just on the very
-      // first visit) so Echo keeps guiding the user until they're fully live.
-      if (autoOpen || state.activationStatus !== "active") {
-        setOpen(true);
-        // Only drive the loop forward when nothing is already awaiting approval.
-        if (state.activationStatus !== "active" && !state.pendingAction) {
-          runActivation();
-        }
+      // The panel NEVER opens on its own — it is a manual interface. We still let
+      // Echo's activation journey progress in the background so it's ready the
+      // moment the owner opens the panel; everything user-facing is voice-only.
+      if (state.activationStatus !== "active" && !state.pendingAction) {
+        runActivation();
       }
     })();
     return () => {
@@ -367,7 +364,6 @@ export default function EchoCompanion({ autoOpen = false }) {
     async (text) => {
       const value = (text || "").trim();
       if (!value) return { reply: "", isQuestion: false };
-      setOpen(true);
       const optimistic = { id: `local-${Date.now()}`, role: "user", type: "text", text: value };
       setMessages((prev) => [...prev, optimistic]);
       scrollToBottom();
@@ -392,16 +388,12 @@ export default function EchoCompanion({ autoOpen = false }) {
   );
 
   const conversation = useEchoConversation();
-  const conversing = conversation ? conversation.isConversing : false;
-  // Register the voice-command handler with the conversation engine.
+  // Register the voice-command handler with the conversation engine. Voice
+  // conversations run entirely through audio — they never open the chat panel.
   useEffect(() => {
     if (!conversation || !conversation.registerCommandHandler) return undefined;
     return conversation.registerCommandHandler(handleVoiceCommand);
   }, [conversation, handleVoiceCommand]);
-  // Keep the panel open while a spoken conversation is in progress.
-  useEffect(() => {
-    if (conversing) setOpen(true);
-  }, [conversing]);
 
   const handleBriefing = useCallback(async () => {
     if (busy) return;
@@ -425,7 +417,13 @@ export default function EchoCompanion({ autoOpen = false }) {
     }
     setError("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
       mr.ondataavailable = (e) => {

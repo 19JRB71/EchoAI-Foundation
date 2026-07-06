@@ -67,6 +67,12 @@ const ACTIVE_PAUSE_MS = 1600;
 const FOLLOWUP_MS = 30000;
 // Safety cap so a muted/blocked TTS can never hang the conversation.
 const SPEAK_SAFETY_MS = 90000;
+// Keep the mic fully gated for this long AFTER Echo's audio ends so trailing
+// audio / speaker echo can't retrigger recognition (Echo answering itself).
+const SPEAK_COOLDOWN_MS = 2000;
+// After Echo asks a question, ignore ALL speech for at least this long so Echo's
+// own voice trailing off can't answer its own question.
+const POST_QUESTION_MS = 3000;
 
 function getSpeechRecognition() {
   if (typeof window === "undefined") return null;
@@ -107,6 +113,9 @@ export function EchoConversationProvider({ active, onNavigate, children }) {
   const recognitionRef = useRef(null);
   const modeRef = useRef("passive"); // passive | active
   const suspendRef = useRef(false); // ignore results while processing/speaking
+  const speakingRef = useRef(false); // Echo audio is playing (or in its cooldown)
+  const speakingClearRef = useRef(null); // timer that lifts speakingRef post-cooldown
+  const acceptInputAtRef = useRef(0); // ignore speech until this epoch-ms timestamp
   const finalRef = useRef(""); // accumulated final transcript for active capture
   const pauseTimerRef = useRef(null);
   const followupTimerRef = useRef(null);
@@ -131,6 +140,45 @@ export function EchoConversationProvider({ active, onNavigate, children }) {
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
+
+  // Gate the mic while Echo is speaking — for ANY Echo audio (morning/weekly
+  // briefings, real-time alerts, conversation replies), driven by the shared TTS
+  // lifecycle events. `isSpeaking` (speakingRef) flips true when audio starts and
+  // stays true for SPEAK_COOLDOWN_MS after it ends, so trailing audio / speaker
+  // echo can never feed back into recognition and make Echo talk to itself.
+  useEffect(() => {
+    const onSpeakStart = () => {
+      if (speakingClearRef.current) {
+        clearTimeout(speakingClearRef.current);
+        speakingClearRef.current = null;
+      }
+      speakingRef.current = true;
+      // Safety net: if the tts-end event is ever missed (browser/runtime
+      // anomaly), force the gate back open after a hard cap so the mic can
+      // never lock up and leave Echo permanently deaf.
+      speakingClearRef.current = setTimeout(() => {
+        speakingRef.current = false;
+        speakingClearRef.current = null;
+      }, SPEAK_SAFETY_MS);
+    };
+    const onSpeakEnd = () => {
+      if (speakingClearRef.current) clearTimeout(speakingClearRef.current);
+      speakingClearRef.current = setTimeout(() => {
+        speakingRef.current = false;
+        speakingClearRef.current = null;
+      }, SPEAK_COOLDOWN_MS);
+    };
+    window.addEventListener("echoai:tts-start", onSpeakStart);
+    window.addEventListener("echoai:tts-end", onSpeakEnd);
+    return () => {
+      window.removeEventListener("echoai:tts-start", onSpeakStart);
+      window.removeEventListener("echoai:tts-end", onSpeakEnd);
+      if (speakingClearRef.current) {
+        clearTimeout(speakingClearRef.current);
+        speakingClearRef.current = null;
+      }
+    };
+  }, []);
 
   const clearTimers = useCallback(() => {
     if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
@@ -320,6 +368,9 @@ export function EchoConversationProvider({ active, onNavigate, children }) {
       setListeningText("");
       modeRef.current = "active";
       suspendRef.current = false;
+      // A question just went out → hold off on accepting any speech for a few
+      // seconds so Echo's own voice trailing off can't trigger a self-reply.
+      if (indefinite) acceptInputAtRef.current = Date.now() + POST_QUESTION_MS;
       setConvState("active");
       scheduleRestart();
       if (indefinite || patienceRef.current) return;
@@ -366,6 +417,12 @@ export function EchoConversationProvider({ active, onNavigate, children }) {
   const handleResult = useCallback(
     (event) => {
       if (suspendRef.current) return;
+      // Echo is speaking (or within its post-speech cooldown): ignore everything
+      // the mic hears so Echo can never respond to its own voice.
+      if (speakingRef.current) return;
+      // Post-question grace period: right after Echo asks something, drop all
+      // speech briefly so its own trailing audio can't answer the question.
+      if (Date.now() < acceptInputAtRef.current) return;
       let interim = "";
       let addedFinal = false;
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
