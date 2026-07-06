@@ -158,7 +158,7 @@ Rules:
 - Every factual claim must be grounded in a real source you searched. If you cannot find real information, say so honestly rather than inventing it.
 - Be specific to THIS business's industry and audience — no generic filler.
 - Write for a busy business owner: concrete, plain-English, actionable.
-- If you are given live Facebook Ad Library data below (real ads competitors and the industry are running right now), factor it into the competitive-landscape section, consumer-behavior read, and marketing_insights — it is real, current signal about competitor ad strategy.
+- If you are given live Facebook data below — Ad Library ads (real ads competitors and the industry are running right now) and/or competitors' recent public Facebook Page posts — factor it into the competitive-landscape section, consumer-behavior read, and marketing_insights. It is real, current signal about competitor ad strategy and consumer-facing messaging.
 
 After you finish researching, output ONE JSON object and nothing else, in exactly this shape:
 {
@@ -194,9 +194,10 @@ async function deepResearch(brand, competitors, opts = {}) {
   const platformAngle = opts.platformOwner
     ? "\n\nThis business is EchoAI itself — an AI-powered marketing SaaS platform. In addition to its stated industry, research the CURRENT AI-marketing-SaaS competitive landscape (e.g. GoHighLevel, Jasper, HubSpot AI, Copy.ai and comparable all-in-one AI marketing tools): pricing moves, new features, positioning shifts, and openings EchoAI can exploit. Fold these findings into the competitive-landscape section, the marketing_insights, and the feed."
     : "";
-  // Pull live Facebook Ad Library signals (competitor/industry ad strategy) via
-  // the shared token. Best-effort: degrades to nothing when the token is unset
-  // or the scope is refused — it never blocks the web-search cycle.
+  // Pull live Facebook signals — Ad Library ads (competitor/industry ad strategy)
+  // and competitors' recent public Page posts — via the shared token. Best-effort:
+  // degrades to nothing when the token is unset or the scope is refused — it never
+  // blocks the web-search cycle.
   const fb = await gatherFacebookSignals(brand, competitors);
   const fbBlock = fb.available ? `\n\n${fb.summary}` : "";
 
@@ -222,7 +223,8 @@ async function deepResearch(brand, competitors, opts = {}) {
   if (sources.length === 0) {
     throw aiInvalid("Sage could not find real, cited industry sources");
   }
-  // Enrich the persisted source list with real Facebook Ad Library links, deduped.
+  // Enrich the persisted source list with real Facebook links (Ad Library ad
+  // snapshots + public Page post permalinks), deduped.
   const seenSrc = new Set(sources.map((s) => s.url));
   for (const s of fb.available ? fb.sources : []) {
     if (s && s.url && !seenSrc.has(s.url)) {

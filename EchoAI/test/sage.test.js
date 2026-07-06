@@ -106,9 +106,19 @@ test("gatherFacebookSignals degrades to unavailable without a token (never throw
   const { gatherFacebookSignals } = require("../utils/sageFacebook");
   const res = await gatherFacebookSignals(
     { industry: "coffee shops", country: "US" },
-    [{ name: "Competitor A" }],
+    [{ name: "Competitor A", facebook_page: "https://facebook.com/competitora" }],
   );
   assert.strictEqual(res.available, false);
   assert.strictEqual(res.summary, "");
   assert.deepStrictEqual(res.sources, []);
+});
+
+test("pageRefFromUrl extracts a Graph page ref (slug or id), rejecting non-pages", () => {
+  const { pageRefFromUrl } = require("../utils/sageFacebook");
+  assert.strictEqual(pageRefFromUrl("https://facebook.com/CoolBrand"), "CoolBrand");
+  assert.strictEqual(pageRefFromUrl("https://www.facebook.com/profile.php?id=123456"), "123456");
+  assert.strictEqual(pageRefFromUrl("https://facebook.com/groups/somegroup"), null);
+  assert.strictEqual(pageRefFromUrl("https://example.com/notfb"), null);
+  assert.strictEqual(pageRefFromUrl(""), null);
+  assert.strictEqual(pageRefFromUrl(null), null);
 });
