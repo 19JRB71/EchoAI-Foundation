@@ -312,6 +312,120 @@ async function deleteGoal(req, res) {
 }
 
 /**
+ * GET /api/goals/:brandId/alerts
+ * The brand's goal-alert feed: alerts the daily sweep logged over the last 30
+ * days, newest first, with the goal's label/metric, the percent-to-goal at
+ * alert time, dismissed state, and whether the goal's alerts are muted.
+ * Ownership-scoped via getOwnedBrand (404 on foreign brand).
+ */
+async function getGoalAlerts(req, res) {
+  try {
+    const brand = await getOwnedBrand(req.user.userId, req.params.brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const { rows } = await db.query(
+      `SELECT l.alert_id, l.goal_id, l.kind, l.alert_date, l.created_at,
+              l.percent_to_goal, l.dismissed_at,
+              g.label, g.metric_key, g.target_value, g.alerts_muted
+         FROM goal_alert_log l
+         JOIN brand_goals g ON g.goal_id = l.goal_id
+        WHERE g.brand_id = $1
+          AND l.alert_date >= CURRENT_DATE - INTERVAL '30 days'
+        ORDER BY l.created_at DESC
+        LIMIT 100`,
+      [brand.brand_id]
+    );
+
+    return res.json({
+      brandId: brand.brand_id,
+      brandName: brand.brand_name,
+      alerts: rows.map((a) => {
+        const meta = getMetric(a.metric_key);
+        return {
+          alertId: a.alert_id,
+          goalId: a.goal_id,
+          kind: a.kind,
+          alertDate: a.alert_date,
+          createdAt: a.created_at,
+          percentToGoal: a.percent_to_goal == null ? null : Number(a.percent_to_goal),
+          dismissed: a.dismissed_at != null,
+          label: a.label || (meta ? meta.label : a.metric_key),
+          metricKey: a.metric_key,
+          targetValue: a.target_value == null ? null : Number(a.target_value),
+          muted: a.alerts_muted === true,
+        };
+      }),
+    });
+  } catch (err) {
+    console.error("Get goal alerts error:", err.message);
+    return res.status(500).json({ error: "Failed to load goal alerts" });
+  }
+}
+
+/**
+ * POST /api/goals/:brandId/alerts/:alertId/dismiss
+ * Marks one logged alert dismissed (hidden from feeds). The row itself is kept
+ * — it doubles as the daily claim/dedup record. Idempotent: re-dismissing an
+ * already-dismissed alert succeeds without moving dismissed_at.
+ */
+async function dismissGoalAlert(req, res) {
+  try {
+    const brand = await getOwnedBrand(req.user.userId, req.params.brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const { rows } = await db.query(
+      `UPDATE goal_alert_log l
+          SET dismissed_at = COALESCE(l.dismissed_at, NOW())
+         FROM brand_goals g
+        WHERE l.alert_id = $1 AND g.goal_id = l.goal_id AND g.brand_id = $2
+        RETURNING l.alert_id, l.dismissed_at`,
+      [req.params.alertId, brand.brand_id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Alert not found" });
+
+    return res.json({ alertId: rows[0].alert_id, dismissed: true });
+  } catch (err) {
+    // Bad UUID in the path -> Postgres 22P02, treat as not found.
+    if (err.code === "22P02") return res.status(404).json({ error: "Alert not found" });
+    console.error("Dismiss goal alert error:", err.message);
+    return res.status(500).json({ error: "Failed to dismiss alert" });
+  }
+}
+
+/**
+ * POST /api/goals/:brandId/:goalId/alerts/mute
+ * Body: { muted: boolean }. Mutes/unmutes future alerts for one goal. Muted
+ * goals are still snapshotted daily (progress history keeps accruing) but the
+ * sweep raises no alerts for them on any channel.
+ */
+async function setGoalAlertMute(req, res) {
+  const { muted } = req.body || {};
+  try {
+    const brand = await getOwnedBrand(req.user.userId, req.params.brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    if (typeof muted !== "boolean") {
+      return res.status(400).json({ error: "muted must be true or false" });
+    }
+
+    const { rows } = await db.query(
+      `UPDATE brand_goals
+          SET alerts_muted = $1, updated_at = NOW()
+        WHERE goal_id = $2 AND brand_id = $3
+        RETURNING goal_id, alerts_muted`,
+      [muted, req.params.goalId, brand.brand_id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Goal not found" });
+
+    return res.json({ goalId: rows[0].goal_id, muted: rows[0].alerts_muted === true });
+  } catch (err) {
+    if (err.code === "22P02") return res.status(404).json({ error: "Goal not found" });
+    console.error("Mute goal alerts error:", err.message);
+    return res.status(500).json({ error: "Failed to update alert muting" });
+  }
+}
+
+/**
  * GET /api/goals/overview
  * Cross-brand Goals Overview for Mission Control: per-brand achievement score,
  * total goals, at-risk count, plus the flattened list of at-risk / hit goals.
@@ -381,4 +495,7 @@ module.exports = {
   updateGoal,
   deleteGoal,
   getOverview,
+  getGoalAlerts,
+  dismissGoalAlert,
+  setGoalAlertMute,
 };

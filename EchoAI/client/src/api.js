@@ -202,6 +202,15 @@ export const api = {
     request(`/api/goals/${brandId}/${goalId}`, { method: "PUT", body }),
   deleteGoal: (brandId, goalId) =>
     request(`/api/goals/${brandId}/${goalId}`, { method: "DELETE" }),
+  // Goal-alert feed management (dismiss one alert / mute a goal's alerts).
+  getGoalAlerts: (brandId) => request(`/api/goals/${brandId}/alerts`),
+  dismissGoalAlert: (brandId, alertId) =>
+    request(`/api/goals/${brandId}/alerts/${alertId}/dismiss`, { method: "POST" }),
+  muteGoalAlerts: (brandId, goalId, muted) =>
+    request(`/api/goals/${brandId}/${goalId}/alerts/mute`, {
+      method: "POST",
+      body: { muted },
+    }),
 
   // Echo memory (persistent recall) + Autonomous Growth Mode.
   getEchoMemory: () => request("/api/echo/memory"),

@@ -18,6 +18,10 @@ router.get("/catalog/:brandId", goalController.getCatalog);
 router.post("/:brandId/parse", goalController.parseGoals);
 router.get("/:brandId", goalController.listGoals);
 router.get("/:brandId/department/:department", goalController.getDepartmentGoals);
+// Goal-alert feed management (dismiss one alert / mute a goal's future alerts).
+router.get("/:brandId/alerts", goalController.getGoalAlerts);
+router.post("/:brandId/alerts/:alertId/dismiss", goalController.dismissGoalAlert);
+router.post("/:brandId/:goalId/alerts/mute", goalController.setGoalAlertMute);
 router.post("/:brandId", goalController.createGoal);
 router.put("/:brandId/:goalId", goalController.updateGoal);
 router.delete("/:brandId/:goalId", goalController.deleteGoal);

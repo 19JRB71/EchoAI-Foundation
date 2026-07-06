@@ -163,6 +163,23 @@ async function runDailyGoalTracking() {
   let alertsSent = 0;
 
   for (const brand of brands) {
+    // Goals the owner muted alerts for: still snapshotted (history keeps
+    // accruing) but never alerted on any channel. Fail open to alerting — a
+    // lookup error must not silence real alerts.
+    const muted = new Set();
+    try {
+      const { rows } = await db.query(
+        "SELECT goal_id FROM brand_goals WHERE brand_id = $1 AND alerts_muted = true",
+        [brand.brand_id]
+      );
+      for (const r of rows) muted.add(r.goal_id);
+    } catch (err) {
+      console.error(
+        `Muted-goal lookup failed for brand ${brand.brand_id}:`,
+        err.message
+      );
+    }
+
     // Yesterday's percent-to-goal per goal, read BEFORE writing today's snapshot,
     // so momentum (swing) detection compares today against the prior reading.
     const prior = new Map();
@@ -194,6 +211,7 @@ async function runDailyGoalTracking() {
     }
 
     for (const goal of goals) {
+      if (muted.has(goal.goalId)) continue;
       const priorPercent = prior.has(goal.goalId) ? prior.get(goal.goalId) : null;
       const kinds = deriveAlertKinds(goal, priorPercent);
 
@@ -207,10 +225,16 @@ async function runDailyGoalTracking() {
         let claimed = false;
         try {
           const { rowCount } = await db.query(
-            `INSERT INTO goal_alert_log (goal_id, kind, alert_date)
-               VALUES ($1, $2, CURRENT_DATE)
+            `INSERT INTO goal_alert_log (goal_id, kind, alert_date, percent_to_goal)
+               VALUES ($1, $2, CURRENT_DATE, $3)
              ON CONFLICT (goal_id, kind, alert_date) DO NOTHING`,
-            [goal.goalId, kind]
+            [
+              goal.goalId,
+              kind,
+              goal.percentToGoal == null || !Number.isFinite(Number(goal.percentToGoal))
+                ? null
+                : Number(goal.percentToGoal),
+            ]
           );
           claimed = rowCount > 0;
         } catch (err) {

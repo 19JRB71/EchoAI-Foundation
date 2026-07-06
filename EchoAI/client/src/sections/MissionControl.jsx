@@ -63,6 +63,9 @@ function whenLabel(iso) {
 export default function MissionControl({ onNavigate, onOpenDepartment }) {
   const [data, setData] = useState(null);
   const [goals, setGoals] = useState(null);
+  const [goalAlerts, setGoalAlerts] = useState([]);
+  const [alertBusy, setAlertBusy] = useState(null); // alertId or goalId in flight
+  const [alertError, setAlertError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -76,12 +79,48 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
       ]);
       setData(mc);
       setGoals(goalsOverview);
+      setGoalAlerts(Array.isArray(mc && mc.goalAlerts) ? mc.goalAlerts : []);
+      setAlertError("");
     } catch (err) {
       setError(err.message || "Couldn't load Mission Control.");
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Dismiss a single logged alert (removes it from the feed on success).
+  async function dismissAlert(alert) {
+    if (!alert.alertId || alertBusy) return;
+    setAlertBusy(alert.alertId);
+    setAlertError("");
+    try {
+      await api.dismissGoalAlert(alert.brandId, alert.alertId);
+      setGoalAlerts((prev) => prev.filter((a) => a.alertId !== alert.alertId));
+    } catch (err) {
+      setAlertError(err.message || "Couldn't dismiss that alert.");
+    } finally {
+      setAlertBusy(null);
+    }
+  }
+
+  // Mute/unmute future alerts for the alert's goal (feed rows stay visible so
+  // the owner can unmute from the same place).
+  async function toggleMute(alert) {
+    if (alertBusy) return;
+    const next = !alert.muted;
+    setAlertBusy(alert.goalId);
+    setAlertError("");
+    try {
+      await api.muteGoalAlerts(alert.brandId, alert.goalId, next);
+      setGoalAlerts((prev) =>
+        prev.map((a) => (a.goalId === alert.goalId ? { ...a, muted: next } : a))
+      );
+    } catch (err) {
+      setAlertError(err.message || "Couldn't update alert muting.");
+    } finally {
+      setAlertBusy(null);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -109,7 +148,6 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
   const stats = (data && data.stats) || {};
   const agents = (data && data.agents) || [];
   const upcoming = (data && data.upcoming) || [];
-  const goalAlerts = (data && data.goalAlerts) || [];
   const attention = agents.filter((a) => a.status === "attention");
 
   return (
@@ -252,24 +290,67 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
               Manage Goals →
             </button>
           </div>
+          {alertError && (
+            <p className="mt-2 text-xs text-red-400">{alertError}</p>
+          )}
           <div className="mt-3 space-y-2">
             {goalAlerts.map((g) => {
               const m = goalAlertMeta(g.kind);
+              const busy = alertBusy === g.alertId || alertBusy === g.goalId;
               return (
                 <div
-                  key={`${g.goalId}-${g.kind}-${g.alertDate}`}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2"
+                  key={g.alertId || `${g.goalId}-${g.kind}-${g.alertDate}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <span className="text-sm text-gray-100">{g.label}</span>
-                    <span className="ml-2 text-xs text-gray-500">{g.brandName}</span>
+                    <div>
+                      <span className="text-sm text-gray-100">{g.label}</span>
+                      <span className="ml-2 text-xs text-gray-500">{g.brandName}</span>
+                      {g.muted && (
+                        <span className="ml-2 rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-400">
+                          Muted
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-gray-500">
+                      {g.percentToGoal != null && (
+                        <span className="mr-2 font-semibold text-gray-400">
+                          {Math.round(g.percentToGoal)}% to goal
+                        </span>
+                      )}
+                      {whenLabel(g.createdAt || g.alertDate)}
+                    </div>
                   </div>
-                  <span
-                    className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                    style={{ color: m.color, backgroundColor: `${m.color}1f` }}
-                  >
-                    {m.label}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                      style={{ color: m.color, backgroundColor: `${m.color}1f` }}
+                    >
+                      {m.label}
+                    </span>
+                    <button
+                      onClick={() => toggleMute(g)}
+                      disabled={busy}
+                      title={
+                        g.muted
+                          ? "Resume alerts for this goal"
+                          : "Stop future alerts for this goal"
+                      }
+                      className="rounded-lg border border-gray-700 px-2 py-1 text-[11px] font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+                    >
+                      {g.muted ? "Unmute" : "Mute"}
+                    </button>
+                    {g.alertId && (
+                      <button
+                        onClick={() => dismissAlert(g)}
+                        disabled={busy}
+                        title="Dismiss this alert"
+                        className="rounded-lg border border-gray-700 px-2 py-1 text-[11px] font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+                      >
+                        Dismiss
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

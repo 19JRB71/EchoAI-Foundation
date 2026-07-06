@@ -764,3 +764,232 @@ test("runDailyGoalTracking: swings alert, demo brands stay silent, dedup holds",
     mobilePushController.sendToUser = origMobile;
   }
 });
+
+// --- Goal-alert feed management (dismiss / mute) -----------------------------
+
+test("runDailyGoalTracking skips alerting for muted goals (still snapshots)", async () => {
+  const claims = [];
+  const snapshots = [];
+  await withStub(
+    async (sql, params) => {
+      if (/INSERT INTO goal_alert_log/i.test(sql)) {
+        claims.push(params);
+        return { rowCount: 1, rows: [] };
+      }
+      if (/INSERT INTO goal_snapshots/i.test(sql)) {
+        snapshots.push(params);
+        return { rows: [] };
+      }
+      if (/JOIN brands b ON/i.test(sql)) {
+        return { rows: [{ brand_id: "b1", brand_name: "Acme", user_id: "u1" }] };
+      }
+      if (/alerts_muted = true/i.test(sql)) {
+        return { rows: [{ goal_id: "g1" }] };
+      }
+      if (/DISTINCT ON \(goal_id\)/i.test(sql)) return { rows: [] };
+      if (/FROM brand_goals/i.test(sql) && /status = 'active'/i.test(sql)) {
+        return {
+          rows: [
+            {
+              goal_id: "g1",
+              brand_id: "b1",
+              metric_key: "new_leads",
+              category: "lead",
+              label: "New Leads",
+              target_value: 100,
+              sort_order: 0,
+            },
+          ],
+        };
+      }
+      // Metric reading: 100/100 -> goal hit (would alert if not muted).
+      if (/FROM leads/i.test(sql)) return { rows: [{ value: 100 }] };
+      return { rows: [] };
+    },
+    async () => {
+      const out = await goalAlerts.runDailyGoalTracking();
+      assert.strictEqual(out.brandsProcessed, 1);
+      assert.strictEqual(out.alertsSent, 0);
+      assert.strictEqual(claims.length, 0, "muted goal must not claim/alert");
+      assert.ok(snapshots.length >= 1, "muted goal must still be snapshotted");
+    },
+  );
+});
+
+test("runDailyGoalTracking records percent_to_goal on the alert claim", async () => {
+  const claims = [];
+  await withStub(
+    async (sql, params) => {
+      if (/INSERT INTO goal_alert_log/i.test(sql)) {
+        claims.push(params);
+        return { rowCount: 1, rows: [] };
+      }
+      if (/INSERT INTO goal_snapshots/i.test(sql)) return { rows: [] };
+      if (/JOIN brands b ON/i.test(sql)) {
+        return { rows: [{ brand_id: "b1", brand_name: "Acme", user_id: "u1" }] };
+      }
+      if (/alerts_muted = true/i.test(sql)) return { rows: [] };
+      if (/DISTINCT ON \(goal_id\)/i.test(sql)) return { rows: [] };
+      if (/FROM brand_goals/i.test(sql) && /status = 'active'/i.test(sql)) {
+        return {
+          rows: [
+            {
+              goal_id: "g1",
+              brand_id: "b1",
+              metric_key: "new_leads",
+              category: "lead",
+              label: "New Leads",
+              target_value: 100,
+              sort_order: 0,
+            },
+          ],
+        };
+      }
+      if (/FROM leads/i.test(sql)) return { rows: [{ value: 100 }] };
+      return { rows: [] };
+    },
+    async () => {
+      await goalAlerts.runDailyGoalTracking();
+      assert.ok(claims.length >= 1, "hit goal must claim an alert");
+      const [goalId, kind, pct] = claims[0];
+      assert.strictEqual(goalId, "g1");
+      assert.strictEqual(kind, "hit");
+      assert.strictEqual(pct, 100);
+    },
+  );
+});
+
+test("getGoalAlerts returns the mapped feed for an owned brand", async () => {
+  await withStub(
+    async (sql) => {
+      if (/FROM brands WHERE/i.test(sql)) {
+        return { rows: [{ brand_id: "b1", brand_name: "Acme", brand_type: "standard" }] };
+      }
+      if (/FROM goal_alert_log/i.test(sql)) {
+        return {
+          rows: [
+            {
+              alert_id: "a1",
+              goal_id: "g1",
+              kind: "swing_down",
+              alert_date: "2026-07-06",
+              created_at: "2026-07-06T08:00:00Z",
+              percent_to_goal: "42.5",
+              dismissed_at: null,
+              label: "New Leads",
+              metric_key: "new_leads",
+              target_value: "100",
+              alerts_muted: true,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    },
+    async () => {
+      const req = { user: { userId: "u1" }, params: { brandId: "b1" } };
+      const res = fakeRes();
+      await goalController.getGoalAlerts(req, res);
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.body.alerts.length, 1);
+      const a = res.body.alerts[0];
+      assert.strictEqual(a.alertId, "a1");
+      assert.strictEqual(a.kind, "swing_down");
+      assert.strictEqual(a.percentToGoal, 42.5);
+      assert.strictEqual(a.dismissed, false);
+      assert.strictEqual(a.muted, true);
+    },
+  );
+});
+
+test("getGoalAlerts 404s on a foreign brand (ownership enforced)", async () => {
+  await withStub(
+    async () => ({ rows: [] }),
+    async () => {
+      const req = { user: { userId: "intruder" }, params: { brandId: "b1" } };
+      const res = fakeRes();
+      await goalController.getGoalAlerts(req, res);
+      assert.strictEqual(res.statusCode, 404);
+    },
+  );
+});
+
+test("dismissGoalAlert marks the alert dismissed; unknown alert 404s", async () => {
+  await withStub(
+    async (sql) => {
+      if (/FROM brands WHERE/i.test(sql)) {
+        return { rows: [{ brand_id: "b1", brand_name: "Acme", brand_type: "standard" }] };
+      }
+      if (/UPDATE goal_alert_log/i.test(sql)) {
+        return { rows: [{ alert_id: "a1", dismissed_at: "2026-07-06T09:00:00Z" }] };
+      }
+      return { rows: [] };
+    },
+    async () => {
+      const req = { user: { userId: "u1" }, params: { brandId: "b1", alertId: "a1" } };
+      const res = fakeRes();
+      await goalController.dismissGoalAlert(req, res);
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.body.dismissed, true);
+    },
+  );
+
+  await withStub(
+    async (sql) => {
+      if (/FROM brands WHERE/i.test(sql)) {
+        return { rows: [{ brand_id: "b1", brand_name: "Acme", brand_type: "standard" }] };
+      }
+      return { rows: [] };
+    },
+    async () => {
+      const req = { user: { userId: "u1" }, params: { brandId: "b1", alertId: "nope" } };
+      const res = fakeRes();
+      await goalController.dismissGoalAlert(req, res);
+      assert.strictEqual(res.statusCode, 404);
+    },
+  );
+});
+
+test("setGoalAlertMute validates the body and updates the goal", async () => {
+  await withStub(
+    async (sql) => {
+      if (/FROM brands WHERE/i.test(sql)) {
+        return { rows: [{ brand_id: "b1", brand_name: "Acme", brand_type: "standard" }] };
+      }
+      return { rows: [] };
+    },
+    async () => {
+      const req = {
+        user: { userId: "u1" },
+        params: { brandId: "b1", goalId: "g1" },
+        body: { muted: "yes" },
+      };
+      const res = fakeRes();
+      await goalController.setGoalAlertMute(req, res);
+      assert.strictEqual(res.statusCode, 400);
+    },
+  );
+
+  await withStub(
+    async (sql) => {
+      if (/FROM brands WHERE/i.test(sql)) {
+        return { rows: [{ brand_id: "b1", brand_name: "Acme", brand_type: "standard" }] };
+      }
+      if (/UPDATE brand_goals/i.test(sql)) {
+        return { rows: [{ goal_id: "g1", alerts_muted: true }] };
+      }
+      return { rows: [] };
+    },
+    async () => {
+      const req = {
+        user: { userId: "u1" },
+        params: { brandId: "b1", goalId: "g1" },
+        body: { muted: true },
+      };
+      const res = fakeRes();
+      await goalController.setGoalAlertMute(req, res);
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.body.muted, true);
+    },
+  );
+});

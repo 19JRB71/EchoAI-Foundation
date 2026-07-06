@@ -74,6 +74,15 @@ description: Durable rules for the per-brand goals/KPI subsystem — no-data sna
   **How to apply:** when a spec says an alert is "shown/logged in <panel>", wire a
   read path into that panel's data source, not just the outbound notification.
 
+- **Alert claim rows double as the owner-facing feed — dismiss flags, never
+  deletes.** The per-(goal, kind, day) claim row IS the feed row owners review;
+  dismissing sets a `dismissed_at` flag so the claim still dedups re-run ticks.
+  Muting a goal skips the whole alert loop for it (no claim, no channel) but the
+  goal is still snapshotted daily so history/trend keeps accruing — and the mute
+  lookup fails OPEN to alerting (a lookup error must not silence real alerts).
+  **How to apply:** never DELETE from the alert log to "clear" the feed, and
+  never gate snapshots on mute state.
+
 - **The daily alert fan-out is claimed channel-agnostically per (goal, kind,
   day).** Before dispatching ANY channel (voice / web push / mobile push), win an
   atomic unique-row claim for that (goal, kind, day); only the winning tick

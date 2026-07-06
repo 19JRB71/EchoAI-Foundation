@@ -338,19 +338,23 @@ async function getMissionControl(req, res) {
     // Revenue: honest — only surface if an ROI snapshot exists; otherwise null.
     const roi = bid ? (await rows("SELECT * FROM roi_advanced_snapshots WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 1", [bid]))[0] : null;
 
-    // Goal alerts the daily sweep logged for THIS user's real brands (last 3
+    // Goal alerts the daily sweep logged for THIS user's real brands (last 7
     // days). These are surfaced in the attention panel so goal alerts are visibly
     // logged, not only sent over voice/push. Scoped by user_id + non-demo.
+    // Dismissed alerts and alerts for muted goals are hidden from the feed;
+    // the rows stay in goal_alert_log because they double as the daily claim.
     const goalAlerts = await rows(
-      `SELECT l.goal_id, l.kind, l.alert_date, g.label, g.metric_key,
+      `SELECT l.alert_id, l.goal_id, l.kind, l.alert_date, l.created_at,
+              l.percent_to_goal, g.label, g.metric_key, g.alerts_muted,
               b.brand_id, b.brand_name
          FROM goal_alert_log l
          JOIN brand_goals g ON g.goal_id = l.goal_id
          JOIN brands b ON b.brand_id = g.brand_id
         WHERE b.user_id = $1 AND b.is_demo = false
-          AND l.alert_date >= CURRENT_DATE - INTERVAL '3 days'
+          AND l.dismissed_at IS NULL
+          AND l.alert_date >= CURRENT_DATE - INTERVAL '7 days'
         ORDER BY l.created_at DESC
-        LIMIT 8`,
+        LIMIT 20`,
       [userId]
     );
 
@@ -374,6 +378,7 @@ async function getMissionControl(req, res) {
       },
       upcoming,
       goalAlerts: goalAlerts.map((a) => ({
+        alertId: a.alert_id,
         goalId: a.goal_id,
         kind: a.kind,
         label: a.label,
@@ -381,6 +386,9 @@ async function getMissionControl(req, res) {
         brandId: a.brand_id,
         brandName: a.brand_name,
         alertDate: a.alert_date,
+        createdAt: a.created_at,
+        percentToGoal: a.percent_to_goal == null ? null : Number(a.percent_to_goal),
+        muted: a.alerts_muted === true,
       })),
     });
   } catch (err) {
