@@ -132,7 +132,9 @@ async function suppressedKeys(userId) {
     );
     return new Set(rows.map((r) => r.suggestion_key));
   } catch (_e) {
-    return new Set();
+    // Fail CLOSED: if we can't read the dedup state we suppress everything so a
+    // transient DB error can't re-nudge already-shown/declined/accepted keys.
+    return new Set(CATALOG.map((c) => c.key));
   }
 }
 
