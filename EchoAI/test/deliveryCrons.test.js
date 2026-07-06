@@ -50,9 +50,19 @@ const { sendDueDripEmails } = require("../controllers/emailMarketingController")
  * contained by the loop's per-post guard. Every unrecognized query throws.
  */
 function makeSocialDb(seed) {
-  const state = { published: [], failed: [] };
+  const state = { published: [], failed: [], rescued: [] };
 
   async function query(sql, params = []) {
+    // 0) The stale-'publishing' rescue sweep that runs before the claim.
+    if (
+      /UPDATE social_posts/i.test(sql) &&
+      /SET status = 'failed'/i.test(sql) &&
+      /status = 'publishing' AND updated_at/i.test(sql)
+    ) {
+      state.rescued.push(...(seed.stalePosts || []).map((p) => p.post_id));
+      return { rows: (seed.stalePosts || []).map((p) => ({ ...p })) };
+    }
+
     // 1) The atomic claim (the run's first, unguarded query).
     if (/UPDATE social_posts/i.test(sql) && /SET status = 'publishing'/i.test(sql)) {
       return { rows: seed.posts.map((p) => ({ ...p })) };
@@ -130,6 +140,80 @@ test("publishDuePosts: post 1's hard failure never stops post 2's publish", asyn
       "the next post must still publish after post 1 throws",
     );
     assert.deepStrictEqual(summary, { due: 2, published: 1 });
+  } finally {
+    db.query = origQuery;
+    socialApi.publishPost = origPublish;
+  }
+});
+
+test("publishDuePosts: a post stranded in 'publishing' by a crash is marked failed; a fresh in-flight one is left alone", async () => {
+  // Two rows sit in 'publishing': p-stale was claimed 30 minutes ago by a
+  // tick the server crash killed mid-publish; p-fresh was claimed a minute
+  // ago by a concurrent tick that's still working. The rescue sweep must
+  // resolve only the stale one — and must mark it failed rather than
+  // re-publish it, since the crash may have happened after the platform
+  // call already succeeded (double-posting risk).
+  const MINUTE = 60 * 1000;
+  const now = Date.now();
+  const table = [
+    { post_id: "p-stale", status: "publishing", updated_at: now - 30 * MINUTE, engagement_metrics: null },
+    { post_id: "p-fresh", status: "publishing", updated_at: now - 1 * MINUTE, engagement_metrics: null },
+  ];
+
+  const platformCalls = [];
+  const origQuery = db.query;
+  const origPublish = socialApi.publishPost;
+  socialApi.publishPost = async (platform, credentials, { content }) => {
+    platformCalls.push(content);
+    return { externalId: "ext-never" };
+  };
+
+  db.query = async (sql, params = []) => {
+    // The rescue sweep — emulate its WHERE clause against the in-memory table.
+    if (
+      /UPDATE social_posts/i.test(sql) &&
+      /SET status = 'failed'/i.test(sql) &&
+      /status = 'publishing' AND updated_at < NOW\(\) - INTERVAL '10 minutes'/i.test(sql)
+    ) {
+      const cutoff = Date.now() - 10 * MINUTE;
+      const hit = table.filter((r) => r.status === "publishing" && r.updated_at < cutoff);
+      for (const r of hit) {
+        r.status = "failed";
+        r.engagement_metrics = params[0];
+      }
+      return { rows: hit.map((r) => ({ post_id: r.post_id })) };
+    }
+
+    // The regular claim — nothing newly due on this tick.
+    if (/UPDATE social_posts/i.test(sql) && /SET status = 'publishing'/i.test(sql)) {
+      return { rows: [] };
+    }
+
+    throw new Error(`stale-rescue test: unexpected query: ${sql.slice(0, 80)}`);
+  };
+
+  try {
+    const summary = await publishDuePosts();
+
+    const stale = table.find((r) => r.post_id === "p-stale");
+    const fresh = table.find((r) => r.post_id === "p-fresh");
+
+    // The stranded post is resolved: failed with an explanatory error the
+    // owner can see, never silently stuck.
+    assert.strictEqual(stale.status, "failed", "the stale 'publishing' post must be marked failed");
+    assert.match(
+      JSON.parse(stale.engagement_metrics).error,
+      /interrupted by a server restart/i,
+      "the failure must carry a clear explanation for the owner",
+    );
+
+    // The fresh in-flight claim from a concurrent tick is untouched.
+    assert.strictEqual(fresh.status, "publishing", "a fresh in-flight post must be left alone");
+    assert.strictEqual(fresh.engagement_metrics, null);
+
+    // Rescue never re-publishes — double-posting risk.
+    assert.deepStrictEqual(platformCalls, [], "the rescue sweep must never call the platform API");
+    assert.deepStrictEqual(summary, { due: 0, published: 0 });
   } finally {
     db.query = origQuery;
     socialApi.publishPost = origPublish;

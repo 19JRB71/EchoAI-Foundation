@@ -430,6 +430,30 @@ async function publishStoredPost(post) {
  * cannot double-publish. Returns a summary of how many were processed.
  */
 async function publishDuePosts() {
+  // Rescue posts stranded in 'publishing' by a crash/restart between the
+  // claim and the final status write. A normal tick finishes in seconds, so
+  // anything stuck for 10+ minutes is dead. They're marked 'failed' (not
+  // retried) because the crash may have happened AFTER the platform call
+  // succeeded — re-publishing could double-post; the owner sees the failure
+  // and can reschedule if the post never actually went out.
+  const rescued = await db.query(
+    `UPDATE social_posts
+     SET status = 'failed', engagement_metrics = $1
+     WHERE status = 'publishing' AND updated_at < NOW() - INTERVAL '10 minutes'
+     RETURNING post_id`,
+    [
+      JSON.stringify({
+        error:
+          "Publishing was interrupted by a server restart. The post may or may not have gone out — check the platform and reschedule if needed.",
+      }),
+    ]
+  );
+  if (rescued.rows.length > 0) {
+    console.warn(
+      `Social scheduler: rescued ${rescued.rows.length} post(s) stuck in 'publishing' and marked them failed.`
+    );
+  }
+
   const due = await db.query(
     `UPDATE social_posts
      SET status = 'publishing'

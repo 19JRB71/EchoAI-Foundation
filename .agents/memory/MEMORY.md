@@ -40,3 +40,4 @@
 - [EchoAI portfolio demo exclusion](echoai-portfolio-demo-exclusion.md) — every multi-business calc/query/display must exclude is_demo brands at the data-gathering layer (one realBrands()/is_demo=false gate), never in the UI.
 - [EchoAI proactive suggestions](echoai-proactive-suggestions.md) — gap-detect from owner's OWN usage (never fabricated), fail CLOSED on probe error, dedup 30d-shown/90d-declined/accepted-never; gather stays read-only, record shown at delivery.
 - [EchoAI sweep guard seam](echoai-sweep-guard-seam.md) — every recurring loop-over-items sweep guards each iteration (and each sub-sweep); test via module.exports per-row helper stubbed to throw.
+- [EchoAI stale-claim rescue](echoai-stale-claim-rescue.md) — non-transactional status-flip claims need a stale-row rescue sweep (updated_at window); mark failed w/ owner-visible error, never retry (double-post risk).
