@@ -168,4 +168,39 @@ describe("App settings deep link (goal-alert click-through)", () => {
     });
     expect(screen.getByDisplayValue("Business A")).toBeInTheDocument();
   });
+
+  test("an unknown/foreign brandId shows a fallback notice instead of a silent swap", async () => {
+    await renderDashboard();
+
+    fireEvent.click(screen.getByText("alert-foreign-brand"));
+
+    // The user is told the alert's business is gone and which business they
+    // are actually looking at.
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "That business is no longer in your account — showing Business A instead.",
+      );
+    });
+    // The goals scroll/focus still fires so the click-through stays useful.
+    expect(screen.getByTestId("settings-probe")).toHaveTextContent(
+      "brand:101|focus:goals",
+    );
+
+    // The notice is dismissable.
+    fireEvent.click(screen.getByLabelText("Dismiss"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  test("a successful brand switch shows NO fallback notice", async () => {
+    await renderDashboard();
+
+    fireEvent.click(screen.getByText("alert-brand-b"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-probe")).toHaveTextContent(
+        "brand:202|focus:goals",
+      );
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

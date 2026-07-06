@@ -114,6 +114,10 @@ export default function App() {
     }
   });
   const [inviteNotice, setInviteNotice] = useState("");
+  // Shown when a deep link (e.g. a goal-alert click) references a brand that is
+  // no longer in the account — the fallback keeps the current selection, and
+  // this notice explains why the user isn't seeing the alert's business.
+  const [brandFallbackNotice, setBrandFallbackNotice] = useState("");
   // AI Setup Agent overlay — auto-launches for brand-new users and resumes any
   // in-progress session; can also be opened manually from Settings.
   const [showSetup, setShowSetup] = useState(false);
@@ -206,13 +210,29 @@ export default function App() {
     setOpenPaymentModal(false);
     setDeptAgentId(null);
     setActiveToolTab(null);
+    setBrandFallbackNotice("");
     const allowed = canOpenSection(next);
     if (allowed && opts && opts.brandId != null && opts.brandId !== "") {
       // Only switch if the brand actually belongs to this account's list.
       const match = brands.find(
         (b) => String(b.brand_id) === String(opts.brandId),
       );
-      if (match) setSelectedBrandId(match.brand_id);
+      if (match) {
+        setSelectedBrandId(match.brand_id);
+      } else {
+        // The alert's business is gone (e.g. deleted after the alert was
+        // logged). Keep the current selection but say so — never silently
+        // show another business's goals. The goals scroll/focus still runs
+        // with the notice visible so the click-through stays useful.
+        const current = brands.find(
+          (b) => String(b.brand_id) === String(selectedBrandId),
+        );
+        setBrandFallbackNotice(
+          current
+            ? `That business is no longer in your account — showing ${current.brand_name} instead.`
+            : "That business is no longer in your account.",
+        );
+      }
     }
     setSettingsFocusGoals(
       allowed && opts && opts.focus === "goals" ? Date.now() : null,
@@ -223,6 +243,7 @@ export default function App() {
   // Open a team member's Department View (the hub of clickable tool cards).
   function openDepartment(agentId) {
     if (!canOpenDepartment(agentId)) return;
+    setBrandFallbackNotice("");
     setDeptAgentId(agentId);
     setActiveToolTab(null);
     setSection("department");
@@ -253,6 +274,7 @@ export default function App() {
     setDeptAgentId(null);
     setActiveToolTab(null);
     setSettingsFocusGoals(null);
+    setBrandFallbackNotice("");
     setSection("missioncontrol");
   }
 
@@ -824,6 +846,21 @@ export default function App() {
                   <button
                     onClick={() => setInviteNotice("")}
                     className="shrink-0 text-green-400 hover:text-green-200"
+                    aria-label="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              {brandFallbackNotice && (
+                <div
+                  role="alert"
+                  className="mb-6 flex items-start justify-between gap-3 rounded-lg bg-amber-500/10 p-3 text-sm text-amber-300"
+                >
+                  <span>{brandFallbackNotice}</span>
+                  <button
+                    onClick={() => setBrandFallbackNotice("")}
+                    className="shrink-0 text-amber-400 hover:text-amber-200"
                     aria-label="Dismiss"
                   >
                     ✕
