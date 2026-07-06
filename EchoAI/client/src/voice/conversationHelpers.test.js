@@ -5,6 +5,7 @@ import {
   isQuestion,
   matchLocalIntent,
   matchNavIntent,
+  navConfirmation,
 } from "./conversationHelpers.js";
 
 describe("normalizeSpeech", () => {
@@ -76,10 +77,27 @@ describe("matchLocalIntent", () => {
 
 describe("matchNavIntent", () => {
   it("maps 'take me to <section>' commands to section ids", () => {
-    expect(matchNavIntent("open my leads")).toBe("leads");
-    expect(matchNavIntent("take me to social media")).toBe("social");
+    expect(matchNavIntent("show me my leads")).toBe("leads");
+    expect(matchNavIntent("go to leads")).toBe("leads");
     expect(matchNavIntent("show me the reputation page")).toBe("reputation");
     expect(matchNavIntent("go to settings")).toBe("settings");
+    expect(matchNavIntent("show me the portfolio")).toBe("portfolio");
+  });
+
+  it("routes department commands to 'dept:<agent>' keys (name or alias)", () => {
+    expect(matchNavIntent("go to atlas")).toBe("dept:atlas");
+    expect(matchNavIntent("show me campaigns")).toBe("dept:atlas");
+    expect(matchNavIntent("show me scout")).toBe("dept:scout");
+    expect(matchNavIntent("competitor report")).toBe("dept:scout");
+    expect(matchNavIntent("go to nova")).toBe("dept:nova");
+    expect(matchNavIntent("social media")).toBe("dept:nova");
+    expect(matchNavIntent("show me pulse")).toBe("dept:pulse");
+    expect(matchNavIntent("go to crm")).toBe("dept:pulse");
+  });
+
+  it("sends 'mission control' / 'go home' to the home section", () => {
+    expect(matchNavIntent("mission control")).toBe("missioncontrol");
+    expect(matchNavIntent("go home")).toBe("missioncontrol");
   });
 
   it("routes SEO/Google commands to the real 'googleseo' section id", () => {
@@ -88,14 +106,36 @@ describe("matchNavIntent", () => {
     expect(matchNavIntent("open google")).toBe("googleseo");
   });
 
-  it("requires an explicit navigation verb", () => {
-    // Informational questions must fall through to Echo, not navigate.
+  it("requires a verb for questionable targets and skips clear questions", () => {
+    // Verb-required sections must fall through to Echo without a verb.
     expect(matchNavIntent("what are my leads today")).toBe(null);
     expect(matchNavIntent("how is my reputation")).toBe(null);
+    // Even a standalone-capable target must not hijack a question.
+    expect(matchNavIntent("how is my social media doing")).toBe(null);
+    expect(matchNavIntent("what does the competitor report say")).toBe(null);
+    expect(matchNavIntent("")).toBe(null);
   });
 
-  it("returns null when no known section is named", () => {
-    expect(matchNavIntent("show me the competitor report")).toBe(null);
-    expect(matchNavIntent("")).toBe(null);
+  it("does not fire on a bare 'social' that isn't 'social media'", () => {
+    // Nova is only reachable via "social media" (or "nova"), not any "social".
+    expect(matchNavIntent("share this on social")).toBe(null);
+    expect(matchNavIntent("go to my social accounts")).toBe(null);
+  });
+});
+
+describe("navConfirmation", () => {
+  it("speaks a section-specific confirmation that is never a question", () => {
+    expect(navConfirmation("leads")).toBe("Opening your leads now.");
+    expect(navConfirmation("portfolio")).toBe("Opening your portfolio now.");
+    expect(navConfirmation("missioncontrol")).toBe(
+      "Taking you back to Mission Control.",
+    );
+    expect(isQuestion(navConfirmation("leads"))).toBe(false);
+  });
+
+  it("names the department for 'dept:<agent>' keys", () => {
+    expect(navConfirmation("dept:atlas")).toBe("Taking you to Atlas.");
+    expect(navConfirmation("dept:nova")).toBe("Taking you to Nova.");
+    expect(navConfirmation(null)).toBe("Here you go.");
   });
 });

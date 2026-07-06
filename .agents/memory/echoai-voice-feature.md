@@ -39,3 +39,15 @@ SpeechRecognition/MediaRecorder → voice `supported=false` → text mode**, whi
 why the placeholder `Type your answer…` and the existing SetupAgent tests stay
 green; force voice on by mocking `window.SpeechRecognition` + setting the
 `echoai_setup_voice_mode` localStorage key.
+
+**Echo voice navigation (always-on conversation engine):** `matchNavIntent` in
+`conversationHelpers.js` runs BEFORE the server AI in `processCommand`; unmatched
+commands fall to the server which says "I can't navigate", so any new nav phrase
+must be added there. It returns section ids OR `dept:<agent>` keys — departments
+MUST route through `openDepartment` (via the `echoai:navigate-section` event
+listener in App.jsx), NOT `handleSelectSection` (which clears the department).
+Two non-obvious traps: (1) verb-less/"standalone" aliases must be guarded so
+questions ("how is my social media") don't navigate, and (2) common-word aliases
+(e.g. bare "social") hijack unrelated speech — pin to specific phrases
+("social media") only. Confirmations must end in "." (not "?") or isQuestion adds
+the follow-up gate.

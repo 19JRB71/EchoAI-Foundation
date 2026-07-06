@@ -34,6 +34,7 @@ import {
   isQuestion,
   matchLocalIntent,
   matchNavIntent,
+  navConfirmation,
   matchMusicIntent,
 } from "./conversationHelpers.js";
 
@@ -94,7 +95,7 @@ function writeBool(key, val) {
   }
 }
 
-export function EchoConversationProvider({ active, onNavigate, children }) {
+export function EchoConversationProvider({ active, children }) {
   const voice = useVoice();
   const supported = useMemo(() => !!getSpeechRecognition(), []);
 
@@ -123,8 +124,6 @@ export function EchoConversationProvider({ active, onNavigate, children }) {
   const restartTimerRef = useRef(null);
   const patienceRef = useRef(false); // user asked for a moment → no auto-close
   const commandHandlerRef = useRef(null);
-  const onNavigateRef = useRef(onNavigate);
-  onNavigateRef.current = onNavigate;
 
   const runningRef = useRef(false); // is a recognition instance live?
   const enabledRef = useRef(micEnabled);
@@ -317,13 +316,22 @@ export function EchoConversationProvider({ active, onNavigate, children }) {
         return;
       }
 
-      // Client-side navigation ("take me to my leads").
+      // Client-side navigation ("take me to my leads", "go to Atlas"). Dispatch
+      // the shared navigate-section event the app listens for (App.jsx routes
+      // plain section ids and "dept:<agent>" department keys), then verbally
+      // confirm what we just opened.
       const navKey = matchNavIntent(text);
-      if (navKey && onNavigateRef.current) {
+      if (navKey) {
         suspendRef.current = true;
         setConvState("speaking");
-        onNavigateRef.current(navKey);
-        await speakAndWait("Here you go.");
+        try {
+          window.dispatchEvent(
+            new CustomEvent("echoai:navigate-section", { detail: navKey }),
+          );
+        } catch {
+          /* noop */
+        }
+        await speakAndWait(navConfirmation(navKey));
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow();
         return;

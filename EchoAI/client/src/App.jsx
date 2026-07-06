@@ -511,10 +511,19 @@ export default function App() {
   // through a ref so the listener always uses the latest tier-aware handler.
   const selectSectionRef = useRef(handleSelectSection);
   selectSectionRef.current = handleSelectSection;
+  const openDepartmentRef = useRef(openDepartment);
+  openDepartmentRef.current = openDepartment;
   useEffect(() => {
     const onNavSection = (e) => {
       const next = e && e.detail;
-      if (typeof next === "string" && next) selectSectionRef.current(next);
+      if (typeof next !== "string" || !next) return;
+      // "dept:<agentId>" opens a team member's Department View; anything else is
+      // a plain top-level section id.
+      if (next.startsWith("dept:")) {
+        openDepartmentRef.current(next.slice(5));
+      } else {
+        selectSectionRef.current(next);
+      }
     };
     window.addEventListener("echoai:navigate-section", onNavSection);
     return () =>
@@ -669,7 +678,7 @@ export default function App() {
   return (
     <MusicProvider>
     <VoiceProvider active={!isTeamMember}>
-    <EchoConversationProvider active={!isTeamMember} onNavigate={handleSelectSection}>
+    <EchoConversationProvider active={!isTeamMember}>
     <div className="flex min-h-screen flex-col bg-black md:flex-row">
       <Sidebar
         section={section}
