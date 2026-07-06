@@ -338,6 +338,22 @@ async function getMissionControl(req, res) {
     // Revenue: honest — only surface if an ROI snapshot exists; otherwise null.
     const roi = bid ? (await rows("SELECT * FROM roi_advanced_snapshots WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 1", [bid]))[0] : null;
 
+    // Goal alerts the daily sweep logged for THIS user's real brands (last 3
+    // days). These are surfaced in the attention panel so goal alerts are visibly
+    // logged, not only sent over voice/push. Scoped by user_id + non-demo.
+    const goalAlerts = await rows(
+      `SELECT l.goal_id, l.kind, l.alert_date, g.label, g.metric_key,
+              b.brand_id, b.brand_name
+         FROM goal_alert_log l
+         JOIN brand_goals g ON g.goal_id = l.goal_id
+         JOIN brands b ON b.brand_id = g.brand_id
+        WHERE b.user_id = $1 AND b.is_demo = false
+          AND l.alert_date >= CURRENT_DATE - INTERVAL '3 days'
+        ORDER BY l.created_at DESC
+        LIMIT 8`,
+      [userId]
+    );
+
     const attention = agents.filter((a) => a.status === "attention").map((a) => a.name);
     const briefing =
       `Good morning. ${leadsWeek} new lead${leadsWeek === 1 ? "" : "s"} this week and ${activeCampaigns} live campaign${activeCampaigns === 1 ? "" : "s"}. ` +
@@ -357,6 +373,15 @@ async function getMissionControl(req, res) {
         revenueEstimate: roi && roi.total_revenue != null ? Number(roi.total_revenue) : null,
       },
       upcoming,
+      goalAlerts: goalAlerts.map((a) => ({
+        goalId: a.goal_id,
+        kind: a.kind,
+        label: a.label,
+        metricKey: a.metric_key,
+        brandId: a.brand_id,
+        brandName: a.brand_name,
+        alertDate: a.alert_date,
+      })),
     });
   } catch (err) {
     console.error("getMissionControl error:", err.message);

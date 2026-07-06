@@ -55,7 +55,13 @@ export default function RoiDashboard({ brandId, currentTier, onUpgrade }) {
     );
   }
   if (meetsTier(currentTier, "enterprise")) {
-    return <AdvancedRoiDashboard brandId={brandId} />;
+    return (
+      <div className="space-y-6">
+        <AdvancedRoiDashboard brandId={brandId} />
+        {/* Revenue goals also belong on the Enterprise ROI path. */}
+        <DepartmentGoals brandId={brandId} department="roi" title="Revenue Goals" />
+      </div>
+    );
   }
   return (
     <div className="space-y-6">

@@ -61,6 +61,19 @@ description: Durable rules for the per-brand goals/KPI subsystem — no-data sna
   **How to apply:** keep the parse-vs-save split — parsing only suggests; the
   owner confirms before anything persists.
 
+- **A tier-forked dashboard entry point must render shared panels on BOTH
+  branches.** The ROI dashboard forks: lower tiers get the basic dashboard,
+  Enterprise gets the advanced one. A panel added to only one branch (the basic
+  one) silently vanishes for the other tier. **How to apply:** put cross-tier
+  panels (e.g. the revenue goals panel) in the parent/entry point, or add them to
+  every branch — never assume one branch covers all tiers.
+
+- **Logged alerts must be read back into a visible feed, not only dispatched.**
+  Writing an alert row + firing voice/push is not "surfaced in the UI" — the
+  Mission Control attention feed must actually query the alert log and render it.
+  **How to apply:** when a spec says an alert is "shown/logged in <panel>", wire a
+  read path into that panel's data source, not just the outbound notification.
+
 - **The daily alert fan-out is claimed channel-agnostically per (goal, kind,
   day).** Before dispatching ANY channel (voice / web push / mobile push), win an
   atomic unique-row claim for that (goal, kind, day); only the winning tick

@@ -37,6 +37,20 @@ function StatCard({ label, value, accent }) {
   );
 }
 
+// Friendly label + color for a logged goal-alert kind (see the daily sweep).
+const GOAL_ALERT_META = {
+  exceeding: { label: "Exceeding", color: "#22c55e" },
+  hit: { label: "Goal hit", color: "#22c55e" },
+  at_risk_urgent: { label: "Urgently behind", color: "#ef4444" },
+  at_risk_early: { label: "Behind pace", color: "#f59e0b" },
+  swing_up: { label: "Big jump", color: "#38bdf8" },
+  swing_down: { label: "Dropped", color: "#f97316" },
+};
+
+function goalAlertMeta(kind) {
+  return GOAL_ALERT_META[kind] || { label: "Update", color: "#9ca3af" };
+}
+
 function whenLabel(iso) {
   try {
     const d = new Date(iso);
@@ -95,6 +109,7 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
   const stats = (data && data.stats) || {};
   const agents = (data && data.agents) || [];
   const upcoming = (data && data.upcoming) || [];
+  const goalAlerts = (data && data.goalAlerts) || [];
   const attention = agents.filter((a) => a.status === "attention");
 
   return (
@@ -219,6 +234,45 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
                 {a.name}: {a.currentTask}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Goal alerts logged by the daily sweep (voice/push are also sent). */}
+      {goalAlerts.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-gray-200">
+              Recent goal alerts
+            </div>
+            <button
+              onClick={() => onNavigate && onNavigate("settings")}
+              className="text-xs font-semibold text-teal-400 hover:text-teal-300"
+            >
+              Manage Goals →
+            </button>
+          </div>
+          <div className="mt-3 space-y-2">
+            {goalAlerts.map((g) => {
+              const m = goalAlertMeta(g.kind);
+              return (
+                <div
+                  key={`${g.goalId}-${g.kind}-${g.alertDate}`}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <span className="text-sm text-gray-100">{g.label}</span>
+                    <span className="ml-2 text-xs text-gray-500">{g.brandName}</span>
+                  </div>
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                    style={{ color: m.color, backgroundColor: `${m.color}1f` }}
+                  >
+                    {m.label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
