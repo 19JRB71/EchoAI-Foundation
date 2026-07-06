@@ -11,6 +11,7 @@ import {
 } from "./postFailure.js";
 import RetryBadge from "./RetryBadge.jsx";
 import ReschedulePost from "./ReschedulePost.jsx";
+import AccountHealthBanner from "./AccountHealthBanner.jsx";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -122,6 +123,8 @@ export default function ContentCalendar({ brandId, onReconnect }) {
 
   return (
     <div className="space-y-4">
+      <AccountHealthBanner brandId={brandId} onReconnect={onReconnect} />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button

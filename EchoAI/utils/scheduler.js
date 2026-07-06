@@ -10,7 +10,10 @@ const {
 } = require("../controllers/optimizationController");
 const { updateCreativePerformanceForBrand } = require("../controllers/adCreativeStudioController");
 const { sendWeeklyReportEmail } = require("../controllers/emailController");
-const { publishDuePosts } = require("../controllers/socialController");
+const {
+  publishDuePosts,
+  reverifySocialConnections,
+} = require("../controllers/socialController");
 const { triggerWebhook } = require("../controllers/zapierController");
 const mobilePushController = require("../controllers/mobilePushController");
 const {
@@ -387,13 +390,23 @@ function startScheduler() {
     });
   });
 
+  // Every 6 hours at :30 (offset from the competitor scan): re-verify every
+  // stored social connection so an expired/revoked login is flagged ('error')
+  // on the calendar views BEFORE the next scheduled post fails.
+  cron.schedule("30 */6 * * *", () => {
+    reverifySocialConnections().catch((err) => {
+      console.error("Scheduled social connection re-verify errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
       "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
       "Echo voice reminders: every minute; Echo closing summary: daily 18:00; " +
       "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
       "goal tracking: daily 05:45; " +
-      "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours)."
+      "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours; " +
+      "social connection re-verify: every 6 hours at :30)."
   );
 }
 

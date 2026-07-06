@@ -45,3 +45,4 @@
 - [EchoAI social publish retry](echoai-publish-retry.md) — retry only explicitly-transient errors (err.transient/429/5xx); unclassified errors fail-closed (double-post risk); reschedule resets publish_attempts.
 - [EchoAI credential-failure detection](echoai-credential-failure-detection.md) — client regex over stored publish-error strings drives the Reconnect shortcut; keep in sync with server messages; Reconnect stays visible for "connected" rows.
 - [EchoAI section deep links](echoai-section-deeplink.md) — push alerts deep-link via /dashboard?section=<id>; client validates vs SECTION_TIERS + canOpenSection, param stripped once — never setSection an unvalidated id.
+- [EchoAI connection re-verify sweep](echoai-connection-reverify.md) — only hard auth failures flip to 'error' (transient never); verify success restores error→connected; flips status-guarded in WHERE.

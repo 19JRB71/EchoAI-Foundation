@@ -700,6 +700,103 @@ async function publishDuePosts() {
   return { due: due.rows.length, published };
 }
 
+// --- Connection re-verify sweep (scheduler) ---------------------------------
+
+/**
+ * Re-verifies one stored social account's credentials against its platform and
+ * reconciles connection_status. Outcomes:
+ *   - "flagged":  a hard verification failure (expired/revoked token, bad
+ *     credentials) flipped the account to 'error' so the dashboard warns the
+ *     owner BEFORE the next scheduled post fails.
+ *   - "restored": credentials verified fine for an account previously stuck in
+ *     'error' (e.g. the owner reauthorized on the platform side), so status is
+ *     flipped back to 'connected'.
+ *   - "skipped":  a transient failure (network blip, 429, platform 5xx) —
+ *     status is left untouched because the credentials may be perfectly valid.
+ *   - "ok":       verified and already 'connected'; nothing to do.
+ * Status flips are guarded by the current status in the WHERE clause so an
+ * owner reconnecting mid-sweep can't be clobbered by a stale result.
+ */
+async function reverifyAccountRow(row) {
+  let credentials;
+  try {
+    credentials = JSON.parse(decrypt(row.credentials_encrypted));
+  } catch {
+    // Undecryptable/corrupt credentials can never publish — hard failure.
+    await db.query(
+      `UPDATE social_accounts SET connection_status = 'error'
+       WHERE account_id = $1 AND connection_status <> 'error'`,
+      [row.account_id]
+    );
+    return "flagged";
+  }
+
+  try {
+    await socialApi.verifyConnection(row.platform, credentials);
+  } catch (err) {
+    // Only hard failures (auth rejections, missing fields) flag the account.
+    // Transient errors never reached / weren't answered by the platform, so
+    // flipping to 'error' would raise a false alarm on working credentials.
+    if (isTransientPublishError(err)) return "skipped";
+    await db.query(
+      `UPDATE social_accounts SET connection_status = 'error'
+       WHERE account_id = $1 AND connection_status <> 'error'`,
+      [row.account_id]
+    );
+    return "flagged";
+  }
+
+  if (row.connection_status === "error") {
+    await db.query(
+      `UPDATE social_accounts SET connection_status = 'connected'
+       WHERE account_id = $1 AND connection_status = 'error'`,
+      [row.account_id]
+    );
+    return "restored";
+  }
+  return "ok";
+}
+
+/**
+ * Periodic sweep: re-verifies every stored social connection (real brands
+ * only) so an expired/revoked login surfaces as a "needs attention" warning on
+ * the calendar views before more scheduled posts fail. Best-effort per
+ * account: one account's failure never stops the sweep.
+ */
+async function reverifySocialConnections() {
+  const { rows } = await db.query(
+    `SELECT sa.account_id, sa.platform, sa.connection_status, sa.credentials_encrypted
+     FROM social_accounts sa
+     JOIN brands b ON b.brand_id = sa.brand_id
+     WHERE b.is_demo = false
+     ORDER BY sa.account_id ASC`
+  );
+
+  const summary = { checked: 0, flagged: 0, restored: 0, skipped: 0 };
+  for (const row of rows) {
+    try {
+      const outcome = await module.exports.reverifyAccountRow(row);
+      summary.checked += 1;
+      if (outcome === "flagged") summary.flagged += 1;
+      else if (outcome === "restored") summary.restored += 1;
+      else if (outcome === "skipped") summary.skipped += 1;
+    } catch (err) {
+      console.error(
+        `Social connection re-verify failed for account ${row.account_id}:`,
+        err.message
+      );
+    }
+  }
+
+  if (rows.length > 0) {
+    console.log(
+      `Social connection re-verify complete: ${summary.checked}/${rows.length} checked, ` +
+        `${summary.flagged} flagged, ${summary.restored} restored, ${summary.skipped} transient-skipped.`
+    );
+  }
+  return summary;
+}
+
 module.exports = {
   connectSocialAccount,
   generateSocialContent,
@@ -711,4 +808,7 @@ module.exports = {
   getPostPerformance,
   publishStoredPost,
   publishDuePosts,
+  reverifySocialConnections,
+  // exported for tests (and so the sweep's per-row guard seam is stubbable)
+  reverifyAccountRow,
 };
