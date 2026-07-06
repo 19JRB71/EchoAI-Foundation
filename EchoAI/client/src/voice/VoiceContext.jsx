@@ -295,8 +295,12 @@ export function VoiceProvider({ active, children }) {
           // we're about to play. The next chunk's synthesis is kicked off as soon
           // as the current chunk *starts* playing, overlapping network + TTS with
           // playback so there are no gaps between chunks.
-          const presenting = presentationRef.current;
-          let pending = api.echoVoiceSpeak(chunks[0], style, { presentation: presenting });
+          // Strict = ElevenLabs-only (voice never switches to OpenAI). Presentation
+          // Mode forces it for the whole demo; Sage's urgent industry alerts force
+          // it per-item so a broken ElevenLabs account shows text instead of a
+          // different-sounding voice (task requirement for Sage spoken alerts).
+          const strict = presentationRef.current || item.type === "sage_urgent";
+          let pending = api.echoVoiceSpeak(chunks[0], style, { presentation: strict });
           for (let i = 0; i < chunks.length; i++) {
             let blob;
             try {
@@ -307,7 +311,9 @@ export function VoiceProvider({ active, children }) {
               // the item as delivered so the demo keeps moving.
               if (err && err.code === "tts_unavailable") {
                 setNotice(
-                  "Voice paused — the presentation voice is temporarily unavailable, so Echo is showing the text instead.",
+                  presentationRef.current
+                    ? "Voice paused — the presentation voice is temporarily unavailable, so Echo is showing the text instead."
+                    : `Voice unavailable — showing the alert as text instead: ${item.text}`,
                 );
                 settle("played");
                 return;
@@ -355,7 +361,7 @@ export function VoiceProvider({ active, children }) {
                   // the instant this one ends.
                   if (i + 1 < chunks.length && !pending) {
                     pending = api.echoVoiceSpeak(chunks[i + 1], style, {
-                      presentation: presenting,
+                      presentation: strict,
                     });
                     // Neutralize an unhandled rejection if we bail before awaiting.
                     pending.catch(() => {});
@@ -385,7 +391,7 @@ export function VoiceProvider({ active, children }) {
             // next chunk's synthesis is in flight before we loop.
             if (i + 1 < chunks.length && !pending) {
               pending = api.echoVoiceSpeak(chunks[i + 1], style, {
-                presentation: presenting,
+                presentation: strict,
               });
             }
           }

@@ -99,3 +99,16 @@ test("sageBlock wraps real context with a header", () => {
   assert.ok(block.includes("Industry is booming."));
   assert.ok(block.length > "Industry is booming.".length);
 });
+
+test("gatherFacebookSignals degrades to unavailable without a token (never throws)", async () => {
+  // FACEBOOK_ACCESS_TOKEN is unset in the test env, so the helper must return a
+  // graceful { available:false } result rather than throwing or making a call.
+  const { gatherFacebookSignals } = require("../utils/sageFacebook");
+  const res = await gatherFacebookSignals(
+    { industry: "coffee shops", country: "US" },
+    [{ name: "Competitor A" }],
+  );
+  assert.strictEqual(res.available, false);
+  assert.strictEqual(res.summary, "");
+  assert.deepStrictEqual(res.sources, []);
+});

@@ -257,7 +257,9 @@ async function computeAgents(userId, brand) {
       ],
     },
     sage: {
-      status: sageUrgent > 0 ? "attention" : "active",
+      // Sage never stops researching — its identity status is always Active,
+      // regardless of urgent-signal count (urgent signals surface in currentTask).
+      status: "active",
       currentTask: sageUrgent > 0
         ? `${sageUrgent} urgent industry signal${sageUrgent === 1 ? "" : "s"} for you`
         : "Studying your industry and competitors around the clock",
