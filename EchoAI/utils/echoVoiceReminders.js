@@ -70,45 +70,61 @@ async function sweepAppointmentReminders() {
   ).rows;
 
   for (const r of rows) {
-    const minutesUntil = (new Date(r.start_time).getTime() - Date.now()) / 60000;
-    const name = greetingName(r);
-    const who = r.contact_name || r.lead_name || "your contact";
-    const phone = r.contact_phone || r.lead_phone;
-    const time = timeLabel(r.start_time);
-
-    // 15-minute reminder (fires once at ~15 min before; dedup guards re-ticks).
-    if (minutesUntil <= 15.5 && eventEnabled(r.voice_settings, "appointment_15m")) {
-      let text =
-        `Good ${dayPart()} ${name}, your ${time} appointment with ${who} starts in fifteen minutes.`;
-      if (r.description) text += ` Note: ${String(r.description).slice(0, 200)}.`;
-      if (phone) text += ` You can reach them at ${phone}.`;
-      await enqueueVoiceNotification({
-        userId: r.user_id,
-        brandId: r.brand_id,
-        eventType: "appointment_15m",
-        title: `Appointment at ${time}`,
-        spokenText: text,
-        payload: { appointmentId: r.appointment_id, contact: who, phone: phone || null, startTime: r.start_time },
-        dedupKey: `appt15:${r.appointment_id}`,
-        expiresAt: new Date(r.start_time),
-      });
-    }
-
-    // 5-minute reminder.
-    if (minutesUntil <= 5.5 && eventEnabled(r.voice_settings, "appointment_5m")) {
-      await enqueueVoiceNotification({
-        userId: r.user_id,
-        brandId: r.brand_id,
-        eventType: "appointment_5m",
-        title: `Appointment at ${time}`,
-        spokenText: `${name}, your ${time} appointment starts in five minutes.`,
-        payload: { appointmentId: r.appointment_id, contact: who, startTime: r.start_time },
-        dedupKey: `appt5:${r.appointment_id}`,
-        expiresAt: new Date(r.start_time),
-      });
+    // Best-effort per appointment: one malformed row (bad settings JSON, bad
+    // timestamp, enqueue failure) must never silence the remaining reminders.
+    // Called via module.exports so tests can stub a throw here and prove the
+    // per-item guard contains it.
+    try {
+      await module.exports.processAppointmentReminderRow(r);
+    } catch (err) {
+      console.error(
+        `Appointment reminder failed for appointment ${r.appointment_id}:`,
+        err.message
+      );
     }
   }
   return rows.length;
+}
+
+/** Per-row body of the appointment sweep (15m + 5m reminders for one row). */
+async function processAppointmentReminderRow(r) {
+  const minutesUntil = (new Date(r.start_time).getTime() - Date.now()) / 60000;
+  const name = greetingName(r);
+  const who = r.contact_name || r.lead_name || "your contact";
+  const phone = r.contact_phone || r.lead_phone;
+  const time = timeLabel(r.start_time);
+
+  // 15-minute reminder (fires once at ~15 min before; dedup guards re-ticks).
+  if (minutesUntil <= 15.5 && eventEnabled(r.voice_settings, "appointment_15m")) {
+    let text =
+      `Good ${dayPart()} ${name}, your ${time} appointment with ${who} starts in fifteen minutes.`;
+    if (r.description) text += ` Note: ${String(r.description).slice(0, 200)}.`;
+    if (phone) text += ` You can reach them at ${phone}.`;
+    await enqueueVoiceNotification({
+      userId: r.user_id,
+      brandId: r.brand_id,
+      eventType: "appointment_15m",
+      title: `Appointment at ${time}`,
+      spokenText: text,
+      payload: { appointmentId: r.appointment_id, contact: who, phone: phone || null, startTime: r.start_time },
+      dedupKey: `appt15:${r.appointment_id}`,
+      expiresAt: new Date(r.start_time),
+    });
+  }
+
+  // 5-minute reminder.
+  if (minutesUntil <= 5.5 && eventEnabled(r.voice_settings, "appointment_5m")) {
+    await enqueueVoiceNotification({
+      userId: r.user_id,
+      brandId: r.brand_id,
+      eventType: "appointment_5m",
+      title: `Appointment at ${time}`,
+      spokenText: `${name}, your ${time} appointment starts in five minutes.`,
+      payload: { appointmentId: r.appointment_id, contact: who, startTime: r.start_time },
+      dedupKey: `appt5:${r.appointment_id}`,
+      expiresAt: new Date(r.start_time),
+    });
+  }
 }
 
 /**
@@ -138,48 +154,75 @@ async function sweepFollowUpReminders() {
   ).rows;
 
   for (const r of rows) {
-    if (!eventEnabled(r.voice_settings, "followup_due")) continue;
-    const name = greetingName(r);
-    const lead = r.lead_name || "a lead";
-    const tempNote =
-      r.temperature === "hot"
-        ? "They were a hot lead."
-        : r.temperature === "warm"
-          ? "They were a warm lead who requested a callback."
-          : "";
-    const daysAgo = r.lead_updated_at
-      ? Math.max(0, Math.floor((Date.now() - new Date(r.lead_updated_at).getTime()) / 86400000))
-      : null;
-    const lastNote =
-      daysAgo === null
-        ? ""
-        : daysAgo === 0
-          ? " Their last interaction was earlier today."
-          : ` Their last interaction was ${daysAgo} day${daysAgo === 1 ? "" : "s"} ago.`;
-
-    const text = `${name}, it's time to follow up with ${lead}. ${tempNote}${lastNote} Want me to connect the call now?`.replace(
-      /\s+/g,
-      " "
-    );
-
-    await enqueueVoiceNotification({
-      userId: r.user_id,
-      brandId: r.brand_id,
-      eventType: "followup_due",
-      title: `Follow up with ${lead}`,
-      spokenText: text,
-      payload: { touchpointId: r.touchpoint_id, lead, phone: r.phone || null },
-      dedupKey: `followup:${r.touchpoint_id}`,
-      expiresAt: new Date(Date.now() + 3 * 3600 * 1000),
-    });
+    // Best-effort per touchpoint: one malformed row must never silence the
+    // remaining follow-up reminders. Called via module.exports so tests can
+    // stub a throw here and prove the per-item guard contains it.
+    try {
+      await module.exports.processFollowUpReminderRow(r);
+    } catch (err) {
+      console.error(
+        `Follow-up reminder failed for touchpoint ${r.touchpoint_id}:`,
+        err.message
+      );
+    }
   }
   return rows.length;
 }
 
-/** The every-minute reminder sweep (appointments + follow-ups). */
+/** Per-row body of the follow-up sweep (one due phone touchpoint). */
+async function processFollowUpReminderRow(r) {
+  if (!eventEnabled(r.voice_settings, "followup_due")) return;
+  const name = greetingName(r);
+  const lead = r.lead_name || "a lead";
+  const tempNote =
+    r.temperature === "hot"
+      ? "They were a hot lead."
+      : r.temperature === "warm"
+        ? "They were a warm lead who requested a callback."
+        : "";
+  const daysAgo = r.lead_updated_at
+    ? Math.max(0, Math.floor((Date.now() - new Date(r.lead_updated_at).getTime()) / 86400000))
+    : null;
+  const lastNote =
+    daysAgo === null
+      ? ""
+      : daysAgo === 0
+        ? " Their last interaction was earlier today."
+        : ` Their last interaction was ${daysAgo} day${daysAgo === 1 ? "" : "s"} ago.`;
+
+  const text = `${name}, it's time to follow up with ${lead}. ${tempNote}${lastNote} Want me to connect the call now?`.replace(
+    /\s+/g,
+    " "
+  );
+
+  await enqueueVoiceNotification({
+    userId: r.user_id,
+    brandId: r.brand_id,
+    eventType: "followup_due",
+    title: `Follow up with ${lead}`,
+    spokenText: text,
+    payload: { touchpointId: r.touchpoint_id, lead, phone: r.phone || null },
+    dedupKey: `followup:${r.touchpoint_id}`,
+    expiresAt: new Date(Date.now() + 3 * 3600 * 1000),
+  });
+}
+
+/**
+ * The every-minute reminder sweep (appointments + follow-ups). Each sub-sweep
+ * is isolated so a failure in one (e.g. the appointments query erroring) never
+ * silences the other.
+ */
 async function sweepDueReminders() {
-  await sweepAppointmentReminders();
-  await sweepFollowUpReminders();
+  try {
+    await sweepAppointmentReminders();
+  } catch (err) {
+    console.error("Appointment reminder sweep errored:", err.message);
+  }
+  try {
+    await sweepFollowUpReminders();
+  } catch (err) {
+    console.error("Follow-up reminder sweep errored:", err.message);
+  }
 }
 
 /**
@@ -228,4 +271,8 @@ module.exports = {
   sweepAppointmentReminders,
   sweepFollowUpReminders,
   enqueueClosingSummaries,
+  // Per-row bodies, exported (and invoked via module.exports) so tests can
+  // stub a throw and prove the per-item guards contain it.
+  processAppointmentReminderRow,
+  processFollowUpReminderRow,
 };
