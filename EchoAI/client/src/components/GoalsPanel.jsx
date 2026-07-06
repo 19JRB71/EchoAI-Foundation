@@ -70,11 +70,21 @@ export function GoalRow({ goal }) {
             {formatValue(goal.targetValue, goal.unit)}
           </div>
         </div>
-        <span
-          className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-          style={{ color: meta.color, backgroundColor: meta.bg }}
-        >
-          {meta.label}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {goal.alertsMuted && (
+            <span
+              className="rounded-full bg-gray-800 px-2 py-0.5 text-[11px] font-semibold text-gray-400"
+              title="Voice & push alerts are muted for this goal"
+            >
+              Muted
+            </span>
+          )}
+          <span
+            className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            style={{ color: meta.color, backgroundColor: meta.bg }}
+          >
+            {meta.label}
+          </span>
         </span>
       </div>
       <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-800">
