@@ -22,6 +22,7 @@ import GoogleSeo from "./sections/GoogleSeo.jsx";
 import RoiDashboard from "./sections/RoiDashboard.jsx";
 import CustomerIntelligence from "./sections/CustomerIntelligence.jsx";
 import CapitalFunding from "./sections/CapitalFunding.jsx";
+import Sage from "./sections/Sage.jsx";
 import Portfolio from "./sections/Portfolio.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
@@ -981,6 +982,12 @@ export default function App() {
                   "capitalfunding",
                   <CapitalFunding brandId={selectedBrandId} />,
                 )}
+              {section === "sage" && (
+                <Sage
+                  brandId={selectedBrandId}
+                  initialTab={activeToolTab || "brief"}
+                />
+              )}
               {section === "reputation" &&
                 gate("reputation", <Reputation brandId={selectedBrandId} />)}
               {section === "phone" &&

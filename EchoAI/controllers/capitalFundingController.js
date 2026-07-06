@@ -21,6 +21,7 @@
  */
 
 const db = require("../config/db");
+const { sageContextForBrand } = require("../utils/sageContext");
 const { meetsTier } = require("../config/tiers");
 const { getUserTier } = require("../middleware/featureGate");
 const { generateFundingOpportunities } = require("../prompts/fundingIntelligencePrompt");
@@ -268,6 +269,7 @@ async function listOpportunityRows(brandId) {
  */
 async function generateOpportunityBriefing(brand) {
   const profile = await buildOpportunityProfile(brand.brand_id);
+  brand._sageContext = await sageContextForBrand(brand.brand_id);
   const brief = await generateOpportunityIntelligence(brand, profile);
   const weekDate = weekDateFor();
 

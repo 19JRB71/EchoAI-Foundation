@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { sageContextForBrand } = require("../utils/sageContext");
 const { encrypt, decrypt } = require("../utils/encryption");
 const {
   generateSocialPosts,
@@ -194,6 +195,7 @@ async function generateSocialContent(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    brand._sageContext = await sageContextForBrand(brand.brand_id);
     const variations = await generateSocialPosts(brand, topic, normalizedPlatform, 5);
     return res.json({
       platform: normalizedPlatform,

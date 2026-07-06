@@ -94,6 +94,7 @@ async function gatherBriefingData(userId, since) {
     sentinelFixes: [],
     pendingApprovals: 0,
     competitorNote: null,
+    sageNote: null,
     facebookConnected: fbConnected,
     goals: null,
   };
@@ -101,8 +102,17 @@ async function gatherBriefingData(userId, since) {
 
   const sinceParam = since ? new Date(since) : new Date(Date.now() - 24 * 3600 * 1000);
 
-  const [newLeads, appts, followUps, campaigns, health, approvals, competitor, goalRows] =
-    await Promise.all([
+  const [
+    newLeads,
+    appts,
+    followUps,
+    campaigns,
+    health,
+    approvals,
+    competitor,
+    goalRows,
+    sageFindings,
+  ] = await Promise.all([
       safeRows(
         `SELECT l.lead_name, l.temperature, l.created_at, b.brand_name
            FROM leads l JOIN brands b ON b.brand_id = l.brand_id
@@ -166,6 +176,15 @@ async function gatherBriefingData(userId, since) {
           ORDER BY g.goal_id, s.snapshot_date DESC`,
         [brandIds]
       ),
+      // Sage's most recent industry findings across the owner's brands (urgent
+      // first) so the briefing can surface what Sage learned overnight.
+      safeRows(
+        `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
+           FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
+          WHERE f.brand_id = ANY($1) AND f.created_at > $2
+          ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
+        [brandIds, sinceParam]
+      ),
     ]);
 
   const sentinelFixes = [];
@@ -193,9 +212,23 @@ async function gatherBriefingData(userId, since) {
       competitor[0] && competitor[0].intelligence_report
         ? summarizeCompetitor(competitor[0].intelligence_report)
         : null,
+    sageNote: summarizeSageFindings(sageFindings),
     facebookConnected: fbConnected,
     goals,
   };
+}
+
+/**
+ * Turn Sage's recent findings into one short briefing line. Prefers the most
+ * urgent finding; otherwise the freshest one. Returns null with no findings.
+ */
+function summarizeSageFindings(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (list.length === 0) return null;
+  const pick = list.find((r) => r.urgent) || list[0];
+  if (!pick || !pick.summary) return null;
+  const prefix = pick.urgent ? "urgent — " : "";
+  return `${prefix}${String(pick.summary).trim()}`;
 }
 
 /**
@@ -329,6 +362,7 @@ async function gatherWeeklyData(userId) {
     sentinelFixes: 0,
     pendingApprovals: 0,
     competitorNote: null,
+    sageNote: null,
     intelligence: { recommendations: [], trends: [] },
     opportunities: [],
     risks: [],
@@ -366,6 +400,7 @@ async function gatherWeeklyData(userId) {
     approvals,
     competitor,
     intel,
+    sageFindings,
   ] = await Promise.all([
     safeRows(
       `SELECT l.temperature, b.brand_name
@@ -425,6 +460,13 @@ async function gatherWeeklyData(userId) {
         WHERE brand_id = ANY($1) ORDER BY created_at DESC LIMIT 3`,
       [brandIds]
     ),
+    safeRows(
+      `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
+         FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
+        WHERE f.brand_id = ANY($1) AND f.created_at > $2
+        ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
+      [brandIds, weekAgo]
+    ),
   ]);
 
   const newLeadsCount = leadsThisWeek.length;
@@ -469,6 +511,7 @@ async function gatherWeeklyData(userId) {
     competitor[0] && competitor[0].intelligence_report
       ? summarizeCompetitor(competitor[0].intelligence_report)
       : null;
+  const sageNote = summarizeSageFindings(sageFindings);
 
   const multi = brands.length > 1;
   const tag = (brand) => (multi && brand ? ` at ${brand}` : "");
@@ -516,6 +559,9 @@ async function gatherWeeklyData(userId) {
   if (competitorNote) {
     risks.push(`Scout flagged competitor movement: ${competitorNote}`);
   }
+  if (sageNote) {
+    risks.push(`Sage flagged an industry development: ${sageNote}`);
+  }
   if (pendingApprovals > 0) {
     risks.push(
       `${pendingApprovals} item${pendingApprovals === 1 ? " is" : "s are"} still waiting for your approval`
@@ -540,6 +586,7 @@ async function gatherWeeklyData(userId) {
     sentinelFixes,
     pendingApprovals,
     competitorNote,
+    sageNote,
     intelligence: { recommendations, trends },
     opportunities,
     risks,
@@ -640,6 +687,9 @@ function templateMorning(firstName, data) {
   }
   if (data.competitorNote) {
     parts.push(`Scout noted: ${data.competitorNote}`);
+  }
+  if (data.sageNote) {
+    parts.push(`Sage learned something about your industry: ${data.sageNote}`);
   }
   if (data.pendingApprovals) {
     parts.push(`${data.pendingApprovals} item${data.pendingApprovals === 1 ? " is" : "s are"} waiting for your approval.`);

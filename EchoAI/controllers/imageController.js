@@ -3,6 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 
 const db = require("../config/db");
+const { sageContextForBrand } = require("../utils/sageContext");
 const { openai } = require("../config/openai");
 const {
   PURPOSES,
@@ -135,6 +136,7 @@ async function generateImage(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    brand._sageContext = await sageContextForBrand(brand.brand_id);
     const meta = purposeMeta(purpose);
     const results = await Promise.all(
       Array.from({ length: variations }, (_, i) =>

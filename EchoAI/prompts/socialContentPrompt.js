@@ -9,6 +9,7 @@
  */
 
 const { anthropic, MODEL } = require("../config/anthropic");
+const { sageBlock } = require("../utils/sageContext");
 
 const SUPPORTED_PLATFORMS = [
   "facebook",
@@ -99,6 +100,7 @@ function buildSocialContentPrompt(brand, topic, platform) {
     "",
     `Platform rules for ${normalized}:`,
     ...guidelines.map((g) => `- ${g}`),
+    sageBlock(brand._sageContext),
     "",
     "Produce EXACTLY 5 distinct post variations. Each variation must feel native to the platform while staying true to the brand voice and personality.",
     "",

@@ -12,6 +12,7 @@
  */
 
 const { createMessage, MODEL, DEFAULT_AI_TIMEOUT_MS } = require("../config/anthropic");
+const { sageBlock } = require("../utils/sageContext");
 
 const LEVELS = new Set(["high", "medium", "low"]);
 const DIRECTIONS = new Set(["up", "down", "flat"]);
@@ -36,6 +37,7 @@ function buildOpportunityPrompt(brand, profile) {
     "",
     `BUSINESS: ${name}`,
     brand.brand_personality ? `Brand personality: ${brand.brand_personality}` : "",
+    sageBlock(brand._sageContext),
     "",
     "BUSINESS PROFILE (real data, JSON):",
     "```json",

@@ -32,6 +32,13 @@ const {
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
 const { runApiQuotaSweep } = require("./apiQuotaMonitor");
 const { runDailyGoalTracking } = require("./goalAlerts");
+const {
+  activeBrandsForSage,
+  runDeepCycleForBrand,
+  runUrgentScanForBrand,
+  claimRun,
+  finishRun,
+} = require("../controllers/sageController");
 const { warmMorningBriefings } = require("../controllers/echoVoiceController");
 const {
   sweepDueReminders,
@@ -226,6 +233,61 @@ async function runCompetitorScan() {
 }
 
 /**
+ * Sage's deep industry-research cycle. Runs every 6 hours for every real
+ * (non-demo) brand: refreshes the rolling industry brief, persists the findings
+ * feed, and pages the owner on urgent signals. Each brand is claimed atomically
+ * for the hour bucket so overlapping ticks can't double-run, and a per-brand
+ * failure (AI down, no industry) is logged and never stops the sweep.
+ */
+async function runSageDeepCycle() {
+  const brands = await activeBrandsForSage();
+  const runKey = `deep:${new Date().toISOString().slice(0, 13)}`;
+  let ok = 0;
+  for (const brand of brands) {
+    let claimed = false;
+    try {
+      claimed = await claimRun(brand.brand_id, "deep", runKey);
+      if (!claimed) continue;
+      await runDeepCycleForBrand(brand);
+      await finishRun(brand.brand_id, "deep", runKey, "done");
+      ok += 1;
+    } catch (err) {
+      if (claimed) await finishRun(brand.brand_id, "deep", runKey, "failed");
+      console.error(`Sage deep cycle failed for brand ${brand.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Sage deep research complete: ${ok}/${brands.length} brands researched.`);
+}
+
+/**
+ * Sage's fast urgent scan. Runs every 30 minutes for every real brand to catch
+ * breaking, time-sensitive developments and page the owner (deduped per signal
+ * per day). Claimed atomically per 30-minute bucket; per-brand failures are
+ * logged and never stop the sweep. An empty result is normal, not an error.
+ */
+async function runSageUrgentScan() {
+  const brands = await activeBrandsForSage();
+  const now = new Date();
+  const half = now.getUTCMinutes() < 30 ? "00" : "30";
+  const runKey = `urgent:${now.toISOString().slice(0, 13)}:${half}`;
+  let ok = 0;
+  for (const brand of brands) {
+    let claimed = false;
+    try {
+      claimed = await claimRun(brand.brand_id, "urgent", runKey);
+      if (!claimed) continue;
+      await runUrgentScanForBrand(brand);
+      await finishRun(brand.brand_id, "urgent", runKey, "done");
+      ok += 1;
+    } catch (err) {
+      if (claimed) await finishRun(brand.brand_id, "urgent", runKey, "failed");
+      console.error(`Sage urgent scan failed for brand ${brand.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Sage urgent scan complete: ${ok}/${brands.length} brands scanned.`);
+}
+
+/**
  * Daily portfolio health snapshot (Part 5). Computes a deterministic 1-10 score
  * for every REAL brand (demo excluded) so the 12-week trajectory keeps building
  * without any manual action. Scoring is deterministic (no AI), so a single
@@ -410,6 +472,23 @@ function startScheduler() {
     });
   });
 
+  // Every 6 hours at :15 (offset from Scout's competitor scan): Sage runs a deep
+  // live-web-search industry-research cycle for every real brand, refreshing the
+  // rolling brief + findings feed and paging owners on urgent signals.
+  cron.schedule("15 */6 * * *", () => {
+    runSageDeepCycle().catch((err) => {
+      console.error("Scheduled Sage deep research run errored:", err.message);
+    });
+  });
+
+  // Every 30 minutes: Sage does a fast urgent scan for breaking, time-sensitive
+  // developments in each brand's industry and pages the owner (deduped per day).
+  cron.schedule("*/30 * * * *", () => {
+    runSageUrgentScan().catch((err) => {
+      console.error("Scheduled Sage urgent scan run errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
       "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
@@ -418,7 +497,8 @@ function startScheduler() {
       "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
       "goal tracking: daily 05:45; " +
       "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours; " +
-      "social connection re-verify: every 6 hours at :30)."
+      "social connection re-verify: every 6 hours at :30; " +
+      "Sage deep research: every 6 hours at :15; Sage urgent scan: every 30 minutes)."
   );
 }
 
@@ -430,4 +510,6 @@ module.exports = {
   runCompetitorScan,
   runDailyGoalTracking,
   runApiQuotaSweep,
+  runSageDeepCycle,
+  runSageUrgentScan,
 };

@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { sageContextForBrand } = require("../utils/sageContext");
 const { sendEmail } = require("../utils/email");
 const { buildClient, getPublicBaseUrl } = require("../config/twilio");
 const { decrypt } = require("../utils/encryption");
@@ -250,6 +251,7 @@ async function generateSequence(req, res) {
     // never a generic 500 and never a mocked fallback.
     let touchpoints;
     try {
+      brand._sageContext = await sageContextForBrand(brand.brand_id);
       const raw = await generateFollowUpSequence(brand, lead, {
         goal: goal || "reengage",
         maxTouchpoints: MAX_TOUCHPOINTS,
@@ -766,6 +768,7 @@ async function maybeStartSequenceForLead({ brandId, leadId, temperature, prevTem
     const sequenceType = isHot ? "closing" : "nurture";
     const allowed = lead.phone ? VALID_CHANNELS : ["email"];
 
+    brand._sageContext = await sageContextForBrand(brand.brand_id);
     const raw = await generateFollowUpSequence(brand, lead, {
       goal,
       maxTouchpoints: MAX_TOUCHPOINTS,

@@ -16,6 +16,8 @@
  *     changes, and explains its recommendations in plain language.
  */
 
+const { sageBlock } = require("../utils/sageContext");
+
 function describeAudience(targetAudience) {
   if (!targetAudience) return "the brand's ideal customers";
   if (typeof targetAudience === "string") return targetAudience;
@@ -164,6 +166,7 @@ function buildCampaignOptimizationPrompt({ brand = {}, performance = [], competi
     `- Voice: ${voice}`,
     `- Target audience: ${audience}`,
     `- Niche: ${deriveNiche(brand)}`,
+    sageBlock(brand._sageContext),
     "",
     ...(targetLines.length
       ? ["Owner's performance goals (optimize toward these as guardrails):", ...targetLines, ""]

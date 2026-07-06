@@ -100,7 +100,7 @@ function Hero() {
           </span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-300 sm:text-xl">
-          Eight specialists working around the clock so you never have to think
+          Nine specialists working around the clock so you never have to think
           about marketing again.
         </p>
         <div className="mt-10">
@@ -144,7 +144,7 @@ function TeamGrid() {
             Your team
           </span>
           <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
-            Eight AI specialists. One relentless team.
+            Nine AI specialists. One relentless team.
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-slate-400">
             Each one owns a part of your marketing and works 24/7 — no hiring, no

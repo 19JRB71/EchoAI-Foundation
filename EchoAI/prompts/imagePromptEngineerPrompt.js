@@ -16,6 +16,7 @@
 
 const { anthropic, MODEL } = require("../config/anthropic");
 const { purposeMeta } = require("./imagePromptBuilder");
+const { sageBlock } = require("../utils/sageContext");
 
 const NUM_PROMPTS = 5;
 
@@ -120,6 +121,7 @@ function buildSystemPrompt(brand, purpose, contentDescription) {
     "",
     `Image purpose: ${meta.label} (${meta.aspect}, optimized for ${meta.platform}).`,
     `Content brief: ${contentDescription}`,
+    sageBlock(brand._sageContext),
     "",
     `Design EXACTLY ${NUM_PROMPTS} distinct image-generation prompts. Each must be a complete, ready-to-use prompt that explicitly specifies:`,
     "- the visual style,",

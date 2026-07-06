@@ -21,6 +21,7 @@ export const AGENTS_META = [
   { id: "voice", name: "Voice", title: "AI Receptionist", color: "#8B5CF6" },
   { id: "forge", name: "Forge", title: "Creative Director", color: "#EAB308" },
   { id: "sentinel", name: "Sentinel", title: "Oversight Agent", color: "#EF4444" },
+  { id: "sage", name: "Sage", title: "Industry Intelligence Agent", color: "#059669" },
 ];
 
 export const AGENT_IDS = AGENTS_META.map((a) => a.id);
@@ -80,6 +81,13 @@ export const DEPARTMENTS = {
     { label: "Error History", desc: "Past health sweeps and their outcomes.", section: "sentinelhealth", tab: "errors" },
     { label: "Platform Status", desc: "Status of each connected system.", section: "sentinelhealth", tab: "platform" },
   ],
+  sage: [
+    { label: "Industry Brief", desc: "The living read on your industry — trends, competition, opportunities and threats.", section: "sage", tab: "brief" },
+    { label: "Latest Intelligence", desc: "A rolling feed of what Sage has discovered, urgent signals first.", section: "sage", tab: "feed" },
+    { label: "Competitor Watch", desc: "The competitors Sage tracks for you, with their latest moves.", section: "sage", tab: "competitors" },
+    { label: "Marketing Insights", desc: "Actionable recommendations drawn from live industry intelligence.", section: "sage", tab: "insights" },
+    { label: "Intelligence Input", desc: "Feed Sage links, competitor pages, images or documents to analyze.", section: "sage", tab: "input" },
+  ],
 };
 
 export function departmentTools(agentId) {
@@ -125,6 +133,7 @@ export const SECTION_TITLES = {
   sentinelhealth: "Sentinel · Health",
   callmonitor: "Sentinel · Call Monitoring",
   queueoverview: "Pulse · Sales Queue",
+  sage: "Sage · Industry Intelligence",
 };
 
 export function sectionTitle(section) {

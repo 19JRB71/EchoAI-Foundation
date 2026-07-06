@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { sageContextForBrand } = require("../utils/sageContext");
 const { anthropic, MODEL } = require("../config/anthropic");
 const { graphGet, graphPost } = require("../utils/facebookApi");
 const { decrypt } = require("../utils/encryption");
@@ -221,6 +222,7 @@ async function autoOptimizeCampaignsForBrand(brand) {
   }));
 
   // Call the optimization agent.
+  brand._sageContext = await sageContextForBrand(brand.brand_id);
   const prompt = buildCampaignOptimizationPrompt({
     brand,
     performance,

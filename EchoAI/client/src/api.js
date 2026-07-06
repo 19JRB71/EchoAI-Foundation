@@ -183,6 +183,72 @@ export const api = {
     return data;
   },
 
+  // Sage — Industry Intelligence Agent (ungated, all-tier / all-roles).
+  getSageBrief: (brandId) =>
+    request(`/api/sage/brief?brandId=${encodeURIComponent(brandId)}`),
+  refreshSageBrief: (brandId) =>
+    request("/api/sage/brief/refresh", { method: "POST", body: { brandId } }),
+  getSageFeed: (brandId) =>
+    request(`/api/sage/feed?brandId=${encodeURIComponent(brandId)}`),
+  getSageInsights: (brandId) =>
+    request(`/api/sage/insights?brandId=${encodeURIComponent(brandId)}`),
+  getSageCompetitors: (brandId) =>
+    request(`/api/sage/competitors?brandId=${encodeURIComponent(brandId)}`),
+  addSageCompetitor: ({ brandId, name, website, facebook_page }) =>
+    request("/api/sage/competitors", {
+      method: "POST",
+      body: { brandId, name, website, facebook_page },
+    }),
+  suggestSageCompetitors: (brandId) =>
+    request("/api/sage/competitors/suggest", { method: "POST", body: { brandId } }),
+  refreshSageCompetitor: (brandId, id) =>
+    request(`/api/sage/competitors/${id}/refresh`, {
+      method: "POST",
+      body: { brandId },
+    }),
+  updateSageCompetitor: (brandId, id, status) =>
+    request(`/api/sage/competitors/${id}`, {
+      method: "PATCH",
+      body: { brandId, status },
+    }),
+  deleteSageCompetitor: (brandId, id) =>
+    request(`/api/sage/competitors/${id}?brandId=${encodeURIComponent(brandId)}`, {
+      method: "DELETE",
+    }),
+  submitSageLink: ({ brandId, type, url }) =>
+    request("/api/sage/input", {
+      method: "POST",
+      body: { brandId, type, url },
+    }),
+  submitSageFile: async (brandId, file) => {
+    const form = new FormData();
+    form.append("brandId", brandId);
+    form.append("file", file, file.name);
+    const headers = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}/api/sage/input`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      if (res.status === 401) {
+        clearToken();
+        window.dispatchEvent(new Event("echoai:unauthorized"));
+      }
+      const err = new Error(
+        (data && data.error) || `Submission failed (${res.status})`,
+      );
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  },
+  getSageSubmissions: (brandId) =>
+    request(`/api/sage/submissions?brandId=${encodeURIComponent(brandId)}`),
+
   // AI Marketing Department — team roster, per-agent detail, Mission Control.
   getAgents: () => request("/api/agents"),
   getMissionControl: () => request("/api/agents/mission-control"),

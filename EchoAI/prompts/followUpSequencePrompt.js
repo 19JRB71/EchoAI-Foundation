@@ -17,6 +17,7 @@
  */
 
 const { anthropic, MODEL } = require("../config/anthropic");
+const { sageBlock } = require("../utils/sageContext");
 
 const MAX_TOUCHPOINTS = 7;
 const MAX_DAYS = 14;
@@ -62,6 +63,7 @@ function buildFollowUpPrompt(brand, lead, opts = {}) {
     `Brand personality: ${personality}.`,
     voice ? `Brand voice: ${voice}.` : "",
     `Typical audience: ${audience}.`,
+    sageBlock(brand && brand._sageContext),
     "",
     `Design an automated follow-up sequence for a single lead named ${leadName}.`,
     `Sequence goal: ${goalLabel(goal)}.`,

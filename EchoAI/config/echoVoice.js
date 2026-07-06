@@ -32,6 +32,7 @@ const EVENT_TYPES = [
   "sentinel_fixed",
   "rep_completed",
   "goal_alert",
+  "sage_urgent",
 ];
 
 // Defaults applied when a user has no stored voice_settings (or is missing keys).
@@ -51,6 +52,7 @@ const DEFAULT_SETTINGS = {
     sentinel_fixed: true,
     rep_completed: true,
     goal_alert: true,
+    sage_urgent: true,
   },
 };
 
