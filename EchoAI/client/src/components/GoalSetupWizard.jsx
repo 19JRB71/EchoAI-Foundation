@@ -28,7 +28,7 @@ const inputClass =
  * defaults; the owner confirms real targets before anything is saved.
  */
 export default function GoalSetupWizard({ brandId, onClose, onComplete }) {
-  const [step, setStep] = useState("type"); // "type" -> "goals" -> "done"
+  const [step, setStep] = useState("type"); // "type" -> "describe" -> "goals" -> "done"
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -36,6 +36,9 @@ export default function GoalSetupWizard({ brandId, onClose, onComplete }) {
   const [catalog, setCatalog] = useState([]);
   // selection: { [metricKey]: { on: bool, target: string } }
   const [selection, setSelection] = useState({});
+  const [describeText, setDescribeText] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [parseNote, setParseNote] = useState("");
 
   const buildSelection = useCallback((cat) => {
     const sel = {};
@@ -84,6 +87,51 @@ export default function GoalSetupWizard({ brandId, onClose, onComplete }) {
       setError(err.message || "Couldn't update business type.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Ask Echo to read the owner's plain-English goals and pre-select targets.
+  // Non-blocking: on any failure the owner just picks goals manually.
+  const applyDescription = async () => {
+    const text = describeText.trim();
+    if (!text) {
+      setStep("goals");
+      return;
+    }
+    setParsing(true);
+    setParseNote("");
+    setError("");
+    try {
+      const data = await api.parseGoals(brandId, text);
+      const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+      if (suggestions.length) {
+        setSelection((prev) => {
+          const next = { ...prev };
+          for (const s of suggestions) {
+            if (!next[s.metricKey]) continue; // ignore metrics not in this catalog
+            next[s.metricKey] = { on: true, target: String(s.targetValue) };
+          }
+          return next;
+        });
+        setParseNote(
+          `Got it — I set up ${suggestions.length} target${
+            suggestions.length === 1 ? "" : "s"
+          }. Review them below.`
+        );
+      } else {
+        setParseNote(
+          "I couldn't pin those to specific targets — pick the ones you want below."
+        );
+      }
+      setStep("goals");
+    } catch (err) {
+      // 502 (AI down) or anything else must not block onboarding.
+      setParseNote(
+        "I couldn't reach the AI just now — no problem, pick your goals manually below."
+      );
+      setStep("goals");
+    } finally {
+      setParsing(false);
     }
   };
 
@@ -198,16 +246,52 @@ export default function GoalSetupWizard({ brandId, onClose, onComplete }) {
                   Skip for now
                 </button>
                 <button
-                  onClick={() => setStep("goals")}
+                  onClick={() => setStep("describe")}
                   disabled={saving}
                   className={primaryBtn}
                 >
-                  Next: pick goals
+                  Next
+                </button>
+              </div>
+            </>
+          ) : step === "describe" ? (
+            <>
+              <p className="text-sm leading-relaxed text-gray-200">
+                Tell me what you're aiming for this month in your own words — like
+                "around 40 new leads and keep cost per lead under $15" — and I'll
+                set up the targets for you. Or skip and pick them yourself.
+              </p>
+              <textarea
+                value={describeText}
+                onChange={(e) => setDescribeText(e.target.value)}
+                rows={4}
+                placeholder="e.g. I want about 40 leads a month, 10 booked calls, and to keep cost per lead under $15."
+                className={`${inputClass} mt-4 resize-none`}
+              />
+              <div className="mt-5 flex justify-between">
+                <button
+                  onClick={() => setStep("goals")}
+                  disabled={parsing}
+                  className={secondaryBtn}
+                >
+                  I'll pick manually
+                </button>
+                <button
+                  onClick={applyDescription}
+                  disabled={parsing}
+                  className={primaryBtn}
+                >
+                  {parsing ? "Reading your goals…" : "Set them up for me"}
                 </button>
               </div>
             </>
           ) : step === "goals" ? (
             <>
+              {parseNote && (
+                <div className="mb-3 rounded-lg border border-teal-900/60 bg-teal-950/30 px-3 py-2 text-xs text-teal-200">
+                  {parseNote}
+                </div>
+              )}
               <p className="text-sm leading-relaxed text-gray-200">
                 Here are the targets I'd suggest for a{" "}
                 <span className="font-semibold text-teal-300">
@@ -258,7 +342,7 @@ export default function GoalSetupWizard({ brandId, onClose, onComplete }) {
                 })}
               </div>
               <div className="mt-5 flex justify-between">
-                <button onClick={() => setStep("type")} className={secondaryBtn}>
+                <button onClick={() => setStep("describe")} className={secondaryBtn}>
                   Back
                 </button>
                 <button

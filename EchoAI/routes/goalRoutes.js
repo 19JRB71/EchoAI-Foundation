@@ -14,6 +14,8 @@ router.use(auth, lockout);
 router.get("/overview", goalController.getOverview);
 
 router.get("/catalog/:brandId", goalController.getCatalog);
+// Conversational goal setup (AI parse) — POST before the generic create route.
+router.post("/:brandId/parse", goalController.parseGoals);
 router.get("/:brandId", goalController.listGoals);
 router.get("/:brandId/department/:department", goalController.getDepartmentGoals);
 router.post("/:brandId", goalController.createGoal);

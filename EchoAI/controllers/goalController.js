@@ -21,6 +21,11 @@ const {
   buildGoalProgress,
   monthWindow,
 } = require("../utils/goalMetrics");
+const { createMessage, MODEL } = require("../config/anthropic");
+const {
+  buildGoalSetupPrompt,
+  parseGoalSuggestions,
+} = require("../prompts/goalSetupPrompt");
 
 /** Loads an owned brand (with its type) or null. */
 async function getOwnedBrand(userId, brandId) {
@@ -57,6 +62,55 @@ async function getCatalog(req, res) {
   } catch (err) {
     console.error("Get goal catalog error:", err.message);
     return res.status(500).json({ error: "Failed to load goal catalog" });
+  }
+}
+
+/**
+ * POST /api/goals/:brandId/parse
+ * Conversational goal setup (runs after the Setup Agent). The owner describes
+ * their goals in plain English; Echo (Anthropic) parses that into measurable
+ * targets drawn ONLY from the brand's catalog. Nothing is saved here — the
+ * wizard shows the suggestions for the owner to confirm/adjust before creating
+ * goals. Upstream AI failure -> 502 so onboarding can continue without blocking.
+ * Body: { message: string }.
+ */
+async function parseGoals(req, res) {
+  const { message } = req.body || {};
+  try {
+    const brand = await getOwnedBrand(req.user.userId, req.params.brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    if (typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ error: "A message describing your goals is required" });
+    }
+
+    const brandType = brand.brand_type || DEFAULT_BRAND_TYPE;
+    const catalog = catalogForBrandType(brandType);
+
+    let response;
+    try {
+      response = await createMessage(
+        {
+          model: MODEL,
+          max_tokens: 1024,
+          system: buildGoalSetupPrompt(brandType, catalog),
+          messages: [{ role: "user", content: message.slice(0, 2000) }],
+        },
+        { label: "Goal setup parse" }
+      );
+    } catch (err) {
+      console.error("Goal parse AI error:", err && err.message);
+      return res
+        .status(502)
+        .json({ error: "Echo couldn't reach the AI to read your goals. You can pick them manually." });
+    }
+
+    const text = (response && response.content && response.content[0] && response.content[0].text) || "";
+    const suggestions = parseGoalSuggestions(text, catalog);
+    return res.json({ brandType, suggestions });
+  } catch (err) {
+    console.error("Parse goals error:", err.message);
+    return res.status(500).json({ error: "Failed to parse goals" });
   }
 }
 
@@ -265,7 +319,9 @@ async function deleteGoal(req, res) {
 async function getOverview(req, res) {
   try {
     const { rows: brands } = await db.query(
-      "SELECT brand_id, brand_name, brand_type FROM brands WHERE user_id = $1 ORDER BY created_at ASC",
+      `SELECT brand_id, brand_name, brand_type FROM brands
+        WHERE user_id = $1 AND is_demo = false
+        ORDER BY created_at ASC`,
       [req.user.userId]
     );
 
@@ -318,6 +374,7 @@ async function getOverview(req, res) {
 
 module.exports = {
   getCatalog,
+  parseGoals,
   listGoals,
   getDepartmentGoals,
   createGoal,

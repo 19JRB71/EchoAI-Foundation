@@ -194,6 +194,8 @@ export const api = {
   getDepartmentGoals: (brandId, department) =>
     request(`/api/goals/${brandId}/department/${department}`),
   getGoalsOverview: () => request("/api/goals/overview"),
+  parseGoals: (brandId, message) =>
+    request(`/api/goals/${brandId}/parse`, { method: "POST", body: { message } }),
   createGoal: (brandId, body) =>
     request(`/api/goals/${brandId}`, { method: "POST", body }),
   updateGoal: (brandId, goalId, body) =>

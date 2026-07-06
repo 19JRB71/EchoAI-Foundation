@@ -35,6 +35,30 @@ description: Durable rules for the per-brand goals/KPI subsystem — no-data sna
   snapshot BEFORE writing today's, then compare. Alert copy is keyed by `kind`,
   not by the raw `status`, so new kinds need their own copy branch + dedup suffix.
 
+- **Department goal panels are strict per-category (Atlas=campaign, Nova=content,
+  Pulse=lead+appointment, ROI=revenue).** `DEPARTMENT_CATEGORIES` in
+  `config/goals.js` must map each department to ONLY its spec categories — no
+  cross-contamination (Atlas is campaign-only, ROI is revenue-only; affiliate
+  goals intentionally have no department panel). **Why:** the spec assigns exact
+  categories; leaking revenue into Atlas or campaign into ROI surfaces goals in the
+  wrong dashboard. **How to apply:** if you widen a department's categories,
+  confirm it against the spec — the department test in `test/goals.test.js`
+  asserts the exact arrays.
+
+- **Mission Control cross-brand aggregates exclude demo brands too.** Not just the
+  alert sweep — the Goals Overview query in `getOverview` must also filter
+  `brands.is_demo = false`, or demo data pollutes the portfolio score/attention.
+
+- **The post-onboarding goal wizard is conversational + AI-parsed, and MUST be
+  non-blocking.** `POST /api/goals/:brandId/parse` (ownership-scoped) feeds the
+  owner's plain-English goals to Anthropic via a catalog-constrained prompt and
+  returns validated `{metricKey,targetValue}` suggestions; the pure parser
+  (`prompts/goalSetupPrompt.js parseGoalSuggestions`) drops anything not in the
+  brand's catalog so no goal is ever fabricated. Upstream AI failure → 502, and
+  the wizard UI catches it (and any error) to fall through to manual selection so
+  onboarding never stalls. **How to apply:** keep the parse-vs-save split — parse
+  only suggests; the owner confirms before `createGoal` persists.
+
 - **Atlas optimization guardrails follow the brand's goal type.** The campaign
   optimizer passes active goal targets into the prompt as guardrails: cost-per-lead
   and ROAS for ad-performance brands, plus referrals and commission for

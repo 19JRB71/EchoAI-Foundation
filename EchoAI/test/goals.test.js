@@ -330,3 +330,162 @@ test("templateMorning: a brand with both far-ahead and at-risk reports both", ()
   assert.ok(/far ahead on New Leads/.test(text), text);
   assert.ok(/Cost Per Lead .*behind pace/.test(text), text);
 });
+
+// --- Department category scoping (Prompt 67 spec) ----------------------------
+
+test("DEPARTMENT_CATEGORIES: Atlas = campaign only, ROI = revenue only", () => {
+  assert.deepStrictEqual(goals.DEPARTMENT_CATEGORIES.atlas, ["campaign"]);
+  assert.deepStrictEqual(goals.DEPARTMENT_CATEGORIES.roi, ["revenue"]);
+  assert.deepStrictEqual(goals.DEPARTMENT_CATEGORIES.nova, ["content"]);
+  assert.deepStrictEqual(goals.DEPARTMENT_CATEGORIES.pulse, ["lead", "appointment"]);
+});
+
+// --- Goal setup AI parse helpers (conversational wizard) ---------------------
+
+const goalSetupPrompt = require("../prompts/goalSetupPrompt");
+
+const parseCatalog = [
+  { metricKey: "new_leads", label: "New Leads" },
+  { metricKey: "cost_per_lead", label: "Cost Per Lead" },
+];
+
+test("buildGoalSetupPrompt lists only the catalog metricKeys", () => {
+  const p = goalSetupPrompt.buildGoalSetupPrompt("standard", parseCatalog);
+  assert.ok(p.includes("new_leads"));
+  assert.ok(p.includes("cost_per_lead"));
+  assert.ok(!p.includes("referrals"));
+});
+
+test("parseGoalSuggestions parses a clean JSON object", () => {
+  const raw = '{"goals":[{"metricKey":"new_leads","targetValue":40}]}';
+  assert.deepStrictEqual(goalSetupPrompt.parseGoalSuggestions(raw, parseCatalog), [
+    { metricKey: "new_leads", targetValue: 40 },
+  ]);
+});
+
+test("parseGoalSuggestions strips code fences and extracts embedded JSON", () => {
+  const raw = 'Sure!\n```json\n{"goals":[{"metricKey":"cost_per_lead","targetValue":15}]}\n```';
+  assert.deepStrictEqual(goalSetupPrompt.parseGoalSuggestions(raw, parseCatalog), [
+    { metricKey: "cost_per_lead", targetValue: 15 },
+  ]);
+});
+
+test("parseGoalSuggestions drops metrics not in the catalog and bad targets", () => {
+  const raw = JSON.stringify({
+    goals: [
+      { metricKey: "new_leads", targetValue: 40 },
+      { metricKey: "not_a_metric", targetValue: 10 },
+      { metricKey: "cost_per_lead", targetValue: -5 },
+      { metricKey: "cost_per_lead", targetValue: "abc" },
+    ],
+  });
+  assert.deepStrictEqual(goalSetupPrompt.parseGoalSuggestions(raw, parseCatalog), [
+    { metricKey: "new_leads", targetValue: 40 },
+  ]);
+});
+
+test("parseGoalSuggestions dedups repeated metrics and handles junk safely", () => {
+  const dup = JSON.stringify({
+    goals: [
+      { metricKey: "new_leads", targetValue: 40 },
+      { metricKey: "new_leads", targetValue: 99 },
+    ],
+  });
+  assert.deepStrictEqual(goalSetupPrompt.parseGoalSuggestions(dup, parseCatalog), [
+    { metricKey: "new_leads", targetValue: 40 },
+  ]);
+  assert.deepStrictEqual(goalSetupPrompt.parseGoalSuggestions("not json at all", parseCatalog), []);
+  assert.deepStrictEqual(goalSetupPrompt.parseGoalSuggestions("", parseCatalog), []);
+});
+
+// --- parseGoals controller: AI-failure contract ------------------------------
+
+const goalController = require("../controllers/goalController");
+const anthropicModule = require("../config/anthropic");
+
+function fakeRes() {
+  return {
+    statusCode: 200,
+    body: null,
+    status(c) {
+      this.statusCode = c;
+      return this;
+    },
+    json(b) {
+      this.body = b;
+      return this;
+    },
+  };
+}
+
+test("parseGoals maps an upstream AI failure to 502 (not 500)", async () => {
+  const origQuery = db.query;
+  const origCreate = anthropicModule.anthropic.messages.create;
+  db.query = async () => ({
+    rows: [{ brand_id: "b1", brand_name: "Acme", brand_type: "standard" }],
+  });
+  anthropicModule.anthropic.messages.create = async () => {
+    throw new Error("anthropic unreachable");
+  };
+  try {
+    const req = {
+      user: { userId: "u1" },
+      params: { brandId: "b1" },
+      body: { message: "about 40 leads a month" },
+    };
+    const res = fakeRes();
+    await goalController.parseGoals(req, res);
+    assert.strictEqual(res.statusCode, 502);
+  } finally {
+    db.query = origQuery;
+    anthropicModule.anthropic.messages.create = origCreate;
+  }
+});
+
+test("parseGoals returns 400 when the message is missing", async () => {
+  const origQuery = db.query;
+  db.query = async () => ({
+    rows: [{ brand_id: "b1", brand_name: "Acme", brand_type: "standard" }],
+  });
+  try {
+    const req = { user: { userId: "u1" }, params: { brandId: "b1" }, body: {} };
+    const res = fakeRes();
+    await goalController.parseGoals(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  } finally {
+    db.query = origQuery;
+  }
+});
+
+test("parseGoals returns validated suggestions on a good AI reply", async () => {
+  const origQuery = db.query;
+  const origCreate = anthropicModule.anthropic.messages.create;
+  db.query = async () => ({
+    rows: [{ brand_id: "b1", brand_name: "Acme", brand_type: "standard" }],
+  });
+  anthropicModule.anthropic.messages.create = async () => ({
+    content: [
+      {
+        type: "text",
+        text: '{"goals":[{"metricKey":"new_leads","targetValue":40},{"metricKey":"bogus","targetValue":9}]}',
+      },
+    ],
+  });
+  try {
+    const req = {
+      user: { userId: "u1" },
+      params: { brandId: "b1" },
+      body: { message: "40 leads a month" },
+    };
+    const res = fakeRes();
+    await goalController.parseGoals(req, res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body.suggestions));
+    // Out-of-catalog "bogus" is dropped; new_leads kept.
+    assert.ok(res.body.suggestions.every((s) => s.metricKey !== "bogus"));
+    assert.ok(res.body.suggestions.some((s) => s.metricKey === "new_leads"));
+  } finally {
+    db.query = origQuery;
+    anthropicModule.anthropic.messages.create = origCreate;
+  }
+});

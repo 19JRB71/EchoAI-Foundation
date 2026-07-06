@@ -165,10 +165,10 @@ const DEFAULT_BRAND_TYPE = "standard";
 
 // Which goal categories each department dashboard surfaces.
 const DEPARTMENT_CATEGORIES = {
-  atlas: ["campaign", "revenue", "affiliate"],
+  atlas: ["campaign"],
   nova: ["content"],
   pulse: ["lead", "appointment"],
-  roi: ["revenue", "campaign"],
+  roi: ["revenue"],
 };
 
 function isValidBrandType(type) {
