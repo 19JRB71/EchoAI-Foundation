@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
@@ -22,6 +22,7 @@ export default function Settings({
   brandId,
   onBrandsChanged,
   initialTab = "account",
+  focusGoals = null,
   openPaymentModal = false,
   workspaceRole = "owner",
   isTeamMember = false,
@@ -31,10 +32,26 @@ export default function Settings({
   // Billing and team management are restricted to the workspace owner/admin.
   const canManage = workspaceRole === "owner" || workspaceRole === "admin";
   const [tab, setTab] = useState(initialTab);
+  const goalsRef = useRef(null);
 
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
+
+  // Deep link from Mission Control's goal-alert feed: land on the Account tab
+  // and scroll to the Goals + Goal Alert History cards. focusGoals is a nonce
+  // so repeated click-throughs re-scroll.
+  useEffect(() => {
+    if (!focusGoals) return;
+    setTab("account");
+    // Wait a frame so the account tab's cards are mounted before scrolling.
+    const t = setTimeout(() => {
+      if (goalsRef.current) {
+        goalsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [focusGoals]);
 
   // Keep restricted users out of gated tabs even if deep-linked there.
   useEffect(() => {
@@ -78,8 +95,12 @@ export default function Settings({
           <FacebookCard />
           <TwilioCard brandId={brandId} />
           <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
-          <GoalEditorCard brandId={brandId} />
-          {(isAdmin || !isTeamMember) && <GoalAlertHistory brandId={brandId} />}
+          <div ref={goalsRef} className="space-y-6 scroll-mt-4">
+            <GoalEditorCard brandId={brandId} />
+            {(isAdmin || !isTeamMember) && (
+              <GoalAlertHistory brandId={brandId} />
+            )}
+          </div>
         </div>
       )}
     </div>

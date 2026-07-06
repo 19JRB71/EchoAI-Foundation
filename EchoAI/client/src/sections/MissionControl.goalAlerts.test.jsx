@@ -110,6 +110,37 @@ describe("MissionControl goal alerts", () => {
     });
   });
 
+  test("clicking an alert row navigates to Settings with THAT alert's brand", async () => {
+    api.getMissionControl.mockResolvedValue(payload([ALERT]));
+    const onNavigate = vi.fn();
+
+    render(<MissionControl onNavigate={onNavigate} onOpenDepartment={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Monthly revenue")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Monthly revenue"));
+
+    expect(onNavigate).toHaveBeenCalledWith("settings", {
+      brandId: "b1",
+      focus: "goals",
+    });
+  });
+
+  test("the alert feed's Manage Goals button requests the goals focus", async () => {
+    api.getMissionControl.mockResolvedValue(payload([ALERT]));
+    const onNavigate = vi.fn();
+
+    render(<MissionControl onNavigate={onNavigate} onOpenDepartment={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Manage Goals →")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Manage Goals →"));
+
+    expect(onNavigate).toHaveBeenCalledWith("settings", { focus: "goals" });
+  });
+
   test("a failed dismiss keeps the alert and shows an error", async () => {
     api.getMissionControl.mockResolvedValue(payload([ALERT]));
     api.dismissGoalAlert.mockRejectedValue(new Error("nope"));

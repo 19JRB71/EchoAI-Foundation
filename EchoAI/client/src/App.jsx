@@ -96,6 +96,9 @@ export default function App() {
   // Billing and auto-open the card form.
   const [billingTab, setBillingTab] = useState("account");
   const [openPaymentModal, setOpenPaymentModal] = useState(false);
+  // Deep-link nonce: when set, Settings scrolls to the Goals + Goal Alert
+  // History cards (used by Mission Control's alert feed click-through).
+  const [settingsFocusGoals, setSettingsFocusGoals] = useState(null);
   // Workspace context for team members. Defaults to "owner" (acting as
   // themselves) until the profile loads.
   const [workspaceRole, setWorkspaceRole] = useState("owner");
@@ -194,12 +197,27 @@ export default function App() {
   // Mission Control is home. Manual navigation (sidebar) resets the billing
   // deep-link flags and clears any open department so top-level sections open
   // cleanly. Targets the user can't open fall back to home.
-  function handleSelectSection(next) {
+  // opts.brandId switches the selected business first (Mission Control's goal
+  // alerts span all brands, so their click-through must land on the alert's
+  // brand, not whatever brand happened to be selected). opts.focus === "goals"
+  // asks Settings to scroll to the Goals + Goal Alert History cards.
+  function handleSelectSection(next, opts) {
     setBillingTab("account");
     setOpenPaymentModal(false);
     setDeptAgentId(null);
     setActiveToolTab(null);
-    setSection(canOpenSection(next) ? next : "missioncontrol");
+    const allowed = canOpenSection(next);
+    if (allowed && opts && opts.brandId != null && opts.brandId !== "") {
+      // Only switch if the brand actually belongs to this account's list.
+      const match = brands.find(
+        (b) => String(b.brand_id) === String(opts.brandId),
+      );
+      if (match) setSelectedBrandId(match.brand_id);
+    }
+    setSettingsFocusGoals(
+      allowed && opts && opts.focus === "goals" ? Date.now() : null,
+    );
+    setSection(allowed ? next : "missioncontrol");
   }
 
   // Open a team member's Department View (the hub of clickable tool cards).
@@ -221,6 +239,7 @@ export default function App() {
     }
     if (!canOpenSection(tool.section)) return;
     setActiveToolTab(tool.tab || null);
+    setSettingsFocusGoals(null);
     setSection(tool.section);
   }
 
@@ -233,6 +252,7 @@ export default function App() {
   function goHome() {
     setDeptAgentId(null);
     setActiveToolTab(null);
+    setSettingsFocusGoals(null);
     setSection("missioncontrol");
   }
 
@@ -922,6 +942,7 @@ export default function App() {
                   brandId={selectedBrandId}
                   onBrandsChanged={loadBrands}
                   initialTab={billingTab}
+                  focusGoals={settingsFocusGoals}
                   openPaymentModal={openPaymentModal}
                   workspaceRole={workspaceRole}
                   isTeamMember={isTeamMember}
