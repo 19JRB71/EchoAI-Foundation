@@ -183,19 +183,23 @@ async function autoOptimizeCampaignsForBrand(brand) {
   );
   const competitorIntel = intelResult.rows[0] ? intelResult.rows[0].intelligence_report : null;
 
-  // Atlas honors the owner's active cost-per-lead / ROAS goals as optimization
-  // guardrails so budget/audience changes are steered toward those targets.
+  // Atlas honors the owner's active acquisition goals as optimization guardrails
+  // so budget/audience changes are steered toward those targets: cost-per-lead
+  // and ROAS for ad performance, plus the affiliate goals (monthly referrals and
+  // commission) so referral-driven brands optimize toward them too.
   let goalTargets = {};
   try {
     const goalRes = await db.query(
       `SELECT metric_key, target_value FROM brand_goals
         WHERE brand_id = $1 AND status = 'active'
-          AND metric_key IN ('cost_per_lead', 'roas')`,
+          AND metric_key IN ('cost_per_lead', 'roas', 'referrals', 'commission')`,
       [brand.brand_id]
     );
     for (const g of goalRes.rows) {
       if (g.metric_key === "cost_per_lead") goalTargets.costPerLead = Number(g.target_value);
       if (g.metric_key === "roas") goalTargets.roas = Number(g.target_value);
+      if (g.metric_key === "referrals") goalTargets.referrals = Number(g.target_value);
+      if (g.metric_key === "commission") goalTargets.commission = Number(g.target_value);
     }
   } catch (err) {
     console.error(`Could not load goal targets for brand ${brand.brand_id}:`, err.message);

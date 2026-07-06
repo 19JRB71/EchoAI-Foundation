@@ -66,7 +66,12 @@ function hasActivity(data) {
       (data.campaigns && data.campaigns.length) ||
       (data.sentinelFixes && data.sentinelFixes.length) ||
       data.pendingApprovals ||
-      data.competitorNote
+      data.competitorNote ||
+      // Goal state alone is worth a briefing (e.g. a quiet day where a goal has
+      // slipped behind pace or run far ahead is exactly what the owner needs).
+      (data.goals &&
+        Array.isArray(data.goals.perBusiness) &&
+        data.goals.perBusiness.length)
   );
 }
 
@@ -148,12 +153,14 @@ async function gatherBriefingData(userId, since) {
           ORDER BY created_at DESC LIMIT 1`,
         [brandIds]
       ),
-      // Latest daily snapshot per active goal (trend + percent for the briefing).
+      // Latest daily snapshot per active goal (per business, for the briefing).
       safeRows(
         `SELECT DISTINCT ON (g.goal_id)
-                g.goal_id, g.metric_key, g.label, s.percent_to_goal
+                g.goal_id, g.brand_id, g.metric_key, g.label,
+                b.brand_name, s.percent_to_goal
            FROM brand_goals g
            JOIN goal_snapshots s ON s.goal_id = g.goal_id
+           JOIN brands b ON b.brand_id = g.brand_id
           WHERE g.brand_id = ANY($1) AND g.status = 'active'
           ORDER BY g.goal_id, s.snapshot_date DESC`,
         [brandIds]
@@ -191,35 +198,73 @@ async function gatherBriefingData(userId, since) {
 }
 
 /**
- * Roll up the latest goal snapshots into a briefing-friendly summary: an average
- * achievement score, an on-track count, and the labels of goals that are behind
- * pace (percent < 90). Returns null when the owner has no active goals.
+ * Roll up the latest goal snapshots into a briefing-friendly summary. Returns an
+ * overall achievement score and on-track count, PLUS a per-business breakdown so
+ * the briefing can speak to each brand: goals behind pace (at risk), goals
+ * already achieved, and goals running far ahead (a cue to celebrate + scale).
+ * No-data goals (null percent) are excluded. Returns null with no measurable goals.
  */
 function summarizeGoals(goalRows) {
   const rows = Array.isArray(goalRows) ? goalRows : [];
   if (rows.length === 0) return null;
 
+  const perBrand = new Map();
   let sum = 0;
   let counted = 0;
   let onTrack = 0;
-  const atRisk = [];
+  const atRiskAll = [];
+
   for (const r of rows) {
     const pct = r.percent_to_goal == null ? null : Number(r.percent_to_goal);
     if (pct == null || !Number.isFinite(pct)) continue;
+    const clamped = Math.max(0, Math.min(100, pct));
     counted += 1;
-    sum += Math.max(0, Math.min(100, pct));
+    sum += clamped;
+
+    const meta = getMetric(r.metric_key);
+    const label = r.label || (meta ? meta.label : r.metric_key);
+
+    const bid = r.brand_id;
+    if (!perBrand.has(bid)) {
+      perBrand.set(bid, {
+        brandId: bid,
+        brandName: r.brand_name || "your business",
+        pctSum: 0,
+        count: 0,
+        atRisk: [],
+        achieved: [],
+        farAhead: [],
+      });
+    }
+    const b = perBrand.get(bid);
+    b.pctSum += clamped;
+    b.count += 1;
+
     if (pct >= 90) onTrack += 1;
-    else {
-      const meta = getMetric(r.metric_key);
-      atRisk.push(r.label || (meta ? meta.label : r.metric_key));
+    if (pct >= 130) b.farAhead.push(label);
+    else if (pct >= 100) b.achieved.push(label);
+    else if (pct < 90) {
+      b.atRisk.push(label);
+      atRiskAll.push(label);
     }
   }
   if (counted === 0) return null;
+
+  const perBusiness = [...perBrand.values()].map((b) => ({
+    brandId: b.brandId,
+    brandName: b.brandName,
+    score: Math.round(b.pctSum / b.count),
+    atRisk: b.atRisk.slice(0, 3),
+    achieved: b.achieved.slice(0, 3),
+    farAhead: b.farAhead.slice(0, 3),
+  }));
+
   return {
     score: Math.round(sum / counted),
     total: counted,
     onTrack,
-    atRisk: atRisk.slice(0, 3),
+    atRisk: atRiskAll.slice(0, 3),
+    perBusiness,
   };
 }
 
@@ -513,11 +558,40 @@ function templateMorning(firstName, data) {
 
   if (data.goals) {
     const g = data.goals;
-    if (g.atRisk && g.atRisk.length) {
-      parts.push(
-        `Your goals are at ${g.score}% overall, and ${joinList(g.atRisk)} ` +
-          `${g.atRisk.length === 1 ? "is" : "are"} behind pace.`
-      );
+    const per = Array.isArray(g.perBusiness) ? g.perBusiness : [];
+    const multi = (data.brands || []).length > 1;
+    if (per.length) {
+      // Each brand can carry good news AND risk at once, so report both — never
+      // let a far-ahead goal silence a behind-pace one on the same business.
+      for (const b of per.slice(0, 3)) {
+        const who = multi ? `For ${b.brandName}, ` : "";
+        const wins = [];
+        if (b.farAhead.length) {
+          wins.push(
+            `you're far ahead on ${joinList(b.farAhead)} — well above target; ` +
+              "great time to double down and scale it"
+          );
+        }
+        if (b.achieved.length) {
+          wins.push(`you've already hit ${joinList(b.achieved)}`);
+        }
+        if (wins.length) {
+          parts.push(`${who}${wins.join(", and ")}.`);
+        }
+        if (b.atRisk.length) {
+          const lead = wins.length
+            ? multi
+              ? `That said for ${b.brandName}, `
+              : "That said, "
+            : who;
+          parts.push(
+            `${lead}${joinList(b.atRisk)} ${b.atRisk.length === 1 ? "is" : "are"} ` +
+              `behind pace at ${b.score}% overall.`
+          );
+        } else if (!wins.length) {
+          parts.push(`${who}goals are on track at ${b.score}% overall.`);
+        }
+      }
     } else {
       parts.push(`Your goals are on track at ${g.score}% overall.`);
     }

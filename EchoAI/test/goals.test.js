@@ -4,6 +4,7 @@ const assert = require("node:assert");
 const goals = require("../config/goals");
 const db = require("../config/db");
 const goalMetrics = require("../utils/goalMetrics");
+const goalAlerts = require("../utils/goalAlerts");
 
 // --- config/goals.js pure math + registry -----------------------------------
 
@@ -178,4 +179,154 @@ test("computeBrandGoals averages clamped percents into a 0-100 score", async () 
       assert.ok(out.score >= 0 && out.score <= 100);
     },
   );
+});
+
+// --- utils/goalAlerts.js alert derivation ----------------------------------
+
+test("deriveAlertKinds: hit and exceeding map to status alerts", () => {
+  assert.deepStrictEqual(
+    goalAlerts.deriveAlertKinds({ status: "hit", percentToGoal: 100 }, null),
+    [{ kind: "hit" }],
+  );
+  assert.deepStrictEqual(
+    goalAlerts.deriveAlertKinds({ status: "exceeding", percentToGoal: 130 }, null),
+    [{ kind: "exceeding" }],
+  );
+});
+
+test("deriveAlertKinds: at_risk splits into early vs urgent by projection", () => {
+  // Mildly behind but projected to nearly recover -> early heads-up.
+  assert.deepStrictEqual(
+    goalAlerts.deriveAlertKinds(
+      { status: "at_risk", percentToGoal: 55, projectedPercent: 80 },
+      null,
+    ),
+    [{ kind: "at_risk_early" }],
+  );
+  // Projected to fall well short -> urgent.
+  assert.deepStrictEqual(
+    goalAlerts.deriveAlertKinds(
+      { status: "at_risk", percentToGoal: 30, projectedPercent: 45 },
+      null,
+    ),
+    [{ kind: "at_risk_urgent" }],
+  );
+});
+
+test("deriveAlertKinds: on_track/no_data raise no status alert", () => {
+  assert.deepStrictEqual(
+    goalAlerts.deriveAlertKinds({ status: "on_track", percentToGoal: 70 }, null),
+    [],
+  );
+  assert.deepStrictEqual(
+    goalAlerts.deriveAlertKinds({ status: "no_data", percentToGoal: null }, null),
+    [],
+  );
+});
+
+test("deriveAlertKinds: large single-day swing adds a momentum alert", () => {
+  // +25pp in a day -> swing_up alongside the status bucket.
+  const up = goalAlerts.deriveAlertKinds(
+    { status: "on_track", percentToGoal: 75 },
+    50,
+  );
+  assert.deepStrictEqual(up, [{ kind: "swing_up", delta: 25 }]);
+
+  // -30pp in a day while behind -> both urgent status AND swing_down.
+  const down = goalAlerts.deriveAlertKinds(
+    { status: "at_risk", percentToGoal: 20, projectedPercent: 40 },
+    50,
+  );
+  assert.deepStrictEqual(down, [
+    { kind: "at_risk_urgent" },
+    { kind: "swing_down", delta: -30 },
+  ]);
+
+  // A small day-over-day move stays quiet.
+  assert.deepStrictEqual(
+    goalAlerts.deriveAlertKinds({ status: "on_track", percentToGoal: 60 }, 50),
+    [],
+  );
+});
+
+test("buildAlertCopy: each kind produces a distinct spoken line + title", () => {
+  const base = {
+    metricKey: "new_leads",
+    label: "New Leads",
+    targetValue: 100,
+    currentValue: 40,
+    percentToGoal: 40,
+  };
+  const early = goalAlerts.buildAlertCopy(base, "Acme", "at_risk_early");
+  const urgent = goalAlerts.buildAlertCopy(base, "Acme", "at_risk_urgent");
+  assert.notStrictEqual(early.title, urgent.title);
+  assert.ok(/Acme/.test(early.speak("Sam")));
+
+  const up = goalAlerts.buildAlertCopy(base, "Acme", "swing_up", { delta: 25 });
+  const down = goalAlerts.buildAlertCopy(base, "Acme", "swing_down", { delta: -30 });
+  assert.ok(/25 points/.test(up.speak("Sam")));
+  assert.ok(/30 points/.test(down.speak("Sam")));
+  assert.notStrictEqual(up.title, down.title);
+});
+
+// --- utils/echoBriefing.js goal narration ----------------------------------
+
+const echoBriefing = require("../utils/echoBriefing");
+
+/** A quiet briefing payload (no leads/appts/etc.) with just goals attached. */
+function quietBriefing(goals, brands) {
+  return {
+    brands: brands || [{ brand_id: "b1", brand_name: "Acme" }],
+    newLeads: [],
+    hotLeads: 0,
+    todaysAppointments: [],
+    followUpsCompleted: 0,
+    campaigns: [],
+    sentinelFixes: [],
+    pendingApprovals: 0,
+    competitorNote: null,
+    facebookConnected: true,
+    goals,
+  };
+}
+
+test("hasActivity: goal state alone counts as briefing-worthy activity", () => {
+  const noGoals = quietBriefing(null);
+  assert.strictEqual(echoBriefing.hasActivity(noGoals), false);
+
+  const withGoals = quietBriefing({
+    score: 40,
+    perBusiness: [{ brandId: "b1", brandName: "Acme", score: 40, atRisk: ["New Leads"], achieved: [], farAhead: [] }],
+  });
+  assert.strictEqual(echoBriefing.hasActivity(withGoals), true);
+});
+
+test("templateMorning: goals-only day narrates goals, not the empty welcome", () => {
+  const data = quietBriefing({
+    score: 40,
+    perBusiness: [{ brandId: "b1", brandName: "Acme", score: 40, atRisk: ["New Leads"], achieved: [], farAhead: [] }],
+  });
+  const text = echoBriefing.templateMorning("Sam", data);
+  assert.ok(/behind pace/.test(text), text);
+  assert.ok(!/standing by/.test(text), "should not fall into the empty-account branch");
+});
+
+test("templateMorning: a brand with both far-ahead and at-risk reports both", () => {
+  const data = quietBriefing({
+    score: 70,
+    perBusiness: [
+      {
+        brandId: "b1",
+        brandName: "Acme",
+        score: 70,
+        atRisk: ["Cost Per Lead"],
+        achieved: [],
+        farAhead: ["New Leads"],
+      },
+    ],
+  });
+  const text = echoBriefing.templateMorning("Sam", data);
+  // Both the win and the risk must appear — far-ahead must not silence at-risk.
+  assert.ok(/far ahead on New Leads/.test(text), text);
+  assert.ok(/Cost Per Lead .*behind pace/.test(text), text);
 });

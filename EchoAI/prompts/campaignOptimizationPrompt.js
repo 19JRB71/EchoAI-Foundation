@@ -117,6 +117,19 @@ function describeGoalTargets(goalTargets = {}) {
         "Favor reallocations that protect or improve ROAS toward this target."
     );
   }
+  if (Number.isFinite(Number(goalTargets.referrals))) {
+    lines.push(
+      `- Monthly referrals target: ${Number(goalTargets.referrals)} new referrals. ` +
+        "For referral/affiliate-driven growth, favor creative and audiences that bring in " +
+        "referral sign-ups and push toward this number."
+    );
+  }
+  if (Number.isFinite(Number(goalTargets.commission))) {
+    lines.push(
+      `- Monthly affiliate commission target: $${Number(goalTargets.commission)}. ` +
+        "Prioritize changes that grow commission-generating referred conversions toward this target."
+    );
+  }
   return lines;
 }
 
