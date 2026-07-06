@@ -15,6 +15,7 @@
 const db = require("../config/db");
 const { createMessage, MODEL } = require("../config/anthropic");
 const { buildBriefingSystem } = require("../prompts/echoPersona");
+const { computeSuggestions } = require("./echoSuggestions");
 
 /** Owner's REAL brand ids + names (the demo brand is excluded from briefings). */
 async function ownerBrands(userId) {
@@ -237,6 +238,7 @@ async function gatherWeeklyData(userId) {
     intelligence: { recommendations: [], trends: [] },
     opportunities: [],
     risks: [],
+    suggestions: [],
   };
   if (brandIds.length === 0) return { ...base, isEmpty: true };
 
@@ -362,6 +364,15 @@ async function gatherWeeklyData(userId) {
   const multi = brands.length > 1;
   const tag = (brand) => (multi && brand ? ` at ${brand}` : "");
 
+  // Proactive channel/tool suggestions from gaps in the owner's OWN account
+  // (deduped 30d-shown / 90d-declined). Read-only here; delivery records them.
+  let suggestions = [];
+  try {
+    suggestions = await computeSuggestions(userId);
+  } catch (_e) {
+    suggestions = [];
+  }
+
   const opportunities = [];
   if (hotLeads > 0) {
     opportunities.push(
@@ -423,6 +434,7 @@ async function gatherWeeklyData(userId) {
     intelligence: { recommendations, trends },
     opportunities,
     risks,
+    suggestions,
   };
 }
 
@@ -606,6 +618,13 @@ function templateWeekly(firstName, data) {
   const risks = (data.risks || []).slice(0, 3);
   if (risks.length) {
     parts.push(`Keep an eye on: ${numberedList(risks)}`);
+  }
+  const suggestions = data.suggestions || [];
+  if (suggestions.length) {
+    const phrased = suggestions.map((s) => `${s.channel}, since ${s.reason}`);
+    parts.push(
+      `${suggestions.length === 1 ? "One channel worth adding" : "A couple of channels worth adding"}: ${numberedList(phrased)}`
+    );
   }
   parts.push("Which one do you want to tackle first?");
   return parts.join(" ");

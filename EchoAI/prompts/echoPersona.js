@@ -45,7 +45,7 @@ function goalFor(kind, ctx = {}) {
   }
   if (kind === "weekly") {
     return (
-      "a weekly strategic briefing across the owner's business. Start with a two or three sentence synthesis of how the week went, then give the top three opportunities to focus on and the top three risks to watch — in priority order. End by asking which opportunity they want to tackle first" +
+      "a weekly strategic briefing across the owner's business. Start with a two or three sentence synthesis of how the week went, then give the top three opportunities to focus on and the top three risks to watch — in priority order. If the data includes a 'suggestions' array, add a brief, friendly nudge to set up each suggested channel or tool, using ONLY the reason provided for it — never invent statistics, competitor claims, or industry benchmarks. End by asking which opportunity they want to tackle first" +
       (ctx.multiBrand
         ? ". Cover the whole portfolio in ONE unified briefing and attribute each opportunity and risk to the specific business it belongs to by name; do not produce a separate report per business"
         : "")

@@ -14,7 +14,7 @@ const SALT_ROUNDS = 10;
  * a JWT token.
  */
 async function register(req, res) {
-  const { email, password, teamSize, referralCode } = req.body;
+  const { email, password, teamSize, referralCode, rememberDevice } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required" });
@@ -64,7 +64,10 @@ async function register(req, res) {
       }
     }
 
-    const token = generateToken({ userId: user.user_id, email: user.email });
+    const token = generateToken(
+      { userId: user.user_id, email: user.email },
+      { rememberDevice: rememberDevice !== false }
+    );
 
     return res.status(201).json({
       token,
@@ -90,7 +93,7 @@ async function register(req, res) {
  * and returns a JWT token on success.
  */
 async function login(req, res) {
-  const { email, password } = req.body;
+  const { email, password, rememberDevice } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required" });
@@ -113,7 +116,10 @@ async function login(req, res) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    const token = generateToken({ userId: user.user_id, email: user.email });
+    const token = generateToken(
+      { userId: user.user_id, email: user.email },
+      { rememberDevice: rememberDevice !== false }
+    );
 
     // Stamp last_login_at so Echo's morning briefing can summarize "everything
     // since you were last here". Best-effort — never block a successful login.

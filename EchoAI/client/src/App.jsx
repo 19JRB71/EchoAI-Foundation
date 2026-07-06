@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, getToken, setToken, clearToken } from "./api.js";
+import { startSessionTracking, wasAwayLong } from "./lib/session.js";
+import { MusicProvider } from "./music/MusicContext.jsx";
 import Sidebar, { accentTierForSection } from "./components/Sidebar.jsx";
 import Spinner from "./components/Spinner.jsx";
 import TierBadge from "./components/TierBadge.jsx";
@@ -67,6 +69,11 @@ import { agentMeta, sectionTitle } from "./lib/departments.js";
 export default function App() {
   const navigate = useNavigate();
   const [authed, setAuthed] = useState(Boolean(getToken()));
+  // Captured once at first render (before session tracking stamps "now"): true
+  // when we booted already-signed-in after being away >8h — a "new session" that
+  // should trigger Echo's morning music + briefing without a fresh login.
+  const [wasReturningSession] = useState(() => Boolean(getToken()) && wasAwayLong());
+  const morningReturnFired = useRef(false);
   const [section, setSection] = useState("missioncontrol");
   const [brands, setBrands] = useState([]);
   const [selectedBrandId, setSelectedBrandId] = useState("");
@@ -499,6 +506,21 @@ export default function App() {
     return () => window.removeEventListener("echoai:unauthorized", handleLogout);
   }, [handleLogout]);
 
+  // Echo's proactive suggestions ("Set it up") ask the app to jump to a tool's
+  // section. handleSelectSection already gates by tier via canOpenSection. Route
+  // through a ref so the listener always uses the latest tier-aware handler.
+  const selectSectionRef = useRef(handleSelectSection);
+  selectSectionRef.current = handleSelectSection;
+  useEffect(() => {
+    const onNavSection = (e) => {
+      const next = e && e.detail;
+      if (typeof next === "string" && next) selectSectionRef.current(next);
+    };
+    window.addEventListener("echoai:navigate-section", onNavSection);
+    return () =>
+      window.removeEventListener("echoai:navigate-section", onNavSection);
+  }, []);
+
   // Rehydrate Presentation Mode after a page refresh: if an admin left it live,
   // re-point the dashboard at the demo brand and re-show the presenter toolbar.
   useEffect(() => {
@@ -547,8 +569,24 @@ export default function App() {
     };
   }, [loadBrands]);
 
-  function handleLogin(token) {
-    setToken(token);
+  // Keep the last-active timestamp fresh while signed in, so a later return can
+  // be classified as a new session (>8h away).
+  useEffect(() => {
+    if (!authed) return undefined;
+    return startSessionTracking();
+  }, [authed]);
+
+  // Returning after >8h without a fresh login → announce a new session so the
+  // voice layer plays the morning wake-up music and delivers the briefing.
+  useEffect(() => {
+    if (!authed || !onboardingCompleted || !wasReturningSession) return;
+    if (morningReturnFired.current) return;
+    morningReturnFired.current = true;
+    window.dispatchEvent(new CustomEvent("echoai:morning-return"));
+  }, [authed, onboardingCompleted, wasReturningSession]);
+
+  function handleLogin(token, rememberDevice = true) {
+    setToken(token, rememberDevice);
     setAuthed(true);
     setSection("missioncontrol");
     // On first login, ask to enable push so the owner gets instant hot-lead
@@ -629,6 +667,7 @@ export default function App() {
   }
 
   return (
+    <MusicProvider>
     <VoiceProvider active={!isTeamMember}>
     <EchoConversationProvider active={!isTeamMember} onNavigate={handleSelectSection}>
     <div className="flex min-h-screen flex-col bg-black md:flex-row">
@@ -916,6 +955,7 @@ export default function App() {
     </div>
     </EchoConversationProvider>
     </VoiceProvider>
+    </MusicProvider>
   );
 }
 

@@ -74,7 +74,8 @@ export default function VoicePlayer() {
 
   if (!voice || !voice.active) return null;
 
-  const { muted, playing, current, error, needsGesture } = voice;
+  const { muted, playing, current, error, needsGesture, suggestions } = voice;
+  const sugList = suggestions || [];
 
   const handleTalk = async () => {
     setBusyStatus(true);
@@ -105,6 +106,7 @@ export default function VoicePlayer() {
     busyWeekly ||
     Boolean(current) ||
     Boolean(error) ||
+    sugList.length > 0 ||
     (needsGesture && !playing);
 
   return (
@@ -187,6 +189,41 @@ export default function VoicePlayer() {
               {busyStatus ? "Asking…" : "Talk to Echo"}
             </button>
           </div>
+
+          {sugList.length ? (
+            <div className="mt-3 border-t border-gray-800 pt-2">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-teal-300">
+                Worth adding
+              </p>
+              <ul className="space-y-2">
+                {sugList.map((s) => (
+                  <li
+                    key={s.key}
+                    className="rounded-lg border border-gray-800 bg-gray-900/60 p-2"
+                  >
+                    <p className="text-xs font-medium text-gray-200">{s.channel}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-gray-400">
+                      {s.reason}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <button
+                        onClick={() => voice.acceptSuggestion(s)}
+                        className="rounded-md bg-teal-500/90 px-2 py-0.5 text-[11px] font-semibold text-black hover:bg-teal-400"
+                      >
+                        Set it up
+                      </button>
+                      <button
+                        onClick={() => voice.dismissSuggestion(s)}
+                        className="rounded-md border border-gray-700 bg-gray-900 px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:bg-gray-800"
+                      >
+                        Not now
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

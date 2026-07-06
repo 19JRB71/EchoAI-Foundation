@@ -16,6 +16,7 @@ export default function Login({ onLogin, invitePending = false }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [teamSize, setTeamSize] = useState("");
+  const [rememberDevice, setRememberDevice] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -29,18 +30,19 @@ export default function Login({ onLogin, invitePending = false }) {
     try {
       const data =
         mode === "login"
-          ? await api.login(email, password)
+          ? await api.login(email, password, rememberDevice)
           : await api.register(
               email,
               password,
               teamSize ? Number(teamSize) : undefined,
-              getReferralCode() || undefined
+              getReferralCode() || undefined,
+              rememberDevice
             );
       if (!data || !data.token) throw new Error("No token returned");
       // The referral code has been attributed server-side; clear it so it isn't
       // reused for a future signup on this browser.
       if (mode === "register") clearReferralCode();
-      onLogin(data.token);
+      onLogin(data.token, rememberDevice);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,6 +127,16 @@ export default function Login({ onLogin, invitePending = false }) {
               />
             </div>
           )}
+
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={rememberDevice}
+              onChange={(e) => setRememberDevice(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-600 bg-gray-800 accent-amber-500"
+            />
+            Remember this device for 30 days
+          </label>
 
           <ErrorBanner message={error} />
 

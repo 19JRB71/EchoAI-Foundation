@@ -17,6 +17,7 @@ const { synthesizeSpeech, isVoiceConfigured } = require("./voiceController");
 const elevenlabs = require("../utils/elevenlabs");
 const { normalizeSettings, voiceForStyle, isQuietHour } = require("../config/echoVoice");
 const { gatherBriefingData, gatherWeeklyData, narrate } = require("../utils/echoBriefing");
+const { recordShown, recordDecision, isValidKey } = require("../utils/echoSuggestions");
 const { toJsonbParam } = require("../utils/jsonb");
 const echoContext = require("../utils/echoContext");
 
@@ -312,21 +313,14 @@ async function getBriefing(req, res) {
   try {
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
-    const since = user && user.last_login_at ? user.last_login_at : null;
-    const data = await gatherBriefingData(req.user.userId, since);
-    // The morning briefing auto-plays on login, so it must be ready fast: give
-    // the AI narration a tight budget and a single attempt, then fall back to the
-    // instant deterministic template so speech starts within ~2s of login.
-    const { text, aiNarrated } = await narrate("morning", displayName(user), data, {
-      timeout: 1500,
-      attempts: 1,
-      knowledge: await speechKnowledge(req.user.userId),
-    });
+    const built = await buildMorningBriefing(req.user.userId, user);
     return res.json({
-      text,
-      aiNarrated,
+      text: built.text,
+      aiNarrated: built.aiNarrated,
       style: settings.style,
       firstName: displayName(user),
+      // Recomputed per request (depends on the user's live last_briefing_at, not
+      // the cached narration) so once-per-day auto-play gating stays correct.
       alreadyDeliveredToday: sameDay(user && user.last_briefing_at, new Date()),
       autoBriefing: settings.autoBriefing,
       enabled: settings.enabled,
@@ -335,6 +329,64 @@ async function getBriefing(req, res) {
     console.error("getBriefing error:", err.message);
     return res.status(500).json({ error: "Failed to build briefing" });
   }
+}
+
+// Faster Echo: cache the (expensive) morning briefing narration per owner so a
+// login auto-play returns instantly. Warmed at 06:00 by the scheduler; entries
+// expire after MORNING_BRIEFING_TTL_MS so a mid-day login never plays stale copy.
+const morningBriefingCache = new Map();
+const MORNING_BRIEFING_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+
+/**
+ * Build (or reuse a fresh cached) morning briefing narration for an owner.
+ * Returns `{ text, aiNarrated }`. The heavy work — gathering cross-business data
+ * and AI narration — is what we cache; per-request state stays out of the cache.
+ */
+async function buildMorningBriefing(userId, userMaybe) {
+  const cached = morningBriefingCache.get(userId);
+  if (cached && Date.now() - cached.builtAt < MORNING_BRIEFING_TTL_MS) {
+    return { text: cached.text, aiNarrated: cached.aiNarrated };
+  }
+  const user = userMaybe || (await loadUser(userId));
+  const since = user && user.last_login_at ? user.last_login_at : null;
+  const data = await gatherBriefingData(userId, since);
+  // The morning briefing auto-plays on login, so it must be ready fast: give the
+  // AI narration a tight budget and a single attempt, then fall back to the
+  // instant deterministic template so speech starts within ~2s of login.
+  const { text, aiNarrated } = await narrate("morning", displayName(user), data, {
+    timeout: 1500,
+    attempts: 1,
+    knowledge: await speechKnowledge(userId),
+  });
+  morningBriefingCache.set(userId, { text, aiNarrated, builtAt: Date.now() });
+  return { text, aiNarrated };
+}
+
+/**
+ * Pre-generate the morning briefing for every real (non-demo) brand owner so the
+ * first login of the day plays instantly. Best-effort per owner; failures are
+ * logged and skipped. Called by the 06:00 scheduler job.
+ */
+async function warmMorningBriefings() {
+  const owners = (
+    await db.query(
+      `SELECT DISTINCT b.user_id
+         FROM brands b
+        WHERE b.is_demo = false`
+    )
+  ).rows;
+  let warmed = 0;
+  for (const owner of owners) {
+    try {
+      // Force a rebuild so the 06:00 warm always reflects the new day's data.
+      morningBriefingCache.delete(owner.user_id);
+      await buildMorningBriefing(owner.user_id);
+      warmed += 1;
+    } catch (err) {
+      console.error(`Morning briefing warm failed for user ${owner.user_id}:`, err.message);
+    }
+  }
+  console.log(`Morning briefing pre-generation complete: ${warmed} owner(s) warmed.`);
 }
 
 /** POST /api/echo-voice/briefing/delivered — stamp last_briefing_at (once/day). */
@@ -364,16 +416,49 @@ async function getWeeklyBriefing(req, res) {
     const { text, aiNarrated } = await narrate("weekly", displayName(user), data, {
       knowledge: await speechKnowledge(req.user.userId),
     });
+    const suggestions = data.suggestions || [];
+    // Delivering the briefing counts as "shown" — resets each suggestion's
+    // 30-day dedup window. Best-effort; never blocks the briefing.
+    if (suggestions.length) {
+      await recordShown(
+        req.user.userId,
+        suggestions.map((s) => s.key),
+      );
+    }
     return res.json({
       text,
       aiNarrated,
       style: settings.style,
       firstName: displayName(user),
       weekKey: isoWeekKey(new Date()),
+      suggestions,
     });
   } catch (err) {
     console.error("getWeeklyBriefing error:", err.message);
     return res.status(500).json({ error: "Failed to build weekly briefing" });
+  }
+}
+
+/**
+ * Record the owner's decision on a proactive suggestion. "accepted" (they set
+ * the channel up) suppresses it permanently; "declined" suppresses it 90 days.
+ * Owner-scoped by req.user.userId — no cross-user access possible.
+ */
+async function decideSuggestion(req, res) {
+  try {
+    const key = String(req.params.key || "").trim();
+    const decision = String((req.body && req.body.decision) || "").trim();
+    if (!key || !isValidKey(key)) {
+      return res.status(400).json({ error: "Unknown suggestion key" });
+    }
+    if (decision !== "accepted" && decision !== "declined") {
+      return res.status(400).json({ error: "decision must be 'accepted' or 'declined'" });
+    }
+    await recordDecision(req.user.userId, key, decision);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("decideSuggestion error:", err.message);
+    return res.status(500).json({ error: "Failed to record suggestion decision" });
   }
 }
 
@@ -501,7 +586,9 @@ module.exports = {
   getBriefing,
   markBriefingDelivered,
   getWeeklyBriefing,
+  decideSuggestion,
   getStatus,
   getPending,
   markNotificationDelivered,
+  warmMorningBriefings,
 };

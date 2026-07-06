@@ -81,6 +81,28 @@ function pushMsg(messages, ...msgs) {
   return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
 }
 
+// Voice execution: how the owner responded to a pending action, in natural
+// language. Order matters — a decline ("no, cancel") must win over an affirm,
+// and an explicit "confirm" is distinguished from a plain "yes" so high-stakes
+// actions can require the stronger word.
+const DECLINE_RE =
+  /^(?:no\b|nope|nah|not now|cancel|decline|skip( it| that)?|hold off|don'?t|do not|stop)\b/i;
+const CONFIRM_RE = /\bconfirm(?:ed|s|ing)?\b/i;
+const AFFIRM_RE =
+  /^(?:yes|yep|yeah|yup|sure|ok|okay|okey|go ahead|go for it|do it|please do|sounds good|let'?s do it|approve[d]?|launch it|send it|run it)\b/i;
+
+/**
+ * Classify an utterance as an approval decision for a pending action:
+ * "decline" | "confirm" (explicit) | "affirm" (routine yes) | "none".
+ */
+function classifyApprovalUtterance(text) {
+  const t = (text || "").trim();
+  if (DECLINE_RE.test(t)) return "decline";
+  if (CONFIRM_RE.test(t)) return "confirm";
+  if (AFFIRM_RE.test(t)) return "affirm";
+  return "none";
+}
+
 async function getOrCreateState(userId) {
   const { rows } = await db.query(
     `INSERT INTO echo_companion (user_id) VALUES ($1)
@@ -233,7 +255,15 @@ const ACTIVATION_STEPS = [
         type: "preview",
         text: "Before I launch your first campaign, here's exactly what's going out. Review it and hit Approve & Launch when you're ready.",
         card,
-        exec: { action: "launch_campaign", creativeId: creative.creative_id, budget: DEFAULT_DAILY_BUDGET },
+        exec: {
+          action: "launch_campaign",
+          creativeId: creative.creative_id,
+          budget: DEFAULT_DAILY_BUDGET,
+          // High-stakes: launching an ad campaign spends real money, so a spoken
+          // "yes" isn't enough — Echo requires an explicit "confirm".
+          risk: "high_stakes",
+          confirmReason: `spends real ad money — $${DEFAULT_DAILY_BUDGET}/day`,
+        },
       };
     },
   },
@@ -270,7 +300,9 @@ const ACTIVATION_STEPS = [
         type: "preview",
         text: "Next, let's activate your content calendar so your social posts publish automatically. Here's a sample of what's scheduled — approve to turn it on.",
         card: { kind: "calendar", title: "Content Calendar", posts, count: posts.length },
-        exec: { action: "activate_calendar", calendarId },
+        // Routine: activating already-drafted posts is reversible and spends no
+        // money, so a spoken "yes" is enough to run it.
+        exec: { action: "activate_calendar", calendarId, risk: "routine" },
       };
     },
   },
@@ -511,6 +543,75 @@ async function sendMessage(req, res) {
     if (!text) return res.status(400).json({ error: "Please enter a message." });
 
     const state = await getOrCreateState(userId);
+
+    // Voice execution. When an action is awaiting the owner's approval, let them
+    // approve or decline it in plain language (spoken or typed) instead of
+    // clicking. Routine actions run on any affirmation ("yes", "go ahead");
+    // high-stakes actions (spending money, sending to customers) require the
+    // owner to explicitly say "confirm", so a stray "yes" can never trigger them.
+    if (state.pending_action) {
+      const decision = classifyApprovalUtterance(text);
+      const pending = state.pending_action;
+      const completed = arr(state.completed_actions);
+      if (decision === "decline") {
+        const uMsg = userMsg(text);
+        const eMsg = echoMsg(
+          "info",
+          "No problem — I'll skip that for now. You can do it any time from your dashboard.",
+        );
+        await persist(userId, {
+          completed_actions: [...completed, pending.key],
+          messages: pushMsg(state.messages, uMsg, eMsg),
+          pendingAction: null,
+        });
+        return res.json({ userMessage: uMsg, message: eMsg });
+      }
+      if (decision === "affirm" || decision === "confirm") {
+        const risk = (pending.exec && pending.exec.risk) || "routine";
+        if (risk === "high_stakes" && decision !== "confirm") {
+          // A plain "yes" isn't enough for a high-stakes action — re-prompt for
+          // the explicit word and keep the action pending.
+          const reason = (pending.exec && pending.exec.confirmReason) || "is high-impact";
+          const uMsg = userMsg(text);
+          const eMsg = echoMsg(
+            "text",
+            `Just to be safe — that one ${reason}. Say "confirm" to run it now, or "cancel" to hold off.`,
+          );
+          await persist(userId, {
+            messages: pushMsg(state.messages, uMsg, eMsg),
+            pendingAction: pending,
+          });
+          return res.json({ userMessage: uMsg, message: eMsg });
+        }
+        // Routine affirmation, or an explicit confirm on a high-stakes action.
+        const uMsg = userMsg(text);
+        let resultText;
+        try {
+          resultText = await runExec(userId, pending.exec);
+        } catch (execErr) {
+          console.error(`Echo voice-approve "${pending.key}" failed (skipping):`, execErr.message);
+          const eMsg = echoMsg(
+            "info",
+            "I hit a problem running that just now — I've noted it and you can retry from the dashboard.",
+          );
+          await persist(userId, {
+            completed_actions: [...completed, pending.key],
+            messages: pushMsg(state.messages, uMsg, eMsg),
+            pendingAction: null,
+          });
+          return res.json({ userMessage: uMsg, message: eMsg });
+        }
+        const eMsg = echoMsg("info", resultText);
+        await persist(userId, {
+          completed_actions: [...completed, pending.key],
+          messages: pushMsg(state.messages, uMsg, eMsg),
+          pendingAction: null,
+        });
+        return res.json({ userMessage: uMsg, message: eMsg });
+      }
+      // decision === "none" → the owner said something else; fall through to chat.
+    }
+
     const requestedBrandId =
       req.body && typeof req.body.brandId === "string" && req.body.brandId.trim()
         ? req.body.brandId.trim()
@@ -542,7 +643,7 @@ async function sendMessage(req, res) {
         : `The user's business is ${brand ? brand.brand_name : "their business"}.`,
       `Their activation status is "${state.activation_status}".`,
       state.pending_action
-        ? "There is an action awaiting their one-click approval in the companion panel."
+        ? 'There is an action awaiting their approval in the companion panel. They can approve it by clicking, or just tell you "yes" / "go ahead" — but if it is high-stakes (spends money or contacts customers) they must say "confirm".'
         : "There is nothing awaiting their approval right now.",
       "You run their marketing for them: you can launch Facebook ad campaigns, schedule social posts, send email campaigns, and report performance.",
       "Every action you take requires their one-click approval (or a Facebook password) first — if they ask you to do something, tell them you'll prepare a preview for them to approve.",

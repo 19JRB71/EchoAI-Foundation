@@ -34,9 +34,30 @@ import {
   isQuestion,
   matchLocalIntent,
   matchNavIntent,
+  matchMusicIntent,
 } from "./conversationHelpers.js";
 
 const EchoConversationContext = createContext(null);
+
+// Short spoken acknowledgement for a music voice command.
+function musicReply(music) {
+  switch (music.action) {
+    case "play":
+      return music.value ? `Playing ${music.value}.` : "Starting some music.";
+    case "pause":
+      return "Paused.";
+    case "resume":
+      return "Back on.";
+    case "skip":
+      return "Skipping ahead.";
+    case "stop":
+      return "Music off.";
+    case "volume":
+      return music.value === "down" ? "Turning it down." : "Turning it up.";
+    default:
+      return "Done.";
+  }
+}
 
 const MIC_MUTE_KEY = "echoai_mic_muted";
 const MIC_OPTIN_KEY = "echoai_mic_optin";
@@ -230,6 +251,21 @@ export function EchoConversationProvider({ active, onNavigate, children }) {
         modeRef.current = "active";
         suspendRef.current = false;
         setConvState("active");
+        return;
+      }
+
+      // Music playback ("play some lofi", "pause the music", "skip", "louder").
+      // Handled locally by nudging the MusicProvider via a window event.
+      const music = matchMusicIntent(text);
+      if (music) {
+        window.dispatchEvent(
+          new CustomEvent("echoai:music-command", { detail: music }),
+        );
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait(musicReply(music));
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow();
         return;
       }
 

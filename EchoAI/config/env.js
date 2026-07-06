@@ -65,6 +65,10 @@ const FEATURES = [
       "SALES_TWILIO_NUMBER",
     ],
   },
+  {
+    name: "Music search (YouTube Data API — playback works without it via video IDs)",
+    vars: ["YOUTUBE_API_KEY"],
+  },
 ];
 
 /**

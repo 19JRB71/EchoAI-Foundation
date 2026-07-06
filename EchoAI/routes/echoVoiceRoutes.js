@@ -35,6 +35,10 @@ router.post("/briefing/delivered", controller.markBriefingDelivered);
 // Weekly strategy briefing (7-day cross-business review + opportunities/risks).
 router.get("/weekly-briefing", controller.getWeeklyBriefing);
 
+// Owner's decision on a proactive channel/tool suggestion (accepted | declined),
+// used to dedupe future nudges. Owner-scoped by the authenticated user id.
+router.post("/suggestions/:key/decision", controller.decideSuggestion);
+
 // On-demand "Talk to Echo" current-status update.
 router.get("/status", controller.getStatus);
 

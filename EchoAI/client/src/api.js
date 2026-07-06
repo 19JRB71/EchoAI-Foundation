@@ -4,16 +4,34 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 const TOKEN_KEY = "echoai_token";
 
+// In-memory cache of synthesized speech Blobs for short, repeated phrases so
+// Echo replays common confirmations instantly. Insertion-ordered Map = simple
+// FIFO eviction. Blobs are immutable, so reusing one across many plays is safe.
+const echoSpeakCache = new Map();
+
+// Permanent login: when the user keeps "remember this device" checked (the
+// default) the JWT is stored in localStorage so it survives closing the browser
+// (up to the 30-day token expiry). When unchecked we store it in sessionStorage
+// so it is discarded the moment the browser session ends. getToken() checks both
+// so either mode works transparently across the app.
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
 }
 
-export function setToken(token) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
+export function setToken(token, remember = true) {
+  if (!token) return;
+  if (remember) {
+    localStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.removeItem(TOKEN_KEY);
+  } else {
+    sessionStorage.setItem(TOKEN_KEY, token);
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
 
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
 }
 
 async function request(path, { method = "GET", body, auth = true } = {}) {
@@ -61,19 +79,24 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
 
 export const api = {
   // Auth
-  register: (email, password, teamSize, referralCode) =>
+  register: (email, password, teamSize, referralCode, rememberDevice = true) =>
     request("/api/auth/register", {
       method: "POST",
       auth: false,
-      body: { email, password, teamSize, referralCode },
+      body: { email, password, teamSize, referralCode, rememberDevice },
     }),
-  login: (email, password) =>
+  login: (email, password, rememberDevice = true) =>
     request("/api/auth/login", {
       method: "POST",
       auth: false,
-      body: { email, password },
+      body: { email, password, rememberDevice },
     }),
   getProfile: () => request("/api/auth/profile"),
+
+  // Music (YouTube). Playback is client-side; search needs YOUTUBE_API_KEY.
+  musicStatus: () => request("/api/music/status"),
+  musicSearch: (q, limit = 8) =>
+    request(`/api/music/search?q=${encodeURIComponent(q)}&limit=${limit}`),
 
   // Guided tour progress (per authenticated user, persists across devices)
   getTourStatus: () => request("/api/tour/status"),
@@ -959,7 +982,15 @@ export const api = {
       body: { settings, firstName },
     }),
   // Synthesize spoken text in the owner's voice style; returns an MP3 Blob.
+  // Short, frequently-repeated phrases ("Paused.", "Here you go.", "Skipping
+  // ahead.") are cached in memory so Echo replays them instantly instead of
+  // re-synthesizing on every command. Long text (briefings) is never cached.
   echoVoiceSpeak: async (text, style) => {
+    const cacheable = typeof text === "string" && text.length <= 80;
+    const cacheKey = cacheable ? `${style || ""}|${text}` : null;
+    if (cacheKey && echoSpeakCache.has(cacheKey)) {
+      return echoSpeakCache.get(cacheKey);
+    }
     const headers = { "Content-Type": "application/json" };
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -978,7 +1009,15 @@ export const api = {
       err.status = res.status;
       throw err;
     }
-    return await res.blob();
+    const blob = await res.blob();
+    if (cacheKey) {
+      // Bound the cache so it can't grow without limit; drop the oldest entry.
+      if (echoSpeakCache.size >= 40) {
+        echoSpeakCache.delete(echoSpeakCache.keys().next().value);
+      }
+      echoSpeakCache.set(cacheKey, blob);
+    }
+    return blob;
   },
   // Fetch the morning wake-up music intro (ElevenLabs). Returns an MP3 Blob, or
   // null when there's no intro to play (204 / any error) so the caller skips it.
@@ -1027,6 +1066,11 @@ export const api = {
   echoVoiceMarkBriefingDelivered: () =>
     request("/api/echo-voice/briefing/delivered", { method: "POST" }),
   echoVoiceGetWeekly: () => request("/api/echo-voice/weekly-briefing"),
+  echoVoiceDecideSuggestion: (key, decision) =>
+    request(`/api/echo-voice/suggestions/${encodeURIComponent(key)}/decision`, {
+      method: "POST",
+      body: { decision },
+    }),
   echoVoiceGetStatus: () => request("/api/echo-voice/status"),
   echoVoiceGetPending: (clientHour) =>
     request(

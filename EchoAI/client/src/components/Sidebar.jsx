@@ -3,6 +3,7 @@ import { api } from "../api";
 import { useBranding } from "../lib/BrandingContext.jsx";
 import { tierForSection } from "../lib/tiers.js";
 import { AGENTS_META } from "../lib/departments.js";
+import MusicWidget from "./MusicWidget.jsx";
 
 // The dashboard is organized around the eight AI team members. This sidebar is
 // intentionally minimal: Mission Control at the top, the team roster (each with a
@@ -252,6 +253,8 @@ export default function Sidebar({
         >
           Log out
         </button>
+
+        <MusicWidget />
       </aside>
 
       {/* ---------- Mobile top logo bar ---------- */}

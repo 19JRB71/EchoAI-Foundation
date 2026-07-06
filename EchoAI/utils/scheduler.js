@@ -24,6 +24,7 @@ const {
   runWeeklyOpportunityScanForBrand,
 } = require("../controllers/capitalFundingController");
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
+const { warmMorningBriefings } = require("../controllers/echoVoiceController");
 const {
   sweepDueReminders,
   enqueueClosingSummaries,
@@ -322,6 +323,11 @@ function startScheduler() {
   cron.schedule("0 6 * * *", () => {
     runDailyHealthSnapshots().catch((err) => {
       console.error("Scheduled portfolio health snapshot run errored:", err.message);
+    });
+    // Faster Echo: pre-generate every owner's morning briefing at 06:00 so the
+    // first login of the day plays it instantly instead of synthesizing on demand.
+    warmMorningBriefings().catch((err) => {
+      console.error("Scheduled morning briefing warm run errored:", err.message);
     });
   });
 

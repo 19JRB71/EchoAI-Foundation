@@ -88,6 +88,10 @@ export function VoiceProvider({ active, children }) {
   const [error, setError] = useState("");
   // True when the browser blocked autoplay; the next user gesture resumes playback.
   const [needsGesture, setNeedsGesture] = useState(false);
+  // Proactive channel/tool suggestions returned with the weekly briefing. The
+  // owner can act on them (navigate + accept) or dismiss (decline) from the
+  // Echo popover; both decisions are recorded server-side for deduping.
+  const [suggestions, setSuggestions] = useState([]);
 
   // Internal refs (not state, to avoid re-renders / stale closures).
   const queueRef = useRef([]); // pending items to speak
@@ -191,10 +195,24 @@ export function VoiceProvider({ active, children }) {
             done("interrupted");
           }
           cleanupAudio();
+          // Restore background music volume now that Echo has stopped speaking.
+          try {
+            window.dispatchEvent(new Event("echoai:tts-end"));
+          } catch {
+            /* noop */
+          }
           resolve(status);
         };
         resolveRef.current = settle;
         (async () => {
+          // Duck any background music while Echo speaks (restored in settle()).
+          if (!mutedRef.current && activeRef.current) {
+            try {
+              window.dispatchEvent(new Event("echoai:tts-start"));
+            } catch {
+              /* noop */
+            }
+          }
           // Split the script into small chunks so the first (short) chunk starts
           // playing in ~1-2s while later chunks synthesize during playback. This
           // cuts time-to-first-audio from ~10s (whole-script TTS) to ~1-2s.
@@ -499,6 +517,7 @@ export function VoiceProvider({ active, children }) {
       } catch {
         /* noop */
       }
+      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
       enqueue(
         {
           type: "weekly_briefing",
@@ -513,6 +532,29 @@ export function VoiceProvider({ active, children }) {
       throw err;
     }
   }, [enqueue]);
+
+  // Record the owner's decision on a proactive suggestion and drop it from the
+  // popover. "Set it up" navigates to the tool's section; "Not now" just dismisses.
+  const acceptSuggestion = useCallback((sug) => {
+    if (!sug || !sug.key) return;
+    setSuggestions((list) => list.filter((s) => s.key !== sug.key));
+    api.echoVoiceDecideSuggestion(sug.key, "accepted").catch(() => {});
+    if (sug.section) {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("echoai:navigate-section", { detail: sug.section }),
+        );
+      } catch {
+        /* noop */
+      }
+    }
+  }, []);
+
+  const dismissSuggestion = useCallback((sug) => {
+    if (!sug || !sug.key) return;
+    setSuggestions((list) => list.filter((s) => s.key !== sug.key));
+    api.echoVoiceDecideSuggestion(sug.key, "declined").catch(() => {});
+  }, []);
 
   // ---- morning briefing (once/day) -------------------------------------
   const briefingTriedRef = useRef(false);
@@ -606,6 +648,7 @@ export function VoiceProvider({ active, children }) {
         } catch {
           /* noop */
         }
+        setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
         enqueue({
           type: "weekly_briefing",
           title: "Weekly strategy briefing",
@@ -695,6 +738,9 @@ export function VoiceProvider({ active, children }) {
       current,
       error,
       needsGesture,
+      suggestions,
+      acceptSuggestion,
+      dismissSuggestion,
       refreshSettings,
       saveSettings,
       toggleMute,
@@ -715,6 +761,9 @@ export function VoiceProvider({ active, children }) {
       current,
       error,
       needsGesture,
+      suggestions,
+      acceptSuggestion,
+      dismissSuggestion,
       refreshSettings,
       saveSettings,
       toggleMute,
