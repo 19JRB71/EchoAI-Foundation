@@ -15,7 +15,11 @@ vi.mock("../../api.js", () => ({
 
 import { api } from "../../api.js";
 import ContentCalendar from "./ContentCalendar.jsx";
-import { isRetryingPost } from "./postFailure.js";
+import {
+  isRetryingPost,
+  retryAttemptInfo,
+  MAX_PUBLISH_ATTEMPTS,
+} from "./postFailure.js";
 
 const BADGE_TEXT = "retrying after a platform hiccup";
 
@@ -45,6 +49,34 @@ describe("isRetryingPost", () => {
     expect(isRetryingPost({ status: "published", publish_attempts: 1 })).toBe(false);
     expect(isRetryingPost({ status: "failed", publish_attempts: 3 })).toBe(false);
     expect(isRetryingPost(null)).toBe(false);
+  });
+});
+
+describe("retryAttemptInfo", () => {
+  test("reports the upcoming attempt out of the server's max for retrying posts", () => {
+    expect(retryAttemptInfo({ status: "scheduled", publish_attempts: 1 })).toEqual({
+      attemptsUsed: 1,
+      nextAttempt: 2,
+      maxAttempts: MAX_PUBLISH_ATTEMPTS,
+    });
+    expect(retryAttemptInfo({ status: "scheduled", publish_attempts: "1" })).toEqual({
+      attemptsUsed: 1,
+      nextAttempt: 2,
+      maxAttempts: MAX_PUBLISH_ATTEMPTS,
+    });
+  });
+
+  test("caps the attempt number at the max so a stale row can't show 3 of 2", () => {
+    const info = retryAttemptInfo({ status: "scheduled", publish_attempts: 5 });
+    expect(info.nextAttempt).toBe(MAX_PUBLISH_ATTEMPTS);
+    expect(info.maxAttempts).toBe(MAX_PUBLISH_ATTEMPTS);
+  });
+
+  test("null for posts that aren't retrying", () => {
+    expect(retryAttemptInfo({ status: "scheduled", publish_attempts: 0 })).toBeNull();
+    expect(retryAttemptInfo({ status: "published", publish_attempts: 1 })).toBeNull();
+    expect(retryAttemptInfo({ status: "failed", publish_attempts: 2 })).toBeNull();
+    expect(retryAttemptInfo(null)).toBeNull();
   });
 });
 
@@ -79,9 +111,13 @@ describe("ContentCalendar retry badge", () => {
     const listItem = (await screen.findByText("Flash sale tomorrow!")).closest("button");
     expect(listItem.textContent).toContain(BADGE_TEXT);
 
-    // Also visible in the detail modal.
+    // Also visible in the detail modal, now with the attempt count so the
+    // owner can tell how deep into the retry budget the post is.
     fireEvent.click(listItem);
-    expect(screen.getAllByText(BADGE_TEXT).length).toBeGreaterThan(1);
+    expect(screen.getAllByText(BADGE_TEXT, { exact: false }).length).toBeGreaterThan(1);
+    expect(
+      screen.getByText(`attempt 2 of ${MAX_PUBLISH_ATTEMPTS}`, { exact: false })
+    ).toBeInTheDocument();
   });
 
   test("no badge on first-attempt scheduled or published posts", async () => {

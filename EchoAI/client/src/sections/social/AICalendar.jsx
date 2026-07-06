@@ -3,7 +3,12 @@ import { api } from "../../api.js";
 import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PLATFORMS, PlatformBadge, PlatformDot, platformMeta } from "./platformMeta.jsx";
-import { postFailureReason, isCredentialFailure, isRetryingPost } from "./postFailure.js";
+import {
+  postFailureReason,
+  isCredentialFailure,
+  isRetryingPost,
+  retryAttemptInfo,
+} from "./postFailure.js";
 import RetryBadge from "./RetryBadge.jsx";
 import ReschedulePost from "./ReschedulePost.jsx";
 
@@ -652,6 +657,7 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
   const editable = post.status !== "published" && post.status !== "publishing";
   const failReason = postFailureReason(post);
   const credentialFailure = isCredentialFailure(post);
+  const retryInfo = retryAttemptInfo(post);
   const [content, setContent] = useState(post.post_content || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -709,9 +715,12 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
           </span>
         </div>
 
-        {isRetryingPost(post) && (
+        {retryInfo && (
           <div className="mb-4">
-            <RetryBadge />
+            <RetryBadge
+              attempt={retryInfo.nextAttempt}
+              maxAttempts={retryInfo.maxAttempts}
+            />
           </div>
         )}
 

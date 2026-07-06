@@ -61,6 +61,22 @@ export function isCredentialFailure(post) {
   return CREDENTIAL_FAILURE_RE.test(reason);
 }
 
+// Mirrors MAX_PUBLISH_ATTEMPTS in EchoAI/controllers/socialController.js: the
+// total number of publish attempts the server gives a post before marking it
+// 'failed' on a transient platform error. Keep in sync with the server.
+export const MAX_PUBLISH_ATTEMPTS = 2;
+
+// For a retrying post, describes where it is in its retry budget: how many
+// attempts already failed and the total the server allows. The upcoming try is
+// attempt (used + 1) of maxAttempts — capped so a stale row can never render
+// "attempt 3 of 2". Returns null for posts that aren't retrying.
+export function retryAttemptInfo(post) {
+  if (!isRetryingPost(post)) return null;
+  const used = Math.max(1, Number(post.publish_attempts) || 0);
+  const nextAttempt = Math.min(used + 1, MAX_PUBLISH_ATTEMPTS);
+  return { attemptsUsed: used, nextAttempt, maxAttempts: MAX_PUBLISH_ATTEMPTS };
+}
+
 // True when a scheduled post has already survived at least one failed publish
 // attempt — the server hit a transient platform error and quietly pushed the
 // post back to 'scheduled' a few minutes out. Surfacing this stops the moved

@@ -3,7 +3,12 @@ import { api } from "../../api.js";
 import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PlatformBadge, PlatformDot, platformMeta } from "./platformMeta.jsx";
-import { postFailureReason, isCredentialFailure, isRetryingPost } from "./postFailure.js";
+import {
+  postFailureReason,
+  isCredentialFailure,
+  isRetryingPost,
+  retryAttemptInfo,
+} from "./postFailure.js";
 import RetryBadge from "./RetryBadge.jsx";
 import ReschedulePost from "./ReschedulePost.jsx";
 
@@ -283,6 +288,7 @@ function PostDetailModal({ post, onClose, onRescheduled, onReconnect }) {
   const metrics = post.engagement_metrics || null;
   const failReason = postFailureReason(post);
   const credentialFailure = isCredentialFailure(post);
+  const retryInfo = retryAttemptInfo(post);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -308,9 +314,12 @@ function PostDetailModal({ post, onClose, onRescheduled, onReconnect }) {
           </span>
         </div>
 
-        {isRetryingPost(post) && (
+        {retryInfo && (
           <div className="mb-3">
-            <RetryBadge />
+            <RetryBadge
+              attempt={retryInfo.nextAttempt}
+              maxAttempts={retryInfo.maxAttempts}
+            />
           </div>
         )}
 

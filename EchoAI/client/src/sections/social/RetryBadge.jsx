@@ -1,10 +1,23 @@
 // Subtle badge shown on scheduled posts that already survived a failed publish
 // attempt: the server auto-rescheduled them a few minutes out after a transient
 // platform error. Reassures the owner the moved time is a retry, not a glitch.
-export default function RetryBadge({ compact = false }) {
+// When `attempt`/`maxAttempts` are provided (detail views), the badge also
+// shows how deep into the retry budget the post is — "attempt 2 of 2" tells
+// the owner this is the last try before the post is marked failed.
+export default function RetryBadge({ compact = false, attempt, maxAttempts }) {
+  const showCount =
+    Number.isFinite(Number(attempt)) &&
+    Number.isFinite(Number(maxAttempts)) &&
+    Number(maxAttempts) > 0;
+  const lastTry = showCount && Number(attempt) >= Number(maxAttempts);
+  const title = showCount
+    ? `A platform hiccup delayed this post — it will retry automatically at the new time (attempt ${attempt} of ${maxAttempts}${
+        lastTry ? ", its last try before it is marked failed" : ""
+      }).`
+    : "A platform hiccup delayed this post — it will retry automatically at the new time.";
   return (
     <span
-      title="A platform hiccup delayed this post — it will retry automatically at the new time."
+      title={title}
       className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300"
     >
       <svg
@@ -20,6 +33,11 @@ export default function RetryBadge({ compact = false }) {
         />
       </svg>
       {compact ? "retrying" : "retrying after a platform hiccup"}
+      {showCount && (
+        <span className="text-amber-200/80">
+          &middot; attempt {Number(attempt)} of {Number(maxAttempts)}
+        </span>
+      )}
     </span>
   );
 }
