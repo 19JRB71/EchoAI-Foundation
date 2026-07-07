@@ -21,7 +21,10 @@ const {
   generateFeedbackReportForBrand,
 } = require("../controllers/feedbackController");
 const { executeDueTouchpoints } = require("../controllers/followUpController");
-const { sendDueDripEmails } = require("../controllers/emailMarketingController");
+const {
+  sendDueDripEmails,
+  sendDueScheduledCampaigns,
+} = require("../controllers/emailMarketingController");
 const { generateWeeklyRoiSnapshot } = require("../controllers/roiDashboardController");
 const {
   generateWeeklyIntelligence,
@@ -368,6 +371,14 @@ function startScheduler() {
   cron.schedule("0 * * * *", () => {
     sendDueDripEmails().catch((err) => {
       console.error("Scheduled drip email run errored:", err.message);
+    });
+  });
+
+  // Every 5 minutes: send any scheduled one-time email blasts that are now
+  // due. On total failure the blast flips to 'failed' and the owner is alerted.
+  cron.schedule("*/5 * * * *", () => {
+    sendDueScheduledCampaigns().catch((err) => {
+      console.error("Scheduled email blast run errored:", err.message);
     });
   });
 

@@ -32,6 +32,8 @@ router.post("/drip", controller.createDripSequence);
 
 // Lifecycle controls
 router.post("/campaigns/:campaignId/send", controller.sendCampaign);
+router.post("/campaigns/:campaignId/schedule", controller.scheduleCampaign);
+router.post("/campaigns/:campaignId/unschedule", controller.unscheduleCampaign);
 router.post("/campaigns/:campaignId/pause", controller.pauseCampaign);
 router.post("/campaigns/:campaignId/resume", controller.resumeCampaign);
 router.post(

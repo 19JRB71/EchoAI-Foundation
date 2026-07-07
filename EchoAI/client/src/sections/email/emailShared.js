@@ -23,6 +23,7 @@ export const STATUS_STYLES = {
   sending: "bg-amber-500/15 text-amber-300",
   sent: "bg-green-500/15 text-green-300",
   paused: "bg-orange-500/15 text-orange-300",
+  failed: "bg-red-500/15 text-red-300",
 };
 
 export function statusBadgeClass(status) {

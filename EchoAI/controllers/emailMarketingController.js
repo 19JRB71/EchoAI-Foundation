@@ -433,10 +433,14 @@ async function sendCampaign(req, res) {
       return res.status(400).json({ error: "This campaign has no email to send" });
     }
 
+    // A 'failed' blast (background sender marked its recipients 'failed') can
+    // be retried manually: re-target the failed recipients too. A failed
+    // recipient never received the email, so this cannot double-send.
+    const retryingFailed = campaign.status === "failed";
     const recipients = await client.query(
       `SELECT recipient_id, email_address FROM email_marketing_recipients
-       WHERE campaign_id = $1 AND delivery_status = 'pending'`,
-      [campaignId]
+       WHERE campaign_id = $1 AND delivery_status = ANY($2)`,
+      [campaignId, retryingFailed ? ["pending", "failed"] : ["pending"]]
     );
     if (recipients.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -506,6 +510,88 @@ async function sendCampaign(req, res) {
     return res.status(500).json({ error: "Failed to send campaign" });
   } finally {
     client.release();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scheduling (one-time blast)
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/email-marketing/campaigns/:campaignId/schedule — schedule (or
+ * reschedule) a one-time blast for a future time. The status-guarded UPDATE
+ * only transitions draft/scheduled campaigns, so a blast the background sender
+ * already claimed (or one that was sent/failed meanwhile) can't be rescheduled
+ * out from under it.
+ */
+async function scheduleCampaign(req, res) {
+  const userId = req.user.userId;
+  const { campaignId } = req.params;
+  const { scheduledAt } = req.body || {};
+  const when = new Date(scheduledAt);
+  if (!scheduledAt || Number.isNaN(when.getTime())) {
+    return res.status(400).json({ error: "A valid scheduledAt date is required" });
+  }
+  if (when.getTime() <= Date.now()) {
+    return res.status(400).json({ error: "scheduledAt must be in the future" });
+  }
+  try {
+    const campaign = await getOwnedCampaign(userId, campaignId);
+    if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+    if (campaign.campaign_type !== "one-time") {
+      return res.status(400).json({ error: "Only one-time campaigns can be scheduled" });
+    }
+    const updated = await db.query(
+      `UPDATE email_marketing_campaigns
+       SET status = 'scheduled', scheduled_at = $1, updated_at = NOW()
+       WHERE campaign_id = $2 AND status IN ('draft', 'scheduled')
+       RETURNING campaign_id, scheduled_at`,
+      [when, campaignId]
+    );
+    if (updated.rows.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Campaign cannot be scheduled from its current state" });
+    }
+    return res.json({
+      campaignId,
+      status: "scheduled",
+      scheduledAt: updated.rows[0].scheduled_at,
+    });
+  } catch (err) {
+    console.error("Schedule campaign error:", err.message);
+    return res.status(500).json({ error: "Failed to schedule campaign" });
+  }
+}
+
+/**
+ * POST /api/email-marketing/campaigns/:campaignId/unschedule — cancel a
+ * pending schedule, returning the blast to draft. Status-guarded so it can't
+ * revive a campaign the sender already moved on.
+ */
+async function unscheduleCampaign(req, res) {
+  const userId = req.user.userId;
+  const { campaignId } = req.params;
+  try {
+    const campaign = await getOwnedCampaign(userId, campaignId);
+    if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+    if (campaign.campaign_type !== "one-time") {
+      return res.status(400).json({ error: "Only one-time campaigns can be unscheduled" });
+    }
+    const updated = await db.query(
+      `UPDATE email_marketing_campaigns
+       SET status = 'draft', scheduled_at = NULL, updated_at = NOW()
+       WHERE campaign_id = $1 AND status = 'scheduled'
+       RETURNING campaign_id`,
+      [campaignId]
+    );
+    if (updated.rows.length === 0) {
+      return res.status(400).json({ error: "This campaign is not scheduled" });
+    }
+    return res.json({ campaignId, status: "draft" });
+  } catch (err) {
+    console.error("Unschedule campaign error:", err.message);
+    return res.status(500).json({ error: "Failed to unschedule campaign" });
   }
 }
 
@@ -830,6 +916,190 @@ async function retryDripRecipient(req, res) {
     console.error("Retry drip recipient error:", err.message);
     return res.status(500).json({ error: "Failed to retry recipient" });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled one-time blast worker (invoked every 5 min from utils/scheduler.js)
+// ---------------------------------------------------------------------------
+
+/**
+ * Alerts a blast's owner that it flipped to 'failed'. Callers invoke this only
+ * where the status-guarded scheduled -> failed transition really hit a row;
+ * the per-campaign tag collapses duplicate deliveries and the shared helper
+ * skips demo brands itself.
+ */
+async function alertOwnerOfFailedEmailBlast({ campaignId, brandId, campaignName, reason }) {
+  const why = String(reason || "Unknown error").slice(0, 160);
+  const label = campaignName ? `"${campaignName}"` : "your email blast";
+  await alertOwnerOfFailedSend({
+    brandId,
+    title: "⚠️ Scheduled email blast failed to send",
+    buildBody: (brand) =>
+      `Email blast ${label} for ${brand.brand_name} didn't send: ${why} Tap to review.`,
+    url: "/dashboard?section=email",
+    tag: `email-campaign-failed-${campaignId}`,
+    mobileData: { type: "email_campaign_failed", campaignId: String(campaignId) },
+    logLabel: "Failed-email-blast",
+  });
+}
+
+/**
+ * Sends every due scheduled one-time blast. Each campaign is claimed with
+ * SELECT ... FOR UPDATE SKIP LOCKED inside its own transaction (the same
+ * single-transaction shape as the manual send path), so overlapping ticks and
+ * a concurrent manual "Send now" can never double-send. Returns
+ * { processed, sent, failed }.
+ *
+ * Failure alerting: a blast where NOTHING went out (every send failed, no
+ * email row, or no recipients left) flips to 'failed' via a status-guarded
+ * UPDATE inside the claim transaction — only campaigns that really made that
+ * transition alert the owner (deep link to the Email section, tag per
+ * campaign, demo brands excluded at the query AND by the shared helper).
+ * Partial success mirrors the manual path: the campaign is 'sent'.
+ */
+async function sendDueScheduledCampaigns() {
+  const baseUrl = getPublicBaseUrl(null);
+  const due = await db.query(
+    `SELECT c.campaign_id
+     FROM email_marketing_campaigns c
+     JOIN brands b ON b.brand_id = c.brand_id
+     WHERE c.campaign_type = 'one-time' AND c.status = 'scheduled'
+       AND c.scheduled_at IS NOT NULL AND c.scheduled_at <= NOW()
+       AND b.is_demo = false
+     ORDER BY c.scheduled_at ASC
+     LIMIT 20`
+  );
+
+  let processed = 0;
+  let sentCampaigns = 0;
+  let failedCampaigns = 0;
+  // Alerts fire after each claim transaction COMMITs, never inside it.
+  for (const { campaign_id } of due.rows) {
+    const client = await db.getClient();
+    let alertInfo = null;
+    try {
+      await client.query("BEGIN");
+      const claim = await client.query(
+        `SELECT c.campaign_id, c.brand_id, c.campaign_name
+         FROM email_marketing_campaigns c
+         WHERE c.campaign_id = $1 AND c.campaign_type = 'one-time'
+           AND c.status = 'scheduled'
+           AND c.scheduled_at IS NOT NULL AND c.scheduled_at <= NOW()
+         FOR UPDATE OF c SKIP LOCKED`,
+        [campaign_id]
+      );
+      const campaign = claim.rows[0];
+      if (!campaign) {
+        await client.query("ROLLBACK");
+        continue;
+      }
+      processed += 1;
+
+      const emailResult = await client.query(
+        `SELECT subject_line, body_html FROM email_marketing_emails
+         WHERE campaign_id = $1 AND sequence_position = 0`,
+        [campaign_id]
+      );
+      const email = emailResult.rows[0];
+
+      let recipients = { rows: [] };
+      if (email) {
+        recipients = await client.query(
+          `SELECT recipient_id, email_address FROM email_marketing_recipients
+           WHERE campaign_id = $1 AND delivery_status = 'pending'`,
+          [campaign_id]
+        );
+      }
+
+      let sent = 0;
+      let lastError = null;
+      if (!email) {
+        lastError = "This campaign has no email to send.";
+      } else if (recipients.rows.length === 0) {
+        lastError = "No recipients left to send to (all unsubscribed or none matched).";
+      }
+
+      for (const r of recipients.rows) {
+        if (await isOptedOut(campaign.brand_id, r.email_address, client)) {
+          await client.query(
+            `UPDATE email_marketing_recipients
+             SET delivery_status = 'unsubscribed', unsubscribed_at = NOW(), updated_at = NOW()
+             WHERE recipient_id = $1`,
+            [r.recipient_id]
+          );
+          continue;
+        }
+        try {
+          const html = buildTrackedHtml(email.body_html, {
+            recipientId: r.recipient_id,
+            brandId: campaign.brand_id,
+            email: r.email_address,
+            baseUrl,
+          });
+          await sendEmail({ to: r.email_address, subject: email.subject_line, html });
+          await client.query(
+            `UPDATE email_marketing_recipients
+             SET delivery_status = 'sent', updated_at = NOW()
+             WHERE recipient_id = $1`,
+            [r.recipient_id]
+          );
+          sent += 1;
+        } catch (err) {
+          lastError = err.message;
+          await client.query(
+            `UPDATE email_marketing_recipients
+             SET delivery_status = 'failed', updated_at = NOW()
+             WHERE recipient_id = $1`,
+            [r.recipient_id]
+          );
+          console.error(
+            `Scheduled blast send failed (recipient ${r.recipient_id}):`,
+            err.message
+          );
+        }
+      }
+
+      if (sent > 0) {
+        await client.query(
+          `UPDATE email_marketing_campaigns
+           SET status = 'sent', sent_count = sent_count + $1, sent_at = NOW(), updated_at = NOW()
+           WHERE campaign_id = $2 AND status = 'scheduled'`,
+          [sent, campaign_id]
+        );
+        sentCampaigns += 1;
+      } else {
+        // Total failure: the real scheduled -> failed transition. Row-count
+        // guarded so only the transaction that made the flip alerts.
+        const flipped = await client.query(
+          `UPDATE email_marketing_campaigns
+           SET status = 'failed', updated_at = NOW()
+           WHERE campaign_id = $1 AND status = 'scheduled'
+           RETURNING campaign_id`,
+          [campaign_id]
+        );
+        if (flipped.rows.length > 0) {
+          failedCampaigns += 1;
+          alertInfo = {
+            campaignId: campaign_id,
+            brandId: campaign.brand_id,
+            campaignName: campaign.campaign_name,
+            reason: lastError || "No emails could be sent.",
+          };
+        }
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      alertInfo = null;
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("Scheduled blast worker error:", err.message);
+    } finally {
+      client.release();
+    }
+    // Best-effort: alertOwnerOfFailedSend never throws, skips demo brands.
+    if (alertInfo) await alertOwnerOfFailedEmailBlast(alertInfo);
+  }
+
+  return { processed, sent: sentCampaigns, failed: failedCampaigns };
 }
 
 // ---------------------------------------------------------------------------
@@ -1207,8 +1477,11 @@ module.exports = {
   createCampaign,
   createDripSequence,
   sendCampaign,
+  scheduleCampaign,
+  unscheduleCampaign,
   sendDueDripEmails,
   retryDripRecipient,
+  sendDueScheduledCampaigns,
   getCampaigns,
   getCampaignDetail,
   pauseCampaign,

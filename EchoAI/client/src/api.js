@@ -711,6 +711,13 @@ export const api = {
     }),
   sendEmailCampaign: (campaignId) =>
     request(`/api/email-marketing/campaigns/${campaignId}/send`, { method: "POST" }),
+  scheduleEmailCampaign: (campaignId, scheduledAt) =>
+    request(`/api/email-marketing/campaigns/${campaignId}/schedule`, {
+      method: "POST",
+      body: { scheduledAt },
+    }),
+  unscheduleEmailCampaign: (campaignId) =>
+    request(`/api/email-marketing/campaigns/${campaignId}/unschedule`, { method: "POST" }),
   pauseEmailCampaign: (campaignId) =>
     request(`/api/email-marketing/campaigns/${campaignId}/pause`, { method: "POST" }),
   resumeEmailCampaign: (campaignId) =>

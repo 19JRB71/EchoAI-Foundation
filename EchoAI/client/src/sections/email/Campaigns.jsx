@@ -73,12 +73,15 @@ export default function Campaigns({ brandId, refreshKey, onChange }) {
 function CampaignRow({ campaign, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState("");
 
-  async function send() {
+  async function run(action) {
     setBusy(true);
     setError("");
     try {
-      await api.sendEmailCampaign(campaign.campaignId);
+      await action();
+      setScheduling(false);
       onChanged();
     } catch (err) {
       setError(err.message);
@@ -87,17 +90,21 @@ function CampaignRow({ campaign, onChanged }) {
     }
   }
 
-  async function remove() {
-    setBusy(true);
-    setError("");
-    try {
-      await api.cancelEmailCampaign(campaign.campaignId);
-      onChanged();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
+  const send = () => run(() => api.sendEmailCampaign(campaign.campaignId));
+  const remove = () => run(() => api.cancelEmailCampaign(campaign.campaignId));
+  const unschedule = () => run(() => api.unscheduleEmailCampaign(campaign.campaignId));
+
+  function schedule() {
+    if (!scheduleAt) {
+      setError("Pick a date and time first.");
+      return;
     }
+    const when = new Date(scheduleAt);
+    if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+      setError("The scheduled time must be in the future.");
+      return;
+    }
+    run(() => api.scheduleEmailCampaign(campaign.campaignId, when.toISOString()));
   }
 
   return (
@@ -113,15 +120,44 @@ function CampaignRow({ campaign, onChanged }) {
           <p className="mt-1 text-xs text-gray-400">
             {segmentLabel(campaign.segment)} · {campaign.recipientCount} recipients
           </p>
+          {campaign.status === "scheduled" && campaign.scheduledAt && (
+            <p className="mt-1 text-xs text-blue-300">
+              Sends {new Date(campaign.scheduledAt).toLocaleString()}
+            </p>
+          )}
+          {campaign.status === "failed" && (
+            <p className="mt-1 text-xs text-red-400">
+              This blast couldn't be sent. Check your email settings, then use
+              Send now to retry.
+            </p>
+          )}
         </div>
-        <div className="flex gap-2">
-          {campaign.status === "draft" && (
+        <div className="flex flex-wrap gap-2">
+          {(campaign.status === "draft" || campaign.status === "failed") && (
             <button
               onClick={send}
               disabled={busy}
               className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
             >
               {busy ? "Sending…" : "Send now"}
+            </button>
+          )}
+          {campaign.status === "draft" && !scheduling && (
+            <button
+              onClick={() => setScheduling(true)}
+              disabled={busy}
+              className="rounded-lg border border-blue-500/40 px-3 py-1.5 text-xs text-blue-300 hover:bg-blue-500/10 disabled:opacity-50"
+            >
+              Schedule
+            </button>
+          )}
+          {campaign.status === "scheduled" && (
+            <button
+              onClick={unschedule}
+              disabled={busy}
+              className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+            >
+              Cancel schedule
             </button>
           )}
           <button
@@ -133,6 +169,30 @@ function CampaignRow({ campaign, onChanged }) {
           </button>
         </div>
       </div>
+      {scheduling && campaign.status === "draft" && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            type="datetime-local"
+            value={scheduleAt}
+            onChange={(e) => setScheduleAt(e.target.value)}
+            className="rounded-lg border border-gray-700 bg-gray-950 px-3 py-1.5 text-xs text-gray-100"
+          />
+          <button
+            onClick={schedule}
+            disabled={busy}
+            className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-blue-400 disabled:opacity-50"
+          >
+            {busy ? "Scheduling…" : "Confirm schedule"}
+          </button>
+          <button
+            onClick={() => setScheduling(false)}
+            disabled={busy}
+            className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
       <div className="mt-3 grid grid-cols-3 gap-3 text-center text-sm">
         <Stat label="Sent" value={campaign.sentCount} />
         <Stat label="Opens" value={`${campaign.openCount} (${pct(campaign.openRate)})`} />
