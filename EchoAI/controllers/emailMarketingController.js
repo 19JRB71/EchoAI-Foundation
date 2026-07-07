@@ -478,9 +478,9 @@ async function sendCampaign(req, res) {
         failed += 1;
         await client.query(
           `UPDATE email_marketing_recipients
-           SET delivery_status = 'failed', updated_at = NOW()
+           SET delivery_status = 'failed', send_error = $2, updated_at = NOW()
            WHERE recipient_id = $1`,
-          [r.recipient_id]
+          [r.recipient_id, err.message || "Unknown error"]
         );
         console.error(`Email send failed (recipient ${r.recipient_id}):`, err.message);
       }
@@ -732,10 +732,14 @@ async function sendDueDripEmails() {
           const flipped = await client.query(
             `UPDATE email_marketing_recipients
              SET delivery_status = 'failed', send_attempts = $1,
-                 next_send_at = NULL, updated_at = NOW()
+                 send_error = $3, next_send_at = NULL, updated_at = NOW()
              WHERE recipient_id = $2 AND delivery_status = 'pending'
              RETURNING recipient_id`,
-            [attemptsUsed, rec.recipient_id]
+            [
+              attemptsUsed,
+              rec.recipient_id,
+              sendError ? sendError.message : "Unknown error",
+            ]
           );
           await client.query("COMMIT");
           if (flipped.rows.length > 0) {
@@ -873,7 +877,7 @@ async function retryDripRecipient(req, res) {
     const result = await db.query(
       `UPDATE email_marketing_recipients r
        SET delivery_status = 'pending', send_attempts = 0,
-           next_send_at = NOW(), updated_at = NOW()
+           send_error = NULL, next_send_at = NOW(), updated_at = NOW()
        FROM email_marketing_campaigns c
        JOIN brands b ON b.brand_id = c.brand_id
        WHERE r.recipient_id = $1
@@ -1106,9 +1110,9 @@ async function sendDueScheduledCampaigns() {
           lastError = err.message;
           await client.query(
             `UPDATE email_marketing_recipients
-             SET delivery_status = 'failed', updated_at = NOW()
+             SET delivery_status = 'failed', send_error = $2, updated_at = NOW()
              WHERE recipient_id = $1`,
-            [r.recipient_id]
+            [r.recipient_id, err.message || "Unknown error"]
           );
           console.error(
             `Scheduled blast send failed (recipient ${r.recipient_id}):`,
@@ -1231,7 +1235,7 @@ async function getCampaignDetail(req, res) {
     );
     const recipients = await db.query(
       `SELECT recipient_id, email_address, delivery_status, current_step,
-              opened_at, clicked_at, unsubscribed_at
+              send_error, opened_at, clicked_at, unsubscribed_at
        FROM email_marketing_recipients
        WHERE campaign_id = $1 ORDER BY created_at ASC LIMIT 500`,
       [campaignId]

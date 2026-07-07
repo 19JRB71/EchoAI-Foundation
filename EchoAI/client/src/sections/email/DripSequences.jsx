@@ -255,6 +255,11 @@ function FailedRecipients({ campaignId, onRetried }) {
               <p className="text-[11px] text-gray-500">
                 Stopped at email {(r.current_step || 0) + 1}
               </p>
+              <p className="mt-0.5 truncate text-[11px] text-red-400/80">
+                {r.send_error
+                  ? `Reason: ${r.send_error}`
+                  : "Reason unavailable"}
+              </p>
             </div>
             {retried ? (
               <span className="shrink-0 text-xs font-medium text-emerald-400">
