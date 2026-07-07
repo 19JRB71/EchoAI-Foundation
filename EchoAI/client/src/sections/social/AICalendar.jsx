@@ -16,6 +16,7 @@ import AccountHealthBanner from "./AccountHealthBanner.jsx";
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const FREQUENCIES = [
+  { value: "optimal", label: "Optimal — per-platform, up to 3×/day (recommended)" },
   { value: "daily", label: "Daily" },
   { value: "five_per_week", label: "5 times per week" },
   { value: "three_per_week", label: "3 times per week" },
@@ -441,7 +442,7 @@ export default function AICalendar({ brandId, onReconnect }) {
 }
 
 function GenerateForm({ brandId, onClose, onGenerated }) {
-  const [frequency, setFrequency] = useState("three_per_week");
+  const [frequency, setFrequency] = useState("optimal");
   const [platforms, setPlatforms] = useState(["instagram"]);
   const [theme, setTheme] = useState("");
   const [loading, setLoading] = useState(false);

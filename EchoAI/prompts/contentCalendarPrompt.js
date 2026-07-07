@@ -15,7 +15,7 @@
  * - generateSingleCalendarPost(brand, opts): regenerates one post.
  */
 
-const { anthropic, MODEL } = require("../config/anthropic");
+const { MODEL, createMessage, HEAVY_AI_TIMEOUT_MS } = require("../config/anthropic");
 
 const SUPPORTED_PLATFORMS = [
   "facebook",
@@ -26,19 +26,45 @@ const SUPPORTED_PLATFORMS = [
   "youtube",
 ];
 
-// The variety of content styles the agent rotates through across the month.
+// The variety of content styles the agent rotates through across the month. The
+// controller assigns one type per slot in strict rotation so no two consecutive
+// posts ever share a type — the AI writes copy for the type it is handed.
 const CONTENT_TYPES = [
   "educational",
   "promotional",
+  "inspirational",
   "behind_the_scenes",
-  "customer_success",
-  "tips_and_tricks",
-  "call_to_action",
+  "engagement",
 ];
 
-// Supported cadences -> how many of every rolling 7 days carry a post. The
-// controller uses `perWeek` to deterministically pick the posting days.
+// The three daily posting windows (start of each requested range), expressed as
+// 24h "HH:MM" wall-clock times in the business owner's timezone.
+const POSTING_WINDOWS = {
+  morning: "08:00", // 8-9am
+  afternoon: "12:00", // 12-1pm
+  evening: "18:00", // 6-7pm
+};
+
+// The DEFAULT per-platform posting schedule ("optimal" mode). Each platform
+// posts on its own cadence at fixed daily windows:
+// - daily platforms post every day at each listed time,
+// - weekly platforms post `perWeek` times spread across the 7-day window.
+// Twitter/X is not part of the owner's brief; it defaults to a single morning
+// post so it still produces a sensible schedule when selected.
+const PLATFORM_SCHEDULES = {
+  facebook: { cadence: "daily", times: [POSTING_WINDOWS.morning, POSTING_WINDOWS.afternoon, POSTING_WINDOWS.evening] },
+  instagram: { cadence: "daily", times: [POSTING_WINDOWS.morning, POSTING_WINDOWS.afternoon, POSTING_WINDOWS.evening] },
+  tiktok: { cadence: "daily", times: [POSTING_WINDOWS.morning, POSTING_WINDOWS.afternoon, POSTING_WINDOWS.evening] },
+  linkedin: { cadence: "daily", times: [POSTING_WINDOWS.morning] },
+  youtube: { cadence: "weekly", perWeek: 3, times: [POSTING_WINDOWS.morning] },
+  twitter: { cadence: "daily", times: [POSTING_WINDOWS.morning] },
+};
+
+// Supported cadences. "optimal" is the per-platform default (see
+// PLATFORM_SCHEDULES); the legacy cadences map to how many of every rolling 7
+// days carry a post, which the controller uses to pick posting days.
 const POSTING_FREQUENCIES = {
+  optimal: { label: "Optimal (per-platform, up to 3×/day)", perPlatform: true },
   daily: { label: "Daily", perWeek: 7 },
   five_per_week: { label: "5 times per week", perWeek: 5 },
   three_per_week: { label: "3 times per week", perWeek: 3 },
@@ -54,6 +80,27 @@ const DEFAULT_POSTING_TIMES = {
   twitter: "10:00",
   youtube: "10:00",
 };
+
+// Rotating angle seeds handed to the AI (one per post) so that even hundreds of
+// posts across a month stay fresh and non-repetitive. They nudge distinct hooks
+// and framings; the AI still writes fully original copy for each.
+const ANGLE_SEEDS = [
+  "a surprising fact or myth-buster",
+  "a quick actionable tip",
+  "a customer pain point and how you solve it",
+  "a day-in-the-life or behind-the-scenes moment",
+  "a question that invites replies",
+  "a bold opinion or hot take",
+  "a before/after or transformation story",
+  "a seasonal or timely hook",
+  "a common mistake to avoid",
+  "a proud win or milestone",
+  "a relatable everyday scenario",
+  "a mini how-to in steps",
+  "a value-driven promotion or offer",
+  "an inspiring quote reframed for your audience",
+  "a poll or this-or-that prompt",
+];
 
 // Short, platform-native guidance so each post reads correctly for its channel.
 const PLATFORM_GUIDELINES = {
@@ -102,36 +149,37 @@ function brandHeader(brand, businessType, theme) {
 }
 
 /**
- * Builds the system prompt for filling every scheduled slot in the calendar.
- * `slots` is an array of { index, day, platform } objects (index is 1-based).
+ * Builds the system prompt for filling a batch of scheduled slots. Each slot is
+ * a { index, day, platform, contentType, angle } object (index is 1-based and
+ * global across the whole calendar). The content type is FIXED per slot by the
+ * controller's rotation — the AI writes copy for the type it is handed, which is
+ * what guarantees no two consecutive posts share a type.
  */
 function buildCalendarPrompt(brand, { businessType, theme, slots }) {
   const slotLines = slots.map(
     (s) =>
-      `- Slot ${s.index}: day ${s.day} of 30, platform ${s.platform} (${PLATFORM_GUIDELINES[s.platform] || "write a clear on-brand post"})`
+      `- Slot ${s.index}: day ${s.day} of 30, platform ${s.platform}, content type "${s.contentType}", angle: ${s.angle || "your choice"} (${PLATFORM_GUIDELINES[s.platform] || "write a clear on-brand post"})`
   );
 
   return [
     ...brandHeader(brand, businessType, theme),
     "",
-    `Plan a 30-day content calendar with EXACTLY ${slots.length} posts, one per slot below, in order:`,
+    `Write EXACTLY ${slots.length} posts, one per slot below, in order:`,
     ...slotLines,
     "",
     "Rules:",
-    `- Vary the content type across these styles: ${CONTENT_TYPES.join(", ")}.`,
-    "- No two CONSECUTIVE posts may share the same content type.",
-    "- Every post must be unique — never reuse copy, hooks, or angles.",
+    "- Use the EXACT content type assigned to each slot — do not change it.",
+    "- Every post must be completely unique — never reuse copy, hooks, angles, or CTAs, even across posts of the same type.",
+    "- Use each slot's angle as a starting hook, then make it specific and on-brand.",
     "- Tailor each post natively to its platform and keep the brand voice throughout.",
-    "- Suggest a posting time (24h HH:MM) when that platform's audience is most active.",
     "",
     `Return ONLY a JSON array of ${slots.length} objects (no prose, no markdown fences), one per slot IN ORDER. Each object must have:`,
     '- "slot": the slot number (integer).',
-    '- "contentType": one of the listed content types.',
+    '- "contentType": the assigned content type (echo it back).',
     '- "postText": the ready-to-post copy, respecting the platform character limits.',
     '- "hashtags": an array of hashtag strings (without surrounding text; may be empty).',
     '- "visualIdea": a short image/video description (a thumbnail concept for YouTube).',
     '- "callToAction": the call-to-action for the post.',
-    '- "bestPostingTime": the recommended posting time as 24h "HH:MM".',
   ].join("\n");
 }
 
@@ -179,24 +227,33 @@ function extractJsonObject(text) {
   return JSON.parse(candidate.slice(start, end + 1));
 }
 
-/**
- * Generates content for every slot in one Anthropic call. Returns an array of
- * validated post objects aligned to the input slots (same order/length).
- */
-async function generateCalendarPosts(brand, { businessType, theme, slots }) {
+// How many slots one AI call fills. A full month at 3×/day across several
+// platforms is ~300 posts, which cannot fit in a single response's token budget,
+// so the work is split into batches. Keep this small enough that each batch's
+// JSON comfortably fits max_tokens.
+const CALENDAR_BATCH_SIZE = 20;
+// How many batch calls run at once. Bounded so we speed up big months without
+// hammering the AI provider's rate limits.
+const CALENDAR_BATCH_CONCURRENCY = 4;
+
+/** Fills one batch of slots via a single AI call; returns aligned posts. */
+async function generateCalendarBatch(brand, { businessType, theme, slots }) {
   const systemPrompt = buildCalendarPrompt(brand, { businessType, theme, slots });
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 8192,
-    system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content: `Generate the ${slots.length}-post calendar now. Respond with only the JSON array, one object per slot in order.`,
-      },
-    ],
-  });
+  const response = await createMessage(
+    {
+      model: MODEL,
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: `Write these ${slots.length} posts now. Respond with only the JSON array, one object per slot in order.`,
+        },
+      ],
+    },
+    { timeout: HEAVY_AI_TIMEOUT_MS, label: "content calendar batch" }
+  );
 
   const text = response.content?.[0]?.text || "";
   const parsed = extractJsonArray(text);
@@ -204,7 +261,9 @@ async function generateCalendarPosts(brand, { businessType, theme, slots }) {
     throw new Error("The AI response did not contain any calendar posts");
   }
 
-  // Align the AI output back to our slots by order, validating each post.
+  // Align the AI output back to this batch's slots by order, validating each
+  // post. The content type is taken from the slot (our rotation), NOT the AI, so
+  // the "no two consecutive posts share a type" guarantee always holds.
   return slots.map((slot, i) => {
     const post = parsed[i] || {};
     const postText = String(post.postText || "").trim();
@@ -215,14 +274,49 @@ async function generateCalendarPosts(brand, { businessType, theme, slots }) {
       ? post.hashtags.map((h) => String(h).trim()).filter(Boolean)
       : [];
     return {
-      contentType: String(post.contentType || CONTENT_TYPES[i % CONTENT_TYPES.length]),
+      contentType: String(slot.contentType || CONTENT_TYPES[i % CONTENT_TYPES.length]),
       postText,
       hashtags,
       visualIdea: String(post.visualIdea || "").trim(),
       callToAction: String(post.callToAction || "").trim(),
-      bestPostingTime: normalizeTime(post.bestPostingTime, slot.platform),
+      bestPostingTime: slot.time || normalizeTime(post.bestPostingTime, slot.platform),
     };
   });
+}
+
+/**
+ * Generates content for every slot, batching large calendars across multiple AI
+ * calls (bounded concurrency). Returns an array of validated post objects
+ * aligned to the input slots (same order/length).
+ */
+async function generateCalendarPosts(brand, { businessType, theme, slots }) {
+  // Split the slots into ordered batches.
+  const batches = [];
+  for (let i = 0; i < slots.length; i += CALENDAR_BATCH_SIZE) {
+    batches.push(slots.slice(i, i + CALENDAR_BATCH_SIZE));
+  }
+
+  // Run batches with a bounded worker pool, keeping results in slot order.
+  const batchResults = new Array(batches.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < batches.length) {
+      const idx = cursor;
+      cursor += 1;
+      batchResults[idx] = await generateCalendarBatch(brand, {
+        businessType,
+        theme,
+        slots: batches[idx],
+      });
+    }
+  }
+  const workers = [];
+  for (let w = 0; w < Math.min(CALENDAR_BATCH_CONCURRENCY, batches.length); w += 1) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
+
+  return batchResults.flat();
 }
 
 /**
@@ -231,7 +325,7 @@ async function generateCalendarPosts(brand, { businessType, theme, slots }) {
 async function generateSingleCalendarPost(brand, opts) {
   const systemPrompt = buildSinglePostPrompt(brand, opts);
 
-  const response = await anthropic.messages.create({
+  const response = await createMessage({
     model: MODEL,
     max_tokens: 1536,
     system: systemPrompt,
@@ -289,6 +383,9 @@ module.exports = {
   SUPPORTED_PLATFORMS,
   CONTENT_TYPES,
   POSTING_FREQUENCIES,
+  POSTING_WINDOWS,
+  PLATFORM_SCHEDULES,
+  ANGLE_SEEDS,
   DEFAULT_POSTING_TIMES,
   generateCalendarPosts,
   generateSingleCalendarPost,

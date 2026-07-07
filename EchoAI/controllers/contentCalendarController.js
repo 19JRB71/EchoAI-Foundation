@@ -2,12 +2,18 @@ const db = require("../config/db");
 const {
   SUPPORTED_PLATFORMS,
   POSTING_FREQUENCIES,
+  PLATFORM_SCHEDULES,
+  CONTENT_TYPES,
+  ANGLE_SEEDS,
+  DEFAULT_POSTING_TIMES,
   generateCalendarPosts,
   generateSingleCalendarPost,
   composePostContent,
 } = require("../prompts/contentCalendarPrompt");
+const { zonedWallTimeToUtc, isValidTimezone } = require("../utils/timezone");
 
 const CALENDAR_DAYS = 30;
+const DEFAULT_TIMEZONE = "America/New_York";
 
 function isSupportedPlatform(platform) {
   return SUPPORTED_PLATFORMS.includes(String(platform || "").toLowerCase());
@@ -15,6 +21,24 @@ function isSupportedPlatform(platform) {
 
 function isSupportedFrequency(freq) {
   return Object.prototype.hasOwnProperty.call(POSTING_FREQUENCIES, freq);
+}
+
+/**
+ * The brand's configured timezone drives every post's wall-clock posting time.
+ * It lives on availability_schedules (the appointment scheduler owns it); there
+ * is no timezone column on brands. Falls back to Eastern when unset/invalid.
+ */
+async function getBrandTimezone(brandId) {
+  try {
+    const r = await db.query(
+      "SELECT timezone FROM availability_schedules WHERE brand_id = $1 LIMIT 1",
+      [brandId]
+    );
+    const tz = r.rows[0]?.timezone && String(r.rows[0].timezone).trim();
+    return tz && isValidTimezone(tz) ? tz : DEFAULT_TIMEZONE;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
 }
 
 /** Maps an Anthropic upstream failure to a 502 (vs. a generic 500). */
@@ -38,43 +62,114 @@ async function getOwnedBrand(userId, brandId) {
   return result.rows[0] || null;
 }
 
-/**
- * Deterministically computes the posting slots for a 30-day calendar from the
- * chosen frequency and selected platforms. Each slot is { index, day, platform }
- * with platforms rotated evenly across the scheduled days.
- */
-function computeSlots(frequency, platforms) {
-  const perWeek = POSTING_FREQUENCIES[frequency].perWeek;
-  // Which day-of-week offsets (0-6) within each rolling week carry a post.
-  const activeOffsets = new Set();
+/** Which day-of-week offsets (0-6) within a rolling week carry a post. */
+function activeOffsetsForPerWeek(perWeek) {
+  const offsets = new Set();
   if (perWeek >= 7) {
-    for (let i = 0; i < 7; i += 1) activeOffsets.add(i);
+    for (let i = 0; i < 7; i += 1) offsets.add(i);
   } else {
     // Spread `perWeek` posts as evenly as possible across the 7-day window.
     for (let i = 0; i < perWeek; i += 1) {
-      activeOffsets.add(Math.round((i * 7) / perWeek) % 7);
+      offsets.add(Math.round((i * 7) / perWeek) % 7);
     }
   }
-
-  const slots = [];
-  let index = 0;
-  for (let day = 1; day <= CALENDAR_DAYS; day += 1) {
-    if (!activeOffsets.has((day - 1) % 7)) continue;
-    const platform = platforms[index % platforms.length];
-    index += 1;
-    slots.push({ index, day, platform });
-  }
-  return slots;
+  return offsets;
 }
 
-/** Builds a future scheduled_time from a day offset (1-based) and "HH:MM". */
-function scheduledTimeFor(day, time) {
-  const [h, m] = String(time || "10:00").split(":").map(Number);
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + (day - 1));
-  d.setHours(Number.isFinite(h) ? h : 10, Number.isFinite(m) ? m : 0, 0, 0);
-  return d;
+/**
+ * Builds raw { day, platform, time } slots for the DEFAULT "optimal" schedule:
+ * each platform posts on its own per-platform cadence (PLATFORM_SCHEDULES) at
+ * fixed daily windows. `time` is a wall-clock "HH:MM" in the brand's timezone.
+ */
+function optimalRawSlots(platforms) {
+  const raw = [];
+  for (const platform of platforms) {
+    const schedule = PLATFORM_SCHEDULES[platform];
+    if (!schedule) continue;
+    const times = schedule.times && schedule.times.length ? schedule.times : ["08:00"];
+    const offsets =
+      schedule.cadence === "weekly"
+        ? activeOffsetsForPerWeek(schedule.perWeek || 3)
+        : null; // daily: every day
+    for (let day = 1; day <= CALENDAR_DAYS; day += 1) {
+      if (offsets && !offsets.has((day - 1) % 7)) continue;
+      for (const time of times) raw.push({ day, platform, time });
+    }
+  }
+  return raw;
+}
+
+/**
+ * Builds raw { day, platform } slots for a legacy cadence (daily / N-per-week):
+ * one post per active day, platforms rotated evenly. No fixed time — the AI
+ * suggests one per slot.
+ */
+function legacyRawSlots(frequency, platforms) {
+  const offsets = activeOffsetsForPerWeek(POSTING_FREQUENCIES[frequency].perWeek);
+  const raw = [];
+  let i = 0;
+  for (let day = 1; day <= CALENDAR_DAYS; day += 1) {
+    if (!offsets.has((day - 1) % 7)) continue;
+    raw.push({ day, platform: platforms[i % platforms.length] });
+    i += 1;
+  }
+  return raw;
+}
+
+/**
+ * Deterministically computes the posting slots for a 30-day calendar. Slots are
+ * sorted chronologically (day, then time) and each is assigned a content type in
+ * strict rotation so NO TWO CONSECUTIVE posts share a type, plus a rotating
+ * angle seed so hundreds of posts stay varied. Returns
+ * { index, day, platform, time?, contentType, angle } in publishing order.
+ */
+function computeSlots(frequency, platforms) {
+  const raw =
+    frequency === "optimal"
+      ? optimalRawSlots(platforms)
+      : legacyRawSlots(frequency, platforms);
+
+  // Order by when the post actually goes out so the content-type rotation
+  // guarantee applies to the real publishing sequence.
+  raw.sort((a, b) => {
+    if (a.day !== b.day) return a.day - b.day;
+    const ta = a.time || "12:00";
+    const tb = b.time || "12:00";
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    return a.platform < b.platform ? -1 : a.platform > b.platform ? 1 : 0;
+  });
+
+  return raw.map((s, i) => ({
+    index: i + 1,
+    day: s.day,
+    platform: s.platform,
+    time: s.time || null,
+    contentType: CONTENT_TYPES[i % CONTENT_TYPES.length],
+    angle: ANGLE_SEEDS[i % ANGLE_SEEDS.length],
+  }));
+}
+
+/**
+ * Builds a future scheduled_time from a day offset (1-based) and "HH:MM",
+ * interpreting the time as wall-clock in the brand's timezone and returning the
+ * matching absolute UTC instant (what the scheduler compares against NOW()).
+ */
+function scheduledTimeFor(day, time, timezone) {
+  const [rawH, rawM] = String(time || "10:00").split(":").map(Number);
+  const h = Number.isFinite(rawH) ? rawH : 10;
+  const m = Number.isFinite(rawM) ? rawM : 0;
+  // Anchor to today's date in the brand's timezone, then add the day offset.
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  base.setDate(base.getDate() + (day - 1));
+  return zonedWallTimeToUtc(
+    base.getFullYear(),
+    base.getMonth() + 1,
+    base.getDate(),
+    h,
+    m,
+    timezone
+  );
 }
 
 /**
@@ -124,6 +219,7 @@ async function generateCalendar(req, res) {
     const brokenPlatforms = brokenCheck.rows.map((r) => r.platform);
 
     const theme = String(contentTheme || "").trim() || null;
+    const timezone = await getBrandTimezone(brandId);
     const slots = computeSlots(freq, selected);
     const generated = await generateCalendarPosts(brand, {
       businessType: String(businessType || "").trim() || brand.industry || null,
@@ -133,6 +229,10 @@ async function generateCalendar(req, res) {
 
     const posts = slots.map((slot, i) => {
       const g = generated[i];
+      // "optimal" slots carry a fixed window time; legacy slots use the AI's
+      // suggested time. Either way the time is a wall-clock time in the brand's
+      // timezone, converted to the correct UTC instant for the scheduler.
+      const time = slot.time || g.bestPostingTime;
       return {
         day: slot.day,
         platform: slot.platform,
@@ -140,8 +240,8 @@ async function generateCalendar(req, res) {
         postContent: composePostContent(g),
         visualIdea: g.visualIdea,
         callToAction: g.callToAction,
-        bestPostingTime: g.bestPostingTime,
-        scheduledTime: scheduledTimeFor(slot.day, g.bestPostingTime).toISOString(),
+        bestPostingTime: time,
+        scheduledTime: scheduledTimeFor(slot.day, time, timezone).toISOString(),
       };
     });
 
@@ -526,4 +626,7 @@ module.exports = {
   pauseCalendar,
   regeneratePost,
   updatePost,
+  // Exported for unit tests of the deterministic scheduling/rotation logic.
+  computeSlots,
+  scheduledTimeFor,
 };
