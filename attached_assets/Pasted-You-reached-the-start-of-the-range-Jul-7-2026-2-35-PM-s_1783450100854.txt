@@ -1,0 +1,115 @@
+You reached the start of the range
+Jul 7, 2026, 2:35 PM
+scheduling build on Metal builder "builder-lewvgn"
+unpacking archive
+34.7 MB
+192ms
+using build driver nixpacks-v1.41.0
+ 
+╔══════════════════════════════ Nixpacks v1.41.0 ══════════════════════════════╗
+║ setup      │ nodejs_20, python3, gcc, gnumake                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ install    │ rm -rf node_modules                                             ║
+║            │ npm install --no-audit --no-fund --maxsockets=1                 ║
+║            │ node -e                                                         ║
+║            │ "require('dotenv');require('express');require('pg');require('bc ║
+║            │ rypt');console.log('runtime deps verified OK')"                 ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ build      │ test -f client/dist/index.html || (echo 'ERROR: client/dist is  ║
+║            │ missing - run: cd EchoAI/client && npm run build, then commit   ║
+║            │ client/dist' && exit 1)                                         ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ start      │ npm run migrate && node server.js                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+ 
+ 
+Saved output to:
+  snapshot-target-unpack/EchoAI
+
+internal
+load build definition from Dockerfile
+0ms
+
+internal
+load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+303ms
+
+internal
+load .dockerignore
+0ms
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "ENCRYPTION_KEY") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "JWT_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "SESSION_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "ENCRYPTION_KEY") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "JWT_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "SESSION_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)(https://docs.docker.com/go/dockerfile/rule/undefined-var/)
+ details: Variables should be defined before their use
+
+internal
+load build context
+0ms
+
+stage-0
+FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+16ms
+
+stage-0
+RUN nix-env -if .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix && nix-collect-garbage -d cached
+0ms
+
+stage-0
+COPY .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix cached
+0ms
+
+stage-0
+WORKDIR /app/ cached
+0ms
+
+stage-0
+COPY . /app/.
+704ms
+uploading snapshot
+28.1 MB
+1.3s
+
+stage-0
+RUN rm -rf node_modules
+232ms
+
+stage-0
+RUN npm install --no-audit --no-fund --maxsockets=1
+1m 11s
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-07-07T18_41_08_559Z-debug-0.log
+
+stage-0
+RUN node -e "require('dotenv');require('express');require('pg');require('bcrypt');console.log('runtime deps verified OK')"
+280ms
+node:internal/modules/cjs/loader:1228
+  throw err;
+  ^
+Error: Cannot find module 'dotenv'
+
+Require stack:
+- /app/[eval]
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+    at Module._load (node:internal/modules/cjs/loader:1051:27)
+    at Module.require (node:internal/modules/cjs/loader:1311:19)
+    at require (node:internal/modules/helpers:179:18)
+    at [eval]:1:1
+    at runScriptInThisContext (node:internal/vm:209:10)
+    at node:internal/process/execution:118:14
+    at [eval]-wrapper:6:24
+    at runScript (node:internal/process/execution:101:62)
+    at evalScript (node:internal/process/execution:133:3) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/[eval]' ]
+}
+Node.js v20.18.1
+Build Failed: build daemon returned an error < failed to solve: process "/bin/bash -ol pipefail -c node -e \"require('dotenv');require('express');require('pg');require('bcrypt');console.log('runtime deps verified OK')\"" did not complete successfully: exit code: 1 >

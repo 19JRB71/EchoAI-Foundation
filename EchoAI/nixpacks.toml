@@ -34,14 +34,27 @@ nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
 # node_modules HALF-installed (dotenv and others missing) — which is exactly why
 # the app crashed at runtime with "Cannot find module 'dotenv'".
 #
-# Fix: (1) start from a clean node_modules so there is nothing to rename over,
-# (2) serialize npm with --maxsockets=1 to avoid the rename race / reduce memory
-# pressure, then (3) hard-verify the critical runtime deps actually landed. Step
-# 3 turns a silent partial install into a LOUD build failure instead of shipping
-# a broken image.
+# A clean, serialized install was NOT enough: npm 10.8.2 (bundled with Node
+# 20.18.1) still crashes mid-install on Railway, silently leaving node_modules
+# incomplete. So the real fix is to upgrade npm itself to a newer, fixed release
+# via corepack before installing.
+#
+# Steps:
+#  1. Upgrade npm to a fixed version (corepack; best-effort so a corepack hiccup
+#     can't hard-fail the build — we fall back to the bundled npm and the debug
+#     dump below still surfaces the real error).
+#  2. Clean node_modules so there is nothing to rename over.
+#  3. Install serialized (--maxsockets=1) with --foreground-scripts so any native
+#     postinstall (e.g. bcrypt) prints its output instead of hiding it. On
+#     failure, dump the tail of npm's own debug log into the build output.
+#  4. Hard-verify the critical runtime deps actually landed — turns a silent
+#     partial install into a LOUD build failure instead of shipping a broken image.
 cmds = [
+  "COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable || true",
+  "COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare npm@latest --activate || true",
+  "npm --version",
   "rm -rf node_modules",
-  "npm install --no-audit --no-fund --maxsockets=1",
+  "npm install --no-audit --no-fund --maxsockets=1 --foreground-scripts || (echo '===== NPM DEBUG LOG (tail) =====' && tail -n 150 /root/.npm/_logs/*-debug-0.log; exit 1)",
   "node -e \"require('dotenv');require('express');require('pg');require('bcrypt');console.log('runtime deps verified OK')\""
 ]
 
