@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api.js";
 import { SEGMENTS, segmentLabel, pct, statusBadgeClass } from "./emailShared.js";
 
@@ -7,9 +7,14 @@ export default function DripSequences({ brandId, refreshKey, onChange }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const loadedOnce = useRef(false);
 
   async function load() {
-    setLoading(true);
+    // Only show the full-page loading state on the first load. Background
+    // refreshes (e.g. after retrying a failed recipient) must NOT swap the list
+    // for a spinner, or they unmount the failed-recipient panel and instantly
+    // wipe its "Queued for retry" confirmation before the owner can see it.
+    if (!loadedOnce.current) setLoading(true);
     setError("");
     try {
       const data = await api.getEmailCampaigns(brandId);
@@ -17,6 +22,7 @@ export default function DripSequences({ brandId, refreshKey, onChange }) {
     } catch (err) {
       setError(err.message);
     } finally {
+      loadedOnce.current = true;
       setLoading(false);
     }
   }

@@ -50,3 +50,4 @@
 - [EchoAI content-calendar optimal scheduling](echoai-content-calendar-optimal.md) — default per-platform cadence; no-consecutive-type enforced in code via slot rotation; wall-clock windows→UTC (publisher queries NOW() in UTC); validate brand tz, fall back to Eastern.
 - [EchoAI API quota monitor honesty](echoai-api-quota-monitor.md) — null→0 fabrication trap when persisting optional numerics; Postgres NUMERIC returns strings (coerce in UI); restart workflow before smoke-testing util edits.
 - [EchoAI SMS failure reasons](echoai-sms-failure-reasons.md) — failed sms_messages store error_message + error_permanent (Twilio-code classified); cleared on send/retry; UI groups fix-first vs safe-to-retry.
+- [EchoAI background-refresh spinner collapse](echoai-refresh-spinner-collapse.md) — a list load() that flips to a full-page spinner on every refresh unmounts inline panels and instantly wipes their transient success text; guard the spinner to first load only.
