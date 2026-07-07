@@ -46,3 +46,25 @@ construction is safe. Stripe is the odd one out.
 **Why:** optional features must degrade gracefully, never fail-boot. **How to
 apply:** before adding any `new SomeSDK(key)` at module top-level, confirm it
 tolerates a missing key or guard it like Stripe.
+
+## 3. Prod CORS allowlist blocked the app's OWN assets → blank page
+Symptom: `curl` of every route returned valid 200 HTML/JS/CSS, the identical
+committed `client/dist` bundle rendered perfectly locally, yet the deployed site
+was a blank white page in every real browser (incognito + headless too).
+
+**Root cause:** the prod CORS callback rejected any `Origin` not in
+`REPLIT_DOMAINS`/`ALLOWED_ORIGINS`. On Railway those are unset, so the app's own
+domain wasn't allowlisted. A top-level navigation sends no `Origin` (so the HTML
+loaded), but the page's `<script type="module" crossorigin>` fetches the JS
+bundle *with* an `Origin` header → 403 → JS never executes → blank. `curl` never
+sends `Origin`, which is why every curl looked healthy and masked the bug.
+
+**Fix:** always allow **same-origin** requests — compare `Origin` to
+`http(s)://${req.headers.host}` and pass before the allowlist check. Safe by
+definition; cross-origin stays allowlist-gated. Works on any deploy domain with
+zero env config.
+
+**Why:** same-origin asset loads must never be CORS-gated. **How to apply:** the
+"curl 200 but browser blank" combo on a new domain = CORS blocking own assets;
+test with `curl -H "Origin: https://<domain>" .../assets/<file>.js` — a 403 there
+confirms it.

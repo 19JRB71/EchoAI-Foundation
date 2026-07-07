@@ -130,6 +130,15 @@ app.use(
     const origin = req.header("Origin");
     // Same-origin / non-browser requests (no Origin header) are always allowed.
     if (!origin) return callback(null, { origin: true, credentials: true });
+    // Same-origin browser requests: the Origin matches the host we are being
+    // served on. Browsers send an Origin header on crossorigin module-script and
+    // fetch requests even for the site's own assets, so this MUST pass regardless
+    // of env config — otherwise the SPA's own JS is blocked and the page renders
+    // blank. Covers any deploy domain (Replit, Railway, custom) with no setup.
+    const host = req.headers.host;
+    if (host && (origin === `https://${host}` || origin === `http://${host}`)) {
+      return callback(null, { origin: true, credentials: true });
+    }
     if (!IS_PROD) return callback(null, { origin: true, credentials: true });
     if (allowedOrigins.includes(origin)) {
       return callback(null, { origin: true, credentials: true });
