@@ -16,10 +16,10 @@
 
 [build]
 builder = "nixpacks"
-# Install server deps, then build the client (build:client installs client deps
-# and runs vite build into client/dist). Any VITE_* vars set on the Railway
-# service are baked into the client bundle during this step.
-buildCommand = "npm install && npm run build:client"
+# Build phases (setup / install / build) are defined in nixpacks.toml so the
+# install step uses `npm install --include=dev` (not the crashing `npm ci`) and
+# the client's dev-only build tools (vite/tailwind) are installed even though
+# NODE_ENV=production. Any VITE_* vars set on the service are baked in there.
 
 [deploy]
 # Apply pending SQL migrations (idempotent) then start the Express server.

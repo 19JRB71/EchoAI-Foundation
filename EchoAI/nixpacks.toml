@@ -1,0 +1,32 @@
+# =============================================================================
+# Nixpacks build recipe for EchoAI (Railway)
+# =============================================================================
+# Railway's default Node build ran `npm ci`, which crashed on Railway with
+# "Exit handler never called!". This file replaces the auto-detected phases with
+# an explicit, robust recipe:
+#
+#  * setup   - Node 20 (has prebuilt `bcrypt` binaries, so no native compile is
+#              needed) plus python3/gcc/make as a fallback in case any native
+#              dependency must build from source.
+#  * install - `npm install` (not `npm ci`) with dev dependencies included.
+#              The client's build tools (vite, tailwind, postcss) live in the
+#              client's devDependencies, and NODE_ENV=production would otherwise
+#              cause npm to skip them, breaking the SPA build.
+#  * build   - build the React SPA into client/dist.
+#
+# The start command, health check, and restart policy live in railway.toml.
+# =============================================================================
+
+providers = ["node"]
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+
+[phases.install]
+cmds = [
+  "npm install --include=dev",
+  "cd client && npm install --include=dev",
+]
+
+[phases.build]
+cmds = ["cd client && npm run build"]
