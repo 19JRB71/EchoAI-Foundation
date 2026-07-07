@@ -517,6 +517,34 @@ async function activateCalendar(req, res) {
     const owned = await getOwnedCalendar(userId, calendarId);
     if (!owned) return res.status(404).json({ error: "Calendar not found" });
 
+    // Refuse to flip a month of posts to 'scheduled' when one of the
+    // calendar's platforms has a broken stored connection (expired/revoked
+    // login): every post aimed there would fail at publish time. Once the
+    // owner reconnects, connection_status flips back to 'connected' and
+    // activation works with no extra steps. Mirrors the schedulePost check.
+    const brokenCheck = await db.query(
+      `SELECT DISTINCT sa.platform
+       FROM social_posts sp
+       JOIN social_accounts sa
+         ON sa.brand_id = sp.brand_id AND sa.platform = sp.platform
+       WHERE sp.calendar_id = $1
+         AND sp.status IN ('draft', 'scheduled')
+         AND sa.connection_status = 'error'
+       ORDER BY sa.platform`,
+      [calendarId]
+    );
+    if (brokenCheck.rows.length > 0) {
+      const brokenPlatforms = brokenCheck.rows.map((r) => r.platform);
+      const labels = brokenPlatforms
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(", ");
+      return res.status(409).json({
+        error: `Your ${labels} connection stopped working, so this calendar's ${labels} posts would fail to publish. Reconnect ${labels} in Connected Accounts, then activate the calendar again.`,
+        connectionError: true,
+        platforms: brokenPlatforms,
+      });
+    }
+
     const client = await db.getClient();
     try {
       await client.query("BEGIN");
