@@ -54,3 +54,4 @@
 - [EchoAI email failure classify](echoai-email-failure-classify.md) — classify email failures permanent (SMTP 5xx/bounce) vs transient; every flip path sets the flag, every retry clears it; UI groups fix-first vs safe-to-retry.
 - [EchoAI background-refresh spinner collapse](echoai-refresh-spinner-collapse.md) — a list load() that flips to a full-page spinner on every refresh unmounts inline panels and instantly wipes their transient success text; guard the spinner to first load only.
 - [EchoAI fresh-DB schema bootstrap](echoai-fresh-db-schema-bootstrap.md) — migration runner must apply schema.sql FIRST or a brand-new DB (Railway/prod) crashes at migrate → deploy green but healthcheck fails; only 4 env vars are boot-critical.
+- [EchoAI Railway/nixpacks deploy](echoai-railway-deploy.md) — bundled npm 10.8.2 silently half-installs (use Yarn + --ignore-engines); optional SDK clients (Stripe) that construct at boot crash the server — guard them.
