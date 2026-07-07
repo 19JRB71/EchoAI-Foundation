@@ -880,6 +880,7 @@ module.exports = {
   // Exported for unit tests of the deterministic scheduling/rotation logic.
   computeSlots,
   scheduledTimeFor,
+  getBrandTimezone,
   sanitizeWindows,
   defaultPostingWindows,
   sanitizeFrequencies,
