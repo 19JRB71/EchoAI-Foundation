@@ -9,16 +9,14 @@
 #              needed) plus python3/gcc/make as a fallback in case any native
 #              dependency must build from source.
 #  * install - server deps via `npm install` (not the crashing `npm ci`).
-#  * build   - install the client's deps AND build the SPA in a SINGLE command.
-#              Nixpacks only copies the root package.json into the install phase,
-#              so the client/ source only exists from the build phase onward.
-#              The install and build MUST run in one command: nixpacks runs each
-#              cmd with an ephemeral cache mount, so a client `npm install` in
-#              one cmd is not guaranteed to still be present in a later cmd -
-#              chaining them with `&&` keeps node_modules in scope for the build.
-#              The client's build tools (vite, tailwind, postcss) are regular
-#              dependencies (not devDependencies), so a plain `npm install`
-#              installs them even with NODE_ENV=production.
+#  * build   - NO client build runs on Railway. Railway's builder crashes the
+#              client's npm install with "npm error Exit handler never called!",
+#              so instead the React SPA is built locally and its output
+#              (client/dist) is committed to the repo (un-ignored in
+#              EchoAI/.gitignore). Railway serves that prebuilt bundle directly.
+#              This build phase only verifies the committed bundle is present.
+#              NOTE: after ANY change under EchoAI/client/, rebuild with
+#              `cd EchoAI/client && npm run build` and commit client/dist.
 #
 # The start command, health check, and restart policy live in railway.toml.
 # =============================================================================
@@ -29,7 +27,7 @@ providers = ["node"]
 nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
 
 [phases.install]
-cmds = ["npm install"]
+cmds = ["npm install --no-audit --no-fund"]
 
 [phases.build]
-cmds = ["cd client && npm install && npm run build"]
+cmds = ["test -f client/dist/index.html || (echo 'ERROR: client/dist is missing - run: cd EchoAI/client && npm run build, then commit client/dist' && exit 1)"]

@@ -1,0 +1,31 @@
+{
+  "name": "EchoAI — AI Marketing Autopilot",
+  "short_name": "EchoAI",
+  "description": "AI-powered SaaS marketing platform: Facebook ad automation, lead-qualification chatbot, social & video content, email campaigns, and instant hot-lead alerts.",
+  "theme_color": "#05070d",
+  "background_color": "#05070d",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

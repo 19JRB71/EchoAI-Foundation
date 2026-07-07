@@ -1,3 +1,9 @@
 node_modules/
 .env
 *.log
+
+# The root .gitignore ignores every `dist/` folder. We intentionally commit the
+# built React SPA so Railway can serve it WITHOUT running the client build,
+# which crashes on Railway's builder ("npm error Exit handler never called!").
+!client/dist/
+!client/dist/**
