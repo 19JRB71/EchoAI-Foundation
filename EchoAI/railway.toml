@@ -22,13 +22,27 @@ builder = "nixpacks"
 # NODE_ENV=production. Any VITE_* vars set on the service are baked in there.
 
 [deploy]
-# Apply pending SQL migrations (idempotent) then start the Express server.
+# Install production dependencies, apply pending SQL migrations (idempotent),
+# then start the Express server.
+#
+# Why install here: node_modules produced during the nixpacks BUILD phase is not
+# reliably present in the DEPLOY/runtime container (nixpacks can keep it in a
+# build-cache layer that does not persist to the final image). That caused the
+# runtime crash "Cannot find module 'dotenv'" — the server never started, so the
+# healthcheck failed. Installing (only production deps) at start guarantees every
+# runtime package is present. It is fast when the layer is already warm and
+# self-heals when it is not. `--omit=dev` skips the client build tools, which are
+# not needed (the React SPA is prebuilt and committed under client/dist).
+#
 # server.js reads PORT (Railway injects it) and serves BOTH the /api routes and
 # the built React SPA from client/dist on a single origin.
-startCommand = "npm run migrate && node server.js"
+startCommand = "npm install --omit=dev --no-audit --no-fund && npm run migrate && node server.js"
 # Railway hits this public endpoint to confirm the app is live before routing
 # traffic to a new deploy.
 healthcheckPath = "/api/health"
-healthcheckTimeout = 120
+# Generous window: a cold container installs prod deps + runs migrations before
+# the server listens. This is the max time Railway waits for /api/health to
+# respond before declaring the deploy failed.
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3

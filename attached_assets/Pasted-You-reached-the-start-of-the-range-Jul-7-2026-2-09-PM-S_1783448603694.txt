@@ -1,0 +1,96 @@
+You reached the start of the range
+Jul 7, 2026, 2:09 PM
+Starting Container
+    at Module._load (node:internal/modules/cjs/loader:1051:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:173:12) {
+    at Module.require (node:internal/modules/cjs/loader:1311:19)
+  code: 'MODULE_NOT_FOUND',
+    at require (node:internal/modules/helpers:179:18)
+> echoai@1.0.0 migrate
+  requireStack: [ '/app/utils/runMigrations.js' ]
+    at Object.<anonymous> (/app/utils/runMigrations.js:1:1)
+> node utils/runMigrations.js
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+  ^
+node:internal/modules/cjs/loader:1228
+  throw err;
+    at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+Error: Cannot find module 'dotenv'
+    at Module.load (node:internal/modules/cjs/loader:1288:32)
+Require stack:
+    at Module._load (node:internal/modules/cjs/loader:1104:12)
+- /app/utils/runMigrations.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+npm warn config production Use `--omit=dev` instead.
+}
+Node.js v20.18.1
+npm warn config production Use `--omit=dev` instead.
+> echoai@1.0.0 migrate
+> node utils/runMigrations.js
+}
+Node.js v20.18.1
+node:internal/modules/cjs/loader:1228
+  throw err;
+  ^
+Error: Cannot find module 'dotenv'
+Require stack:
+- /app/utils/runMigrations.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+    at Module._load (node:internal/modules/cjs/loader:1051:27)
+    at Module.require (node:internal/modules/cjs/loader:1311:19)
+    at require (node:internal/modules/helpers:179:18)
+    at Object.<anonymous> (/app/utils/runMigrations.js:1:1)
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+    at Module.load (node:internal/modules/cjs/loader:1288:32)
+    at Module._load (node:internal/modules/cjs/loader:1104:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:173:12) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/utils/runMigrations.js' ]
+  requireStack: [ '/app/utils/runMigrations.js' ]
+- /app/utils/runMigrations.js
+npm warn config production Use `--omit=dev` instead.
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+    at Module._load (node:internal/modules/cjs/loader:1051:27)
+> echoai@1.0.0 migrate
+    at Module.require (node:internal/modules/cjs/loader:1311:19)
+> node utils/runMigrations.js
+    at require (node:internal/modules/helpers:179:18)
+node:internal/modules/cjs/loader:1228
+    at Object.<anonymous> (/app/utils/runMigrations.js:1:1)
+  throw err;
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+  ^
+    at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+    at Module.load (node:internal/modules/cjs/loader:1288:32)
+Error: Cannot find module 'dotenv'
+    at Module._load (node:internal/modules/cjs/loader:1104:12)
+Require stack:
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:173:12) {
+  code: 'MODULE_NOT_FOUND',
+}
+Node.js v20.18.1
+    at Module._load (node:internal/modules/cjs/loader:1051:27)
+  code: 'MODULE_NOT_FOUND',
+    at Module.require (node:internal/modules/cjs/loader:1311:19)
+    at require (node:internal/modules/helpers:179:18)
+  requireStack: [ '/app/utils/runMigrations.js' ]
+    at Object.<anonymous> (/app/utils/runMigrations.js:1:1)
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+    at Module.load (node:internal/modules/cjs/loader:1288:32)
+    at Module._load (node:internal/modules/cjs/loader:1104:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:173:12) {
+npm warn config production Use `--omit=dev` instead.
+> echoai@1.0.0 migrate
+> node utils/runMigrations.js
+node:internal/modules/cjs/loader:1228
+  throw err;
+  ^
+Error: Cannot find module 'dotenv'
+Require stack:
+- /app/utils/runMigrations.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+}
+Node.js v20.18.1
+Stopping Container
