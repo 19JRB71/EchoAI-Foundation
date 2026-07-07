@@ -30,6 +30,52 @@ function segmentClause(segment) {
     : SEGMENTS.all;
 }
 
+// SMTP reply codes that mean the address itself is bad — a hard bounce. The
+// mailbox doesn't exist / is disabled / the address is invalid, so retrying the
+// send unchanged just fails again; the owner must fix or remove the contact.
+// (5xx = permanent in SMTP; 4xx = greylisting / temporary and stays retryable.)
+const PERMANENT_SMTP_CODES = new Set([
+  550, // Mailbox unavailable / no such user
+  551, // User not local
+  553, // Mailbox name not allowed / invalid address
+  554, // Transaction failed (often "no such recipient" / policy rejection)
+  501, // Bad address syntax
+  521, // Server does not accept mail
+  541, // Recipient address rejected
+]);
+
+// Regex signature of a hard bounce when no SMTP reply code is on the error
+// object (some transports surface only a message string).
+const PERMANENT_EMAIL_TEXT =
+  /invalid (?:recipient|address|mailbox|email)|no such (?:user|mailbox|recipient)|user unknown|mailbox (?:unavailable|not found|does not exist)|(?:recipient|address) (?:rejected|does not exist|not found)|does not exist|550|553|554/i;
+
+/**
+ * Classifies an email send failure into an owner-friendly reason string and a
+ * permanence flag. `permanent === true` means retrying the send unchanged won't
+ * help (hard bounce / invalid address — fix or remove the contact first);
+ * everything else (SMTP outage, connection drop, timeout, greylisting) is
+ * transient and safe to retry. Mirrors classifySmsError for consistency.
+ */
+function classifyEmailError(err) {
+  const message = (err && err.message ? String(err.message) : "Send failed").slice(0, 300);
+  const rawCode = err && (err.responseCode || err.code);
+  // Some transports surface the SMTP reply code as a numeric string ("550").
+  const code =
+    typeof rawCode === "string" && /^\d+$/.test(rawCode)
+      ? Number(rawCode)
+      : rawCode;
+  let permanent = false;
+  if (typeof code === "number") {
+    permanent = PERMANENT_SMTP_CODES.has(code);
+  } else {
+    // No usable SMTP reply code — inspect the message text. Connection-level
+    // errors (ECONNECTION/ETIMEDOUT/ESOCKET/EDNS/EAUTH, string codes) fall
+    // through as transient, which is the safe default.
+    permanent = PERMANENT_EMAIL_TEXT.test(message);
+  }
+  return { message, permanent };
+}
+
 /** Loads a brand only if it belongs to the authenticated user. */
 async function getOwnedBrand(userId, brandId) {
   const result = await db.query(
@@ -476,11 +522,13 @@ async function sendCampaign(req, res) {
         sent += 1;
       } catch (err) {
         failed += 1;
+        const { message: reason, permanent } = classifyEmailError(err);
         await client.query(
           `UPDATE email_marketing_recipients
-           SET delivery_status = 'failed', send_error = $2, updated_at = NOW()
+           SET delivery_status = 'failed', send_error = $2,
+               send_error_permanent = $3, updated_at = NOW()
            WHERE recipient_id = $1`,
-          [r.recipient_id, err.message || "Unknown error"]
+          [r.recipient_id, reason, permanent]
         );
         console.error(`Email send failed (recipient ${r.recipient_id}):`, err.message);
       }
@@ -729,17 +777,15 @@ async function sendDueDripEmails() {
         // owner. The row is FOR UPDATE-locked, so the flip cannot race.
         const attemptsUsed = (rec.send_attempts || 0) + 1;
         if (attemptsUsed >= MAX_DRIP_SEND_ATTEMPTS) {
+          const { message: reason, permanent } = classifyEmailError(sendError);
           const flipped = await client.query(
             `UPDATE email_marketing_recipients
              SET delivery_status = 'failed', send_attempts = $1,
-                 send_error = $3, next_send_at = NULL, updated_at = NOW()
+                 send_error = $3, send_error_permanent = $4,
+                 next_send_at = NULL, updated_at = NOW()
              WHERE recipient_id = $2 AND delivery_status = 'pending'
              RETURNING recipient_id`,
-            [
-              attemptsUsed,
-              rec.recipient_id,
-              sendError ? sendError.message : "Unknown error",
-            ]
+            [attemptsUsed, rec.recipient_id, reason, permanent]
           );
           await client.query("COMMIT");
           if (flipped.rows.length > 0) {
@@ -877,7 +923,8 @@ async function retryDripRecipient(req, res) {
     const result = await db.query(
       `UPDATE email_marketing_recipients r
        SET delivery_status = 'pending', send_attempts = 0,
-           send_error = NULL, next_send_at = NOW(), updated_at = NOW()
+           send_error = NULL, send_error_permanent = NULL,
+           next_send_at = NOW(), updated_at = NOW()
        FROM email_marketing_campaigns c
        JOIN brands b ON b.brand_id = c.brand_id
        WHERE r.recipient_id = $1
@@ -941,6 +988,7 @@ async function retryFailedDripRecipients(req, res) {
     const result = await db.query(
       `UPDATE email_marketing_recipients r
        SET delivery_status = 'pending', send_attempts = 0,
+           send_error = NULL, send_error_permanent = NULL,
            next_send_at = NOW(), updated_at = NOW()
        FROM email_marketing_campaigns c
        JOIN brands b ON b.brand_id = c.brand_id
@@ -1108,11 +1156,13 @@ async function sendDueScheduledCampaigns() {
           sent += 1;
         } catch (err) {
           lastError = err.message;
+          const { message: reason, permanent } = classifyEmailError(err);
           await client.query(
             `UPDATE email_marketing_recipients
-             SET delivery_status = 'failed', send_error = $2, updated_at = NOW()
+             SET delivery_status = 'failed', send_error = $2,
+                 send_error_permanent = $3, updated_at = NOW()
              WHERE recipient_id = $1`,
-            [r.recipient_id, err.message || "Unknown error"]
+            [r.recipient_id, reason, permanent]
           );
           console.error(
             `Scheduled blast send failed (recipient ${r.recipient_id}):`,
@@ -1235,7 +1285,8 @@ async function getCampaignDetail(req, res) {
     );
     const recipients = await db.query(
       `SELECT recipient_id, email_address, delivery_status, current_step,
-              send_error, opened_at, clicked_at, unsubscribed_at
+              send_error, send_error_permanent, opened_at, clicked_at,
+              unsubscribed_at
        FROM email_marketing_recipients
        WHERE campaign_id = $1 ORDER BY created_at ASC LIMIT 500`,
       [campaignId]
@@ -1555,4 +1606,5 @@ module.exports = {
   trackOpen,
   trackClick,
   unsubscribe,
+  classifyEmailError,
 };

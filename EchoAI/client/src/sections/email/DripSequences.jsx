@@ -241,42 +241,84 @@ function FailedRecipients({ campaignId, onRetried }) {
     );
   }
 
-  return (
-    <div className="mt-2 space-y-1.5">
-      {recipients.map((r) => {
-        const retried = retriedIds.includes(r.recipient_id);
-        return (
-          <div
-            key={r.recipient_id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/60 px-3 py-2"
+  // Split hard bounces / invalid addresses (retrying won't help — fix the
+  // contact first) from transient failures (SMTP outage / blip — safe to
+  // retry). Unclassified rows (send_error_permanent null) fall in with the
+  // safe-to-retry group so owners aren't discouraged from retrying them.
+  const permanent = recipients.filter((r) => r.send_error_permanent === true);
+  const transient = recipients.filter((r) => r.send_error_permanent !== true);
+
+  const renderRow = (r) => {
+    const retried = retriedIds.includes(r.recipient_id);
+    const isPermanent = r.send_error_permanent === true;
+    return (
+      <div
+        key={r.recipient_id}
+        className={[
+          "flex items-center justify-between gap-3 rounded-lg border px-3 py-2",
+          isPermanent
+            ? "border-red-500/30 bg-red-500/5"
+            : "border-amber-500/30 bg-amber-500/5",
+        ].join(" ")}
+      >
+        <div className="min-w-0">
+          <p className="truncate text-xs text-gray-200">{r.email_address}</p>
+          <p className="text-[11px] text-gray-500">
+            Stopped at email {(r.current_step || 0) + 1}
+          </p>
+          <p
+            className={[
+              "mt-0.5 truncate text-[11px]",
+              isPermanent ? "text-red-300" : "text-amber-300",
+            ].join(" ")}
           >
-            <div className="min-w-0">
-              <p className="truncate text-xs text-gray-200">{r.email_address}</p>
-              <p className="text-[11px] text-gray-500">
-                Stopped at email {(r.current_step || 0) + 1}
-              </p>
-              <p className="mt-0.5 truncate text-[11px] text-red-400/80">
-                {r.send_error
-                  ? `Reason: ${r.send_error}`
-                  : "Reason unavailable"}
-              </p>
-            </div>
-            {retried ? (
-              <span className="shrink-0 text-xs font-medium text-emerald-400">
-                Queued for retry
-              </span>
-            ) : (
-              <button
-                onClick={() => retry(r.recipient_id)}
-                disabled={busyId === r.recipient_id}
-                className="shrink-0 rounded-lg bg-amber-500 px-3 py-1 text-xs font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
-              >
-                {busyId === r.recipient_id ? "Retrying…" : "Retry"}
-              </button>
-            )}
-          </div>
-        );
-      })}
+            {r.send_error ? `Reason: ${r.send_error}` : "Reason unavailable"}
+          </p>
+        </div>
+        {retried ? (
+          <span className="shrink-0 text-xs font-medium text-emerald-400">
+            Queued for retry
+          </span>
+        ) : (
+          <button
+            onClick={() => retry(r.recipient_id)}
+            disabled={busyId === r.recipient_id}
+            className="shrink-0 rounded-lg bg-amber-500 px-3 py-1 text-xs font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+          >
+            {busyId === r.recipient_id ? "Retrying…" : "Retry"}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="mt-2 space-y-4">
+      {permanent.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-300">
+            Won't send on retry — fix these first ({permanent.length})
+          </p>
+          <p className="mb-2 text-[11px] text-gray-500">
+            These bounced for a permanent reason (invalid or non-existent
+            address). Retrying will fail again until you fix or remove the
+            contact.
+          </p>
+          <div className="space-y-1.5">{permanent.map(renderRow)}</div>
+        </div>
+      )}
+      {transient.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-300">
+            Temporary problem — safe to retry ({transient.length})
+          </p>
+          <p className="mb-2 text-[11px] text-gray-500">
+            These hit a temporary issue (mail-server outage or a network blip).
+            Retrying should deliver them.
+          </p>
+          <div className="space-y-1.5">{transient.map(renderRow)}</div>
+        </div>
+      )}
       {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );
