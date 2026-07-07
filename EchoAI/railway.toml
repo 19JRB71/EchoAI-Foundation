@@ -1,0 +1,34 @@
+# =============================================================================
+# Railway deployment configuration for EchoAI
+# =============================================================================
+# This file is read when the Railway service "Root Directory" is set to EchoAI,
+# so Railway builds ONLY this standalone Node/Express app with npm and ignores
+# the surrounding pnpm monorepo at the repository root.
+#
+# Railway runs two phases:
+#   1. BUILD  - no database yet. Installs deps and builds the React SPA.
+#   2. DEPLOY - DATABASE_URL and PORT are injected. Runs migrations, then starts.
+#
+# Migrations run in the START command (the database is only reachable at deploy
+# time). The runner is idempotent (tracks applied files in schema_migrations),
+# so running it on every deploy is safe and a no-op once everything is applied.
+# =============================================================================
+
+[build]
+builder = "nixpacks"
+# Install server deps, then build the client (build:client installs client deps
+# and runs vite build into client/dist). Any VITE_* vars set on the Railway
+# service are baked into the client bundle during this step.
+buildCommand = "npm install && npm run build:client"
+
+[deploy]
+# Apply pending SQL migrations (idempotent) then start the Express server.
+# server.js reads PORT (Railway injects it) and serves BOTH the /api routes and
+# the built React SPA from client/dist on a single origin.
+startCommand = "npm run migrate && node server.js"
+# Railway hits this public endpoint to confirm the app is live before routing
+# traffic to a new deploy.
+healthcheckPath = "/api/health"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
