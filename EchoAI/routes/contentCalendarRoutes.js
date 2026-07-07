@@ -12,6 +12,11 @@ const contentCalendarController = require("../controllers/contentCalendarControl
 // Viewers may read but not generate/modify content.
 router.use(auth, lockout, featureGate("content_calendar"), denyViewerMutations);
 
+// Per-platform posting-window settings for the "optimal" schedule. Declared
+// before the "/:brandId" catch so "settings" isn't swallowed as a brand id.
+router.get("/settings/:brandId", contentCalendarController.getPostingSettings);
+router.put("/settings/:brandId", contentCalendarController.updatePostingSettings);
+
 router.post("/generate", contentCalendarController.generateCalendar);
 router.post("/", contentCalendarController.saveCalendar);
 router.get("/:brandId", contentCalendarController.getCalendar);

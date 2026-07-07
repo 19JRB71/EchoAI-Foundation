@@ -40,3 +40,24 @@ results back by index to preserve global slot order. AI calls go through
 
 The setup-agent onboarding path deliberately stays on legacy `three_per_week`
 (not `optimal`) so onboarding doesn't auto-generate ~300 posts.
+
+**Rule: per-platform posting-window overrides live in a table but code stays the
+default source of truth.** Owners can override each platform's posting *times*
+(not its cadence) via `content_calendar_settings` (brand_id UUID PK, `windows`
+JSONB). Overrides only affect `frequency === "optimal"` and are threaded as an
+optional `windowOverrides` arg through `computeSlots`/`optimalRawSlots`; a
+missing/empty platform falls back to its coded `PLATFORM_SCHEDULES` times.
+Windows are sanitized on BOTH write and read (`sanitizeWindows`: HH:MM validate,
+dedupe, sort, cap at MAX_WINDOWS_PER_PLATFORM) so a stale/hostile row can't
+poison scheduling. The client `PostingSettingsPanel` saves diff-only (omits
+platforms equal to default) so untouched platforms keep following the default.
+**Why:** keep 08:00/12:00/18:00 as the durable default while letting owners tune
+windows; storing only real overrides means default changes still propagate.
+
+**Rule: DST correctness is verified end-to-end, not just by conversion math.**
+`test/contentCalendarDst.test.js` seeds real (isolated-DB) posts whose
+`scheduled_time` is built via `zonedWallTimeToUtc` for winter (EST→13:00Z) and
+summer (EDT→12:00Z) dates, then runs the REAL `publishDuePosts` and asserts which
+rows are claimed (past→attempted/failed, future→left scheduled). Publisher fails
+fast with no connected account (no network), so "reached failed" == "was selected
+as due + ran the real path".

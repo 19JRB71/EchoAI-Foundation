@@ -534,6 +534,13 @@ export const api = {
       method: "PUT",
       body: { postContent },
     }),
+  getCalendarPostingSettings: (brandId) =>
+    request(`/api/content-calendar/settings/${brandId}`),
+  saveCalendarPostingSettings: (brandId, windows) =>
+    request(`/api/content-calendar/settings/${brandId}`, {
+      method: "PUT",
+      body: { windows },
+    }),
 
   // AI Ad Creative Studio
   generateAdCreatives: ({ brandId, campaignGoal, budgetRange, productFocus }) =>

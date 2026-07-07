@@ -74,6 +74,7 @@ export default function AICalendar({ brandId, onReconnect }) {
   const [busy, setBusy] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [preview, setPreview] = useState(null); // { posts, postingFrequency, contentTheme }
   const [activePost, setActivePost] = useState(null);
 
@@ -223,6 +224,12 @@ export default function AICalendar({ brandId, onReconnect }) {
             </button>
           )}
           <button
+            onClick={() => setShowSettings(true)}
+            className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm font-semibold text-gray-300 hover:bg-gray-800"
+          >
+            Posting Times
+          </button>
+          <button
             onClick={() => {
               setPreview(null);
               setShowForm(true);
@@ -233,6 +240,19 @@ export default function AICalendar({ brandId, onReconnect }) {
           </button>
         </div>
       </div>
+
+      {showSettings && (
+        <PostingSettingsPanel
+          brandId={brandId}
+          onClose={() => setShowSettings(false)}
+          onSaved={() => {
+            setShowSettings(false);
+            setNotice(
+              "Posting times saved — your next generated calendar will use them."
+            );
+          }}
+        />
+      )}
 
       <ErrorBanner message={error} />
       {notice && (
@@ -833,6 +853,231 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+const CADENCE_HINT = {
+  daily: "every day",
+  weekly: "on its weekly days",
+};
+
+function sameTimes(a, b) {
+  if (a.length !== b.length) return false;
+  return a.every((t, i) => t === b[i]);
+}
+
+function PostingSettingsPanel({ brandId, onClose, onSaved }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [defaults, setDefaults] = useState({});
+  const [maxPerPlatform, setMaxPerPlatform] = useState(6);
+  const [windows, setWindows] = useState({}); // { platform: ["HH:MM", ...] }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await api.getCalendarPostingSettings(brandId);
+        if (cancelled) return;
+        const defs = data.defaults || {};
+        setDefaults(defs);
+        setMaxPerPlatform(data.maxPerPlatform || 6);
+        const saved = data.windows || {};
+        const init = {};
+        for (const [platform, def] of Object.entries(defs)) {
+          init[platform] =
+            saved[platform] && saved[platform].length
+              ? [...saved[platform]]
+              : [...(def.times || [])];
+        }
+        setWindows(init);
+      } catch (err) {
+        if (!cancelled) setError(err.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [brandId]);
+
+  function setTime(platform, index, value) {
+    setWindows((cur) => {
+      const next = { ...cur };
+      const times = [...(next[platform] || [])];
+      times[index] = value;
+      next[platform] = times;
+      return next;
+    });
+  }
+
+  function addTime(platform) {
+    setWindows((cur) => {
+      const times = [...(cur[platform] || [])];
+      if (times.length >= maxPerPlatform) return cur;
+      return { ...cur, [platform]: [...times, "12:00"] };
+    });
+  }
+
+  function removeTime(platform, index) {
+    setWindows((cur) => {
+      const times = [...(cur[platform] || [])];
+      times.splice(index, 1);
+      return { ...cur, [platform]: times };
+    });
+  }
+
+  function resetPlatform(platform) {
+    setWindows((cur) => ({
+      ...cur,
+      [platform]: [...(defaults[platform]?.times || [])],
+    }));
+  }
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      // Only send platforms whose times differ from the coded default, and only
+      // valid, non-empty times. Untouched platforms are omitted so they keep
+      // following the default schedule.
+      const payload = {};
+      for (const [platform, def] of Object.entries(defaults)) {
+        const times = (windows[platform] || []).filter((t) =>
+          /^\d{1,2}:\d{2}$/.test(t)
+        );
+        if (times.length && !sameTimes(times, def.times || [])) {
+          payload[platform] = times;
+        }
+      }
+      await api.saveCalendarPostingSettings(brandId, payload);
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-100">
+            Posting times (Optimal schedule)
+          </h3>
+          <p className="mt-0.5 text-xs text-gray-400">
+            Set your preferred posting windows per platform, in your brand's
+            timezone. These apply when you generate an "Optimal" calendar.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-sm text-gray-400 hover:text-gray-200"
+        >
+          Cancel
+        </button>
+      </div>
+
+      <ErrorBanner message={error} />
+
+      {loading ? (
+        <Spinner label="Loading posting times…" />
+      ) : (
+        <>
+          <div className="space-y-3">
+            {Object.entries(defaults).map(([platform, def]) => {
+              const times = windows[platform] || [];
+              const isDefault = sameTimes(times, def.times || []);
+              return (
+                <div
+                  key={platform}
+                  className="rounded-lg border border-gray-800 bg-gray-900 p-3"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <PlatformBadge platform={platform} />
+                      <span className="text-[11px] text-gray-500">
+                        {platformMeta(platform).label} ·{" "}
+                        {CADENCE_HINT[def.cadence] || def.cadence}
+                        {def.perWeek ? ` (${def.perWeek}×/week)` : ""}
+                      </span>
+                    </div>
+                    {!isDefault && (
+                      <button
+                        type="button"
+                        onClick={() => resetPlatform(platform)}
+                        className="text-[11px] text-gray-400 hover:text-gray-200"
+                      >
+                        Reset to default
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {times.map((t, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <input
+                          type="time"
+                          value={t}
+                          onChange={(e) => setTime(platform, i, e.target.value)}
+                          className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeTime(platform, i)}
+                          aria-label="Remove time"
+                          className="rounded px-1.5 py-0.5 text-sm text-gray-500 hover:bg-gray-800 hover:text-red-400"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    {times.length < maxPerPlatform && (
+                      <button
+                        type="button"
+                        onClick={() => addTime(platform)}
+                        className="rounded-lg border border-dashed border-gray-700 px-2 py-1 text-xs font-medium text-gray-400 hover:text-gray-200"
+                      >
+                        + Add time
+                      </button>
+                    )}
+                    {times.length === 0 && (
+                      <span className="text-[11px] text-gray-500">
+                        No times — this platform will use the default schedule.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="rounded-lg border border-gray-800 px-3 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-800 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="rounded-lg bg-amber-500 px-4 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save posting times"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

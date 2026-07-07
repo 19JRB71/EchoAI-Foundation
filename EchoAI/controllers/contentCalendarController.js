@@ -11,9 +11,81 @@ const {
   composePostContent,
 } = require("../prompts/contentCalendarPrompt");
 const { zonedWallTimeToUtc, isValidTimezone } = require("../utils/timezone");
+const { toJsonbParam } = require("../utils/jsonb");
 
 const CALENDAR_DAYS = 30;
 const DEFAULT_TIMEZONE = "America/New_York";
+// Guardrail: at most this many posting windows per platform per day, so a
+// customized schedule can't be turned into a spam/abuse firehose.
+const MAX_WINDOWS_PER_PLATFORM = 6;
+
+/** Validates an "HH:MM" 24h string; returns a zero-padded copy or null. */
+function normalizeWindowTime(value) {
+  if (typeof value !== "string") return null;
+  const m = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return `${String(h).padStart(2, "0")}:${m[2]}`;
+}
+
+/**
+ * The coded default posting windows for every platform (the "optimal" schedule),
+ * shaped as { platform: { cadence, perWeek?, times: ["HH:MM", ...] } }. Used to
+ * seed the settings UI and to fall back per-platform when a brand has no override.
+ */
+function defaultPostingWindows() {
+  const out = {};
+  for (const [platform, schedule] of Object.entries(PLATFORM_SCHEDULES)) {
+    out[platform] = {
+      cadence: schedule.cadence,
+      ...(schedule.perWeek ? { perWeek: schedule.perWeek } : {}),
+      times: [...(schedule.times || [])],
+    };
+  }
+  return out;
+}
+
+/**
+ * Sanitizes a client-supplied windows override map into
+ * { platform: ["HH:MM", ...] }. Unknown platforms and invalid times are dropped;
+ * times are validated, de-duplicated, chronologically sorted, and capped. An
+ * empty array for a platform is dropped (it means "use the coded default").
+ */
+function sanitizeWindows(input) {
+  const clean = {};
+  if (!input || typeof input !== "object" || Array.isArray(input)) return clean;
+  for (const [rawPlatform, rawTimes] of Object.entries(input)) {
+    const platform = String(rawPlatform || "").toLowerCase();
+    if (!PLATFORM_SCHEDULES[platform]) continue;
+    if (!Array.isArray(rawTimes)) continue;
+    const times = [
+      ...new Set(rawTimes.map(normalizeWindowTime).filter(Boolean)),
+    ]
+      .sort()
+      .slice(0, MAX_WINDOWS_PER_PLATFORM);
+    if (times.length > 0) clean[platform] = times;
+  }
+  return clean;
+}
+
+/**
+ * Loads a brand's saved posting-window overrides as { platform: ["HH:MM", ...] }.
+ * Returns {} when none are stored. Sanitized on read so stale/invalid rows can't
+ * poison scheduling.
+ */
+async function getBrandWindows(brandId) {
+  try {
+    const r = await db.query(
+      "SELECT windows FROM content_calendar_settings WHERE brand_id = $1",
+      [brandId]
+    );
+    return sanitizeWindows(r.rows[0]?.windows);
+  } catch {
+    return {};
+  }
+}
 
 function isSupportedPlatform(platform) {
   return SUPPORTED_PLATFORMS.includes(String(platform || "").toLowerCase());
@@ -81,12 +153,20 @@ function activeOffsetsForPerWeek(perWeek) {
  * each platform posts on its own per-platform cadence (PLATFORM_SCHEDULES) at
  * fixed daily windows. `time` is a wall-clock "HH:MM" in the brand's timezone.
  */
-function optimalRawSlots(platforms) {
+function optimalRawSlots(platforms, windowOverrides = {}) {
   const raw = [];
   for (const platform of platforms) {
     const schedule = PLATFORM_SCHEDULES[platform];
     if (!schedule) continue;
-    const times = schedule.times && schedule.times.length ? schedule.times : ["08:00"];
+    // A brand's saved override replaces this platform's default posting windows;
+    // otherwise use the coded default, then a final 08:00 backstop.
+    const override = windowOverrides[platform];
+    const times =
+      override && override.length
+        ? override
+        : schedule.times && schedule.times.length
+          ? schedule.times
+          : ["08:00"];
     const offsets =
       schedule.cadence === "weekly"
         ? activeOffsetsForPerWeek(schedule.perWeek || 3)
@@ -123,10 +203,10 @@ function legacyRawSlots(frequency, platforms) {
  * angle seed so hundreds of posts stay varied. Returns
  * { index, day, platform, time?, contentType, angle } in publishing order.
  */
-function computeSlots(frequency, platforms) {
+function computeSlots(frequency, platforms, windowOverrides = {}) {
   const raw =
     frequency === "optimal"
-      ? optimalRawSlots(platforms)
+      ? optimalRawSlots(platforms, windowOverrides)
       : legacyRawSlots(frequency, platforms);
 
   // Order by when the post actually goes out so the content-type rotation
@@ -220,7 +300,8 @@ async function generateCalendar(req, res) {
 
     const theme = String(contentTheme || "").trim() || null;
     const timezone = await getBrandTimezone(brandId);
-    const slots = computeSlots(freq, selected);
+    const windowOverrides = freq === "optimal" ? await getBrandWindows(brandId) : {};
+    const slots = computeSlots(freq, selected, windowOverrides);
     const generated = await generateCalendarPosts(brand, {
       businessType: String(businessType || "").trim() || brand.industry || null,
       theme,
@@ -618,6 +699,63 @@ async function updatePost(req, res) {
   }
 }
 
+/**
+ * GET /settings/:brandId
+ * Returns the brand's posting-window configuration: the coded per-platform
+ * defaults (the "optimal" schedule) plus any saved overrides. The UI seeds its
+ * editor from `defaults` and shows `windows` on top.
+ */
+async function getPostingSettings(req, res) {
+  const userId = req.user.id;
+  const { brandId } = req.params;
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+    const windows = await getBrandWindows(brandId);
+    return res.json({
+      defaults: defaultPostingWindows(),
+      windows,
+      maxPerPlatform: MAX_WINDOWS_PER_PLATFORM,
+    });
+  } catch (err) {
+    console.error("Get posting settings error:", err.message);
+    return res.status(500).json({ error: "Failed to load posting settings" });
+  }
+}
+
+/**
+ * PUT /settings/:brandId
+ * Saves per-platform posting-window overrides for the "optimal" schedule. The
+ * body's `windows` map is sanitized (unknown platforms/invalid times dropped,
+ * deduped, sorted, capped); an empty/missing platform falls back to the coded
+ * default at generation time.
+ */
+async function updatePostingSettings(req, res) {
+  const userId = req.user.id;
+  const { brandId } = req.params;
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const windows = sanitizeWindows(req.body?.windows);
+    await db.query(
+      `INSERT INTO content_calendar_settings (brand_id, windows, updated_at)
+       VALUES ($1, $2::jsonb, now())
+       ON CONFLICT (brand_id)
+       DO UPDATE SET windows = EXCLUDED.windows, updated_at = now()`,
+      [brandId, toJsonbParam(windows)]
+    );
+    return res.json({
+      defaults: defaultPostingWindows(),
+      windows,
+      maxPerPlatform: MAX_WINDOWS_PER_PLATFORM,
+    });
+  } catch (err) {
+    console.error("Update posting settings error:", err.message);
+    return res.status(500).json({ error: "Failed to save posting settings" });
+  }
+}
+
 module.exports = {
   generateCalendar,
   saveCalendar,
@@ -626,7 +764,11 @@ module.exports = {
   pauseCalendar,
   regeneratePost,
   updatePost,
+  getPostingSettings,
+  updatePostingSettings,
   // Exported for unit tests of the deterministic scheduling/rotation logic.
   computeSlots,
   scheduledTimeFor,
+  sanitizeWindows,
+  defaultPostingWindows,
 };
