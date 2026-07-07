@@ -1,0 +1,99 @@
+You reached the start of the range
+Jul 7, 2026, 2:51 PM
+scheduling build on Metal builder "builder-lewvgn"
+unpacking archive
+35.6 MB
+173ms
+using build driver nixpacks-v1.41.0
+ 
+╔══════════════════════════════ Nixpacks v1.41.0 ══════════════════════════════╗
+║ setup      │ nodejs_20, python3, gcc, gnumake, yarn                          ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ install    │ rm -rf node_modules                                             ║
+║            │ yarn install --production=false --non-interactive --network-    ║
+║            │ concurrency 1                                                   ║
+║            │ node -e                                                         ║
+║            │ "require('dotenv');require('express');require('pg');require('bc ║
+║            │ rypt');console.log('runtime deps verified OK')"                 ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ build      │ test -f client/dist/index.html || (echo 'ERROR: client/dist is  ║
+║            │ missing - run: cd EchoAI/client && npm run build, then commit   ║
+║            │ client/dist' && exit 1)                                         ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ start      │ npm run migrate && node server.js                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+ 
+ 
+Saved output to:
+  snapshot-target-unpack/EchoAI
+
+internal
+load build definition from Dockerfile
+1ms
+
+internal
+load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+296ms
+
+internal
+load .dockerignore
+0ms
+uploading snapshot
+29 MB
+842ms
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "ENCRYPTION_KEY") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "JWT_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "SESSION_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "ENCRYPTION_KEY") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "JWT_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "SESSION_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)(https://docs.docker.com/go/dockerfile/rule/undefined-var/)
+ details: Variables should be defined before their use
+
+stage-0
+FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+13ms
+
+internal
+load build context
+0ms
+
+stage-0
+WORKDIR /app/ cached
+0ms
+
+stage-0
+COPY .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix
+174ms
+
+stage-0
+RUN nix-env -if .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix && nix-collect-garbage -d
+32s
+24 store paths deleted, 242.91 MiB freed
+
+stage-0
+COPY . /app/.
+420ms
+
+stage-0
+RUN rm -rf node_modules
+313ms
+
+stage-0
+RUN yarn install --production=false --non-interactive --network-concurrency 1
+486ms
+yarn install v1.22.22
+info No lockfile found.
+
+warning package-lock.json found. Your project contains lock files generated by tools other than Yarn. It is advised not to mix package managers in order to avoid resolution inconsistencies caused by unsynchronized lock files. To clear this warning, remove package-lock.json.
+[1/5] Validating package.json...
+error echoai@1.0.0: The engine "node" is incompatible with this module. Expected version "20.x". Got "22.11.0"
+info Visit https://yarnpkg.com/en/docs/cli/install for documentation about this command.
+error Found incompatible module.
+Build Failed: build daemon returned an error < failed to solve: process "/bin/bash -ol pipefail -c yarn install --production=false --non-interactive --network-concurrency 1" did not complete successfully: exit code: 1 >

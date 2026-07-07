@@ -49,9 +49,13 @@ nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake", "yarn"]
 # (all runtime deps live in "dependencies"; there are no devDependencies). Step 3
 # hard-verifies the critical deps actually landed, so any partial install fails
 # the build LOUDLY instead of shipping a broken image.
+#   --ignore-engines: the Nix `yarn` package brings its own Node (22.x) while
+#   package.json pins engines to "20.x", so Yarn aborts on the mismatch. The app
+#   runs fine on newer Node (the dev environment uses an even newer version), so
+#   this skips the (over-strict) engine check for the project AND its deps.
 cmds = [
   "rm -rf node_modules",
-  "yarn install --production=false --non-interactive --network-concurrency 1",
+  "yarn install --production=false --non-interactive --network-concurrency 1 --ignore-engines",
   "node -e \"require('dotenv');require('express');require('pg');require('bcrypt');console.log('runtime deps verified OK')\""
 ]
 
