@@ -1,0 +1,143 @@
+You reached the start of the range
+Jul 7, 2026, 2:55 PM
+scheduling build on Metal builder "builder-lewvgn"
+unpacking archive
+35.6 MB
+206ms
+using build driver nixpacks-v1.41.0
+ 
+╔══════════════════════════════ Nixpacks v1.41.0 ══════════════════════════════╗
+║ setup      │ nodejs_20, python3, gcc, gnumake, yarn                          ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ install    │ rm -rf node_modules                                             ║
+║            │ yarn install --production=false --non-interactive --network-    ║
+║            │ concurrency 1 --ignore-engines                                  ║
+║            │ node -e                                                         ║
+║            │ "require('dotenv');require('express');require('pg');require('bc ║
+║            │ rypt');console.log('runtime deps verified OK')"                 ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ build      │ test -f client/dist/index.html || (echo 'ERROR: client/dist is  ║
+║            │ missing - run: cd EchoAI/client && npm run build, then commit   ║
+║            │ client/dist' && exit 1)                                         ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ start      │ npm run migrate && node server.js                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+ 
+ 
+Saved output to:
+  snapshot-target-unpack/EchoAI
+
+internal
+load build definition from Dockerfile
+0ms
+
+internal
+load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+352ms
+uploading snapshot
+29 MB
+836ms
+
+internal
+load .dockerignore
+0ms
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "ENCRYPTION_KEY") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "JWT_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "SESSION_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "ENCRYPTION_KEY") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "JWT_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "SESSION_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)(https://docs.docker.com/go/dockerfile/rule/undefined-var/)
+ details: Variables should be defined before their use
+
+internal
+load build context
+0ms
+
+stage-0
+FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+16ms
+
+stage-0
+RUN nix-env -if .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix && nix-collect-garbage -d cached
+10ms
+
+stage-0
+COPY .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix cached
+0ms
+
+stage-0
+WORKDIR /app/ cached
+0ms
+
+stage-0
+COPY . /app/.
+276ms
+
+stage-0
+RUN rm -rf node_modules
+444ms
+
+stage-0
+RUN yarn install --production=false --non-interactive --network-concurrency 1 --ignore-engines
+19s
+Done in 18.58s.
+
+stage-0
+RUN node -e "require('dotenv');require('express');require('pg');require('bcrypt');console.log('runtime deps verified OK')"
+610ms
+runtime deps verified OK
+
+stage-0
+COPY . /app/.
+228ms
+
+stage-0
+RUN test -f client/dist/index.html || (echo 'ERROR: client/dist is missing - run: cd EchoAI/client && npm run build, then commit client/dist' && exit 1)
+217ms
+
+stage-0
+RUN printf '\nPATH=/app/node_modules/.bin:$PATH' >> /root/.profile
+188ms
+
+stage-0
+COPY . /app
+203ms
+
+exporting to docker image format
+11s
+containerimage.digest: sha256:aaaf338be720ddef2072acbab63851c931fe8b73f787b8dd890261e72bf67067
+containerimage.descriptor: eyJtZWRpYVR5cGUiOiJhcHBsaWNhdGlvbi92bmQub2NpLmltYWdlLm1hbmlmZXN0LnYxK2pzb24iLCJkaWdlc3QiOiJzaGEyNTY6YWFhZjMzOGJlNzIwZGRlZjIwNzJhY2JhYjYzODUxYzkzMWZlOGI3M2Y3ODdiOGRkODkwMjYxZTcyYmY2NzA2NyIsInNpemUiOjMxMzQsImFubm90YXRpb25zIjp7Im9yZy5vcGVuY29udGFpbmVycy5pbWFnZS5jcmVhdGVkIjoiMjAyNi0wNy0wN1QxOTowMTowN1oifSwicGxhdGZvcm0iOnsiYXJjaGl0ZWN0dXJlIjoiYW1kNjQiLCJvcyI6ImxpbnV4In19
+containerimage.config.digest: sha256:bf6db60b8ea47699415ae9240b234a032b8833676239571955b7a862593d25d3
+image push
+480.6 MB
+24.8s
+ 
+====================
+Starting Healthcheck
+====================
+Path: /api/health
+Retry window: 5m0s
+ 
+Attempt #1 failed with service unavailable. Continuing to retry for 4m49s
+Attempt #2 failed with service unavailable. Continuing to retry for 4m38s
+Attempt #3 failed with service unavailable. Continuing to retry for 4m26s
+Attempt #4 failed with service unavailable. Continuing to retry for 4m12s
+Attempt #5 failed with service unavailable. Continuing to retry for 3m54s
+Attempt #6 failed with service unavailable. Continuing to retry for 3m28s
+Attempt #7 failed with service unavailable. Continuing to retry for 2m48s
+Attempt #8 failed with service unavailable. Continuing to retry for 2m8s
+Attempt #9 failed with service unavailable. Continuing to retry for 1m28s
+Attempt #10 failed with service unavailable. Continuing to retry for 48s
+Attempt #11 failed with service unavailable. Continuing to retry for 8s
+ 
+1/1 replicas never became healthy!
+
+Healthcheck failed!
+
