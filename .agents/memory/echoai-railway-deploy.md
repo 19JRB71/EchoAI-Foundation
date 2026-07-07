@@ -68,3 +68,20 @@ zero env config.
 "curl 200 but browser blank" combo on a new domain = CORS blocking own assets;
 test with `curl -H "Origin: https://<domain>" .../assets/<file>.js` — a 403 there
 confirms it.
+
+## 4. Feature env vars come in PAIRS/sets — a fresh deploy needs the full list
+Symptoms on a fresh Railway env (each looked like a bug, all were missing vars):
+- "invalid username or password" → no admin exists; the boot admin seeder is a
+  no-op without BOTH `ADMIN_EMAIL` + `ADMIN_PASSWORD`.
+- "AI provider could not continue" → `ANTHROPIC_API_KEY` unset.
+- Echo speaks with the WRONG voice → ElevenLabs TTS silently fell back to OpenAI
+  because it needs BOTH `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`
+  (`config/elevenlabs.js` `ttsConfigured()`). A key alone is not enough, and the
+  fallback masks the misconfig (voice "works" but sounds different).
+
+**Why:** graceful degradation hides missing config — nothing errors loudly, the
+feature just behaves subtly wrong. **How to apply:** when standing up a new
+environment, copy the full feature-var sets, not single keys; if a degradable
+feature "works but wrong", suspect the *partner* var of an already-set key.
+Also: the voice ID is a short ~20-char code — easy to confuse with the API key
+(long, `sk_`-prefixed).
