@@ -56,10 +56,11 @@ async function main() {
 
   await ensureDerivedDatabaseExists(plan);
 
-  // The base tables live in models/schema.sql (applied once at bootstrap and
-  // deliberately skipped by the migration runner). A fresh test DB needs it
-  // before the numbered migrations, which build on top. It is idempotent
-  // (CREATE ... IF NOT EXISTS + DO-block enum guards), so re-running is safe.
+  // The base tables live in models/schema.sql. The migration runner now applies
+  // it first automatically, but we also apply it explicitly here as a
+  // belt-and-suspenders bootstrap for a fresh test DB before the numbered
+  // migrations, which build on top. It is idempotent (CREATE ... IF NOT EXISTS +
+  // DO-block enum guards), so re-running it (here and in the runner) is safe.
   const schemaPath = path.join(__dirname, "..", "models", "schema.sql");
   const schemaSql = fs.readFileSync(schemaPath, "utf8");
   const client = new Client({ connectionString: plan.testUrl });

@@ -15,10 +15,19 @@ const { pool } = require("../config/db");
  */
 async function runMigrations() {
   const modelsDir = path.join(__dirname, "..", "models");
-  const files = fs
+  // Base schema (core tables + pgcrypto + enum types) must be applied FIRST, then
+  // the numbered migrations that build on top of it. schema.sql is fully
+  // idempotent (CREATE ... IF NOT EXISTS + DO-block enum guards), so running it
+  // against an already-bootstrapped database is a safe no-op. Recording it in
+  // schema_migrations means it only actually executes once. This is essential
+  // for a fresh database (e.g. a new production/Railway deploy) where nothing
+  // else applies schema.sql; without it the numbered migrations would fail
+  // against a database with no base tables.
+  const numbered = fs
     .readdirSync(modelsDir)
     .filter((f) => f.endsWith(".sql") && f !== "schema.sql")
     .sort();
+  const files = ["schema.sql", ...numbered];
 
   const client = await pool.connect();
   try {
