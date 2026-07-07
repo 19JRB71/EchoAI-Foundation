@@ -13,6 +13,39 @@ const { pool } = require("../config/db");
  * Migrations must be individually safe to apply once; use IF NOT EXISTS in the
  * SQL where possible so a partially-migrated database can be brought forward.
  */
+/**
+ * Acquire a database connection, retrying on failure. On a fresh deploy (e.g.
+ * Railway) the app container can start a few seconds before the database's
+ * private network / DNS is reachable, so the very first connection attempt can
+ * fail with ECONNREFUSED / ENOTFOUND. Rather than crash the whole start command
+ * (which would leave the server never starting and the healthcheck failing), we
+ * wait and retry for up to ~60s. Each failure is logged so the cause is visible
+ * in the deploy logs.
+ */
+async function connectWithRetry(retries = 30, delayMs = 2000) {
+  let lastErr;
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      const client = await pool.connect();
+      if (attempt > 1) {
+        console.log(`Database reachable on attempt ${attempt}.`);
+      }
+      return client;
+    } catch (err) {
+      lastErr = err;
+      console.warn(
+        `Database not reachable yet (attempt ${attempt}/${retries}): ` +
+          `${err.message}. Retrying in ${delayMs}ms...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error(
+    `Could not connect to the database after ${retries} attempts: ` +
+      `${lastErr && lastErr.message}`,
+  );
+}
+
 async function runMigrations() {
   const modelsDir = path.join(__dirname, "..", "models");
   // Base schema (core tables + pgcrypto + enum types) must be applied FIRST, then
@@ -29,7 +62,7 @@ async function runMigrations() {
     .sort();
   const files = ["schema.sql", ...numbered];
 
-  const client = await pool.connect();
+  const client = await connectWithRetry();
   try {
     await client.query(
       `CREATE TABLE IF NOT EXISTS schema_migrations (
