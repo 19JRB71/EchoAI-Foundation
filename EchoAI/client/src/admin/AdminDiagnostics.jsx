@@ -25,14 +25,27 @@ export default function AdminDiagnostics() {
     }
   }
 
+  // Convert the report to pure ASCII so it pastes cleanly into any text field
+  // (no smart quotes, em-dashes, arrows, ellipses or emoji).
+  function toAscii(text) {
+    return text
+      .replace(/\u2192/g, "->")
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, "-")
+      .replace(/\u2026/g, "...")
+      .replace(/\u2022/g, "-")
+      .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "");
+  }
+
   async function copy() {
     if (!report) return;
     try {
-      await navigator.clipboard.writeText(report);
+      await navigator.clipboard.writeText(toAscii(report));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard — select the text and copy manually.");
+      setError("Could not copy to clipboard - select the text and copy manually.");
     }
   }
 
