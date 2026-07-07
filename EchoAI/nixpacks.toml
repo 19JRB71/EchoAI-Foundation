@@ -8,11 +8,14 @@
 #  * setup   - Node 20 (has prebuilt `bcrypt` binaries, so no native compile is
 #              needed) plus python3/gcc/make as a fallback in case any native
 #              dependency must build from source.
-#  * install - `npm install` (not `npm ci`) with dev dependencies included.
-#              The client's build tools (vite, tailwind, postcss) live in the
-#              client's devDependencies, and NODE_ENV=production would otherwise
-#              cause npm to skip them, breaking the SPA build.
-#  * build   - build the React SPA into client/dist.
+#  * install - server deps via `npm install`. `--production=false` forces npm to
+#              include devDependencies even though NODE_ENV=production is set on
+#              the service (otherwise npm silently omits them).
+#  * build   - install the client's deps AND build the SPA here (not in install),
+#              because Nixpacks only copies the root package.json into the
+#              install phase; the client/ source only exists from the build phase
+#              onward. `--production=false` again forces the client's dev-only
+#              build tools (vite, tailwind, postcss) to install.
 #
 # The start command, health check, and restart policy live in railway.toml.
 # =============================================================================
@@ -23,10 +26,10 @@ providers = ["node"]
 nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
 
 [phases.install]
-cmds = [
-  "npm install --include=dev",
-  "cd client && npm install --include=dev",
-]
+cmds = ["npm install --production=false"]
 
 [phases.build]
-cmds = ["cd client && npm run build"]
+cmds = [
+  "npm --prefix client install --production=false",
+  "npm --prefix client run build",
+]
