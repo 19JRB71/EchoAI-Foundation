@@ -459,6 +459,9 @@ export const api = {
   adminDeleteUser: (userId) =>
     request(`/api/admin/users/${userId}`, { method: "DELETE" }),
 
+  // Full Diagnostic Report (admin-only).
+  adminGetDiagnostics: () => request("/api/admin/diagnostics/report"),
+
   // Demo Account & Sales Presentation Mode (admin-only).
   demoGetStatus: () => request("/api/admin/demo/status"),
   demoGetScript: () => request("/api/admin/demo/script"),

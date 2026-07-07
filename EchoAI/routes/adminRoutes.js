@@ -4,6 +4,7 @@ const authMiddleware = require("../middleware/auth");
 const adminMiddleware = require("../middleware/admin");
 const adminController = require("../controllers/adminController");
 const demoController = require("../controllers/demoController");
+const diagnosticsController = require("../controllers/diagnosticsController");
 
 const router = express.Router();
 
@@ -14,6 +15,8 @@ router.use(adminMiddleware);
 router.get("/stats", adminController.getPlatformStats);
 router.get("/health", adminController.getPlatformHealth);
 router.get("/health/accounts", adminController.getAllAccountsHealth);
+
+router.get("/diagnostics/report", diagnosticsController.generateReport);
 
 router.get("/users", adminController.getAllUsers);
 router.get("/users/:userId", adminController.getUserDetail);
