@@ -84,6 +84,41 @@ function handleAiError(res, err, label) {
   return res.status(500).json({ error: `Failed while ${label}.` });
 }
 
+// Twilio error codes that mean the message can NEVER be delivered as-is:
+// invalid / non-mobile / unreachable numbers, opted-out recipients, and
+// from-number problems. Retrying these unchanged just fails again — the owner
+// has to fix the recipient (or the Twilio number) first. Everything else
+// (network blips, 5xx, rate limits, transient carrier errors) is treated as
+// retryable. See https://www.twilio.com/docs/api/errors
+const PERMANENT_TWILIO_CODES = new Set([
+  21211, // Invalid 'To' phone number
+  21214, // 'To' phone number cannot be reached
+  21217, // Phone number does not appear to be valid
+  21401, // Invalid phone number
+  21421, // PhoneNumber is not a valid phone number
+  21610, // Recipient has opted out (unsubscribed)
+  21612, // Cannot route to this number
+  21614, // 'To' number is not a valid mobile number
+  21408, // Permission to send to this region not enabled
+  21606, // 'From' number not a valid, SMS-capable Twilio number
+  21611, // This 'From' number has exceeded the max queue size
+  30003, // Unreachable destination handset
+  30005, // Unknown destination handset
+  30006, // Landline or unreachable carrier
+]);
+
+/**
+ * Classifies a Twilio send error into an owner-friendly reason string and a
+ * permanence flag. `permanent === true` means retrying the blast unchanged
+ * won't help; the owner must fix the number (or Twilio config) first.
+ */
+function classifySmsError(err) {
+  const code = err && (err.code || err.status);
+  const permanent = typeof code === "number" && PERMANENT_TWILIO_CODES.has(code);
+  const message = (err && err.message ? String(err.message) : "Send failed").slice(0, 300);
+  return { message, permanent };
+}
+
 /** Resolves the leads (with a phone number) that match a campaign segment. */
 async function resolveRecipients(brandId, segment, leadIds) {
   if (segment === "specific") {
@@ -283,8 +318,10 @@ async function deliverQueuedMessages(campaign, cfg) {
   for (const msg of queued) {
     if (!msg.phone) {
       await db.query(
-        `UPDATE sms_messages SET delivery_status = 'failed' WHERE message_id = $1`,
-        [msg.message_id],
+        `UPDATE sms_messages
+         SET delivery_status = 'failed', error_message = $2, error_permanent = TRUE
+         WHERE message_id = $1`,
+        [msg.message_id, "Recipient has no phone number on file."],
       );
       failed += 1;
       lastError = lastError || "Recipient has no phone number on file.";
@@ -306,16 +343,20 @@ async function deliverQueuedMessages(campaign, cfg) {
       });
       await db.query(
         `UPDATE sms_messages
-         SET delivery_status = 'sent', twilio_message_sid = $2, sent_at = NOW()
+         SET delivery_status = 'sent', twilio_message_sid = $2, sent_at = NOW(),
+             error_message = NULL, error_permanent = NULL
          WHERE message_id = $1`,
         [msg.message_id, sent.sid || null],
       );
       delivered += 1;
     } catch (err) {
       console.error("SMS send failed:", err.message);
+      const { message: reason, permanent } = classifySmsError(err);
       await db.query(
-        `UPDATE sms_messages SET delivery_status = 'failed' WHERE message_id = $1`,
-        [msg.message_id],
+        `UPDATE sms_messages
+         SET delivery_status = 'failed', error_message = $2, error_permanent = $3
+         WHERE message_id = $1`,
+        [msg.message_id, reason, permanent],
       );
       failed += 1;
       lastError = err.message;
@@ -411,7 +452,8 @@ async function retryCampaign(req, res) {
 
   await db.query(
     `UPDATE sms_messages
-     SET delivery_status = 'queued', twilio_message_sid = NULL, sent_at = NULL
+     SET delivery_status = 'queued', twilio_message_sid = NULL, sent_at = NULL,
+         error_message = NULL, error_permanent = NULL
      WHERE campaign_id = $1 AND direction = 'outbound' AND delivery_status = 'failed'`,
     [campaignId],
   );
@@ -480,6 +522,7 @@ async function getCampaignDetail(req, res) {
 
   const { rows: messages } = await db.query(
     `SELECT m.message_id, m.lead_id, m.message_body, m.delivery_status, m.sent_at,
+            m.error_message, m.error_permanent,
             l.lead_name, l.phone, l.temperature
      FROM sms_messages m
      LEFT JOIN leads l ON l.lead_id = m.lead_id

@@ -459,7 +459,7 @@ function makeSmsDb({ finalFlipHits = true, brands }) {
     if (/FROM sms_messages m/i.test(sql)) {
       return { rows: [{ message_id: "m1", message_body: "Hi", phone: null }] };
     }
-    if (/UPDATE sms_messages SET delivery_status = 'failed'/i.test(sql)) {
+    if (/UPDATE sms_messages\s+SET delivery_status = 'failed'/i.test(sql)) {
       return { rows: [] };
     }
     if (/UPDATE sms_campaigns/i.test(sql) && /status = 'sending'/i.test(sql)) {

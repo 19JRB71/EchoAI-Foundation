@@ -107,6 +107,7 @@ function Campaigns({ brandId }) {
   const [error, setError] = useState("");
   const [showBuilder, setShowBuilder] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -220,20 +221,163 @@ function Campaigns({ brandId }) {
                   </button>
                 )}
                 {c.status === "failed" && (
-                  <button
-                    onClick={() => retry(c.campaign_id)}
-                    disabled={busyId === c.campaign_id}
-                    className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-400 disabled:opacity-50"
-                  >
-                    {busyId === c.campaign_id ? "Retrying…" : "Retry Blast"}
-                  </button>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <button
+                      onClick={() => retry(c.campaign_id)}
+                      disabled={busyId === c.campaign_id}
+                      className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-400 disabled:opacity-50"
+                    >
+                      {busyId === c.campaign_id ? "Retrying…" : "Retry Blast"}
+                    </button>
+                    <button
+                      onClick={() =>
+                        setExpandedId(
+                          expandedId === c.campaign_id ? null : c.campaign_id,
+                        )
+                      }
+                      className="text-xs font-medium text-gray-400 hover:text-gray-200"
+                    >
+                      {expandedId === c.campaign_id
+                        ? "Hide failures ▲"
+                        : "Why did it fail? ▼"}
+                    </button>
+                  </div>
                 )}
               </div>
+              {c.status === "failed" && expandedId === c.campaign_id && (
+                <FailureBreakdown campaignId={c.campaign_id} />
+              )}
             </div>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+// Lists a failed campaign's undelivered recipients with the stored per-message
+// error text, separating permanent failures (bad number / opt-out — retrying
+// won't help, fix the contact first) from transient ones (safe to retry).
+function FailureBreakdown({ campaignId }) {
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    api
+      .getSmsCampaignDetail(campaignId)
+      .then((res) => {
+        if (!cancelled) setMessages(res.messages || []);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId]);
+
+  const failed = useMemo(
+    () => messages.filter((m) => m.delivery_status === "failed"),
+    [messages],
+  );
+  const permanent = failed.filter((m) => m.error_permanent);
+  const transient = failed.filter((m) => !m.error_permanent);
+
+  if (loading) {
+    return (
+      <div className="mt-3 border-t border-gray-800 pt-3">
+        <Spinner />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="mt-3 border-t border-gray-800 pt-3">
+        <ErrorBanner message={error} />
+      </div>
+    );
+  }
+  if (failed.length === 0) {
+    return (
+      <div className="mt-3 border-t border-gray-800 pt-3 text-sm text-gray-400">
+        No per-recipient failure details are recorded for this campaign.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-4 border-t border-gray-800 pt-3">
+      {permanent.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-300">
+            Won't send on retry — fix these first ({permanent.length})
+          </p>
+          <p className="mb-2 text-xs text-gray-500">
+            These failed for a permanent reason (invalid number, unreachable, or
+            opted out). Retrying the blast will fail again until you fix or remove
+            the contact.
+          </p>
+          <ul className="space-y-2">
+            {permanent.map((m) => (
+              <FailedRecipient key={m.message_id} m={m} permanent />
+            ))}
+          </ul>
+        </div>
+      )}
+      {transient.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-300">
+            Temporary problem — safe to retry ({transient.length})
+          </p>
+          <p className="mb-2 text-xs text-gray-500">
+            These hit a temporary issue (Twilio outage, credentials, or a network
+            blip). Retrying the blast should deliver them.
+          </p>
+          <ul className="space-y-2">
+            {transient.map((m) => (
+              <FailedRecipient key={m.message_id} m={m} />
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FailedRecipient({ m, permanent }) {
+  return (
+    <li
+      className={[
+        "rounded-lg border px-3 py-2 text-sm",
+        permanent
+          ? "border-red-500/30 bg-red-500/5"
+          : "border-amber-500/30 bg-amber-500/5",
+      ].join(" ")}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate font-medium text-gray-100">
+          {m.lead_name || m.phone || "Unknown recipient"}
+        </span>
+        {m.phone && m.lead_name && (
+          <span className="shrink-0 text-xs text-gray-500">{m.phone}</span>
+        )}
+      </div>
+      <p
+        className={[
+          "mt-1 text-xs",
+          permanent ? "text-red-300" : "text-amber-300",
+        ].join(" ")}
+      >
+        {m.error_message || "No error detail was recorded."}
+      </p>
+    </li>
   );
 }
 
