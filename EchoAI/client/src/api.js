@@ -729,6 +729,11 @@ export const api = {
       `/api/email-marketing/campaigns/${campaignId}/recipients/${recipientId}/retry`,
       { method: "POST" }
     ),
+  retryAllFailedEmailDripRecipients: (campaignId) =>
+    request(
+      `/api/email-marketing/campaigns/${campaignId}/recipients/retry-failed`,
+      { method: "POST" }
+    ),
   getEmailCampaigns: (brandId) =>
     request(`/api/email-marketing/campaigns/${brandId}`),
   getEmailCampaignDetail: (campaignId) =>

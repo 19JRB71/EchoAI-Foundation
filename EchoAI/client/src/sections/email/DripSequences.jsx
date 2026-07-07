@@ -80,6 +80,7 @@ function DripRow({ campaign, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showFailed, setShowFailed] = useState(false);
+  const [retryingAll, setRetryingAll] = useState(false);
 
   async function act(fn) {
     setBusy(true);
@@ -91,6 +92,19 @@ function DripRow({ campaign, onChanged }) {
       setError(err.message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function retryAllFailed() {
+    setRetryingAll(true);
+    setError("");
+    try {
+      await api.retryAllFailedEmailDripRecipients(campaign.campaignId);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRetryingAll(false);
     }
   }
 
@@ -143,14 +157,23 @@ function DripRow({ campaign, onChanged }) {
       </div>
       {campaign.failedCount > 0 && (
         <div className="mt-3">
-          <button
-            onClick={() => setShowFailed((v) => !v)}
-            className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20"
-          >
-            {showFailed
-              ? "Hide failed recipients"
-              : `${campaign.failedCount} failed recipient${campaign.failedCount === 1 ? "" : "s"} — view & retry`}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowFailed((v) => !v)}
+              className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20"
+            >
+              {showFailed
+                ? "Hide failed recipients"
+                : `${campaign.failedCount} failed recipient${campaign.failedCount === 1 ? "" : "s"} — view & retry`}
+            </button>
+            <button
+              onClick={retryAllFailed}
+              disabled={retryingAll}
+              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+            >
+              {retryingAll ? "Retrying all…" : "Retry all failed"}
+            </button>
+          </div>
           {showFailed && (
             <FailedRecipients campaignId={campaign.campaignId} onRetried={onChanged} />
           )}

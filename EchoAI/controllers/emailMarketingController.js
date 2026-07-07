@@ -918,6 +918,64 @@ async function retryDripRecipient(req, res) {
   }
 }
 
+/**
+ * POST /api/email-marketing/campaigns/:campaignId/recipients/retry-failed
+ * One-tap bulk recovery: flips every failed recipient of a drip campaign back
+ * to pending in a single atomic UPDATE (resets send_attempts to 0 and sets
+ * next_send_at = NOW()) so the next hourly drip tick re-attempts them all.
+ * Ownership is enforced inside the UPDATE via the brands join. When nothing is
+ * updated a follow-up read disambiguates 404 (foreign campaign) / 400 (not a
+ * drip) from a genuine "no failed recipients" (200 with retried: 0).
+ */
+async function retryFailedDripRecipients(req, res) {
+  const userId = req.user.userId;
+  const { campaignId } = req.params;
+  if (!campaignId || !UUID_RE.test(campaignId)) {
+    return res.status(400).json({ error: "Invalid campaign id" });
+  }
+  try {
+    const result = await db.query(
+      `UPDATE email_marketing_recipients r
+       SET delivery_status = 'pending', send_attempts = 0,
+           next_send_at = NOW(), updated_at = NOW()
+       FROM email_marketing_campaigns c
+       JOIN brands b ON b.brand_id = c.brand_id
+       WHERE r.campaign_id = $1
+         AND c.campaign_id = r.campaign_id
+         AND c.campaign_type = 'drip'
+         AND b.user_id = $2
+         AND r.delivery_status = 'failed'
+       RETURNING r.recipient_id`,
+      [campaignId, userId]
+    );
+    if (result.rows.length > 0) {
+      return res.json({ retried: result.rows.length });
+    }
+
+    // Nothing updated: either the campaign isn't ours (404), it isn't a drip
+    // (400), or it simply has no failed recipients (200 with retried: 0).
+    const check = await db.query(
+      `SELECT c.campaign_type
+       FROM email_marketing_campaigns c
+       JOIN brands b ON b.brand_id = c.brand_id AND b.user_id = $2
+       WHERE c.campaign_id = $1`,
+      [campaignId, userId]
+    );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
+    if (check.rows[0].campaign_type !== "drip") {
+      return res
+        .status(400)
+        .json({ error: "Only drip sequence recipients can be retried" });
+    }
+    return res.json({ retried: 0 });
+  } catch (err) {
+    console.error("Retry failed drip recipients error:", err.message);
+    return res.status(500).json({ error: "Failed to retry recipients" });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Scheduled one-time blast worker (invoked every 5 min from utils/scheduler.js)
 // ---------------------------------------------------------------------------
@@ -1481,6 +1539,7 @@ module.exports = {
   unscheduleCampaign,
   sendDueDripEmails,
   retryDripRecipient,
+  retryFailedDripRecipients,
   sendDueScheduledCampaigns,
   getCampaigns,
   getCampaignDetail,

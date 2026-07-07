@@ -37,6 +37,10 @@ router.post("/campaigns/:campaignId/unschedule", controller.unscheduleCampaign);
 router.post("/campaigns/:campaignId/pause", controller.pauseCampaign);
 router.post("/campaigns/:campaignId/resume", controller.resumeCampaign);
 router.post(
+  "/campaigns/:campaignId/recipients/retry-failed",
+  controller.retryFailedDripRecipients
+);
+router.post(
   "/campaigns/:campaignId/recipients/:recipientId/retry",
   controller.retryDripRecipient
 );
