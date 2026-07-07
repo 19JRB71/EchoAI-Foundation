@@ -1,0 +1,55 @@
+You reached the start of the range
+Jul 7, 2026, 2:27 PM
+npm warn config production Use `--omit=dev` instead.
+Starting Container
+    at Module.load (node:internal/modules/cjs/loader:1288:32)
+npm error Exit handler never called!
+npm error This is an error with npm itself. Please report this error at:
+npm error   <https://github.com/npm/cli/issues>
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-07-07T18_29_18_008Z-debug-0.log
+npm warn config production Use `--omit=dev` instead.
+Error: Cannot find module 'dotenv'
+> echoai@1.0.0 migrate
+> node utils/runMigrations.js
+node:internal/modules/cjs/loader:1228
+Require stack:
+  throw err;
+- /app/utils/runMigrations.js
+  ^
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)
+    at Module._load (node:internal/modules/cjs/loader:1051:27)
+    at Module.require (node:internal/modules/cjs/loader:1311:19)
+    at require (node:internal/modules/helpers:179:18)
+    at Object.<anonymous> (/app/utils/runMigrations.js:1:1)
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+    at Module._load (node:internal/modules/cjs/loader:1104:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:173:12) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/utils/runMigrations.js' ]
+}
+Node.js v20.18.1
+npm warn config production Use `--omit=dev` instead.
+npm error code ENOTEMPTY
+npm error syscall rename
+npm error path /app/node_modules/agent-base
+npm error dest /app/node_modules/.agent-base-WK0aXwud
+npm error errno -39
+npm error ENOTEMPTY: directory not empty, rename '/app/node_modules/agent-base' -> '/app/node_modules/.agent-base-WK0aXwud'
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-07-07T18_30_29_729Z-debug-0.log
+npm warn config production Use `--omit=dev` instead.
+npm error code ENOTEMPTY
+npm error syscall rename
+npm error path /app/node_modules/are-we-there-yet
+npm error dest /app/node_modules/.are-we-there-yet-LeLB7vvY
+npm error errno -39
+npm error ENOTEMPTY: directory not empty, rename '/app/node_modules/are-we-there-yet' -> '/app/node_modules/.are-we-there-yet-LeLB7vvY'
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-07-07T18_30_30_936Z-debug-0.log
+npm warn config production Use `--omit=dev` instead.
+npm error code ENOTEMPTY
+npm error syscall rename
+npm error path /app/node_modules/are-we-there-yet
+npm error dest /app/node_modules/.are-we-there-yet-LeLB7vvY
+npm error errno -39
+npm error ENOTEMPTY: directory not empty, rename '/app/node_modules/are-we-there-yet' -> '/app/node_modules/.are-we-there-yet-LeLB7vvY'
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-07-07T18_30_32_258Z-debug-0.log
