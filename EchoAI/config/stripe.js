@@ -1,31 +1,14 @@
 require("dotenv").config();
 
 const Stripe = require("stripe");
+const { makeUnconfiguredClient } = require("../utils/optionalClient");
 
 // When STRIPE_SECRET_KEY is unset, the Stripe SDK throws at construction time
 // ("Neither apiKey nor config.authenticator provided"). Because this module is
 // required at boot, that would crash the ENTIRE server even though billing is an
-// optional feature. Instead, degrade gracefully: build the real client only when
-// the key exists, otherwise export a stub that throws a clear, descriptive error
-// ONLY if some billing code path is actually invoked. The server boots fine and
-// every non-billing feature keeps working.
-function makeUnconfiguredStripe() {
-  const notConfigured = () => {
-    throw new Error(
-      "Stripe is not configured: set STRIPE_SECRET_KEY to enable billing."
-    );
-  };
-  const handler = {
-    get() {
-      return new Proxy(notConfigured, handler);
-    },
-    apply() {
-      return notConfigured();
-    },
-  };
-  return new Proxy(notConfigured, handler);
-}
-
+// optional feature. Build the real client only when the key exists; otherwise use
+// a stub that throws a clear error only if a billing path is actually invoked, so
+// the server boots and every non-billing feature keeps working.
 let stripe;
 if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
@@ -35,7 +18,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   console.warn(
     "Warning: STRIPE_SECRET_KEY is not set. Billing is disabled; Stripe calls will fail until it is configured."
   );
-  stripe = makeUnconfiguredStripe();
+  stripe = makeUnconfiguredClient("Stripe (billing)", "STRIPE_SECRET_KEY");
 }
 
 /**

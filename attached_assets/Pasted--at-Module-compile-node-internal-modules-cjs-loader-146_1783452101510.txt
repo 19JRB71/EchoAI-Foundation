@@ -1,0 +1,112 @@
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+npm warn config production Use `--omit=dev` instead.
+> echoai@1.0.0 migrate
+> node utils/runMigrations.js
+Connected to PostgreSQL database
+= skip schema.sql (already applied)
+= skip 002_stripe_billing.sql (already applied)
+= skip 003_facebook_campaign.sql (already applied)
+= skip 004_brand_discovery.sql (already applied)
+= skip 005_lead_conversion.sql (already applied)
+= skip 006_weekly_report.sql (already applied)
+= skip 007_competitor_intelligence.sql (already applied)
+= skip 008_onboarding.sql (already applied)
+= skip 009_admin_roles.sql (already applied)
+= skip 010_platform_inquiries.sql (already applied)
+= skip 011_brand_tagline.sql (already applied)
+= skip 012_social_media.sql (already applied)
+= skip 013_video_scripts.sql (already applied)
+= skip 014_email_campaigns.sql (already applied)
+= skip 015_images.sql (already applied)
+= skip 016_push_subscriptions.sql (already applied)
+= skip 017_facebook_oauth.sql (already applied)
+= skip 018_google_seo.sql (already applied)
+= skip 019_roi_snapshots.sql (already applied)
+= skip 020_reviews.sql (already applied)
+= skip 021_phone_agent.sql (already applied)
+= skip 022_chatbot_sessions.sql (already applied)
+= skip 023_sales_scripts.sql (already applied)
+= skip 024_webhooks.sql (already applied)
+= skip 025_white_label.sql (already applied)
+= skip 026_affiliate_program.sql (already applied)
+= skip 027_mobile_tokens.sql (already applied)
+= skip 028_content_calendar.sql (already applied)
+= skip 029_ad_creatives.sql (already applied)
+= skip 037_email_marketing.sql (already applied)
+= skip 030_feedback.sql (already applied)
+= skip 031_feature_gating.sql (already applied)
+= skip 032_team_members.sql (already applied)
+= skip 033_appointments.sql (already applied)
+= skip 038_roi_advanced.sql (already applied)
+= skip 034_follow_up_sequences.sql (already applied)
+= skip 039_customer_intelligence.sql (already applied)
+= skip 035_sms_marketing.sql (already applied)
+= skip 040_tour_progress.sql (already applied)
+= skip 036_image_studio_enrich.sql (already applied)
+= skip 041_setup_agent.sql (already applied)
+= skip 042_setup_agent_concurrency.sql (already applied)
+= skip 043_setup_agent_lifecycle.sql (already applied)
+= skip 044_setup_agent_lease_token.sql (already applied)
+= skip 045_google_ad_plans.sql (already applied)
+= skip 060_target_goals.sql (already applied)
+= skip 046_health_monitor.sql (already applied)
+= skip 061_goal_snapshot_nullable.sql (already applied)
+= skip 047_sales_agent.sql (already applied)
+= skip 062_goal_alert_log.sql (already applied)
+= skip 063_analytics_ctr.sql (already applied)
+= skip 048_echo_companion.sql (already applied)
+= skip 064_goal_alert_manage.sql (already applied)
+= skip 049_marketing_department.sql (already applied)
+= skip 065_social_post_retry.sql (already applied)
+= skip 050_accountability_enums.sql (already applied)
+= skip 051_accountability_crm.sql (already applied)
+= skip 066_email_send_attempts.sql (already applied)
+= skip 052_echo_voice.sql (already applied)
+= skip 053_demo_mode.sql (already applied)
+= skip 054_demo_suggestions.sql (already applied)
+= skip 054_facebook_pages.sql (already applied)
+= skip 055_echo_deep_memory.sql (already applied)
+= skip 056_autonomous_growth.sql (already applied)
+= skip 057_capital_funding.sql (already applied)
+= skip 058_portfolio.sql (already applied)
+= skip 059_echo_suggestions.sql (already applied)
+= skip 067_email_blast_failed_status.sql (already applied)
+= skip 067_email_failure_alert_cooldown.sql (already applied)
+= skip 068_api_quota_monitoring.sql (already applied)
+= skip 068_sms_message_error.sql (already applied)
+= skip 069_sage_industry_intelligence.sql (already applied)
+= skip 070_content_calendar_settings.sql (already applied)
+= skip 071_content_calendar_frequencies.sql (already applied)
+= skip 071_email_recipient_error.sql (already applied)
+= skip 072_email_recipient_error_permanent.sql (already applied)
+Migrations complete: 0 applied, 76 skipped.
+Feature disabled — Facebook ad connection (OAuth): missing FACEBOOK_APP_ID, FACEBOOK_APP_SECRET.
+Feature disabled — AI brand discovery / content (Anthropic): missing ANTHROPIC_API_KEY.
+Feature disabled — Google integration (OAuth — Business Profile, Ads, Analytics, Search Console): missing GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET.
+Feature disabled — Voice & image generation (OpenAI): missing OPENAI_API_KEY.
+Feature disabled — Web push notifications (VAPID): missing VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
+Feature disabled — ElevenLabs voice + wake-up sound (falls back to OpenAI TTS): missing ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID.
+Feature disabled — Mobile push notifications (Firebase Cloud Messaging): missing FCM_SERVER_KEY.
+Feature disabled — Billing (Stripe): missing STRIPE_SECRET_KEY.
+Feature disabled — AI Sales Agent (dedicated EchoAI sales Twilio line): missing SALES_TWILIO_ACCOUNT_SID, SALES_TWILIO_AUTH_TOKEN, SALES_TWILIO_NUMBER.
+Feature disabled — Transactional email (SMTP): missing SMTP_HOST.
+Feature disabled — Music search (YouTube Data API — playback works without it via video IDs): missing YOUTUBE_API_KEY.
+    at Object.<anonymous> (/app/config/openai.js:11:16)
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+    at Module.load (node:internal/modules/cjs/loader:1288:32)
+    at Module._load (node:internal/modules/cjs/loader:1104:12)
+    at Module.require (node:internal/modules/cjs/loader:1311:19)
+    at require (node:internal/modules/helpers:179:18)
+Warning: STRIPE_SECRET_KEY is not set. Billing is disabled; Stripe calls will fail until it is configured.
+Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+Warning: ANTHROPIC_API_KEY is not set. Brand discovery (AI) calls will fail until it is configured.
+Warning: OPENAI_API_KEY is not set. Voice (speech-to-text and text-to-speech) calls will fail until it is configured.
+/app/node_modules/openai/index.js:74
+            throw new Errors.OpenAIError("The OPENAI_API_KEY environment variable is missing or empty; either provide it, or instantiate the OpenAI client with an apiKey option, like new OpenAI({ apiKey: 'My API Key' }).");
+            ^
+OpenAIError: The OPENAI_API_KEY environment variable is missing or empty; either provide it, or instantiate the OpenAI client with an apiKey option, like new OpenAI({ apiKey: 'My API Key' }).
+    at new OpenAI (/app/node_modules/openai/index.js:74:19)
+    at Object.<anonymous> (/app/controllers/voiceController.js:2:53)
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+Node.js v20.18.1

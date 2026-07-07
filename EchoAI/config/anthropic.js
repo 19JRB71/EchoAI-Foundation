@@ -1,14 +1,22 @@
 require("dotenv").config();
 
 const Anthropic = require("@anthropic-ai/sdk");
+const { makeUnconfiguredClient } = require("../utils/optionalClient");
 
-if (!process.env.ANTHROPIC_API_KEY) {
+// The Anthropic SDK throws at construction when no key is available (arg
+// undefined AND no ANTHROPIC_API_KEY in env), which would crash the whole server
+// at boot. AI text features are optional, so build the client only when the key
+// is present; otherwise use a stub that fails only if Anthropic is actually
+// called (createMessage below surfaces that as an upstream AI error).
+let anthropic;
+if (process.env.ANTHROPIC_API_KEY) {
+  anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+} else {
   console.warn(
-    "Warning: ANTHROPIC_API_KEY is not set. Brand discovery (AI) calls will fail until it is configured."
+    "Warning: ANTHROPIC_API_KEY is not set. AI features are disabled; Anthropic calls will fail until it is configured."
   );
+  anthropic = makeUnconfiguredClient("Anthropic (AI)", "ANTHROPIC_API_KEY");
 }
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
