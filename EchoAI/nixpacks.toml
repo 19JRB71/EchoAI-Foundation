@@ -27,7 +27,23 @@ providers = ["node"]
 nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
 
 [phases.install]
-cmds = ["npm install --no-audit --no-fund"]
+# The npm bundled with Node 20.x can crash on Railway with "Exit handler never
+# called!" and "ENOTEMPTY ... rename node_modules/<pkg>" when it installs on top
+# of an existing/partial node_modules (e.g. a restored build cache) or under
+# memory pressure. When that happens npm exits without finishing, leaving
+# node_modules HALF-installed (dotenv and others missing) — which is exactly why
+# the app crashed at runtime with "Cannot find module 'dotenv'".
+#
+# Fix: (1) start from a clean node_modules so there is nothing to rename over,
+# (2) serialize npm with --maxsockets=1 to avoid the rename race / reduce memory
+# pressure, then (3) hard-verify the critical runtime deps actually landed. Step
+# 3 turns a silent partial install into a LOUD build failure instead of shipping
+# a broken image.
+cmds = [
+  "rm -rf node_modules",
+  "npm install --no-audit --no-fund --maxsockets=1",
+  "node -e \"require('dotenv');require('express');require('pg');require('bcrypt');console.log('runtime deps verified OK')\""
+]
 
 [phases.build]
 cmds = ["test -f client/dist/index.html || (echo 'ERROR: client/dist is missing - run: cd EchoAI/client && npm run build, then commit client/dist' && exit 1)"]

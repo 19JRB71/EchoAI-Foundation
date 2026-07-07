@@ -16,33 +16,30 @@
 
 [build]
 builder = "nixpacks"
-# Build phases (setup / install / build) are defined in nixpacks.toml so the
-# install step uses `npm install --include=dev` (not the crashing `npm ci`) and
-# the client's dev-only build tools (vite/tailwind) are installed even though
-# NODE_ENV=production. Any VITE_* vars set on the service are baked in there.
+# Build phases (setup / install / build) are defined in nixpacks.toml. The
+# install step does a clean, serialized `npm install` and then verifies the
+# critical runtime deps are present, so a partial/corrupt install fails the build
+# loudly instead of shipping an image that crashes at startup. The React SPA is
+# prebuilt locally and committed under client/dist; the build only verifies it.
 
 [deploy]
-# Install production dependencies, apply pending SQL migrations (idempotent),
-# then start the Express server.
+# Apply pending SQL migrations (idempotent) then start the Express server.
 #
-# Why install here: node_modules produced during the nixpacks BUILD phase is not
-# reliably present in the DEPLOY/runtime container (nixpacks can keep it in a
-# build-cache layer that does not persist to the final image). That caused the
-# runtime crash "Cannot find module 'dotenv'" — the server never started, so the
-# healthcheck failed. Installing (only production deps) at start guarantees every
-# runtime package is present. It is fast when the layer is already warm and
-# self-heals when it is not. `--omit=dev` skips the client build tools, which are
-# not needed (the React SPA is prebuilt and committed under client/dist).
+# Do NOT run `npm install` here. Installing at deploy time runs on top of the
+# node_modules already baked into the image by the build, which triggers npm's
+# "ENOTEMPTY ... rename" / "Exit handler never called!" crash and leaves deps
+# broken. Dependencies are installed (cleanly + verified) in the BUILD phase
+# (see nixpacks.toml) so they are already present and complete at runtime.
 #
 # server.js reads PORT (Railway injects it) and serves BOTH the /api routes and
 # the built React SPA from client/dist on a single origin.
-startCommand = "npm install --omit=dev --no-audit --no-fund && npm run migrate && node server.js"
+startCommand = "npm run migrate && node server.js"
 # Railway hits this public endpoint to confirm the app is live before routing
 # traffic to a new deploy.
 healthcheckPath = "/api/health"
-# Generous window: a cold container installs prod deps + runs migrations before
-# the server listens. This is the max time Railway waits for /api/health to
-# respond before declaring the deploy failed.
+# Generous window: a cold container runs migrations before the server listens.
+# This is the max time Railway waits for /api/health to respond before declaring
+# the deploy failed.
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
