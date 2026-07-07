@@ -9,10 +9,14 @@
 #              needed) plus python3/gcc/make as a fallback in case any native
 #              dependency must build from source.
 #  * install - server deps via `npm install` (not the crashing `npm ci`).
-#  * build   - install the client's deps AND build the SPA here. Nixpacks only
-#              copies the root package.json into the install phase, so the
-#              client/ source only exists from the build phase onward. The
-#              client's build tools (vite, tailwind, postcss) are regular
+#  * build   - install the client's deps AND build the SPA in a SINGLE command.
+#              Nixpacks only copies the root package.json into the install phase,
+#              so the client/ source only exists from the build phase onward.
+#              The install and build MUST run in one command: nixpacks runs each
+#              cmd with an ephemeral cache mount, so a client `npm install` in
+#              one cmd is not guaranteed to still be present in a later cmd -
+#              chaining them with `&&` keeps node_modules in scope for the build.
+#              The client's build tools (vite, tailwind, postcss) are regular
 #              dependencies (not devDependencies), so a plain `npm install`
 #              installs them even with NODE_ENV=production.
 #
@@ -28,7 +32,4 @@ nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
 cmds = ["npm install"]
 
 [phases.build]
-cmds = [
-  "cd client && npm install",
-  "cd client && npm run build",
-]
+cmds = ["cd client && npm install && npm run build"]
