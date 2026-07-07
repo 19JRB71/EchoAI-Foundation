@@ -536,10 +536,10 @@ export const api = {
     }),
   getCalendarPostingSettings: (brandId) =>
     request(`/api/content-calendar/settings/${brandId}`),
-  saveCalendarPostingSettings: (brandId, windows) =>
+  saveCalendarPostingSettings: (brandId, { windows, frequencies }) =>
     request(`/api/content-calendar/settings/${brandId}`, {
       method: "PUT",
-      body: { windows },
+      body: { windows, frequencies },
     }),
 
   // AI Ad Creative Studio

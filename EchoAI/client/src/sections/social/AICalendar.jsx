@@ -227,7 +227,7 @@ export default function AICalendar({ brandId, onReconnect }) {
             onClick={() => setShowSettings(true)}
             className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm font-semibold text-gray-300 hover:bg-gray-800"
           >
-            Posting Times
+            Posting Schedule
           </button>
           <button
             onClick={() => {
@@ -248,7 +248,7 @@ export default function AICalendar({ brandId, onReconnect }) {
           onSaved={() => {
             setShowSettings(false);
             setNotice(
-              "Posting times saved — your next generated calendar will use them."
+              "Posting schedule saved — your next generated calendar will use it."
             );
           }}
         />
@@ -857,14 +857,23 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
   );
 }
 
-const CADENCE_HINT = {
-  daily: "every day",
-  weekly: "on its weekly days",
-};
-
 function sameTimes(a, b) {
   if (a.length !== b.length) return false;
   return a.every((t, i) => t === b[i]);
+}
+
+// The per-platform frequency shape defaults to a platform's coded cadence.
+function defaultFreqFor(def) {
+  return def.cadence === "weekly"
+    ? { cadence: "weekly", perWeek: def.perWeek || 3 }
+    : { cadence: "daily" };
+}
+
+function sameFreq(a, b) {
+  if (!a || !b) return false;
+  if (a.cadence !== b.cadence) return false;
+  if (a.cadence === "weekly") return (a.perWeek || 3) === (b.perWeek || 3);
+  return true;
 }
 
 function PostingSettingsPanel({ brandId, onClose, onSaved }) {
@@ -873,7 +882,9 @@ function PostingSettingsPanel({ brandId, onClose, onSaved }) {
   const [error, setError] = useState("");
   const [defaults, setDefaults] = useState({});
   const [maxPerPlatform, setMaxPerPlatform] = useState(6);
+  const [maxPerWeek, setMaxPerWeek] = useState(7);
   const [windows, setWindows] = useState({}); // { platform: ["HH:MM", ...] }
+  const [frequencies, setFrequencies] = useState({}); // { platform: { cadence, perWeek? } }
 
   useEffect(() => {
     let cancelled = false;
@@ -886,15 +897,22 @@ function PostingSettingsPanel({ brandId, onClose, onSaved }) {
         const defs = data.defaults || {};
         setDefaults(defs);
         setMaxPerPlatform(data.maxPerPlatform || 6);
-        const saved = data.windows || {};
-        const init = {};
+        setMaxPerWeek(data.maxPerWeek || 7);
+        const savedWindows = data.windows || {};
+        const savedFreqs = data.frequencies || {};
+        const initWindows = {};
+        const initFreqs = {};
         for (const [platform, def] of Object.entries(defs)) {
-          init[platform] =
-            saved[platform] && saved[platform].length
-              ? [...saved[platform]]
+          initWindows[platform] =
+            savedWindows[platform] && savedWindows[platform].length
+              ? [...savedWindows[platform]]
               : [...(def.times || [])];
+          initFreqs[platform] = savedFreqs[platform]
+            ? { ...defaultFreqFor(def), ...savedFreqs[platform] }
+            : defaultFreqFor(def);
         }
-        setWindows(init);
+        setWindows(initWindows);
+        setFrequencies(initFreqs);
       } catch (err) {
         if (!cancelled) setError(err.message);
       } finally {
@@ -932,10 +950,33 @@ function PostingSettingsPanel({ brandId, onClose, onSaved }) {
     });
   }
 
+  function setCadence(platform, cadence) {
+    setFrequencies((cur) => {
+      const next =
+        cadence === "weekly"
+          ? { cadence: "weekly", perWeek: cur[platform]?.perWeek || 3 }
+          : { cadence: "daily" };
+      return { ...cur, [platform]: next };
+    });
+  }
+
+  function setPerWeek(platform, value) {
+    const n = Math.max(1, Math.min(maxPerWeek, Math.round(Number(value) || 1)));
+    setFrequencies((cur) => ({
+      ...cur,
+      [platform]: { cadence: "weekly", perWeek: n },
+    }));
+  }
+
   function resetPlatform(platform) {
+    const def = defaults[platform] || {};
     setWindows((cur) => ({
       ...cur,
-      [platform]: [...(defaults[platform]?.times || [])],
+      [platform]: [...(def.times || [])],
+    }));
+    setFrequencies((cur) => ({
+      ...cur,
+      [platform]: defaultFreqFor(def),
     }));
   }
 
@@ -943,19 +984,27 @@ function PostingSettingsPanel({ brandId, onClose, onSaved }) {
     setSaving(true);
     setError("");
     try {
-      // Only send platforms whose times differ from the coded default, and only
-      // valid, non-empty times. Untouched platforms are omitted so they keep
-      // following the default schedule.
-      const payload = {};
+      // Only send platforms whose times/frequency differ from the coded default,
+      // and only valid, non-empty times. Untouched platforms are omitted so they
+      // keep following the default schedule.
+      const windowsPayload = {};
+      const freqPayload = {};
       for (const [platform, def] of Object.entries(defaults)) {
         const times = (windows[platform] || []).filter((t) =>
           /^\d{1,2}:\d{2}$/.test(t)
         );
         if (times.length && !sameTimes(times, def.times || [])) {
-          payload[platform] = times;
+          windowsPayload[platform] = times;
+        }
+        const freq = frequencies[platform];
+        if (freq && !sameFreq(freq, defaultFreqFor(def))) {
+          freqPayload[platform] = freq;
         }
       }
-      await api.saveCalendarPostingSettings(brandId, payload);
+      await api.saveCalendarPostingSettings(brandId, {
+        windows: windowsPayload,
+        frequencies: freqPayload,
+      });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -969,10 +1018,10 @@ function PostingSettingsPanel({ brandId, onClose, onSaved }) {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-gray-100">
-            Posting times (Optimal schedule)
+            Posting schedule (Optimal)
           </h3>
           <p className="mt-0.5 text-xs text-gray-400">
-            Set your preferred posting windows per platform, in your brand's
+            Set how often and at what times each platform posts, in your brand's
             timezone. These apply when you generate an "Optimal" calendar.
           </p>
         </div>
@@ -994,7 +1043,10 @@ function PostingSettingsPanel({ brandId, onClose, onSaved }) {
           <div className="space-y-3">
             {Object.entries(defaults).map(([platform, def]) => {
               const times = windows[platform] || [];
-              const isDefault = sameTimes(times, def.times || []);
+              const freq = frequencies[platform] || defaultFreqFor(def);
+              const isDefault =
+                sameTimes(times, def.times || []) &&
+                sameFreq(freq, defaultFreqFor(def));
               return (
                 <div
                   key={platform}
@@ -1004,9 +1056,7 @@ function PostingSettingsPanel({ brandId, onClose, onSaved }) {
                     <div className="flex items-center gap-2">
                       <PlatformBadge platform={platform} />
                       <span className="text-[11px] text-gray-500">
-                        {platformMeta(platform).label} ·{" "}
-                        {CADENCE_HINT[def.cadence] || def.cadence}
-                        {def.perWeek ? ` (${def.perWeek}×/week)` : ""}
+                        {platformMeta(platform).label}
                       </span>
                     </div>
                     {!isDefault && (
@@ -1019,7 +1069,35 @@ function PostingSettingsPanel({ brandId, onClose, onSaved }) {
                       </button>
                     )}
                   </div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <label className="text-[11px] text-gray-400">Frequency</label>
+                    <select
+                      value={freq.cadence}
+                      onChange={(e) => setCadence(platform, e.target.value)}
+                      className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100"
+                    >
+                      <option value="daily">Every day</option>
+                      <option value="weekly">Days per week</option>
+                    </select>
+                    {freq.cadence === "weekly" && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={1}
+                          max={maxPerWeek}
+                          value={freq.perWeek || 3}
+                          onChange={(e) => setPerWeek(platform, e.target.value)}
+                          aria-label={`${platformMeta(platform).label} days per week`}
+                          className="w-16 rounded-lg border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100"
+                        />
+                        <span className="text-[11px] text-gray-500">×/week</span>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <label className="text-[11px] text-gray-400">
+                      {freq.cadence === "weekly" ? "Times per posting day" : "Times per day"}
+                    </label>
                     {times.map((t, i) => (
                       <div key={i} className="flex items-center gap-1">
                         <input

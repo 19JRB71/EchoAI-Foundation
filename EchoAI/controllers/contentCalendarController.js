@@ -18,6 +18,10 @@ const DEFAULT_TIMEZONE = "America/New_York";
 // Guardrail: at most this many posting windows per platform per day, so a
 // customized schedule can't be turned into a spam/abuse firehose.
 const MAX_WINDOWS_PER_PLATFORM = 6;
+// Guardrail: a weekly-cadence platform posts at most this many days per rolling
+// 7-day window (7 == every day, i.e. effectively daily).
+const MAX_POSTS_PER_WEEK = 7;
+const SUPPORTED_CADENCES = ["daily", "weekly"];
 
 /** Validates an "HH:MM" 24h string; returns a zero-padded copy or null. */
 function normalizeWindowTime(value) {
@@ -71,6 +75,52 @@ function sanitizeWindows(input) {
 }
 
 /**
+ * The coded default per-platform frequency (cadence + weekly count) for the
+ * "optimal" schedule, shaped as { platform: { cadence, perWeek? } }. Used to seed
+ * the settings UI and to fall back per-platform when a brand has no override.
+ */
+function defaultPostingFrequencies() {
+  const out = {};
+  for (const [platform, schedule] of Object.entries(PLATFORM_SCHEDULES)) {
+    out[platform] = {
+      cadence: schedule.cadence,
+      ...(schedule.cadence === "weekly"
+        ? { perWeek: schedule.perWeek || 3 }
+        : {}),
+    };
+  }
+  return out;
+}
+
+/**
+ * Sanitizes a client-supplied frequency override map into
+ * { platform: { cadence, perWeek? } }. Unknown platforms and invalid cadences are
+ * dropped. A "weekly" cadence carries a perWeek clamped to 1..MAX_POSTS_PER_WEEK
+ * (defaulting to 3); a "daily" cadence drops perWeek entirely. This only changes
+ * HOW OFTEN a platform posts, never its posting times (see sanitizeWindows).
+ */
+function sanitizeFrequencies(input) {
+  const clean = {};
+  if (!input || typeof input !== "object" || Array.isArray(input)) return clean;
+  for (const [rawPlatform, rawFreq] of Object.entries(input)) {
+    const platform = String(rawPlatform || "").toLowerCase();
+    if (!PLATFORM_SCHEDULES[platform]) continue;
+    if (!rawFreq || typeof rawFreq !== "object" || Array.isArray(rawFreq)) continue;
+    const cadence = String(rawFreq.cadence || "").toLowerCase();
+    if (!SUPPORTED_CADENCES.includes(cadence)) continue;
+    if (cadence === "weekly") {
+      let perWeek = Number(rawFreq.perWeek);
+      if (!Number.isFinite(perWeek)) perWeek = 3;
+      perWeek = Math.max(1, Math.min(MAX_POSTS_PER_WEEK, Math.round(perWeek)));
+      clean[platform] = { cadence, perWeek };
+    } else {
+      clean[platform] = { cadence };
+    }
+  }
+  return clean;
+}
+
+/**
  * Loads a brand's saved posting-window overrides as { platform: ["HH:MM", ...] }.
  * Returns {} when none are stored. Sanitized on read so stale/invalid rows can't
  * poison scheduling.
@@ -82,6 +132,23 @@ async function getBrandWindows(brandId) {
       [brandId]
     );
     return sanitizeWindows(r.rows[0]?.windows);
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Loads a brand's saved per-platform frequency overrides as
+ * { platform: { cadence, perWeek? } }. Returns {} when none are stored.
+ * Sanitized on read so stale/invalid rows can't poison scheduling.
+ */
+async function getBrandFrequencies(brandId) {
+  try {
+    const r = await db.query(
+      "SELECT frequencies FROM content_calendar_settings WHERE brand_id = $1",
+      [brandId]
+    );
+    return sanitizeFrequencies(r.rows[0]?.frequencies);
   } catch {
     return {};
   }
@@ -153,7 +220,7 @@ function activeOffsetsForPerWeek(perWeek) {
  * each platform posts on its own per-platform cadence (PLATFORM_SCHEDULES) at
  * fixed daily windows. `time` is a wall-clock "HH:MM" in the brand's timezone.
  */
-function optimalRawSlots(platforms, windowOverrides = {}) {
+function optimalRawSlots(platforms, windowOverrides = {}, frequencyOverrides = {}) {
   const raw = [];
   for (const platform of platforms) {
     const schedule = PLATFORM_SCHEDULES[platform];
@@ -167,10 +234,16 @@ function optimalRawSlots(platforms, windowOverrides = {}) {
         : schedule.times && schedule.times.length
           ? schedule.times
           : ["08:00"];
+    // A brand's frequency override changes HOW OFTEN the platform posts (its
+    // cadence + weekly count); otherwise fall back to the coded cadence.
+    const freq = frequencyOverrides[platform];
+    const cadence = freq?.cadence || schedule.cadence;
+    const perWeek =
+      cadence === "weekly"
+        ? freq?.perWeek || schedule.perWeek || 3
+        : null;
     const offsets =
-      schedule.cadence === "weekly"
-        ? activeOffsetsForPerWeek(schedule.perWeek || 3)
-        : null; // daily: every day
+      cadence === "weekly" ? activeOffsetsForPerWeek(perWeek) : null; // daily: every day
     for (let day = 1; day <= CALENDAR_DAYS; day += 1) {
       if (offsets && !offsets.has((day - 1) % 7)) continue;
       for (const time of times) raw.push({ day, platform, time });
@@ -203,10 +276,10 @@ function legacyRawSlots(frequency, platforms) {
  * angle seed so hundreds of posts stay varied. Returns
  * { index, day, platform, time?, contentType, angle } in publishing order.
  */
-function computeSlots(frequency, platforms, windowOverrides = {}) {
+function computeSlots(frequency, platforms, windowOverrides = {}, frequencyOverrides = {}) {
   const raw =
     frequency === "optimal"
-      ? optimalRawSlots(platforms, windowOverrides)
+      ? optimalRawSlots(platforms, windowOverrides, frequencyOverrides)
       : legacyRawSlots(frequency, platforms);
 
   // Order by when the post actually goes out so the content-type rotation
@@ -301,7 +374,9 @@ async function generateCalendar(req, res) {
     const theme = String(contentTheme || "").trim() || null;
     const timezone = await getBrandTimezone(brandId);
     const windowOverrides = freq === "optimal" ? await getBrandWindows(brandId) : {};
-    const slots = computeSlots(freq, selected, windowOverrides);
+    const frequencyOverrides =
+      freq === "optimal" ? await getBrandFrequencies(brandId) : {};
+    const slots = computeSlots(freq, selected, windowOverrides, frequencyOverrides);
     const generated = await generateCalendarPosts(brand, {
       businessType: String(businessType || "").trim() || brand.industry || null,
       theme,
@@ -734,16 +809,19 @@ async function updatePost(req, res) {
  * editor from `defaults` and shows `windows` on top.
  */
 async function getPostingSettings(req, res) {
-  const userId = req.user.id;
+  const userId = req.user.userId;
   const { brandId } = req.params;
   try {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
     const windows = await getBrandWindows(brandId);
+    const frequencies = await getBrandFrequencies(brandId);
     return res.json({
       defaults: defaultPostingWindows(),
       windows,
+      frequencies,
       maxPerPlatform: MAX_WINDOWS_PER_PLATFORM,
+      maxPerWeek: MAX_POSTS_PER_WEEK,
     });
   } catch (err) {
     console.error("Get posting settings error:", err.message);
@@ -759,24 +837,29 @@ async function getPostingSettings(req, res) {
  * default at generation time.
  */
 async function updatePostingSettings(req, res) {
-  const userId = req.user.id;
+  const userId = req.user.userId;
   const { brandId } = req.params;
   try {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
     const windows = sanitizeWindows(req.body?.windows);
+    const frequencies = sanitizeFrequencies(req.body?.frequencies);
     await db.query(
-      `INSERT INTO content_calendar_settings (brand_id, windows, updated_at)
-       VALUES ($1, $2::jsonb, now())
+      `INSERT INTO content_calendar_settings (brand_id, windows, frequencies, updated_at)
+       VALUES ($1, $2::jsonb, $3::jsonb, now())
        ON CONFLICT (brand_id)
-       DO UPDATE SET windows = EXCLUDED.windows, updated_at = now()`,
-      [brandId, toJsonbParam(windows)]
+       DO UPDATE SET windows = EXCLUDED.windows,
+                     frequencies = EXCLUDED.frequencies,
+                     updated_at = now()`,
+      [brandId, toJsonbParam(windows), toJsonbParam(frequencies)]
     );
     return res.json({
       defaults: defaultPostingWindows(),
       windows,
+      frequencies,
       maxPerPlatform: MAX_WINDOWS_PER_PLATFORM,
+      maxPerWeek: MAX_POSTS_PER_WEEK,
     });
   } catch (err) {
     console.error("Update posting settings error:", err.message);
@@ -799,4 +882,6 @@ module.exports = {
   scheduledTimeFor,
   sanitizeWindows,
   defaultPostingWindows,
+  sanitizeFrequencies,
+  defaultPostingFrequencies,
 };
