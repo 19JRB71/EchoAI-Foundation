@@ -617,7 +617,7 @@ async function sendMessage(req, res) {
         ? req.body.brandId.trim()
         : null;
     // What Echo should call the owner: explicit preference → first name →
-    // "James" for the platform admin account.
+    // "Sir" for the platform admin account.
     async function loadOwnerName(id) {
       const r = await db.query(
         `SELECT first_name, preferred_name, role FROM users WHERE user_id = $1`,
@@ -627,7 +627,7 @@ async function sendMessage(req, res) {
       if (!u) return null;
       if (u.preferred_name && u.preferred_name.trim()) return u.preferred_name.trim();
       if (u.first_name && u.first_name.trim()) return u.first_name.trim();
-      return u.role === "admin" ? "James" : null;
+      return u.role === "admin" ? "Sir" : null;
     }
     const [brand, businesses, ownerName] = await Promise.all([
       resolveChatBrand(userId, requestedBrandId),

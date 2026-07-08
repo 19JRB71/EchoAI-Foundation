@@ -26,7 +26,7 @@ const ECHO_PERSONA = [
 
 const SPOKEN_RULES = [
   "Write ONLY the words to be spoken out loud — no headings, no markdown, no bullet points, no stage directions, no emoji.",
-  "Natural, concise, conversational spoken English. Use the owner's first name once, near the start.",
+  "Natural, concise, conversational spoken English. Address the owner by their preferred name or honorific (e.g. 'Sir') once near the start, and at most once more where it feels natural — never in every sentence.",
   "Use ONLY the facts in the provided data — never invent numbers, names, or events. If a figure is not in the data, do not state it.",
 ].join(" ");
 

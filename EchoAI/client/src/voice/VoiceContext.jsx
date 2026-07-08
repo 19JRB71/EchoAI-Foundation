@@ -113,6 +113,7 @@ export function VoiceProvider({ active, children }) {
   const settingsRef = useRef(settings);
   const mutedRef = useRef(muted);
   const activeRef = useRef(active);
+  const needsGestureRef = useRef(false);
   // True while Sales Presentation Mode is running. Read at synth time so EVERY
   // spoken surface (briefing, scripted lines, suggestions, nav confirmations)
   // requests the strict ElevenLabs-only path — the voice never switches mid-demo.
@@ -127,6 +128,9 @@ export function VoiceProvider({ active, children }) {
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
+  useEffect(() => {
+    needsGestureRef.current = needsGesture;
+  }, [needsGesture]);
 
   // Track Presentation Mode so every spoken surface requests the strict
   // ElevenLabs-only path while a demo is live (see synth calls in speakItem).
@@ -445,6 +449,9 @@ export function VoiceProvider({ active, children }) {
           // front (it has no notificationId, so nothing would re-serve it) and
           // flag that we need a gesture; the next click/keypress resumes playback.
           queueRef.current.unshift(item);
+          // Sync the ref NOW (the state effect lands a render later) so the
+          // finally-block re-drain below can't spin on a still-blocked item.
+          needsGestureRef.current = true;
           setNeedsGesture(true);
           break;
         }
@@ -455,6 +462,19 @@ export function VoiceProvider({ active, children }) {
     } finally {
       busyRef.current = false;
       if (!currentRef.current) setCurrent(null);
+      // An enqueue that raced this loop's unwind (e.g. the barge-in
+      // acknowledgement right after stopAll()) hit the busyRef guard and was
+      // never played. stopAll() clears the queue, so anything still here is a
+      // NEW item that must play — kick the loop again. The autoplay-blocked
+      // case is excluded: it deliberately waits for a user gesture.
+      if (
+        queueRef.current.length > 0 &&
+        !needsGestureRef.current &&
+        !mutedRef.current &&
+        activeRef.current
+      ) {
+        setTimeout(() => drain(), 0);
+      }
     }
   }, [speakItem]);
 
@@ -475,6 +495,7 @@ export function VoiceProvider({ active, children }) {
   useEffect(() => {
     if (!needsGesture || !active) return;
     const resume = () => {
+      needsGestureRef.current = false;
       setNeedsGesture(false);
       drain();
     };
@@ -619,11 +640,11 @@ export function VoiceProvider({ active, children }) {
         const b = await api.echoVoiceGetBriefing();
         if (cancelled) return;
         if (!b.enabled || !b.autoBriefing) return;
-        // Fire on EVERY login regardless of whether the account has data — the
-        // greeting must always play. The token-scoped guard only suppresses a
-        // bare page reload within the same login session; a new login mints a new
-        // token and greets again. We deliberately do NOT honor
-        // `alreadyDeliveredToday`.
+        // Auto-play the morning briefing ONCE per day — only the very first
+        // login of the day. `alreadyDeliveredToday` compares the server-stored
+        // last_briefing_at stamp against today, so logging out and back in the
+        // same day never replays it. (On-demand briefings are always allowed.)
+        if (b.alreadyDeliveredToday) return;
         const key = briefingSessionKey();
         try {
           if (sessionStorage.getItem(key)) return;

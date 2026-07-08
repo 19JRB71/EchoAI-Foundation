@@ -377,3 +377,113 @@ describe("matchYesNo", () => {
     expect(matchYesNo("please do")).toBe("yes");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Interrupt commands (barge-in while Echo speaks)
+// ---------------------------------------------------------------------------
+import {
+  matchInterruptIntent,
+  matchBriefingIntent,
+  matchBriefingChoice,
+  BRIEFING_CHOICE_QUESTION,
+} from "./conversationHelpers.js";
+
+describe("matchInterruptIntent", () => {
+  it("matches short standalone interrupt commands", () => {
+    for (const t of [
+      "Stop",
+      "stop",
+      "Cancel",
+      "Never mind",
+      "nevermind",
+      "Wait",
+      "That's enough",
+      "that is enough",
+      "okay stop",
+      "stop talking",
+      "echo stop",
+      "hey echo stop",
+      "stop please",
+    ]) {
+      expect(matchInterruptIntent(t)).toBe(true);
+    }
+  });
+
+  it("never matches sentences that merely contain an interrupt word (Echo's own speech)", () => {
+    for (const t of [
+      "you should stop by the leads section for a look",
+      "we can't wait to see how the campaign performs this week",
+      "that's enough budget to run three more ad sets this month",
+      "your campaign will stop on Friday",
+      "",
+    ]) {
+      expect(matchInterruptIntent(t)).toBe(false);
+    }
+  });
+});
+
+describe("matchBriefingIntent", () => {
+  it("recognizes on-demand briefing requests", () => {
+    for (const t of [
+      "give me my briefing",
+      "brief me",
+      "can you catch me up",
+      "fill me in",
+      "what's been happening",
+      "give me an update",
+      "bring me up to speed",
+    ]) {
+      expect(matchBriefingIntent(t)).toBe(true);
+    }
+  });
+
+  it("ignores unrelated commands", () => {
+    expect(matchBriefingIntent("take me to my leads")).toBe(false);
+    expect(matchBriefingIntent("play some jazz")).toBe(false);
+    expect(matchBriefingIntent("")).toBe(false);
+  });
+});
+
+describe("matchBriefingChoice", () => {
+  it("asks the exact scripted question", () => {
+    expect(BRIEFING_CHOICE_QUESTION).toBe(
+      "Of course Sir. Would you like a full briefing covering all your businesses, a quick summary of the most important things right now, or a specific update on one business or topic?",
+    );
+  });
+
+  it("detects a full briefing", () => {
+    for (const t of [
+      "the full briefing",
+      "full",
+      "everything",
+      "cover all my businesses",
+      "the whole thing",
+      "all of it",
+    ]) {
+      expect(matchBriefingChoice(t)).toBe("full");
+    }
+  });
+
+  it("detects a quick summary", () => {
+    for (const t of [
+      "a quick summary",
+      "just the highlights",
+      "the most important things",
+      "quick",
+      "short one",
+    ]) {
+      expect(matchBriefingChoice(t)).toBe("quick");
+    }
+  });
+
+  it("treats anything else as a specific topic", () => {
+    expect(matchBriefingChoice("how is my restaurant doing")).toBe("specific");
+    expect(matchBriefingChoice("update on the facebook campaign")).toBe("specific");
+  });
+
+  it("declines cleanly", () => {
+    expect(matchBriefingChoice("no")).toBe("none");
+    expect(matchBriefingChoice("never mind")).toBe("none");
+    expect(matchBriefingChoice("")).toBe("none");
+  });
+});

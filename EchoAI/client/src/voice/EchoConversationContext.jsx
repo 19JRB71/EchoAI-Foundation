@@ -40,6 +40,10 @@ import {
   matchYesNo,
   BRIEF_SECTIONS,
   matchMusicIntent,
+  matchInterruptIntent,
+  matchBriefingIntent,
+  matchBriefingChoice,
+  BRIEFING_CHOICE_QUESTION,
 } from "./conversationHelpers.js";
 import { api } from "../api.js";
 
@@ -132,6 +136,11 @@ export function EchoConversationProvider({ active, children }) {
   const restartTimerRef = useRef(null);
   const patienceRef = useRef(false); // user asked for a moment → no auto-close
   const pendingBriefRef = useRef(null); // section-readout offer awaiting yes/no
+  const pendingBriefingChoiceRef = useRef(false); // briefing-type question pending
+  const interruptedRef = useRef(false); // a barge-in interrupt is being handled
+  // Latest voice.stopAll, readable from stable callbacks (handleResult) without
+  // adding the ever-changing `voice` object to their dependency lists.
+  const stopAllRef = useRef(null);
   const commandHandlerRef = useRef(null);
 
   const runningRef = useRef(false); // is a recognition instance live?
@@ -232,6 +241,11 @@ export function EchoConversationProvider({ active, children }) {
     [voice, active],
   );
 
+  // Keep the barge-in handler's stop hook pointing at the live voice engine.
+  useEffect(() => {
+    stopAllRef.current = voice && voice.stopAll ? voice.stopAll : null;
+  }, [voice]);
+
   // ---- listening lifecycle -------------------------------------------------
   const stopRecognition = useCallback(() => {
     if (restartTimerRef.current) {
@@ -312,10 +326,26 @@ export function EchoConversationProvider({ active, children }) {
       }
       setListeningText("");
 
+      // Interrupt commands ("Stop", "Cancel", "Never mind", "Wait", "That's
+      // enough") — acknowledge and return to listening. Mid-speech barge-ins
+      // are caught earlier in handleResult; this covers the same words spoken
+      // while Echo is quietly listening.
+      if (matchInterruptIntent(text)) {
+        pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = false;
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait("Understood Sir.");
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow();
+        return;
+      }
+
       // Local intents handled without a server round-trip.
       const intent = matchLocalIntent(text);
       if (intent === "mute") {
         pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = false;
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait("Going quiet. Say Hey Echo whenever you need me.");
@@ -391,6 +421,73 @@ export function EchoConversationProvider({ active, children }) {
           return;
         }
         // Neither yes nor no → treat it as a new command below.
+      }
+
+      // The briefing-type question is pending ("full, quick, or specific?").
+      // A clear new nav/music command always wins over the pending question.
+      if (pendingBriefingChoiceRef.current) {
+        pendingBriefingChoiceRef.current = false;
+        if (!matchNavIntent(text) && !matchMusicIntent(text)) {
+          const choice = matchBriefingChoice(text);
+          if (choice === "none") {
+            // Declined — stay quiet and return to passive listening.
+            modeRef.current = "passive";
+            suspendRef.current = false;
+            setConvState("passive");
+            return;
+          }
+          suspendRef.current = true;
+          setConvState("processing");
+          playEffect("thinking", { volume: 0.35 });
+          let brief = "";
+          if (choice === "full") {
+            // Full briefing → the server-built cross-business status update
+            // (real data, all businesses).
+            try {
+              const data = await api.echoVoiceGetStatus();
+              brief = (data && data.text) || "";
+            } catch {
+              brief = "";
+            }
+          }
+          if (!brief) {
+            // Quick summary or a specific business/topic → Echo's AI pipeline
+            // (also the fallback if the full-status fetch failed).
+            const prompt =
+              choice === "quick"
+                ? "Give me a quick spoken summary of only the most important things across my businesses right now. Only mention real data you actually have — never invent numbers."
+                : choice === "full"
+                  ? "Give me a full spoken briefing covering all of my businesses. Only mention real data you actually have — never invent numbers."
+                  : `The owner asked for a specific spoken update: "${text}". Answer using only real data you actually have — never invent numbers.`;
+            try {
+              const handler = commandHandlerRef.current;
+              const result = handler ? await handler(prompt) : null;
+              brief = (result && result.reply) || "";
+            } catch {
+              brief = "";
+            }
+          }
+          if (!brief) brief = "I couldn't pull that together just now, Sir.";
+          setConvState("speaking");
+          await speakAndWait(brief);
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        // A new nav/music command → fall through and handle it normally.
+      }
+
+      // On-demand briefing request ("give me my briefing", "catch me up").
+      // Echo first asks which kind of briefing the owner wants.
+      if (matchBriefingIntent(text)) {
+        pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = true;
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait(BRIEFING_CHOICE_QUESTION);
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow(true);
+        return;
       }
 
       // Music playback ("play some lofi", "pause the music", "skip", "louder").
@@ -514,6 +611,7 @@ export function EchoConversationProvider({ active, children }) {
         clearTimers();
         // Soft close → back to passive wake-word listening.
         pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = false;
         modeRef.current = "passive";
         suspendRef.current = false;
         setConvState("passive");
@@ -547,6 +645,43 @@ export function EchoConversationProvider({ active, children }) {
 
   const handleResult = useCallback(
     (event) => {
+      // Barge-in: while Echo is speaking, the ONLY thing we listen for is a
+      // short standalone interrupt command ("Stop", "Cancel", "Never mind",
+      // "Wait", "That's enough"). Echo's own voice leaking into the mic comes
+      // through as long sentences, so the exact-utterance match can't
+      // self-trigger. On a match Echo halts immediately, acknowledges, and
+      // returns to listening.
+      if (speakingRef.current && !interruptedRef.current) {
+        let heard = "";
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          heard += ` ${event.results[i][0].transcript}`;
+        }
+        if (matchInterruptIntent(heard.trim())) {
+          interruptedRef.current = true;
+          pendingBriefRef.current = null;
+          pendingBriefingChoiceRef.current = false;
+          finalRef.current = "";
+          clearTimers();
+          // Cut the audio NOW (clears the queue and unwinds the drain loop).
+          try {
+            if (stopAllRef.current) stopAllRef.current();
+          } catch {
+            /* noop */
+          }
+          (async () => {
+            try {
+              suspendRef.current = true;
+              setConvState("speaking");
+              await speakAndWait("Understood Sir.");
+            } finally {
+              interruptedRef.current = false;
+              // eslint-disable-next-line no-use-before-define
+              openFollowupWindow();
+            }
+          })();
+        }
+        return;
+      }
       if (suspendRef.current) return;
       // Echo is speaking (or within its post-speech cooldown): ignore everything
       // the mic hears so Echo can never respond to its own voice.
@@ -597,7 +732,7 @@ export function EchoConversationProvider({ active, children }) {
         finalRef.current = "";
       }
     },
-    [goActive, processCommand],
+    [goActive, processCommand, clearTimers, speakAndWait, openFollowupWindow],
   );
 
   const startRecognition = useCallback(() => {
@@ -709,6 +844,7 @@ export function EchoConversationProvider({ active, children }) {
     writeBool(MIC_MUTE_KEY, true);
     clearTimers();
     pendingBriefRef.current = null;
+    pendingBriefingChoiceRef.current = false;
     modeRef.current = "passive";
     suspendRef.current = false;
     setListeningText("");

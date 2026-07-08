@@ -46,13 +46,13 @@ async function loadUser(userId) {
 
 // What Echo calls the owner: their explicit name preference ("Boss",
 // "Mr. Blacketer"…) wins, then their first name; the platform admin account
-// defaults to "James" when neither is set.
+// defaults to "Sir" when neither is set.
 function displayName(user) {
   if (!user) return null;
   if (user.preferred_name && user.preferred_name.trim())
     return user.preferred_name.trim();
   if (user.first_name && user.first_name.trim()) return user.first_name.trim();
-  if (user.role === "admin") return "James";
+  if (user.role === "admin") return "Sir";
   return null;
 }
 

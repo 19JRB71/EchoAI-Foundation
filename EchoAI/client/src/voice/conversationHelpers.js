@@ -371,6 +371,68 @@ export function matchYesNo(text) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Interrupt commands ("Stop", "Cancel", "Never mind", "Wait", "That's enough")
+// ---------------------------------------------------------------------------
+// These must work even WHILE Echo is speaking, so they are matched against raw
+// mic input during playback. To keep Echo's own voice (which may contain words
+// like "stop" or "wait" mid-sentence) from self-interrupting, the whole
+// utterance must BE the interrupt phrase (optionally prefixed with "hey echo" /
+// "echo" or followed by "please"), never merely contain it.
+const INTERRUPT_RE =
+  /^(?:hey )?(?:echo )?(?:please )?(?:stop|cancel|never ?mind|wait|hold up|that s enough|thats enough|that is enough|okay stop|ok stop|stop talking|stop it)(?: please)?(?: echo)?$/;
+
+/**
+ * True when the utterance is a barge-in interrupt command. Matched against the
+ * FULL normalized utterance so Echo's own spoken sentences can't trigger it.
+ */
+export function matchInterruptIntent(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return false;
+  // Keep it snappy: a genuine interrupt is a short bark, not a sentence.
+  if (norm.split(" ").length > 5) return false;
+  return INTERRUPT_RE.test(norm);
+}
+
+// ---------------------------------------------------------------------------
+// On-demand briefing request + type choice
+// ---------------------------------------------------------------------------
+const BRIEFING_REQUEST_RE =
+  /\b(brief me|briefing|morning update|daily update|catch me up|fill me in|bring me up to speed|what s (been )?(happening|going on)|whats (been )?(happening|going on)|give me (an? )?(update|rundown)|my update)\b/;
+
+/** True when the owner is asking for an on-demand briefing/update. */
+export function matchBriefingIntent(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return false;
+  return BRIEFING_REQUEST_RE.test(norm);
+}
+
+/** The exact question Echo asks when a briefing is requested on demand. */
+export const BRIEFING_CHOICE_QUESTION =
+  "Of course Sir. Would you like a full briefing covering all your businesses, a quick summary of the most important things right now, or a specific update on one business or topic?";
+
+const BRIEFING_FULL_RE =
+  /\b(full( briefing)?|everything|all (of )?(my |the )?businesses|complete|the whole thing|all of it|cover it all)\b/;
+const BRIEFING_QUICK_RE =
+  /\b(quick( summary| one)?|short( one)?|summary|just the (highlights|important)|most important|highlights|key (things|points)|top (things|items))\b/;
+
+/**
+ * Interpret the owner's answer to the briefing-type question.
+ * @returns {"full"|"quick"|"specific"|"none"}
+ *   - "full": everything across all businesses.
+ *   - "quick": the most important things right now.
+ *   - "specific": a particular business/topic — the utterance IS the topic.
+ *   - "none": they declined ("no", "never mind").
+ */
+export function matchBriefingChoice(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return "none";
+  if (matchYesNo(norm) === "no") return "none";
+  if (BRIEFING_FULL_RE.test(norm)) return "full";
+  if (BRIEFING_QUICK_RE.test(norm)) return "quick";
+  return "specific";
+}
+
 // Music playback voice commands ("play some jazz", "pause the music", "skip",
 // "turn it up", "stop the music"). Handled locally by dispatching a
 // `echoai:music-command` event that the MusicProvider listens for.
