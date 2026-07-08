@@ -16,6 +16,7 @@
  */
 
 const { MODEL, createMessage, HEAVY_AI_TIMEOUT_MS } = require("../config/anthropic");
+const { campaignContextBlock } = require("../utils/politicalContext");
 
 const SUPPORTED_PLATFORMS = [
   "facebook",
@@ -145,6 +146,7 @@ function brandHeader(brand, businessType, theme) {
     `- Voice: ${voice}`,
     `- Target audience: ${audience}`,
     theme ? `- Monthly theme / focus: ${theme}` : "- Monthly theme / focus: none specified (use a natural mix)",
+    ...(campaignContextBlock(brand) ? ["", campaignContextBlock(brand)] : []),
   ];
 }
 

@@ -8,6 +8,7 @@ const {
   buildAdCreativeStudioPrompt,
   validateCreativePackages,
 } = require("../prompts/adCreativeStudioPrompt");
+const { isPolitical, ensureDisclaimer } = require("../utils/politicalContext");
 
 // Maps an EchoAI campaign goal to a Facebook campaign objective.
 const GOAL_TO_OBJECTIVE = {
@@ -164,7 +165,17 @@ async function generateCreativePackagesForBrand(brand, opts = {}) {
   }
 
   const parsed = parseJsonResponse(extractText(response));
-  return validateCreativePackages(parsed);
+  const packages = validateCreativePackages(parsed);
+  // Political campaigns: deterministically guarantee the required "Paid for by"
+  // disclosure on every body-copy variation — never left to the AI's memory.
+  if (isPolitical(brand)) {
+    for (const pkg of packages) {
+      pkg.bodyCopyVariations = pkg.bodyCopyVariations.map((copy) =>
+        ensureDisclaimer(copy, brand)
+      );
+    }
+  }
+  return packages;
 }
 
 /**

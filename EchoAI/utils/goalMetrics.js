@@ -69,6 +69,16 @@ const METRIC_SQL = {
   cpa: `SELECT (total_spend / conversions)::float AS value FROM analytics
               WHERE brand_id = $1 AND conversions > 0
               ORDER BY week_date DESC LIMIT 1`,
+  // Political-campaign metrics (Voter CRM tables).
+  voters_contacted: `SELECT COUNT(*)::float AS value FROM supporters
+              WHERE brand_id = $1 AND supporter_type = 'voter' AND created_at >= $2`,
+  volunteers_recruited: `SELECT COUNT(*)::float AS value FROM supporters
+              WHERE brand_id = $1 AND supporter_type = 'volunteer' AND created_at >= $2`,
+  donations_raised: `SELECT COALESCE(SUM(donation_amount), 0)::float AS value FROM supporters
+              WHERE brand_id = $1 AND donation_amount IS NOT NULL AND created_at >= $2`,
+  event_attendance: `SELECT COALESCE(SUM(attendance), 0)::float AS value FROM campaign_events
+              WHERE brand_id = $1 AND attendance IS NOT NULL
+                AND event_date >= $2::date AND event_date <= NOW()::date`,
 };
 
 /**

@@ -120,6 +120,7 @@ client wiring). Open that file when working inside a specific subsystem.
 | Health monitor & support | `/api/health-monitor`, `/api/public/support` | all tiers; hourly health sweep + AI support |
 | AI Sales Agent | `/api/sales-agent` | admin-only; EchoAI's own inbound demo line |
 | Customer Intelligence | `/api/intelligence` | Enterprise. weekly AI strategy profile |
+| Voter CRM | `/api/supporters` | all tiers; political-campaign brands only (brand_type='political') — supporters + campaign events |
 
 The dashboard nav is team-member-centric: the sidebar lists the 8 AI agents
 (Echo/Scout/Atlas/Nova/Pulse/Voice/Forge/Sentinel) + Mission Control; clicking an

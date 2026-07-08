@@ -108,6 +108,7 @@ export const SECTION_TIERS = {
   googleseo: "starter",
   roi: "starter",
   chatbot: "starter",
+  supporters: "starter",
   settings: "starter",
   // Professional
   adstudio: "pro",

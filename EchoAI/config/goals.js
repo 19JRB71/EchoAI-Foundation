@@ -27,6 +27,7 @@ const CATEGORIES = {
   content: "Content",
   appointment: "Appointments",
   affiliate: "Affiliate",
+  voter: "Voter Outreach",
 };
 
 // Every metric a goal can target. Keyed by metric_key.
@@ -151,6 +152,44 @@ const GOAL_METRICS = {
     department: "atlas",
     description: "Most recent weekly cost per acquisition (spend ÷ conversions).",
   },
+  // Political-campaign metrics. All sourced from the Voter CRM tables
+  // (supporters, campaign_events) — nothing fabricated.
+  voters_contacted: {
+    label: "Voters Reached",
+    category: "voter",
+    unit: "count",
+    direction: "increase",
+    aggregation: "cumulative",
+    department: "pulse",
+    description: "New voter contacts added to the Voter CRM this month.",
+  },
+  volunteers_recruited: {
+    label: "Volunteers Recruited",
+    category: "voter",
+    unit: "count",
+    direction: "increase",
+    aggregation: "cumulative",
+    department: "pulse",
+    description: "New volunteers added this month.",
+  },
+  donations_raised: {
+    label: "Donations Raised",
+    category: "voter",
+    unit: "currency",
+    direction: "increase",
+    aggregation: "cumulative",
+    department: "pulse",
+    description: "Donation dollars recorded for supporters added this month.",
+  },
+  event_attendance: {
+    label: "Event Attendance",
+    category: "voter",
+    unit: "count",
+    direction: "increase",
+    aggregation: "cumulative",
+    department: "pulse",
+    description: "Total attendance recorded at campaign events this month.",
+  },
 };
 
 // Brand types decide which categories (and therefore which metrics) are offered.
@@ -179,6 +218,11 @@ const BRAND_TYPES = {
     label: "Restaurant / Hospitality",
     description: "Reservations, foot traffic, and content.",
     categories: ["lead", "appointment", "content", "revenue"],
+  },
+  political: {
+    label: "Political Campaign",
+    description: "Voter outreach, volunteers, donations, and campaign content.",
+    categories: ["voter", "campaign", "content", "appointment"],
   },
 };
 

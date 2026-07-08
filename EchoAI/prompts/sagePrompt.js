@@ -12,6 +12,7 @@
 
 const { createMessage, MODEL, HEAVY_AI_TIMEOUT_MS } = require("../config/anthropic");
 const { gatherFacebookSignals } = require("../utils/sageFacebook");
+const { campaignContextBlock } = require("../utils/politicalContext");
 
 /** An error the controller maps to a 502 (AI produced nothing usable / uncited). */
 function aiInvalid(message) {
@@ -133,6 +134,8 @@ function brandContext(brand, competitors) {
     .map((c) => `- ${c.name}${c.website ? ` (${c.website})` : ""}`)
     .join("\n");
   if (list) lines.push(`Known competitors the owner is tracking:\n${list}`);
+  const political = campaignContextBlock(brand);
+  if (political) lines.push(political);
   return lines.join("\n");
 }
 

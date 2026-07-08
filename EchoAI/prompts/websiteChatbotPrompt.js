@@ -9,6 +9,8 @@
  *   so we make one analysis call per turn instead of two.
  */
 
+const { campaignContextBlock } = require("../utils/politicalContext");
+
 function buildBrandContext(brand) {
   if (!brand) {
     return "You represent a business. Speak on its behalf in a professional, friendly way.";
@@ -27,6 +29,14 @@ function buildBrandContext(brand) {
         ? brand.target_audience
         : JSON.stringify(brand.target_audience);
     lines.push(`Target audience: ${audience}`);
+  }
+  const political = campaignContextBlock(brand);
+  if (political) {
+    lines.push(
+      "",
+      political,
+      "You are chatting with VOTERS and potential supporters — help them learn about the candidate, and naturally invite them to volunteer, donate, attend events, or get voting information."
+    );
   }
   return lines.join("\n");
 }

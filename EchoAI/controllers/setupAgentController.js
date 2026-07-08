@@ -214,6 +214,38 @@ function googleAdsTopic(answers) {
   return location ? `${product} in ${location}` : product;
 }
 
+// --- Political-campaign detection -----------------------------------------
+// The interview's first question collects "account_type"; campaign-specific
+// collects keys (candidate_name, office_sought, ...) are a second signal so a
+// mislabelled first answer still resolves correctly.
+function isPoliticalSetup(answers) {
+  const acct = (firstAnswer(answers, ["account_type"]) || "").toLowerCase();
+  if (/(politic|campaign|candidate|running for|election|office)/.test(acct)) return true;
+  return !!(
+    firstAnswer(answers, ["candidate_name", "candidate"]) ||
+    firstAnswer(answers, ["office_sought", "office"])
+  );
+}
+
+// Map interview answers → the brands.campaign_profile JSONB shape used by
+// utils/politicalContext. Only real answers are stored — nothing invented.
+function campaignProfileFromAnswers(answers) {
+  const profile = {
+    candidate_name: firstAnswer(answers, ["candidate_name", "candidate"]),
+    office_sought: firstAnswer(answers, ["office_sought", "office"]),
+    district: firstAnswer(answers, ["district", "area", "geograph"]),
+    key_issues: firstAnswer(answers, ["key_issues", "issues", "platform_positions"]),
+    voter_demographics: firstAnswer(answers, ["voter_demographics", "demograph", "target_voter"]),
+    opponent_name: firstAnswer(answers, ["opponent"]),
+    website_socials: firstAnswer(answers, ["campaign_website_socials", "website", "social_media_pages"]),
+    paid_for_by: firstAnswer(answers, ["paid_for_by", "committee"]),
+  };
+  for (const key of Object.keys(profile)) {
+    if (!profile[key]) delete profile[key];
+  }
+  return profile;
+}
+
 function compiledBusinessSummary(answers) {
   const lines = Object.entries(answers || {})
     .filter(([, v]) => (typeof v === "string" ? v.trim() : v != null))
@@ -235,6 +267,24 @@ const DEFAULT_WEEKLY_HOURS = [1, 2, 3, 4, 5].map((day) => ({
   start: "09:00",
   end: "17:00",
 }));
+
+// When the interview identified a political campaign, mark the brand as the
+// 'political' brand type and persist the campaign profile (candidate, office,
+// district, issues, opponent, disclosure name...). Idempotent — re-runs simply
+// rewrite the same values. Returns true when the brand was marked political.
+async function applyPoliticalProfile(userId, brandId, answers) {
+  if (!isPoliticalSetup(answers)) return false;
+  const profile = campaignProfileFromAnswers(answers);
+  await db.query(
+    `UPDATE brands
+        SET brand_type = 'political',
+            campaign_profile = $1::jsonb,
+            updated_at = NOW()
+      WHERE brand_id = $2 AND user_id = $3`,
+    [JSON.stringify(profile), brandId, userId],
+  );
+  return true;
+}
 
 async function reloadSession(sessionId) {
   const { rows } = await db.query("SELECT * FROM setup_sessions WHERE session_id = $1", [sessionId]);
@@ -299,6 +349,7 @@ const ACTIONS = [
             session.session_id,
           ]);
           session.brand_id = recoveredBrandId;
+          await applyPoliticalProfile(userId, recoveredBrandId, answers);
           return { status: "done", detail: "Your brand profile is already set up." };
         }
       } else {
@@ -334,9 +385,12 @@ const ACTIONS = [
         session.session_id,
       ]);
       session.brand_id = brand.brand_id;
+      const political = await applyPoliticalProfile(userId, brand.brand_id, answers);
       return {
         status: "done",
-        detail: `Created "${brand.brand_name}" with a full brand profile.`,
+        detail: political
+          ? `Created "${brand.brand_name}" as a political campaign with a full campaign profile.`
+          : `Created "${brand.brand_name}" with a full brand profile.`,
       };
     },
   },

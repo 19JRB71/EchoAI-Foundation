@@ -274,6 +274,29 @@ export const api = {
     request(`/api/goals/${brandId}/${goalId}`, { method: "PUT", body }),
   deleteGoal: (brandId, goalId) =>
     request(`/api/goals/${brandId}/${goalId}`, { method: "DELETE" }),
+  // Voter CRM (political-campaign brands)
+  getSupporters: (brandId, filters = {}) => {
+    const qs = new URLSearchParams();
+    if (filters.type) qs.set("type", filters.type);
+    if (filters.status) qs.set("status", filters.status);
+    if (filters.search) qs.set("search", filters.search);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/supporters/${brandId}${suffix}`);
+  },
+  createSupporter: (brandId, body) =>
+    request(`/api/supporters/${brandId}`, { method: "POST", body }),
+  updateSupporter: (brandId, supporterId, body) =>
+    request(`/api/supporters/${brandId}/${supporterId}`, { method: "PUT", body }),
+  deleteSupporter: (brandId, supporterId) =>
+    request(`/api/supporters/${brandId}/${supporterId}`, { method: "DELETE" }),
+  getCampaignEvents: (brandId) => request(`/api/supporters/${brandId}/events`),
+  createCampaignEvent: (brandId, body) =>
+    request(`/api/supporters/${brandId}/events`, { method: "POST", body }),
+  updateCampaignEvent: (brandId, eventId, body) =>
+    request(`/api/supporters/${brandId}/events/${eventId}`, { method: "PUT", body }),
+  deleteCampaignEvent: (brandId, eventId) =>
+    request(`/api/supporters/${brandId}/events/${eventId}`, { method: "DELETE" }),
+
   // Goal-alert feed management (dismiss one alert / mute a goal's alerts).
   getGoalAlerts: (brandId) => request(`/api/goals/${brandId}/alerts`),
   dismissGoalAlert: (brandId, alertId) =>

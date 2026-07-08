@@ -18,6 +18,7 @@
 
 const { anthropic, MODEL } = require("../config/anthropic");
 const { sageBlock } = require("../utils/sageContext");
+const { campaignContextBlock } = require("../utils/politicalContext");
 
 const MAX_TOUCHPOINTS = 7;
 const MAX_DAYS = 14;
@@ -63,6 +64,9 @@ function buildFollowUpPrompt(brand, lead, opts = {}) {
     `Brand personality: ${personality}.`,
     voice ? `Brand voice: ${voice}.` : "",
     `Typical audience: ${audience}.`,
+    ...(campaignContextBlock(brand)
+      ? ["", campaignContextBlock(brand), "Frame follow-ups around supporting the campaign — volunteering, donating, attending events, and voting — never around buying anything."]
+      : []),
     sageBlock(brand && brand._sageContext),
     "",
     `Design an automated follow-up sequence for a single lead named ${leadName}.`,

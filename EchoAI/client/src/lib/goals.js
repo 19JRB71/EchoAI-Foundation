@@ -24,6 +24,10 @@ export const BRAND_TYPES = {
     label: "Restaurant / Hospitality",
     description: "Reservations, foot traffic, and content.",
   },
+  political: {
+    label: "Political Campaign",
+    description: "Voter outreach, volunteers, donations, and campaign content.",
+  },
 };
 
 export const BRAND_TYPE_KEYS = Object.keys(BRAND_TYPES);

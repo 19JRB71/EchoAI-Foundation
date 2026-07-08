@@ -20,6 +20,8 @@ const CAMPAIGN_GOALS = [
 
 const PACKAGE_COUNT = 5;
 
+const { campaignContextBlock, requiredDisclaimer } = require("../utils/politicalContext");
+
 const AD_CREATIVE_DIRECTOR_SYSTEM_PROMPT = [
   "You are EchoAI's Ad Creative Director — a world-class performance marketer and",
   "creative strategist. You design complete, ready-to-launch paid social ad",
@@ -107,6 +109,14 @@ function buildAdCreativeStudioPrompt({
   ];
 
   if (businessType) lines.push(`- Business type / industry: ${businessType}`);
+  const political = campaignContextBlock(brand);
+  if (political) {
+    lines.push(
+      "",
+      political,
+      `Every bodyCopyVariation MUST end with the exact disclosure line: "${requiredDisclaimer(brand)}". Follow Facebook's political advertising policies: no misleading claims, clearly identify the candidate, and keep targeting descriptions within the campaign's district.`
+    );
+  }
   if (discoveryProfile) {
     lines.push("", "BRAND DISCOVERY INSIGHTS", compact(discoveryProfile));
   }

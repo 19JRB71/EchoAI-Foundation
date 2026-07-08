@@ -68,6 +68,8 @@ function hasActivity(data) {
       (data.sentinelFixes && data.sentinelFixes.length) ||
       data.pendingApprovals ||
       data.competitorNote ||
+      data.newSupporters ||
+      (data.upcomingCampaignEvents && data.upcomingCampaignEvents.length) ||
       // Goal state alone is worth a briefing (e.g. a quiet day where a goal has
       // slipped behind pace or run far ahead is exactly what the owner needs).
       (data.goals &&
@@ -97,6 +99,8 @@ async function gatherBriefingData(userId, since) {
     sageNote: null,
     facebookConnected: fbConnected,
     goals: null,
+    newSupporters: 0,
+    upcomingCampaignEvents: [],
   };
   if (brandIds.length === 0) return empty;
 
@@ -112,6 +116,8 @@ async function gatherBriefingData(userId, since) {
     competitor,
     goalRows,
     sageFindings,
+    supporterRows,
+    campaignEventRows,
   ] = await Promise.all([
       safeRows(
         `SELECT l.lead_name, l.temperature, l.created_at, b.brand_name
@@ -185,6 +191,21 @@ async function gatherBriefingData(userId, since) {
           ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
         [brandIds, sinceParam]
       ),
+      // Political campaigns: new supporters since the last briefing.
+      safeRows(
+        `SELECT COUNT(*)::int AS n
+           FROM supporters
+          WHERE brand_id = ANY($1) AND created_at > $2`,
+        [brandIds, sinceParam]
+      ),
+      // Political campaigns: the next few upcoming campaign events.
+      safeRows(
+        `SELECT e.event_name, e.event_date, e.location, b.brand_name
+           FROM campaign_events e JOIN brands b ON b.brand_id = e.brand_id
+          WHERE e.brand_id = ANY($1) AND e.event_date >= CURRENT_DATE
+          ORDER BY e.event_date ASC LIMIT 3`,
+        [brandIds]
+      ),
     ]);
 
   const sentinelFixes = [];
@@ -215,6 +236,8 @@ async function gatherBriefingData(userId, since) {
     sageNote: summarizeSageFindings(sageFindings),
     facebookConnected: fbConnected,
     goals,
+    newSupporters: supporterRows[0] ? supporterRows[0].n : 0,
+    upcomingCampaignEvents: campaignEventRows,
   };
 }
 
@@ -677,6 +700,15 @@ function templateMorning(firstName, data) {
     const who = first.contact_name ? ` with ${first.contact_name}` : "";
     parts.push(
       `You have ${data.todaysAppointments.length} appointment${data.todaysAppointments.length === 1 ? "" : "s"} today, starting${who}${brandTag(first, data)} at ${formatTime(first.start_time)}.`
+    );
+  }
+  if (data.newSupporters) {
+    parts.push(`${data.newSupporters} new supporter${data.newSupporters === 1 ? "" : "s"} joined your campaign.`);
+  }
+  if (Array.isArray(data.upcomingCampaignEvents) && data.upcomingCampaignEvents.length) {
+    const ev = data.upcomingCampaignEvents[0];
+    parts.push(
+      `Your next campaign event is ${ev.event_name}${ev.location ? ` at ${ev.location}` : ""} on ${new Date(ev.event_date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`
     );
   }
   if (data.campaigns.length) {

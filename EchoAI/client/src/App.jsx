@@ -11,6 +11,7 @@ import MissionControl from "./sections/MissionControl.jsx";
 import AiTeam from "./sections/AiTeam.jsx";
 import Overview from "./sections/Overview.jsx";
 import Leads from "./sections/Leads.jsx";
+import Supporters from "./sections/Supporters.jsx";
 import Campaigns from "./sections/Campaigns.jsx";
 import AdStudio from "./sections/AdStudio.jsx";
 import SocialMedia from "./sections/SocialMedia.jsx";
@@ -184,9 +185,16 @@ export default function App() {
       // Echo's Memory is the owner's private knowledge base (owner/admin only).
       if (s === "echomemory") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
+      // The Voter CRM only exists for political-campaign brands.
+      if (s === "supporters") {
+        const b = brands.find(
+          (br) => String(br.brand_id) === String(selectedBrandId),
+        );
+        return !!b && b.brand_type === "political";
+      }
       return true;
     },
-    [isTeamMember, isAdmin],
+    [isTeamMember, isAdmin, brands, selectedBrandId],
   );
 
   // Sentinel is the only department hidden from staff; every other team member's
@@ -953,6 +961,8 @@ export default function App() {
               )}
               {section === "overview" && <Overview brandId={selectedBrandId} />}
               {section === "leads" && <Leads brandId={selectedBrandId} />}
+              {section === "supporters" &&
+                (canOpenSection("supporters") ? <Supporters brandId={selectedBrandId} /> : null)}
               {section === "campaigns" && <Campaigns />}
               {section === "adstudio" && gate("adstudio", <AdStudio brandId={selectedBrandId} />)}
               {section === "social" && (

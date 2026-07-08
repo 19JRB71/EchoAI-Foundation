@@ -65,6 +65,7 @@ const agentRoutes = require("./routes/agentRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const salesAgentRoutes = require("./routes/salesAgentRoutes");
 const goalRoutes = require("./routes/goalRoutes");
+const supporterRoutes = require("./routes/supporterRoutes");
 const musicRoutes = require("./routes/musicRoutes");
 const sageRoutes = require("./routes/sageRoutes");
 
@@ -264,6 +265,7 @@ app.use("/api/agents", agentRoutes);
 app.use("/api/health-monitor", healthRoutes);
 app.use("/api/sales-agent", salesAgentRoutes);
 app.use("/api/goals", goalRoutes);
+app.use("/api/supporters", supporterRoutes);
 app.use("/api/music", musicRoutes);
 app.use("/api/sage", sageRoutes);
 

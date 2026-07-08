@@ -13,6 +13,8 @@
  * phone and chat stay consistent.
  */
 
+const { campaignContextBlock } = require("../utils/politicalContext");
+
 function buildBrandContext(brand) {
   if (!brand) {
     return "You represent a business. Speak on its behalf in a professional, friendly way.";
@@ -31,6 +33,8 @@ function buildBrandContext(brand) {
         : JSON.stringify(brand.target_audience);
     lines.push(`Target audience: ${audience}`);
   }
+  const political = campaignContextBlock(brand);
+  if (political) lines.push("", political);
   return lines.join("\n");
 }
 

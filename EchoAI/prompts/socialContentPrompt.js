@@ -10,6 +10,7 @@
 
 const { anthropic, MODEL } = require("../config/anthropic");
 const { sageBlock } = require("../utils/sageContext");
+const { campaignContextBlock } = require("../utils/politicalContext");
 
 const SUPPORTED_PLATFORMS = [
   "facebook",
@@ -85,6 +86,7 @@ function buildSocialContentPrompt(brand, topic, platform) {
   const guidelines = PLATFORM_GUIDELINES[normalized] || [
     "Write a clear, on-brand social post.",
   ];
+  const political = campaignContextBlock(brand);
 
   return [
     "You are EchoAI's Social Content agent. You write social media posts that are perfectly on-brand and native to a specific platform.",
@@ -100,6 +102,7 @@ function buildSocialContentPrompt(brand, topic, platform) {
     "",
     `Platform rules for ${normalized}:`,
     ...guidelines.map((g) => `- ${g}`),
+    ...(political ? ["", political] : []),
     sageBlock(brand._sageContext),
     "",
     "Produce EXACTLY 5 distinct post variations. Each variation must feel native to the platform while staying true to the brand voice and personality.",

@@ -58,6 +58,7 @@ export const DEPARTMENTS = {
   ],
   pulse: [
     { label: "Leads", desc: "Every lead with temperature and status.", section: "leads" },
+    { label: "Voter CRM", desc: "Supporters, donors, volunteers and campaign events.", section: "supporters" },
     { label: "Sales Queue", desc: "Rep workload, throughput and the live working queue.", section: "queueoverview" },
     { label: "Follow-Up Sequences", desc: "Automated nurture sequences.", section: "followups" },
     { label: "Appointments", desc: "Booked and upcoming appointments.", section: "appointments" },
@@ -133,6 +134,7 @@ export const SECTION_TITLES = {
   sentinelhealth: "Sentinel · Health",
   callmonitor: "Sentinel · Call Monitoring",
   queueoverview: "Pulse · Sales Queue",
+  supporters: "Voter CRM",
   sage: "Sage · Industry Intelligence",
 };
 

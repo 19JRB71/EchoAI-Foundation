@@ -7,6 +7,13 @@
  *   ad copy + image prompt variations derived from the brand profile.
  */
 
+const {
+  isPolitical,
+  campaignContextBlock,
+  requiredDisclaimer,
+  ensureDisclaimer,
+} = require("../utils/politicalContext");
+
 function describeAudience(targetAudience) {
   if (!targetAudience) return "your ideal customers";
   if (typeof targetAudience === "string") return targetAudience;
@@ -57,6 +64,13 @@ function buildAdCreativePrompt(brand, options = {}) {
     `- Visual style: ${visualStyle}`,
     "",
     `Campaign goal: ${campaignGoal}`,
+    ...(isPolitical(brand)
+      ? [
+          "",
+          campaignContextBlock(brand),
+          `Every ad's primary text MUST end with the exact disclosure line: "${requiredDisclaimer(brand)}".`,
+        ]
+      : []),
     "",
     `Produce ${variations} distinct ad variations. For each variation provide:`,
     "1. A scroll-stopping headline (<= 40 characters).",
@@ -114,10 +128,13 @@ function generateCreativeVariations(brand, options = {}) {
     },
   ];
 
+  const political = isPolitical(brand);
   return angles.slice(0, Math.max(1, Math.min(count, angles.length))).map((a) => ({
     angle: a.angle,
     headline: a.headline,
-    primaryText: a.primaryText,
+    // Political ads must always carry the required disclosure line — enforced
+    // deterministically here, never left to chance.
+    primaryText: political ? ensureDisclaimer(a.primaryText, brand) : a.primaryText,
     callToAction: a.callToAction,
     imagePrompt: `A ${personality} advertising image for "${name}" in the style of ${visualStyle}, designed to appeal to ${audience}. High quality, scroll-stopping, social-media ready.`,
   }));
