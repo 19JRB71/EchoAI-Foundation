@@ -616,9 +616,23 @@ async function sendMessage(req, res) {
       req.body && typeof req.body.brandId === "string" && req.body.brandId.trim()
         ? req.body.brandId.trim()
         : null;
-    const [brand, businesses] = await Promise.all([
+    // What Echo should call the owner: explicit preference → first name →
+    // "James" for the platform admin account.
+    async function loadOwnerName(id) {
+      const r = await db.query(
+        `SELECT first_name, preferred_name, role FROM users WHERE user_id = $1`,
+        [id]
+      );
+      const u = r.rows[0];
+      if (!u) return null;
+      if (u.preferred_name && u.preferred_name.trim()) return u.preferred_name.trim();
+      if (u.first_name && u.first_name.trim()) return u.first_name.trim();
+      return u.role === "admin" ? "James" : null;
+    }
+    const [brand, businesses, ownerName] = await Promise.all([
       resolveChatBrand(userId, requestedBrandId),
       listBusinesses(userId),
+      loadOwnerName(userId),
     ]);
     const isMultiBusiness = businesses.length > 1;
 
@@ -648,6 +662,9 @@ async function sendMessage(req, res) {
       "You run their marketing for them: you can launch Facebook ad campaigns, schedule social posts, send email campaigns, and report performance.",
       'The app handles voice navigation for you: when the user says things like "go to Atlas", "show me my leads", or "open Facebook setup", the dashboard navigates instantly on its own. NEVER say you cannot navigate, open pages, or take them somewhere — if they ask to go somewhere, respond as if you are taking them there (e.g. "Taking you to Atlas now.").',
       "Every action you take requires their one-click approval (or a Facebook password) first — if they ask you to do something, tell them you'll prepare a preview for them to approve.",
+      ownerName
+        ? `The owner likes to be addressed as "${ownerName}". Use their name naturally and sparingly — at key moments like delivering important news, asking a question, or celebrating a win — never in every sentence.`
+        : null,
       "Be warm, concise, and action-oriented. Keep replies to 1-3 short sentences. Never invent results or data.",
       knowledge,
       guardrail,

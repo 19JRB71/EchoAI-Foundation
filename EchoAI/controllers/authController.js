@@ -150,7 +150,7 @@ async function getProfile(req, res) {
     const workspaceId = req.user.userId;
 
     const result = await db.query(
-      `SELECT user_id, email, first_name, subscription_tier, team_size, business_name, industry,
+      `SELECT user_id, email, first_name, preferred_name, subscription_tier, team_size, business_name, industry,
               role, onboarding_completed, onboarding_step, created_at, updated_at
        FROM users
        WHERE user_id = $1`,
@@ -180,6 +180,7 @@ async function getProfile(req, res) {
       userId: user.user_id,
       email: user.email,
       firstName: user.first_name || null,
+      preferredName: user.preferred_name || null,
       subscriptionTier: workspace.subscription_tier,
       teamSize: workspace.team_size,
       businessName: workspace.business_name,
@@ -209,13 +210,14 @@ async function getProfile(req, res) {
  * team size). Only provided fields are updated.
  */
 async function updateProfile(req, res) {
-  const { email, teamSize, businessName, industry } = req.body;
+  const { email, teamSize, businessName, industry, preferredName } = req.body;
 
   if (
     email === undefined &&
     teamSize === undefined &&
     businessName === undefined &&
-    industry === undefined
+    industry === undefined &&
+    preferredName === undefined
   ) {
     return res.status(400).json({ error: "No fields provided to update" });
   }
@@ -240,6 +242,16 @@ async function updateProfile(req, res) {
     fields.push(`industry = $${idx++}`);
     values.push(industry);
   }
+  if (preferredName !== undefined) {
+    // What Echo calls the owner. An empty string clears the preference (Echo
+    // falls back to the first name).
+    fields.push(`preferred_name = $${idx++}`);
+    values.push(
+      typeof preferredName === "string" && preferredName.trim()
+        ? preferredName.trim().slice(0, 120)
+        : null
+    );
+  }
 
   // Always act on the REAL authenticated user, never the remapped workspace
   // owner — a team member must not be able to edit the owner's account.
@@ -250,7 +262,7 @@ async function updateProfile(req, res) {
       `UPDATE users
        SET ${fields.join(", ")}
        WHERE user_id = $${idx}
-       RETURNING user_id, email, subscription_tier, team_size, business_name, industry, updated_at`,
+       RETURNING user_id, email, subscription_tier, team_size, business_name, industry, preferred_name, updated_at`,
       values
     );
 
@@ -267,6 +279,7 @@ async function updateProfile(req, res) {
       teamSize: user.team_size,
       businessName: user.business_name,
       industry: user.industry,
+      preferredName: user.preferred_name || null,
       updatedAt: user.updated_at,
     });
   } catch (err) {

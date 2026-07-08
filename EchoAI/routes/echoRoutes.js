@@ -9,6 +9,7 @@ const { uploadAudio } = require("../middleware/audioUpload");
 const controller = require("../controllers/echoCompanionController");
 const memory = require("../controllers/echoMemoryController");
 const profile = require("../controllers/echoProfileController");
+const sectionBrief = require("../controllers/echoSectionBriefController");
 const growth = require("../controllers/growthController");
 const autonomousGrowth = require("../controllers/autonomousGrowthController");
 
@@ -39,6 +40,11 @@ router.post("/transcribe", requireOwner, uploadAudio, controller.transcribe);
 
 // Daily briefing: what happened, what's live, what needs approval.
 router.get("/briefing", controller.briefing);
+
+// Voice nav "ask before reading": the question Echo asks after navigating, and
+// the data-backed readout it delivers only after the owner says yes.
+router.get("/section-offer", requireOwner, sectionBrief.sectionOffer);
+router.post("/section-brief", requireOwner, sectionBrief.sectionBrief);
 
 // Persistent memory: timeline, search, natural-language recall, manual capture
 // and delete. Memory now holds the owner's personal context, preferences, values

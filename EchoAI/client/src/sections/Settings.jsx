@@ -297,6 +297,7 @@ function SetupAgentCard() {
 function ProfileCard({ isTeamMember = false }) {
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState("");
+  const [preferredName, setPreferredName] = useState("");
   const [teamSize, setTeamSize] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -309,6 +310,7 @@ function ProfileCard({ isTeamMember = false }) {
         const data = await api.getProfile();
         setProfile(data);
         setEmail(data.email || "");
+        setPreferredName(data.preferredName || "");
         setTeamSize(data.teamSize != null ? String(data.teamSize) : "");
       } catch (err) {
         setError(err.message);
@@ -326,6 +328,8 @@ function ProfileCard({ isTeamMember = false }) {
     try {
       const payload = {};
       if (email && profile && email !== profile.email) payload.email = email;
+      if (profile && preferredName !== (profile.preferredName || ""))
+        payload.preferredName = preferredName;
       if (teamSize !== "") payload.teamSize = Number(teamSize);
       if (Object.keys(payload).length === 0) {
         setNotice("Nothing to update.");
@@ -356,6 +360,16 @@ function ProfileCard({ isTeamMember = false }) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
+          />
+        </Labeled>
+        <Labeled label="Name preference — what should Echo call you?">
+          <input
+            type="text"
+            value={preferredName}
+            onChange={(e) => setPreferredName(e.target.value)}
+            placeholder="e.g. James, Boss, Mr. Blacketer (blank = your first name)"
+            maxLength={120}
             className={inputClass}
           />
         </Labeled>

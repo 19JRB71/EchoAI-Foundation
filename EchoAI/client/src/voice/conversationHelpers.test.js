@@ -6,6 +6,10 @@ import {
   matchLocalIntent,
   matchNavIntent,
   navConfirmation,
+  navOfferQuestion,
+  navLabel,
+  matchYesNo,
+  BRIEF_SECTIONS,
 } from "./conversationHelpers.js";
 
 describe("normalizeSpeech", () => {
@@ -280,5 +284,96 @@ describe("navConfirmation", () => {
     expect(navConfirmation("dept:atlas")).toBe("Taking you to Atlas.");
     expect(navConfirmation("dept:nova")).toBe("Taking you to Nova.");
     expect(navConfirmation(null)).toBe("Here you go.");
+  });
+});
+
+describe("navOfferQuestion", () => {
+  it("asks before reading — every offer is a question", () => {
+    expect(isQuestion(navOfferQuestion("leads"))).toBe(true);
+    expect(isQuestion(navOfferQuestion("campaigns"))).toBe(true);
+    expect(isQuestion(navOfferQuestion("dept:sage"))).toBe(true);
+    expect(isQuestion(navOfferQuestion("missioncontrol"))).toBe(true);
+    expect(isQuestion(navOfferQuestion("roi"))).toBe(true);
+  });
+
+  it("special-cases Sage's report and generic departments", () => {
+    expect(navOfferQuestion("dept:sage")).toBe(
+      "I've opened Sage's intelligence report. Would you like me to read the highlights?",
+    );
+    expect(navOfferQuestion("dept:nova")).toBe(
+      "I've opened Nova's department. Want me to give you the rundown?",
+    );
+  });
+
+  it("returns null for pure actions (no read offer)", () => {
+    expect(navOfferQuestion("action:facebook")).toBe(null);
+    expect(navOfferQuestion(null)).toBe(null);
+  });
+});
+
+describe("BRIEF_SECTIONS", () => {
+  it("maps data-backed nav keys to server brief sections", () => {
+    expect(BRIEF_SECTIONS.leads).toBe("leads");
+    expect(BRIEF_SECTIONS.campaigns).toBe("campaigns");
+    expect(BRIEF_SECTIONS["dept:atlas"]).toBe("campaigns");
+    expect(BRIEF_SECTIONS["dept:sage"]).toBe("sage");
+    expect(BRIEF_SECTIONS.settings).toBe(undefined);
+  });
+});
+
+describe("navLabel", () => {
+  it("gives a human label for sections and departments", () => {
+    expect(navLabel("leads")).toBe("your leads");
+    expect(navLabel("dept:sage")).toBe("Sage's department");
+    expect(navLabel("missioncontrol")).toBe("Mission Control");
+    expect(navLabel("nonsense")).toBe("this section");
+  });
+});
+
+describe("matchYesNo", () => {
+  it("recognizes natural affirmations", () => {
+    for (const t of [
+      "yes",
+      "yes please",
+      "sure",
+      "yeah go ahead",
+      "okay",
+      "read it to me",
+      "absolutely",
+      "let's hear it",
+      "go for it",
+    ]) {
+      expect(matchYesNo(t)).toBe("yes");
+    }
+  });
+
+  it("recognizes natural declines", () => {
+    for (const t of [
+      "no",
+      "no thanks",
+      "nah",
+      "not right now",
+      "maybe later",
+      "I'm good",
+      "never mind",
+      "no that's okay",
+    ]) {
+      expect(matchYesNo(t)).toBe("no");
+    }
+  });
+
+  it("returns null for anything else so it's treated as a new command", () => {
+    expect(matchYesNo("take me to my campaigns")).toBe(null);
+    expect(matchYesNo("what's my ad spend")).toBe(null);
+    expect(matchYesNo("")).toBe(null);
+    expect(matchYesNo("play some music")).toBe(null);
+  });
+
+  it("a bare polite 'please <command>' is NOT an affirmation", () => {
+    expect(matchYesNo("please open my settings")).toBe(null);
+    expect(matchYesNo("please")).toBe(null);
+    // ...but explicit yes-phrases with please still count.
+    expect(matchYesNo("yes please")).toBe("yes");
+    expect(matchYesNo("please do")).toBe("yes");
   });
 });

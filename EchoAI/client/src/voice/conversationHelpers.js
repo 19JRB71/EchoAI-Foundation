@@ -302,6 +302,75 @@ export function navConfirmation(navKey) {
   return `Opening ${label} now.`;
 }
 
+// ---------------------------------------------------------------------------
+// Navigate-first, ask-before-reading
+// ---------------------------------------------------------------------------
+
+// Sections whose offer + readout come from the server with REAL data. Maps a
+// navKey (from matchNavIntent) to the server brief section name.
+export const BRIEF_SECTIONS = {
+  leads: "leads",
+  campaigns: "campaigns",
+  "dept:atlas": "campaigns",
+  "dept:sage": "sage",
+};
+
+/**
+ * A short human label for a navKey ("your leads", "Sage's department"…), used
+ * when composing the generic AI summary request after the owner says yes.
+ */
+export function navLabel(navKey) {
+  if (!navKey) return "this section";
+  if (navKey === "missioncontrol") return "Mission Control";
+  if (navKey.startsWith("dept:")) {
+    const name = DEPT_NAMES[navKey.slice(5)];
+    return name ? `${name}'s department` : "this department";
+  }
+  return NAV_LABELS[navKey] || "this section";
+}
+
+/**
+ * The question Echo asks right after navigating, offering to read the section
+ * aloud. Used as-is for generic sections and as the fallback when the
+ * data-backed server offer isn't available. Always ends in "?" so the
+ * follow-up window stays open indefinitely.
+ */
+export function navOfferQuestion(navKey) {
+  if (!navKey || navKey === "action:facebook") return null;
+  if (navKey === "missioncontrol")
+    return "You're back at Mission Control. Want a quick rundown of what's here?";
+  if (navKey.startsWith("dept:")) {
+    const name = DEPT_NAMES[navKey.slice(5)] || "your team";
+    if (navKey === "dept:sage")
+      return "I've opened Sage's intelligence report. Would you like me to read the highlights?";
+    return `I've opened ${name}'s department. Want me to give you the rundown?`;
+  }
+  const label = NAV_LABELS[navKey] || "that";
+  return `I've opened ${label}. Want me to give you the highlights?`;
+}
+
+// NOTE: these match AFTER normalizeSpeech, which replaces apostrophes with a
+// space ("let's" → "let s", "i'm" → "i m", "that's" → "that s").
+const YES_RE =
+  /\b(yes|yeah|yep|yup|sure|ok(ay)?|yes please|please do|go ahead|go for it|absolutely|definitely|of course|why not|do it|read (it|them)|let s hear it|sounds good)\b/;
+const NO_RE =
+  /\b(no|nope|nah|not now|not right now|maybe later|later|i m (good|fine|okay|ok)|im (good|fine|okay|ok)|that s (ok|okay|fine)|don t|do not|skip it|never mind|nevermind)\b/;
+
+/**
+ * Interpret a reply to a yes/no offer.
+ * @returns {"yes"|"no"|null} null when the utterance is neither — the caller
+ *   should treat it as a brand-new command.
+ */
+export function matchYesNo(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return null;
+  const yes = YES_RE.test(norm);
+  const no = NO_RE.test(norm);
+  if (yes && !no) return "yes";
+  if (no) return "no";
+  return null;
+}
+
 // Music playback voice commands ("play some jazz", "pause the music", "skip",
 // "turn it up", "stop the music"). Handled locally by dispatching a
 // `echoai:music-command` event that the MusicProvider listens for.

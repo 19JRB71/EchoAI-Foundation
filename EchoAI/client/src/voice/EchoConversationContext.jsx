@@ -35,8 +35,13 @@ import {
   matchLocalIntent,
   matchNavIntent,
   navConfirmation,
+  navOfferQuestion,
+  navLabel,
+  matchYesNo,
+  BRIEF_SECTIONS,
   matchMusicIntent,
 } from "./conversationHelpers.js";
+import { api } from "../api.js";
 
 const EchoConversationContext = createContext(null);
 
@@ -126,6 +131,7 @@ export function EchoConversationProvider({ active, children }) {
   const countdownRef = useRef(null);
   const restartTimerRef = useRef(null);
   const patienceRef = useRef(false); // user asked for a moment → no auto-close
+  const pendingBriefRef = useRef(null); // section-readout offer awaiting yes/no
   const commandHandlerRef = useRef(null);
 
   const runningRef = useRef(false); // is a recognition instance live?
@@ -309,6 +315,7 @@ export function EchoConversationProvider({ active, children }) {
       // Local intents handled without a server round-trip.
       const intent = matchLocalIntent(text);
       if (intent === "mute") {
+        pendingBriefRef.current = null;
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait("Going quiet. Say Hey Echo whenever you need me.");
@@ -328,6 +335,62 @@ export function EchoConversationProvider({ active, children }) {
         suspendRef.current = false;
         setConvState("active");
         return;
+      }
+
+      // A section-readout offer is pending ("Want me to read the highlights?").
+      // Interpret yes/no; anything else falls through as a brand-new command.
+      if (pendingBriefRef.current) {
+        const pending = pendingBriefRef.current;
+        pendingBriefRef.current = null;
+        // A clear new command ("take me to settings", "play some jazz") always
+        // wins over the pending offer — never treat it as a yes/no answer.
+        const answer =
+          matchNavIntent(text) || matchMusicIntent(text)
+            ? null
+            : matchYesNo(text);
+        if (answer === "no") {
+          // The owner declined — stay quiet and go back to passive listening.
+          modeRef.current = "passive";
+          suspendRef.current = false;
+          setConvState("passive");
+          return;
+        }
+        if (answer === "yes") {
+          suspendRef.current = true;
+          setConvState("processing");
+          playEffect("thinking", { volume: 0.35 });
+          let brief = "";
+          if (pending.briefSection) {
+            // Data-backed readout composed server-side from real numbers.
+            try {
+              const data = await api.getEchoSectionBrief(pending.briefSection);
+              brief = (data && data.text) || "";
+            } catch {
+              brief = "";
+            }
+          }
+          if (!brief) {
+            // Generic sections (or a failed fetch) → Echo's normal AI pipeline.
+            try {
+              const handler = commandHandlerRef.current;
+              const result = handler
+                ? await handler(
+                    `Give me a short spoken summary of ${pending.label || "this section"}. Only mention real data you actually have — if you don't have live numbers, briefly explain what this section is for instead.`,
+                  )
+                : null;
+              brief = (result && result.reply) || "";
+            } catch {
+              brief = "";
+            }
+          }
+          if (!brief) brief = "I couldn't pull that up just now.";
+          setConvState("speaking");
+          await speakAndWait(brief);
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        // Neither yes nor no → treat it as a new command below.
       }
 
       // Music playback ("play some lofi", "pause the music", "skip", "louder").
@@ -364,9 +427,35 @@ export function EchoConversationProvider({ active, children }) {
         } catch {
           /* noop */
         }
-        await speakAndWait(navConfirmation(navKey));
+        // Navigate first, then ASK before reading anything. Actions (like the
+        // Facebook connect flow) keep the plain confirmation with no offer.
+        const offerFallback = navOfferQuestion(navKey);
+        if (!offerFallback) {
+          await speakAndWait(navConfirmation(navKey));
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        const briefSection = BRIEF_SECTIONS[navKey] || null;
+        let question = offerFallback;
+        if (briefSection) {
+          // Data-backed offer with real counts ("You have 12 leads, including
+          // 3 hot leads."); fall back to the generic question on any failure.
+          try {
+            const data = await api.getEchoSectionOffer(briefSection);
+            if (data && data.question) question = data.question;
+          } catch {
+            /* keep the generic question */
+          }
+        }
+        pendingBriefRef.current = {
+          navKey,
+          briefSection,
+          label: navLabel(navKey),
+        };
+        await speakAndWait(question);
         // eslint-disable-next-line no-use-before-define
-        openFollowupWindow();
+        openFollowupWindow(true);
         return;
       }
 
@@ -424,6 +513,7 @@ export function EchoConversationProvider({ active, children }) {
       followupTimerRef.current = setTimeout(async () => {
         clearTimers();
         // Soft close → back to passive wake-word listening.
+        pendingBriefRef.current = null;
         modeRef.current = "passive";
         suspendRef.current = false;
         setConvState("passive");
@@ -618,6 +708,7 @@ export function EchoConversationProvider({ active, children }) {
     setMuted(true);
     writeBool(MIC_MUTE_KEY, true);
     clearTimers();
+    pendingBriefRef.current = null;
     modeRef.current = "passive";
     suspendRef.current = false;
     setListeningText("");

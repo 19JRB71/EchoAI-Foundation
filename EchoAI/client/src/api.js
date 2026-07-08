@@ -162,6 +162,11 @@ export const api = {
       body: brandId ? { text, brandId } : { text },
     }),
   getEchoBriefing: () => request("/api/echo/briefing"),
+  // Voice nav "ask before reading": data-backed offer question + readout.
+  getEchoSectionOffer: (section) =>
+    request(`/api/echo/section-offer?section=${encodeURIComponent(section)}`),
+  getEchoSectionBrief: (section) =>
+    request("/api/echo/section-brief", { method: "POST", body: { section } }),
   // Voice input: POST a recorded clip as multipart to be transcribed with Whisper.
   transcribeEchoAudio: async (blob) => {
     const form = new FormData();

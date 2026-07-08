@@ -37,16 +37,22 @@ async function speechKnowledge(userId) {
 /** Load the owner's row (first name, timestamps, stored settings). */
 async function loadUser(userId) {
   const r = await db.query(
-    `SELECT user_id, first_name, business_name, last_login_at, last_briefing_at, voice_settings
+    `SELECT user_id, first_name, preferred_name, role, business_name, last_login_at, last_briefing_at, voice_settings
        FROM users WHERE user_id = $1`,
     [userId]
   );
   return r.rows[0] || null;
 }
 
+// What Echo calls the owner: their explicit name preference ("Boss",
+// "Mr. Blacketer"…) wins, then their first name; the platform admin account
+// defaults to "James" when neither is set.
 function displayName(user) {
   if (!user) return null;
+  if (user.preferred_name && user.preferred_name.trim())
+    return user.preferred_name.trim();
   if (user.first_name && user.first_name.trim()) return user.first_name.trim();
+  if (user.role === "admin") return "James";
   return null;
 }
 
