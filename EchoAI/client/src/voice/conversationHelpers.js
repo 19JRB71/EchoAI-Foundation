@@ -75,6 +75,15 @@ const NAV_QUESTION_RE =
 const NAV_TARGETS = [
   // ── Group A: multi-word / distinctive phrases (must win before the generic
   // single-word sections below that would otherwise swallow them). ──
+  // Facebook setup opens the connect wizard (an App-level action, not a
+  // section). "connect facebook" / "facebook setup" read as direct commands, so
+  // they match standalone; bare "facebook" still needs a nav verb.
+  {
+    key: "action:facebook",
+    re: /\b(facebook setup|set ?up facebook|connect (?:my |to )?facebook|facebook connect|link (?:my )?facebook)\b/,
+    standalone: true,
+  },
+  { key: "action:facebook", re: /\bfacebook\b/, standalone: false },
   { key: "voicesettings", re: /\bvoice settings\b/, standalone: true },
   { key: "contentcalendar", re: /\bcontent calendar\b/, standalone: true },
   {
@@ -274,6 +283,7 @@ const DEPT_NAMES = {
  */
 export function navConfirmation(navKey) {
   if (!navKey) return "Here you go.";
+  if (navKey === "action:facebook") return "Opening Facebook setup for you.";
   if (navKey.startsWith("dept:")) {
     const name = DEPT_NAMES[navKey.slice(5)] || "your team";
     return `Taking you to ${name}.`;

@@ -606,9 +606,16 @@ export default function App() {
     const onNavSection = (e) => {
       const next = e && e.detail;
       if (typeof next !== "string" || !next) return;
-      // "dept:<agentId>" opens a team member's Department View; anything else is
-      // a plain top-level section id.
-      if (next.startsWith("dept:")) {
+      // "action:facebook" opens the Facebook connect wizard (an App-level
+      // action, not a section). "dept:<agentId>" opens a team member's
+      // Department View; anything else is a plain top-level section id.
+      if (next === "action:facebook") {
+        // eslint-disable-next-line no-console
+        console.log(
+          "[Echo nav] echoai:navigate-section received → opening Facebook setup wizard",
+        );
+        setShowFbWizard(true);
+      } else if (next.startsWith("dept:")) {
         // eslint-disable-next-line no-console
         console.log(
           `[Echo nav] echoai:navigate-section received → opening department "${next.slice(5)}"`,

@@ -30,7 +30,10 @@ broken feature, not a missing entry).
 `dept:voice`'s regex listed only role aliases (receptionist/answering service),
 never the bare agent word "voice".
 **How to apply:** for each agent, add a `dept:<id>` target AND a `DEPT_NAMES[id]`
-label. Bare agent names that are also common English words (e.g. "voice") must be
+label. Same trap for non-section actions: "connect Facebook"/"Facebook setup" had
+NO nav target at all, so Echo's AI improvised refusals — fixed with an
+`action:facebook` target that App.jsx handles by opening the FB wizard, plus a
+server prompt line forbidding "cannot navigate" replies. Bare agent names that are also common English words (e.g. "voice") must be
 `standalone:false` (nav verb required) so casual speech can't hijack nav. Watch
 `NAV_TARGETS` ORDER — first match wins, so a new alias containing an
 earlier-listed word collides (e.g. "industry intelligence" matched the

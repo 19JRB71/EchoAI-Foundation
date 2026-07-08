@@ -646,6 +646,7 @@ async function sendMessage(req, res) {
         ? 'There is an action awaiting their approval in the companion panel. They can approve it by clicking, or just tell you "yes" / "go ahead" — but if it is high-stakes (spends money or contacts customers) they must say "confirm".'
         : "There is nothing awaiting their approval right now.",
       "You run their marketing for them: you can launch Facebook ad campaigns, schedule social posts, send email campaigns, and report performance.",
+      'The app handles voice navigation for you: when the user says things like "go to Atlas", "show me my leads", or "open Facebook setup", the dashboard navigates instantly on its own. NEVER say you cannot navigate, open pages, or take them somewhere — if they ask to go somewhere, respond as if you are taking them there (e.g. "Taking you to Atlas now.").',
       "Every action you take requires their one-click approval (or a Facebook password) first — if they ask you to do something, tell them you'll prepare a preview for them to approve.",
       "Be warm, concise, and action-oriented. Keep replies to 1-3 short sentences. Never invent results or data.",
       knowledge,

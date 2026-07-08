@@ -76,6 +76,30 @@ describe("matchLocalIntent", () => {
 });
 
 describe("matchNavIntent", () => {
+  it("handles every required hands-free navigation command", () => {
+    // The exact command set that must work (wake phrase stripped upstream).
+    expect(matchNavIntent("go to facebook setup")).toBe("action:facebook");
+    expect(matchNavIntent("connect facebook")).toBe("action:facebook");
+    expect(matchNavIntent("go to atlas")).toBe("dept:atlas");
+    expect(matchNavIntent("show me campaigns")).toBe("campaigns");
+    expect(matchNavIntent("go to settings")).toBe("settings");
+    expect(matchNavIntent("take me home")).toBe("missioncontrol");
+    expect(matchNavIntent("show me my leads")).toBe("leads");
+    expect(matchNavIntent("go to sage")).toBe("dept:sage");
+    expect(matchNavIntent("show me scout")).toBe("dept:scout");
+  });
+
+  it("routes Facebook phrasings to the connect wizard action", () => {
+    expect(matchNavIntent("facebook setup")).toBe("action:facebook");
+    expect(matchNavIntent("set up facebook")).toBe("action:facebook");
+    expect(matchNavIntent("connect my facebook")).toBe("action:facebook");
+    expect(matchNavIntent("link facebook")).toBe("action:facebook");
+    expect(matchNavIntent("go to facebook")).toBe("action:facebook");
+    // Bare "facebook" in a statement/question must NOT hijack navigation.
+    expect(matchNavIntent("facebook is expensive")).toBe(null);
+    expect(matchNavIntent("how is facebook doing")).toBe(null);
+  });
+
   it("maps 'take me to <section>' commands to section ids", () => {
     expect(matchNavIntent("show me my leads")).toBe("leads");
     expect(matchNavIntent("go to leads")).toBe("leads");
