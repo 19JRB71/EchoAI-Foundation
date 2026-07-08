@@ -8,6 +8,7 @@
 
 const db = require("../config/db");
 const { parseGeo, geoSummaryText } = require("../utils/geoTargeting");
+const { userPartOfDay, greetingBare } = require("../utils/timeOfDay");
 
 // ---------------------------------------------------------------------------
 // Team roster (static metadata). `section` links a card into the existing feature
@@ -405,8 +406,11 @@ async function getMissionControl(req, res) {
     );
 
     const attention = agents.filter((a) => a.status === "attention").map((a) => a.name);
+    // Greet by the owner's local clock (brand-settings timezone, Eastern default)
+    // — Mission Control must never say "Good morning" in the afternoon.
+    const tod = await userPartOfDay(userId);
     const briefing =
-      `Good morning. ${leadsWeek} new lead${leadsWeek === 1 ? "" : "s"} this week and ${activeCampaigns} live campaign${activeCampaigns === 1 ? "" : "s"}. ` +
+      `${greetingBare(tod.part)} ${leadsWeek} new lead${leadsWeek === 1 ? "" : "s"} this week and ${activeCampaigns} live campaign${activeCampaigns === 1 ? "" : "s"}. ` +
       (attention.length ? `${attention.join(" and ")} need${attention.length === 1 ? "s" : ""} your attention. ` : "The whole team is running smoothly. ") +
       (sentinelFixes ? `Sentinel auto-fixed ${sentinelFixes} issue${sentinelFixes === 1 ? "" : "s"} this week.` : "No problems detected.");
 

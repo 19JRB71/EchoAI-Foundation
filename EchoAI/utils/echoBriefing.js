@@ -18,6 +18,7 @@ const { buildBriefingSystem } = require("../prompts/echoPersona");
 const { computeSuggestions } = require("./echoSuggestions");
 const { getMetric } = require("../config/goals");
 const { computeBrandGoals, monthWindow } = require("./goalMetrics");
+const { greetingFor } = require("./timeOfDay");
 
 /** Owner's REAL brand ids + names (the demo brand is excluded from briefings). */
 async function ownerBrands(userId) {
@@ -653,14 +654,14 @@ async function gatherWeeklyData(userId) {
 }
 
 /** Deterministic template narration for the morning briefing (AI fallback). */
-function templateMorning(firstName, data) {
+function templateMorning(firstName, data, part = "morning") {
   const name = firstName || "there";
 
   // A brand-new / empty account still gets a warm welcome and a concrete next
   // step — the briefing must never be silent just because there's no data yet.
   if (!hasActivity(data)) {
     const parts = [
-      `Good morning ${name}. Your marketing department is ready and standing by.`,
+      `${greetingFor(part, name)} Your marketing department is ready and standing by.`,
     ];
     if (!data.facebookConnected) {
       parts.push(
@@ -675,7 +676,7 @@ function templateMorning(firstName, data) {
     return parts.join(" ");
   }
 
-  const parts = [`Good morning ${name}. Here's your briefing.`];
+  const parts = [`${greetingFor(part, name)} Here's your briefing.`];
 
   if (data.goals) {
     const g = data.goals;
@@ -798,9 +799,13 @@ function templateClosing(firstName, data) {
 }
 
 /** Deterministic template narration for the on-demand status update (AI fallback). */
-function templateStatus(firstName, data) {
+function templateStatus(firstName, data, part = null) {
   const name = firstName || "there";
-  const parts = [`Here's where things stand right now, ${name}.`];
+  // Mid-conversation status updates carry no greeting; a login-time day update
+  // (afternoon/evening/late) opens with the correct local-time greeting.
+  const parts = part
+    ? [`${greetingFor(part, name)} Here's where things stand right now.`]
+    : [`Here's where things stand right now, ${name}.`];
   if (data.hotLeads) parts.push(`${data.hotLeads} hot lead${data.hotLeads === 1 ? " needs" : "s need"} attention.`);
   const upcoming = data.todaysAppointments.filter((a) => new Date(a.start_time) > new Date());
   if (upcoming.length) {
@@ -952,7 +957,7 @@ function renderWeeklyGoalSection(data) {
 }
 
 /** Deterministic template narration for the weekly strategy briefing (AI fallback). */
-function templateWeekly(firstName, data) {
+function templateWeekly(firstName, data, part = "morning") {
   const name = firstName || "there";
   const hasSubstance =
     data.newLeadsCount ||
@@ -965,7 +970,7 @@ function templateWeekly(firstName, data) {
   const goalSection = renderWeeklyGoalSection(data);
 
   if (data.isEmpty || (!hasSubstance && !goalSection.length)) {
-    const parts = [`Good morning ${name}. Here's your weekly strategy briefing.`];
+    const parts = [`${greetingFor(part, name)} Here's your weekly strategy briefing.`];
     parts.push("It's been a quiet week — your AI marketing department is set up and ready to go.");
     if (!data.facebookConnected) {
       parts.push(
@@ -976,7 +981,7 @@ function templateWeekly(firstName, data) {
     return parts.join(" ");
   }
 
-  const parts = [`Good morning ${name}. Here's your weekly strategy briefing.`];
+  const parts = [`${greetingFor(part, name)} Here's your weekly strategy briefing.`];
   const syn = [];
   if (data.newLeadsCount) {
     syn.push(`${data.newLeadsCount} new lead${data.newLeadsCount === 1 ? "" : "s"} came in`);
@@ -1033,14 +1038,18 @@ function formatTime(ts) {
  * @param {"morning"|"weekly"|"closing"|"status"} kind
  */
 async function narrate(kind, firstName, data, opts = {}) {
+  // Owner's local part of day ("morning"|"afternoon"|"evening"|"late") so the
+  // spoken greeting is always right for THEIR clock. Optional: mid-conversation
+  // status updates pass nothing and carry no greeting.
+  const part = opts.partOfDay || null;
   const template =
     kind === "closing"
       ? templateClosing(firstName, data)
       : kind === "status"
-        ? templateStatus(firstName, data)
+        ? templateStatus(firstName, data, part)
         : kind === "weekly"
-          ? templateWeekly(firstName, data)
-          : templateMorning(firstName, data);
+          ? templateWeekly(firstName, data, part || "morning")
+          : templateMorning(firstName, data, part || "morning");
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return { text: template, aiNarrated: false };
@@ -1068,7 +1077,21 @@ async function narrate(kind, firstName, data, opts = {}) {
   }
   // opts.knowledge is a personalization block (tone/priority guidance only — it
   // must NOT introduce spoken facts; see echoContext.formatKnowledge mode:speech).
-  const system = buildBriefingSystem(kind, ctx, wordCap) + (opts.knowledge ? "\n\n" + opts.knowledge : "");
+  // Time-of-day guardrail: the greeting must match the owner's LOCAL clock.
+  // "Good morning" outside the 5am–noon window is a hard error for Echo.
+  const timeNote = part
+    ? ` It is currently ${part === "late" ? "late at night" : `the ${part}`} for the owner. Open with the matching greeting (${
+        part === "morning"
+          ? '"Good morning"'
+          : part === "afternoon"
+            ? '"Good afternoon"'
+            : part === "evening"
+              ? '"Good evening"'
+              : 'something like "Working late" or "Good evening"'
+      }) and NEVER use a greeting for a different time of day.`
+    : "";
+  const system =
+    buildBriefingSystem(kind, ctx, wordCap) + timeNote + (opts.knowledge ? "\n\n" + opts.knowledge : "");
 
   try {
     const resp = await createMessage(

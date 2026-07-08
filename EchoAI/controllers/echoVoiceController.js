@@ -22,6 +22,7 @@ const {
   isQuietHour,
 } = require("../config/echoVoice");
 const { gatherBriefingData, gatherWeeklyData, narrate } = require("../utils/echoBriefing");
+const { userPartOfDay } = require("../utils/timeOfDay");
 const { recordShown, recordDecision, isValidKey } = require("../utils/echoSuggestions");
 const { toJsonbParam } = require("../utils/jsonb");
 const echoContext = require("../utils/echoContext");
@@ -358,12 +359,24 @@ async function getBriefing(req, res) {
   try {
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
-    const built = await buildMorningBriefing(req.user.userId, user);
+    // Time-of-day awareness (owner requirement): the FULL daily briefing only
+    // exists in the morning window (5:00–11:59 in the owner's brand-settings
+    // timezone, Eastern by default). Afternoon/evening/late logins get a
+    // day-update instead — Echo never says "Good morning" after noon.
+    const tod = await userPartOfDay(req.user.userId);
+    const built =
+      tod.part === "morning"
+        ? await buildMorningBriefing(req.user.userId, user)
+        : await buildDayUpdate(req.user.userId, user, tod.part);
     return res.json({
       text: built.text,
       aiNarrated: built.aiNarrated,
       style: settings.style,
       firstName: displayName(user),
+      // The owner's local part of day — drives the client's greeting choice.
+      partOfDay: tod.part,
+      timezone: tod.timezone,
+      kind: tod.part === "morning" ? "morning" : "update",
       // Recomputed per request (depends on the user's live last_briefing_at, not
       // the cached narration) so once-per-day auto-play gating stays correct.
       alreadyDeliveredToday: sameDay(user && user.last_briefing_at, new Date()),
@@ -405,10 +418,31 @@ async function buildMorningBriefing(userId, userMaybe) {
   const { text, aiNarrated } = await narrate("morning", displayName(user), data, {
     timeout: 1500,
     attempts: 1,
+    partOfDay: "morning",
     knowledge: await speechKnowledge(userId),
   });
   morningBriefingCache.set(userId, { text, aiNarrated, builtAt: Date.now() });
   return { text, aiNarrated };
+}
+
+/**
+ * The afternoon/evening/late-night day update: a "how the day is going" status
+ * read that opens with the correct local-time greeting. Never cached — it
+ * reflects today's live numbers, and it replaces the morning briefing entirely
+ * outside the 5:00–11:59 window (a mid-day login must never hear "Good morning").
+ */
+async function buildDayUpdate(userId, userMaybe, part) {
+  const user = userMaybe || (await loadUser(userId));
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const data = await gatherBriefingData(userId, startOfDay);
+  // Same tight budget as the login-time morning briefing: speech must start fast.
+  return narrate("status", displayName(user), data, {
+    timeout: 1500,
+    attempts: 1,
+    partOfDay: part,
+    knowledge: await speechKnowledge(userId),
+  });
 }
 
 /**
@@ -462,7 +496,9 @@ async function getWeeklyBriefing(req, res) {
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
     const data = await gatherWeeklyData(req.user.userId);
+    const tod = await userPartOfDay(req.user.userId);
     const { text, aiNarrated } = await narrate("weekly", displayName(user), data, {
+      partOfDay: tod.part,
       knowledge: await speechKnowledge(req.user.userId),
     });
     const suggestions = data.suggestions || [];

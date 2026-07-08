@@ -691,9 +691,12 @@ export function VoiceProvider({ active, children }) {
           title: "Morning greeting",
           // When the owner has saved morning-music favorites, Echo also lets
           // them know their playlist is ready ("Hey Echo, start my music").
+          // Greet by the owner's LOCAL clock (server-computed from the brand
+          // settings timezone): morning gets the briefing standby, while an
+          // afternoon/evening/late login offers a quick day update instead.
           text: b.musicReady
-            ? `${standbyGreeting()} ${musicReadyLine()}`
-            : standbyGreeting(),
+            ? `${standbyGreeting(b.partOfDay)} ${musicReadyLine()}`
+            : standbyGreeting(b.partOfDay),
           // No music intro — go straight to Echo speaking.
           playIntro: false,
           onPlayed: async () => {

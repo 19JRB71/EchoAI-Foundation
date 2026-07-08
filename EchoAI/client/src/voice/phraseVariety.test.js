@@ -33,7 +33,7 @@ describe("variation pools", () => {
   it("every category has at least 5 variations", () => {
     const pools = [
       INTERRUPT_ACKS,
-      STANDBY_GREETINGS,
+      ...Object.values(STANDBY_GREETINGS),
       MUSIC_READY_LINES,
       CLARIFY_QUESTIONS,
       BRIEFING_CHOICE_QUESTIONS,
@@ -50,7 +50,7 @@ describe("variation pools", () => {
   });
 
   it("no pool contains duplicate entries", () => {
-    for (const pool of [INTERRUPT_ACKS, STANDBY_GREETINGS, MUSIC_READY_LINES, CLARIFY_QUESTIONS, GO_QUIET_LINES]) {
+    for (const pool of [INTERRUPT_ACKS, ...Object.values(STANDBY_GREETINGS), MUSIC_READY_LINES, CLARIFY_QUESTIONS, GO_QUIET_LINES]) {
       expect(new Set(pool).size).toBe(pool.length);
     }
   });
@@ -91,7 +91,13 @@ describe("pickVariant", () => {
 describe("convenience pickers", () => {
   it("each picker returns a member of its pool", () => {
     expect(INTERRUPT_ACKS).toContain(interruptAck());
-    expect(STANDBY_GREETINGS).toContain(standbyGreeting());
+    expect(STANDBY_GREETINGS.morning).toContain(standbyGreeting());
+    // Time-of-day aware standby greetings pull from the matching pool only.
+    for (const part of ["morning", "afternoon", "evening", "late"]) {
+      expect(STANDBY_GREETINGS[part]).toContain(standbyGreeting(part));
+    }
+    // Unknown part falls back to the morning pool, never throws.
+    expect(STANDBY_GREETINGS.morning).toContain(standbyGreeting("nonsense"));
     expect(MUSIC_READY_LINES).toContain(musicReadyLine());
     expect(CLARIFY_QUESTIONS).toContain(clarifyQuestion());
     expect(BRIEFING_CHOICE_QUESTIONS).toContain(briefingChoiceQuestion());
@@ -107,9 +113,22 @@ describe("convenience pickers", () => {
   });
 
   it("statements never end in a question mark (won't hijack follow-up)", () => {
-    for (const s of [...INTERRUPT_ACKS, ...STANDBY_GREETINGS, ...MUSIC_READY_LINES, ...GO_QUIET_LINES]) {
+    // Morning standby greetings are statements; afternoon/evening/late ones
+    // deliberately ASK ("quick update or save the briefing?") so they're exempt.
+    for (const s of [...INTERRUPT_ACKS, ...STANDBY_GREETINGS.morning, ...MUSIC_READY_LINES, ...GO_QUIET_LINES]) {
       expect(s.trim().endsWith("?")).toBe(false);
     }
+  });
+
+  it("time-of-day greetings never use the wrong time of day", () => {
+    for (const s of [...STANDBY_GREETINGS.afternoon, ...STANDBY_GREETINGS.evening, ...STANDBY_GREETINGS.late]) {
+      expect(/good morning|^morning|rise and shine/i.test(s)).toBe(false);
+    }
+    for (const s of STANDBY_GREETINGS.morning) {
+      expect(/good afternoon|good evening|working late/i.test(s)).toBe(false);
+    }
+    for (const s of STANDBY_GREETINGS.afternoon) expect(s).toMatch(/^Good afternoon/);
+    for (const s of STANDBY_GREETINGS.late) expect(s).toMatch(/^Working late/);
   });
 });
 
@@ -160,7 +179,7 @@ describe("Echo's own varied lines can never self-interrupt", () => {
   it("no variant in any spoken pool matches the interrupt matcher", () => {
     const spoken = [
       ...INTERRUPT_ACKS,
-      ...STANDBY_GREETINGS,
+      ...Object.values(STANDBY_GREETINGS).flat(),
       ...MUSIC_READY_LINES,
       ...CLARIFY_QUESTIONS,
       ...BRIEFING_CHOICE_QUESTIONS,

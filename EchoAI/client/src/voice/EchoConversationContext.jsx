@@ -622,7 +622,7 @@ export function EchoConversationProvider({ active, children }) {
           morningStandbyRef.current = true;
           setConvState("speaking");
           await speakAndWait(
-            "I couldn't pull your morning briefing together just now, Sir. Say the word and I'll try again.",
+            "I couldn't pull your briefing together just now, Sir. Say the word and I'll try again.",
           );
           // eslint-disable-next-line no-use-before-define
           openFollowupWindow(true);

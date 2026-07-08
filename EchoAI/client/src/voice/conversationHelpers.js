@@ -534,7 +534,7 @@ export function matchBriefingIntent(text) {
 // starts it ("Hey Echo, start my briefing", "ready", "run it", "what's good").
 // Canonical (first) variant — actual playback uses phraseVariety.standbyGreeting()
 // which rotates through 5 variations. Kept exported for back-compat.
-export const MORNING_STANDBY_GREETING = STANDBY_GREETINGS[0];
+export const MORNING_STANDBY_GREETING = STANDBY_GREETINGS.morning[0];
 
 // Appended to the standby greeting when the owner has saved morning-music
 // favorites (or the admin default suggestions apply). Playback rotates via

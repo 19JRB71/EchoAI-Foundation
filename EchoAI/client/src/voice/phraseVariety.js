@@ -76,17 +76,48 @@ export function interruptAck() {
   return pickVariant("interrupt", INTERRUPT_ACKS);
 }
 
-export const STANDBY_GREETINGS = [
-  "Good morning Sir. I will be on standby waiting for you to start your morning briefing.",
-  "Morning Sir. Your briefing is ready whenever you are — just say the word.",
-  "Good to see you Sir. I'm standing by with your morning briefing when you want it.",
-  "Rise and shine Sir. Say the word and I'll run your morning briefing.",
-  "Welcome back Sir. I've got your morning briefing on deck whenever you're ready.",
-];
+// Login standby greetings, keyed by the owner's LOCAL part of day (from the
+// server's brand-settings timezone). Echo must NEVER say "Good morning" outside
+// the 5:00–11:59 window — afternoon/evening/late logins get a day-update offer
+// instead of the full morning briefing (saved for tomorrow morning).
+export const STANDBY_GREETINGS = {
+  morning: [
+    "Good morning Sir. I will be on standby waiting for you to start your morning briefing.",
+    "Morning Sir. Your briefing is ready whenever you are — just say the word.",
+    "Good to see you Sir. I'm standing by with your morning briefing when you want it.",
+    "Rise and shine Sir. Say the word and I'll run your morning briefing.",
+    "Welcome back Sir. I've got your morning briefing on deck whenever you're ready.",
+  ],
+  afternoon: [
+    "Good afternoon Sir. Would you like a quick update on how your day is going, or shall I save the full briefing for tomorrow morning?",
+    "Good afternoon Sir. I can catch you up on the day so far — just say the word, or we'll save the full briefing for the morning.",
+    "Good afternoon Sir. Say the word and I'll run you through how the day is going; otherwise your full briefing waits for tomorrow morning.",
+    "Good afternoon Sir. Want a quick read on the day so far? Your full briefing will be ready tomorrow morning either way.",
+    "Good afternoon Sir. I've got a quick day update ready if you want it — the full briefing is saved for the morning.",
+  ],
+  evening: [
+    "Good evening Sir. Would you like a quick recap of the day, or shall I save the full briefing for tomorrow morning?",
+    "Good evening Sir. I can run you through how the day went — just say the word, or we'll save the full briefing for the morning.",
+    "Good evening Sir. Want a quick update on today? Your full briefing will be ready tomorrow morning either way.",
+    "Good evening Sir. Say the word and I'll recap the day; otherwise your full briefing waits for tomorrow morning.",
+    "Good evening Sir. I've got today's recap ready if you want it — the full briefing is saved for the morning.",
+  ],
+  late: [
+    "Working late Sir? I can give you a quick update on the day if you like, or we'll save the full briefing for the morning.",
+    "Working late Sir? Burning the midnight oil — say the word for a quick day update; the full briefing waits for morning.",
+    "Working late Sir? Just say the word if you want a quick recap of today; your full briefing will be ready in the morning.",
+    "Working late Sir? If you want a quick update before you wrap up, just say the word — the full briefing is saved for the morning.",
+    "Working late Sir? I've got a quick recap of the day on hand — otherwise your full briefing waits for the morning.",
+  ],
+};
 
-/** The login standby greeting (Echo waits; never auto-plays the briefing). */
-export function standbyGreeting() {
-  return pickVariant("greeting.standby", STANDBY_GREETINGS);
+/**
+ * The login standby greeting (Echo waits; never auto-plays the briefing).
+ * `part` is the owner's local part of day: "morning" | "afternoon" | "evening" | "late".
+ */
+export function standbyGreeting(part = "morning") {
+  const pool = STANDBY_GREETINGS[part] || STANDBY_GREETINGS.morning;
+  return pickVariant(`greeting.standby.${part}`, pool);
 }
 
 export const MUSIC_READY_LINES = [
