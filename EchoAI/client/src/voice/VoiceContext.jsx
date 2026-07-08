@@ -113,10 +113,16 @@ export function VoiceProvider({ active, children }) {
   const resolveRef = useRef(null); // resolves the in-flight speakItem promise
   const busyRef = useRef(false); // guards the drain loop
   const lastPlayedRef = useRef(null); // for replay
-  // Server notification ids that reached a terminal state this session (spoken
-  // or user-dismissed). Blocked/stopped/errored items are NOT added here so a
-  // later poll re-enqueues them — we never silently drop a reminder/alert.
+  // Server notification ids that reached a terminal state this session (spoken,
+  // user-dismissed, user-stopped, or failed too many times). Only autoplay-
+  // "blocked" items stay un-terminal so a later poll retries them — everything
+  // the OWNER ended (stop/mute) or that keeps erroring is settled, because
+  // re-serving the same alert every 30s poll is exactly the "Echo repeats
+  // himself in a loop" bug.
   const deliveredIds = useRef(new Set());
+  // Failed TTS attempts per notification id — after 2 errors the item is
+  // dismissed instead of retrying (and repeating) forever.
+  const speakAttemptsRef = useRef(new Map());
   const settingsRef = useRef(settings);
   const mutedRef = useRef(muted);
   const activeRef = useRef(active);
@@ -435,18 +441,43 @@ export function VoiceProvider({ active, children }) {
             // Natural completion → tell the server so it isn't re-served.
             deliveredIds.current.add(item.notificationId);
             api.echoVoiceMarkNotification(item.notificationId).catch(() => {});
-          } else if (status === "skipped") {
-            // User skipped → dismiss it (don't re-serve, but it wasn't spoken).
+          } else if (status === "skipped" || status === "stopped") {
+            // User skipped OR explicitly stopped/muted playback → dismiss it.
+            // An explicit stop must be final: leaving it un-terminal meant the
+            // 30s poll re-served the SAME alert over and over — the repeat loop.
             deliveredIds.current.add(item.notificationId);
             api
               .echoVoiceMarkNotification(item.notificationId, "dismissed")
               .catch(() => {});
+          } else if (status === "error") {
+            // TTS failure → retry on a later poll, but only a couple of times.
+            // A permanently-broken item must never loop the same text forever.
+            const tries =
+              (speakAttemptsRef.current.get(item.notificationId) || 0) + 1;
+            speakAttemptsRef.current.set(item.notificationId, tries);
+            if (tries >= 2) {
+              deliveredIds.current.add(item.notificationId);
+              api
+                .echoVoiceMarkNotification(item.notificationId, "dismissed")
+                .catch(() => {});
+            }
           }
-          // blocked/stopped/error → leave it un-terminal so a later poll retries.
+          // blocked → un-terminal; it re-queues below and plays after a gesture.
         }
         if (status === "played" && item.onPlayed) {
           try {
             await item.onPlayed();
+          } catch {
+            /* noop */
+          }
+        }
+        // Terminal-status hook: fires for EVERY outcome except "blocked" (the
+        // item will replay after a user gesture, so it isn't finished yet).
+        // The conversation engine uses this so a skipped/stopped/errored reply
+        // can never leave it suspended (deaf) until the 90s safety timeout.
+        if (status !== "blocked" && item.onDone) {
+          try {
+            item.onDone(status);
           } catch {
             /* noop */
           }
@@ -841,6 +872,7 @@ export function VoiceProvider({ active, children }) {
     if (active) return;
     stopAll();
     deliveredIds.current = new Set();
+    speakAttemptsRef.current = new Map();
     briefingTriedRef.current = false;
     weeklyTriedRef.current = false;
     userInitiatedRef.current = false;

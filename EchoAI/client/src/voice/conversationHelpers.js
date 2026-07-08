@@ -591,9 +591,17 @@ const VOL_UP_RE =
   /\b(turn (it|them|the music|the volume) up|louder|volume up|crank (it|the music) up|turn up the (music|volume)|pump it up|make it louder)\b/;
 const VOL_DOWN_RE =
   /\b(turn (it|them|the music|the volume) down|quieter|softer|volume down|turn down the (music|volume)|lower the (music|volume)|make it quieter)\b/;
-const SKIP_RE = /\b(skip|next)( (this|the))?( track| song| tune)?\b/;
+// Skip/pause used to match ANY sentence containing "skip"/"next"/"pause",
+// which hijacked commands like "what's next on my calendar" into "Skipping
+// ahead." — the "Echo does the wrong thing" bug. They now match only when the
+// whole utterance IS the command, or a music noun is explicitly present.
+const SKIP_FULL_RE =
+  /^(?:please )?(?:skip|next)(?: (?:this|that|the))?(?: track| song| tune| one)?(?: please)?(?: sir)?$/;
+const SKIP_NOUN_RE = /\b(?:skip|next)\b[^]*\b(?:track|song|tune)\b/;
 const STOP_RE = /\b(stop|turn off|kill|shut off|end)( the| this)?( music| song| playback| tunes?)\b/;
-const PAUSE_RE = /\b(pause|hold)( the)?( music| song| playback| track)?\b/;
+const PAUSE_FULL_RE =
+  /^(?:please )?(?:pause|hold)(?: (?:the|this|it))?(?: music| song| playback| track)?(?: please)?(?: sir)?$/;
+const PAUSE_NOUN_RE = /\b(?:pause|hold)\b[^]*\b(?:music|song|playback|track)\b/;
 const RESUME_RE =
   /\b(resume|unpause|keep playing|continue playing|play again|un pause)( the)?( music| song)?\b/;
 const PLAY_RE = /\b(play|put on|start playing)\b\s*(.*)$/;
@@ -639,10 +647,12 @@ export function matchMusicIntent(text) {
   if (!norm) return null;
   if (VOL_UP_RE.test(norm)) return { action: "volume", value: "up" };
   if (VOL_DOWN_RE.test(norm)) return { action: "volume", value: "down" };
-  if (SKIP_RE.test(norm)) return { action: "skip" };
+  if (SKIP_FULL_RE.test(norm) || SKIP_NOUN_RE.test(norm))
+    return { action: "skip" };
   if (STOP_RE.test(norm)) return { action: "stop" };
   if (RESUME_RE.test(norm)) return { action: "resume" };
-  if (PAUSE_RE.test(norm)) return { action: "pause" };
+  if (PAUSE_FULL_RE.test(norm) || PAUSE_NOUN_RE.test(norm))
+    return { action: "pause" };
   const num = norm.match(SONG_NUMBER_RE) || norm.match(SONG_ORDINAL_RE);
   if (num) {
     const n = NUMBER_WORDS[num[1]] || Number(num[1]);

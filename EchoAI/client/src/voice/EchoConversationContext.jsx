@@ -89,10 +89,14 @@ const FOLLOWUP_MS = 30000;
 const SPEAK_SAFETY_MS = 90000;
 // Keep the mic fully gated for this long AFTER Echo's audio ends so trailing
 // audio / speaker echo can't retrigger recognition (Echo answering itself).
-const SPEAK_COOLDOWN_MS = 2000;
+// Kept SHORT on purpose: every extra millisecond here is a deaf window where
+// the owner's immediate reply is silently dropped — which reads as "Echo is
+// ignoring me". 800ms covers speaker tail-off without eating quick answers.
+const SPEAK_COOLDOWN_MS = 800;
 // After Echo asks a question, ignore ALL speech for at least this long so Echo's
-// own voice trailing off can't answer its own question.
-const POST_QUESTION_MS = 3000;
+// own voice trailing off can't answer its own question. Also kept short — the
+// owner usually answers a question right away.
+const POST_QUESTION_MS = 1200;
 
 function getSpeechRecognition() {
   if (typeof window === "undefined") return null;
@@ -284,6 +288,13 @@ export function EchoConversationProvider({ active, children }) {
           onPlayed: () => {
             finish(true);
           },
+          // Settles on EVERY terminal outcome (played/skipped/stopped/error).
+          // Without this, a skipped or errored reply left the engine suspended
+          // (deaf to all commands) until the 90s safety timeout — the biggest
+          // cause of "Echo ignores me".
+          onDone: (status) => {
+            finish(status === "played");
+          },
         });
       }),
     [voice, active],
@@ -401,7 +412,16 @@ export function EchoConversationProvider({ active, children }) {
     async (raw) => {
       let text = (raw || "").trim();
       clearTimers();
+      // The command is snapshotted — clear the capture buffer NOW so no part
+      // of this utterance can leak into (or replay as) the next command.
+      finalRef.current = "";
       patienceRef.current = false;
+      // The owner sometimes re-says the wake phrase mid-conversation ("Hey
+      // Echo, open my leads" while already active). Strip it so the matchers
+      // and the AI see only the actual command — otherwise the stale prefix
+      // can make Echo answer the wrong thing or re-greet instead of acting.
+      const wake = parseWakeWord(text);
+      if (wake.matched) text = wake.command;
       // Snapshot + reset the capture confidence so it can't leak into the
       // next command.
       const captureConf = confRef.current;

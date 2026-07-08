@@ -710,7 +710,22 @@ describe("matchMusicIntent — saved favorites", () => {
   });
   it("skip and stop keep working", () => {
     expect(matchMusicIntent("next song")).toEqual({ action: "skip" });
+    expect(matchMusicIntent("skip")).toEqual({ action: "skip" });
+    expect(matchMusicIntent("skip this one")).toEqual({ action: "skip" });
+    expect(matchMusicIntent("skip that song please")).toEqual({ action: "skip" });
     expect(matchMusicIntent("stop the music")).toEqual({ action: "stop" });
+  });
+  it("pause still works as a bare command or with a music noun", () => {
+    expect(matchMusicIntent("pause")).toEqual({ action: "pause" });
+    expect(matchMusicIntent("pause the music")).toEqual({ action: "pause" });
+    expect(matchMusicIntent("hold the music")).toEqual({ action: "pause" });
+  });
+  it("sentences merely containing skip/next/pause do NOT hijack music", () => {
+    expect(matchMusicIntent("what's next on my calendar")).toBe(null);
+    expect(matchMusicIntent("skip the intro and show me my leads")).toBe(null);
+    expect(matchMusicIntent("put a pause on that campaign")).toBe(null);
+    expect(matchMusicIntent("hold my calls this afternoon")).toBe(null);
+    expect(matchMusicIntent("what should we do next about the ads")).toBe(null);
   });
   it("non-music speech does not match", () => {
     expect(matchMusicIntent("what are my leads today")).toBe(null);
