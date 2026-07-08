@@ -270,20 +270,34 @@ describe("matchNavIntent", () => {
   });
 });
 
-describe("navConfirmation", () => {
-  it("speaks a section-specific confirmation that is never a question", () => {
-    expect(navConfirmation("leads")).toBe("Opening your leads now.");
-    expect(navConfirmation("portfolio")).toBe("Opening your portfolio now.");
-    expect(navConfirmation("missioncontrol")).toBe(
-      "Taking you back to Mission Control.",
-    );
-    expect(isQuestion(navConfirmation("leads"))).toBe(false);
+describe("navConfirmation (varied)", () => {
+  it("speaks a section-aware confirmation that is never a question", () => {
+    for (let i = 0; i < 10; i++) {
+      const line = navConfirmation("leads");
+      expect(typeof line).toBe("string");
+      expect(line.length).toBeGreaterThan(0);
+      expect(isQuestion(line)).toBe(false);
+      // Every variant either names the section or is a generic acknowledgment.
+      expect(/your leads|taking you there|on it sir/i.test(line)).toBe(true);
+    }
   });
 
-  it("names the department for 'dept:<agent>' keys", () => {
-    expect(navConfirmation("dept:atlas")).toBe("Taking you to Atlas.");
-    expect(navConfirmation("dept:nova")).toBe("Taking you to Nova.");
-    expect(navConfirmation(null)).toBe("Here you go.");
+  it("names the department (or acknowledges) for 'dept:<agent>' keys", () => {
+    for (let i = 0; i < 10; i++) {
+      const line = navConfirmation("dept:atlas");
+      expect(/atlas|on it sir/i.test(line)).toBe(true);
+      expect(isQuestion(line)).toBe(false);
+    }
+    expect(typeof navConfirmation(null)).toBe("string");
+  });
+
+  it("never repeats the same confirmation twice in a row", () => {
+    let prev = navConfirmation("leads");
+    for (let i = 0; i < 25; i++) {
+      const next = navConfirmation("leads");
+      expect(next).not.toBe(prev);
+      prev = next;
+    }
   });
 });
 
@@ -296,13 +310,21 @@ describe("navOfferQuestion", () => {
     expect(isQuestion(navOfferQuestion("roi"))).toBe(true);
   });
 
-  it("special-cases Sage's report and generic departments", () => {
-    expect(navOfferQuestion("dept:sage")).toBe(
-      "I've opened Sage's intelligence report. Would you like me to read the highlights?",
-    );
-    expect(navOfferQuestion("dept:nova")).toBe(
-      "I've opened Nova's department. Want me to give you the rundown?",
-    );
+  it("special-cases Sage's report and names generic departments", () => {
+    for (let i = 0; i < 10; i++) {
+      expect(/sage/i.test(navOfferQuestion("dept:sage"))).toBe(true);
+      expect(/nova/i.test(navOfferQuestion("dept:nova"))).toBe(true);
+    }
+  });
+
+  it("rotates offers without repeating the same one twice in a row", () => {
+    let prev = navOfferQuestion("leads");
+    for (let i = 0; i < 25; i++) {
+      const next = navOfferQuestion("leads");
+      expect(next).not.toBe(prev);
+      expect(isQuestion(next)).toBe(true);
+      prev = next;
+    }
   });
 
   it("returns null for pure actions (no read offer)", () => {

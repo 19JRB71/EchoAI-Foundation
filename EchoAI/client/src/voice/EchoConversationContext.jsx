@@ -44,13 +44,21 @@ import {
   matchBriefingIntent,
   matchBriefingStart,
   matchBriefingChoice,
-  BRIEFING_CHOICE_QUESTION,
   matchStatusIntent,
   matchLearnedPhrase,
   normalizeSpeech,
-  CLARIFY_QUESTION,
   CONFIDENCE_THRESHOLD,
 } from "./conversationHelpers.js";
+import {
+  interruptAck,
+  goQuietLine,
+  takeYourTimeLine,
+  tackleFirstQuestion,
+  clarifyQuestion,
+  briefingChoiceQuestion,
+  musicAck,
+  maybeFlourish,
+} from "./phraseVariety.js";
 import { api } from "../api.js";
 
 const EchoConversationContext = createContext(null);
@@ -67,29 +75,8 @@ const LEARNED_CANON = {
   status: "status report",
 };
 
-// Short spoken acknowledgement for a music voice command.
-function musicReply(music) {
-  switch (music.action) {
-    case "play":
-      return music.value ? `Playing ${music.value}.` : "Starting some music.";
-    case "favorites":
-      return music.index
-        ? `Playing song number ${music.index + 1} from your list Sir.`
-        : "Starting your playlist Sir.";
-    case "pause":
-      return "Paused.";
-    case "resume":
-      return "Back on.";
-    case "skip":
-      return "Skipping ahead.";
-    case "stop":
-      return "Music off.";
-    case "volume":
-      return music.value === "down" ? "Turning it down." : "Turning it up.";
-    default:
-      return "Done.";
-  }
-}
+// Music command acknowledgements now come from phraseVariety.musicAck (varied,
+// never the same line twice in a row).
 
 const MIC_MUTE_KEY = "echoai_mic_muted";
 const MIC_OPTIN_KEY = "echoai_mic_optin";
@@ -416,7 +403,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBriefingChoiceRef.current = false;
         suspendRef.current = true;
         setConvState("speaking");
-        await speakAndWait("Understood Sir.");
+        await speakAndWait(interruptAck());
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow();
         return;
@@ -429,7 +416,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBriefingChoiceRef.current = false;
         suspendRef.current = true;
         setConvState("speaking");
-        await speakAndWait("Going quiet. Say Hey Echo whenever you need me.");
+        await speakAndWait(goQuietLine());
         playEffect("goodbye");
         // eslint-disable-next-line no-use-before-define
         muteMic();
@@ -439,7 +426,7 @@ export function EchoConversationProvider({ active, children }) {
         patienceRef.current = true;
         suspendRef.current = true;
         setConvState("speaking");
-        await speakAndWait("Take your time. I'm here when you're ready.");
+        await speakAndWait(takeYourTimeLine());
         // Reopen active listening indefinitely (no countdown) for a moment.
         finalRef.current = "";
         modeRef.current = "active";
@@ -643,7 +630,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBriefingChoiceRef.current = true;
         suspendRef.current = true;
         setConvState("speaking");
-        await speakAndWait(BRIEFING_CHOICE_QUESTION);
+        await speakAndWait(briefingChoiceQuestion());
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow(true);
         return;
@@ -658,7 +645,7 @@ export function EchoConversationProvider({ active, children }) {
         );
         suspendRef.current = true;
         setConvState("speaking");
-        await speakAndWait(musicReply(music));
+        await speakAndWait(musicAck(music));
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow();
         return;
@@ -687,7 +674,7 @@ export function EchoConversationProvider({ active, children }) {
         // Facebook connect flow) keep the plain confirmation with no offer.
         const offerFallback = navOfferQuestion(navKey);
         if (!offerFallback) {
-          await speakAndWait(navConfirmation(navKey));
+          await speakAndWait(maybeFlourish(navConfirmation(navKey)));
           // eslint-disable-next-line no-use-before-define
           openFollowupWindow();
           return;
@@ -728,7 +715,7 @@ export function EchoConversationProvider({ active, children }) {
         clarifyRetryRef.current = true;
         suspendRef.current = true;
         setConvState("speaking");
-        await speakAndWait(CLARIFY_QUESTION);
+        await speakAndWait(clarifyQuestion());
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow(true);
         return;
@@ -858,7 +845,7 @@ export function EchoConversationProvider({ active, children }) {
             try {
               suspendRef.current = true;
               setConvState("speaking");
-              await speakAndWait("Understood Sir.");
+              await speakAndWait(interruptAck());
             } finally {
               interruptedRef.current = false;
               // eslint-disable-next-line no-use-before-define
@@ -1124,7 +1111,7 @@ export function EchoConversationProvider({ active, children }) {
       if (!supported || !enabledRef.current || mutedRef.current) return;
       suspendRef.current = true;
       setConvState("speaking");
-      await speakAndWait("What would you like to tackle first today?");
+      await speakAndWait(tackleFirstQuestion());
       openFollowupWindow(true); // treat as a question → stay open
     };
     window.addEventListener("echo:briefing-done", onBriefingDone);

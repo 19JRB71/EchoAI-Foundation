@@ -33,10 +33,7 @@ import {
   chunkForSpeech,
 } from "../lib/voiceSettings.js";
 import { getWarmAudio } from "./audioUnlock.js";
-import {
-  MORNING_STANDBY_GREETING,
-  MORNING_MUSIC_READY_LINE,
-} from "./conversationHelpers.js";
+import { standbyGreeting, musicReadyLine } from "./phraseVariety.js";
 
 const VoiceContext = createContext(null);
 
@@ -665,8 +662,8 @@ export function VoiceProvider({ active, children }) {
           // When the owner has saved morning-music favorites, Echo also lets
           // them know their playlist is ready ("Hey Echo, start my music").
           text: b.musicReady
-            ? `${MORNING_STANDBY_GREETING} ${MORNING_MUSIC_READY_LINE}`
-            : MORNING_STANDBY_GREETING,
+            ? `${standbyGreeting()} ${musicReadyLine()}`
+            : standbyGreeting(),
           // No music intro — go straight to Echo speaking.
           playIntro: false,
           onPlayed: async () => {

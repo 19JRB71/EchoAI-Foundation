@@ -333,6 +333,18 @@ const DEPT_NAMES = {
   sage: "Sage",
 };
 
+import {
+  pickVariant,
+  NAV_CONFIRM_TEMPLATES,
+  DEPT_CONFIRM_TEMPLATES,
+  NAV_OFFER_TEMPLATES,
+  DEPT_OFFER_TEMPLATES,
+  STANDBY_GREETINGS,
+  MUSIC_READY_LINES,
+  BRIEFING_CHOICE_QUESTIONS,
+  CLARIFY_QUESTIONS,
+} from "./phraseVariety.js";
+
 /**
  * The verbal confirmation Echo speaks after acting on a navigation command.
  * @param {string} navKey a value returned by matchNavIntent.
@@ -340,15 +352,36 @@ const DEPT_NAMES = {
  *   treated as a follow-up question).
  */
 export function navConfirmation(navKey) {
-  if (!navKey) return "Here you go.";
-  if (navKey === "action:facebook") return "Opening Facebook setup for you.";
+  if (!navKey)
+    return pickVariant("nav.here", [
+      "Here you go.",
+      "There you are.",
+      "All yours Sir.",
+      "Right here for you.",
+      "There it is.",
+    ]);
+  if (navKey === "action:facebook")
+    return pickVariant("nav.fb", [
+      "Opening Facebook setup for you.",
+      "Facebook setup coming right up.",
+      "Got it — opening Facebook setup.",
+      "Taking you into Facebook setup now.",
+      "On it — Facebook setup Sir.",
+    ]);
   if (navKey.startsWith("dept:")) {
     const name = DEPT_NAMES[navKey.slice(5)] || "your team";
-    return `Taking you to ${name}.`;
+    return pickVariant("nav.dept", DEPT_CONFIRM_TEMPLATES)(name);
   }
-  if (navKey === "missioncontrol") return "Taking you back to Mission Control.";
+  if (navKey === "missioncontrol")
+    return pickVariant("nav.mc", [
+      "Taking you back to Mission Control.",
+      "Back to Mission Control we go.",
+      "Mission Control coming right up Sir.",
+      "Got it — heading home to Mission Control.",
+      "On it — Mission Control Sir.",
+    ]);
   const label = NAV_LABELS[navKey] || "that";
-  return `Opening ${label} now.`;
+  return pickVariant("nav.section", NAV_CONFIRM_TEMPLATES)(label);
 }
 
 // ---------------------------------------------------------------------------
@@ -387,15 +420,27 @@ export function navLabel(navKey) {
 export function navOfferQuestion(navKey) {
   if (!navKey || navKey === "action:facebook") return null;
   if (navKey === "missioncontrol")
-    return "You're back at Mission Control. Want a quick rundown of what's here?";
+    return pickVariant("offer.mc", [
+      "You're back at Mission Control. Want a quick rundown of what's here?",
+      "Mission Control, Sir. Shall I give you the lay of the land?",
+      "Here's Mission Control. Want the quick tour?",
+      "Back at home base. Want me to run through what's here?",
+      "Mission Control is up. Would you like the rundown?",
+    ]);
   if (navKey.startsWith("dept:")) {
     const name = DEPT_NAMES[navKey.slice(5)] || "your team";
     if (navKey === "dept:sage")
-      return "I've opened Sage's intelligence report. Would you like me to read the highlights?";
-    return `I've opened ${name}'s department. Want me to give you the rundown?`;
+      return pickVariant("offer.sage", [
+        "I've opened Sage's intelligence report. Would you like me to read the highlights?",
+        "Sage's intelligence report is up. Want the highlights?",
+        "Here's what Sage has been digging into. Shall I read you the key findings?",
+        "Sage's latest intel, Sir. Want me to walk you through it?",
+        "That's Sage's report. Would you like the standout insights?",
+      ]);
+    return pickVariant("offer.dept", DEPT_OFFER_TEMPLATES)(name);
   }
   const label = NAV_LABELS[navKey] || "that";
-  return `I've opened ${label}. Want me to give you the highlights?`;
+  return pickVariant("offer.section", NAV_OFFER_TEMPLATES)(label);
 }
 
 // NOTE: these match AFTER normalizeSpeech, which replaces apostrophes with a
@@ -462,13 +507,14 @@ export function matchBriefingIntent(text) {
 // On login Echo never auto-plays the morning briefing. He greets the owner,
 // announces he is standing by, then goes quiet until the owner explicitly
 // starts it ("Hey Echo, start my briefing", "ready", "run it", "what's good").
-export const MORNING_STANDBY_GREETING =
-  "Good morning Sir. I will be on standby waiting for you to start your morning briefing.";
+// Canonical (first) variant — actual playback uses phraseVariety.standbyGreeting()
+// which rotates through 5 variations. Kept exported for back-compat.
+export const MORNING_STANDBY_GREETING = STANDBY_GREETINGS[0];
 
 // Appended to the standby greeting when the owner has saved morning-music
-// favorites (or the admin default suggestions apply).
-export const MORNING_MUSIC_READY_LINE =
-  "Your morning playlist is ready whenever you want it Sir.";
+// favorites (or the admin default suggestions apply). Playback rotates via
+// phraseVariety.musicReadyLine().
+export const MORNING_MUSIC_READY_LINE = MUSIC_READY_LINES[0];
 
 const BRIEFING_START_RE =
   /\b((i m |im )?ready( now)?|start (my |the )?(morning )?briefing|(morning )?briefing time|let s do it|kick it off|fire it up|hit me|go ahead)\b/;
@@ -487,9 +533,9 @@ export function matchBriefingStart(text) {
   return norm.split(" ").length <= 4 && YES_RE.test(norm) && !NO_RE.test(norm);
 }
 
-/** The exact question Echo asks when a briefing is requested on demand. */
-export const BRIEFING_CHOICE_QUESTION =
-  "Of course Sir. Would you like a full briefing covering all your businesses, a quick summary of the most important things right now, or a specific update on one business or topic?";
+/** Canonical variant of the briefing-type question (rotation lives in
+ * phraseVariety.briefingChoiceQuestion()). */
+export const BRIEFING_CHOICE_QUESTION = BRIEFING_CHOICE_QUESTIONS[0];
 
 const BRIEFING_FULL_RE =
   /\b(full( briefing)?|everything|all (of )?(my |the )?businesses|complete|the whole thing|all of it|cover it all)\b/;
@@ -632,8 +678,8 @@ export function resolveLearnableAction(text) {
 }
 
 /** The exact clarification Echo asks when speech wasn't understood. */
-export const CLARIFY_QUESTION =
-  "I didn't quite catch that Sir, could you say that again?";
+// Canonical variant — playback rotates via phraseVariety.clarifyQuestion().
+export const CLARIFY_QUESTION = CLARIFY_QUESTIONS[0];
 
 // Below this recognizer confidence, an unmatched short utterance triggers the
 // clarification question instead of being sent to the AI as-is. Tuned low-ish
