@@ -614,3 +614,41 @@ describe("clarification constants", () => {
     }
   });
 });
+
+import {
+  matchBriefingStart,
+  MORNING_STANDBY_GREETING,
+} from "./conversationHelpers.js";
+
+describe("morning standby (matchBriefingStart)", () => {
+  it("greeting is the exact standby line", () => {
+    expect(MORNING_STANDBY_GREETING).toBe(
+      "Good morning Sir. I will be on standby waiting for you to start your morning briefing.",
+    );
+  });
+  it("explicit start phrases work", () => {
+    expect(matchBriefingStart("start my briefing")).toBe(true);
+    expect(matchBriefingStart("hey echo start my morning briefing")).toBe(true);
+    expect(matchBriefingStart("start the briefing")).toBe(true);
+    expect(matchBriefingStart("I'm ready")).toBe(true);
+    expect(matchBriefingStart("ready")).toBe(true);
+    expect(matchBriefingStart("let's do it")).toBe(true);
+  });
+  it("regular briefing requests count", () => {
+    expect(matchBriefingStart("what's good")).toBe(true);
+    expect(matchBriefingStart("catch me up")).toBe(true);
+    expect(matchBriefingStart("gimme the rundown")).toBe(true);
+  });
+  it("short go-ahead barks count, on their own only", () => {
+    expect(matchBriefingStart("run it")).toBe(true);
+    expect(matchBriefingStart("let's go")).toBe(true);
+    expect(matchBriefingStart("bet")).toBe(true);
+    expect(matchBriefingStart("yeah I was gonna say we should maybe do it later")).toBe(false);
+  });
+  it("negatives and unrelated speech do not start it", () => {
+    expect(matchBriefingStart("nah not now")).toBe(false);
+    expect(matchBriefingStart("play some music")).toBe(false);
+    expect(matchBriefingStart("take me to my leads")).toBe(false);
+    expect(matchBriefingStart("")).toBe(false);
+  });
+});

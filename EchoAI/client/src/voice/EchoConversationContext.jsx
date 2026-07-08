@@ -42,6 +42,7 @@ import {
   matchMusicIntent,
   matchInterruptIntent,
   matchBriefingIntent,
+  matchBriefingStart,
   matchBriefingChoice,
   BRIEFING_CHOICE_QUESTION,
   matchStatusIntent,
@@ -155,6 +156,7 @@ export function EchoConversationProvider({ active, children }) {
   const pendingBriefRef = useRef(null); // section-readout offer awaiting yes/no
   const pendingBriefingChoiceRef = useRef(false); // briefing-type question pending
   const interruptedRef = useRef(false); // a barge-in interrupt is being handled
+  const morningStandbyRef = useRef(false); // greeted; briefing awaits go-ahead
   const learnedMapRef = useRef(new Map()); // normalized phrase -> learned action
   const misheardRef = useRef(null); // { text, at } awaiting a clarified repeat
   const clarifyRetryRef = useRef(false); // asked "say that again?" once already
@@ -251,31 +253,35 @@ export function EchoConversationProvider({ active, children }) {
   // ---- speaking ------------------------------------------------------------
   // Speak a line through the shared voice engine and resolve when it finishes.
   // If the speaker is muted / voice inactive, resolve immediately (skip audio).
+  // Resolves with `true` only when playback ACTUALLY completed (onPlayed
+  // fired); `false` when skipped (muted/inactive/empty) or the safety timeout
+  // hit. Callers that need proof of playback (e.g. the morning briefing
+  // delivered stamp) must check the result; everyone else can ignore it.
   const speakAndWait = useCallback(
     (text) =>
       new Promise((resolve) => {
         if (!text) {
-          resolve();
+          resolve(false);
           return;
         }
         if (voice.muted || !active) {
-          resolve();
+          resolve(false);
           return;
         }
         let done = false;
-        const finish = () => {
+        const finish = (played) => {
           if (done) return;
           done = true;
-          resolve();
+          resolve(played);
         };
-        const safety = setTimeout(finish, SPEAK_SAFETY_MS);
+        const safety = setTimeout(() => finish(false), SPEAK_SAFETY_MS);
         voice.enqueue({
           type: "echo_conversation",
           title: "Echo",
           text,
           onPlayed: () => {
             clearTimeout(safety);
-            finish();
+            finish(true);
           },
         });
       }),
@@ -548,6 +554,56 @@ export function EchoConversationProvider({ active, children }) {
           return;
         }
         // A new nav/music command → fall through and handle it normally.
+      }
+
+      // Morning standby: Echo greeted the owner and is waiting for an explicit
+      // go-ahead. Any briefing request / start phrase / short go-ahead bark
+      // ("ready", "run it", "let's go") delivers the morning briefing NOW —
+      // Echo never starts it on his own.
+      if (morningStandbyRef.current && matchBriefingStart(text)) {
+        morningStandbyRef.current = false;
+        pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = false;
+        suspendRef.current = true;
+        setConvState("processing");
+        playEffect("thinking", { volume: 0.35 });
+        let brief = "";
+        try {
+          const b = await api.echoVoiceGetBriefing();
+          brief = (b && b.text) || "";
+        } catch {
+          brief = "";
+        }
+        if (brief) {
+          setConvState("speaking");
+          const played = await speakAndWait(brief);
+          if (played) {
+            // Mark delivered only after the owner actually heard it, so the
+            // once-per-day server stamp is honest.
+            api.echoVoiceMarkBriefingDelivered().catch(() => {});
+            // Same post-briefing hand-off as before: "What would you like to
+            // tackle first today?" + open listening.
+            try {
+              window.dispatchEvent(new CustomEvent("echo:briefing-done"));
+            } catch {
+              /* noop */
+            }
+          } else {
+            // Playback was muted/blocked/timed out — no honest delivery, so
+            // stay in standby and let the owner ask again.
+            morningStandbyRef.current = true;
+          }
+        } else {
+          // Fetch failed — stay in standby so the owner can simply ask again.
+          morningStandbyRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            "I couldn't pull your morning briefing together just now, Sir. Say the word and I'll try again.",
+          );
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow(true);
+        }
+        return;
       }
 
       // Direct status request ("what we got", "status report") → read out the
@@ -1070,6 +1126,22 @@ export function EchoConversationProvider({ active, children }) {
     window.addEventListener("echo:briefing-done", onBriefingDone);
     return () => window.removeEventListener("echo:briefing-done", onBriefingDone);
   }, [active, supported, speakAndWait, openFollowupWindow]);
+
+  // Morning standby: after the login greeting, Echo goes quiet and waits for
+  // the owner's go-ahead. A brief follow-up window lets a bare "ready" /
+  // "run it" work without the wake word; after it closes, "Hey Echo, start my
+  // briefing" still works any time — the standby flag stays set until the
+  // briefing is actually delivered.
+  useEffect(() => {
+    if (!active) return undefined;
+    const onStandby = () => {
+      morningStandbyRef.current = true;
+      if (!supported || !enabledRef.current || mutedRef.current) return;
+      openFollowupWindow(true);
+    };
+    window.addEventListener("echo:briefing-standby", onStandby);
+    return () => window.removeEventListener("echo:briefing-standby", onStandby);
+  }, [active, supported, openFollowupWindow]);
 
   // Derived surface state for the UI.
   const micState = !supported

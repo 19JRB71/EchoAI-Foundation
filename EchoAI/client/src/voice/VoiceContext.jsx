@@ -33,6 +33,7 @@ import {
   chunkForSpeech,
 } from "../lib/voiceSettings.js";
 import { getWarmAudio } from "./audioUnlock.js";
+import { MORNING_STANDBY_GREETING } from "./conversationHelpers.js";
 
 const VoiceContext = createContext(null);
 
@@ -640,21 +641,25 @@ export function VoiceProvider({ active, children }) {
         const b = await api.echoVoiceGetBriefing();
         if (cancelled) return;
         if (!b.enabled || !b.autoBriefing) return;
-        // Auto-play the morning briefing ONCE per day — only the very first
-        // login of the day. `alreadyDeliveredToday` compares the server-stored
-        // last_briefing_at stamp against today, so logging out and back in the
-        // same day never replays it. (On-demand briefings are always allowed.)
-        if (b.alreadyDeliveredToday) return;
+        // The standby greeting fires on EVERY login (owner preference), not
+        // once per day — it never replays the briefing itself, it only tells
+        // the owner Echo is standing by. The token-scoped session key below
+        // still stops bare page reloads from re-greeting.
         const key = briefingSessionKey();
         try {
           if (sessionStorage.getItem(key)) return;
         } catch {
           /* noop */
         }
+        // Echo NEVER auto-plays the briefing. He greets the owner, announces
+        // he is standing by, and waits for an explicit go-ahead ("Hey Echo,
+        // start my briefing", "ready", "run it"...). The conversation engine
+        // owns delivery — and only IT marks the briefing delivered, so the
+        // once-per-day server stamp reflects a briefing that was actually heard.
         enqueue({
           type: "morning_briefing",
-          title: "Morning briefing",
-          text: b.text,
+          title: "Morning greeting",
+          text: MORNING_STANDBY_GREETING,
           // No music intro — go straight to Echo speaking.
           playIntro: false,
           onPlayed: async () => {
@@ -663,11 +668,10 @@ export function VoiceProvider({ active, children }) {
             } catch {
               /* noop */
             }
-            api.echoVoiceMarkBriefingDelivered().catch(() => {});
-            // Hand off to the always-on conversation engine: after the briefing,
-            // Echo asks what to tackle first and starts listening (if enabled).
+            // Hand off to the always-on conversation engine: Echo goes quiet
+            // and waits for the owner to start the briefing.
             try {
-              window.dispatchEvent(new CustomEvent("echo:briefing-done"));
+              window.dispatchEvent(new CustomEvent("echo:briefing-standby"));
             } catch {
               /* noop */
             }

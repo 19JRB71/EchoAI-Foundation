@@ -456,6 +456,32 @@ export function matchBriefingIntent(text) {
   return BRIEFING_REQUEST_RE.test(norm);
 }
 
+// ---------------------------------------------------------------------------
+// Morning standby greeting + start command
+// ---------------------------------------------------------------------------
+// On login Echo never auto-plays the morning briefing. He greets the owner,
+// announces he is standing by, then goes quiet until the owner explicitly
+// starts it ("Hey Echo, start my briefing", "ready", "run it", "what's good").
+export const MORNING_STANDBY_GREETING =
+  "Good morning Sir. I will be on standby waiting for you to start your morning briefing.";
+
+const BRIEFING_START_RE =
+  /\b((i m |im )?ready( now)?|start (my |the )?(morning )?briefing|(morning )?briefing time|let s do it|kick it off|fire it up|hit me|go ahead)\b/;
+
+/**
+ * True when the owner is telling standby-Echo to start the morning briefing.
+ * Accepts any regular briefing request, an explicit start phrase, or a short
+ * go-ahead bark ("ready", "bet", "run it", "let's go") — but a short
+ * affirmative only counts on its own, never buried inside a longer sentence.
+ */
+export function matchBriefingStart(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return false;
+  if (BRIEFING_REQUEST_RE.test(norm)) return true;
+  if (BRIEFING_START_RE.test(norm)) return true;
+  return norm.split(" ").length <= 4 && YES_RE.test(norm) && !NO_RE.test(norm);
+}
+
 /** The exact question Echo asks when a briefing is requested on demand. */
 export const BRIEFING_CHOICE_QUESTION =
   "Of course Sir. Would you like a full briefing covering all your businesses, a quick summary of the most important things right now, or a specific update on one business or topic?";
