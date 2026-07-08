@@ -2,7 +2,7 @@
 // Shows the three pricing tiers (flat monthly base price + included seats) and
 // collects payment details via Stripe Elements, then creates the subscription.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -68,10 +68,80 @@ const backBtn =
 
 export default function StepSubscription({ onNext, onBack, onSelectTier }) {
   const [tier, setTier] = useState("pro");
+  const [freeTestMode, setFreeTestMode] = useState(false);
+  const [modeChecked, setModeChecked] = useState(false);
+
+  // Free test mode: the server grants full access at signup, so the payment
+  // step is skipped entirely and replaced with a friendly notice.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([api.getSignupMode(), api.getSubscriptionStatus()])
+      .then(([mode, status]) => {
+        if (cancelled) return;
+        const flagOn =
+          mode.status === "fulfilled" && Boolean(mode.value?.freeTestMode);
+        // If the account already holds a paid tier (e.g. granted during a
+        // testing period), never ask for payment again — even if the test-mode
+        // flag has since been turned off.
+        const tier =
+          status.status === "fulfilled"
+            ? status.value?.subscriptionTier || status.value?.tier
+            : null;
+        const alreadyPaid = Boolean(tier) && tier !== "free";
+        setFreeTestMode(flagOn || alreadyPaid);
+      })
+      .finally(() => {
+        if (!cancelled) setModeChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function select(value) {
     setTier(value);
     if (onSelectTier) onSelectTier(value);
+  }
+
+  if (!modeChecked) {
+    return (
+      <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm sm:p-8">
+        <p className="text-sm text-gray-400">Loading…</p>
+      </div>
+    );
+  }
+
+  if (freeTestMode) {
+    return (
+      <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm sm:p-8">
+        <h1 className="text-2xl font-bold text-gray-100">
+          Free testing access
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-gray-400">
+          You're part of our testing program — your account has{" "}
+          <span className="font-semibold text-amber-300">
+            full access to every feature
+          </span>{" "}
+          at no charge. No payment details are needed. Explore everything and
+          tell us what you think!
+        </p>
+        <div className="mt-8 flex items-center justify-between">
+          <button type="button" onClick={onBack} className={backBtn}>
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (onSelectTier) onSelectTier("enterprise");
+              onNext();
+            }}
+            className={primaryBtn}
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

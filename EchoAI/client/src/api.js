@@ -311,6 +311,7 @@ export const api = {
   declineEchoGrowthAction: (id) =>
     request(`/api/echo/growth/actions/${id}/decline`, { method: "POST" }),
 
+  getSignupMode: () => request("/api/auth/signup-mode"),
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),
   updateOnboarding: (payload) =>

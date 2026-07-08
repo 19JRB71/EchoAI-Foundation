@@ -8,6 +8,25 @@ const { attributeSignup, readReferralCookie } = require("../utils/referralTracki
 const SALT_ROUNDS = 10;
 
 /**
+ * Free test mode — when FREE_TEST_MODE=true, new signups get full Enterprise
+ * access with no payment, and the onboarding wizard skips the payment step.
+ * Flip the env var off to restore normal paid signups (existing test accounts
+ * keep their tier until an admin changes it).
+ */
+function freeTestModeEnabled() {
+  return String(process.env.FREE_TEST_MODE || "").toLowerCase() === "true";
+}
+
+/**
+ * GET /signup-mode (public)
+ * Lets the client know whether free test mode is on so the onboarding wizard
+ * can skip the Stripe payment step. Never exposes anything sensitive.
+ */
+function signupMode(req, res) {
+  return res.json({ freeTestMode: freeTestModeEnabled() });
+}
+
+/**
  * POST /register
  * Accepts email, password, and team size. Hashes the password, creates a user
  * record and a default free subscription (in a single transaction), and returns
@@ -32,19 +51,22 @@ async function register(req, res) {
 
     await client.query("BEGIN");
 
+    // In free test mode new accounts get full Enterprise access, no payment.
+    const signupTier = freeTestModeEnabled() ? "enterprise" : "free";
+
     const userResult = await client.query(
       `INSERT INTO users (email, password_hash, subscription_tier, team_size)
-       VALUES ($1, $2, 'free', $3)
+       VALUES ($1, $2, $3, $4)
        RETURNING user_id, email, subscription_tier, team_size, created_at`,
-      [email, passwordHash, teamSize || 1]
+      [email, passwordHash, signupTier, teamSize || 1]
     );
 
     const user = userResult.rows[0];
 
     await client.query(
       `INSERT INTO subscriptions (user_id, subscription_tier, billing_cycle, payment_status)
-       VALUES ($1, 'free', 'monthly', 'active')`,
-      [user.user_id]
+       VALUES ($1, $2, 'monthly', 'active')`,
+      [user.user_id, signupTier]
     );
 
     await client.query("COMMIT");
@@ -377,6 +399,8 @@ async function updateOnboarding(req, res) {
 module.exports = {
   register,
   login,
+  signupMode,
+  freeTestModeEnabled,
   getProfile,
   updateProfile,
   updateOnboarding,
