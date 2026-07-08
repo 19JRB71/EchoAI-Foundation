@@ -20,6 +20,7 @@ const { anthropic, MODEL } = require("../config/anthropic");
 const { sageBlock } = require("../utils/sageContext");
 const { campaignContextBlock } = require("../utils/politicalContext");
 const { realEstateContextBlock } = require("../utils/realEstateContext");
+const { geoContextBlock } = require("../utils/geoTargeting");
 
 const MAX_TOUCHPOINTS = 7;
 const MAX_DAYS = 14;

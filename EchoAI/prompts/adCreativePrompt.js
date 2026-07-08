@@ -14,6 +14,7 @@ const {
   ensureDisclaimer,
 } = require("../utils/politicalContext");
 const { realEstateContextBlock } = require("../utils/realEstateContext");
+const { geoContextBlock } = require("../utils/geoTargeting");
 
 function describeAudience(targetAudience) {
   if (!targetAudience) return "your ideal customers";

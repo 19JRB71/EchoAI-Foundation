@@ -36,6 +36,7 @@ const {
   formatMoney,
   geoAllowed,
 } = require("../utils/growthGuardrails");
+const { textMentionsExcluded } = require("../utils/geoTargeting");
 
 let sendAutonomousSummaryEmail = null;
 try {
@@ -443,11 +444,25 @@ async function runAudienceUpdate(brand, settings, counts) {
   // set target area, never auto-confirm the targeting on my own — escalate to a
   // proposal with the geo explanation so the owner decides.
   const audienceGeo = extractAudienceGeo(brand.target_audience);
-  const geo = geoAllowed(settings || {}, audienceGeo);
-  if (!geo.allowed && status === "auto_executed") {
+
+  // HARD BLOCK: if the audience geography mentions an excluded area (legal /
+  // compliance exclusion zone), never auto-act AND never propose expanding
+  // there — surface it as a compliance note instead.
+  const excludedHits = textMentionsExcluded(brand.geo_targeting, audienceGeo);
+  if (excludedHits.length) {
     status = "proposed";
     risk = "high";
-    note = `${note} ${geo.reason}`;
+    note =
+      `${note} Compliance note: the audience data references ${excludedHits.join(", ")}, ` +
+      `which is inside your exclusion zone. I will not market there under any circumstances — ` +
+      `please review whether the rest of this targeting still makes sense.`;
+  } else {
+    const geo = geoAllowed(settings || {}, audienceGeo);
+    if (!geo.allowed && status === "auto_executed") {
+      status = "proposed";
+      risk = "high";
+      note = `${note} ${geo.reason}`;
+    }
   }
 
   // Persist the learned insight so it informs future content/targeting prompts.
@@ -536,7 +551,7 @@ async function claimDailyRun(brandId) {
  */
 async function runDailyAutonomousGrowth() {
   const { rows: brands } = await db.query(
-    `SELECT b.brand_id, b.user_id, b.brand_name, b.voice_description, b.target_audience
+    `SELECT b.brand_id, b.user_id, b.brand_name, b.voice_description, b.target_audience, b.geo_targeting
        FROM brands b
        JOIN growth_settings gs ON gs.user_id = b.user_id
       WHERE gs.enabled = TRUE AND b.is_demo = FALSE`,

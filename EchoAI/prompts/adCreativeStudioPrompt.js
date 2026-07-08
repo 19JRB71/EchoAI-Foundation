@@ -22,6 +22,7 @@ const PACKAGE_COUNT = 5;
 
 const { campaignContextBlock, requiredDisclaimer } = require("../utils/politicalContext");
 const { realEstateContextBlock } = require("../utils/realEstateContext");
+const { geoContextBlock } = require("../utils/geoTargeting");
 
 const AD_CREATIVE_DIRECTOR_SYSTEM_PROMPT = [
   "You are EchoAI's Ad Creative Director — a world-class performance marketer and",

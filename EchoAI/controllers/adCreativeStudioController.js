@@ -9,6 +9,7 @@ const {
   validateCreativePackages,
 } = require("../prompts/adCreativeStudioPrompt");
 const { isPolitical, ensureDisclaimer } = require("../utils/politicalContext");
+const { fbGeoLocations } = require("../utils/geoTargeting");
 
 // Maps an EchoAI campaign goal to a Facebook campaign objective.
 const GOAL_TO_OBJECTIVE = {
@@ -299,11 +300,20 @@ async function getCreativeLibrary(req, res) {
  * object. Kept minimal (geo + age + gender) so launches don't fail on
  * unresolved interest IDs.
  */
-function buildTargeting(audienceTargeting = {}) {
+function buildTargeting(audienceTargeting = {}, brandGeo = null) {
   const targeting = {};
-  const countries =
-    (Array.isArray(audienceTargeting.countries) && audienceTargeting.countries) || ["US"];
-  targeting.geo_locations = { countries };
+  // Brand geo targeting/exclusions are a HARD BLOCK over any AI-suggested geo.
+  const geoSpec = fbGeoLocations(brandGeo);
+  if (geoSpec) {
+    targeting.geo_locations = geoSpec.geo_locations;
+    if (geoSpec.excluded_geo_locations) {
+      targeting.excluded_geo_locations = geoSpec.excluded_geo_locations;
+    }
+  } else {
+    const countries =
+      (Array.isArray(audienceTargeting.countries) && audienceTargeting.countries) || ["US"];
+    targeting.geo_locations = { countries };
+  }
 
   const ageMin = Number(audienceTargeting.ageMin);
   const ageMax = Number(audienceTargeting.ageMax);
@@ -334,7 +344,7 @@ async function launchCreative(req, res) {
   try {
     // Ownership: join to brands on user_id so a foreign creative 404s.
     const creativeResult = await db.query(
-      `SELECT ac.*, b.user_id, b.brand_name
+      `SELECT ac.*, b.user_id, b.brand_name, b.geo_targeting
        FROM ad_creatives ac
        JOIN brands b ON b.brand_id = ac.brand_id
        WHERE ac.creative_id = $1 AND b.user_id = $2`,
@@ -394,7 +404,7 @@ async function launchCreative(req, res) {
         daily_budget: dailyBudgetCents,
         billing_event: "IMPRESSIONS",
         optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
-        targeting: buildTargeting(pkg.audienceTargeting),
+        targeting: buildTargeting(pkg.audienceTargeting, creative.geo_targeting),
         status: "PAUSED",
       },
       accessToken

@@ -696,7 +696,9 @@ const ACTIONS = [
       }
 
       const topic = googleAdsTopic(answers);
-      const location = firstAnswer(answers, [
+      // The brand's configured geographic targeting wins over interview answers
+      // so the Google plan always matches the compliance-approved service area.
+      let location = firstAnswer(answers, [
         "location",
         "service_area",
         "area",
@@ -705,6 +707,16 @@ const ACTIONS = [
         "state",
         "market",
       ]) || null;
+      try {
+        const { rows: geoRows } = await db.query(
+          "SELECT geo_targeting FROM brands WHERE brand_id = $1",
+          [session.brand_id],
+        );
+        const geoSummary = geoSummaryText(geoRows[0] && geoRows[0].geo_targeting);
+        if (geoSummary) location = geoSummary.slice(0, 500);
+      } catch (e) {
+        console.error("google plan geo lookup failed:", e.message);
+      }
       const monthlyBudget = pickMonthlyAdBudget(answers);
 
       // Real AI keyword research — no mocked data. Upstream failures map to 502.

@@ -18,6 +18,7 @@
 const { MODEL, createMessage, HEAVY_AI_TIMEOUT_MS } = require("../config/anthropic");
 const { campaignContextBlock } = require("../utils/politicalContext");
 const { realEstateContextBlock } = require("../utils/realEstateContext");
+const { geoContextBlock } = require("../utils/geoTargeting");
 
 const SUPPORTED_PLATFORMS = [
   "facebook",

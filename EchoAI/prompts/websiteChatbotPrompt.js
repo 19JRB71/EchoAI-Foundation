@@ -11,6 +11,7 @@
 
 const { campaignContextBlock } = require("../utils/politicalContext");
 const { realEstateContextBlock } = require("../utils/realEstateContext");
+const { geoContextBlock } = require("../utils/geoTargeting");
 
 function buildBrandContext(brand) {
   if (!brand) {

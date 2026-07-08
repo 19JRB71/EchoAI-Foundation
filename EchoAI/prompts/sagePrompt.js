@@ -14,6 +14,7 @@ const { createMessage, MODEL, HEAVY_AI_TIMEOUT_MS } = require("../config/anthrop
 const { gatherFacebookSignals } = require("../utils/sageFacebook");
 const { campaignContextBlock } = require("../utils/politicalContext");
 const { realEstateContextBlock } = require("../utils/realEstateContext");
+const { geoContextBlock } = require("../utils/geoTargeting");
 
 /** An error the controller maps to a 502 (AI produced nothing usable / uncited). */
 function aiInvalid(message) {

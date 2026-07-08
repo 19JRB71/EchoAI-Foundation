@@ -12,6 +12,7 @@ const { anthropic, MODEL } = require("../config/anthropic");
 const { sageBlock } = require("../utils/sageContext");
 const { campaignContextBlock } = require("../utils/politicalContext");
 const { realEstateContextBlock } = require("../utils/realEstateContext");
+const { geoContextBlock } = require("../utils/geoTargeting");
 
 const SUPPORTED_PLATFORMS = [
   "facebook",

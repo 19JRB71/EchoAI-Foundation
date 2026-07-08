@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { graphGet, graphPost, verifyAdAccount } = require("../utils/facebookApi");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { buildAdCreativePrompt, generateCreativeVariations } = require("../prompts/adCreativePrompt");
+const { fbGeoLocations } = require("../utils/geoTargeting");
 
 // Maps a human campaign goal to a Facebook campaign objective.
 const GOAL_TO_OBJECTIVE = {
@@ -47,11 +48,21 @@ async function getFacebookIntegration(userId) {
 /**
  * Builds a Facebook targeting spec from supplied audience details.
  */
-function buildTargeting(targetAudience = {}) {
+function buildTargeting(targetAudience = {}, brandGeo = null) {
   const targeting = {};
 
-  const countries = targetAudience.countries || targetAudience.geo_locations?.countries;
-  targeting.geo_locations = { countries: countries && countries.length ? countries : ["US"] };
+  // Brand geographic targeting + exclusion zones are a HARD BLOCK: when
+  // configured they override any audience-supplied countries entirely.
+  const geoSpec = fbGeoLocations(brandGeo);
+  if (geoSpec) {
+    targeting.geo_locations = geoSpec.geo_locations;
+    if (geoSpec.excluded_geo_locations) {
+      targeting.excluded_geo_locations = geoSpec.excluded_geo_locations;
+    }
+  } else {
+    const countries = targetAudience.countries || targetAudience.geo_locations?.countries;
+    targeting.geo_locations = { countries: countries && countries.length ? countries : ["US"] };
+  }
 
   if (targetAudience.ageMin) targeting.age_min = targetAudience.ageMin;
   if (targetAudience.ageMax) targeting.age_max = targetAudience.ageMax;
@@ -177,7 +188,7 @@ async function createCampaign(req, res) {
         daily_budget: dailyBudgetCents,
         billing_event: "IMPRESSIONS",
         optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
-        targeting: buildTargeting(targetAudience),
+        targeting: buildTargeting(targetAudience, brand.geo_targeting),
         status: "PAUSED",
       },
       accessToken
