@@ -634,8 +634,8 @@ export function VoiceProvider({ active, children }) {
           type: "morning_briefing",
           title: "Morning briefing",
           text: b.text,
-          // Play the upbeat ElevenLabs wake-up sting before Echo speaks.
-          playIntro: true,
+          // No music intro — go straight to Echo speaking.
+          playIntro: false,
           onPlayed: async () => {
             try {
               sessionStorage.setItem(key, "1");
