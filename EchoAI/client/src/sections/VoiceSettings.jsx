@@ -269,7 +269,8 @@ export default function VoiceSettings() {
           <p className="mb-3 mt-1 text-xs text-gray-400">
             Save up to five favorite songs, artists, or playlists. Say
             &ldquo;Hey Echo, start my music&rdquo;, &ldquo;play my morning
-            playlist&rdquo;, or &ldquo;play song number two&rdquo; and Echo
+            playlist&rdquo;, &ldquo;play song number two&rdquo;, or &ldquo;play my
+            second song&rdquo; and Echo
             plays them through YouTube. &ldquo;Next song&rdquo; skips,
             &ldquo;stop the music&rdquo; stops.
           </p>

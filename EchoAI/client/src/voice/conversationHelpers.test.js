@@ -690,6 +690,15 @@ describe("matchMusicIntent — saved favorites", () => {
     expect(matchMusicIntent("play track 5")).toEqual({ action: "favorites", index: 4 });
     expect(matchMusicIntent("play my favorite number one")).toEqual({ action: "favorites", index: 0 });
   });
+  it("ordinal phrasings ('my second song') map to the 0-based index", () => {
+    expect(matchMusicIntent("hey echo play my second song")).toEqual({
+      action: "favorites",
+      index: 1,
+    });
+    expect(matchMusicIntent("play my first song")).toEqual({ action: "favorites", index: 0 });
+    expect(matchMusicIntent("play the 3rd track")).toEqual({ action: "favorites", index: 2 });
+    expect(matchMusicIntent("play my fifth favorite")).toEqual({ action: "favorites", index: 4 });
+  });
   it("generic 'the music' phrasing stays generic play, not favorites", () => {
     expect(matchMusicIntent("play the music")).toEqual({ action: "play", value: "" });
     expect(matchMusicIntent("start playing the music")).toEqual({ action: "play", value: "" });

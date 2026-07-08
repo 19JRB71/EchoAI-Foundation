@@ -578,9 +578,29 @@ const PLAY_RE = /\b(play|put on|start playing)\b\s*(.*)$/;
 // owner's saved Music Preferences list (up to 5 songs/artists).
 const FAVORITES_RE =
   /\b(?:play|start|put on|fire up|kick off|run|spin)\b.*\b(?:my (?:morning )?(?:playlist|music|songs?|tunes?|favou?rites?|jams?)|the (?:morning )?playlist|some of my favou?rites?|my favou?rite (?:songs?|music|tunes?))\b/;
-const NUMBER_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+const NUMBER_WORDS = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  first: 1,
+  second: 2,
+  third: 3,
+  fourth: 4,
+  fifth: 5,
+  "1st": 1,
+  "2nd": 2,
+  "3rd": 3,
+  "4th": 4,
+  "5th": 5,
+};
 const SONG_NUMBER_RE =
   /\bplay\b.*\b(?:song|track|tune|favou?rite)\s*(?:number\s*)?(one|two|three|four|five|[1-5])\b/;
+// Ordinal phrasing puts the number BEFORE the noun: "play my second song",
+// "play the 3rd track", "play my first favorite".
+const SONG_ORDINAL_RE =
+  /\bplay\b.*\b(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(?:song|track|tune|favou?rite)\b/;
 
 /**
  * Match a music-playback voice command.
@@ -598,7 +618,7 @@ export function matchMusicIntent(text) {
   if (STOP_RE.test(norm)) return { action: "stop" };
   if (RESUME_RE.test(norm)) return { action: "resume" };
   if (PAUSE_RE.test(norm)) return { action: "pause" };
-  const num = norm.match(SONG_NUMBER_RE);
+  const num = norm.match(SONG_NUMBER_RE) || norm.match(SONG_ORDINAL_RE);
   if (num) {
     const n = NUMBER_WORDS[num[1]] || Number(num[1]);
     return { action: "favorites", index: n - 1 };
