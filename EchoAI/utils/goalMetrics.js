@@ -107,7 +107,10 @@ async function measureMetric(brandId, metricKey, win = monthWindow()) {
   const sql = METRIC_SQL[metricKey];
   const meta = getMetric(metricKey);
   if (!sql || !meta) return null;
-  const { rows } = await db.query(sql, [brandId, win.startIso]);
+  // 'latest' rate metrics only reference $1; passing an unused $2 makes
+  // Postgres reject the bind ("supplies 2 parameters, but requires 1").
+  const params = sql.includes("$2") ? [brandId, win.startIso] : [brandId];
+  const { rows } = await db.query(sql, params);
   const raw = rows[0] ? rows[0].value : null;
   if (raw == null) {
     // 'latest' rate metrics legitimately have no reading yet → null.
