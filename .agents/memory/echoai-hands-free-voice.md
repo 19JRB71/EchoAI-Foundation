@@ -49,6 +49,24 @@ cache under `uploads/audio/sfx-<name>.mp3` (wake riff key is versioned, e.g.
 committed, so any test that exercises the "configured" path writes a fake mp3
 there — delete it in the test `after` hook or it pollutes git.
 
+## Wake-word reliability: mishearings + zero-gap restarts
+The recognizer rarely emits a clean "hey echo" — real transcripts give
+ecko/ekko/ecco/eco/echoes/gecko/"echo ai"/"a co"/"heyecho" (no space). The wake
+regex must match a hey-like greeting + an echo-mishearing cluster; NEVER match
+bare "echo" (common English word). `normalizeSpeech` strips punctuation before
+matching — write mishearing tests against the normalized form.
+The Web Speech engine self-stops constantly (silence timeout, ~60s cap); each
+restart delay is a deaf window where the wake word is lost ("I have to repeat
+myself"). Restart synchronously from `onend`, but guard against hot-looping:
+- track a fail streak (start() throws, or session dies <1s after start) with
+  exponential backoff (100ms→5s cap), reset on any >1s healthy session;
+- classify a synchronous `NotAllowedError`/`SecurityError` throw as permanent:
+  set denied, drop the listen intent, NO retry (async 'not-allowed' arrives via
+  onerror separately — handle both paths).
+Expose `micLive` (true only while a session is actually running) so the UI can
+show live vs reconnecting honestly; even so there's an unavoidable native
+~100-300ms gap per engine restart — don't chase it below that.
+
 ## Preview limitation (unchanged constraint)
 Web Speech API + mic are blocked in the Replit preview iframe → hands-free only
 works deployed or in a new tab. Always keep push-to-talk as the graceful fallback.

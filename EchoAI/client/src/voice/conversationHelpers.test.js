@@ -34,9 +34,44 @@ describe("parseWakeWord", () => {
     expect(parseWakeWord("hi echo").matched).toBe(true);
   });
 
+  it("tolerates recognizer mishearings of 'echo'", () => {
+    expect(parseWakeWord("hey ecko").matched).toBe(true);
+    expect(parseWakeWord("hey ekko").matched).toBe(true);
+    expect(parseWakeWord("hey ecco").matched).toBe(true);
+    expect(parseWakeWord("hey eko").matched).toBe(true);
+    expect(parseWakeWord("hey echoes").matched).toBe(true);
+    expect(parseWakeWord("hey echos").matched).toBe(true);
+    expect(parseWakeWord("hey gecko").matched).toBe(true);
+    expect(parseWakeWord("hey echo ai").matched).toBe(true);
+    expect(parseWakeWord("hey echoai").matched).toBe(true);
+    expect(parseWakeWord("hey a co").matched).toBe(true);
+  });
+
+  it("tolerates mishearings of the greeting and a missing space", () => {
+    expect(parseWakeWord("hei echo").matched).toBe(true);
+    expect(parseWakeWord("heya echo").matched).toBe(true);
+    expect(parseWakeWord("hey there echo").matched).toBe(true);
+    expect(parseWakeWord("heyecho").matched).toBe(true);
+    expect(parseWakeWord("Hey, Echo — show my leads").matched).toBe(true);
+  });
+
+  it("still extracts the command after a misheard wake phrase", () => {
+    const r = parseWakeWord("hey ecko show me my leads");
+    expect(r.matched).toBe(true);
+    expect(r.command).toBe("show me my leads");
+  });
+
   it("does NOT trigger on a bare 'echo' without the leading hey", () => {
     expect(parseWakeWord("the echo of the room was loud").matched).toBe(false);
     expect(parseWakeWord("please echo that back").matched).toBe(false);
+    expect(parseWakeWord("echo show me my leads").matched).toBe(false);
+    expect(parseWakeWord("there was an echo in the call").matched).toBe(false);
+  });
+
+  it("does NOT trigger on similar but unrelated phrases", () => {
+    expect(parseWakeWord("hey everyone").matched).toBe(false);
+    expect(parseWakeWord("hey how are you").matched).toBe(false);
+    expect(parseWakeWord("hey elle").matched).toBe(false);
   });
 
   it("matches the phrase mid-utterance", () => {

@@ -12,11 +12,20 @@ export function normalizeSpeech(text) {
 }
 
 // The wake phrase is "Hey Echo". We tolerate common speech-recognition
-// mishearings ("hey eco", "hay echo", "hey echoai") but deliberately require the
-// leading "hey" so a casual sentence that merely contains "echo" does NOT
-// trigger. Matching anywhere in the utterance lets a user say the phrase after a
-// beat of silence; the text AFTER the phrase is treated as the command.
-const WAKE_RE = /\b(?:hey|hay|hi)\s+ec?h?o(?:\s?ai)?\b/;
+// mishearings but deliberately require the leading "hey" (or a close mishearing
+// of it) so a casual sentence that merely contains "echo" does NOT trigger.
+// Matching anywhere in the utterance lets a user say the phrase after a beat of
+// silence; the text AFTER the phrase is treated as the command.
+//
+// Recognizer-mishearing variants (each observed from real Web Speech output):
+//   greeting: hey / hay / hi / hei / heya / "hey there"
+//   echo:     echo / ecko / ekko / ecco / eco / eko / echoes / echos / gecko /
+//             echo ai / echoai / a co ("hey a co")
+// A missing space ("heyecho") is also tolerated.
+const WAKE_GREET = "(?:hey|hay|hi|hei|heya|hey there)";
+const WAKE_NAME =
+  "(?:e(?:c|ck|cc|k|kk)?h?o(?:e?s)?|gecko|a co)(?:\\s?ai)?";
+const WAKE_RE = new RegExp(`\\b${WAKE_GREET}[ ]?,?[ ]?${WAKE_NAME}\\b`);
 
 /**
  * Detect the wake phrase in a transcript.

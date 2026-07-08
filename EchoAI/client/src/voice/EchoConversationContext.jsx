@@ -104,6 +104,9 @@ export function EchoConversationProvider({ active, children }) {
   const [denied, setDenied] = useState(false);
   const [micLost, setMicLost] = useState(false);
   const [convState, setConvState] = useState("passive"); // passive|active|processing|speaking
+  // True only while a recognition instance is actually live and capturing —
+  // drives the "mic is really hearing you right now" UI indicator.
+  const [micLive, setMicLive] = useState(false);
   const [listeningText, setListeningText] = useState("");
   const [followupSeconds, setFollowupSeconds] = useState(null);
   // Show the warm permission prompt once, when an owner who hasn't opted in yet
@@ -242,26 +245,52 @@ export function EchoConversationProvider({ active, children }) {
       recognitionRef.current = null;
     }
     runningRef.current = false;
+    setMicLive(false);
   }, []);
 
   // Forward declaration holder so callbacks can reference the latest starter.
   const startRecognitionRef = useRef(null);
 
+  const shouldBeListening = useCallback(
+    () =>
+      wantListeningRef.current &&
+      enabledRef.current &&
+      !mutedRef.current &&
+      activeRef.current &&
+      !runningRef.current,
+    [],
+  );
+
+  // Consecutive fast-failure streak (start() throws, or the engine dies within
+  // a second of starting). Drives exponential backoff so a broken/blocked mic
+  // can never hot-loop the recognizer; reset to 0 on any healthy session.
+  const failStreakRef = useRef(0);
+  const lastStartAtRef = useRef(0);
+
+  // Fallback restart with a short delay — used when an immediate restart isn't
+  // safe (start() threw, or the engine is dying instantly on every start).
+  // Backs off exponentially with the failure streak: 100ms → 200 → 400 … 5s.
   const scheduleRestart = useCallback(() => {
     if (restartTimerRef.current) return;
+    const delay = Math.min(100 * 2 ** failStreakRef.current, 5000);
     restartTimerRef.current = setTimeout(() => {
       restartTimerRef.current = null;
-      if (
-        wantListeningRef.current &&
-        enabledRef.current &&
-        !mutedRef.current &&
-        activeRef.current &&
-        !runningRef.current
-      ) {
+      if (shouldBeListening()) {
         startRecognitionRef.current && startRecognitionRef.current();
       }
-    }, 250);
-  }, []);
+    }, delay);
+  }, [shouldBeListening]);
+
+  // Restart with zero delay. The Web Speech engine stops itself regularly
+  // (silence timeouts, ~60s session caps); any restart delay is a deaf window
+  // where "Hey Echo" — or the start of a command — is silently lost, which is
+  // exactly the "I have to repeat myself" bug. Restart synchronously from
+  // onend; scheduleRestart remains as the retry path if start() throws.
+  const restartNow = useCallback(() => {
+    if (shouldBeListening()) {
+      startRecognitionRef.current && startRecognitionRef.current();
+    }
+  }, [shouldBeListening]);
 
   const processCommand = useCallback(
     async (raw) => {
@@ -453,6 +482,14 @@ export function EchoConversationProvider({ active, children }) {
         if (matched) {
           finalRef.current = "";
           goActive(command);
+          return;
+        }
+        // No wake word yet: keep only a short tail of the transcript so hours
+        // of ambient speech can't grow the buffer or bury a fresh "Hey Echo"
+        // in stale text. The tail preserves a wake phrase split across two
+        // recognition results (e.g. "hey" finalized, "echo" in the next one).
+        if (finalRef.current.length > 80) {
+          finalRef.current = finalRef.current.slice(-40);
         }
         return;
       }
@@ -497,19 +534,47 @@ export function EchoConversationProvider({ active, children }) {
     };
     rec.onend = () => {
       runningRef.current = false;
-      scheduleRestart();
+      setMicLive(false);
+      // A session that survived >1s was healthy — reset the failure streak.
+      // A session dying almost instantly (blocked device, engine wedge) grows
+      // the streak so retries back off instead of hot-looping.
+      if (Date.now() - lastStartAtRef.current > 1000) {
+        failStreakRef.current = 0;
+        // Restart immediately — no timer — so the deaf gap between engine
+        // sessions is as close to zero as the browser allows.
+        restartNow();
+      } else {
+        failStreakRef.current = Math.min(failStreakRef.current + 1, 6);
+        // First couple of instant deaths still restart immediately (a normal
+        // engine hiccup); a persistent streak switches to backed-off retries.
+        if (failStreakRef.current <= 2) restartNow();
+        else scheduleRestart();
+      }
     };
     recognitionRef.current = rec;
     try {
       rec.start();
+      lastStartAtRef.current = Date.now();
       runningRef.current = true;
+      setMicLive(true);
       setDenied(false);
       setMicLost(false);
-    } catch {
+    } catch (err) {
       runningRef.current = false;
+      setMicLive(false);
+      recognitionRef.current = null;
+      const name = (err && err.name) || "";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        // Permission is hard-blocked: fail closed, no retry loop. The user can
+        // re-enable from the mic button, which reopens the permission prompt.
+        setDenied(true);
+        wantListeningRef.current = false;
+        return;
+      }
+      failStreakRef.current = Math.min(failStreakRef.current + 1, 6);
       scheduleRestart();
     }
-  }, [handleResult, scheduleRestart, stopRecognition]);
+  }, [handleResult, restartNow, scheduleRestart, stopRecognition]);
   startRecognitionRef.current = startRecognition;
 
   // Master listening controller: run recognition whenever we should be
@@ -660,6 +725,7 @@ export function EchoConversationProvider({ active, children }) {
       denied,
       micLost,
       micState,
+      micLive,
       convState,
       listeningText,
       followupSeconds,
@@ -670,14 +736,19 @@ export function EchoConversationProvider({ active, children }) {
       dismissPermission: declineHandsFree,
       registerCommandHandler,
       isConversing: micEnabled && !muted && convState !== "passive",
+      // Hands-free is fully on (opted in, unmuted, provider active): the UI
+      // should show the live/paused mic indicator only in this state.
+      handsFreeOn: supported && micEnabled && !muted && active,
     }),
     [
       supported,
       micEnabled,
       muted,
+      active,
       denied,
       micLost,
       micState,
+      micLive,
       convState,
       listeningText,
       followupSeconds,

@@ -1200,14 +1200,21 @@ function VoiceMicButton() {
   const s = conv.micState; // unsupported|denied|off|muted|passive|active|processing|speaking
   const conversing = s === "active" || s === "processing" || s === "speaking";
   const silenced = s === "muted" || s === "off" || s === "denied";
+  // Amber = hands-free is ON but the mic engine is momentarily paused
+  // (restarting between recognition sessions) — Echo can't hear right now.
+  const paused = conv.handsFreeOn && !conv.micLive;
   const title = silenced
     ? "Turn on hands-free voice (Hey Echo)"
-    : conversing
-      ? "Echo is listening — click to mute"
-      : "Listening for “Hey Echo” — click to mute";
+    : paused
+      ? "Mic is reconnecting — one moment"
+      : conversing
+        ? "Echo is listening — click to mute"
+        : "Listening for “Hey Echo” — click to mute";
   const color = silenced
     ? "text-gray-500 hover:text-gray-300"
-    : "text-green-400 hover:text-green-300";
+    : paused
+      ? "text-amber-400 hover:text-amber-300"
+      : "text-green-400 hover:text-green-300";
   return (
     <button
       onClick={conv.toggleMic}
@@ -1270,12 +1277,19 @@ function EchoConversationOverlay() {
     declineHandsFree,
     supported,
     micState,
+    micLive,
     listeningText,
     followupSeconds,
     micLost,
     convState,
     isConversing,
+    handsFreeOn,
   } = conv;
+
+  // Persistent passive-mode chip: shows exactly when Echo can hear you.
+  // Green dot = mic engine live and listening for "Hey Echo"; amber dot = mic
+  // engine momentarily paused/restarting (Echo cannot hear during this beat).
+  const showPassiveChip = handsFreeOn && micState === "passive";
 
   const stateLabel =
     micState === "active"
@@ -1327,6 +1341,34 @@ function EchoConversationOverlay() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {showPassiveChip ? (
+        <div
+          className={`fixed bottom-24 right-6 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-lg ${
+            micLive
+              ? "border-green-500/25 bg-gray-950/90 shadow-green-500/10"
+              : "border-amber-500/30 bg-gray-950/90 shadow-amber-500/10"
+          }`}
+        >
+          <span className="relative flex h-2 w-2">
+            {micLive ? (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400/60" />
+            ) : null}
+            <span
+              className={`relative inline-flex h-2 w-2 rounded-full ${
+                micLive ? "bg-green-400" : "bg-amber-400"
+              }`}
+            />
+          </span>
+          <span
+            className={`text-[11px] font-medium ${
+              micLive ? "text-green-300" : "text-amber-300"
+            }`}
+          >
+            {micLive ? "Mic on — say “Hey Echo”" : "Mic reconnecting…"}
+          </span>
         </div>
       ) : null}
 
