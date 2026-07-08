@@ -156,6 +156,9 @@ function brandHeader(brand, businessType, theme) {
           "Real-estate content mix to rotate through: new listing announcements, just-sold announcements, open house promotions, market updates (only real figures provided — never invent statistics), neighborhood spotlights, home buying and selling tips, and client testimonials (only real ones provided).",
         ]
       : []),
+    ...(geoContextBlock(brand)
+      ? ["", geoContextBlock(brand), "Keep every scheduled post locally relevant to this service area, using the right local place names and hashtags."]
+      : []),
   ];
 }
 

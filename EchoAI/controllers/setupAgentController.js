@@ -5,6 +5,7 @@ const { anthropic, MODEL } = require("../config/anthropic");
 const { SETUP_AGENT_SYSTEM_PROMPT } = require("../prompts/setupAgentPrompt");
 const { getUserTier } = require("../middleware/featureGate");
 const { FEATURES, meetsTier } = require("../config/tiers");
+const { geoSummaryText } = require("../utils/geoTargeting");
 
 const brandDiscoveryController = require("../controllers/brandDiscoveryController");
 const campaignController = require("../controllers/campaignController");
@@ -709,8 +710,8 @@ const ACTIONS = [
       ]) || null;
       try {
         const { rows: geoRows } = await db.query(
-          "SELECT geo_targeting FROM brands WHERE brand_id = $1",
-          [session.brand_id],
+          "SELECT geo_targeting FROM brands WHERE brand_id = $1 AND user_id = $2",
+          [session.brand_id, session.user_id],
         );
         const geoSummary = geoSummaryText(geoRows[0] && geoRows[0].geo_targeting);
         if (geoSummary) location = geoSummary.slice(0, 500);

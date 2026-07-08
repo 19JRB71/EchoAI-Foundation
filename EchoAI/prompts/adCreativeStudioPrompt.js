@@ -127,6 +127,10 @@ function buildAdCreativeStudioPrompt({
       "Follow Facebook's Special Ad Category rules for housing: never describe or target audiences by protected class; sell the property and the market area, and keep targeting descriptions geographic."
     );
   }
+  const geoBlock = geoContextBlock(brand);
+  if (geoBlock) {
+    lines.push("", geoBlock, "Every audienceTargeting suggestion must stay inside the service area and must NEVER include an excluded area.");
+  }
   if (discoveryProfile) {
     lines.push("", "BRAND DISCOVERY INSIGHTS", compact(discoveryProfile));
   }

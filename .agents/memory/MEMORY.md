@@ -55,6 +55,7 @@
 - [EchoAI background-refresh spinner collapse](echoai-refresh-spinner-collapse.md) — a list load() that flips to a full-page spinner on every refresh unmounts inline panels and instantly wipes their transient success text; guard the spinner to first load only.
 - [EchoAI fresh-DB schema bootstrap](echoai-fresh-db-schema-bootstrap.md) — migration runner must apply schema.sql FIRST or a brand-new DB (Railway/prod) crashes at migrate → deploy green but healthcheck fails; only 4 env vars are boot-critical.
 - [EchoAI voice pending yes/no offers](echoai-voice-pending-offer.md) — pending offer must yield to real commands (nav/music first), bare "please" ≠ yes, clear on every mute/timeout exit.
+- [EchoAI geo targeting](echoai-geo-targeting.md) — exclusions are hard blocks on every channel; FB city/county exclusions fail closed to state-level unless the state holds a targeted area.
 - [EchoAI Railway/nixpacks deploy](echoai-railway-deploy.md) — bundled npm 10.8.2 silently half-installs (use Yarn + --ignore-engines); optional SDK clients (Stripe) that construct at boot crash the server — guard them.
 - [EchoAI real-estate brand type](echoai-real-estate-brand-type.md) — brand-type vertical checklist; auto-content dedups via source slot key not "any recent post"; no-unique-key claims need advisory-lock placeholder rows.
 - [EchoAI political brand type](echoai-political-brand-type.md) — brand_type='political' gates Voter CRM client+server; ad copy disclaimer enforced in prompt AND code via politicalContext.js.

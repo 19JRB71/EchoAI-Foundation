@@ -48,6 +48,14 @@ function buildBrandContext(brand) {
       "You are chatting with BUYERS and SELLERS. Help buyers with the areas served, price ranges, and current listings; help sellers understand the agent can provide a home-value consultation. Naturally capture their name and contact details, whether they're buying or selling, their timeline, and (for buyers) their budget and must-haves."
     );
   }
+  const geoBlock = geoContextBlock(brand);
+  if (geoBlock) {
+    lines.push(
+      "",
+      geoBlock,
+      "Naturally ask where the visitor is located (city/state or zip) early in the conversation so the business knows whether they're in the service area. If they're clearly outside it, stay polite and honest that the business may not serve their area."
+    );
+  }
   return lines.join("\n");
 }
 
@@ -93,6 +101,9 @@ const CONVERSATION_ANALYSIS_PROMPT = [
   '  "name": the visitor\'s name if they shared it, else null',
   '  "email": the visitor\'s email if they shared it, else null',
   '  "phone": the visitor\'s phone number if they shared it, else null',
+  '  "city": the visitor\'s city if they shared it, else null',
+  '  "state": the visitor\'s US state (two-letter code or full name) if they shared it, else null',
+  '  "zip": the visitor\'s zip code if they shared it, else null',
   "",
   "Temperature rules:",
   "- tire_kicker: vague, disengaged, or just browsing.",

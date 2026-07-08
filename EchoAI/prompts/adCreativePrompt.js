@@ -80,6 +80,7 @@ function buildAdCreativePrompt(brand, options = {}) {
           "Follow Facebook's Special Ad Category rules for housing: no targeting language based on protected classes; focus every ad on the property, the market area, and the agent's service.",
         ]
       : []),
+    ...(geoContextBlock(brand) ? ["", geoContextBlock(brand)] : []),
     "",
     `Produce ${variations} distinct ad variations. For each variation provide:`,
     "1. A scroll-stopping headline (<= 40 characters).",

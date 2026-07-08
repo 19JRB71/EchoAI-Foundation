@@ -112,6 +112,13 @@ function buildSocialContentPrompt(brand, topic, platform) {
           "Real-estate content mix to draw from: new listing announcements, just-sold announcements, open house promotions, market update statistics (only real figures provided to you — never invent numbers), neighborhood spotlights, home buying and selling tips, and client testimonials (only real ones provided to you).",
         ]
       : []),
+    ...(geoContextBlock(brand)
+      ? [
+          "",
+          geoContextBlock(brand),
+          "Tag/reference the correct local geographic locations for this service area in the post copy and hashtags (city names, neighborhoods, local hashtags).",
+        ]
+      : []),
     sageBlock(brand._sageContext),
     "",
     "Produce EXACTLY 5 distinct post variations. Each variation must feel native to the platform while staying true to the brand voice and personality.",

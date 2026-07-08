@@ -99,6 +99,22 @@ export default function Leads({ brandId }) {
                 >
                   <td className="px-4 py-3 font-medium text-gray-100">
                     {l.lead_name || "—"}
+                    {l.geo_status === "excluded" && (
+                      <span
+                        className="ml-2 rounded-full border border-red-700/60 bg-red-950/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-300"
+                        title={`From ${[l.lead_city, l.lead_state, l.lead_zip].filter(Boolean).join(", ") || "an excluded area"} — an area you've marked off-limits`}
+                      >
+                        Excluded area
+                      </span>
+                    )}
+                    {l.geo_status === "out_of_area" && (
+                      <span
+                        className="ml-2 rounded-full border border-amber-700/60 bg-amber-950/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300"
+                        title={`From ${[l.lead_city, l.lead_state, l.lead_zip].filter(Boolean).join(", ") || "outside your service area"}`}
+                      >
+                        Out of area
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-400">{l.email || "—"}</td>
                   <td className="px-4 py-3 text-gray-400">{l.phone || "—"}</td>

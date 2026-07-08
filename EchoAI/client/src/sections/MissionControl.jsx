@@ -263,6 +263,28 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
         <StatCard label="Auto-fixed (7d)" value={stats.sentinelFixes ?? 0} accent="#f59e0b" />
       </div>
 
+      {/* Geographic coverage */}
+      {data.geoCoverage && (
+        <div className="mb-6 rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-gray-200">Marketing coverage</div>
+              <div className="mt-1 text-sm text-gray-400">
+                {data.geoCoverage.configured
+                  ? data.geoCoverage.summary
+                  : "No service area set — marketing runs nationwide. Set one in Settings under Where You Do Business."}
+              </div>
+            </div>
+            {data.geoCoverage.exclusionCount > 0 && (
+              <span className="shrink-0 rounded-full border border-red-700/60 bg-red-950/40 px-3 py-1 text-xs font-semibold text-red-300">
+                {data.geoCoverage.exclusionCount} excluded area
+                {data.geoCoverage.exclusionCount === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Attention banner */}
       {attention.length > 0 && (
         <div className="mb-6 rounded-2xl border border-amber-700/40 bg-amber-950/20 p-4">

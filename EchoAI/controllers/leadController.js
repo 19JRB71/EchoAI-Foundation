@@ -2,6 +2,7 @@ const db = require("../config/db");
 const chatbotController = require("./chatbotController");
 const zapierController = require("./zapierController");
 const followUpController = require("./followUpController");
+const { applyLeadGeo } = require("../utils/leadGeoFlag");
 
 /**
  * Verifies that a brand belongs to the authenticated user.
@@ -39,7 +40,7 @@ async function getOwnedLead(leadId, userId) {
  */
 async function createLead(req, res) {
   const userId = req.user.userId;
-  const { name, email, phone, brandId } = req.body;
+  const { name, email, phone, brandId, city, state, zip } = req.body;
 
   if (!brandId) {
     return res.status(400).json({ error: "brandId is required" });
@@ -59,6 +60,12 @@ async function createLead(req, res) {
       [brandId, name || null, email || null, phone || null]
     );
     const lead = inserted.rows[0];
+
+    // Geo flag (best-effort): classify any provided location against the
+    // brand's service area; alerts the owner if outside/excluded.
+    if (city || state || zip) {
+      applyLeadGeo(brandId, lead.lead_id, { city, state, zip }).catch(() => {});
+    }
 
     // Fire the new-lead webhook (Zapier etc.). Fire-and-forget — never blocks
     // the response and never throws.
@@ -110,7 +117,8 @@ async function getLeads(req, res) {
     const params = [brandId];
     let sql =
       `SELECT lead_id, brand_id, lead_name, email, phone, temperature,
-              conversion_status, created_at, updated_at
+              conversion_status, lead_city, lead_state, lead_zip, geo_status,
+              created_at, updated_at
        FROM leads
        WHERE brand_id = $1`;
 

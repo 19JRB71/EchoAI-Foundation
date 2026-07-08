@@ -45,6 +45,10 @@ function buildBrandContext(brand) {
       "You are answering calls from BUYERS and SELLERS. Qualify buyers by asking about their price range, the areas they're looking in, their timeline, and whether they're pre-approved for financing. Qualify sellers by asking about their property, their timeline, and why they're thinking of selling. Offer to book a showing (buyers) or a listing consultation (sellers) directly on the agent's calendar."
     );
   }
+  const geoBlock = geoContextBlock(brand);
+  if (geoBlock) {
+    lines.push("", geoBlock, "Reference the correct local area naturally on calls, and ask where the caller is located so the business knows whether they're in the service area.");
+  }
   return lines.join("\n");
 }
 

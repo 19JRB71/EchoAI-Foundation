@@ -15,6 +15,7 @@ const {
   buildAppointmentSchedulerPrompt,
 } = require("../prompts/appointmentBookingPrompt");
 const { meetsTier } = require("../config/tiers");
+const { applyLeadGeo } = require("../utils/leadGeoFlag");
 const { normalizeE164 } = require("../utils/phone");
 
 // Strips the hidden [[BOOK:<ISO>]] booking token from an AI reply. Returns
@@ -85,7 +86,7 @@ async function analyzeConversation(messages) {
     });
     const text = extractText(response);
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return { temperature: null, name: null, email: null, phone: null };
+    if (!match) return { temperature: null, name: null, email: null, phone: null, city: null, state: null, zip: null };
     const parsed = JSON.parse(match[0]);
     const temperature = VALID_TEMPERATURES.includes(parsed.temperature)
       ? parsed.temperature
@@ -97,10 +98,13 @@ async function analyzeConversation(messages) {
       name: clean(parsed.name),
       email: clean(parsed.email),
       phone: clean(parsed.phone),
+      city: clean(parsed.city),
+      state: clean(parsed.state),
+      zip: clean(parsed.zip),
     };
   } catch (err) {
     console.error("Chatbot analysis failed:", err.message);
-    return { temperature: null, name: null, email: null, phone: null };
+    return { temperature: null, name: null, email: null, phone: null, city: null, state: null, zip: null };
   }
 }
 
@@ -344,6 +348,15 @@ async function chat(req, res) {
         console.error("Chatbot lead capture failed:", err.message);
       }
     }
+    // Geo flag: if the visitor shared a location, classify it against the
+    // brand's service area and alert the owner when it's outside/excluded.
+    if (leadId && (analysis.city || analysis.state || analysis.zip)) {
+      applyLeadGeo(brandId, leadId, {
+        city: analysis.city,
+        state: analysis.state,
+        zip: analysis.zip,
+      }).catch(() => {});
+    }
 
     const wasHot = session.temperature === "hot";
     const temperature =
@@ -532,7 +545,7 @@ async function chat(req, res) {
  * details to the leads table and links the lead to the session.
  */
 async function captureLead(req, res) {
-  const { sessionId, brandId, name, email, phone } = req.body || {};
+  const { sessionId, brandId, name, email, phone, city, state, zip } = req.body || {};
 
   if (!brandId) {
     return res.status(400).json({ error: "brandId is required" });
@@ -567,6 +580,12 @@ async function captureLead(req, res) {
       session,
       contact: { name, email, phone },
     });
+
+    // Geo flag (best-effort): classify any provided location and alert the
+    // owner if the lead is outside the service area or in an excluded zone.
+    if (leadId && (city || state || zip)) {
+      applyLeadGeo(brandId, leadId, { city, state, zip }).catch(() => {});
+    }
 
     if (sessionId && leadId) {
       await db.query(

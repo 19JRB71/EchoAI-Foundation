@@ -145,6 +145,14 @@ function brandContext(brand, competitors) {
       "As the market-intelligence agent for a real estate practice, focus your research on the LOCAL housing market in the areas served: competitor agent activity, new listing trends, days-on-market statistics, price-reduction patterns, buyer demand signals, inventory levels, and mortgage-rate shifts. Flag significant market changes the agent should act on."
     );
   }
+  const geoBlock = geoContextBlock(brand);
+  if (geoBlock) {
+    lines.push(
+      "",
+      geoBlock,
+      "Focus your research specifically on this defined service area: local competitors, local market trends, and local consumer behavior. Also watch for any legal or regulatory marketing restrictions affecting this industry in specific states or regions and flag them clearly."
+    );
+  }
   return lines.join("\n");
 }
 
@@ -190,8 +198,12 @@ After you finish researching, output ONE JSON object and nothing else, in exactl
   ],
   "feed": [
     { "source_type": "trend|competitor|regulation|opportunity|threat|market", "summary": "one discrete finding", "why_it_matters": "why it matters to this business", "url": "the source url", "urgent": false }
+  ],
+  "restricted_areas": [
+    { "state": "two-letter US state code", "reason": "the specific legal/regulatory marketing restriction you found, with the source" }
   ]
 }
+"restricted_areas" is for LEGAL COMPLIANCE ONLY: include a state ONLY if you found a real, cited legal or regulatory restriction that prohibits or heavily restricts marketing/advertising this specific industry in that state. If you found none, return an empty array. Never guess.
 Provide 3-6 marketing_insights and 4-8 feed items. Set "urgent": true only for genuinely time-sensitive signals (a new regulation taking effect soon, a major competitor move, a closing window of opportunity).`;
 
 /**
@@ -273,6 +285,16 @@ async function deepResearch(brand, competitors, opts = {}) {
 
   const feed = normalizeFeed(parsed.feed, sources);
 
+  // Legal-compliance geo restrictions: keep only valid two-letter US state
+  // codes with a real reason. Anything else is dropped — never guessed.
+  const restricted_areas = asArray(parsed.restricted_areas)
+    .map((r) => ({
+      state: cleanStr(r && r.state).toUpperCase(),
+      reason: cleanStr(r && r.reason),
+    }))
+    .filter((r) => /^[A-Z]{2}$/.test(r.state) && r.reason)
+    .slice(0, 10);
+
   return {
     industry: cleanStr(parsed.industry) || cleanStr(brand.industry),
     summary: cleanStr(parsed.summary),
@@ -280,6 +302,7 @@ async function deepResearch(brand, competitors, opts = {}) {
     marketing_insights,
     sources: sources.slice(0, 12),
     feed,
+    restricted_areas,
   };
 }
 

@@ -17,6 +17,7 @@
 
 const db = require("../config/db");
 const { toJsonbParam } = require("../utils/jsonb");
+const { US_STATES } = require("../utils/geoTargeting");
 const {
   deepResearch,
   urgentScan,
@@ -34,7 +35,7 @@ const mobilePushController = require("./mobilePushController");
 async function getOwnedBrand(userId, brandId) {
   const result = await db.query(
     `SELECT b.brand_id, b.brand_name, b.brand_personality, b.voice_description,
-            b.target_audience, b.user_id, u.industry, u.role
+            b.target_audience, b.user_id, b.geo_targeting, u.industry, u.role
        FROM brands b
        JOIN users u ON u.user_id = b.user_id
       WHERE b.brand_id = $1 AND b.user_id = $2`,
@@ -194,7 +195,7 @@ async function dispatchUrgentAlert(brand, item) {
 async function activeBrandsForSage() {
   const r = await db.query(
     `SELECT b.brand_id, b.brand_name, b.brand_personality, b.voice_description,
-            b.target_audience, b.user_id, u.industry, u.role
+            b.target_audience, b.user_id, b.geo_targeting, u.industry, u.role
        FROM brands b
        JOIN users u ON u.user_id = b.user_id
       WHERE b.is_demo = false
@@ -230,7 +231,91 @@ async function runDeepCycleForBrand(brand) {
     await saveFeedItem(brand.brand_id, item);
     if (item.urgent) await dispatchUrgentAlert(brand, item);
   }
+  // Compliance: if the research found real legal marketing restrictions in
+  // specific states, add them as exclusion zones (best-effort — a failure here
+  // never fails the research cycle).
+  try {
+    await applySageGeoExclusions(brand, brief.restricted_areas || []);
+  } catch (err) {
+    console.error(
+      `Sage geo exclusion apply failed for brand ${brand.brand_id}:`,
+      err.message,
+    );
+  }
   return brief;
+}
+
+/**
+ * Add Sage-found legal restrictions as state exclusion zones on the brand's
+ * geographic targeting, atomically and idempotently. Never touches (or
+ * removes) any existing entry — owner-added exclusions and areas are
+ * preserved as-is. Notifies the owner (voice + push) for each NEW exclusion.
+ */
+async function applySageGeoExclusions(brand, restrictedAreas) {
+  if (!Array.isArray(restrictedAreas) || restrictedAreas.length === 0) return;
+
+  const added = [];
+  for (const r of restrictedAreas) {
+    const code = String(r.state || "").toUpperCase();
+    if (!US_STATES[code]) continue;
+    // Atomic add: append only if no exclusion for this state exists yet
+    // (whoever added it). Row count tells us whether we actually added it.
+    const entry = {
+      type: "state",
+      value: code,
+      reason: String(r.reason || "").slice(0, 300),
+      addedBy: "sage",
+      addedAt: new Date().toISOString(),
+    };
+    const upd = await db.query(
+      `UPDATE brands
+          SET geo_targeting = jsonb_set(
+                COALESCE(geo_targeting, '{"areas":[],"exclusions":[]}'::jsonb),
+                '{exclusions}',
+                COALESCE(geo_targeting->'exclusions', '[]'::jsonb) || $2::jsonb
+              )
+        WHERE brand_id = $1
+          AND NOT EXISTS (
+                SELECT 1
+                  FROM jsonb_array_elements(COALESCE(geo_targeting->'exclusions', '[]'::jsonb)) e
+                 WHERE e->>'type' = 'state' AND UPPER(e->>'value') = $3
+              )
+        RETURNING brand_id`,
+      [brand.brand_id, toJsonbParam(entry), code],
+    );
+    if (upd.rows.length > 0) added.push({ code, reason: entry.reason });
+  }
+  if (added.length === 0) return;
+
+  const names = added.map((a) => US_STATES[a.code]).join(", ");
+  const title = "Sage: compliance exclusion added";
+  const body = `Sage found legal marketing restrictions and excluded ${names} from all marketing for ${brand.brand_name}. You can review this under Settings → Where You Do Business.`;
+  try {
+    await enqueueOwnerVoiceEvent(
+      brand.user_id,
+      "sage_geo_exclusion",
+      (firstName) =>
+        `${firstName}, a compliance update. My research found legal marketing restrictions, so I've excluded ${names} from all marketing for ${brand.brand_name}. ${added[0].reason} You can review or change this in your settings.`,
+      {
+        brandId: brand.brand_id,
+        title,
+        dedupKey: `sage_geo:${brand.brand_id}:${added.map((a) => a.code).join(",")}:${new Date().toISOString().slice(0, 10)}`,
+        payload: { type: "sage_geo_exclusion", brandId: brand.brand_id },
+      },
+    );
+    const pushPayload = {
+      title,
+      body,
+      data: { type: "sage_geo_exclusion", brandId: brand.brand_id },
+    };
+    pushController.sendPushToUser(brand.user_id, pushPayload).catch(() => {});
+    mobilePushController.sendToUser(brand.user_id, pushPayload).catch(() => {});
+  } catch (err) {
+    console.error(
+      `Sage geo exclusion notify failed for brand ${brand.brand_id}:`,
+      err.message,
+    );
+  }
 }
 
 /**

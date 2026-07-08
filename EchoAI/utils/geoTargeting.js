@@ -265,9 +265,18 @@ function fbGeoLocations(geo) {
   const exZips = new Set();
   for (const e of parsed.exclusions) {
     if (e.type === "state" && FB_REGION_KEYS[e.value]) exRegionKeys.add(FB_REGION_KEYS[e.value]);
-    if ((e.type === "city" || e.type === "county") && e.state && !parsed.areas.some((a) => a.type === "state" && a.value === e.state)) {
-      // City/county exclusions can't be FB-keyed without the search API; they
-      // are enforced in content/lead handling. State-level exclusions are hard.
+    if ((e.type === "city" || e.type === "county") && e.state && FB_REGION_KEYS[e.state]) {
+      // City/county exclusions can't be FB-keyed without the search API.
+      // Fail closed: hard-exclude the whole state at the FB level UNLESS the
+      // brand also targets an area inside that same state (excluding the whole
+      // state would then wipe out the legitimate service area — in that case
+      // the exclusion is enforced by ad copy, content, and lead handling).
+      const stateHasTargetedArea = parsed.areas.some(
+        (a) =>
+          (a.type === "state" && a.value === e.state) ||
+          (a.state && a.state === e.state),
+      );
+      if (!stateHasTargetedArea) exRegionKeys.add(FB_REGION_KEYS[e.state]);
     }
     if (e.type === "zip") exZips.add(e.value);
   }

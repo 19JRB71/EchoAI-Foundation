@@ -999,6 +999,14 @@ export const api = {
   ignoreReview: (reviewId) =>
     request(`/api/reputation/reviews/${reviewId}/ignore`, { method: "POST" }),
 
+  // Geographic targeting (service areas + exclusion zones)
+  getGeoTargeting: (brandId) => request(`/api/geo/${brandId}`),
+  updateGeoTargeting: (brandId, { areas, exclusions }) =>
+    request(`/api/geo/${brandId}`, {
+      method: "PUT",
+      body: { areas, exclusions },
+    }),
+
   // AI Phone Agent (Twilio)
   getTwilioConfig: (brandId) => request(`/api/phone/config/${brandId}`),
   saveTwilioConfig: ({ brandId, accountSid, authToken, phoneNumber }) =>

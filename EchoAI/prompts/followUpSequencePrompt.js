@@ -72,6 +72,9 @@ function buildFollowUpPrompt(brand, lead, opts = {}) {
     ...(realEstateContextBlock(brand)
       ? ["", realEstateContextBlock(brand), "Frame follow-ups around the lead's real-estate journey. For BUYERS: ask about their timeline, budget, and must-have features, and offer to line up showings. For SELLERS: ask about their timeline, their motivation for selling, and their current home's details, and offer a listing consultation. Never let more than 24 hours pass without a touchpoint early in the sequence."]
       : []),
+    ...(geoContextBlock(brand)
+      ? ["", geoContextBlock(brand), "Reference the correct local area naturally in follow-up messaging (the lead's local market, not a generic one)."]
+      : []),
     sageBlock(brand && brand._sageContext),
     "",
     `Design an automated follow-up sequence for a single lead named ${leadName}.`,

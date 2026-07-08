@@ -7,6 +7,7 @@
 // owner's brand (auth middleware remaps team-member userId -> owner upstream).
 
 const db = require("../config/db");
+const { parseGeo, geoSummaryText } = require("../utils/geoTargeting");
 
 // ---------------------------------------------------------------------------
 // Team roster (static metadata). `section` links a card into the existing feature
@@ -109,7 +110,7 @@ async function rows(sql, params) {
 
 async function getBrand(userId) {
   const r = await rows(
-    "SELECT brand_id, brand_name FROM brands WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1",
+    "SELECT brand_id, brand_name, geo_targeting FROM brands WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1",
     [userId],
   );
   return r[0] || null;
@@ -409,9 +410,21 @@ async function getMissionControl(req, res) {
       (attention.length ? `${attention.join(" and ")} need${attention.length === 1 ? "s" : ""} your attention. ` : "The whole team is running smoothly. ") +
       (sentinelFixes ? `Sentinel auto-fixed ${sentinelFixes} issue${sentinelFixes === 1 ? "" : "s"} this week.` : "No problems detected.");
 
+    // Geographic coverage summary (plain language) — null when not configured.
+    const geo = brand ? parseGeo(brand.geo_targeting) : { areas: [], exclusions: [] };
+    const geoCoverage = brand
+      ? {
+          summary: geoSummaryText(brand.geo_targeting) || null,
+          configured: Boolean(geo.areas.length || geo.exclusions.length),
+          areaCount: geo.areas.length,
+          exclusionCount: geo.exclusions.length,
+        }
+      : null;
+
     return res.json({
       brandName: brand ? brand.brand_name : null,
       briefing,
+      geoCoverage,
       agents,
       stats: {
         leadsThisWeek: leadsWeek,

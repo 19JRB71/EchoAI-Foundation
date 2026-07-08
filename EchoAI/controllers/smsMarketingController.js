@@ -19,6 +19,7 @@ const twilioLib = require("twilio");
 const { decrypt } = require("../utils/encryption");
 const { buildClient, getPublicBaseUrl, validateTwilioRequest } = require("../config/twilio");
 const { normalizeE164 } = require("../utils/phone");
+const { applyLeadGeo } = require("../utils/leadGeoFlag");
 const { isOptedOut, recordOptOut, removeOptOut, canonical } = require("../utils/smsOptOut");
 const {
   generateSmsVariations,
@@ -853,6 +854,17 @@ async function handleInbound(req, res) {
           [cfg.brand_id, fromNorm],
         )
       ).rows[0];
+      // Geo flag from Twilio's caller location headers (best-effort).
+      const fromCity = req.body.FromCity || null;
+      const fromState = req.body.FromState || null;
+      const fromZip = req.body.FromZip || null;
+      if (fromCity || fromState || fromZip) {
+        applyLeadGeo(cfg.brand_id, lead.lead_id, {
+          city: fromCity,
+          state: fromState,
+          zip: fromZip,
+        }).catch(() => {});
+      }
     }
     const prevTemp = lead.temperature;
     const history = Array.isArray(lead.conversation_history)
