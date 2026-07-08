@@ -13,10 +13,27 @@ whose playback was blocked (browser autoplay) or stopped/muted mid-flight — th
 server row stays `pending` but the client never re-serves it, so the reminder is
 lost for the whole session.
 **How to apply:** Keep a `deliveredIds` set that only receives an id on a TRUE
-terminal outcome (spoken → server `delivered`; user skip → server `dismissed`).
+terminal outcome (spoken → server `delivered`; user skip OR user stop/mute →
+server `dismissed`; repeated TTS error → `dismissed` after a bounded retry).
 At poll time, dedup new ids against `deliveredIds` PLUS whatever is currently in
-the queue / playing. Blocked/stopped/errored items never become terminal, so
-they naturally re-enqueue on a later tick.
+the queue / playing. ONLY autoplay-`blocked` stays un-terminal (it re-queues and
+plays after a gesture).
+
+## Rule: explicit user stop is terminal; errors get a bounded retry
+**Why:** Leaving `stopped` un-terminal re-served the SAME alert on every 30s
+poll after the owner said "stop" — the "Echo repeats himself in a loop" bug.
+Same for a permanently-failing TTS item retried forever.
+**How to apply:** In the drain loop, `stopped`/`skipped` → dismissed + terminal;
+`error` → count attempts per notificationId, dismiss after 2.
+
+## Rule: conversation speakAndWait must settle on EVERY terminal outcome
+**Why:** Resolving only on natural completion (`onPlayed`) left the always-on
+conversation engine suspended (deaf to all commands) for the 90s safety timeout
+whenever a reply was skipped/stopped/errored — the "Echo ignores me" bug.
+**How to apply:** The drain loop fires an `onDone(status)` hook for every
+terminal status except `blocked`; `speakAndWait` finishes on it. Keep
+post-speech mic cooldowns short (~0.8s; ~1.2s after questions) — every extra ms
+is a window where the owner's immediate answer is silently dropped.
 
 ## Rule: settle terminal server-status centrally in the drain loop, not in skip()
 **Why:** Marking "delivered" inside `skip()` conflates "spoken" with "user
