@@ -1410,7 +1410,7 @@ function EchoConversationOverlay() {
 
       {showListenChip ? (
         <div
-          className={`fixed bottom-24 right-6 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-lg ${
+          className={`fixed bottom-40 right-6 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-lg ${
             chipLive
               ? "border-green-500/25 bg-gray-950/90 shadow-green-500/10"
               : silenced
@@ -1451,7 +1451,7 @@ function EchoConversationOverlay() {
       ) : null}
 
       {isConversing && stateLabel ? (
-        <div className="fixed bottom-24 right-6 z-40 flex items-center gap-3 rounded-full border border-green-500/30 bg-gray-950/95 px-4 py-2 shadow-lg shadow-green-500/10">
+        <div className="fixed bottom-40 right-6 z-40 flex items-center gap-3 rounded-full border border-green-500/30 bg-gray-950/95 px-4 py-2 shadow-lg shadow-green-500/10">
           <Waveform color={convState === "speaking" ? "#5eead4" : "#4ade80"} />
           <div className="min-w-0">
             <div className="text-xs font-semibold text-green-300">{stateLabel}</div>
