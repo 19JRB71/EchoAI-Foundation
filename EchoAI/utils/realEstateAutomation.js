@@ -51,7 +51,7 @@ function postTextFrom(variation) {
 async function realEstateBrands() {
   const { rows } = await db.query(
     `SELECT brand_id, brand_name, user_id, brand_type, brand_personality,
-            brand_voice, target_audience, real_estate_profile
+            voice_description AS brand_voice, target_audience, real_estate_profile
        FROM brands
       WHERE brand_type = 'real_estate' AND is_demo = false`
   );
