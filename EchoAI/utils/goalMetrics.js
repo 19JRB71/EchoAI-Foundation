@@ -109,7 +109,12 @@ async function measureMetric(brandId, metricKey, win = monthWindow()) {
   if (!sql || !meta) return null;
   // 'latest' rate metrics only reference $1; passing an unused $2 makes
   // Postgres reject the bind ("supplies 2 parameters, but requires 1").
-  const params = sql.includes("$2") ? [brandId, win.startIso] : [brandId];
+  // Bind exactly as many params as the SQL's highest $n placeholder.
+  let arity = 0;
+  for (const m of sql.matchAll(/\$(\d+)/g)) {
+    arity = Math.max(arity, Number(m[1]));
+  }
+  const params = [brandId, win.startIso].slice(0, arity);
   const { rows } = await db.query(sql, params);
   const raw = rows[0] ? rows[0].value : null;
   if (raw == null) {
