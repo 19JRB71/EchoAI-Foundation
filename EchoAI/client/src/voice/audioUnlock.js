@@ -64,6 +64,25 @@ export function getWarmAudio() {
   return warm;
 }
 
+/**
+ * Hard-stop the warm element (logout kill switch). Pauses playback and clears
+ * the source so any in-flight TTS chunk goes silent immediately. The element
+ * itself is kept — it stays "unlocked" for the next login in the same tab.
+ */
+export function killWarmAudio() {
+  if (!warm) return;
+  try {
+    warm.pause();
+    warm.oncanplay = null;
+    warm.onended = null;
+    warm.onerror = null;
+    warm.removeAttribute("src");
+    warm.load();
+  } catch {
+    /* noop */
+  }
+}
+
 export function isAudioUnlocked() {
   return unlocked;
 }

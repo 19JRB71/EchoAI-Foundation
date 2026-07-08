@@ -312,6 +312,14 @@ export default function App() {
   }
 
   const handleLogout = useCallback(() => {
+    // Kill ALL audio (Echo's voice, music, sound effects, mic) the instant
+    // logout happens — dispatched synchronously BEFORE the providers unmount
+    // so every context's kill-switch listener is still attached.
+    try {
+      window.dispatchEvent(new CustomEvent("echoai:logout"));
+    } catch {
+      /* noop */
+    }
     clearToken();
     setAuthed(false);
     setBrands([]);

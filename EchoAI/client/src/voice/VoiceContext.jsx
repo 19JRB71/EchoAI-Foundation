@@ -32,7 +32,7 @@ import {
   isQuietHour,
   chunkForSpeech,
 } from "../lib/voiceSettings.js";
-import { getWarmAudio } from "./audioUnlock.js";
+import { getWarmAudio, killWarmAudio } from "./audioUnlock.js";
 import { standbyGreeting, musicReadyLine } from "./phraseVariety.js";
 
 const VoiceContext = createContext(null);
@@ -98,6 +98,12 @@ export function VoiceProvider({ active, children }) {
   // owner can act on them (navigate + accept) or dismiss (decline) from the
   // Echo popover; both decisions are recorded server-side for deduping.
   const [suggestions, setSuggestions] = useState([]);
+  // LOGIN SILENCE RULE: after the standby greeting, Echo says NOTHING else and
+  // never navigates until the owner initiates (speaks a wake-word command or
+  // presses an Echo control). Auto-delivered speech (pending alerts like Sage
+  // urgent reports, the weekly auto-briefing) is held behind this flag.
+  const [userInitiated, setUserInitiated] = useState(false);
+  const userInitiatedRef = useRef(false);
 
   // Internal refs (not state, to avoid re-renders / stale closures).
   const queueRef = useRef([]); // pending items to speak
@@ -509,6 +515,21 @@ export function VoiceProvider({ active, children }) {
   }, [needsGesture, active, drain]);
 
   // ---- public actions ---------------------------------------------------
+  // Mark the session "user initiated": the owner explicitly engaged Echo
+  // (wake-word command, or pressing an Echo control). Only after this may
+  // Echo auto-speak pending alerts / the weekly auto-briefing.
+  const markUserInitiated = useCallback(() => {
+    if (userInitiatedRef.current) return;
+    userInitiatedRef.current = true;
+    setUserInitiated(true);
+  }, []);
+  useEffect(() => {
+    const onInitiated = () => markUserInitiated();
+    window.addEventListener("echoai:user-initiated", onInitiated);
+    return () =>
+      window.removeEventListener("echoai:user-initiated", onInitiated);
+  }, [markUserInitiated]);
+
   const skip = useCallback(() => {
     setPlaying(false);
     // Force the in-flight speakItem promise to resolve as "skipped"; the drain
@@ -556,6 +577,7 @@ export function VoiceProvider({ active, children }) {
   // allowed (a deliberate user gesture) even during quiet hours / if muted-off.
   const talkToEcho = useCallback(async () => {
     try {
+      markUserInitiated();
       setError("");
       const data = await api.echoVoiceGetStatus();
       enqueue(
@@ -571,12 +593,13 @@ export function VoiceProvider({ active, children }) {
       setError(err.message || "Couldn't reach Echo");
       throw err;
     }
-  }, [enqueue]);
+  }, [enqueue, markUserInitiated]);
 
   // On-demand weekly strategy briefing (the "Weekly" button). Plays immediately
   // (front of queue) and stamps this week's guard so it won't also auto-play.
   const weeklyBriefing = useCallback(async () => {
     try {
+      markUserInitiated();
       setError("");
       const data = await api.echoVoiceGetWeekly();
       const key = WEEKLY_KEY_PREFIX + (data.weekKey || isoWeekKey());
@@ -603,7 +626,7 @@ export function VoiceProvider({ active, children }) {
       setError(err.message || "Couldn't reach Echo");
       throw err;
     }
-  }, [enqueue]);
+  }, [enqueue, markUserInitiated]);
 
   // Record the owner's decision on a proactive suggestion and drop it from the
   // popover. "Set it up" navigates to the tool's section; "Not now" just dismisses.
@@ -700,6 +723,9 @@ export function VoiceProvider({ active, children }) {
   useEffect(() => {
     if (!active || !settingsLoaded) return;
     if (muted) return;
+    // LOGIN SILENCE RULE: never auto-play the weekly briefing right after
+    // login. It only auto-plays once the owner has engaged Echo this session.
+    if (!userInitiated) return;
     if (weeklyTriedRef.current) return;
     weeklyTriedRef.current = true;
     const s = settingsRef.current;
@@ -740,7 +766,7 @@ export function VoiceProvider({ active, children }) {
     return () => {
       cancelled = true;
     };
-  }, [active, settingsLoaded, muted, enqueue]);
+  }, [active, settingsLoaded, muted, userInitiated, enqueue]);
 
   // ---- pending poll (reminders + alerts) --------------------------------
   useEffect(() => {
@@ -751,6 +777,10 @@ export function VoiceProvider({ active, children }) {
       if (stopped) return;
       if (mutedRef.current) return;
       if (document.hidden) return;
+      // LOGIN SILENCE RULE: hold ALL auto-spoken alerts (Sage urgent reports,
+      // reminders, hot-lead alerts...) until the owner has engaged Echo this
+      // session. On login Echo says the standby greeting and nothing else.
+      if (!userInitiatedRef.current) return;
       // Client-side quiet-hours guard (server also enforces, coarsely in UTC).
       const s = settingsRef.current;
       if (!s.enabled) return;
@@ -803,8 +833,32 @@ export function VoiceProvider({ active, children }) {
     deliveredIds.current = new Set();
     briefingTriedRef.current = false;
     weeklyTriedRef.current = false;
+    userInitiatedRef.current = false;
+    setUserInitiated(false);
     setNeedsGesture(false);
   }, [active, stopAll]);
+
+  // LOGOUT KILL SWITCH: the instant the app broadcasts a logout, silence
+  // everything — the TTS queue, the in-flight chunk, the warm (unlocked)
+  // audio element, and any browser speech synthesis. Also runs on unmount
+  // (the provider unmounts when the app returns to the login screen), so
+  // audio can never keep speaking after logout.
+  useEffect(() => {
+    const killAudio = () => {
+      stopAll();
+      killWarmAudio();
+      try {
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+      } catch {
+        /* noop */
+      }
+    };
+    window.addEventListener("echoai:logout", killAudio);
+    return () => {
+      window.removeEventListener("echoai:logout", killAudio);
+      killAudio();
+    };
+  }, [stopAll]);
 
   const value = useMemo(
     () => ({
@@ -830,6 +884,7 @@ export function VoiceProvider({ active, children }) {
       skip,
       stopAll,
       enqueue,
+      markUserInitiated,
     }),
     [
       active,
@@ -854,6 +909,7 @@ export function VoiceProvider({ active, children }) {
       skip,
       stopAll,
       enqueue,
+      markUserInitiated,
     ],
   );
 

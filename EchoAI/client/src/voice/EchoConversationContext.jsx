@@ -28,7 +28,7 @@ import {
   useState,
 } from "react";
 import { useVoice } from "./VoiceContext.jsx";
-import { preloadEffects, playEffect } from "./sfx.js";
+import { preloadEffects, playEffect, stopEffect } from "./sfx.js";
 import {
   parseWakeWord,
   isQuestion,
@@ -804,6 +804,13 @@ export function EchoConversationProvider({ active, children }) {
       suspendRef.current = false;
       setConvState("active");
       playEffect("wake");
+      // The owner explicitly engaged Echo → lift the login-silence hold so
+      // pending alerts / the weekly auto-briefing may now be delivered.
+      try {
+        window.dispatchEvent(new CustomEvent("echoai:user-initiated"));
+      } catch {
+        /* noop */
+      }
       // If the wake utterance already carried a command, give the user a beat to
       // keep talking, then finalize.
       if (initialCommand) {
@@ -1133,6 +1140,27 @@ export function EchoConversationProvider({ active, children }) {
     window.addEventListener("echo:briefing-standby", onStandby);
     return () => window.removeEventListener("echo:briefing-standby", onStandby);
   }, [active, supported, openFollowupWindow]);
+
+  // LOGOUT KILL SWITCH: stop the mic, all timers, and any sound effect the
+  // instant the app broadcasts a logout, so nothing from the conversation
+  // engine keeps playing (or re-triggers speech) after the owner logs out.
+  useEffect(() => {
+    const onLogout = () => {
+      clearTimers();
+      stopRecognition();
+      stopEffect();
+      pendingBriefRef.current = null;
+      pendingBriefingChoiceRef.current = false;
+      morningStandbyRef.current = false;
+      finalRef.current = "";
+      modeRef.current = "passive";
+      suspendRef.current = false;
+      setConvState("passive");
+      setListeningText("");
+    };
+    window.addEventListener("echoai:logout", onLogout);
+    return () => window.removeEventListener("echoai:logout", onLogout);
+  }, [clearTimers, stopRecognition]);
 
   // Derived surface state for the UI.
   const micState = !supported

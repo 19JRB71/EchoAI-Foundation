@@ -243,6 +243,13 @@ export function MusicProvider({ children }) {
     setPlaying(false);
   }, []);
 
+  // LOGOUT KILL SWITCH: stop the music player the instant the app broadcasts
+  // a logout, so background music never keeps playing on the login screen.
+  useEffect(() => {
+    window.addEventListener("echoai:logout", stop);
+    return () => window.removeEventListener("echoai:logout", stop);
+  }, [stop]);
+
   const setVolume = useCallback(
     (v) => {
       const clamped = Math.max(0, Math.min(100, Math.round(v)));
