@@ -134,7 +134,10 @@ async function listGoals(req, res) {
     });
   } catch (err) {
     console.error("List goals error:", err.message);
-    return res.status(500).json({ error: "Failed to load goals" });
+    return res.status(500).json({
+      error: "Failed to load goals",
+      ...(req.user && req.user.role === "admin" ? { detail: err.message } : {}),
+    });
   }
 }
 
@@ -482,7 +485,10 @@ async function getOverview(req, res) {
     });
   } catch (err) {
     console.error("Goals overview error:", err.message);
-    return res.status(500).json({ error: "Failed to load goals overview" });
+    return res.status(500).json({
+      error: "Failed to load goals overview",
+      ...(req.user && req.user.role === "admin" ? { detail: err.message } : {}),
+    });
   }
 }
 
