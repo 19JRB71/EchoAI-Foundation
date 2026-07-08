@@ -21,6 +21,7 @@ const CAMPAIGN_GOALS = [
 const PACKAGE_COUNT = 5;
 
 const { campaignContextBlock, requiredDisclaimer } = require("../utils/politicalContext");
+const { realEstateContextBlock } = require("../utils/realEstateContext");
 
 const AD_CREATIVE_DIRECTOR_SYSTEM_PROMPT = [
   "You are EchoAI's Ad Creative Director — a world-class performance marketer and",
@@ -115,6 +116,14 @@ function buildAdCreativeStudioPrompt({
       "",
       political,
       `Every bodyCopyVariation MUST end with the exact disclosure line: "${requiredDisclaimer(brand)}". Follow Facebook's political advertising policies: no misleading claims, clearly identify the candidate, and keep targeting descriptions within the campaign's district.`
+    );
+  }
+  const realty = realEstateContextBlock(brand);
+  if (realty) {
+    lines.push(
+      "",
+      realty,
+      "Follow Facebook's Special Ad Category rules for housing: never describe or target audiences by protected class; sell the property and the market area, and keep targeting descriptions geographic."
     );
   }
   if (discoveryProfile) {

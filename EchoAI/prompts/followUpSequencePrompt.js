@@ -19,6 +19,7 @@
 const { anthropic, MODEL } = require("../config/anthropic");
 const { sageBlock } = require("../utils/sageContext");
 const { campaignContextBlock } = require("../utils/politicalContext");
+const { realEstateContextBlock } = require("../utils/realEstateContext");
 
 const MAX_TOUCHPOINTS = 7;
 const MAX_DAYS = 14;
@@ -66,6 +67,9 @@ function buildFollowUpPrompt(brand, lead, opts = {}) {
     `Typical audience: ${audience}.`,
     ...(campaignContextBlock(brand)
       ? ["", campaignContextBlock(brand), "Frame follow-ups around supporting the campaign — volunteering, donating, attending events, and voting — never around buying anything."]
+      : []),
+    ...(realEstateContextBlock(brand)
+      ? ["", realEstateContextBlock(brand), "Frame follow-ups around the lead's real-estate journey. For BUYERS: ask about their timeline, budget, and must-have features, and offer to line up showings. For SELLERS: ask about their timeline, their motivation for selling, and their current home's details, and offer a listing consultation. Never let more than 24 hours pass without a touchpoint early in the sequence."]
       : []),
     sageBlock(brand && brand._sageContext),
     "",

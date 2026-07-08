@@ -36,6 +36,12 @@ const { runHourlyHealthSweep } = require("../controllers/healthMonitorController
 const { runApiQuotaSweep } = require("./apiQuotaMonitor");
 const { runDailyGoalTracking } = require("./goalAlerts");
 const {
+  runListingPromotionSweep,
+  runSellerLeadAdSweep,
+  runOpenHouseSweep,
+  runRealEstateContentRun,
+} = require("./realEstateAutomation");
+const {
   activeBrandsForSage,
   runDeepCycleForBrand,
   runUrgentScanForBrand,
@@ -500,6 +506,45 @@ function startScheduler() {
     });
   });
 
+  // Real-estate automations (real_estate brands only, demo brands excluded):
+  // Hourly at :20 — Atlas drafts a listing-promotion ad within 24h of a new
+  // active listing (idempotent via property_listings.ad_promoted_at).
+  cron.schedule("20 * * * *", () => {
+    runListingPromotionSweep().catch((err) => {
+      console.error("Scheduled listing promotion sweep errored:", err.message);
+    });
+  });
+
+  // 07:30 daily — Atlas keeps a fresh seller-lead ad draft (per brand / 30 days),
+  // and the open-house automation runs: promote 1 week out, remind interested
+  // buyers the day before, follow up with attendees the day after.
+  cron.schedule("30 7 * * *", () => {
+    runSellerLeadAdSweep().catch((err) => {
+      console.error("Scheduled seller-lead ad sweep errored:", err.message);
+    });
+    runOpenHouseSweep().catch((err) => {
+      console.error("Scheduled open house sweep errored:", err.message);
+    });
+  });
+
+  // 09:00 / 13:00 / 17:00 daily — Nova schedules one real-estate post per
+  // connected platform (3x/day, deduped per slot).
+  cron.schedule("0 9 * * *", () => {
+    runRealEstateContentRun(0).catch((err) => {
+      console.error("Scheduled Nova RE content run errored:", err.message);
+    });
+  });
+  cron.schedule("0 13 * * *", () => {
+    runRealEstateContentRun(1).catch((err) => {
+      console.error("Scheduled Nova RE content run errored:", err.message);
+    });
+  });
+  cron.schedule("0 17 * * *", () => {
+    runRealEstateContentRun(2).catch((err) => {
+      console.error("Scheduled Nova RE content run errored:", err.message);
+    });
+  });
+
   console.log(
     "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
       "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
@@ -509,7 +554,9 @@ function startScheduler() {
       "goal tracking: daily 05:45; " +
       "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours; " +
       "social connection re-verify: every 6 hours at :30; " +
-      "Sage deep research: every 6 hours at :15; Sage urgent scan: every 30 minutes)."
+      "Sage deep research: every 6 hours at :15; Sage urgent scan: every 30 minutes; " +
+      "real-estate: listing ads hourly at :20, seller-lead ads + open houses daily 07:30, " +
+      "Nova RE content 09:00/13:00/17:00)."
   );
 }
 
@@ -523,4 +570,8 @@ module.exports = {
   runApiQuotaSweep,
   runSageDeepCycle,
   runSageUrgentScan,
+  runListingPromotionSweep,
+  runSellerLeadAdSweep,
+  runOpenHouseSweep,
+  runRealEstateContentRun,
 };

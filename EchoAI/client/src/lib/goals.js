@@ -28,6 +28,10 @@ export const BRAND_TYPES = {
     label: "Political Campaign",
     description: "Voter outreach, volunteers, donations, and campaign content.",
   },
+  real_estate: {
+    label: "Real Estate Agent",
+    description: "Listings, buyer/seller leads, days on market, and GCI.",
+  },
 };
 
 export const BRAND_TYPE_KEYS = Object.keys(BRAND_TYPES);

@@ -121,6 +121,7 @@ client wiring). Open that file when working inside a specific subsystem.
 | AI Sales Agent | `/api/sales-agent` | admin-only; EchoAI's own inbound demo line |
 | Customer Intelligence | `/api/intelligence` | Enterprise. weekly AI strategy profile |
 | Voter CRM | `/api/supporters` | all tiers; political-campaign brands only (brand_type='political') — supporters + campaign events |
+| Property CRM | `/api/properties` | all tiers; real-estate brands only (brand_type='real_estate') — listings, buyer/seller leads, open houses + Atlas/Nova automations |
 
 The dashboard nav is team-member-centric: the sidebar lists the 8 AI agents
 (Echo/Scout/Atlas/Nova/Pulse/Voice/Forge/Sentinel) + Mission Control; clicking an

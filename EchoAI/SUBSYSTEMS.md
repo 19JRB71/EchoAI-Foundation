@@ -509,3 +509,51 @@ synthesizes EVERY channel into a growing weekly intelligence profile.
   `getIntelligenceTrends`/`generateIntelligence`/`getAppliedRecommendations`/
   `applyRecommendation`/`updateAppliedRecommendation`. Onboarding
   `StepConfirmation.jsx` shows a "warming up" message to new Enterprise customers.
+
+### Real Estate brand type + Property CRM subsystem (`/api/properties`)
+
+- **Brand type.** `brand_type='real_estate'` (migration `077_real_estate.sql`)
+  mirrors the political pattern: Setup Agent triage offers "Real Estate Agent",
+  runs an RE interview and saves `brands.real_estate_profile` (JSONB: markets,
+  specialties, brokerage, years, avg price point, current listing count).
+  `utils/realEstateContext.js` `realEstateContextBlock(brand)` injects the RE
+  profile into 8 AI prompt builders (social, ads, email, SEO, chatbot, scripts,
+  calendar, briefing) so every agent speaks like a local agent.
+- **Property CRM (all tiers, `properties: "starter"`).** `propertyController` +
+  `propertyRoutes` mounted `auth → lockout` at `/api/properties`. Every handler
+  starts with `getOwnedBrand` and 403s non-real_estate brands. Tables:
+  `property_listings` (status active/pending/sold/withdrawn; `sold_date` +
+  `gci_amount` only when sold; `ad_promoted_at` automation marker),
+  `property_leads` (lead_kind buyer/seller with kind-specific readiness
+  categories), `open_houses` (+ `promoted_at`/`reminded_at`/`followed_up_at`
+  markers) and `open_house_attendees` (sign-in sheet, `interested` flag).
+  Bodies are camelCase; rows return snake_case.
+- **Automations (`utils/realEstateAutomation.js`, crons in `scheduler.js`).**
+  - Listing promotion (hourly :20): claims `ad_promoted_at` atomically
+    (rowCount branch), Atlas drafts an ad creative package, marker released on
+    AI failure so a later tick retries. New active listings get ads <24h.
+  - Seller-lead ads (daily 07:30): one auto draft per brand per 30 days —
+    claimed via a placeholder `ad_creatives` row inserted under a per-brand
+    `pg_advisory_xact_lock` (`claimSellerLeadSlot`), placeholder deleted on AI
+    failure. Dedup key: `creative_concept->>'autoSource'='seller_lead'`.
+  - Open houses (daily 07:30): promote 5-8 days out (scheduled social posts),
+    email interested buyer leads the day before, email attendees a follow-up
+    the day after — each step's marker claimed atomically.
+  - Nova RE content (09:00/13:00/17:00): one post per connected platform per
+    slot. Dedup via `social_posts.source` slot key
+    (`re_auto:<date>:<slot>`, migration `078_social_post_source.sql` partial
+    unique index on (brand_id, platform, source)) + `ON CONFLICT DO NOTHING`;
+    manual posts (source NULL) never suppress a run.
+  - All sweeps iterate `realEstateBrands()` (`is_demo = false`) with per-brand
+    AND per-row guards.
+- **Echo briefing.** `echoBriefing.js` adds newPropertyLeads / newListings /
+  upcomingOpenHouses to the morning gather + template for RE brands.
+- **Goals.** `real_estate` brand type in `config/goals.js` + client
+  `lib/goals.js` (GCI, closings, listings taken, buyer/seller leads).
+- **Client.** `sections/Properties.jsx` (tabs: Listings / Buyers & Sellers /
+  Open Houses; summary cards incl. commission; automation status pills;
+  attendee sign-in). Nav: Pulse department card "Property CRM"
+  (`lib/departments.js`), gated in `App.jsx` `canOpenSection` to
+  `brand_type === 'real_estate'` (same 3-place gating rule as Voter CRM).
+- **Tests.** `test/realEstateAutomation.test.js`: sweep guards, atomic
+  claim/release, advisory-lock claim race (real DB), slot-key dedup.

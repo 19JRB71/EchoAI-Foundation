@@ -17,6 +17,7 @@
 
 const { MODEL, createMessage, HEAVY_AI_TIMEOUT_MS } = require("../config/anthropic");
 const { campaignContextBlock } = require("../utils/politicalContext");
+const { realEstateContextBlock } = require("../utils/realEstateContext");
 
 const SUPPORTED_PLATFORMS = [
   "facebook",
@@ -147,6 +148,13 @@ function brandHeader(brand, businessType, theme) {
     `- Target audience: ${audience}`,
     theme ? `- Monthly theme / focus: ${theme}` : "- Monthly theme / focus: none specified (use a natural mix)",
     ...(campaignContextBlock(brand) ? ["", campaignContextBlock(brand)] : []),
+    ...(realEstateContextBlock(brand)
+      ? [
+          "",
+          realEstateContextBlock(brand),
+          "Real-estate content mix to rotate through: new listing announcements, just-sold announcements, open house promotions, market updates (only real figures provided — never invent statistics), neighborhood spotlights, home buying and selling tips, and client testimonials (only real ones provided).",
+        ]
+      : []),
   ];
 }
 

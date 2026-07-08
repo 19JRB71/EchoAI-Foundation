@@ -10,6 +10,7 @@
  */
 
 const { campaignContextBlock } = require("../utils/politicalContext");
+const { realEstateContextBlock } = require("../utils/realEstateContext");
 
 function buildBrandContext(brand) {
   if (!brand) {
@@ -36,6 +37,14 @@ function buildBrandContext(brand) {
       "",
       political,
       "You are chatting with VOTERS and potential supporters — help them learn about the candidate, and naturally invite them to volunteer, donate, attend events, or get voting information."
+    );
+  }
+  const realty = realEstateContextBlock(brand);
+  if (realty) {
+    lines.push(
+      "",
+      realty,
+      "You are chatting with BUYERS and SELLERS. Help buyers with the areas served, price ranges, and current listings; help sellers understand the agent can provide a home-value consultation. Naturally capture their name and contact details, whether they're buying or selling, their timeline, and (for buyers) their budget and must-haves."
     );
   }
   return lines.join("\n");

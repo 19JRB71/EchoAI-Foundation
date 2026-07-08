@@ -13,6 +13,7 @@
 const { createMessage, MODEL, HEAVY_AI_TIMEOUT_MS } = require("../config/anthropic");
 const { gatherFacebookSignals } = require("../utils/sageFacebook");
 const { campaignContextBlock } = require("../utils/politicalContext");
+const { realEstateContextBlock } = require("../utils/realEstateContext");
 
 /** An error the controller maps to a 502 (AI produced nothing usable / uncited). */
 function aiInvalid(message) {
@@ -136,6 +137,13 @@ function brandContext(brand, competitors) {
   if (list) lines.push(`Known competitors the owner is tracking:\n${list}`);
   const political = campaignContextBlock(brand);
   if (political) lines.push(political);
+  const realty = realEstateContextBlock(brand);
+  if (realty) {
+    lines.push(
+      realty,
+      "As the market-intelligence agent for a real estate practice, focus your research on the LOCAL housing market in the areas served: competitor agent activity, new listing trends, days-on-market statistics, price-reduction patterns, buyer demand signals, inventory levels, and mortgage-rate shifts. Flag significant market changes the agent should act on."
+    );
+  }
   return lines.join("\n");
 }
 

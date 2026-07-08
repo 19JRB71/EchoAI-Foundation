@@ -79,6 +79,23 @@ const METRIC_SQL = {
   event_attendance: `SELECT COALESCE(SUM(attendance), 0)::float AS value FROM campaign_events
               WHERE brand_id = $1 AND attendance IS NOT NULL
                 AND event_date >= $2::date AND event_date <= NOW()::date`,
+  // Real-estate metrics (Property CRM tables).
+  new_listings: `SELECT COUNT(*)::float AS value FROM property_listings
+              WHERE brand_id = $1 AND created_at >= $2`,
+  buyer_closings: `SELECT COUNT(*)::float AS value FROM property_leads
+              WHERE brand_id = $1 AND lead_kind = 'buyer'
+                AND converted_at IS NOT NULL AND converted_at >= $2`,
+  avg_days_on_market: `SELECT AVG(GREATEST(sold_date - listed_date, 0))::float AS value
+              FROM property_listings
+              WHERE brand_id = $1 AND status = 'sold' AND sold_date IS NOT NULL
+                AND sold_date >= (NOW()::date - INTERVAL '90 days')`,
+  lead_response_minutes: `SELECT AVG(EXTRACT(EPOCH FROM (first_contact_at - created_at)) / 60)::float AS value
+              FROM property_leads
+              WHERE brand_id = $1 AND first_contact_at IS NOT NULL
+                AND created_at >= (NOW() - INTERVAL '30 days')`,
+  monthly_gci: `SELECT COALESCE(SUM(gci_amount), 0)::float AS value FROM property_listings
+              WHERE brand_id = $1 AND status = 'sold' AND gci_amount IS NOT NULL
+                AND sold_date >= $2::date`,
 };
 
 /**

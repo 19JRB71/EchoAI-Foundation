@@ -12,6 +12,7 @@ import AiTeam from "./sections/AiTeam.jsx";
 import Overview from "./sections/Overview.jsx";
 import Leads from "./sections/Leads.jsx";
 import Supporters from "./sections/Supporters.jsx";
+import Properties from "./sections/Properties.jsx";
 import Campaigns from "./sections/Campaigns.jsx";
 import AdStudio from "./sections/AdStudio.jsx";
 import SocialMedia from "./sections/SocialMedia.jsx";
@@ -191,6 +192,13 @@ export default function App() {
           (br) => String(br.brand_id) === String(selectedBrandId),
         );
         return !!b && b.brand_type === "political";
+      }
+      // The Property CRM only exists for real-estate brands.
+      if (s === "properties") {
+        const b = brands.find(
+          (br) => String(br.brand_id) === String(selectedBrandId),
+        );
+        return !!b && b.brand_type === "real_estate";
       }
       return true;
     },
@@ -963,6 +971,8 @@ export default function App() {
               {section === "leads" && <Leads brandId={selectedBrandId} />}
               {section === "supporters" &&
                 (canOpenSection("supporters") ? <Supporters brandId={selectedBrandId} /> : null)}
+              {section === "properties" &&
+                (canOpenSection("properties") ? <Properties brandId={selectedBrandId} /> : null)}
               {section === "campaigns" && <Campaigns />}
               {section === "adstudio" && gate("adstudio", <AdStudio brandId={selectedBrandId} />)}
               {section === "social" && (

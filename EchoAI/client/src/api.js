@@ -296,6 +296,51 @@ export const api = {
     request(`/api/supporters/${brandId}/events/${eventId}`, { method: "PUT", body }),
   deleteCampaignEvent: (brandId, eventId) =>
     request(`/api/supporters/${brandId}/events/${eventId}`, { method: "DELETE" }),
+  // Property CRM (real-estate brands)
+  getListings: (brandId, filters = {}) => {
+    const qs = new URLSearchParams();
+    if (filters.status) qs.set("status", filters.status);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/properties/${brandId}/listings${suffix}`);
+  },
+  createListing: (brandId, body) =>
+    request(`/api/properties/${brandId}/listings`, { method: "POST", body }),
+  updateListing: (brandId, listingId, body) =>
+    request(`/api/properties/${brandId}/listings/${listingId}`, { method: "PUT", body }),
+  deleteListing: (brandId, listingId) =>
+    request(`/api/properties/${brandId}/listings/${listingId}`, { method: "DELETE" }),
+  getPropertyLeads: (brandId, filters = {}) => {
+    const qs = new URLSearchParams();
+    if (filters.kind) qs.set("kind", filters.kind);
+    if (filters.status) qs.set("status", filters.status);
+    if (filters.search) qs.set("search", filters.search);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/properties/${brandId}/leads${suffix}`);
+  },
+  createPropertyLead: (brandId, body) =>
+    request(`/api/properties/${brandId}/leads`, { method: "POST", body }),
+  updatePropertyLead: (brandId, leadId, body) =>
+    request(`/api/properties/${brandId}/leads/${leadId}`, { method: "PUT", body }),
+  deletePropertyLead: (brandId, leadId) =>
+    request(`/api/properties/${brandId}/leads/${leadId}`, { method: "DELETE" }),
+  getOpenHouses: (brandId) => request(`/api/properties/${brandId}/open-houses`),
+  createOpenHouse: (brandId, body) =>
+    request(`/api/properties/${brandId}/open-houses`, { method: "POST", body }),
+  updateOpenHouse: (brandId, openHouseId, body) =>
+    request(`/api/properties/${brandId}/open-houses/${openHouseId}`, { method: "PUT", body }),
+  deleteOpenHouse: (brandId, openHouseId) =>
+    request(`/api/properties/${brandId}/open-houses/${openHouseId}`, { method: "DELETE" }),
+  getOpenHouseAttendees: (brandId, openHouseId) =>
+    request(`/api/properties/${brandId}/open-houses/${openHouseId}/attendees`),
+  createOpenHouseAttendee: (brandId, openHouseId, body) =>
+    request(`/api/properties/${brandId}/open-houses/${openHouseId}/attendees`, {
+      method: "POST",
+      body,
+    }),
+  deleteOpenHouseAttendee: (brandId, openHouseId, attendeeId) =>
+    request(`/api/properties/${brandId}/open-houses/${openHouseId}/attendees/${attendeeId}`, {
+      method: "DELETE",
+    }),
 
   // Goal-alert feed management (dismiss one alert / mute a goal's alerts).
   getGoalAlerts: (brandId) => request(`/api/goals/${brandId}/alerts`),

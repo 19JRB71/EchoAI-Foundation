@@ -70,6 +70,9 @@ function hasActivity(data) {
       data.competitorNote ||
       data.newSupporters ||
       (data.upcomingCampaignEvents && data.upcomingCampaignEvents.length) ||
+      data.newPropertyLeads ||
+      data.newListings ||
+      (data.upcomingOpenHouses && data.upcomingOpenHouses.length) ||
       // Goal state alone is worth a briefing (e.g. a quiet day where a goal has
       // slipped behind pace or run far ahead is exactly what the owner needs).
       (data.goals &&
@@ -101,6 +104,9 @@ async function gatherBriefingData(userId, since) {
     goals: null,
     newSupporters: 0,
     upcomingCampaignEvents: [],
+    newPropertyLeads: 0,
+    newListings: 0,
+    upcomingOpenHouses: [],
   };
   if (brandIds.length === 0) return empty;
 
@@ -118,6 +124,9 @@ async function gatherBriefingData(userId, since) {
     sageFindings,
     supporterRows,
     campaignEventRows,
+    propertyLeadRows,
+    newListingRows,
+    openHouseRows,
   ] = await Promise.all([
       safeRows(
         `SELECT l.lead_name, l.temperature, l.created_at, b.brand_name
@@ -206,6 +215,28 @@ async function gatherBriefingData(userId, since) {
           ORDER BY e.event_date ASC LIMIT 3`,
         [brandIds]
       ),
+      // Real-estate brands: new buyer/seller leads since the last briefing.
+      safeRows(
+        `SELECT COUNT(*)::int AS n
+           FROM property_leads
+          WHERE brand_id = ANY($1) AND created_at > $2`,
+        [brandIds, sinceParam]
+      ),
+      // Real-estate brands: new listings added since the last briefing.
+      safeRows(
+        `SELECT COUNT(*)::int AS n
+           FROM property_listings
+          WHERE brand_id = ANY($1) AND created_at > $2`,
+        [brandIds, sinceParam]
+      ),
+      // Real-estate brands: the next few upcoming open houses.
+      safeRows(
+        `SELECT oh.address, oh.event_date, oh.start_time, b.brand_name
+           FROM open_houses oh JOIN brands b ON b.brand_id = oh.brand_id
+          WHERE oh.brand_id = ANY($1) AND oh.event_date >= CURRENT_DATE
+          ORDER BY oh.event_date ASC LIMIT 3`,
+        [brandIds]
+      ),
     ]);
 
   const sentinelFixes = [];
@@ -238,6 +269,9 @@ async function gatherBriefingData(userId, since) {
     goals,
     newSupporters: supporterRows[0] ? supporterRows[0].n : 0,
     upcomingCampaignEvents: campaignEventRows,
+    newPropertyLeads: propertyLeadRows[0] ? propertyLeadRows[0].n : 0,
+    newListings: newListingRows[0] ? newListingRows[0].n : 0,
+    upcomingOpenHouses: openHouseRows,
   };
 }
 
@@ -709,6 +743,22 @@ function templateMorning(firstName, data) {
     const ev = data.upcomingCampaignEvents[0];
     parts.push(
       `Your next campaign event is ${ev.event_name}${ev.location ? ` at ${ev.location}` : ""} on ${new Date(ev.event_date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`
+    );
+  }
+  if (data.newPropertyLeads) {
+    parts.push(
+      `${data.newPropertyLeads} new property lead${data.newPropertyLeads === 1 ? "" : "s"} came in — buyers and sellers are waiting in your Property CRM.`
+    );
+  }
+  if (data.newListings) {
+    parts.push(
+      `${data.newListings} new listing${data.newListings === 1 ? " was" : "s were"} added, and Atlas is preparing promotion ads for ${data.newListings === 1 ? "it" : "them"}.`
+    );
+  }
+  if (Array.isArray(data.upcomingOpenHouses) && data.upcomingOpenHouses.length) {
+    const oh = data.upcomingOpenHouses[0];
+    parts.push(
+      `Your next open house is at ${oh.address} on ${new Date(oh.event_date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}${oh.start_time ? ` at ${oh.start_time}` : ""}.`
     );
   }
   if (data.campaigns.length) {

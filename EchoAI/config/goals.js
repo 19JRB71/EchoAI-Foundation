@@ -28,6 +28,7 @@ const CATEGORIES = {
   appointment: "Appointments",
   affiliate: "Affiliate",
   voter: "Voter Outreach",
+  realty: "Real Estate",
 };
 
 // Every metric a goal can target. Keyed by metric_key.
@@ -190,6 +191,54 @@ const GOAL_METRICS = {
     department: "pulse",
     description: "Total attendance recorded at campaign events this month.",
   },
+  // Real-estate metrics. All sourced from the Property CRM tables
+  // (property_listings, property_leads) — nothing fabricated.
+  new_listings: {
+    label: "New Listings",
+    category: "realty",
+    unit: "count",
+    direction: "increase",
+    aggregation: "cumulative",
+    department: "pulse",
+    description: "New listings added this month.",
+  },
+  buyer_closings: {
+    label: "Buyer Closings",
+    category: "realty",
+    unit: "count",
+    direction: "increase",
+    aggregation: "cumulative",
+    department: "pulse",
+    description: "Buyer leads marked converted (closed) this month.",
+  },
+  avg_days_on_market: {
+    label: "Avg Days on Market",
+    category: "realty",
+    unit: "count",
+    direction: "decrease",
+    aggregation: "latest",
+    department: "pulse",
+    description: "Average days on market across listings sold in the last 90 days.",
+  },
+  lead_response_minutes: {
+    label: "Lead Response Time (min)",
+    category: "realty",
+    unit: "count",
+    direction: "decrease",
+    aggregation: "latest",
+    department: "pulse",
+    description:
+      "Average minutes from a property lead arriving to first contact (last 30 days).",
+  },
+  monthly_gci: {
+    label: "Gross Commission Income",
+    category: "realty",
+    unit: "currency",
+    direction: "increase",
+    aggregation: "cumulative",
+    department: "pulse",
+    description: "Commission income recorded on listings sold this month.",
+  },
 };
 
 // Brand types decide which categories (and therefore which metrics) are offered.
@@ -223,6 +272,11 @@ const BRAND_TYPES = {
     label: "Political Campaign",
     description: "Voter outreach, volunteers, donations, and campaign content.",
     categories: ["voter", "campaign", "content", "appointment"],
+  },
+  real_estate: {
+    label: "Real Estate Agent",
+    description: "Listings, buyer/seller leads, days on market, and GCI.",
+    categories: ["realty", "lead", "campaign", "content", "appointment"],
   },
 };
 

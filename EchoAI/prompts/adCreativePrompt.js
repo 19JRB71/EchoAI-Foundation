@@ -13,6 +13,7 @@ const {
   requiredDisclaimer,
   ensureDisclaimer,
 } = require("../utils/politicalContext");
+const { realEstateContextBlock } = require("../utils/realEstateContext");
 
 function describeAudience(targetAudience) {
   if (!targetAudience) return "your ideal customers";
@@ -69,6 +70,13 @@ function buildAdCreativePrompt(brand, options = {}) {
           "",
           campaignContextBlock(brand),
           `Every ad's primary text MUST end with the exact disclosure line: "${requiredDisclaimer(brand)}".`,
+        ]
+      : []),
+    ...(realEstateContextBlock(brand)
+      ? [
+          "",
+          realEstateContextBlock(brand),
+          "Follow Facebook's Special Ad Category rules for housing: no targeting language based on protected classes; focus every ad on the property, the market area, and the agent's service.",
         ]
       : []),
     "",

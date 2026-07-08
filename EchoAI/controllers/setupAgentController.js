@@ -214,6 +214,54 @@ function googleAdsTopic(answers) {
   return location ? `${product} in ${location}` : product;
 }
 
+// --- Real-estate detection ---------------------------------------------------
+// Same two-signal approach as political detection: the "account_type" answer,
+// with real-estate-specific collect keys as a backstop.
+function isRealEstateSetup(answers) {
+  const acct = (firstAnswer(answers, ["account_type"]) || "").toLowerCase();
+  if (/(real ?estate|realtor|realty|broker|listing agent|buyer'?s agent)/.test(acct)) return true;
+  return !!(
+    firstAnswer(answers, ["brokerage"]) ||
+    firstAnswer(answers, ["markets_served", "geographic_markets"]) ||
+    firstAnswer(answers, ["client_focus", "buyer_seller_focus"])
+  );
+}
+
+// Map interview answers → the brands.real_estate_profile JSONB shape used by
+// utils/realEstateContext. Only real answers are stored — nothing invented.
+function realEstateProfileFromAnswers(answers) {
+  const profile = {
+    agent_name: firstAnswer(answers, ["agent_name", "team_name"]),
+    brokerage: firstAnswer(answers, ["brokerage"]),
+    markets_served: firstAnswer(answers, ["markets_served", "geographic_markets", "service_area"]),
+    client_focus: firstAnswer(answers, ["client_focus", "buyer_seller_focus"]),
+    price_range: firstAnswer(answers, ["price_range", "average_price"]),
+    target_clients: firstAnswer(answers, ["target_clients", "client_demographics"]),
+    active_listings_note: firstAnswer(answers, ["active_listings", "current_listings"]),
+  };
+  for (const key of Object.keys(profile)) {
+    if (!profile[key]) delete profile[key];
+  }
+  return profile;
+}
+
+// When the interview identified a real-estate agent, mark the brand as the
+// 'real_estate' brand type and persist the profile. Idempotent — re-runs
+// simply rewrite the same values. Returns true when the brand was marked.
+async function applyRealEstateProfile(userId, brandId, answers) {
+  if (!isRealEstateSetup(answers)) return false;
+  const profile = realEstateProfileFromAnswers(answers);
+  await db.query(
+    `UPDATE brands
+        SET brand_type = 'real_estate',
+            real_estate_profile = $1::jsonb,
+            updated_at = NOW()
+      WHERE brand_id = $2 AND user_id = $3`,
+    [JSON.stringify(profile), brandId, userId],
+  );
+  return true;
+}
+
 // --- Political-campaign detection -----------------------------------------
 // The interview's first question collects "account_type"; campaign-specific
 // collects keys (candidate_name, office_sought, ...) are a second signal so a
@@ -349,7 +397,10 @@ const ACTIONS = [
             session.session_id,
           ]);
           session.brand_id = recoveredBrandId;
-          await applyPoliticalProfile(userId, recoveredBrandId, answers);
+          const politicalRecovered = await applyPoliticalProfile(userId, recoveredBrandId, answers);
+          if (!politicalRecovered) {
+            await applyRealEstateProfile(userId, recoveredBrandId, answers);
+          }
           return { status: "done", detail: "Your brand profile is already set up." };
         }
       } else {
@@ -386,11 +437,16 @@ const ACTIONS = [
       ]);
       session.brand_id = brand.brand_id;
       const political = await applyPoliticalProfile(userId, brand.brand_id, answers);
+      const realEstate = political
+        ? false
+        : await applyRealEstateProfile(userId, brand.brand_id, answers);
       return {
         status: "done",
         detail: political
           ? `Created "${brand.brand_name}" as a political campaign with a full campaign profile.`
-          : `Created "${brand.brand_name}" with a full brand profile.`,
+          : realEstate
+            ? `Created "${brand.brand_name}" as a real estate practice with a full agent profile.`
+            : `Created "${brand.brand_name}" with a full brand profile.`,
       };
     },
   },
