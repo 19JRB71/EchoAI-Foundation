@@ -8,6 +8,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import confetti from "canvas-confetti";
+import { useVoice } from "../voice/VoiceContext.jsx";
+import {
+  tourGreeting,
+  narrationForStep,
+  readyPrompt,
+  stopAck,
+} from "./tourNarration.js";
 
 const SPOTLIGHT_PADDING = 8;
 const CARD_WIDTH = 360;
@@ -114,6 +121,21 @@ export default function TourEngine({
   const [cardHeight, setCardHeight] = useState(220);
   const [pos, setPos] = useState({ top: 0, left: 0, centered: true });
 
+  // Echo narrates the tour out loud (owner accounts with voice available).
+  // Everything voice-related degrades silently: muted/inactive voice, a failed
+  // synthesis, or a team-member account all leave the visual tour untouched.
+  const voice = useVoice();
+  const voiceRef = useRef(voice);
+  voiceRef.current = voice;
+  const greetedRef = useRef(false);
+
+  const speakNow = useCallback((text, onPlayed) => {
+    const v = voiceRef.current;
+    if (!v || !v.active || v.muted || !text) return false;
+    v.enqueue({ type: "tour", title: "Guided tour", text, onPlayed });
+    return true;
+  }, []);
+
   const total = steps.length;
   // Clamp defensively so a stale/out-of-range startIndex can never yield an
   // undefined step (which would throw and blank the whole app).
@@ -169,6 +191,11 @@ export default function TourEngine({
   }, [rect, index, cardHeight]);
 
   const finish = useCallback(() => {
+    // Cut any in-flight narration so Echo doesn't keep talking after the
+    // tour card is gone (the last step has no ready-prompt, but its own
+    // narration may still be playing when the user clicks Finish).
+    const v = voiceRef.current;
+    if (v && v.active && !v.muted) v.stopAll();
     if (onComplete) onComplete();
   }, [onComplete]);
 
@@ -182,6 +209,73 @@ export default function TourEngine({
 
   const back = useCallback(() => {
     setIndex((i) => Math.max(i - 1, 0));
+  }, []);
+
+  // Stop the tour early: cut any narration, say a warm goodbye, close.
+  const stopTour = useCallback(() => {
+    const v = voiceRef.current;
+    if (v && v.active && !v.muted) {
+      v.stopAll();
+      speakNow(stopAck());
+    }
+    if (onClose) onClose();
+  }, [onClose, speakNow]);
+
+  // Narrate each step: cut the previous line, speak the intro (greeting first
+  // time) and — after the narration ACTUALLY finishes playing — ask whether
+  // to continue. Advancing still requires the user (spoken "yes" or Next);
+  // the tour never auto-advances.
+  useEffect(() => {
+    const v = voiceRef.current;
+    if (!v || !v.active || v.muted) return;
+    v.stopAll();
+    let text = narrationForStep(step, safeIndex);
+    if (!greetedRef.current) {
+      greetedRef.current = true;
+      text = `${tourGreeting()} ${text}`;
+    }
+    const last = safeIndex === total - 1;
+    speakNow(text, () => {
+      if (!last) speakNow(readyPrompt());
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
+
+  // Let the hands-free voice engine drive the tour: spoken "yes"/"next"
+  // advances, "back" goes back, "stop" ends it. The tour announces itself so
+  // the conversation engine routes those words here instead of treating them
+  // as ordinary commands.
+  const nextRef = useRef(next);
+  const backRef = useRef(back);
+  const stopRef = useRef(stopTour);
+  nextRef.current = next;
+  backRef.current = back;
+  stopRef.current = stopTour;
+  useEffect(() => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("echoai:tour-state", { detail: { active: true } }),
+      );
+    } catch {
+      /* noop */
+    }
+    const onCmd = (e) => {
+      const cmd = e && e.detail && e.detail.command;
+      if (cmd === "next" || cmd === "yes") nextRef.current();
+      else if (cmd === "back") backRef.current();
+      else if (cmd === "stop") stopRef.current();
+    };
+    window.addEventListener("echoai:tour-command", onCmd);
+    return () => {
+      window.removeEventListener("echoai:tour-command", onCmd);
+      try {
+        window.dispatchEvent(
+          new CustomEvent("echoai:tour-state", { detail: { active: false } }),
+        );
+      } catch {
+        /* noop */
+      }
+    };
   }, []);
 
   // Fire confetti when the final celebration step appears.
@@ -221,12 +315,12 @@ export default function TourEngine({
         back();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        if (onClose) onClose();
+        stopTour();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, back, onClose]);
+  }, [next, back, stopTour]);
 
   const progressPct = Math.round(((safeIndex + 1) / total) * 100);
 
@@ -281,10 +375,10 @@ export default function TourEngine({
             Step {safeIndex + 1} of {total}
           </span>
           <button
-            onClick={onClose}
+            onClick={stopTour}
             className="text-xs font-medium text-gray-500 hover:text-gray-300"
           >
-            Skip tour
+            Stop tour
           </button>
         </div>
 

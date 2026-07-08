@@ -60,3 +60,4 @@
 - [EchoAI login silence & logout kill](echoai-login-silence-logout-kill.md) — after login greeting Echo stays silent until user initiates; logout must broadcast a kill event — singleton audio elements outlive unmounts.
 - [EchoAI voice barge-in](echoai-voice-barge-in.md) — interrupt = exact short utterance only; drain loop must re-kick after "stopped"; clear pending-answer refs at every reset site.
 - [EchoAI speech-pattern learning](echoai-speech-learning.md) — normalize slang/accent in one choke point; learned phrases rewrite to canonical text; reset confidence ref at EVERY capture boundary or clarify misfires.
+- [EchoAI voice-narrated tour](echoai-voice-tour.md) — tour↔voice engine talk via echoai:tour-state/tour-command window events; final-only utterance matching, never auto-advance, tour speaks its own stop/finish cuts.

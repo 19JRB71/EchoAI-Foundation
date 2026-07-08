@@ -489,6 +489,31 @@ export function matchInterruptIntent(text) {
 }
 
 // ---------------------------------------------------------------------------
+// Guided-tour voice control
+// ---------------------------------------------------------------------------
+// While the guided tour is running, short spoken answers drive it directly —
+// no wake word needed. Matched against the FULL normalized utterance (like
+// interrupts) so Echo's own narration can never advance the tour by itself.
+const TOUR_NEXT_RE =
+  /^(?:hey )?(?:echo )?(?:please )?(?:next(?: one| section| step)?|continue|go on|keep going|move on|go ahead|carry on|show me(?: the next one)?|let s go|lets go|i m ready|im ready|ready)(?: please)?(?: sir)?$/;
+const TOUR_BACK_RE = /^(?:hey )?(?:echo )?(?:go |)back(?: one| up)?(?: please)?$/;
+
+/**
+ * Interpret an utterance as a guided-tour command.
+ * @returns {"next"|"back"|"stop"|null}
+ */
+export function matchTourCommand(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return null;
+  if (norm.split(" ").length > 6) return null;
+  if (matchInterruptIntent(norm)) return "stop";
+  if (TOUR_BACK_RE.test(norm)) return "back";
+  if (TOUR_NEXT_RE.test(norm)) return "next";
+  if (matchYesNo(norm) === "yes") return "next";
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // On-demand briefing request + type choice
 // ---------------------------------------------------------------------------
 const BRIEFING_REQUEST_RE =

@@ -725,3 +725,41 @@ describe("MORNING_MUSIC_READY_LINE", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Guided-tour voice commands
+// ---------------------------------------------------------------------------
+import { matchTourCommand } from "./conversationHelpers.js";
+
+describe("matchTourCommand", () => {
+  it("yes-style answers advance the tour", () => {
+    expect(matchTourCommand("yes")).toBe("next");
+    expect(matchTourCommand("Yes sir")).toBe("next");
+    expect(matchTourCommand("yeah")).toBe("next");
+    expect(matchTourCommand("sure")).toBe("next");
+  });
+  it("next/continue phrasing advances the tour", () => {
+    expect(matchTourCommand("next")).toBe("next");
+    expect(matchTourCommand("next one")).toBe("next");
+    expect(matchTourCommand("keep going")).toBe("next");
+    expect(matchTourCommand("continue")).toBe("next");
+    expect(matchTourCommand("I'm ready")).toBe("next");
+    expect(matchTourCommand("go ahead")).toBe("next");
+  });
+  it("back goes back", () => {
+    expect(matchTourCommand("back")).toBe("back");
+    expect(matchTourCommand("go back")).toBe("back");
+  });
+  it("stop-style barks end the tour", () => {
+    expect(matchTourCommand("stop")).toBe("stop");
+    expect(matchTourCommand("that's enough")).toBe("stop");
+    expect(matchTourCommand("cancel")).toBe("stop");
+  });
+  it("ordinary sentences do not drive the tour", () => {
+    expect(matchTourCommand("this is your lead inbox where leads land")).toBe(null);
+    expect(matchTourCommand("what are my leads today")).toBe(null);
+    expect(matchTourCommand("")).toBe(null);
+    // Echo's own narration contains these words mid-sentence — must not match.
+    expect(matchTourCommand("ready to see the next one sir")).toBe(null);
+  });
+});

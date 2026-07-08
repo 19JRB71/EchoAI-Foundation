@@ -41,6 +41,7 @@ import {
   BRIEF_SECTIONS,
   matchMusicIntent,
   matchInterruptIntent,
+  matchTourCommand,
   matchBriefingIntent,
   matchBriefingStart,
   matchBriefingChoice,
@@ -156,6 +157,9 @@ export function EchoConversationProvider({ active, children }) {
   // adding the ever-changing `voice` object to their dependency lists.
   const stopAllRef = useRef(null);
   const commandHandlerRef = useRef(null);
+  // Guided tour: while it's running, short answers ("yes", "next", "stop")
+  // are routed to the tour instead of the normal command flow.
+  const tourActiveRef = useRef(false);
 
   const runningRef = useRef(false); // is a recognition instance live?
   const enabledRef = useRef(micEnabled);
@@ -289,6 +293,28 @@ export function EchoConversationProvider({ active, children }) {
   useEffect(() => {
     stopAllRef.current = voice && voice.stopAll ? voice.stopAll : null;
   }, [voice]);
+
+  // Track whether the guided tour is running (TourEngine announces itself),
+  // and forward matched tour commands back to it.
+  useEffect(() => {
+    const onTourState = (e) => {
+      tourActiveRef.current = !!(e && e.detail && e.detail.active);
+    };
+    window.addEventListener("echoai:tour-state", onTourState);
+    return () => {
+      window.removeEventListener("echoai:tour-state", onTourState);
+      tourActiveRef.current = false;
+    };
+  }, []);
+  const dispatchTourCommand = useCallback((command) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("echoai:tour-command", { detail: { command } }),
+      );
+    } catch {
+      /* noop */
+    }
+  }, []);
 
   // ---- listening lifecycle -------------------------------------------------
   const stopRecognition = useCallback(() => {
@@ -855,6 +881,13 @@ export function EchoConversationProvider({ active, children }) {
           } catch {
             /* noop */
           }
+          // A "stop" during tour narration ends the TOUR (which speaks its own
+          // goodbye) — skip the generic interrupt acknowledgement.
+          if (tourActiveRef.current) {
+            dispatchTourCommand("stop");
+            interruptedRef.current = false;
+            return;
+          }
           (async () => {
             try {
               suspendRef.current = true;
@@ -896,6 +929,23 @@ export function EchoConversationProvider({ active, children }) {
         }
       }
 
+      // Guided tour: short spoken answers ("yes", "next", "back", "stop")
+      // drive the tour directly — no wake word needed. Only FINAL results are
+      // matched so a single utterance can't advance the tour twice.
+      if (tourActiveRef.current && addedFinal) {
+        const cmd = matchTourCommand(finalRef.current);
+        if (cmd) {
+          finalRef.current = "";
+          setListeningText("");
+          if (pauseTimerRef.current) {
+            clearTimeout(pauseTimerRef.current);
+            pauseTimerRef.current = null;
+          }
+          dispatchTourCommand(cmd);
+          return;
+        }
+      }
+
       if (modeRef.current === "passive") {
         const combined = `${finalRef.current} ${interim}`.trim();
         const { matched, command } = parseWakeWord(combined);
@@ -927,7 +977,14 @@ export function EchoConversationProvider({ active, children }) {
         finalRef.current = "";
       }
     },
-    [goActive, processCommand, clearTimers, speakAndWait, openFollowupWindow],
+    [
+      goActive,
+      processCommand,
+      clearTimers,
+      speakAndWait,
+      openFollowupWindow,
+      dispatchTourCommand,
+    ],
   );
 
   const startRecognition = useCallback(() => {
