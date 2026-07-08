@@ -15,7 +15,12 @@ const path = require("path");
 const db = require("../config/db");
 const { synthesizeSpeech, isVoiceConfigured } = require("./voiceController");
 const elevenlabs = require("../utils/elevenlabs");
-const { normalizeSettings, voiceForStyle, isQuietHour } = require("../config/echoVoice");
+const {
+  normalizeSettings,
+  resolveMusicFavorites,
+  voiceForStyle,
+  isQuietHour,
+} = require("../config/echoVoice");
 const { gatherBriefingData, gatherWeeklyData, narrate } = require("../utils/echoBriefing");
 const { recordShown, recordDecision, isValidKey } = require("../utils/echoSuggestions");
 const { toJsonbParam } = require("../utils/jsonb");
@@ -64,8 +69,15 @@ function displayName(user) {
 async function getSettings(req, res) {
   try {
     const user = await loadUser(req.user.userId);
+    const settings = normalizeSettings(user && user.voice_settings);
+    // Favorites resolve from the RAW blob so a never-set admin account still
+    // sees the three default song suggestions until they save their own list.
+    settings.musicFavorites = resolveMusicFavorites(
+      user && user.voice_settings,
+      user && user.role,
+    );
     return res.json({
-      settings: normalizeSettings(user && user.voice_settings),
+      settings,
       firstName: displayName(user),
     });
   } catch (err) {
@@ -357,6 +369,10 @@ async function getBriefing(req, res) {
       alreadyDeliveredToday: sameDay(user && user.last_briefing_at, new Date()),
       autoBriefing: settings.autoBriefing,
       enabled: settings.enabled,
+      // Whether the owner has saved morning-music favorites (admin defaults
+      // count) — the login greeting adds "your playlist is ready" when true.
+      musicReady:
+        resolveMusicFavorites(user && user.voice_settings, user && user.role).length > 0,
     });
   } catch (err) {
     console.error("getBriefing error:", err.message);

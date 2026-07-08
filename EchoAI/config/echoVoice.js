@@ -88,6 +88,12 @@ function normalizeSettings(stored) {
       acc[type] = typeof val === "boolean" ? val : DEFAULT_SETTINGS.events[type] !== false;
       return acc;
     }, {}),
+    // Only persist the favorites key when the owner has actually set a list, so
+    // "never set" stays distinguishable (the admin default suggestions apply
+    // until the first explicit save). JSON.stringify drops `undefined`.
+    ...(Array.isArray(s.musicFavorites)
+      ? { musicFavorites: sanitizeMusicFavorites(s.musicFavorites) }
+      : {}),
   };
 }
 
@@ -95,6 +101,37 @@ function clampHour(value, fallback) {
   const n = Number(value);
   if (!Number.isInteger(n) || n < 0 || n > 23) return fallback;
   return n;
+}
+
+// Morning music favorites: up to 5 saved songs/artists/playlists (free-text
+// names searched on YouTube at play time). The platform admin account starts
+// with three suggestions until they save their own list; everyone else starts
+// empty. Once the owner saves settings, the stored list (even empty) wins.
+const MAX_MUSIC_FAVORITES = 5;
+const DEFAULT_ADMIN_MUSIC_FAVORITES = [
+  "AC/DC Thunderstruck",
+  "Pharrell Williams Happy",
+  "Survivor Eye of the Tiger",
+];
+
+/** Trim/clamp a stored favorites list to at most 5 non-empty names. */
+function sanitizeMusicFavorites(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((s) => typeof s === "string" && s.trim())
+    .map((s) => s.trim().slice(0, 200))
+    .slice(0, MAX_MUSIC_FAVORITES);
+}
+
+/**
+ * Resolve the owner's music favorites from the RAW stored voice_settings blob.
+ * Distinguishes "never set" (admin gets the default suggestions) from an
+ * explicitly saved list (stored array wins, even when emptied on purpose).
+ */
+function resolveMusicFavorites(stored, role) {
+  const s = stored && typeof stored === "object" ? stored : {};
+  if (Array.isArray(s.musicFavorites)) return sanitizeMusicFavorites(s.musicFavorites);
+  return role === "admin" ? DEFAULT_ADMIN_MUSIC_FAVORITES.slice() : [];
 }
 
 /** Resolve a stored style name to the concrete OpenAI voice. */
@@ -119,6 +156,10 @@ module.exports = {
   DEFAULT_STYLE,
   EVENT_TYPES,
   DEFAULT_SETTINGS,
+  MAX_MUSIC_FAVORITES,
+  DEFAULT_ADMIN_MUSIC_FAVORITES,
+  sanitizeMusicFavorites,
+  resolveMusicFavorites,
   normalizeSettings,
   voiceForStyle,
   isQuietHour,

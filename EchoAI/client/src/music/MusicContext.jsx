@@ -167,6 +167,35 @@ export function MusicProvider({ children }) {
     [playResults],
   );
 
+  // Play the owner's saved Music Preferences (up to 5 songs/artists), starting
+  // at `index` (0-based) then continuing through the rest of the list. Each
+  // saved name resolves to its top YouTube result at play time.
+  const playFavorites = useCallback(
+    async (index = 0) => {
+      let favs = [];
+      try {
+        const r = await api.echoVoiceGetSettings();
+        favs = (r && r.settings && r.settings.musicFavorites) || [];
+      } catch {
+        /* owner-only settings unavailable — nothing to play */
+      }
+      favs = favs.filter((s) => typeof s === "string" && s.trim());
+      if (!favs.length) return;
+      const start = Math.min(Math.max(0, Number(index) || 0), favs.length - 1);
+      const ordered = favs.slice(start).concat(favs.slice(0, start));
+      const settled = await Promise.allSettled(
+        ordered.map((q) => api.musicSearch(q, 1)),
+      );
+      const tracks = settled.flatMap((s) =>
+        s.status === "fulfilled" && s.value && Array.isArray(s.value.results)
+          ? s.value.results.slice(0, 1)
+          : [],
+      );
+      playResults(tracks);
+    },
+    [playResults],
+  );
+
   const pause = useCallback(() => {
     const p = playerRef.current;
     if (p && readyRef.current) {
@@ -247,6 +276,9 @@ export function MusicProvider({ children }) {
         case "play":
           playQuery(value);
           break;
+        case "favorites":
+          playFavorites((e.detail && e.detail.index) || 0);
+          break;
         case "pause":
           pause();
           break;
@@ -280,7 +312,7 @@ export function MusicProvider({ children }) {
       window.removeEventListener("echoai:tts-end", onTtsEnd);
       window.removeEventListener("echoai:morning-return", onMorning);
     };
-  }, [playQuery, pause, resume, skip, stop, nudgeVolume, duck, unduck]);
+  }, [playQuery, playFavorites, pause, resume, skip, stop, nudgeVolume, duck, unduck]);
 
   const value = useMemo(
     () => ({

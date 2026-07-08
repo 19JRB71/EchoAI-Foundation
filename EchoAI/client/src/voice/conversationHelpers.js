@@ -465,6 +465,11 @@ export function matchBriefingIntent(text) {
 export const MORNING_STANDBY_GREETING =
   "Good morning Sir. I will be on standby waiting for you to start your morning briefing.";
 
+// Appended to the standby greeting when the owner has saved morning-music
+// favorites (or the admin default suggestions apply).
+export const MORNING_MUSIC_READY_LINE =
+  "Your morning playlist is ready whenever you want it Sir.";
+
 const BRIEFING_START_RE =
   /\b((i m |im )?ready( now)?|start (my |the )?(morning )?briefing|(morning )?briefing time|let s do it|kick it off|fire it up|hit me|go ahead)\b/;
 
@@ -522,11 +527,21 @@ const RESUME_RE =
   /\b(resume|unpause|keep playing|continue playing|play again|un pause)( the)?( music| song)?\b/;
 const PLAY_RE = /\b(play|put on|start playing)\b\s*(.*)$/;
 
+// Saved-favorites playback ("play my morning playlist", "start my music",
+// "play some of my favorites", "play song number two"). Resolves to the
+// owner's saved Music Preferences list (up to 5 songs/artists).
+const FAVORITES_RE =
+  /\b(?:play|start|put on|fire up|kick off|run|spin)\b.*\b(?:my (?:morning )?(?:playlist|music|songs?|tunes?|favou?rites?|jams?)|the (?:morning )?playlist|some of my favou?rites?|my favou?rite (?:songs?|music|tunes?))\b/;
+const NUMBER_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+const SONG_NUMBER_RE =
+  /\bplay\b.*\b(?:song|track|tune|favou?rite)\s*(?:number\s*)?(one|two|three|four|five|[1-5])\b/;
+
 /**
  * Match a music-playback voice command.
- * @returns {{action:"play"|"pause"|"resume"|"skip"|"stop"|"volume", value?:string}|null}
+ * @returns {{action:"play"|"pause"|"resume"|"skip"|"stop"|"volume"|"favorites", value?:string, index?:number}|null}
  *   For "play", `value` is the (possibly empty) search query. For "volume",
- *   `value` is "up" or "down".
+ *   `value` is "up" or "down". For "favorites", `index` is the 0-based saved
+ *   song to start from.
  */
 export function matchMusicIntent(text) {
   const norm = normalizeSpeech(text);
@@ -537,6 +552,12 @@ export function matchMusicIntent(text) {
   if (STOP_RE.test(norm)) return { action: "stop" };
   if (RESUME_RE.test(norm)) return { action: "resume" };
   if (PAUSE_RE.test(norm)) return { action: "pause" };
+  const num = norm.match(SONG_NUMBER_RE);
+  if (num) {
+    const n = NUMBER_WORDS[num[1]] || Number(num[1]);
+    return { action: "favorites", index: n - 1 };
+  }
+  if (FAVORITES_RE.test(norm)) return { action: "favorites", index: 0 };
   const m = norm.match(PLAY_RE);
   if (m) {
     let q = (m[2] || "").trim();

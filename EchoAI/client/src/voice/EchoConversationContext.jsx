@@ -72,6 +72,10 @@ function musicReply(music) {
   switch (music.action) {
     case "play":
       return music.value ? `Playing ${music.value}.` : "Starting some music.";
+    case "favorites":
+      return music.index
+        ? `Playing song number ${music.index + 1} from your list Sir.`
+        : "Starting your playlist Sir.";
     case "pause":
       return "Paused.";
     case "resume":

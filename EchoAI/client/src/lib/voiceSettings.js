@@ -130,6 +130,14 @@ export function normalizeSettings(stored) {
       acc[k] = typeof val === "boolean" ? val : true;
       return acc;
     }, {}),
+    // Saved morning-music favorites (up to 5 songs/artists). The server owns
+    // the admin default suggestions; the client just mirrors what it was sent.
+    musicFavorites: Array.isArray(s.musicFavorites)
+      ? s.musicFavorites
+          .filter((f) => typeof f === "string" && f.trim())
+          .map((f) => f.trim().slice(0, 200))
+          .slice(0, 5)
+      : [],
   };
 }
 

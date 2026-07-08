@@ -618,6 +618,8 @@ describe("clarification constants", () => {
 import {
   matchBriefingStart,
   MORNING_STANDBY_GREETING,
+  MORNING_MUSIC_READY_LINE,
+  matchMusicIntent,
 } from "./conversationHelpers.js";
 
 describe("morning standby (matchBriefingStart)", () => {
@@ -650,5 +652,45 @@ describe("morning standby (matchBriefingStart)", () => {
     expect(matchBriefingStart("play some music")).toBe(false);
     expect(matchBriefingStart("take me to my leads")).toBe(false);
     expect(matchBriefingStart("")).toBe(false);
+  });
+});
+
+describe("matchMusicIntent — saved favorites", () => {
+  it("playlist/music/favorites phrasings start the saved list", () => {
+    expect(matchMusicIntent("start my music")).toEqual({ action: "favorites", index: 0 });
+    expect(matchMusicIntent("play my morning playlist")).toEqual({ action: "favorites", index: 0 });
+    expect(matchMusicIntent("play my morning music")).toEqual({ action: "favorites", index: 0 });
+    expect(matchMusicIntent("play some of my favorites")).toEqual({ action: "favorites", index: 0 });
+    expect(matchMusicIntent("hey echo play my favorite songs")).toEqual({ action: "favorites", index: 0 });
+  });
+  it("song-number requests map to the 0-based index", () => {
+    expect(matchMusicIntent("play song number two")).toEqual({ action: "favorites", index: 1 });
+    expect(matchMusicIntent("play track 5")).toEqual({ action: "favorites", index: 4 });
+    expect(matchMusicIntent("play my favorite number one")).toEqual({ action: "favorites", index: 0 });
+  });
+  it("generic 'the music' phrasing stays generic play, not favorites", () => {
+    expect(matchMusicIntent("play the music")).toEqual({ action: "play", value: "" });
+    expect(matchMusicIntent("start playing the music")).toEqual({ action: "play", value: "" });
+    expect(matchMusicIntent("play the playlist")).toEqual({ action: "favorites", index: 0 });
+  });
+  it("search-style play requests still go to YouTube search", () => {
+    expect(matchMusicIntent("play some AC/DC")).toEqual({ action: "play", value: "ac dc" });
+    expect(matchMusicIntent("play some jazz")).toEqual({ action: "play", value: "jazz" });
+  });
+  it("skip and stop keep working", () => {
+    expect(matchMusicIntent("next song")).toEqual({ action: "skip" });
+    expect(matchMusicIntent("stop the music")).toEqual({ action: "stop" });
+  });
+  it("non-music speech does not match", () => {
+    expect(matchMusicIntent("what are my leads today")).toBe(null);
+    expect(matchMusicIntent("")).toBe(null);
+  });
+});
+
+describe("MORNING_MUSIC_READY_LINE", () => {
+  it("is the exact playlist-ready sentence", () => {
+    expect(MORNING_MUSIC_READY_LINE).toBe(
+      "Your morning playlist is ready whenever you want it Sir.",
+    );
   });
 });

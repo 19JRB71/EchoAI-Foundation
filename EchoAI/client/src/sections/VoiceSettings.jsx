@@ -109,7 +109,15 @@ export default function VoiceSettings() {
     setSaving(true);
     setErr("");
     try {
-      await voice.saveSettings(draft, name.trim());
+      // Drop blank music slots so the saved list matches what the server keeps.
+      const cleaned = {
+        ...draft,
+        musicFavorites: (draft.musicFavorites || [])
+          .map((s) => (typeof s === "string" ? s.trim() : ""))
+          .filter(Boolean),
+      };
+      await voice.saveSettings(cleaned, name.trim());
+      setDraft(cleaned);
       setSavedAt(Date.now());
     } catch (e) {
       setErr(e.message || "Couldn't save your voice settings.");
@@ -250,6 +258,48 @@ export default function VoiceSettings() {
               checked={draft.autoBriefing}
               onChange={(v) => update({ autoBriefing: v })}
             />
+          </div>
+        </section>
+
+        {/* Music preferences */}
+        <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+          <div className="text-sm font-semibold text-gray-100">
+            Music preferences
+          </div>
+          <p className="mb-3 mt-1 text-xs text-gray-400">
+            Save up to five favorite songs, artists, or playlists. Say
+            &ldquo;Hey Echo, start my music&rdquo;, &ldquo;play my morning
+            playlist&rdquo;, or &ldquo;play song number two&rdquo; and Echo
+            plays them through YouTube. &ldquo;Next song&rdquo; skips,
+            &ldquo;stop the music&rdquo; stops.
+          </p>
+          <div className="space-y-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="w-5 text-right text-xs text-gray-500">
+                  {i + 1}.
+                </span>
+                <input
+                  type="text"
+                  value={(draft.musicFavorites || [])[i] || ""}
+                  maxLength={200}
+                  onChange={(e) => {
+                    const next = Array.from(
+                      { length: 5 },
+                      (_, j) => (draft.musicFavorites || [])[j] || "",
+                    );
+                    next[i] = e.target.value;
+                    update({ musicFavorites: next });
+                  }}
+                  placeholder={
+                    i === 0
+                      ? 'e.g. "AC/DC Thunderstruck"'
+                      : "Song, artist, or playlist name"
+                  }
+                  className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-teal-500 focus:outline-none"
+                />
+              </div>
+            ))}
           </div>
         </section>
 
