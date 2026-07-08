@@ -610,6 +610,74 @@ async function markNotificationDelivered(req, res) {
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Learned speech patterns
+// ---------------------------------------------------------------------------
+// Echo adapts to how the owner naturally talks: phrases Echo initially
+// misheard get mapped to the action the owner meant, so over time fewer
+// repetitions are needed. Phrases are stored normalized (lowercase, no
+// punctuation) and matched exactly on the client.
+
+const LEARNABLE_ACTIONS = new Set([
+  "stop",
+  "yes",
+  "no",
+  "briefing",
+  "briefing_quick",
+  "status",
+]);
+
+async function getLearnedPhrases(req, res) {
+  try {
+    const r = await db.query(
+      `SELECT phrase, action
+         FROM voice_learned_phrases
+        WHERE user_id = $1
+        ORDER BY hits DESC, last_used_at DESC
+        LIMIT 300`,
+      [req.user.userId]
+    );
+    return res.json({ phrases: r.rows });
+  } catch (err) {
+    console.error("getLearnedPhrases error:", err.message);
+    return res.status(500).json({ error: "Failed to load learned phrases" });
+  }
+}
+
+async function saveLearnedPhrase(req, res) {
+  try {
+    const phrase = String((req.body && req.body.phrase) || "")
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const action = String((req.body && req.body.action) || "").trim();
+    if (!phrase || phrase.length < 2 || phrase.length > 80) {
+      return res.status(400).json({ error: "Invalid phrase" });
+    }
+    if (phrase.split(" ").length > 6) {
+      return res.status(400).json({ error: "Phrase too long to learn" });
+    }
+    if (!LEARNABLE_ACTIONS.has(action)) {
+      return res.status(400).json({ error: "Invalid action" });
+    }
+    await db.query(
+      `INSERT INTO voice_learned_phrases (user_id, phrase, action)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, phrase)
+       DO UPDATE SET action = EXCLUDED.action,
+                     hits = voice_learned_phrases.hits + 1,
+                     last_used_at = NOW()`,
+      [req.user.userId, phrase, action]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("saveLearnedPhrase error:", err.message);
+    return res.status(500).json({ error: "Failed to save learned phrase" });
+  }
+}
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -624,4 +692,6 @@ module.exports = {
   getPending,
   markNotificationDelivered,
   warmMorningBriefings,
+  getLearnedPhrases,
+  saveLearnedPhrase,
 };

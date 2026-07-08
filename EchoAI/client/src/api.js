@@ -1216,6 +1216,12 @@ export const api = {
       body: { decision },
     }),
   echoVoiceGetStatus: () => request("/api/echo-voice/status"),
+  echoVoiceGetLearnedPhrases: () => request("/api/echo-voice/learned-phrases"),
+  echoVoiceLearnPhrase: (phrase, action) =>
+    request("/api/echo-voice/learned-phrases", {
+      method: "POST",
+      body: { phrase, action },
+    }),
   echoVoiceGetPending: (clientHour) =>
     request(
       `/api/echo-voice/pending${

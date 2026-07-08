@@ -44,10 +44,27 @@ import {
   matchBriefingIntent,
   matchBriefingChoice,
   BRIEFING_CHOICE_QUESTION,
+  matchStatusIntent,
+  matchLearnedPhrase,
+  normalizeSpeech,
+  CLARIFY_QUESTION,
+  CONFIDENCE_THRESHOLD,
 } from "./conversationHelpers.js";
 import { api } from "../api.js";
 
 const EchoConversationContext = createContext(null);
+
+// A learned phrase maps to one of these canonical utterances, which the normal
+// intent matchers below understand — so a learned phrase behaves exactly like
+// saying the standard command.
+const LEARNED_CANON = {
+  stop: "stop",
+  yes: "yes",
+  no: "no",
+  briefing: "catch me up",
+  briefing_quick: "catch me up",
+  status: "status report",
+};
 
 // Short spoken acknowledgement for a music voice command.
 function musicReply(music) {
@@ -138,6 +155,10 @@ export function EchoConversationProvider({ active, children }) {
   const pendingBriefRef = useRef(null); // section-readout offer awaiting yes/no
   const pendingBriefingChoiceRef = useRef(false); // briefing-type question pending
   const interruptedRef = useRef(false); // a barge-in interrupt is being handled
+  const learnedMapRef = useRef(new Map()); // normalized phrase -> learned action
+  const misheardRef = useRef(null); // { text, at } awaiting a clarified repeat
+  const clarifyRetryRef = useRef(false); // asked "say that again?" once already
+  const confRef = useRef(null); // lowest recognizer confidence of the capture
   // Latest voice.stopAll, readable from stable callbacks (handleResult) without
   // adding the ever-changing `voice` object to their dependency lists.
   const stopAllRef = useRef(null);
@@ -157,6 +178,26 @@ export function EchoConversationProvider({ active, children }) {
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
+
+  // Load the owner's learned speech patterns once so familiar phrases match
+  // instantly. Failures are silent — Echo just runs on built-in matching.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .echoVoiceGetLearnedPhrases()
+      .then((data) => {
+        if (cancelled || !data || !Array.isArray(data.phrases)) return;
+        const map = new Map();
+        for (const row of data.phrases) {
+          if (row && row.phrase && row.action) map.set(row.phrase, row.action);
+        }
+        learnedMapRef.current = map;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Gate the mic while Echo is speaking — for ANY Echo audio (morning/weekly
   // briefings, real-time alerts, conversation replies), driven by the shared TTS
@@ -312,11 +353,29 @@ export function EchoConversationProvider({ active, children }) {
     }
   }, [shouldBeListening]);
 
+  // Remember a previously-misheard phrase once its repeat resolves to a known
+  // action, so next time the owner's own wording works on the first try.
+  const maybeLearn = useCallback((action, matchedText) => {
+    const miss = misheardRef.current;
+    misheardRef.current = null;
+    clarifyRetryRef.current = false;
+    if (!miss || Date.now() - miss.at > 45000) return;
+    const phrase = normalizeSpeech(miss.text);
+    if (!phrase || phrase.length < 2 || phrase.split(" ").length > 6) return;
+    if (phrase === normalizeSpeech(matchedText || "")) return;
+    learnedMapRef.current.set(phrase, action);
+    api.echoVoiceLearnPhrase(phrase, action).catch(() => {});
+  }, []);
+
   const processCommand = useCallback(
     async (raw) => {
-      const text = (raw || "").trim();
+      let text = (raw || "").trim();
       clearTimers();
       patienceRef.current = false;
+      // Snapshot + reset the capture confidence so it can't leak into the
+      // next command.
+      const captureConf = confRef.current;
+      confRef.current = null;
       if (!text) {
         // Nothing captured — quietly reopen the follow-up window.
         modeRef.current = "active";
@@ -326,11 +385,23 @@ export function EchoConversationProvider({ active, children }) {
       }
       setListeningText("");
 
+      // Learned speech patterns: if the owner has taught Echo this exact
+      // phrase, rewrite it to the canonical command it maps to and bump its
+      // usage count so strong habits rank first.
+      const learnedAction = matchLearnedPhrase(text, learnedMapRef.current);
+      if (learnedAction && LEARNED_CANON[learnedAction]) {
+        api
+          .echoVoiceLearnPhrase(normalizeSpeech(text), learnedAction)
+          .catch(() => {});
+        text = LEARNED_CANON[learnedAction];
+      }
+
       // Interrupt commands ("Stop", "Cancel", "Never mind", "Wait", "That's
       // enough") — acknowledge and return to listening. Mid-speech barge-ins
       // are caught earlier in handleResult; this covers the same words spoken
       // while Echo is quietly listening.
       if (matchInterruptIntent(text)) {
+        maybeLearn("stop", text);
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
         suspendRef.current = true;
@@ -379,6 +450,7 @@ export function EchoConversationProvider({ active, children }) {
             ? null
             : matchYesNo(text);
         if (answer === "no") {
+          maybeLearn("no", text);
           // The owner declined — stay quiet and go back to passive listening.
           modeRef.current = "passive";
           suspendRef.current = false;
@@ -386,6 +458,7 @@ export function EchoConversationProvider({ active, children }) {
           return;
         }
         if (answer === "yes") {
+          maybeLearn("yes", text);
           suspendRef.current = true;
           setConvState("processing");
           playEffect("thinking", { volume: 0.35 });
@@ -477,9 +550,35 @@ export function EchoConversationProvider({ active, children }) {
         // A new nav/music command → fall through and handle it normally.
       }
 
+      // Direct status request ("what we got", "status report") → read out the
+      // current cross-business status immediately, no follow-up question.
+      if (matchStatusIntent(text)) {
+        maybeLearn("status", text);
+        pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = false;
+        suspendRef.current = true;
+        setConvState("processing");
+        playEffect("thinking", { volume: 0.35 });
+        let statusText = "";
+        try {
+          const data = await api.echoVoiceGetStatus();
+          statusText = (data && data.text) || "";
+        } catch {
+          statusText = "";
+        }
+        if (!statusText)
+          statusText = "I couldn't pull the current status just now, Sir.";
+        setConvState("speaking");
+        await speakAndWait(statusText);
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow();
+        return;
+      }
+
       // On-demand briefing request ("give me my briefing", "catch me up").
       // Echo first asks which kind of briefing the owner wants.
       if (matchBriefingIntent(text)) {
+        maybeLearn("briefing", text);
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = true;
         suspendRef.current = true;
@@ -556,6 +655,27 @@ export function EchoConversationProvider({ active, children }) {
         return;
       }
 
+      // Nothing matched. If the recognizer itself wasn't confident about a
+      // short utterance, ask for clarification naturally instead of guessing —
+      // and remember the phrase if the clarified repeat resolves to an action.
+      if (
+        !clarifyRetryRef.current &&
+        typeof captureConf === "number" &&
+        captureConf < CONFIDENCE_THRESHOLD &&
+        text.split(" ").length <= 5
+      ) {
+        misheardRef.current = { text, at: Date.now() };
+        clarifyRetryRef.current = true;
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait(CLARIFY_QUESTION);
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow(true);
+        return;
+      }
+      misheardRef.current = null;
+      clarifyRetryRef.current = false;
+
       // Everything else → Echo's existing message pipeline.
       suspendRef.current = true;
       setConvState("processing");
@@ -583,7 +703,7 @@ export function EchoConversationProvider({ active, children }) {
       // eslint-disable-next-line no-use-before-define
       openFollowupWindow(asked);
     },
-    [clearTimers, speakAndWait],
+    [clearTimers, speakAndWait, maybeLearn],
   );
 
   // Reopen active listening after Echo speaks. When Echo asked a question we stay
@@ -592,6 +712,7 @@ export function EchoConversationProvider({ active, children }) {
     (indefinite = false) => {
       clearTimers();
       finalRef.current = "";
+      confRef.current = null;
       setListeningText("");
       modeRef.current = "active";
       suspendRef.current = false;
@@ -612,6 +733,8 @@ export function EchoConversationProvider({ active, children }) {
         // Soft close → back to passive wake-word listening.
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
+        misheardRef.current = null;
+        clarifyRetryRef.current = false;
         modeRef.current = "passive";
         suspendRef.current = false;
         setConvState("passive");
@@ -627,6 +750,9 @@ export function EchoConversationProvider({ active, children }) {
       clearTimers();
       finalRef.current = initialCommand || "";
       setListeningText(initialCommand || "");
+      // Fresh capture → fresh confidence; ambient/wake-phrase confidence must
+      // never leak into the command that follows.
+      confRef.current = null;
       modeRef.current = "active";
       suspendRef.current = false;
       setConvState("active");
@@ -696,6 +822,14 @@ export function EchoConversationProvider({ active, children }) {
         if (event.results[i].isFinal) {
           finalRef.current = `${finalRef.current} ${chunk}`.trim();
           addedFinal = true;
+          // Track the weakest final-chunk confidence for this capture; a low
+          // score on an unrecognized command triggers a natural clarification
+          // instead of a wrong guess (tuned for Southern accents).
+          const conf = event.results[i][0].confidence;
+          if (typeof conf === "number" && conf > 0) {
+            confRef.current =
+              confRef.current === null ? conf : Math.min(confRef.current, conf);
+          }
         } else {
           interim += chunk;
         }
@@ -741,6 +875,8 @@ export function EchoConversationProvider({ active, children }) {
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
+    // Ask the engine for alternates — improves accuracy for regional accents.
+    rec.maxAlternatives = 3;
     rec.lang = (typeof navigator !== "undefined" && navigator.language) || "en-US";
     rec.onresult = handleResult;
     rec.onerror = (e) => {
@@ -845,6 +981,8 @@ export function EchoConversationProvider({ active, children }) {
     clearTimers();
     pendingBriefRef.current = null;
     pendingBriefingChoiceRef.current = false;
+    misheardRef.current = null;
+    clarifyRetryRef.current = false;
     modeRef.current = "passive";
     suspendRef.current = false;
     setListeningText("");

@@ -487,3 +487,130 @@ describe("matchBriefingChoice", () => {
     expect(matchBriefingChoice("")).toBe("none");
   });
 });
+
+
+// ---------------------------------------------------------------------------
+// Speech-pattern learning + Southern/slang canonicalization
+// ---------------------------------------------------------------------------
+import {
+  matchStatusIntent,
+  matchLearnedPhrase,
+  resolveLearnableAction,
+  LEARNABLE_ACTIONS,
+  CLARIFY_QUESTION,
+  CONFIDENCE_THRESHOLD,
+} from "./conversationHelpers.js";
+
+describe("Southern/slang canonicalization (normalizeSpeech)", () => {
+  it("rewrites casual contractions", () => {
+    expect(normalizeSpeech("gimme the rundown")).toBe("give me the rundown");
+    expect(normalizeSpeech("lemme hear it")).toBe("let me hear it");
+    expect(normalizeSpeech("I'm fixin to leave")).toBe("i m about to leave");
+    expect(normalizeSpeech("howdy echo")).toBe("hey echo");
+    expect(normalizeSpeech("naw")).toBe("no");
+    expect(normalizeSpeech("yessir")).toBe("yes sir");
+    expect(normalizeSpeech("aight")).toBe("okay");
+  });
+  it("fixes dropped-g command verbs only", () => {
+    expect(normalizeSpeech("stop talkin")).toBe("stop talking");
+    expect(normalizeSpeech("what's happenin")).toBe("what s happening");
+    expect(normalizeSpeech("nothin")).toBe("nothing");
+    // unknown words are left alone
+    expect(normalizeSpeech("griffin")).toBe("griffin");
+  });
+  it("keeps standard speech untouched", () => {
+    expect(normalizeSpeech("Take me to my leads")).toBe("take me to my leads");
+  });
+});
+
+describe("slang command mappings", () => {
+  it("hold up / kill it / cut it interrupt", () => {
+    expect(matchInterruptIntent("hold up")).toBe(true);
+    expect(matchInterruptIntent("kill it")).toBe(true);
+    expect(matchInterruptIntent("kill everything")).toBe(true);
+    expect(matchInterruptIntent("shut it down")).toBe(true);
+    expect(matchInterruptIntent("cut it")).toBe(true);
+    expect(matchInterruptIntent("hey echo hold on")).toBe(true);
+  });
+  it("bet / run it / let's go mean yes", () => {
+    expect(matchYesNo("bet")).toBe("yes");
+    expect(matchYesNo("run it")).toBe("yes");
+    expect(matchYesNo("let's go")).toBe("yes");
+    expect(matchYesNo("send it")).toBe("yes");
+    expect(matchYesNo("yessir")).toBe("yes");
+  });
+  it("nah / naw mean no", () => {
+    expect(matchYesNo("nah")).toBe("no");
+    expect(matchYesNo("naw")).toBe("no");
+  });
+  it("what's good means give me an update", () => {
+    expect(matchBriefingIntent("what's good")).toBe(true);
+    expect(matchBriefingIntent("gimme the rundown")).toBe(true);
+    expect(matchBriefingIntent("how we lookin")).toBe(true);
+  });
+  it("real quick means a quick summary", () => {
+    expect(matchBriefingChoice("real quick")).toBe("quick");
+    expect(matchBriefingChoice("just real quick")).toBe("quick");
+  });
+});
+
+describe("matchStatusIntent", () => {
+  it("matches direct status asks", () => {
+    expect(matchStatusIntent("what we got")).toBe(true);
+    expect(matchStatusIntent("what do we got")).toBe(true);
+    expect(matchStatusIntent("show me the current status")).toBe(true);
+    expect(matchStatusIntent("status report")).toBe(true);
+    expect(matchStatusIntent("hey echo what we got today")).toBe(true);
+  });
+  it("does not match sentences merely containing status words", () => {
+    expect(matchStatusIntent("tell me what we got planned for the campaign next month")).toBe(false);
+    expect(matchStatusIntent("the status of that invoice is unpaid")).toBe(false);
+  });
+});
+
+describe("learned phrases", () => {
+  const learned = new Map([
+    ["squash it", "stop"],
+    ["holler at me", "briefing"],
+    ["whats cookin", "status"],
+  ]);
+  it("matches an exact learned phrase after normalization", () => {
+    expect(matchLearnedPhrase("Squash it!", learned)).toBe("stop");
+    expect(matchLearnedPhrase("holler at me", learned)).toBe("briefing");
+  });
+  it("never matches inside a longer sentence", () => {
+    expect(matchLearnedPhrase("please do not squash it when you file that", learned)).toBe(null);
+  });
+  it("ignores unknown actions and missing maps", () => {
+    expect(matchLearnedPhrase("squash it", new Map([["squash it", "rm -rf"]]))).toBe(null);
+    expect(matchLearnedPhrase("squash it", null)).toBe(null);
+  });
+});
+
+describe("resolveLearnableAction", () => {
+  it("maps understood repeats to actions", () => {
+    expect(resolveLearnableAction("stop")).toBe("stop");
+    expect(resolveLearnableAction("what we got")).toBe("status");
+    expect(resolveLearnableAction("catch me up")).toBe("briefing");
+    expect(resolveLearnableAction("yes")).toBe("yes");
+    expect(resolveLearnableAction("nah")).toBe("no");
+    expect(resolveLearnableAction("purple elephants")).toBe(null);
+  });
+});
+
+describe("clarification constants", () => {
+  it("asks the exact natural clarification", () => {
+    expect(CLARIFY_QUESTION).toBe(
+      "I didn't quite catch that Sir, could you say that again?",
+    );
+  });
+  it("threshold is a sane fraction", () => {
+    expect(CONFIDENCE_THRESHOLD).toBeGreaterThan(0);
+    expect(CONFIDENCE_THRESHOLD).toBeLessThan(1);
+  });
+  it("learnable actions include the core set", () => {
+    for (const a of ["stop", "yes", "no", "briefing", "status"]) {
+      expect(LEARNABLE_ACTIONS).toContain(a);
+    }
+  });
+});

@@ -46,4 +46,9 @@ router.get("/status", controller.getStatus);
 router.get("/pending", controller.getPending);
 router.post("/notifications/:id/delivered", controller.markNotificationDelivered);
 
+// Learned speech patterns: Echo adapts to the owner's natural phrasing over
+// time (misheard phrase repeated in an understood form → remembered mapping).
+router.get("/learned-phrases", controller.getLearnedPhrases);
+router.post("/learned-phrases", controller.saveLearnedPhrase);
+
 module.exports = router;

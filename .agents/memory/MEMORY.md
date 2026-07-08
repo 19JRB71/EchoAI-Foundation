@@ -57,3 +57,4 @@
 - [EchoAI voice pending yes/no offers](echoai-voice-pending-offer.md) — pending offer must yield to real commands (nav/music first), bare "please" ≠ yes, clear on every mute/timeout exit.
 - [EchoAI Railway/nixpacks deploy](echoai-railway-deploy.md) — bundled npm 10.8.2 silently half-installs (use Yarn + --ignore-engines); optional SDK clients (Stripe) that construct at boot crash the server — guard them.
 - [EchoAI voice barge-in](echoai-voice-barge-in.md) — interrupt = exact short utterance only; drain loop must re-kick after "stopped"; clear pending-answer refs at every reset site.
+- [EchoAI speech-pattern learning](echoai-speech-learning.md) — normalize slang/accent in one choke point; learned phrases rewrite to canonical text; reset confidence ref at EVERY capture boundary or clarify misfires.

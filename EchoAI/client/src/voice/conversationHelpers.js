@@ -2,13 +2,62 @@
 // they can be unit-tested without a browser: wake-word detection, question
 // detection, and local (client-handled) intent matching.
 
-/** Lowercase, strip punctuation, collapse whitespace. */
+// ---------------------------------------------------------------------------
+// Southern / conversational speech canonicalization
+// ---------------------------------------------------------------------------
+// Applied inside normalizeSpeech so EVERY matcher (wake word, yes/no,
+// interrupts, briefing, nav, music) understands country/slang phrasing for
+// free. Word-boundary replacements only — never substrings inside words.
+const SOUTHERN_REWRITES = [
+  // contractions & casual forms
+  [/\bgimme\b/g, "give me"],
+  [/\blemme\b/g, "let me"],
+  [/\bgonna\b/g, "going to"],
+  [/\bwanna\b/g, "want to"],
+  [/\bgotta\b/g, "got to"],
+  [/\bkinda\b/g, "kind of"],
+  [/\bfixin(g)? to\b/g, "about to"],
+  [/\by ?all\b/g, "you all"],
+  [/\bya\b/g, "you"],
+  [/\bhowdy\b/g, "hey"],
+  [/\ba+igh?t\b/g, "okay"],
+  [/\bight\b/g, "okay"],
+  [/\bnaw\b/g, "no"],
+  [/\byessir\b/g, "yes sir"],
+  [/\bnah sir\b/g, "no sir"],
+  [/\bsup\b/g, "what s up"],
+  [/\bfo sho\b/g, "for sure"],
+  [/\bsho nuff\b/g, "sure enough"],
+];
+
+// Dropped-g verb endings the recognizer often emits for Southern speech
+// ("runnin", "stoppin", "listenin"). Only KNOWN command-relevant verbs are
+// mapped — never a blanket "in"→"ing" rewrite.
+const DROPPED_G = [
+  "runnin", "stoppin", "talkin", "listenin", "playin", "goin", "comin",
+  "waitin", "holdin", "showin", "workin", "doin", "happenin", "lookin",
+  "readin", "openin", "startin", "pausin", "skippin", "postin", "checkin",
+  "mornin", "evenin", "nothin", "somethin", "anythin", "everythin",
+];
+const DROPPED_G_RE = new RegExp(`\\b(${DROPPED_G.join("|")})\\b`, "g");
+const DROPPED_G_FIX = {
+  nothin: "nothing", somethin: "something", anythin: "anything",
+  everythin: "everything", mornin: "morning", evenin: "evening",
+};
+
+/**
+ * Lowercase, strip punctuation, collapse whitespace, then canonicalize
+ * Southern/slang speech so all downstream matchers see standard phrasing.
+ */
 export function normalizeSpeech(text) {
-  return String(text || "")
+  let norm = String(text || "")
     .toLowerCase()
     .replace(/[^\w\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  for (const [re, to] of SOUTHERN_REWRITES) norm = norm.replace(re, to);
+  norm = norm.replace(DROPPED_G_RE, (w) => DROPPED_G_FIX[w] || `${w}g`);
+  return norm.replace(/\s+/g, " ").trim();
 }
 
 // The wake phrase is "Hey Echo". We tolerate common speech-recognition
@@ -352,7 +401,7 @@ export function navOfferQuestion(navKey) {
 // NOTE: these match AFTER normalizeSpeech, which replaces apostrophes with a
 // space ("let's" → "let s", "i'm" → "i m", "that's" → "that s").
 const YES_RE =
-  /\b(yes|yeah|yep|yup|sure|ok(ay)?|yes please|please do|go ahead|go for it|absolutely|definitely|of course|why not|do it|read (it|them)|let s hear it|sounds good)\b/;
+  /\b(yes|yeah|yep|yup|sure|ok(ay)?|yes please|please do|go ahead|go for it|absolutely|definitely|of course|why not|do it|read (it|them)|let s hear it|sounds good|bet|run it|let s go|lets go|send it|hit it|for sure|sure enough|yes sir)\b/;
 const NO_RE =
   /\b(no|nope|nah|not now|not right now|maybe later|later|i m (good|fine|okay|ok)|im (good|fine|okay|ok)|that s (ok|okay|fine)|don t|do not|skip it|never mind|nevermind)\b/;
 
@@ -380,7 +429,7 @@ export function matchYesNo(text) {
 // utterance must BE the interrupt phrase (optionally prefixed with "hey echo" /
 // "echo" or followed by "please"), never merely contain it.
 const INTERRUPT_RE =
-  /^(?:hey )?(?:echo )?(?:please )?(?:stop|cancel|never ?mind|wait|hold up|that s enough|thats enough|that is enough|okay stop|ok stop|stop talking|stop it)(?: please)?(?: echo)?$/;
+  /^(?:hey )?(?:echo )?(?:please )?(?:stop|cancel|never ?mind|wait|hold up|that s enough|thats enough|that is enough|okay stop|ok stop|stop talking|stop it|kill it|kill everything|shut it down|cut it|chill|hold on)(?: please)?(?: echo)?$/;
 
 /**
  * True when the utterance is a barge-in interrupt command. Matched against the
@@ -398,7 +447,7 @@ export function matchInterruptIntent(text) {
 // On-demand briefing request + type choice
 // ---------------------------------------------------------------------------
 const BRIEFING_REQUEST_RE =
-  /\b(brief me|briefing|morning update|daily update|catch me up|fill me in|bring me up to speed|what s (been )?(happening|going on)|whats (been )?(happening|going on)|give me (an? )?(update|rundown)|my update)\b/;
+  /\b(brief me|briefing|morning update|daily update|catch me up|fill me in|bring me up to speed|what s (been )?(happening|going on)|whats (been )?(happening|going on)|give me (an? |the )?(update|rundown)|my update|what s good|whats good|what s the word|how we (looking|doing)|where we at)\b/;
 
 /** True when the owner is asking for an on-demand briefing/update. */
 export function matchBriefingIntent(text) {
@@ -414,7 +463,7 @@ export const BRIEFING_CHOICE_QUESTION =
 const BRIEFING_FULL_RE =
   /\b(full( briefing)?|everything|all (of )?(my |the )?businesses|complete|the whole thing|all of it|cover it all)\b/;
 const BRIEFING_QUICK_RE =
-  /\b(quick( summary| one)?|short( one)?|summary|just the (highlights|important)|most important|highlights|key (things|points)|top (things|items))\b/;
+  /\b(quick( summary| one)?|short( one)?|summary|just the (highlights|important)|most important|highlights|key (things|points)|top (things|items)|real quick)\b/;
 
 /**
  * Interpret the owner's answer to the briefing-type question.
@@ -472,3 +521,74 @@ export function matchMusicIntent(text) {
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Direct status request ("what we got", "show current status")
+// ---------------------------------------------------------------------------
+// Unlike a briefing request (which asks full/quick/specific first), a status
+// request reads out the current cross-business status immediately.
+const STATUS_RE =
+  /^(?:hey )?(?:echo )?(?:what (?:do )?we got|what we got today|show (?:me )?(?:the )?(?:current )?status|current status|status report|status check|where do we stand|how are we looking)(?: today| right now| sir)?$/;
+
+/** True when the owner wants the current status read out immediately. */
+export function matchStatusIntent(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return false;
+  if (norm.split(" ").length > 8) return false;
+  return STATUS_RE.test(norm);
+}
+
+// ---------------------------------------------------------------------------
+// Learned speech patterns (per-owner, stored server-side)
+// ---------------------------------------------------------------------------
+// Echo learns how THIS owner talks: when a phrase Echo didn't understand is
+// immediately repeated in a form it DOES understand, the original phrase is
+// remembered and mapped to that action. Next time the phrase works first try.
+
+/** Actions a learned phrase may map to (client + server must agree). */
+export const LEARNABLE_ACTIONS = [
+  "stop",
+  "yes",
+  "no",
+  "briefing",
+  "briefing_quick",
+  "status",
+];
+
+/**
+ * Look up a learned phrase. `learnedMap` is a Map of normalized phrase →
+ * action (one of LEARNABLE_ACTIONS). Exact whole-utterance match only, so a
+ * long sentence containing a learned phrase can't misfire.
+ * @returns {string|null} the mapped action, or null.
+ */
+export function matchLearnedPhrase(text, learnedMap) {
+  if (!learnedMap || typeof learnedMap.get !== "function") return null;
+  const norm = normalizeSpeech(text);
+  if (!norm || norm.split(" ").length > 6) return null;
+  const action = learnedMap.get(norm);
+  return LEARNABLE_ACTIONS.includes(action) ? action : null;
+}
+
+/**
+ * Decide which learnable action (if any) an utterance resolved to. Used to
+ * remember a previously-misheard phrase once its repeat is understood.
+ * @returns {string|null}
+ */
+export function resolveLearnableAction(text) {
+  if (matchInterruptIntent(text)) return "stop";
+  if (matchStatusIntent(text)) return "status";
+  if (matchBriefingIntent(text)) return "briefing";
+  const yn = matchYesNo(text);
+  if (yn === "yes") return "yes";
+  if (yn === "no") return "no";
+  return null;
+}
+
+/** The exact clarification Echo asks when speech wasn't understood. */
+export const CLARIFY_QUESTION =
+  "I didn't quite catch that Sir, could you say that again?";
+
+// Below this recognizer confidence, an unmatched short utterance triggers the
+// clarification question instead of being sent to the AI as-is. Tuned low-ish
+// for Southern accents: confident-enough speech always passes straight through.
+export const CONFIDENCE_THRESHOLD = 0.55;
