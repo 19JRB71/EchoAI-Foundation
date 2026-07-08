@@ -411,7 +411,7 @@ async function getMissionControl(req, res) {
       (sentinelFixes ? `Sentinel auto-fixed ${sentinelFixes} issue${sentinelFixes === 1 ? "" : "s"} this week.` : "No problems detected.");
 
     // Geographic coverage summary (plain language) — null when not configured.
-    const geo = brand ? parseGeo(brand.geo_targeting) : { areas: [], exclusions: [] };
+    const geo = (brand ? parseGeo(brand.geo_targeting) : null) || { areas: [], exclusions: [] };
     const geoCoverage = brand
       ? {
           summary: geoSummaryText(brand.geo_targeting) || null,
