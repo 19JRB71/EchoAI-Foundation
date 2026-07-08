@@ -558,6 +558,13 @@ export function VoiceProvider({ active, children }) {
     // An explicit stop/mute clears the queue, so drop the stale "click to hear"
     // hint too — there's nothing left waiting on a gesture.
     setNeedsGesture(false);
+    // Tell every waiter (e.g. the conversation engine's speakAndWait) that
+    // playback was cut RIGHT NOW, so nothing hangs on a 90s safety timeout.
+    try {
+      window.dispatchEvent(new CustomEvent("echoai:speech-stopped"));
+    } catch {
+      /* noop */
+    }
   }, [cleanupAudio]);
 
   const toggleMute = useCallback(() => {

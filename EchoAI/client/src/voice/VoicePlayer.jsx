@@ -164,11 +164,12 @@ export default function VoicePlayer() {
 
           <div className="mt-2 flex items-center gap-2">
             <button
-              onClick={voice.skip}
+              onClick={voice.stopAll}
               disabled={!playing}
-              className="rounded-lg border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-lg bg-red-500/90 px-3.5 py-1.5 text-sm font-bold text-white shadow shadow-red-900/40 hover:bg-red-400 disabled:opacity-40"
             >
-              Skip
+              <span className="inline-block h-2.5 w-2.5 rounded-[2px] bg-white" aria-hidden="true" />
+              Stop
             </button>
             <button
               onClick={voice.replay}

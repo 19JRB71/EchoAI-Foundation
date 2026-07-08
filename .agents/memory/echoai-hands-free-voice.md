@@ -59,7 +59,7 @@ The Web Speech engine self-stops constantly (silence timeout, ~60s cap); each
 restart delay is a deaf window where the wake word is lost ("I have to repeat
 myself"). Restart synchronously from `onend`, but guard against hot-looping:
 - track a fail streak (start() throws, or session dies <1s after start) with
-  exponential backoff (100ms→5s cap), reset on any >1s healthy session;
+  exponential backoff (100ms→1s cap; a 1s watchdog also restarts a dead mic), reset on any >1s healthy session;
 - classify a synchronous `NotAllowedError`/`SecurityError` throw as permanent:
   set denied, drop the listen intent, NO retry (async 'not-allowed' arrives via
   onerror separately — handle both paths).

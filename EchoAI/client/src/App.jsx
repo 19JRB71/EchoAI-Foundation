@@ -1081,6 +1081,11 @@ export default function App() {
           <EchoConversationOverlay />
         </ErrorBoundary>
       ) : null}
+      {!isTeamMember ? (
+        <ErrorBoundary silent>
+          <GlobalStopButton />
+        </ErrorBoundary>
+      ) : null}
       {showFbWizard && (
         <ErrorBoundary silent>
           <FacebookWizard
@@ -1253,6 +1258,29 @@ function VoiceMicButton() {
   );
 }
 
+// Big, always-visible Stop button shown ANY time Echo audio is playing —
+// morning briefings, alerts, conversation replies, everything. One click cuts
+// the audio instantly (voice.stopAll clears the queue too), and the
+// conversation engine resolves its in-flight speech via the
+// "echoai:speech-stopped" event so nothing hangs afterwards.
+function GlobalStopButton() {
+  const voice = useVoice();
+  if (!voice || !voice.active || !voice.playing) return null;
+  return (
+    <button
+      onClick={voice.stopAll}
+      aria-label="Stop Echo"
+      className="fixed bottom-6 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2.5 rounded-full bg-red-500 px-6 py-3 text-base font-bold text-white shadow-xl shadow-red-900/50 transition hover:bg-red-400 active:scale-95"
+    >
+      <span
+        className="inline-block h-3.5 w-3.5 rounded-[3px] bg-white"
+        aria-hidden="true"
+      />
+      Stop
+    </button>
+  );
+}
+
 // Simple animated bars for the "Echo is listening / speaking" indicator.
 function Waveform({ color }) {
   return (
@@ -1294,11 +1322,16 @@ function EchoConversationOverlay() {
     handsFreeOn,
   } = conv;
 
-  // Persistent passive-mode chip: shows exactly when Echo can hear you.
-  // Green dot = mic engine live and listening for "Hey Echo"; amber dot = mic
-  // engine momentarily paused/restarting (Echo cannot hear during this beat).
-  const showPassiveChip = handsFreeOn && micState === "passive";
-
+  // Persistent listening chip — ALWAYS visible so the owner never has to guess
+  // whether Echo can hear them. Green = mic live and listening; amber = mic
+  // restarting for a beat; grey = not listening (muted / off / denied /
+  // unsupported). During an active conversation the richer pill below replaces
+  // it, so we hide the chip only then to avoid stacking two indicators.
+  const silenced =
+    !supported ||
+    micState === "denied" ||
+    micState === "off" ||
+    micState === "muted";
   const stateLabel =
     micState === "active"
       ? "Listening…"
@@ -1307,6 +1340,9 @@ function EchoConversationOverlay() {
         : micState === "speaking"
           ? "Echo is speaking…"
           : "";
+
+  const showListenChip = !(isConversing && stateLabel);
+  const chipLive = !silenced && micLive;
 
   return (
     <>
@@ -1352,30 +1388,44 @@ function EchoConversationOverlay() {
         </div>
       ) : null}
 
-      {showPassiveChip ? (
+      {showListenChip ? (
         <div
           className={`fixed bottom-24 right-6 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-lg ${
-            micLive
+            chipLive
               ? "border-green-500/25 bg-gray-950/90 shadow-green-500/10"
-              : "border-amber-500/30 bg-gray-950/90 shadow-amber-500/10"
+              : silenced
+                ? "border-gray-700 bg-gray-950/90"
+                : "border-amber-500/30 bg-gray-950/90 shadow-amber-500/10"
           }`}
         >
           <span className="relative flex h-2 w-2">
-            {micLive ? (
+            {chipLive ? (
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400/60" />
             ) : null}
             <span
               className={`relative inline-flex h-2 w-2 rounded-full ${
-                micLive ? "bg-green-400" : "bg-amber-400"
+                chipLive
+                  ? "bg-green-400"
+                  : silenced
+                    ? "bg-gray-500"
+                    : "bg-amber-400"
               }`}
             />
           </span>
           <span
             className={`text-[11px] font-medium ${
-              micLive ? "text-green-300" : "text-amber-300"
+              chipLive
+                ? "text-green-300"
+                : silenced
+                  ? "text-gray-400"
+                  : "text-amber-300"
             }`}
           >
-            {micLive ? "Mic on — say “Hey Echo”" : "Mic reconnecting…"}
+            {chipLive
+              ? "Listening — say “Hey Echo”"
+              : silenced
+                ? "Not listening"
+                : "Mic reconnecting…"}
           </span>
         </div>
       ) : null}

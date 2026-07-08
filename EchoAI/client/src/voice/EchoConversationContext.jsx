@@ -260,18 +260,24 @@ export function EchoConversationProvider({ active, children }) {
           return;
         }
         let done = false;
+        const onStopped = () => finish(false);
         const finish = (played) => {
           if (done) return;
           done = true;
+          clearTimeout(safety);
+          window.removeEventListener("echoai:speech-stopped", onStopped);
           resolve(played);
         };
         const safety = setTimeout(() => finish(false), SPEAK_SAFETY_MS);
+        // If the user hits the Stop button (or says "stop") the voice engine
+        // fires this event — resolve IMMEDIATELY so the conversation flow
+        // never hangs on the safety timeout after a manual stop.
+        window.addEventListener("echoai:speech-stopped", onStopped);
         voice.enqueue({
           type: "echo_conversation",
           title: "Echo",
           text,
           onPlayed: () => {
-            clearTimeout(safety);
             finish(true);
           },
         });
@@ -327,10 +333,11 @@ export function EchoConversationProvider({ active, children }) {
 
   // Fallback restart with a short delay — used when an immediate restart isn't
   // safe (start() threw, or the engine is dying instantly on every start).
-  // Backs off exponentially with the failure streak: 100ms → 200 → 400 … 5s.
+  // Backs off with the failure streak but NEVER beyond 1 second — the promise
+  // to the owner is that the mic is back within a second of any stop.
   const scheduleRestart = useCallback(() => {
     if (restartTimerRef.current) return;
-    const delay = Math.min(100 * 2 ** failStreakRef.current, 5000);
+    const delay = Math.min(100 * 2 ** failStreakRef.current, 1000);
     restartTimerRef.current = setTimeout(() => {
       restartTimerRef.current = null;
       if (shouldBeListening()) {
@@ -1011,6 +1018,24 @@ export function EchoConversationProvider({ active, children }) {
     }
     return undefined;
   }, [supported, micEnabled, muted, active, startRecognition, stopRecognition, clearTimers]);
+
+  // Watchdog: every second, if we SHOULD be listening but no recognition
+  // instance is live and no restart is already scheduled, start one. This is
+  // the belt-and-braces guarantee that the mic can never silently stay dead
+  // for more than ~1s no matter how the engine stopped.
+  useEffect(() => {
+    if (!(supported && micEnabled && !muted && active)) return undefined;
+    const watchdog = setInterval(() => {
+      if (
+        wantListeningRef.current &&
+        !runningRef.current &&
+        !restartTimerRef.current
+      ) {
+        startRecognitionRef.current && startRecognitionRef.current();
+      }
+    }, 1000);
+    return () => clearInterval(watchdog);
+  }, [supported, micEnabled, muted, active]);
 
   // Preload the personality stings once we're active & opted in.
   useEffect(() => {
