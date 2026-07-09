@@ -100,3 +100,16 @@ Any missing package fails the BUILD loudly.
 **Why:** a static verify list silently rots as dependencies grow. **How to
 apply:** any install-verification step must derive its list from package.json,
 never hardcode it.
+
+## 6. Commit yarn.lock + --frozen-lockfile — unpinned builds rot silently
+With no yarn.lock committed, every Railway build re-resolved semver ranges
+fresh, so a new release of any `^dep` could break prod with zero code changes
+(symptom: a run of consecutive deploys all healthcheck-fail/get REMOVED while
+the same code boots fine in dev). Generate the lockfile from a verified clean
+install (fresh dir, same package.json, then boot the server against that
+node_modules), commit it, and add `--frozen-lockfile` to the install.
+
+**Why:** reproducible builds — the only versions that reach prod are ones proven
+to boot. **How to apply:** if a streak of deploys fails starting at a commit
+that added dependencies, first reproduce the exact builder install (fresh dir +
+same flags) and boot from it; then pin.
