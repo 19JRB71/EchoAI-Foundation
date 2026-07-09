@@ -13,8 +13,9 @@
  */
 
 const API_BASE = process.env.ELEVENLABS_API_BASE || "https://api.elevenlabs.io/v1";
-// Turbo v2.5 is low-latency + supports the streaming endpoint; override if needed.
-const TTS_MODEL = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2_5";
+// Flash v2.5 is ElevenLabs' fastest model (~75ms inference) and supports the
+// streaming endpoint — chosen for conversational latency; override if needed.
+const TTS_MODEL = process.env.ELEVENLABS_MODEL_ID || "eleven_flash_v2_5";
 const OUTPUT_FORMAT = process.env.ELEVENLABS_OUTPUT_FORMAT || "mp3_44100_128";
 
 function apiKey() {

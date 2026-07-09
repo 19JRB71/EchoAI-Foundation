@@ -87,6 +87,58 @@ async function createMessage(params, opts = {}) {
   throw lastErr;
 }
 
+/**
+ * Streaming variant of createMessage for latency-sensitive conversational
+ * replies (Echo voice chat). Calls `onDelta(textPiece)` as text arrives and
+ * resolves with the FULL reply text once the stream ends.
+ *
+ * Retry policy: a transient failure is retried only if NOTHING has been
+ * emitted yet — once deltas have reached the caller (and possibly the user's
+ * ears), a silent restart would double-speak, so mid-stream failures throw.
+ */
+async function streamMessage(params, opts = {}, onDelta) {
+  const timeout = opts.timeout || DEFAULT_AI_TIMEOUT_MS;
+  const attempts = Math.max(1, opts.attempts || DEFAULT_AI_ATTEMPTS);
+  const label = opts.label || "AI stream";
+
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    let emitted = false;
+    try {
+      const stream = anthropic.messages.stream(params, { timeout, maxRetries: 0 });
+      let full = "";
+      for await (const event of stream) {
+        if (
+          event.type === "content_block_delta" &&
+          event.delta &&
+          event.delta.type === "text_delta" &&
+          event.delta.text
+        ) {
+          full += event.delta.text;
+          emitted = true;
+          if (onDelta) {
+            try {
+              onDelta(event.delta.text);
+            } catch {
+              /* a bad consumer must not kill the stream */
+            }
+          }
+        }
+      }
+      return full;
+    } catch (err) {
+      lastErr = err;
+      if (emitted || attempt >= attempts || !isTransientAiError(err)) throw err;
+      const backoffMs = Math.min(8000, 500 * 2 ** (attempt - 1));
+      console.warn(
+        `${label}: attempt ${attempt}/${attempts} failed (${err && err.message}); retrying in ${backoffMs}ms`
+      );
+      await sleep(backoffMs);
+    }
+  }
+  throw lastErr;
+}
+
 module.exports = {
   anthropic,
   MODEL,
@@ -95,4 +147,5 @@ module.exports = {
   DEFAULT_AI_ATTEMPTS,
   isTransientAiError,
   createMessage,
+  streamMessage,
 };

@@ -161,6 +161,61 @@ export const api = {
       method: "POST",
       body: brandId ? { text, brandId } : { text },
     }),
+  // Streaming variant of sendEchoMessage (NDJSON). Calls `onSentence(text)` for
+  // each speakable sentence AS the reply generates, and resolves with the final
+  // { userMessage, message } payload — same shape as sendEchoMessage.
+  sendEchoMessageStream: async (text, brandId, onSentence) => {
+    const headers = { "Content-Type": "application/json" };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}/api/echo/message/stream`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(brandId ? { text, brandId } : { text }),
+    });
+    if (!res.ok || !res.body) {
+      if (res.status === 401) {
+        clearToken();
+        window.dispatchEvent(new Event("echoai:unauthorized"));
+      }
+      const data = await res.json().catch(() => null);
+      const err = new Error((data && data.error) || `Request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let final = null;
+    let streamError = null;
+    const handleLine = (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      let obj;
+      try {
+        obj = JSON.parse(trimmed);
+      } catch {
+        return;
+      }
+      if (obj.error) streamError = new Error(obj.error);
+      else if (obj.done) final = obj;
+      else if (obj.s && onSentence) onSentence(obj.s);
+    };
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) !== -1) {
+        handleLine(buf.slice(0, nl));
+        buf = buf.slice(nl + 1);
+      }
+    }
+    handleLine(buf);
+    if (streamError) throw streamError;
+    if (!final) throw new Error("Echo's reply was cut off. Please try again.");
+    return { userMessage: final.userMessage, message: final.message };
+  },
   getEchoBriefing: () => request("/api/echo/briefing"),
   // Voice nav "ask before reading": data-backed offer question + readout.
   getEchoSectionOffer: (section) =>
@@ -1330,6 +1385,27 @@ export const api = {
       const token = getToken();
       if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(`${BASE_URL}/api/echo-voice/wakeup-intro`, {
+        headers,
+        signal: ctrl.signal,
+      });
+      if (res.status === 204 || !res.ok) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+  // Fetch a pre-cached spoken acknowledgement ("Got it, Sir."). Returns an MP3
+  // Blob, or null (204/error) so callers fall back to a sound effect.
+  echoVoiceAck: async (name) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const headers = {};
+      const token = getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/echo-voice/ack/${encodeURIComponent(name)}`, {
         headers,
         signal: ctrl.signal,
       });

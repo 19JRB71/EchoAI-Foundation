@@ -29,6 +29,7 @@ import {
 } from "react";
 import { useVoice } from "./VoiceContext.jsx";
 import { preloadEffects, playEffect, stopEffect } from "./sfx.js";
+import { preloadAcks, playAckNow } from "./acks.js";
 import {
   parseWakeWord,
   isQuestion,
@@ -99,7 +100,10 @@ const LEARNED_CANON = {
 const MIC_MUTE_KEY = "echoai_mic_muted";
 const MIC_OPTIN_KEY = "echoai_mic_optin";
 // Finalize a spoken command after this much silence.
-const ACTIVE_PAUSE_MS = 1600;
+const ACTIVE_PAUSE_MS = 900;
+// When the recognizer delivers a FINAL result (it detected end of speech
+// itself), commit much faster — the browser already decided you stopped.
+const FINAL_PAUSE_MS = 450;
 // How long Echo stays listening for a follow-up after a (non-question) reply.
 const FOLLOWUP_MS = 30000;
 // Safety cap so a muted/blocked TTS can never hang the conversation.
@@ -1125,30 +1129,54 @@ export function EchoConversationProvider({ active, children }) {
       misheardRef.current = null;
       clarifyRetryRef.current = false;
 
-      // Everything else → Echo's existing message pipeline.
+      // Everything else → Echo's existing message pipeline. Play an instant
+      // spoken ack ("Got it, Sir.") the moment the command lands so the user
+      // hears a response while the AI reply is still generating; fall back to
+      // the thinking sting when no ack blob is cached yet.
       suspendRef.current = true;
       setConvState("processing");
-      playEffect("thinking", { volume: 0.35 });
+      if (!playAckNow()) playEffect("thinking", { volume: 0.35 });
       let reply = "";
       let asked = false;
+      // Streaming: the handler may speak sentences AS they generate. Each
+      // partial goes straight into the ordered voice queue; we track the
+      // resulting promises so the follow-up window only opens after the LAST
+      // sentence finishes playing.
+      const partialPlays = [];
+      let streamedAny = false;
+      const onPartial = (sentence) => {
+        if (stale()) return;
+        if (!streamedAny) {
+          streamedAny = true;
+          setConvState("speaking");
+        }
+        partialPlays.push(speakAndWait(sentence).catch(() => {}));
+      };
       try {
         const handler = commandHandlerRef.current;
         const result = handler
-          ? await withTimeout(handler(text), AI_TIMEOUT_MS)
+          ? await withTimeout(handler(text, onPartial), AI_TIMEOUT_MS)
           : { reply: "", isQuestion: false };
         reply = (result && result.reply) || "";
         asked = !!(result && result.isQuestion);
       } catch {
-        reply = "I hit a snag on that one. Could you try again?";
+        reply = streamedAny ? "" : "I hit a snag on that one. Could you try again?";
       }
       if (stale()) return;
-      if (!reply) {
+      if (!reply && !streamedAny) {
         reply =
           "I want to make sure I understand you correctly. Could you rephrase that?";
         asked = true;
       }
       setConvState("speaking");
-      await speakAndWait(reply);
+      if (streamedAny) {
+        // The full reply was already spoken sentence-by-sentence; just wait for
+        // the queued sentences to finish. `reply` still carries the full text
+        // for the question check below.
+        await Promise.all(partialPlays);
+      } else {
+        await speakAndWait(reply);
+      }
       if (stale()) return;
       asked = asked || isQuestion(reply);
       // eslint-disable-next-line no-use-before-define
@@ -1347,10 +1375,13 @@ export function EchoConversationProvider({ active, children }) {
       const shown = `${finalRef.current} ${interim}`.trim();
       setListeningText(shown);
       if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+      // When the recognizer already delivered a FINAL chunk it has detected end
+      // of speech itself — commit fast so Echo feels instant. Interim-only text
+      // keeps the longer pause (the user may still be mid-sentence).
       pauseTimerRef.current = setTimeout(() => {
         const captured = finalRef.current.trim();
         if (captured) processCommand(captured);
-      }, ACTIVE_PAUSE_MS);
+      }, addedFinal ? FINAL_PAUSE_MS : ACTIVE_PAUSE_MS);
       // If nothing final has landed yet, keep waiting for the pause on interim.
       if (!addedFinal && !finalRef.current) {
         finalRef.current = "";
@@ -1513,6 +1544,7 @@ export function EchoConversationProvider({ active, children }) {
   useEffect(() => {
     if (micEnabled && active) {
       preloadEffects(["wake", "goodbye", "thinking"]);
+      preloadAcks();
     }
   }, [micEnabled, active]);
 

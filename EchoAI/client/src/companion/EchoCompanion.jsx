@@ -425,14 +425,32 @@ export default function EchoCompanion() {
   // is reachable by voice; it just also RETURNS the reply text so the engine can
   // speak it and decide whether Echo asked a follow-up question.
   const handleVoiceCommand = useCallback(
-    async (text) => {
+    async (text, onPartial) => {
       const value = (text || "").trim();
       if (!value) return { reply: "", isQuestion: false };
       const optimistic = { id: `local-${Date.now()}`, role: "user", type: "text", text: value };
       setMessages((prev) => [...prev, optimistic]);
       scrollToBottom();
       try {
-        const res = await api.sendEchoMessage(value, activeBrandId);
+        // Prefer the streaming endpoint so the engine can SPEAK each sentence
+        // while the rest of the reply is still generating. Falls back to the
+        // regular endpoint if streaming fails before anything was spoken.
+        let res;
+        let streamed = false;
+        if (typeof onPartial === "function") {
+          try {
+            res = await api.sendEchoMessageStream(value, activeBrandId, (s) => {
+              streamed = true;
+              onPartial(s);
+            });
+          } catch (streamErr) {
+            // Something already spoke → don't re-run (double reply); rethrow.
+            if (streamed) throw streamErr;
+            res = await api.sendEchoMessage(value, activeBrandId);
+          }
+        } else {
+          res = await api.sendEchoMessage(value, activeBrandId);
+        }
         setMessages((prev) => {
           const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
           const next = [...withoutOptimistic];

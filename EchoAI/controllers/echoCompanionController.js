@@ -13,7 +13,7 @@
 
 const crypto = require("crypto");
 const db = require("../config/db");
-const { createMessage, MODEL } = require("../config/anthropic");
+const { createMessage, streamMessage, MODEL } = require("../config/anthropic");
 
 const adCreativeStudioController = require("./adCreativeStudioController");
 const campaignController = require("./campaignController");
@@ -590,86 +590,82 @@ async function decline(req, res) {
   }
 }
 
-async function sendMessage(req, res) {
-  try {
-    const userId = req.user.userId;
-    const text = req.body && typeof req.body.text === "string" ? req.body.text.trim() : "";
-    if (!text) return res.status(400).json({ error: "Please enter a message." });
-
-    const state = await getOrCreateState(userId);
-
-    // Voice execution. When an action is awaiting the owner's approval, let them
-    // approve or decline it in plain language (spoken or typed) instead of
-    // clicking. Routine actions run on any affirmation ("yes", "go ahead");
-    // high-stakes actions (spending money, sending to customers) require the
-    // owner to explicitly say "confirm", so a stray "yes" can never trigger them.
-    if (state.pending_action) {
-      const decision = classifyApprovalUtterance(text);
-      const pending = state.pending_action;
-      const completed = arr(state.completed_actions);
-      if (decision === "decline") {
-        const uMsg = userMsg(text);
-        const eMsg = echoMsg(
-          "info",
-          "No problem — I'll skip that for now. You can do it any time from your dashboard.",
-        );
-        await persist(userId, {
-          completed_actions: [...completed, pending.key],
-          messages: pushMsg(state.messages, uMsg, eMsg),
-          pendingAction: null,
-        });
-        return res.json({ userMessage: uMsg, message: eMsg });
-      }
-      if (decision === "affirm" || decision === "confirm") {
-        const risk = (pending.exec && pending.exec.risk) || "routine";
-        if (risk === "high_stakes" && decision !== "confirm") {
-          // A plain "yes" isn't enough for a high-stakes action — re-prompt for
-          // the explicit word and keep the action pending.
-          const reason = (pending.exec && pending.exec.confirmReason) || "is high-impact";
-          const uMsg = userMsg(text);
-          const eMsg = echoMsg(
-            "text",
-            `Just to be safe — that one ${reason}. Say "confirm" to run it now, or "cancel" to hold off.`,
-          );
-          await persist(userId, {
-            messages: pushMsg(state.messages, uMsg, eMsg),
-            pendingAction: pending,
-          });
-          return res.json({ userMessage: uMsg, message: eMsg });
-        }
-        // Routine affirmation, or an explicit confirm on a high-stakes action.
-        const uMsg = userMsg(text);
-        let resultText;
-        try {
-          resultText = await runExec(userId, pending.exec);
-        } catch (execErr) {
-          console.error(`Echo voice-approve "${pending.key}" failed (skipping):`, execErr.message);
-          const eMsg = echoMsg(
-            "info",
-            "I hit a problem running that just now — I've noted it and you can retry from the dashboard.",
-          );
-          await persist(userId, {
-            completed_actions: [...completed, pending.key],
-            messages: pushMsg(state.messages, uMsg, eMsg),
-            pendingAction: null,
-          });
-          return res.json({ userMessage: uMsg, message: eMsg });
-        }
-        const eMsg = echoMsg("info", resultText);
-        await persist(userId, {
-          completed_actions: [...completed, pending.key],
-          messages: pushMsg(state.messages, uMsg, eMsg),
-          pendingAction: null,
-        });
-        return res.json({ userMessage: uMsg, message: eMsg });
-      }
-      // decision === "none" → the owner said something else; fall through to chat.
+// Voice/typed approval of a pending action ("yes" / "confirm" / "cancel"),
+// spoken or typed, instead of clicking. Routine actions run on any affirmation
+// ("yes", "go ahead"); high-stakes actions (spending money, sending to
+// customers) require the owner to explicitly say "confirm", so a stray "yes"
+// can never trigger them. Returns { userMessage, message } when the utterance
+// resolved the pending action, or null to fall through to normal chat.
+async function resolvePendingAction(userId, state, text) {
+  const decision = classifyApprovalUtterance(text);
+  const pending = state.pending_action;
+  const completed = arr(state.completed_actions);
+  if (decision === "decline") {
+    const uMsg = userMsg(text);
+    const eMsg = echoMsg(
+      "info",
+      "No problem — I'll skip that for now. You can do it any time from your dashboard.",
+    );
+    await persist(userId, {
+      completed_actions: [...completed, pending.key],
+      messages: pushMsg(state.messages, uMsg, eMsg),
+      pendingAction: null,
+    });
+    return { userMessage: uMsg, message: eMsg };
+  }
+  if (decision === "affirm" || decision === "confirm") {
+    const risk = (pending.exec && pending.exec.risk) || "routine";
+    if (risk === "high_stakes" && decision !== "confirm") {
+      // A plain "yes" isn't enough for a high-stakes action — re-prompt for
+      // the explicit word and keep the action pending.
+      const reason = (pending.exec && pending.exec.confirmReason) || "is high-impact";
+      const uMsg = userMsg(text);
+      const eMsg = echoMsg(
+        "text",
+        `Just to be safe — that one ${reason}. Say "confirm" to run it now, or "cancel" to hold off.`,
+      );
+      await persist(userId, {
+        messages: pushMsg(state.messages, uMsg, eMsg),
+        pendingAction: pending,
+      });
+      return { userMessage: uMsg, message: eMsg };
     }
+    // Routine affirmation, or an explicit confirm on a high-stakes action.
+    const uMsg = userMsg(text);
+    let resultText;
+    try {
+      resultText = await runExec(userId, pending.exec);
+    } catch (execErr) {
+      console.error(`Echo voice-approve "${pending.key}" failed (skipping):`, execErr.message);
+      const eMsg = echoMsg(
+        "info",
+        "I hit a problem running that just now — I've noted it and you can retry from the dashboard.",
+      );
+      await persist(userId, {
+        completed_actions: [...completed, pending.key],
+        messages: pushMsg(state.messages, uMsg, eMsg),
+        pendingAction: null,
+      });
+      return { userMessage: uMsg, message: eMsg };
+    }
+    const eMsg = echoMsg("info", resultText);
+    await persist(userId, {
+      completed_actions: [...completed, pending.key],
+      messages: pushMsg(state.messages, uMsg, eMsg),
+      pendingAction: null,
+    });
+    return { userMessage: uMsg, message: eMsg };
+  }
+  // decision === "none" → the owner said something else; fall through to chat.
+  return null;
+}
 
-    const requestedBrandId =
-      req.body && typeof req.body.brandId === "string" && req.body.brandId.trim()
-        ? req.body.brandId.trim()
-        : null;
+// The AI chat pipeline shared by the JSON and streaming endpoints. When
+// `onSentence` is provided, complete sentences are pushed to it AS the model
+// streams (so the voice engine can start speaking immediately); the full
+// post-processed reply is still persisted and returned either way.
+async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
+  {
     // What Echo should call the owner: explicit preference → first name →
     // "Sir" for the platform admin account.
     async function loadOwnerName(id) {
@@ -728,13 +724,53 @@ async function sendMessage(req, res) {
       .filter(Boolean)
       .join(" ");
 
+    const params = {
+      model: MODEL,
+      max_tokens: 400,
+      system,
+      messages: [{ role: "user", content: text }],
+    };
     let reply;
+    // Raw prefix of the reply already pushed to `onSentence`, so the tail of
+    // the post-processed reply (marker confirmations) can be emitted without
+    // double-speaking what already played.
+    let rawEmitted = "";
     try {
-      const resp = await createMessage(
-        { model: MODEL, max_tokens: 400, system, messages: [{ role: "user", content: text }] },
-        { label: "Echo chat" },
-      );
-      reply = extractText(resp);
+      if (onSentence) {
+        // Stream: flush complete sentences as they arrive so the voice engine
+        // starts speaking while the rest of the reply is still generating.
+        // Emission halts the moment a "[[" marker starts — markers (and any
+        // appended confirmations) are resolved on the full text afterwards.
+        let buf = "";
+        let halted = false;
+        const flushSentences = () => {
+          for (;;) {
+            const m = buf.match(/[.!?]["')\]]*\s+/);
+            if (!m) break;
+            const end = m.index + m[0].length;
+            const sentence = buf.slice(0, end);
+            rawEmitted += sentence;
+            buf = buf.slice(end);
+            const spoken = sentence.trim();
+            if (spoken) onSentence(spoken);
+          }
+        };
+        reply = await streamMessage(params, { label: "Echo chat (stream)" }, (piece) => {
+          if (halted) return;
+          buf += piece;
+          const mk = buf.indexOf("[[");
+          if (mk !== -1) {
+            buf = buf.slice(0, mk);
+            flushSentences();
+            halted = true;
+            return;
+          }
+          flushSentences();
+        });
+      } else {
+        const resp = await createMessage(params, { label: "Echo chat" });
+        reply = extractText(resp);
+      }
     } catch (err) {
       const e = new Error("Echo's assistant is temporarily unavailable. Please try again in a moment.");
       e.statusCode = 502;
@@ -790,6 +826,19 @@ async function sendMessage(req, res) {
       if (!reply) reply = "I'll get that email drafted for your approval.";
     }
 
+    // Streamed replies: speak whatever the final post-processed reply added
+    // beyond the sentences already emitted (the un-flushed tail, plus any
+    // marker confirmation text). Prefix-match against the raw emitted text so
+    // nothing is ever double-spoken; if the prefix no longer matches (marker
+    // stripping reshaped the start — rare), skip rather than risk repeats.
+    if (onSentence) {
+      const prefix = rawEmitted.trimEnd();
+      let leftover = null;
+      if (!prefix) leftover = reply;
+      else if (reply.startsWith(prefix)) leftover = reply.slice(prefix.length).trim();
+      if (leftover) onSentence(leftover);
+    }
+
     const uMsg = userMsg(text);
     const eMsg = echoMsg("text", reply);
     await persist(userId, {
@@ -803,11 +852,82 @@ async function sendMessage(req, res) {
       .captureFromConversation(userId, brand ? brand.brand_id : null, text, reply)
       .catch((e) => console.error("Echo capture (background) failed:", e.message));
 
-    return res.json({ userMessage: uMsg, message: eMsg });
+    return { userMessage: uMsg, message: eMsg };
+  }
+}
+
+async function sendMessage(req, res) {
+  try {
+    const userId = req.user.userId;
+    const text = req.body && typeof req.body.text === "string" ? req.body.text.trim() : "";
+    if (!text) return res.status(400).json({ error: "Please enter a message." });
+
+    const state = await getOrCreateState(userId);
+    if (state.pending_action) {
+      const resolved = await resolvePendingAction(userId, state, text);
+      if (resolved) return res.json(resolved);
+    }
+    const requestedBrandId =
+      req.body && typeof req.body.brandId === "string" && req.body.brandId.trim()
+        ? req.body.brandId.trim()
+        : null;
+    const result = await runEchoChat(userId, state, text, requestedBrandId, null);
+    return res.json(result);
   } catch (err) {
     const status = err.statusCode || 500;
     console.error("Echo sendMessage error:", err.message);
     return res.status(status).json({ error: err.message || "Echo couldn't reply." });
+  }
+}
+
+// Streaming variant of sendMessage for the voice engine. Responds with NDJSON:
+//   { s: "sentence" }                       — speak this sentence now
+//   { done: true, userMessage, message }    — final persisted messages
+//   { error: "..." }                        — terminal failure mid-stream
+// Same pipeline, same persistence, same markers — only the transport differs,
+// so Echo starts speaking the first sentence while the rest still generates.
+async function sendMessageStream(req, res) {
+  try {
+    const userId = req.user.userId;
+    const text = req.body && typeof req.body.text === "string" ? req.body.text.trim() : "";
+    if (!text) return res.status(400).json({ error: "Please enter a message." });
+
+    const state = await getOrCreateState(userId);
+
+    res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("X-Accel-Buffering", "no");
+    const send = (obj) => {
+      res.write(`${JSON.stringify(obj)}\n`);
+      if (typeof res.flush === "function") res.flush();
+    };
+
+    if (state.pending_action) {
+      const resolved = await resolvePendingAction(userId, state, text);
+      if (resolved) {
+        send({ done: true, userMessage: resolved.userMessage, message: resolved.message });
+        return res.end();
+      }
+    }
+    const requestedBrandId =
+      req.body && typeof req.body.brandId === "string" && req.body.brandId.trim()
+        ? req.body.brandId.trim()
+        : null;
+    const result = await runEchoChat(userId, state, text, requestedBrandId, (s) => send({ s }));
+    send({ done: true, userMessage: result.userMessage, message: result.message });
+    return res.end();
+  } catch (err) {
+    console.error("Echo sendMessageStream error:", err.message);
+    const message = err.message || "Echo couldn't reply.";
+    if (res.headersSent) {
+      try {
+        res.write(`${JSON.stringify({ error: message })}\n`);
+      } catch {
+        /* connection already gone */
+      }
+      return res.end();
+    }
+    return res.status(err.statusCode || 500).json({ error: message });
   }
 }
 
@@ -880,6 +1000,7 @@ module.exports = {
   approve,
   decline,
   sendMessage,
+  sendMessageStream,
   transcribe,
   briefing,
 };

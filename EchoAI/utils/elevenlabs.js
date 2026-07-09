@@ -67,7 +67,7 @@ async function synthesize(text, { voiceId: overrideVoice } = {}) {
   }
   const url =
     `${API_BASE}/text-to-speech/${encodeURIComponent(useVoice)}/stream` +
-    `?output_format=${encodeURIComponent(OUTPUT_FORMAT)}&optimize_streaming_latency=3`;
+    `?output_format=${encodeURIComponent(OUTPUT_FORMAT)}&optimize_streaming_latency=4`;
 
   const resp = await fetch(url, {
     method: "POST",

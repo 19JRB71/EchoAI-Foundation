@@ -336,6 +336,71 @@ async function sound(req, res) {
 }
 
 // ---------------------------------------------------------------------------
+// Instant spoken acknowledgements ("Got it, Sir.") — pre-cached TTS
+// ---------------------------------------------------------------------------
+
+// Short spoken acks Echo plays the INSTANT a command lands, so the user hears
+// a response while the real AI reply is still generating. Synthesized once per
+// (phrase, voice) and cached to disk; the client preloads the blobs so playback
+// is local (<200ms). Keys are stable; bump ACK_VERSION to re-synthesize all.
+const ACK_VERSION = "v1";
+const ACK_PHRASES = {
+  gotit: "Got it, Sir.",
+  onit: "On it, Sir.",
+  rightaway: "Right away, Sir.",
+  understood: "Understood.",
+  onemoment: "One moment, Sir.",
+  letmecheck: "Let me check on that.",
+};
+
+const ackGenerating = new Map(); // cacheKey -> in-flight Promise<Buffer>
+
+/**
+ * GET /api/echo-voice/ack/:name — a short cached spoken acknowledgement in the
+ * owner's chosen voice style. audio/mpeg, or 204 for an unknown name /
+ * unconfigured voice / failure so the client just falls back to a sound effect.
+ */
+async function ackSound(req, res) {
+  const phrase = ACK_PHRASES[req.params.name];
+  if (!phrase) return res.status(204).end();
+  if (!isVoiceConfigured()) return res.status(204).end();
+  try {
+    const user = await loadUser(req.user.userId);
+    const settings = normalizeSettings(user && user.voice_settings);
+    const voice = voiceForStyle(settings.style);
+    // Voice-scoped cache key so a style change never plays the wrong voice.
+    const safeVoice = String(voice).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+    const cacheKey = `ack-${ACK_VERSION}-${req.params.name}-${safeVoice}`;
+    const file = path.join(AUDIO_DIR, `${cacheKey}.mp3`);
+    let audio = null;
+    try {
+      const stat = fs.statSync(file);
+      if (stat.size > 0) audio = fs.readFileSync(file);
+    } catch {
+      /* not cached yet */
+    }
+    if (!audio) {
+      if (!ackGenerating.has(cacheKey)) {
+        const p = (async () => {
+          const buf = await synthesizeSpeech(phrase, voice, { label: "echo-ack" });
+          fs.mkdirSync(AUDIO_DIR, { recursive: true });
+          fs.writeFileSync(file, buf);
+          return buf;
+        })().finally(() => ackGenerating.delete(cacheKey));
+        ackGenerating.set(cacheKey, p);
+      }
+      audio = await ackGenerating.get(cacheKey);
+    }
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    return res.send(audio);
+  } catch (err) {
+    console.error(`ack:${req.params.name} error:`, err.message);
+    return res.status(204).end();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Briefings
 // ---------------------------------------------------------------------------
 
@@ -771,6 +836,7 @@ module.exports = {
   speak,
   wakeupIntro,
   sound,
+  ackSound,
   getBriefing,
   markBriefingDelivered,
   getWeeklyBriefing,

@@ -28,6 +28,10 @@ router.get("/wakeup-intro", controller.wakeupIntro);
 // celebration, error). Returns audio/mpeg, or 204 so the client just skips it.
 router.get("/sound/:name", controller.sound);
 
+// Instant spoken acknowledgements ("Got it, Sir.") — pre-cached per voice so
+// the client can play one the moment a command lands. audio/mpeg or 204.
+router.get("/ack/:name", controller.ackSound);
+
 // Morning briefing text + once-per-day delivery bookkeeping.
 router.get("/briefing", controller.getBriefing);
 router.post("/briefing/delivered", controller.markBriefingDelivered);

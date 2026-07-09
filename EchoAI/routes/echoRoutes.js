@@ -33,6 +33,8 @@ router.post("/decline", requireOwner, controller.decline);
 
 // Free-form chat with Echo (typed or transcribed voice).
 router.post("/message", requireOwner, controller.sendMessage);
+// NDJSON streaming variant used by the voice engine (speak-while-generating).
+router.post("/message/stream", requireOwner, controller.sendMessageStream);
 
 // Voice input: transcribe a recorded clip with Whisper (multipart audio). Not
 // feature-gated — Echo's mic is core to the companion, mirroring the setup agent.
