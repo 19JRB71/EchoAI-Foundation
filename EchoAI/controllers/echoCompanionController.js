@@ -20,6 +20,7 @@ const campaignController = require("./campaignController");
 const contentCalendarController = require("./contentCalendarController");
 const voiceController = require("./voiceController");
 const echoContext = require("../utils/echoContext");
+const featureSuggestions = require("../utils/featureSuggestions");
 
 // ---------------------------------------------------------------------------
 // In-process controller invocation (same pattern as setupAgentController.invoke)
@@ -662,6 +663,7 @@ async function sendMessage(req, res) {
       "You run their marketing for them: you can launch Facebook ad campaigns, schedule social posts, send email campaigns, and report performance.",
       'The app handles voice navigation for you: when the user says things like "go to Atlas", "show me my leads", or "open Facebook setup", the dashboard navigates instantly on its own. NEVER say you cannot navigate, open pages, or take them somewhere — if they ask to go somewhere, respond as if you are taking them there (e.g. "Taking you to Atlas now.").',
       "Every action you take requires their one-click approval (or a Facebook password) first — if they ask you to do something, tell them you'll prepare a preview for them to approve.",
+      'CRITICAL FEATURE-REQUEST RULE: if the user asks you to DO something the platform cannot do yet (any capability outside ads, social posts, email campaigns, reminders/tasks, reporting, and navigation — e.g. "post to TikTok", "sync with QuickBooks", "book me a flight"), NEVER dead-end with a flat "I cannot do that". Instead you MUST do BOTH of these: (1) acknowledge it warmly as a good idea, and (2) output, as the literal last line of your reply, the marker [[FEATURE_REQUEST: short description of what they asked for]] — including the double square brackets exactly. The marker is MANDATORY, not optional: the platform parses it to record the request for the development team, and omitting it silently discards the user\'s idea. The user never sees the marker (it is stripped before display), so always include it. Do NOT claim the suggestion has been noted or logged — the system appends that confirmation itself. Only use the marker when they asked you to perform an unsupported action; never for questions, chit-chat, or things you CAN do.',
       ownerName
         ? `The owner likes to be addressed as "${ownerName}". Use their name naturally and sparingly — at key moments like delivering important news, asking a question, or celebrating a win — never in every sentence.`
         : null,
@@ -688,6 +690,28 @@ async function sendMessage(req, res) {
       const e = new Error("Echo didn't get a response. Please try again.");
       e.statusCode = 502;
       throw e;
+    }
+
+    // Feature-suggestion capture: the prompt has Echo tag unsupported requests
+    // with [[FEATURE_REQUEST: ...]]. Strip the marker, log the request, and
+    // append the "noted" confirmation ONLY when logging really succeeded —
+    // Echo never falsely claims a suggestion was recorded.
+    const featureMatch = reply.match(/\[\[FEATURE_REQUEST:\s*([\s\S]*?)\]\]/);
+    if (featureMatch) {
+      reply = reply.replace(/\s*\[\[FEATURE_REQUEST:[\s\S]*?\]\]\s*/g, " ").trim();
+      const summary = featureMatch[1].trim() || text;
+      try {
+        // Store the user's verbatim ask; the AI summary just guides dedup.
+        await featureSuggestions.logFeatureSuggestion(userId, text, summary);
+        const address = ownerName ? `, ${ownerName}` : "";
+        reply = `${reply} I've noted that suggestion${address} — if enough people ask for the same thing, it moves to the top of the development priority list.`.trim();
+      } catch (logErr) {
+        // Honest failure: keep the warm acknowledgment, skip the "noted" claim.
+        console.error("Feature suggestion logging failed:", logErr.message);
+      }
+      if (!reply) {
+        reply = "That's not something I can do just yet — but I think it's a great idea.";
+      }
     }
 
     const uMsg = userMsg(text);

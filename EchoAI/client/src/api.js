@@ -571,6 +571,16 @@ export const api = {
   adminRemoveBetaWaitlist: (waitlistId) =>
     request(`/api/admin/beta/waitlist/${waitlistId}`, { method: "DELETE" }),
 
+  // Feature Suggestions (admin-only).
+  adminGetFeatureSuggestions: () => request("/api/admin/feature-suggestions"),
+  adminGetFeatureSuggestionRequests: (suggestionId) =>
+    request(`/api/admin/feature-suggestions/${suggestionId}/requests`),
+  adminUpdateFeatureSuggestionStatus: (suggestionId, status) =>
+    request(`/api/admin/feature-suggestions/${suggestionId}/status`, {
+      method: "PUT",
+      body: { status },
+    }),
+
   // Full Diagnostic Report (admin-only).
   adminGetDiagnostics: () => request("/api/admin/diagnostics/report"),
 

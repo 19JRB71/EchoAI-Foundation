@@ -4,6 +4,7 @@ const authMiddleware = require("../middleware/auth");
 const adminMiddleware = require("../middleware/admin");
 const adminController = require("../controllers/adminController");
 const betaAdminController = require("../controllers/betaAdminController");
+const featureSuggestionAdminController = require("../controllers/featureSuggestionAdminController");
 const demoController = require("../controllers/demoController");
 const diagnosticsController = require("../controllers/diagnosticsController");
 
@@ -31,6 +32,17 @@ router.get("/beta", betaAdminController.getBetaOverview);
 router.put("/beta/settings", betaAdminController.updateBetaSettings);
 router.post("/beta/users/:userId/convert", betaAdminController.convertToPaid);
 router.delete("/beta/waitlist/:waitlistId", betaAdminController.removeWaitlistEntry);
+
+// Feature Suggestions (logged automatically when Echo can't do something).
+router.get("/feature-suggestions", featureSuggestionAdminController.listSuggestions);
+router.get(
+  "/feature-suggestions/:suggestionId/requests",
+  featureSuggestionAdminController.listSuggestionRequests,
+);
+router.put(
+  "/feature-suggestions/:suggestionId/status",
+  featureSuggestionAdminController.updateSuggestionStatus,
+);
 
 // Demo Account & Sales Presentation Mode.
 router.get("/demo/status", demoController.getStatus);

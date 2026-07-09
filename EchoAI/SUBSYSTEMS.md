@@ -649,3 +649,43 @@ synthesizes EVERY channel into a growing weekly intelligence profile.
   `voice/conversationHelpers.js` `matchAssistantIntent` routes reminder/task
   utterances to `api.echoAssistantCommand` in `EchoConversationContext.jsx`
   (nav commands still win; reply spoken, follow-up window on questions).
+
+### Feature Suggestions subsystem (`/api/admin/feature-suggestions`)
+
+Echo never dead-ends with "I cannot do that": when a user (any tier) asks the
+Echo companion chat for an unsupported capability, the reply acknowledges the
+idea warmly and the request is auto-logged for the development team.
+
+- **Capture seam.** All general chat (typed + voice) funnels through
+  `POST /api/echo/message` → `echoCompanionController.sendMessage`. The system
+  prompt instructs the AI to append a `[[FEATURE_REQUEST: <summary>]]` marker
+  (last line) whenever the ask is outside platform capabilities. The server
+  strips the marker, logs the user's **verbatim** text via
+  `utils/featureSuggestions.logFeatureSuggestion(userId, text, summary)`, and
+  appends the "I've noted that suggestion…" confirmation **only when logging
+  succeeded** — Echo never falsely claims a suggestion was recorded (on failure
+  the warm acknowledgment stands alone and the error is logged server-side).
+  The AI itself is told NOT to claim anything was noted.
+- **Dedup.** `classifyRequest` (module.exports seam, stub in tests) shows the
+  AI the existing suggestion titles and asks for a match or a new short title.
+  A match increments `request_count`; no match inserts, with a
+  `UNIQUE INDEX ON LOWER(title)` + `ON CONFLICT (LOWER(title)) DO UPDATE`
+  backstop so concurrent creates still count instead of erroring. Every ask
+  also stores a verbatim row in `feature_suggestion_requests`.
+- **Persistence.** `models/083_feature_suggestions.sql`: `feature_suggestions`
+  (UUID PK, title, description = first verbatim ask, `request_count`, `status`
+  pending|in_development|completed, first/last requested timestamps) +
+  `feature_suggestion_requests` (suggestion FK, user FK, verbatim text).
+- **Admin API.** `controllers/featureSuggestionAdminController.js`, mounted in
+  `adminRoutes.js` (auth + admin guard): `GET /` list sorted by
+  `request_count DESC` with `distinctUsers`; `GET /:id/requests` verbatim asks
+  with requester email; `PUT /:id/status` validated against the three statuses
+  (400 otherwise).
+- **Client.** `admin/AdminFeatureSuggestions.jsx` — "Feature Suggestions" tab in
+  `AdminPanel.jsx` (key `suggestions`): table sorted by request count, status
+  dropdown per row, expandable verbatim-request list.
+- **AI honesty.** Classifier failure propagates (no silent fallback) → no
+  confirmation appended; upstream Anthropic failure in chat is 502 as usual.
+- **Tests.** `test/featureSuggestions.test.js`: scripted-db unit tests for
+  match→increment, no-match→conflict-safe insert, classifier failure
+  propagation, empty-text rejection, and the marker parse/strip contract.
