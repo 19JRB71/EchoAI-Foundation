@@ -44,6 +44,30 @@ async function ownerBrands(userId, brandId = null) {
   }
 }
 
+/**
+ * The single brand whose Sage intelligence a briefing may reference. Sage is
+ * strictly brand-isolated: when the briefing is brand-scoped that brand wins;
+ * account-wide briefings fall back to the owner's last active brand. Returns
+ * null when no owned, non-demo active brand is known — the briefing then skips
+ * the Sage note entirely rather than surface another brand's intelligence.
+ */
+async function sageBriefingBrandId(userId, brandId, brandIds) {
+  if (brandId) return brandIds.includes(brandId) ? brandId : null;
+  try {
+    const r = await db.query(
+      `SELECT u.last_active_brand_id AS brand_id
+         FROM users u
+         JOIN brands b ON b.brand_id = u.last_active_brand_id
+                      AND b.user_id = u.user_id AND b.is_demo = false
+        WHERE u.user_id = $1`,
+      [userId]
+    );
+    return r.rows.length ? r.rows[0].brand_id : null;
+  } catch {
+    return null;
+  }
+}
+
 async function safeRows(sql, params) {
   try {
     const r = await db.query(sql, params);
@@ -185,6 +209,9 @@ async function gatherBriefingData(userId, since, brandId = null) {
   if (brandIds.length === 0) return empty;
 
   const sinceParam = since ? new Date(since) : new Date(Date.now() - 24 * 3600 * 1000);
+  // Sage intelligence is strictly brand-isolated: the briefing's Sage note only
+  // ever references the ACTIVE brand (never a blend across the portfolio).
+  const sageBrandId = await sageBriefingBrandId(userId, brandId, brandIds);
 
   const [
     newLeads,
@@ -265,15 +292,18 @@ async function gatherBriefingData(userId, since, brandId = null) {
           ORDER BY g.goal_id, s.snapshot_date DESC`,
         [brandIds]
       ),
-      // Sage's most recent industry findings across the owner's brands (urgent
-      // first) so the briefing can surface what Sage learned overnight.
-      safeRows(
-        `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
-           FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
-          WHERE f.brand_id = ANY($1) AND f.created_at > $2
-          ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
-        [brandIds, sinceParam]
-      ),
+      // Sage's most recent industry findings for the ACTIVE brand only (urgent
+      // first). Sage never mixes intelligence between brands: without a known
+      // active brand the briefing simply skips the Sage note.
+      sageBrandId
+        ? safeRows(
+            `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
+               FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
+              WHERE f.brand_id = $1 AND f.created_at > $2
+              ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
+            [sageBrandId, sinceParam]
+          )
+        : Promise.resolve([]),
       // Political campaigns: new supporters since the last briefing.
       safeRows(
         `SELECT COUNT(*)::int AS n
@@ -523,6 +553,9 @@ async function gatherWeeklyData(userId, brandId = null) {
   const now = Date.now();
   const weekAgo = new Date(now - 7 * 24 * 3600 * 1000);
   const twoWeeksAgo = new Date(now - 14 * 24 * 3600 * 1000);
+  // Sage intelligence is strictly brand-isolated — the weekly Sage note only
+  // ever references the ACTIVE brand.
+  const sageBrandId = await sageBriefingBrandId(userId, brandId, brandIds);
 
   const [
     leadsThisWeek,
@@ -595,13 +628,15 @@ async function gatherWeeklyData(userId, brandId = null) {
         WHERE brand_id = ANY($1) ORDER BY created_at DESC LIMIT 3`,
       [brandIds]
     ),
-    safeRows(
-      `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
-         FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
-        WHERE f.brand_id = ANY($1) AND f.created_at > $2
-        ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
-      [brandIds, weekAgo]
-    ),
+    sageBrandId
+      ? safeRows(
+          `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
+             FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
+            WHERE f.brand_id = $1 AND f.created_at > $2
+            ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
+          [sageBrandId, weekAgo]
+        )
+      : Promise.resolve([]),
   ]);
 
   const newLeadsCount = leadsThisWeek.length;

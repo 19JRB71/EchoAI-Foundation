@@ -27,6 +27,38 @@ async function ownedBrandIds(userId) {
   return r.rows.map((row) => row.brand_id);
 }
 
+/**
+ * Resolve the ACTIVE brand for Sage readouts. Sage intelligence is strictly
+ * brand-isolated: a readout must never surface another brand's report. The
+ * client sends the brand it is currently showing; ownership is verified with a
+ * join (never trust a client-supplied id). Falls back to the server-remembered
+ * last_active_brand_id. Returns null when no owned, non-demo active brand can
+ * be resolved — in which case Sage says nothing rather than the wrong thing.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveActiveSageBrand(userId, requestedBrandId) {
+  if (requestedBrandId && !UUID_RE.test(String(requestedBrandId))) return null;
+  if (requestedBrandId) {
+    const r = await db.query(
+      `SELECT brand_id FROM brands
+        WHERE brand_id = $1 AND user_id = $2 AND is_demo = false`,
+      [requestedBrandId, userId]
+    );
+    if (r.rows.length) return r.rows[0].brand_id;
+    return null; // requested brand not owned → never fall back to another brand
+  }
+  const r = await db.query(
+    `SELECT u.last_active_brand_id AS brand_id
+       FROM users u
+       JOIN brands b ON b.brand_id = u.last_active_brand_id
+                    AND b.user_id = u.user_id AND b.is_demo = false
+      WHERE u.user_id = $1`,
+    [userId]
+  );
+  return r.rows.length ? r.rows[0].brand_id : null;
+}
+
 function plural(n, singular, pluralWord) {
   return `${n} ${n === 1 ? singular : pluralWord || `${singular}s`}`;
 }
@@ -136,15 +168,16 @@ function campaignsBriefText(rows) {
 // Sage (industry intelligence report)
 // ---------------------------------------------------------------------------
 
-async function sageProfile(brandIds) {
-  if (brandIds.length === 0) return null;
+async function sageProfile(brandId) {
+  // Strict brand isolation: Sage readouts come from ONE brand — the active
+  // one — never "the most recently refreshed profile across all brands".
+  if (!brandId) return null;
   const r = await db.query(
     `SELECT summary, marketing_insights, last_refreshed_at
        FROM sage_intelligence_profiles
-      WHERE brand_id = ANY($1) AND last_refreshed_at IS NOT NULL
-      ORDER BY last_refreshed_at DESC
+      WHERE brand_id = $1 AND last_refreshed_at IS NOT NULL
       LIMIT 1`,
-    [brandIds]
+    [brandId]
   );
   return r.rows[0] || null;
 }
@@ -207,7 +240,11 @@ async function sectionOffer(req, res) {
       const rows = await campaignRows(req.user.userId, brandIds);
       question = campaignsOfferText(rows.length);
     } else {
-      question = sageOfferText(await sageProfile(brandIds));
+      const activeBrand = await resolveActiveSageBrand(
+        req.user.userId,
+        req.query.brandId || null
+      );
+      question = sageOfferText(await sageProfile(activeBrand));
     }
     return res.json({ section, question });
   } catch (err) {
@@ -229,7 +266,11 @@ async function sectionBrief(req, res) {
     } else if (section === "campaigns") {
       text = campaignsBriefText(await campaignRows(req.user.userId, brandIds));
     } else {
-      text = sageBriefText(await sageProfile(brandIds));
+      const activeBrand = await resolveActiveSageBrand(
+        req.user.userId,
+        (req.body && req.body.brandId) || null
+      );
+      text = sageBriefText(await sageProfile(activeBrand));
     }
     return res.json({ section, text });
   } catch (err) {

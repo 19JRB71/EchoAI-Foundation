@@ -698,6 +698,19 @@ async function getPending(req, res) {
       return res.json({ notifications: [], quietHours: true });
     }
 
+    // Brand isolation: alerts stamped with a brandId (Sage urgent reports,
+    // geo exclusions…) are only delivered while the owner is viewing THAT
+    // brand. The client sends the brand it is showing (?activeBrandId=,
+    // ownership-verified); fallback is the server-remembered active brand.
+    // Mismatched alerts stay 'pending' and deliver when the owner switches.
+    const activeBrandId = await resolveActiveBrandForPending(
+      req.user.userId,
+      req.query.activeBrandId
+    );
+
+    // Brand-scoped alerts (payload.brandId) for OTHER brands are held in the
+    // SQL itself — they stay 'pending' and can never starve the LIMIT — and
+    // deliver on a later poll once the owner switches to that brand.
     const rows = (
       await db.query(
         `SELECT notification_id, event_type, title, spoken_text, payload, created_at
@@ -705,16 +718,22 @@ async function getPending(req, res) {
           WHERE user_id = $1 AND status = 'pending'
             AND deliver_after <= NOW()
             AND (expires_at IS NULL OR expires_at > NOW())
+            AND (payload->>'brandId' IS NULL OR payload->>'brandId' = $2)
           ORDER BY deliver_after ASC, created_at ASC
           LIMIT 5`,
-        [req.user.userId]
+        [req.user.userId, activeBrandId ? String(activeBrandId) : ""]
       )
     ).rows;
 
     // Respect per-event toggles. day_summary is on when its toggle is on.
     const filtered = rows.filter((r) => {
       const toggle = settings.events[r.event_type];
-      return toggle !== false; // unknown/enabled → allow
+      if (toggle === false) return false; // per-type toggle off
+      // Defense in depth: re-validate brand isolation even though the SQL
+      // already holds mismatched brand-scoped alerts.
+      const alertBrand = r.payload && r.payload.brandId ? String(r.payload.brandId) : null;
+      if (alertBrand && String(activeBrandId || "") !== alertBrand) return false;
+      return true;
     });
 
     return res.json({
@@ -739,6 +758,37 @@ function parseHour(raw) {
   const n = Number(raw);
   if (Number.isInteger(n) && n >= 0 && n <= 23) return n;
   return new Date().getHours();
+}
+
+/**
+ * Resolve the brand the owner is currently viewing, for brand-isolated alert
+ * delivery. A client-supplied id is ownership-verified with a join (never
+ * trusted raw); without one we fall back to the server-remembered
+ * last_active_brand_id. Returns null when no owned, non-demo brand resolves —
+ * every brand-scoped alert is then held.
+ */
+const BRAND_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveActiveBrandForPending(userId, requestedBrandId) {
+  const requested = typeof requestedBrandId === "string" ? requestedBrandId.trim() : "";
+  if (requested && !BRAND_UUID_RE.test(requested)) return null;
+  if (requested) {
+    const r = await db.query(
+      `SELECT brand_id FROM brands
+        WHERE brand_id = $1 AND user_id = $2 AND is_demo = false`,
+      [requested, userId]
+    );
+    return r.rows.length ? r.rows[0].brand_id : null;
+  }
+  const r = await db.query(
+    `SELECT u.last_active_brand_id AS brand_id
+       FROM users u
+       JOIN brands b ON b.brand_id = u.last_active_brand_id
+                    AND b.user_id = u.user_id AND b.is_demo = false
+      WHERE u.user_id = $1`,
+    [userId]
+  );
+  return r.rows.length ? r.rows[0].brand_id : null;
 }
 
 /**

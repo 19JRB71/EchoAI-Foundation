@@ -725,7 +725,10 @@ export function EchoConversationProvider({ active, children }) {
             // Data-backed readout composed server-side from real numbers.
             try {
               const data = await withTimeout(
-                api.getEchoSectionBrief(pending.briefSection),
+                api.getEchoSectionBrief(
+                  pending.briefSection,
+                  activeBrandCtx().id || undefined,
+                ),
                 FETCH_TIMEOUT_MS,
               );
               brief = (data && data.text) || "";
@@ -1086,7 +1089,7 @@ export function EchoConversationProvider({ active, children }) {
           // 3 hot leads."); fall back to the generic question on any failure.
           try {
             const data = await withTimeout(
-              api.getEchoSectionOffer(briefSection),
+              api.getEchoSectionOffer(briefSection, activeBrandCtx().id || undefined),
               OFFER_TIMEOUT_MS,
             );
             if (data && data.question) question = data.question;

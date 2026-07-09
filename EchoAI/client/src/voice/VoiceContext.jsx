@@ -447,6 +447,16 @@ export function VoiceProvider({ active, children }) {
           if (idx === -1) break; // everything is held; retry once idle
         }
         const item = queueRef.current.splice(idx, 1)[0];
+        // Brand-isolation validation at the moment of speech: if the owner
+        // switched brands after this alert was queued, do NOT speak it. It is
+        // not marked delivered, so it stays pending server-side and delivers
+        // when the owner returns to its brand.
+        if (item.brandId) {
+          const bctx =
+            (typeof window !== "undefined" && window.__echoaiBrands) || {};
+          const nowActive = bctx.activeIsDemo ? null : bctx.activeId || null;
+          if (String(nowActive || "") !== String(item.brandId)) continue;
+        }
         currentRef.current = item;
         lastPlayedRef.current = item;
         setCurrent(item);
@@ -760,7 +770,12 @@ export function VoiceProvider({ active, children }) {
     let cancelled = false;
     (async () => {
       try {
-        const b = await api.echoVoiceGetBriefing();
+        // Scope the login briefing to the brand the dashboard is showing so
+        // its Sage note can never reference another brand's intelligence.
+        const bctx0 =
+          (typeof window !== "undefined" && window.__echoaiBrands) || {};
+        const briefingBrand = bctx0.activeIsDemo ? null : bctx0.activeId || null;
+        const b = await api.echoVoiceGetBriefing(briefingBrand || undefined);
         if (cancelled) return;
         if (!b.enabled || !b.autoBriefing) return;
         // The standby greeting fires on EVERY login (owner preference), not
@@ -900,10 +915,28 @@ export function VoiceProvider({ active, children }) {
       if (!s.enabled) return;
       if (isQuietHour(new Date().getHours(), s.quietHours)) return;
       try {
-        const data = await api.echoVoiceGetPending(new Date().getHours());
+        // Brand isolation: tell the server which brand the dashboard is
+        // showing so brand-scoped alerts (Sage urgent reports…) for OTHER
+        // brands stay held server-side until the owner switches to them.
+        const bctx = (typeof window !== "undefined" && window.__echoaiBrands) || {};
+        const activeBrandId = bctx.activeIsDemo ? null : bctx.activeId || null;
+        // On the demo brand send an explicit "none" sentinel (non-UUID) so the
+        // server holds ALL brand-scoped alerts instead of falling back to the
+        // last real active brand.
+        const data = await api.echoVoiceGetPending(
+          new Date().getHours(),
+          bctx.activeIsDemo ? "none" : activeBrandId
+        );
         if (stopped) return;
         const list = (data && data.notifications) || [];
         for (const n of list) {
+          // Delivery-time validation (defense in depth): never enqueue a
+          // brand-scoped alert unless its brandId matches the brand the
+          // dashboard is showing RIGHT NOW. It stays pending server-side and
+          // delivers after the owner switches to that brand.
+          const alertBrand =
+            n.payload && n.payload.brandId ? String(n.payload.brandId) : null;
+          if (alertBrand && String(activeBrandId || "") !== alertBrand) continue;
           // Skip terminal (spoken/dismissed) items, and anything already queued
           // or currently playing, so we don't double-enqueue. A blocked/stopped
           // item leaves the queue without becoming terminal, so it re-enqueues
@@ -919,6 +952,9 @@ export function VoiceProvider({ active, children }) {
             title: n.title,
             text: n.text,
             notificationId: n.id,
+            // Carried so the drain loop can re-validate brand isolation at
+            // the moment of speech (the owner may switch brands in between).
+            brandId: alertBrand,
           });
         }
       } catch {

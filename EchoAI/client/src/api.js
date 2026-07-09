@@ -218,10 +218,17 @@ export const api = {
   },
   getEchoBriefing: () => request("/api/echo/briefing"),
   // Voice nav "ask before reading": data-backed offer question + readout.
-  getEchoSectionOffer: (section) =>
-    request(`/api/echo/section-offer?section=${encodeURIComponent(section)}`),
-  getEchoSectionBrief: (section) =>
-    request("/api/echo/section-brief", { method: "POST", body: { section } }),
+  getEchoSectionOffer: (section, brandId) =>
+    request(
+      `/api/echo/section-offer?section=${encodeURIComponent(section)}${
+        brandId ? `&brandId=${encodeURIComponent(brandId)}` : ""
+      }`
+    ),
+  getEchoSectionBrief: (section, brandId) =>
+    request("/api/echo/section-brief", {
+      method: "POST",
+      body: brandId ? { section, brandId } : { section },
+    }),
   // Echo personal assistant (owner-only): voice command + reminders/tasks CRUD.
   echoAssistantCommand: (text, timezone) =>
     request("/api/echo-assistant/command", {
@@ -1463,12 +1470,13 @@ export const api = {
       method: "POST",
       body: { phrase, action },
     }),
-  echoVoiceGetPending: (clientHour) =>
-    request(
-      `/api/echo-voice/pending${
-        Number.isInteger(clientHour) ? `?clientHour=${clientHour}` : ""
-      }`,
-    ),
+  echoVoiceGetPending: (clientHour, activeBrandId) => {
+    const params = new URLSearchParams();
+    if (Number.isInteger(clientHour)) params.set("clientHour", String(clientHour));
+    if (activeBrandId) params.set("activeBrandId", String(activeBrandId));
+    const qs = params.toString();
+    return request(`/api/echo-voice/pending${qs ? `?${qs}` : ""}`);
+  },
   echoVoiceMarkNotification: (id, status) =>
     request(`/api/echo-voice/notifications/${id}/delivered`, {
       method: "POST",
