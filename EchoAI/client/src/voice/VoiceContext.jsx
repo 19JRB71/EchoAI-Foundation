@@ -674,7 +674,11 @@ export function VoiceProvider({ active, children }) {
     try {
       markUserInitiated();
       setError("");
-      const data = await api.echoVoiceGetStatus();
+      // Scope the spoken status to the business the dashboard is showing
+      // (App.jsx publishes it on window.__echoaiBrands). Demo brand → global.
+      const bctx = (typeof window !== "undefined" && window.__echoaiBrands) || {};
+      const brandId = bctx.activeIsDemo ? undefined : bctx.activeId || undefined;
+      const data = await api.echoVoiceGetStatus(brandId);
       enqueue(
         {
           type: "status",
@@ -782,9 +786,21 @@ export function VoiceProvider({ active, children }) {
           // Greet by the owner's LOCAL clock (server-computed from the brand
           // settings timezone): morning gets the briefing standby, while an
           // afternoon/evening/late login offers a quick day update instead.
-          text: b.musicReady
-            ? `${standbyGreeting(b.partOfDay)} ${musicReadyLine()}`
-            : standbyGreeting(b.partOfDay),
+          text: (() => {
+            // Tell the owner which business they're set up on (multi-business
+            // accounts only) so they can say "switch to <name>" right away.
+            const bx =
+              (typeof window !== "undefined" && window.__echoaiBrands) || {};
+            const brandLine =
+              !bx.activeIsDemo &&
+              bx.activeName &&
+              Array.isArray(bx.brands) &&
+              bx.brands.length > 1
+                ? ` You're set up on ${bx.activeName} — say "switch to" another business anytime.`
+                : "";
+            const base = `${standbyGreeting(b.partOfDay)}${brandLine}`;
+            return b.musicReady ? `${base} ${musicReadyLine()}` : base;
+          })(),
           // No music intro — go straight to Echo speaking.
           playIntro: false,
           onPlayed: async () => {

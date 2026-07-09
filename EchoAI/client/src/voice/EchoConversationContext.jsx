@@ -47,6 +47,7 @@ import {
   matchBriefingStart,
   matchBriefingChoice,
   matchStatusIntent,
+  matchBrandSwitch,
   matchLearnedPhrase,
   normalizeSpeech,
   CONFIDENCE_THRESHOLD,
@@ -65,6 +66,20 @@ import {
 import { api } from "../api.js";
 
 const EchoConversationContext = createContext(null);
+
+// Live brand context published by App.jsx (window.__echoaiBrands). The voice
+// engine reads it at command time so briefings/status are scoped to the brand
+// the dashboard is actually showing. Demo brand (Presentation Mode) is never
+// treated as the active brand for briefings.
+function activeBrandCtx() {
+  const b = (typeof window !== "undefined" && window.__echoaiBrands) || {};
+  const demo = Boolean(b.activeIsDemo);
+  return {
+    id: demo ? null : b.activeId || null,
+    name: demo ? null : b.activeName || null,
+    brands: Array.isArray(b.brands) ? b.brands : [],
+  };
+}
 
 // A learned phrase maps to one of these canonical utterances, which the normal
 // intent matchers below understand — so a learned phrase behaves exactly like
@@ -166,6 +181,8 @@ export function EchoConversationProvider({ active, children }) {
   const pendingBriefingChoiceRef = useRef(false); // briefing-type question pending
   const interruptedRef = useRef(false); // a barge-in interrupt is being handled
   const morningStandbyRef = useRef(false); // greeted; briefing awaits go-ahead
+  const pendingBrandOfferRef = useRef(null); // other-business briefing offer: { queue: [brands] }
+  const pendingBrandPickRef = useRef(false); // "which business?" question pending
   const learnedMapRef = useRef(new Map()); // normalized phrase -> learned action
   const misheardRef = useRef(null); // { text, at } awaiting a clarified repeat
   const clarifyRetryRef = useRef(false); // asked "say that again?" once already
@@ -480,6 +497,67 @@ export function EchoConversationProvider({ active, children }) {
       // next command.
       const captureConf = confRef.current;
       confRef.current = null;
+
+      // ---- brand helpers (hoisted; used by several handlers below) --------
+      // Deliver a single brand's briefing, then (when more businesses remain
+      // in the queue) offer the next one — the redesign's "one business at a
+      // time" briefing flow.
+      async function deliverBrandBriefing(brand, restQueue) {
+        suspendRef.current = true;
+        setConvState("processing");
+        playEffect("thinking", { volume: 0.35 });
+        let brief = "";
+        try {
+          const b = await withTimeout(
+            api.echoVoiceGetBriefing(brand.brand_id),
+            FETCH_TIMEOUT_MS,
+          );
+          brief = (b && b.text) || "";
+        } catch {
+          brief = "";
+        }
+        if (stale()) return;
+        if (!brief)
+          brief = `I couldn't pull the update for ${brand.brand_name} just now, Sir.`;
+        setConvState("speaking");
+        const rest = Array.isArray(restQueue) ? restQueue : [];
+        if (rest.length) {
+          await speakAndWait(
+            `${brief} Want to hear how ${rest[0].brand_name} is doing?`,
+          );
+          if (stale()) return;
+          pendingBrandOfferRef.current = { queue: rest };
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow(true);
+        } else {
+          await speakAndWait(brief);
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+        }
+      }
+      // Point the whole dashboard at another business and confirm out loud.
+      // App.jsx validates the id, updates every section, and persists the
+      // choice server-side.
+      async function switchToBrand(brand) {
+        try {
+          window.dispatchEvent(
+            new CustomEvent("echoai:switch-brand", {
+              detail: { brandId: brand.brand_id },
+            }),
+          );
+        } catch {
+          /* noop */
+        }
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait(
+          `You got it, Sir — switching over to ${brand.brand_name}. Say "catch me up" whenever you want the rundown.`,
+        );
+        if (stale()) return;
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow();
+      }
       if (!text) {
         // Nothing captured — quietly reopen the follow-up window.
         modeRef.current = "active";
@@ -518,6 +596,8 @@ export function EchoConversationProvider({ active, children }) {
         maybeLearn("stop", text);
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
+        pendingBrandOfferRef.current = null;
+        pendingBrandPickRef.current = false;
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(interruptAck());
@@ -531,6 +611,8 @@ export function EchoConversationProvider({ active, children }) {
       if (intent === "mute") {
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
+        pendingBrandOfferRef.current = null;
+        pendingBrandPickRef.current = false;
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(goQuietLine());
@@ -551,6 +633,63 @@ export function EchoConversationProvider({ active, children }) {
         suspendRef.current = false;
         setConvState("active");
         return;
+      }
+
+      // A "want to hear another business?" offer is pending after a per-brand
+      // briefing. Yes plays the next business's briefing; a clear new command
+      // always wins over the pending offer.
+      if (pendingBrandOfferRef.current) {
+        const offer = pendingBrandOfferRef.current;
+        pendingBrandOfferRef.current = null;
+        const answer =
+          matchNavIntent(text) || matchMusicIntent(text)
+            ? null
+            : matchYesNo(text);
+        if (answer === "no") {
+          maybeLearn("no", text);
+          modeRef.current = "passive";
+          suspendRef.current = false;
+          setConvState("passive");
+          return;
+        }
+        if (answer === "yes") {
+          maybeLearn("yes", text);
+          const queue = Array.isArray(offer.queue) ? offer.queue : [];
+          const next = queue[0];
+          if (next) {
+            await deliverBrandBriefing(next, queue.slice(1));
+            return;
+          }
+          modeRef.current = "passive";
+          suspendRef.current = false;
+          setConvState("passive");
+          return;
+        }
+        // Neither yes nor no → treat it as a new command below.
+      }
+
+      // Echo asked "which business would you like?" — try the utterance as a
+      // bare business name first; anything else falls through as a command.
+      if (pendingBrandPickRef.current) {
+        pendingBrandPickRef.current = false;
+        const ctx = activeBrandCtx();
+        const picked = matchBrandSwitch(`switch to ${text}`, ctx.brands);
+        if (picked && picked.brand) {
+          if (String(picked.brand.brand_id) !== String(ctx.id)) {
+            await switchToBrand(picked.brand);
+            return;
+          }
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            `You're already on ${picked.brand.brand_name}, Sir.`,
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        // Not a recognizable business name → handle as a normal command.
       }
 
       // A section-readout offer is pending ("Want me to read the highlights?").
@@ -638,11 +777,11 @@ export function EchoConversationProvider({ active, children }) {
           playEffect("thinking", { volume: 0.35 });
           let brief = "";
           if (choice === "full") {
-            // Full briefing → the server-built cross-business status update
-            // (real data, all businesses).
+            // Full briefing → the server-built status update, scoped to the
+            // business the dashboard is currently on.
             try {
               const data = await withTimeout(
-                api.echoVoiceGetStatus(),
+                api.echoVoiceGetStatus(activeBrandCtx().id || undefined),
                 FETCH_TIMEOUT_MS,
               );
               brief = (data && data.text) || "";
@@ -690,13 +829,21 @@ export function EchoConversationProvider({ active, children }) {
         morningStandbyRef.current = false;
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
+        pendingBrandOfferRef.current = null;
+        pendingBrandPickRef.current = false;
         suspendRef.current = true;
         setConvState("processing");
         playEffect("thinking", { volume: 0.35 });
+        // Brand-scoped briefing: cover ONLY the business the dashboard is on.
+        // Other businesses are offered one at a time afterwards.
+        const brandCtx = activeBrandCtx();
+        const otherBrands = brandCtx.brands.filter(
+          (b) => String(b.brand_id) !== String(brandCtx.id),
+        );
         let brief = "";
         try {
           const b = await withTimeout(
-            api.echoVoiceGetBriefing(),
+            api.echoVoiceGetBriefing(brandCtx.id || undefined),
             FETCH_TIMEOUT_MS,
           );
           brief = (b && b.text) || "";
@@ -712,6 +859,18 @@ export function EchoConversationProvider({ active, children }) {
             // Mark delivered only after the owner actually heard it, so the
             // once-per-day server stamp is honest.
             api.echoVoiceMarkBriefingDelivered().catch(() => {});
+            if (brandCtx.id && otherBrands.length) {
+              // Offer the other businesses one at a time instead of the
+              // generic "what to tackle first" hand-off.
+              await speakAndWait(
+                `That's ${brandCtx.name || "this business"}. Want to hear how ${otherBrands[0].brand_name} is doing?`,
+              );
+              if (stale()) return;
+              pendingBrandOfferRef.current = { queue: otherBrands };
+              // eslint-disable-next-line no-use-before-define
+              openFollowupWindow(true);
+              return;
+            }
             // Same post-briefing hand-off as before: "What would you like to
             // tackle first today?" + open listening.
             try {
@@ -739,18 +898,21 @@ export function EchoConversationProvider({ active, children }) {
       }
 
       // Direct status request ("what we got", "status report") → read out the
-      // current cross-business status immediately, no follow-up question.
+      // current status for the ACTIVE business immediately, no follow-up
+      // question. (Cross-business numbers live in the Portfolio view.)
       if (matchStatusIntent(text)) {
         maybeLearn("status", text);
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
+        pendingBrandOfferRef.current = null;
+        pendingBrandPickRef.current = false;
         suspendRef.current = true;
         setConvState("processing");
         playEffect("thinking", { volume: 0.35 });
         let statusText = "";
         try {
           const data = await withTimeout(
-            api.echoVoiceGetStatus(),
+            api.echoVoiceGetStatus(activeBrandCtx().id || undefined),
             FETCH_TIMEOUT_MS,
           );
           statusText = (data && data.text) || "";
@@ -797,6 +959,44 @@ export function EchoConversationProvider({ active, children }) {
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow();
         return;
+      }
+
+      // Brand switching by voice ("Hey Echo, switch to Blacor Homes").
+      // Checked before nav/assistant so a real business name always wins; nav
+      // phrases like "switch to settings" fall through because no brand
+      // matches them. Only meaningful with more than one real business.
+      {
+        const ctx = activeBrandCtx();
+        const sw =
+          ctx.brands.length > 1 ? matchBrandSwitch(text, ctx.brands) : null;
+        if (sw && sw.brand) {
+          if (String(sw.brand.brand_id) === String(ctx.id)) {
+            suspendRef.current = true;
+            setConvState("speaking");
+            await speakAndWait(
+              `You're already on ${sw.brand.brand_name}, Sir.`,
+            );
+            if (stale()) return;
+            // eslint-disable-next-line no-use-before-define
+            openFollowupWindow();
+            return;
+          }
+          await switchToBrand(sw.brand);
+          return;
+        }
+        if (sw && sw.ask) {
+          const names = ctx.brands.map((b) => b.brand_name).join(", ");
+          pendingBrandPickRef.current = true;
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            `Which business would you like, Sir? You have ${names}.`,
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow(true);
+          return;
+        }
       }
 
       // Personal assistant ("remind me to call Robert at 2pm", "add a task",
@@ -984,6 +1184,8 @@ export function EchoConversationProvider({ active, children }) {
         // Soft close → back to passive wake-word listening.
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
+        pendingBrandOfferRef.current = null;
+        pendingBrandPickRef.current = false;
         misheardRef.current = null;
         clarifyRetryRef.current = false;
         modeRef.current = "passive";
@@ -1048,6 +1250,8 @@ export function EchoConversationProvider({ active, children }) {
           cmdGenRef.current += 1; // cancel any in-flight command
           pendingBriefRef.current = null;
           pendingBriefingChoiceRef.current = false;
+          pendingBrandOfferRef.current = null;
+          pendingBrandPickRef.current = false;
           finalRef.current = "";
           clearTimers();
           // Cut the audio NOW (clears the queue and unwinds the drain loop).
@@ -1288,6 +1492,8 @@ export function EchoConversationProvider({ active, children }) {
           clearTimers();
           pendingBriefRef.current = null;
           pendingBriefingChoiceRef.current = false;
+          pendingBrandOfferRef.current = null;
+          pendingBrandPickRef.current = false;
           finalRef.current = "";
           modeRef.current = "passive";
           suspendRef.current = false;
@@ -1326,6 +1532,8 @@ export function EchoConversationProvider({ active, children }) {
     clearTimers();
     pendingBriefRef.current = null;
     pendingBriefingChoiceRef.current = false;
+    pendingBrandOfferRef.current = null;
+    pendingBrandPickRef.current = false;
     misheardRef.current = null;
     clarifyRetryRef.current = false;
     modeRef.current = "passive";
@@ -1442,6 +1650,8 @@ export function EchoConversationProvider({ active, children }) {
       stopEffect();
       pendingBriefRef.current = null;
       pendingBriefingChoiceRef.current = false;
+      pendingBrandOfferRef.current = null;
+      pendingBrandPickRef.current = false;
       morningStandbyRef.current = false;
       finalRef.current = "";
       modeRef.current = "passive";

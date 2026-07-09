@@ -10,6 +10,7 @@ import {
   navOfferQuestion,
   navLabel,
   matchYesNo,
+  matchBrandSwitch,
   BRIEF_SECTIONS,
 } from "./conversationHelpers.js";
 
@@ -878,5 +879,38 @@ describe("isProactiveVoiceItem", () => {
   it("handles null/undefined without throwing", () => {
     expect(isProactiveVoiceItem(null)).toBe(false);
     expect(isProactiveVoiceItem(undefined)).toBe(false);
+  });
+});
+
+describe("matchBrandSwitch", () => {
+  const brands = [
+    { brand_id: "b1", brand_name: "Blacor Homes" },
+    { brand_id: "b2", brand_name: "Premier Auto Group" },
+  ];
+
+  it("matches switch phrases against real brand names", () => {
+    expect(matchBrandSwitch("switch to blacor homes", brands).brand.brand_id).toBe("b1");
+    expect(matchBrandSwitch("hey echo switch to premier auto group", brands).brand.brand_id).toBe("b2");
+    expect(matchBrandSwitch("change over to blacor", brands).brand.brand_id).toBe("b1");
+    expect(matchBrandSwitch("pull up premier auto", brands).brand.brand_id).toBe("b2");
+  });
+
+  it("handles shortened and slightly-off spoken names", () => {
+    expect(matchBrandSwitch("switch to blacor home", brands).brand.brand_id).toBe("b1");
+    expect(matchBrandSwitch("switch to premier", brands).brand.brand_id).toBe("b2");
+    expect(matchBrandSwitch("switch to the blacor homes business", brands).brand.brand_id).toBe("b1");
+  });
+
+  it("returns ask for a bare switch-businesses request", () => {
+    expect(matchBrandSwitch("switch businesses", brands)).toEqual({ ask: true });
+    expect(matchBrandSwitch("change business", brands)).toEqual({ ask: true });
+    expect(matchBrandSwitch("switch businesses", [])).toBeNull();
+  });
+
+  it("never trips on nav phrases or unrelated speech", () => {
+    expect(matchBrandSwitch("switch to settings", brands)).toBeNull();
+    expect(matchBrandSwitch("go to my leads", brands)).toBeNull();
+    expect(matchBrandSwitch("how is blacor homes doing", brands)).toBeNull();
+    expect(matchBrandSwitch("", brands)).toBeNull();
   });
 });

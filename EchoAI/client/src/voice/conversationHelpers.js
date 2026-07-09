@@ -824,3 +824,79 @@ export function isProactiveVoiceItem(item) {
   if (item.notificationId) return true;
   return !INTERACTIVE_TYPES.has(item.type);
 }
+
+// ---------------------------------------------------------------------------
+// Brand switching ("Hey Echo, switch to Blacor Homes")
+// ---------------------------------------------------------------------------
+// The dashboard is strictly single-brand, so switching businesses is a
+// first-class voice command. Matching is two-step: a switch-style phrase pulls
+// out the spoken business name, which is then fuzzily matched against the
+// owner's REAL brand names (so "switch to settings" never trips this — it
+// falls through to the normal nav matcher).
+const BRAND_SWITCH_RES = [
+  /^(?:hey echo )?(?:switch|change|swap|flip)(?: me)?(?: over)?(?: to| on to| onto)? (.+)$/,
+  /^(?:hey echo )?(?:work on|pull up|let us look at|let s look at|look at) (.+)$/,
+  /^(?:hey echo )?(?:go|take me)(?: over)? to (?:my )?(.+) (?:business|company|brand|account)$/,
+];
+// Bare "switch businesses" (no name) → Echo should ask which one.
+const BRAND_SWITCH_ASK_RE =
+  /^(?:hey echo )?(?:switch|change|swap)(?: my)?(?: the)? (?:business(?:es)?|brand(?:s)?|compan(?:y|ies))$/;
+
+function normalizeBrandName(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Match a brand-switch command against the owner's brand list.
+ * `brands` is [{ brand_id, brand_name }].
+ * Returns { brand } on a name match, { ask: true } for a bare "switch
+ * businesses", or null when this isn't a switch command / no brand matches.
+ */
+export function matchBrandSwitch(text, brands) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return null;
+  const list = Array.isArray(brands) ? brands : [];
+  if (BRAND_SWITCH_ASK_RE.test(norm)) return list.length ? { ask: true } : null;
+  let spoken = null;
+  for (const re of BRAND_SWITCH_RES) {
+    const m = norm.match(re);
+    if (m) {
+      spoken = m[1].trim();
+      break;
+    }
+  }
+  if (!spoken) return null;
+  // Strip trailing business-type words ("blacor homes business" → "blacor homes")
+  spoken = spoken.replace(/\s+(business|company|brand|account)$/, "").trim();
+  if (!spoken) return null;
+  // Exact-normalized match first, then containment either way (spoken name is
+  // often a shortened form: "blacor" for "Blacor Homes").
+  let best = null;
+  for (const b of list) {
+    const name = normalizeBrandName(b.brand_name);
+    if (!name) continue;
+    if (name === spoken) return { brand: b };
+    if (name.includes(spoken) || spoken.includes(name)) {
+      if (!best) best = b;
+    }
+  }
+  // Word-overlap fallback: every spoken word appears in the brand name
+  // ("switch over to blacor home" vs "Blacor Homes").
+  if (!best) {
+    const words = spoken.split(" ").filter((w) => w.length > 2);
+    if (words.length) {
+      for (const b of list) {
+        const name = normalizeBrandName(b.brand_name);
+        if (words.every((w) => name.includes(w))) {
+          best = b;
+          break;
+        }
+      }
+    }
+  }
+  return best ? { brand: best } : null;
+}

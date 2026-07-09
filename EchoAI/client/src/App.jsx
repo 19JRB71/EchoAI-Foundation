@@ -367,7 +367,24 @@ export default function App() {
       const data = await api.getBrands();
       const list = data.brands || [];
       setBrands(list);
-      setSelectedBrandId((prev) => prev || firstRealBrandId(list));
+      // Restore the last brand this user was working on (persisted server-side)
+      // so a returning login lands exactly where they left off. Falls back to
+      // the first real (non-demo) brand when nothing is remembered or the
+      // remembered brand no longer exists.
+      let remembered = "";
+      try {
+        const active = await api.getActiveBrand();
+        if (
+          active &&
+          active.brandId &&
+          list.some((b) => String(b.brand_id) === String(active.brandId) && !b.is_demo)
+        ) {
+          remembered = active.brandId;
+        }
+      } catch {
+        /* best-effort — fall back to the default pick */
+      }
+      setSelectedBrandId((prev) => prev || remembered || firstRealBrandId(list));
       return list;
     } catch (err) {
       if (err.status === 401) {
@@ -424,6 +441,21 @@ export default function App() {
   useEffect(() => {
     if (authed && onboardingCompleted) loadBrands();
   }, [authed, onboardingCompleted, loadBrands]);
+
+  // Persist the active brand server-side whenever the user lands on a real
+  // (non-demo) brand, so the next login restores it ("last time you were on X").
+  // Demo selections (Sales Presentation Mode) are never remembered.
+  const lastPersistedBrand = useRef("");
+  useEffect(() => {
+    if (!authed || !selectedBrandId || brands.length === 0) return;
+    const b = brands.find((x) => String(x.brand_id) === String(selectedBrandId));
+    if (!b || b.is_demo) return;
+    if (lastPersistedBrand.current === String(selectedBrandId)) return;
+    lastPersistedBrand.current = String(selectedBrandId);
+    api.setActiveBrand(selectedBrandId).catch(() => {
+      /* best-effort — never block the UI on persistence */
+    });
+  }, [authed, selectedBrandId, brands]);
 
   // Decide whether to auto-launch the AI Setup Agent: resume any in-progress
   // session (e.g. returning from Google OAuth), otherwise offer it to a brand-new
@@ -663,6 +695,43 @@ export default function App() {
     return () =>
       window.removeEventListener("echoai:navigate-section", onNavSection);
   }, []);
+
+  // Expose the active brand + real brand list to the voice engine (it lives
+  // outside React's tree from App's perspective), and broadcast changes so
+  // Echo can announce the business he's now working on.
+  useEffect(() => {
+    const real = brands.filter((b) => !b.is_demo);
+    const activeBrand =
+      brands.find((b) => String(b.brand_id) === String(selectedBrandId)) || null;
+    window.__echoaiBrands = {
+      activeId: selectedBrandId || null,
+      activeName: activeBrand ? activeBrand.brand_name : null,
+      activeIsDemo: Boolean(activeBrand && activeBrand.is_demo),
+      brands: real.map((b) => ({ brand_id: b.brand_id, brand_name: b.brand_name })),
+    };
+    try {
+      window.dispatchEvent(
+        new CustomEvent("echoai:active-brand-changed", {
+          detail: window.__echoaiBrands,
+        })
+      );
+    } catch {
+      /* noop */
+    }
+  }, [brands, selectedBrandId]);
+
+  // Voice-driven brand switching ("Hey Echo, switch to Blacor Homes"): the
+  // conversation engine dispatches this event with a validated brand id.
+  useEffect(() => {
+    const onSwitch = (e) => {
+      const id = e.detail && (e.detail.brandId || e.detail);
+      if (!id) return;
+      const match = brands.find((b) => String(b.brand_id) === String(id));
+      if (match && !match.is_demo) setSelectedBrandId(match.brand_id);
+    };
+    window.addEventListener("echoai:switch-brand", onSwitch);
+    return () => window.removeEventListener("echoai:switch-brand", onSwitch);
+  }, [brands]);
 
   // Rehydrate Presentation Mode after a page refresh: if an admin left it live,
   // re-point the dashboard at the demo brand and re-show the presenter toolbar.
@@ -950,7 +1019,11 @@ export default function App() {
               {section === "portfolio" &&
                 (canOpenSection("portfolio") ? <Portfolio /> : null)}
               {section === "missioncontrol" && (
-                <MissionControl onNavigate={handleSelectSection} onOpenDepartment={openDepartment} />
+                <MissionControl
+                  brandId={selectedBrandId}
+                  onNavigate={handleSelectSection}
+                  onOpenDepartment={openDepartment}
+                />
               )}
               {section === "aiteam" && (
                 <AiTeam onOpenDepartment={openDepartment} />
@@ -1563,20 +1636,36 @@ function BrandBar({ brands, selectedBrandId, onSelect, loading, error }) {
     );
   if (brands.length === 1) return null;
 
+  // Prominent single-business switcher: the whole dashboard shows ONE business
+  // at a time, so make it obvious which one you're on and one-click to change.
   return (
-    <div className="mb-6 flex items-center gap-2" data-tour="brand-selector">
-      <label className="text-sm font-medium text-gray-400">Brand</label>
-      <select
-        value={selectedBrandId}
-        onChange={(e) => onSelect(e.target.value)}
-        className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-100"
-      >
-        {brands.map((b) => (
-          <option key={b.brand_id} value={b.brand_id}>
-            {b.brand_name}
-          </option>
-        ))}
-      </select>
+    <div
+      className="mb-6 rounded-xl border border-gray-700 bg-gray-900/60 p-3"
+      data-tour="brand-selector"
+    >
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        Viewing business
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {brands.map((b) => {
+          const active = String(b.brand_id) === String(selectedBrandId);
+          return (
+            <button
+              key={b.brand_id}
+              type="button"
+              onClick={() => onSelect(b.brand_id)}
+              aria-pressed={active}
+              className={
+                active
+                  ? "rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow"
+                  : "rounded-full border border-gray-700 bg-gray-900 px-4 py-1.5 text-sm text-gray-300 hover:border-indigo-500 hover:text-white"
+              }
+            >
+              {b.brand_name}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

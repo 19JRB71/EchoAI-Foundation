@@ -46,7 +46,7 @@ function whenLabel(iso) {
   }
 }
 
-export default function MissionControl({ onNavigate, onOpenDepartment }) {
+export default function MissionControl({ brandId, onNavigate, onOpenDepartment }) {
   const [data, setData] = useState(null);
   const [goals, setGoals] = useState(null);
   const [goalAlerts, setGoalAlerts] = useState([]);
@@ -61,8 +61,8 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
     setError("");
     try {
       const [mc, goalsOverview] = await Promise.all([
-        api.getMissionControl(),
-        api.getGoalsOverview().catch(() => null),
+        api.getMissionControl(brandId),
+        api.getGoalsOverview(brandId).catch(() => null),
       ]);
       setData(mc);
       setGoals(goalsOverview);
@@ -74,7 +74,7 @@ export default function MissionControl({ onNavigate, onOpenDepartment }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [brandId]);
 
   // Dismiss a single logged alert (removes it from the feed on success).
   async function dismissAlert(alert) {

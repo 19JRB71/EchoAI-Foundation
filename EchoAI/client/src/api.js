@@ -302,7 +302,10 @@ export const api = {
 
   // AI Marketing Department — team roster, per-agent detail, Mission Control.
   getAgents: () => request("/api/agents"),
-  getMissionControl: () => request("/api/agents/mission-control"),
+  getMissionControl: (brandId) =>
+    request(
+      `/api/agents/mission-control${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`
+    ),
   getAgentDetail: (agentId) => request(`/api/agents/${agentId}`),
 
   // Target Goals & KPI tracking (Prompt 67).
@@ -310,7 +313,10 @@ export const api = {
   getGoals: (brandId) => request(`/api/goals/${brandId}`),
   getDepartmentGoals: (brandId, department) =>
     request(`/api/goals/${brandId}/department/${department}`),
-  getGoalsOverview: () => request("/api/goals/overview"),
+  getGoalsOverview: (brandId) =>
+    request(
+      `/api/goals/overview${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`
+    ),
   parseGoals: (brandId, message) =>
     request(`/api/goals/${brandId}/parse`, { method: "POST", body: { message } }),
   createGoal: (brandId, body) =>
@@ -514,6 +520,9 @@ export const api = {
 
   // Brands
   getBrands: () => request("/api/brands"),
+  getActiveBrand: () => request("/api/brands/active/selection"),
+  setActiveBrand: (brandId) =>
+    request("/api/brands/active/selection", { method: "PUT", body: { brandId } }),
   getBrand: (brandId) => request(`/api/brands/${brandId}`),
   updateBrand: (brandId, payload) =>
     request(`/api/brands/${brandId}`, { method: "PUT", body: payload }),
@@ -1352,16 +1361,25 @@ export const api = {
       clearTimeout(timer);
     }
   },
-  echoVoiceGetBriefing: () => request("/api/echo-voice/briefing"),
+  echoVoiceGetBriefing: (brandId) =>
+    request(
+      `/api/echo-voice/briefing${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`
+    ),
   echoVoiceMarkBriefingDelivered: () =>
     request("/api/echo-voice/briefing/delivered", { method: "POST" }),
-  echoVoiceGetWeekly: () => request("/api/echo-voice/weekly-briefing"),
+  echoVoiceGetWeekly: (brandId) =>
+    request(
+      `/api/echo-voice/weekly-briefing${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`
+    ),
   echoVoiceDecideSuggestion: (key, decision) =>
     request(`/api/echo-voice/suggestions/${encodeURIComponent(key)}/decision`, {
       method: "POST",
       body: { decision },
     }),
-  echoVoiceGetStatus: () => request("/api/echo-voice/status"),
+  echoVoiceGetStatus: (brandId) =>
+    request(
+      `/api/echo-voice/status${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`
+    ),
   echoVoiceGetLearnedPhrases: () => request("/api/echo-voice/learned-phrases"),
   echoVoiceLearnPhrase: (phrase, action) =>
     request("/api/echo-voice/learned-phrases", {
