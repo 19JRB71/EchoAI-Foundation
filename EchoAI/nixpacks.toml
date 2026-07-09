@@ -55,7 +55,11 @@ nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake", "yarn"]
 #   this skips the (over-strict) engine check for the project AND its deps.
 cmds = [
   "rm -rf node_modules",
-  "yarn install --production=false --non-interactive --network-concurrency 1 --ignore-engines",
+  # --frozen-lockfile: yarn.lock is committed (generated from a verified clean
+  # install that boots the server), so every Railway build installs the EXACT
+  # same dependency versions instead of re-resolving semver ranges fresh — a
+  # new (broken) release of any dependency can no longer change a build.
+  "yarn install --production=false --non-interactive --network-concurrency 1 --ignore-engines --frozen-lockfile",
   # Verify EVERY production dependency actually landed (not just a hand-picked
   # few). A half-install (the npm/yarn crash class above) previously shipped an
   # image missing modules that only fail at runtime → the healthcheck never
