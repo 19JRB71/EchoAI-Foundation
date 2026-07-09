@@ -19,7 +19,7 @@ const {
 
 async function getOwnedBrand(brandId, userId) {
   const result = await db.query(
-    "SELECT brand_id, brand_name, industry, geo_targeting FROM brands WHERE brand_id = $1 AND user_id = $2",
+    "SELECT brand_id, brand_name, geo_targeting FROM brands WHERE brand_id = $1 AND user_id = $2",
     [brandId, userId]
   );
   return result.rows[0] || null;
@@ -63,7 +63,7 @@ async function updateGeoTargeting(req, res) {
     const updated = await db.query(
       `UPDATE brands SET geo_targeting = $1::jsonb, updated_at = NOW()
         WHERE brand_id = $2
-        RETURNING brand_id, brand_name, industry, geo_targeting`,
+        RETURNING brand_id, brand_name, geo_targeting`,
       [toJsonbParam(stored), brand.brand_id]
     );
     return res.json(serialize(updated.rows[0]));

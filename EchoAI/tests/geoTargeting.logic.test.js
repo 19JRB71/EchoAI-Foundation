@@ -80,3 +80,46 @@ test("textMentionsExcluded: flags excluded state names, cities, and zips in free
   assert.ok(textMentionsExcluded(geo, "zip 08103 looks promising").length === 1);
   assert.deepStrictEqual(textMentionsExcluded(geo, "Focus on Miami"), []);
 });
+test("normalizeGeo: country + region entries validate and label correctly", () => {
+  const { normalizeGeo } = require("../utils/geoTargeting");
+  const geo = normalizeGeo({
+    areas: [
+      { type: "country", value: "US" },
+      { type: "region", value: "FL_NORTH" },
+    ],
+    exclusions: [],
+  });
+  assert.deepStrictEqual(geo.areas[0], { type: "country", value: "US", label: "United States (nationwide)" });
+  assert.strictEqual(geo.areas[1].state, "FL");
+  assert.strictEqual(geo.areas[1].label, "North Florida");
+  assert.throws(() => normalizeGeo({ areas: [{ type: "region", value: "FL_NOPE" }] }));
+  assert.throws(() => normalizeGeo({ areas: [{ type: "country", value: "CA" }] }), /United States/);
+  // regions/country are never valid exclusions
+  assert.throws(() => normalizeGeo({ exclusions: [{ type: "country", value: "US" }] }));
+  assert.throws(() => normalizeGeo({ exclusions: [{ type: "region", value: "FL_NORTH" }] }));
+});
+
+test("fbGeoLocations: nationwide country targets US; state exclusions still carve out", () => {
+  const geo = {
+    areas: [{ type: "country", value: "US" }, { type: "state", value: "FL" }],
+    exclusions: [{ type: "state", value: "NY" }],
+  };
+  const t = fbGeoLocations(geo);
+  assert.deepStrictEqual(t.geo_locations.countries, ["US"]);
+  assert.strictEqual(t.geo_locations.regions, undefined, "country supersedes state list");
+  assert.ok(t.excluded_geo_locations.regions.length === 1);
+});
+
+test("fbGeoLocations: region areas target their state at the FB level", () => {
+  const t = fbGeoLocations({ areas: [{ type: "region", value: "FL_NORTH", state: "FL" }], exclusions: [] });
+  assert.ok(t.geo_locations.regions.some((r) => r.key === "3852"), "FL region key");
+});
+
+test("classifyLeadGeo: country = everywhere in-area; region matches its state", () => {
+  const usGeo = { areas: [{ type: "country", value: "US" }], exclusions: [{ type: "state", value: "NY" }] };
+  assert.strictEqual(classifyLeadGeo(usGeo, { state: "TX" }), "in_area");
+  assert.strictEqual(classifyLeadGeo(usGeo, { state: "NY" }), "excluded");
+  const regGeo = { areas: [{ type: "region", value: "FL_NORTH", state: "FL" }], exclusions: [] };
+  assert.strictEqual(classifyLeadGeo(regGeo, { state: "FL", city: "Jacksonville" }), "in_area");
+  assert.strictEqual(classifyLeadGeo(regGeo, { state: "GA" }), "out_of_area");
+});

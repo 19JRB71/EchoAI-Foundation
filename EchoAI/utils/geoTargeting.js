@@ -42,11 +42,48 @@ const FB_REGION_KEYS = {
   WI: 3892, WY: 3893,
 };
 
+// Predefined regional breakdowns for large states. Each region lists its major
+// cities so leads with a known city can be classified more precisely.
+// KEEP IN SYNC with client/src/lib/geoRegions.js (client mirror).
+const STATE_REGIONS = {
+  FL: [
+    { code: "FL_NORTH", name: "North Florida", cities: ["Jacksonville", "Tallahassee", "Gainesville", "Pensacola"] },
+    { code: "FL_CENTRAL", name: "Central Florida", cities: ["Orlando", "Tampa", "Ocala", "Daytona Beach"] },
+    { code: "FL_SOUTH", name: "South Florida", cities: ["Miami", "Fort Lauderdale", "West Palm Beach"] },
+    { code: "FL_EAST_COAST", name: "East Coast Florida", cities: ["Jacksonville", "Daytona Beach", "Melbourne", "West Palm Beach", "Fort Lauderdale", "Miami"] },
+    { code: "FL_WEST_COAST", name: "West Coast Florida", cities: ["Pensacola", "Tampa", "St. Petersburg", "Sarasota", "Fort Myers", "Naples"] },
+    { code: "FL_PANHANDLE", name: "Florida Panhandle", cities: ["Pensacola", "Panama City", "Tallahassee"] },
+  ],
+  TX: [
+    { code: "TX_NORTH", name: "North Texas", cities: ["Dallas", "Fort Worth", "Plano", "Arlington"] },
+    { code: "TX_EAST", name: "East Texas", cities: ["Houston", "Beaumont", "Galveston", "Tyler"] },
+    { code: "TX_CENTRAL", name: "Central Texas", cities: ["Austin", "San Antonio", "Waco", "Killeen"] },
+    { code: "TX_SOUTH", name: "South Texas", cities: ["Corpus Christi", "Laredo", "McAllen", "Brownsville"] },
+    { code: "TX_WEST", name: "West Texas", cities: ["El Paso", "Lubbock", "Midland", "Odessa", "Amarillo"] },
+  ],
+  CA: [
+    { code: "CA_NORTH", name: "Northern California", cities: ["San Francisco", "San Jose", "Oakland", "Sacramento"] },
+    { code: "CA_CENTRAL", name: "Central California", cities: ["Fresno", "Bakersfield", "Modesto", "Stockton"] },
+    { code: "CA_SOUTH", name: "Southern California", cities: ["Los Angeles", "San Diego", "Anaheim", "Riverside", "Long Beach"] },
+  ],
+  NY: [
+    { code: "NY_NYC", name: "New York City", cities: ["Manhattan", "Brooklyn", "Queens", "The Bronx", "Staten Island"] },
+    { code: "NY_LONG_ISLAND", name: "Long Island", cities: ["Hempstead", "Babylon", "Islip", "Huntington"] },
+    { code: "NY_HUDSON_VALLEY", name: "Hudson Valley", cities: ["Yonkers", "White Plains", "Poughkeepsie", "Newburgh"] },
+    { code: "NY_UPSTATE", name: "Upstate New York", cities: ["Albany", "Syracuse", "Rochester", "Buffalo"] },
+  ],
+};
+
+const REGION_BY_CODE = {};
+for (const [st, regions] of Object.entries(STATE_REGIONS)) {
+  for (const r of regions) REGION_BY_CODE[r.code] = { ...r, state: st };
+}
+
 const NAME_TO_CODE = Object.fromEntries(
   Object.entries(US_STATES).map(([code, name]) => [name.toLowerCase(), code])
 );
 
-const AREA_TYPES = new Set(["state", "county", "city", "zip", "radius"]);
+const AREA_TYPES = new Set(["country", "region", "state", "county", "city", "zip", "radius"]);
 const EXCLUSION_TYPES = new Set(["state", "county", "city", "zip"]);
 const MAX_ENTRIES = 200;
 
@@ -80,6 +117,19 @@ function normalizeEntry(entry, { allowRadius }) {
     throw new Error(`Unknown area type "${entry.type}". Use: ${[...validTypes].join(", ")}`);
   }
 
+  if (type === "country") {
+    const c = String(entry.value || "US").trim().toUpperCase();
+    if (c !== "US" && c !== "USA" && c !== "UNITED STATES") {
+      throw new Error(`Only United States ("US") is supported as a country`);
+    }
+    return { type, value: "US", label: "United States (nationwide)" };
+  }
+  if (type === "region") {
+    const code = String(entry.value || "").trim().toUpperCase();
+    const region = REGION_BY_CODE[code];
+    if (!region) throw new Error(`"${entry.value}" is not a known region`);
+    return { type, value: code, state: region.state, label: region.name };
+  }
   if (type === "state") {
     const code = stateCode(entry.value);
     if (!code) throw new Error(`"${entry.value}" is not a US state`);
@@ -205,6 +255,12 @@ function isInTargetArea(geo, location = {}) {
   const zip = normZip(location.zip);
 
   return parsed.areas.some((a) => {
+    if (a.type === "country") return true; // nationwide
+    if (a.type === "region") {
+      // A region counts its whole state as in-area (regions are marketing
+      // focus areas, not legal boundaries — never wrongly reject a lead).
+      return st && a.state === st;
+    }
     if (a.type === "state") return st && a.value === st;
     if (a.type === "zip") return zip && a.value === zip;
     if (a.type === "city") {
@@ -250,16 +306,25 @@ function fbGeoLocations(geo) {
   const geoLocations = {};
   const regionKeys = new Set();
   const zips = new Set();
+  let nationwide = false;
   for (const a of parsed.areas) {
+    if (a.type === "country") nationwide = true;
+    if (a.type === "region" && a.state && FB_REGION_KEYS[a.state]) regionKeys.add(FB_REGION_KEYS[a.state]);
     if (a.type === "state" && FB_REGION_KEYS[a.value]) regionKeys.add(FB_REGION_KEYS[a.value]);
     if ((a.type === "city" || a.type === "county" || a.type === "radius") && a.state && FB_REGION_KEYS[a.state]) {
       regionKeys.add(FB_REGION_KEYS[a.state]);
     }
     if (a.type === "zip") zips.add(a.value);
   }
-  if (regionKeys.size) geoLocations.regions = [...regionKeys].map((key) => ({ key: String(key) }));
-  if (zips.size) geoLocations.zips = [...zips].map((z) => ({ key: `US:${z}` }));
-  if (!regionKeys.size && !zips.size) geoLocations.countries = ["US"];
+  if (nationwide) {
+    // United States quick-select: target the whole country; state-level
+    // exclusions below still carve out excluded states.
+    geoLocations.countries = ["US"];
+  } else {
+    if (regionKeys.size) geoLocations.regions = [...regionKeys].map((key) => ({ key: String(key) }));
+    if (zips.size) geoLocations.zips = [...zips].map((z) => ({ key: `US:${z}` }));
+    if (!regionKeys.size && !zips.size) geoLocations.countries = ["US"];
+  }
 
   const exRegionKeys = new Set();
   const exZips = new Set();
@@ -316,7 +381,10 @@ function textMentionsExcluded(geo, text) {
 }
 
 function labelOf(e) {
-  return e.label || (e.type === "state" ? US_STATES[e.value] || e.value : e.value);
+  if (e.label) return e.label;
+  if (e.type === "country") return "United States (nationwide)";
+  if (e.type === "region") return (REGION_BY_CODE[e.value] || {}).name || e.value;
+  return e.type === "state" ? US_STATES[e.value] || e.value : e.value;
 }
 
 /** Plain-language coverage summary ("Targeting: … Never marketing in: …"). */
@@ -355,6 +423,8 @@ function geoContextBlock(brand) {
 
 module.exports = {
   US_STATES,
+  STATE_REGIONS,
+  REGION_BY_CODE,
   FB_REGION_KEYS,
   stateCode,
   normalizeGeo,
