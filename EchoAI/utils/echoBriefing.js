@@ -154,6 +154,10 @@ async function gatherBriefingData(userId, since, brandId = null) {
   } catch (_) {
     emailCounts = null;
   }
+  // The single most important unfinished guided setup, so Echo can gently
+  // remind the owner. topIncompleteSetup never throws (returns null on error).
+  const { topIncompleteSetup } = require("./setupStatus");
+  const setupReminder = await topIncompleteSetup(userId);
   const empty = {
     brands,
     sinceISO: since ? new Date(since).toISOString() : null,
@@ -176,6 +180,7 @@ async function gatherBriefingData(userId, since, brandId = null) {
     remindersToday: agenda.remindersToday,
     openTasks: agenda.openTasks,
     emailCounts,
+    setupReminder,
   };
   if (brandIds.length === 0) return empty;
 
@@ -344,6 +349,7 @@ async function gatherBriefingData(userId, since, brandId = null) {
     remindersToday: agenda.remindersToday,
     openTasks: agenda.openTasks,
     emailCounts,
+    setupReminder,
   };
 }
 
@@ -743,6 +749,7 @@ function templateMorning(firstName, data, part = "morning") {
         "Your channels are connected and your agents are ready to start bringing in leads."
       );
     }
+    appendSetupReminder(parts, data);
     parts.push("Your team is here and ready to work for you.");
     return parts.join(" ");
   }
@@ -849,12 +856,26 @@ function templateMorning(firstName, data, part = "morning") {
     parts.push(`${data.pendingApprovals} item${data.pendingApprovals === 1 ? " is" : "s are"} waiting for your approval.`);
   }
   appendAgenda(parts, data);
+  appendSetupReminder(parts, data);
   if (data.openTasks && data.openTasks.length) {
     parts.push("Is there anything on your task list you've already taken care of that I should mark off?");
   } else {
     parts.push("Are you ready to get started, or would you like me to go into more detail on anything?");
   }
   return parts.join(" ");
+}
+
+/**
+ * Gentle nudge about the single most important unfinished guided setup — one
+ * sentence, grounded in real account state (computed by utils/setupStatus).
+ */
+function appendSetupReminder(parts, data) {
+  const r = data.setupReminder;
+  if (!r || !r.label) return;
+  const next = r.nextStep ? ` — the next step is to ${r.nextStep.toLowerCase()}` : "";
+  parts.push(
+    `One more thing: your ${r.label.toLowerCase()} setup isn't finished yet${next}. The setup guide in that section will walk you through it.`
+  );
 }
 
 /** Speak today's personal reminders + open tasks (shared by morning/closing). */

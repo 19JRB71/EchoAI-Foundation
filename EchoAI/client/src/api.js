@@ -953,6 +953,7 @@ export const api = {
 
   // Google integration (OAuth — Business Profile, Ads, Analytics, Search Console)
   getGoogleStatus: () => request("/api/google/status"),
+  getSetupStatus: (brandId) => request(`/api/setup/status/${brandId}`),
   // Authenticated initiation: returns the Google consent URL to navigate to.
   // Keeps the bearer token in the Authorization header (not the URL).
   startGoogleOAuth: () =>

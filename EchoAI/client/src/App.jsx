@@ -32,6 +32,7 @@ import Appointments from "./sections/Appointments.jsx";
 import FollowUps from "./sections/FollowUps.jsx";
 import SmsMarketing from "./sections/SmsMarketing.jsx";
 import ChatbotSetup from "./sections/ChatbotSetup.jsx";
+import SetupGuide from "./components/SetupGuide.jsx";
 import Feedback from "./sections/Feedback.jsx";
 import ZapierIntegration from "./sections/ZapierIntegration.jsx";
 import Settings from "./sections/Settings.jsx";
@@ -1015,6 +1016,11 @@ export default function App() {
                 onSelect={setSelectedBrandId}
                 loading={loadingBrands}
                 error={brandsError}
+              />
+              <SetupGuide
+                brandId={selectedBrandId}
+                section={section}
+                onNavigate={handleSelectSection}
               />
               {section === "portfolio" &&
                 (canOpenSection("portfolio") ? <Portfolio /> : null)}
