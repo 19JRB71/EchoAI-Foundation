@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import { useBranding } from "../lib/BrandingContext.jsx";
@@ -19,6 +19,40 @@ export default function Login({ onLogin, invitePending = false }) {
   const [rememberDevice, setRememberDevice] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [betaFull, setBetaFull] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistDone, setWaitlistDone] = useState("");
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
+
+  // When the signup form is shown, ask the server whether the beta program is
+  // at capacity so we can offer the waitlist instead of a doomed signup.
+  useEffect(() => {
+    if (mode !== "register") return;
+    let cancelled = false;
+    api
+      .getSignupMode()
+      .then((data) => {
+        if (!cancelled) setBetaFull(Boolean(data && data.betaFull));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+
+  async function handleWaitlist(e) {
+    e.preventDefault();
+    setWaitlistBusy(true);
+    setError("");
+    try {
+      const data = await api.joinBetaWaitlist(waitlistEmail.trim());
+      setWaitlistDone(data.message || "You're on the list!");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setWaitlistBusy(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -44,11 +78,19 @@ export default function Login({ onLogin, invitePending = false }) {
       if (mode === "register") clearReferralCode();
       onLogin(data.token, rememberDevice);
     } catch (err) {
+      // The beta filled up between page load and submit: switch to the
+      // waitlist form instead of showing a dead-end error.
+      if (mode === "register" && err.data && err.data.waitlistOpen) {
+        setBetaFull(true);
+        setWaitlistEmail(email);
+      }
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }
+
+  const showWaitlist = mode === "register" && betaFull;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-black px-4">
@@ -83,6 +125,44 @@ export default function Login({ onLogin, invitePending = false }) {
           </div>
         )}
 
+        {showWaitlist ? (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-amber-500/10 p-3 text-sm text-amber-300">
+              Our beta program is currently full. Leave your email and we'll let
+              you know the moment a spot opens up.
+            </div>
+            {waitlistDone ? (
+              <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-300">
+                {waitlistDone}
+              </div>
+            ) : (
+              <form onSubmit={handleWaitlist} className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-300">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={waitlistEmail}
+                    onChange={(e) => setWaitlistEmail(e.target.value)}
+                    className={inputClass}
+                    placeholder="you@business.com"
+                  />
+                </div>
+                <ErrorBanner message={error} />
+                <button
+                  type="submit"
+                  disabled={waitlistBusy}
+                  style={{ backgroundColor: branding.primaryColor }}
+                  className="w-full rounded-lg py-2.5 text-sm font-semibold text-gray-900 transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {waitlistBusy ? "Please wait…" : "Join the waitlist"}
+                </button>
+              </form>
+            )}
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-300">
@@ -153,6 +233,7 @@ export default function Login({ onLogin, invitePending = false }) {
                 : "Create account"}
           </button>
         </form>
+        )}
 
         <p className="mt-6 text-center text-sm text-gray-400">
           {mode === "login"
@@ -162,6 +243,7 @@ export default function Login({ onLogin, invitePending = false }) {
             onClick={() => {
               setMode(mode === "login" ? "register" : "login");
               setError("");
+              setWaitlistDone("");
             }}
             className="font-semibold text-amber-300 hover:underline"
           >

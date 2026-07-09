@@ -4,6 +4,7 @@ const db = require("../config/db");
 const { generateToken } = require("../utils/token");
 const emailController = require("./emailController");
 const { attributeSignup, readReferralCookie } = require("../utils/referralTracking");
+const { getBetaSettings, countUsedSlots } = require("../utils/betaProgram");
 
 const SALT_ROUNDS = 10;
 
@@ -20,10 +21,49 @@ function freeTestModeEnabled() {
 /**
  * GET /signup-mode (public)
  * Lets the client know whether free test mode is on so the onboarding wizard
- * can skip the Stripe payment step. Never exposes anything sensitive.
+ * can skip the Stripe payment step, and whether the beta program is at
+ * capacity so the signup page can show the waitlist instead. Never exposes
+ * anything sensitive — just two booleans.
  */
-function signupMode(req, res) {
-  return res.json({ freeTestMode: freeTestModeEnabled() });
+async function signupMode(req, res) {
+  const freeTestMode = freeTestModeEnabled();
+  let betaFull = false;
+  if (freeTestMode) {
+    try {
+      const settings = await getBetaSettings();
+      const used = await countUsedSlots();
+      betaFull = used >= settings.max_slots;
+    } catch (err) {
+      // Fail open (allow signup attempts) — register() re-checks atomically.
+      console.error("signupMode beta capacity check failed:", err.message);
+    }
+  }
+  return res.json({ freeTestMode, betaFull });
+}
+
+/**
+ * POST /waitlist (public)
+ * Adds an email to the beta waitlist. Always answers with the same success
+ * message so it can't be used to probe which emails are already listed.
+ */
+async function joinWaitlist(req, res) {
+  const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) {
+    return res.status(400).json({ error: "A valid email address is required" });
+  }
+  try {
+    await db.query(
+      `INSERT INTO beta_waitlist (email) VALUES ($1)
+       ON CONFLICT (email) DO NOTHING`,
+      [email]
+    );
+    return res.json({
+      message: "You're on the list! We'll email you when a beta spot opens up.",
+    });
+  } catch (err) {
+    console.error("joinWaitlist error:", err);
+    return res.status(500).json({ error: "Failed to join the waitlist" });
+  }
 }
 
 /**
@@ -51,14 +91,31 @@ async function register(req, res) {
 
     await client.query("BEGIN");
 
-    // In free test mode new accounts get full Enterprise access, no payment.
-    const signupTier = freeTestModeEnabled() ? "enterprise" : "free";
+    // In free test mode new accounts get full Enterprise access, no payment —
+    // these are BETA accounts, capped by the admin's beta slot limit. The
+    // settings row is locked FOR UPDATE so two concurrent signups can't both
+    // grab the last slot.
+    const isBetaSignup = freeTestModeEnabled();
+    if (isBetaSignup) {
+      await client.query("SELECT max_slots FROM beta_settings WHERE id = 1 FOR UPDATE");
+      const settings = await getBetaSettings(client);
+      const used = await countUsedSlots(client);
+      if (used >= settings.max_slots) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          error:
+            "We're currently at capacity for our beta program. Enter your email to be notified when spots open up.",
+          waitlistOpen: true,
+        });
+      }
+    }
+    const signupTier = isBetaSignup ? "enterprise" : "free";
 
     const userResult = await client.query(
-      `INSERT INTO users (email, password_hash, subscription_tier, team_size)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (email, password_hash, subscription_tier, team_size, is_beta)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING user_id, email, subscription_tier, team_size, created_at`,
-      [email, passwordHash, signupTier, teamSize || 1]
+      [email, passwordHash, signupTier, teamSize || 1, isBetaSignup]
     );
 
     const user = userResult.rows[0];
@@ -144,10 +201,17 @@ async function login(req, res) {
     );
 
     // Stamp last_login_at so Echo's morning briefing can summarize "everything
-    // since you were last here". Best-effort — never block a successful login.
-    db.query("UPDATE users SET last_login_at = NOW() WHERE user_id = $1", [user.user_id]).catch(
-      (err) => console.error("last_login_at update failed:", err.message)
-    );
+    // since you were last here", bump the total login counter for the beta
+    // dashboard, and clear any pending beta inactivity warning (logging in IS
+    // the activity the warning asked for). Best-effort — never block a login.
+    db.query(
+      `UPDATE users
+          SET last_login_at = NOW(),
+              login_count = login_count + 1,
+              beta_warning_sent_at = NULL
+        WHERE user_id = $1`,
+      [user.user_id]
+    ).catch((err) => console.error("last_login_at update failed:", err.message));
 
     return res.json({
       token,
@@ -400,6 +464,7 @@ module.exports = {
   register,
   login,
   signupMode,
+  joinWaitlist,
   freeTestModeEnabled,
   getProfile,
   updateProfile,

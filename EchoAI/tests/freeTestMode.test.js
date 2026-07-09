@@ -46,15 +46,18 @@ test("freeTestModeEnabled only accepts an explicit 'true'", () => {
   withEnv(undefined, () => assert.equal(freeTestModeEnabled(), false));
 });
 
-test("GET /signup-mode reports the flag honestly and nothing else", () => {
-  withEnv("true", () => {
+test("GET /signup-mode reports the flag honestly and nothing else", async () => {
+  await withEnv("true", async () => {
     const res = mockRes();
-    signupMode({}, res);
-    assert.deepEqual(res.body, { freeTestMode: true });
+    await signupMode({}, res);
+    assert.equal(res.body.freeTestMode, true);
+    // betaFull is a boolean capacity hint (fail-open false when unknowable).
+    assert.equal(typeof res.body.betaFull, "boolean");
+    assert.deepEqual(Object.keys(res.body).sort(), ["betaFull", "freeTestMode"]);
   });
-  withEnv(undefined, () => {
+  await withEnv(undefined, async () => {
     const res = mockRes();
-    signupMode({}, res);
-    assert.deepEqual(res.body, { freeTestMode: false });
+    await signupMode({}, res);
+    assert.deepEqual(res.body, { freeTestMode: false, betaFull: false });
   });
 });

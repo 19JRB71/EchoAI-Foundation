@@ -3,6 +3,7 @@ const express = require("express");
 const authMiddleware = require("../middleware/auth");
 const adminMiddleware = require("../middleware/admin");
 const adminController = require("../controllers/adminController");
+const betaAdminController = require("../controllers/betaAdminController");
 const demoController = require("../controllers/demoController");
 const diagnosticsController = require("../controllers/diagnosticsController");
 
@@ -24,6 +25,12 @@ router.put("/users/:userId/subscription", adminController.updateUserSubscription
 router.post("/users/:userId/unlock", adminController.unlockAccount);
 router.post("/users/:userId/lock", adminController.lockAccount);
 router.delete("/users/:userId", adminController.deleteUser);
+
+// Beta Program Management.
+router.get("/beta", betaAdminController.getBetaOverview);
+router.put("/beta/settings", betaAdminController.updateBetaSettings);
+router.post("/beta/users/:userId/convert", betaAdminController.convertToPaid);
+router.delete("/beta/waitlist/:waitlistId", betaAdminController.removeWaitlistEntry);
 
 // Demo Account & Sales Presentation Mode.
 router.get("/demo/status", demoController.getStatus);

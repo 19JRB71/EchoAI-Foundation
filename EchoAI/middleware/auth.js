@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
+const { trackFeatureUse } = require("../utils/betaProgram");
 
 /**
  * Auth middleware: verifies a JWT from the Authorization header.
@@ -90,6 +91,10 @@ async function authMiddleware(req, res, next) {
   } catch (err) {
     // Fall back to self-owned workspace; never block the request on this lookup.
   }
+
+  // Beta-program feature tracking: record which product area the REAL
+  // authenticated user touched (throttled + fire-and-forget — never blocks).
+  trackFeatureUse(req.user.actualUserId, req.baseUrl);
 
   return next();
 }

@@ -35,6 +35,7 @@ const {
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
 const { runApiQuotaSweep } = require("./apiQuotaMonitor");
 const { runDailyGoalTracking } = require("./goalAlerts");
+const { runBetaProgramSweep } = require("./betaProgram");
 const {
   runListingPromotionSweep,
   runSellerLeadAdSweep,
@@ -464,6 +465,14 @@ function startScheduler() {
     });
   });
 
+  // 09:30 daily: beta program sweep — email friendly warnings to beta testers
+  // who've gone quiet, and notify the waitlist when slots open up.
+  cron.schedule("30 9 * * *", () => {
+    runBetaProgramSweep().catch((err) => {
+      console.error("Scheduled beta program sweep errored:", err.message);
+    });
+  });
+
   // Mondays 08:15 (after the weekly analytics run at 08:00): generate each
   // multi-business owner's weekly cross-business intelligence report.
   cron.schedule("15 8 * * 1", () => {
@@ -551,7 +560,7 @@ function startScheduler() {
       "API quota monitor: hourly; " +
       "Echo voice reminders: every minute; Echo closing summary: daily 18:00; " +
       "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
-      "goal tracking: daily 05:45; " +
+      "goal tracking: daily 05:45; beta program sweep: daily 09:30; " +
       "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours; " +
       "social connection re-verify: every 6 hours at :30; " +
       "Sage deep research: every 6 hours at :15; Sage urgent scan: every 30 minutes; " +
@@ -568,6 +577,7 @@ module.exports = {
   runCompetitorScan,
   runDailyGoalTracking,
   runApiQuotaSweep,
+  runBetaProgramSweep,
   runSageDeepCycle,
   runSageUrgentScan,
   runListingPromotionSweep,

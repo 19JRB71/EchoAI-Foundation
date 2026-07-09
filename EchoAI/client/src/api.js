@@ -380,6 +380,8 @@ export const api = {
     request(`/api/echo/growth/actions/${id}/decline`, { method: "POST" }),
 
   getSignupMode: () => request("/api/auth/signup-mode"),
+  joinBetaWaitlist: (email) =>
+    request("/api/auth/waitlist", { method: "POST", body: { email }, auth: false }),
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),
   updateOnboarding: (payload) =>
@@ -532,6 +534,18 @@ export const api = {
     }),
   adminDeleteUser: (userId) =>
     request(`/api/admin/users/${userId}`, { method: "DELETE" }),
+
+  // Beta Program Management (admin-only).
+  adminGetBetaOverview: () => request("/api/admin/beta"),
+  adminUpdateBetaSettings: (settings) =>
+    request("/api/admin/beta/settings", { method: "PUT", body: settings }),
+  adminConvertBetaUser: (userId, tier) =>
+    request(`/api/admin/beta/users/${userId}/convert`, {
+      method: "POST",
+      body: { tier },
+    }),
+  adminRemoveBetaWaitlist: (waitlistId) =>
+    request(`/api/admin/beta/waitlist/${waitlistId}`, { method: "DELETE" }),
 
   // Full Diagnostic Report (admin-only).
   adminGetDiagnostics: () => request("/api/admin/diagnostics/report"),

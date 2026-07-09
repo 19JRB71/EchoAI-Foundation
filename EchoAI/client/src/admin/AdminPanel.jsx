@@ -8,10 +8,12 @@ import AdminAffiliates from "./AdminAffiliates.jsx";
 import AdminSalesAgent from "./AdminSalesAgent.jsx";
 import AdminDemo from "./AdminDemo.jsx";
 import AdminDiagnostics from "./AdminDiagnostics.jsx";
+import AdminBeta from "./AdminBeta.jsx";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "customers", label: "Customers" },
+  { key: "beta", label: "Beta Program" },
   { key: "sales", label: "Sales Agent" },
   { key: "demo", label: "Demo Mode" },
   { key: "whitelabel", label: "White Label" },
@@ -66,6 +68,7 @@ export default function AdminPanel() {
           onBack={() => setTab("customers")}
         />
       )}
+      {tab === "beta" && <AdminBeta />}
       {tab === "sales" && <AdminSalesAgent />}
       {tab === "demo" && <AdminDemo />}
       {tab === "whitelabel" && <AdminWhiteLabel />}

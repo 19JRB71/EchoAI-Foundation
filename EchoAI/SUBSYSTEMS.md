@@ -557,3 +557,48 @@ synthesizes EVERY channel into a growing weekly intelligence profile.
   `brand_type === 'real_estate'` (same 3-place gating rule as Voter CRM).
 - **Tests.** `test/realEstateAutomation.test.js`: sweep guards, atomic
   claim/release, advisory-lock claim race (real DB), slot-key dedup.
+
+### Beta Program Management subsystem (`/api/admin/beta`)
+
+- **Purpose.** Admin-run beta cohort: capped free-test slots (default 10),
+  waitlist when full, activity monitoring, inactivity warning emails, and
+  one-click conversion to a paid tier.
+- **Migration.** `models/080_beta_program.sql`: `users` += `is_beta`,
+  `login_count`, `beta_warning_sent_at` (backfills `is_beta` for free-test-era
+  accounts: role='user', enterprise tier, no Stripe customer); `beta_settings`
+  singleton (`max_slots`, `active_threshold_days`, `warning_after_days`);
+  `beta_waitlist` (unique email, `notified_at`); `beta_feature_usage`
+  (user×feature counters, unique pair).
+- **Slot rule.** A used slot = `is_beta AND role='user' AND NOT locked`
+  (`utils/betaProgram.js` `countUsedSlots`). Locking a user frees their slot;
+  Convert to Paid clears `is_beta` (also frees it). `register()` re-checks the
+  cap atomically (`SELECT ... FOR UPDATE` on `beta_settings`) and answers 403
+  `{waitlistOpen:true}` when full; `GET /api/auth/signup-mode` returns
+  `{freeTestMode, betaFull}` as a fail-open hint only.
+- **Waitlist.** Public `POST /api/auth/waitlist` (authLimiter, same success
+  message regardless — no email enumeration). Daily sweep `notifyWaitlist`
+  claims oldest un-notified rows up to open-slot count (claim-then-send,
+  reverting `notified_at` if the email fails).
+- **Activity tracking.** `middleware/auth.js` calls `trackFeatureUse(userId,
+  req.baseUrl)` fire-and-forget; 10-min in-memory throttle per user+feature;
+  UNTRACKED mounts: auth/admin/public/v2/webhooks-inbound. `login()` bumps
+  `login_count` and clears `beta_warning_sent_at` (recovery resets warning).
+- **Sweep.** `runBetaProgramSweep` (scheduler daily 09:30):
+  `sendInactiveWarnings` claims via atomic UPDATE (`beta_warning_sent_at =
+  NOW()` where last activity older than `warning_after_days`), emails, reverts
+  the claim on send failure; then `notifyWaitlist`. Halves are guarded
+  independently.
+- **Admin API.** `controllers/betaAdminController.js`: `GET /api/admin/beta`
+  (settings, slots used/max, per-user activity incl. features used, waitlist),
+  `PUT /beta/settings`, `POST /beta/users/:userId/convert` `{tier}` (txn:
+  clears `is_beta`, unlocks, sets subscription tier), `DELETE
+  /beta/waitlist/:id`. All admin-only.
+- **Client.** `admin/AdminBeta.jsx` ("Beta Program" tab in `AdminPanel.jsx`):
+  slots bar ("X of Y used"), settings form, users table (business type,
+  signup, last login, login count, features used, red Inactive badge past
+  `active_threshold_days`, Lock/Unlock, Convert with tier select), waitlist
+  list. `Login.jsx`: register mode fetches signup-mode; a 403 with
+  `waitlistOpen` switches to the join-waitlist form.
+- **Tests.** `test/betaProgram.test.js`: feature-name mapping/untracked set,
+  tracking throttle, warning claim-then-send + revert, waitlist open-slot
+  claim count + revert, sweep-half isolation.

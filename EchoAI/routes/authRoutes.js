@@ -23,6 +23,7 @@ const authLimiter = rateLimit({
 router.get("/signup-mode", authController.signupMode);
 router.post("/register", authLimiter, authController.register);
 router.post("/login", authLimiter, authController.login);
+router.post("/waitlist", authLimiter, authController.joinWaitlist);
 
 // Protected routes (require a valid JWT)
 router.get("/profile", authMiddleware, authController.getProfile);
