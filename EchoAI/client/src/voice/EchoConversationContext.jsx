@@ -50,6 +50,7 @@ import {
   matchLearnedPhrase,
   normalizeSpeech,
   CONFIDENCE_THRESHOLD,
+  withTimeout,
 } from "./conversationHelpers.js";
 import {
   interruptAck,
@@ -98,6 +99,17 @@ const SPEAK_COOLDOWN_MS = 800;
 // own voice trailing off can't answer its own question. Also kept short — the
 // owner usually answers a question right away.
 const POST_QUESTION_MS = 1200;
+// Hard ceilings on every awaited network / AI call inside processCommand. A
+// hung request used to leave the engine suspended (deaf) forever — the single
+// biggest cause of "Echo ignores me". On timeout the existing catch blocks
+// speak the honest failure line and reopen listening.
+const FETCH_TIMEOUT_MS = 20000; // simple data fetches (briefing/status text)
+const AI_TIMEOUT_MS = 60000; // AI pipeline replies (Echo chat, assistant)
+const OFFER_TIMEOUT_MS = 8000; // best-effort nav offers (generic fallback ok)
+// If the engine has been suspended (processing/speaking) with NO audio playing
+// for this long, something wedged — force-reset to passive so the mic can
+// never silently stay dead. Belt-and-braces on top of the per-call timeouts.
+const STUCK_SUSPEND_MS = 60000;
 
 function getSpeechRecognition() {
   if (typeof window === "undefined") return null;
@@ -165,6 +177,12 @@ export function EchoConversationProvider({ active, children }) {
   // Guided tour: while it's running, short answers ("yes", "next", "stop")
   // are routed to the tour instead of the normal command flow.
   const tourActiveRef = useRef(false);
+  // Command generation counter. Every new command bumps it; every interrupt
+  // ("Stop", "Cancel"...) bumps it too. In-flight command handlers snapshot the
+  // generation at entry and bail after each await if it changed — so a stale
+  // AI reply that lands AFTER a stop/new command is silently dropped instead
+  // of being spoken. This is what makes Stop truly final (no ghost replies).
+  const cmdGenRef = useRef(0);
 
   const runningRef = useRef(false); // is a recognition instance live?
   const enabledRef = useRef(micEnabled);
@@ -412,6 +430,12 @@ export function EchoConversationProvider({ active, children }) {
   const processCommand = useCallback(
     async (raw) => {
       let text = (raw || "").trim();
+      // Claim a fresh command generation: any older in-flight command becomes
+      // stale (its late reply is dropped), and an interrupt bumping the counter
+      // makes THIS command stale too. Checked after every await below.
+      cmdGenRef.current += 1;
+      const gen = cmdGenRef.current;
+      const stale = () => gen !== cmdGenRef.current;
       clearTimers();
       // The command is snapshotted — clear the capture buffer NOW so no part
       // of this utterance can leak into (or replay as) the next command.
@@ -435,6 +459,16 @@ export function EchoConversationProvider({ active, children }) {
         return;
       }
       setListeningText("");
+      // The owner spoke a REAL command → lift the login-silence hold so pending
+      // alerts / the weekly auto-briefing may now be delivered. Deliberately
+      // fired here (not on the bare wake match in goActive): a misheard wake
+      // phrase alone must never unleash auto-spoken content — that was the
+      // "Echo randomly starts talking about things I never asked" bug.
+      try {
+        window.dispatchEvent(new CustomEvent("echoai:user-initiated"));
+      } catch {
+        /* noop */
+      }
 
       // Learned speech patterns: if the owner has taught Echo this exact
       // phrase, rewrite it to the canonical command it maps to and bump its
@@ -481,6 +515,7 @@ export function EchoConversationProvider({ active, children }) {
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(takeYourTimeLine());
+        if (stale()) return;
         // Reopen active listening indefinitely (no countdown) for a moment.
         finalRef.current = "";
         modeRef.current = "active";
@@ -517,19 +552,26 @@ export function EchoConversationProvider({ active, children }) {
           if (pending.briefSection) {
             // Data-backed readout composed server-side from real numbers.
             try {
-              const data = await api.getEchoSectionBrief(pending.briefSection);
+              const data = await withTimeout(
+                api.getEchoSectionBrief(pending.briefSection),
+                FETCH_TIMEOUT_MS,
+              );
               brief = (data && data.text) || "";
             } catch {
               brief = "";
             }
           }
+          if (stale()) return;
           if (!brief) {
             // Generic sections (or a failed fetch) → Echo's normal AI pipeline.
             try {
               const handler = commandHandlerRef.current;
               const result = handler
-                ? await handler(
-                    `Give me a short spoken summary of ${pending.label || "this section"}. Only mention real data you actually have — if you don't have live numbers, briefly explain what this section is for instead.`,
+                ? await withTimeout(
+                    handler(
+                      `Give me a short spoken summary of ${pending.label || "this section"}. Only mention real data you actually have — if you don't have live numbers, briefly explain what this section is for instead.`,
+                    ),
+                    AI_TIMEOUT_MS,
                   )
                 : null;
               brief = (result && result.reply) || "";
@@ -537,9 +579,11 @@ export function EchoConversationProvider({ active, children }) {
               brief = "";
             }
           }
+          if (stale()) return;
           if (!brief) brief = "I couldn't pull that up just now.";
           setConvState("speaking");
           await speakAndWait(brief);
+          if (stale()) return;
           // eslint-disable-next-line no-use-before-define
           openFollowupWindow();
           return;
@@ -568,12 +612,16 @@ export function EchoConversationProvider({ active, children }) {
             // Full briefing → the server-built cross-business status update
             // (real data, all businesses).
             try {
-              const data = await api.echoVoiceGetStatus();
+              const data = await withTimeout(
+                api.echoVoiceGetStatus(),
+                FETCH_TIMEOUT_MS,
+              );
               brief = (data && data.text) || "";
             } catch {
               brief = "";
             }
           }
+          if (stale()) return;
           if (!brief) {
             // Quick summary or a specific business/topic → Echo's AI pipeline
             // (also the fallback if the full-status fetch failed).
@@ -585,15 +633,19 @@ export function EchoConversationProvider({ active, children }) {
                   : `The owner asked for a specific spoken update: "${text}". Answer using only real data you actually have — never invent numbers.`;
             try {
               const handler = commandHandlerRef.current;
-              const result = handler ? await handler(prompt) : null;
+              const result = handler
+                ? await withTimeout(handler(prompt), AI_TIMEOUT_MS)
+                : null;
               brief = (result && result.reply) || "";
             } catch {
               brief = "";
             }
           }
+          if (stale()) return;
           if (!brief) brief = "I couldn't pull that together just now, Sir.";
           setConvState("speaking");
           await speakAndWait(brief);
+          if (stale()) return;
           // eslint-disable-next-line no-use-before-define
           openFollowupWindow();
           return;
@@ -614,14 +666,19 @@ export function EchoConversationProvider({ active, children }) {
         playEffect("thinking", { volume: 0.35 });
         let brief = "";
         try {
-          const b = await api.echoVoiceGetBriefing();
+          const b = await withTimeout(
+            api.echoVoiceGetBriefing(),
+            FETCH_TIMEOUT_MS,
+          );
           brief = (b && b.text) || "";
         } catch {
           brief = "";
         }
+        if (stale()) return;
         if (brief) {
           setConvState("speaking");
           const played = await speakAndWait(brief);
+          if (stale()) return;
           if (played) {
             // Mark delivered only after the owner actually heard it, so the
             // once-per-day server stamp is honest.
@@ -645,6 +702,7 @@ export function EchoConversationProvider({ active, children }) {
           await speakAndWait(
             "I couldn't pull your briefing together just now, Sir. Say the word and I'll try again.",
           );
+          if (stale()) return;
           // eslint-disable-next-line no-use-before-define
           openFollowupWindow(true);
         }
@@ -662,15 +720,20 @@ export function EchoConversationProvider({ active, children }) {
         playEffect("thinking", { volume: 0.35 });
         let statusText = "";
         try {
-          const data = await api.echoVoiceGetStatus();
+          const data = await withTimeout(
+            api.echoVoiceGetStatus(),
+            FETCH_TIMEOUT_MS,
+          );
           statusText = (data && data.text) || "";
         } catch {
           statusText = "";
         }
+        if (stale()) return;
         if (!statusText)
           statusText = "I couldn't pull the current status just now, Sir.";
         setConvState("speaking");
         await speakAndWait(statusText);
+        if (stale()) return;
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow();
         return;
@@ -685,6 +748,7 @@ export function EchoConversationProvider({ active, children }) {
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(briefingChoiceQuestion());
+        if (stale()) return;
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow(true);
         return;
@@ -700,6 +764,7 @@ export function EchoConversationProvider({ active, children }) {
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(musicAck(music));
+        if (stale()) return;
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow();
         return;
@@ -723,19 +788,24 @@ export function EchoConversationProvider({ active, children }) {
           } catch {
             /* default handled server-side */
           }
-          const result = await api.echoAssistantCommand(text, timezone);
+          const result = await withTimeout(
+            api.echoAssistantCommand(text, timezone),
+            AI_TIMEOUT_MS,
+          );
           reply = (result && result.reply) || "";
           asked = !!(result && result.isQuestion);
         } catch {
           reply =
             "I couldn't reach your reminder list just now, Sir. Could you try that again in a moment?";
         }
+        if (stale()) return;
         if (!reply) {
           reply = "Could you say that again with a bit more detail, Sir?";
           asked = true;
         }
         setConvState("speaking");
         await speakAndWait(reply);
+        if (stale()) return;
         asked = asked || isQuestion(reply);
         try {
           window.dispatchEvent(new CustomEvent("echoai:assistant-updated"));
@@ -771,6 +841,7 @@ export function EchoConversationProvider({ active, children }) {
         const offerFallback = navOfferQuestion(navKey);
         if (!offerFallback) {
           await speakAndWait(maybeFlourish(navConfirmation(navKey)));
+          if (stale()) return;
           // eslint-disable-next-line no-use-before-define
           openFollowupWindow();
           return;
@@ -781,18 +852,23 @@ export function EchoConversationProvider({ active, children }) {
           // Data-backed offer with real counts ("You have 12 leads, including
           // 3 hot leads."); fall back to the generic question on any failure.
           try {
-            const data = await api.getEchoSectionOffer(briefSection);
+            const data = await withTimeout(
+              api.getEchoSectionOffer(briefSection),
+              OFFER_TIMEOUT_MS,
+            );
             if (data && data.question) question = data.question;
           } catch {
             /* keep the generic question */
           }
         }
+        if (stale()) return;
         pendingBriefRef.current = {
           navKey,
           briefSection,
           label: navLabel(navKey),
         };
         await speakAndWait(question);
+        if (stale()) return;
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow(true);
         return;
@@ -812,6 +888,7 @@ export function EchoConversationProvider({ active, children }) {
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(clarifyQuestion());
+        if (stale()) return;
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow(true);
         return;
@@ -828,13 +905,14 @@ export function EchoConversationProvider({ active, children }) {
       try {
         const handler = commandHandlerRef.current;
         const result = handler
-          ? await handler(text)
+          ? await withTimeout(handler(text), AI_TIMEOUT_MS)
           : { reply: "", isQuestion: false };
         reply = (result && result.reply) || "";
         asked = !!(result && result.isQuestion);
       } catch {
         reply = "I hit a snag on that one. Could you try again?";
       }
+      if (stale()) return;
       if (!reply) {
         reply =
           "I want to make sure I understand you correctly. Could you rephrase that?";
@@ -842,6 +920,7 @@ export function EchoConversationProvider({ active, children }) {
       }
       setConvState("speaking");
       await speakAndWait(reply);
+      if (stale()) return;
       asked = asked || isQuestion(reply);
       // eslint-disable-next-line no-use-before-define
       openFollowupWindow(asked);
@@ -900,13 +979,9 @@ export function EchoConversationProvider({ active, children }) {
       suspendRef.current = false;
       setConvState("active");
       playEffect("wake");
-      // The owner explicitly engaged Echo → lift the login-silence hold so
-      // pending alerts / the weekly auto-briefing may now be delivered.
-      try {
-        window.dispatchEvent(new CustomEvent("echoai:user-initiated"));
-      } catch {
-        /* noop */
-      }
+      // NOTE: the login-silence hold (echoai:user-initiated) is lifted in
+      // processCommand once a REAL command lands — never on the bare wake
+      // match, so a misheard "Hey Echo" can't unleash auto-spoken content.
       // If the wake utterance already carried a command, give the user a beat to
       // keep talking, then finalize.
       if (initialCommand) {
@@ -927,13 +1002,21 @@ export function EchoConversationProvider({ active, children }) {
       // through as long sentences, so the exact-utterance match can't
       // self-trigger. On a match Echo halts immediately, acknowledges, and
       // returns to listening.
-      if (speakingRef.current && !interruptedRef.current) {
+      // Also honored while Echo is THINKING (suspended/processing): "Stop"
+      // must always work instantly, not just while audio is playing. Bumping
+      // the command generation makes the in-flight command stale, so its
+      // late-arriving reply is dropped instead of spoken.
+      if (
+        (speakingRef.current || suspendRef.current) &&
+        !interruptedRef.current
+      ) {
         let heard = "";
         for (let i = event.resultIndex; i < event.results.length; i += 1) {
           heard += ` ${event.results[i][0].transcript}`;
         }
         if (matchInterruptIntent(heard.trim())) {
           interruptedRef.current = true;
+          cmdGenRef.current += 1; // cancel any in-flight command
           pendingBriefRef.current = null;
           pendingBriefingChoiceRef.current = false;
           finalRef.current = "";
@@ -1156,6 +1239,40 @@ export function EchoConversationProvider({ active, children }) {
     }, 1000);
     return () => clearInterval(watchdog);
   }, [supported, micEnabled, muted, active]);
+
+  // STUCK-STATE watchdog: if the engine has been suspended (processing /
+  // speaking) with no audio actually playing for STUCK_SUSPEND_MS straight,
+  // something wedged past every per-call timeout — force a full reset to
+  // passive so Echo can NEVER silently stay deaf. Ticks every 5s; any tick
+  // where we're not suspended (or audio is genuinely playing) resets the count.
+  const stuckTicksRef = useRef(0);
+  useEffect(() => {
+    if (!(supported && micEnabled && !muted && active)) return undefined;
+    const TICK_MS = 5000;
+    const maxTicks = Math.ceil(STUCK_SUSPEND_MS / TICK_MS);
+    const id = setInterval(() => {
+      if (suspendRef.current && !speakingRef.current) {
+        stuckTicksRef.current += 1;
+        if (stuckTicksRef.current >= maxTicks) {
+          stuckTicksRef.current = 0;
+          cmdGenRef.current += 1; // drop whatever is still in flight
+          clearTimers();
+          pendingBriefRef.current = null;
+          pendingBriefingChoiceRef.current = false;
+          finalRef.current = "";
+          modeRef.current = "passive";
+          suspendRef.current = false;
+          setConvState("passive");
+        }
+      } else {
+        stuckTicksRef.current = 0;
+      }
+    }, TICK_MS);
+    return () => {
+      clearInterval(id);
+      stuckTicksRef.current = 0;
+    };
+  }, [supported, micEnabled, muted, active, clearTimers]);
 
   // Preload the personality stings once we're active & opted in.
   useEffect(() => {

@@ -61,6 +61,7 @@
 - [EchoAI Beta Program](echoai-beta-program.md) — one slot predicate (is_beta+role+unlocked), cap enforced in register() FOR UPDATE, emails claim-then-send with revert.
 - [EchoAI feature-suggestion capture](echoai-feature-suggestions.md) — hidden AI markers need MANDATORY-grade prompt phrasing; "noted" confirmation is server-appended only after DB write succeeds.
 - [EchoAI Railway/nixpacks deploy](echoai-railway-deploy.md) — bundled npm 10.8.2 silently half-installs (use Yarn + --ignore-engines); optional SDK clients (Stripe) that construct at boot crash the server — guard them.
+- [EchoAI voice engine hardening](echoai-voice-engine-hardening.md) — every awaited call in the voice pipeline needs withTimeout + stale() gen-guard; barge-in matches while processing; watchdog force-resets stuck suspend.
 - [EchoAI personal assistant](echoai-personal-assistant.md) — owner SMS reads users.phone (+1 default; normalizeE164 won't add it); nav intent beats assistant matcher; numbered-list id resolution.
 - [EchoAI real-estate brand type](echoai-real-estate-brand-type.md) — brand-type vertical checklist; auto-content dedups via source slot key not "any recent post"; no-unique-key claims need advisory-lock placeholder rows.
 - [EchoAI political brand type](echoai-political-brand-type.md) — brand_type='political' gates Voter CRM client+server; ad copy disclaimer enforced in prompt AND code via politicalContext.js.

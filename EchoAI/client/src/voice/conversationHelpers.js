@@ -781,3 +781,25 @@ export const CLARIFY_QUESTION = CLARIFY_QUESTIONS[0];
 // clarification question instead of being sent to the AI as-is. Tuned low-ish
 // for Southern accents: confident-enough speech always passes straight through.
 export const CONFIDENCE_THRESHOLD = 0.55;
+
+/**
+ * Reject `promise` after `ms` so a hung network/AI call can never wedge the
+ * voice engine in a suspended (deaf) state. The rejection flows into the
+ * caller's existing catch block, which speaks the honest failure line and
+ * reopens listening.
+ */
+export function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("voice_call_timeout")), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}

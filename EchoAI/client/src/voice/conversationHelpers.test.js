@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  withTimeout,
   normalizeSpeech,
   parseWakeWord,
   isQuestion,
@@ -404,6 +405,7 @@ describe("matchYesNo", () => {
 // Interrupt commands (barge-in while Echo speaks)
 // ---------------------------------------------------------------------------
 import {
+  withTimeout,
   matchInterruptIntent,
   matchBriefingIntent,
   matchBriefingChoice,
@@ -515,6 +517,7 @@ describe("matchBriefingChoice", () => {
 // Speech-pattern learning + Southern/slang canonicalization
 // ---------------------------------------------------------------------------
 import {
+  withTimeout,
   matchStatusIntent,
   matchLearnedPhrase,
   resolveLearnableAction,
@@ -638,6 +641,7 @@ describe("clarification constants", () => {
 });
 
 import {
+  withTimeout,
   matchBriefingStart,
   MORNING_STANDBY_GREETING,
   MORNING_MUSIC_READY_LINE,
@@ -744,7 +748,8 @@ describe("MORNING_MUSIC_READY_LINE", () => {
 // ---------------------------------------------------------------------------
 // Guided-tour voice commands
 // ---------------------------------------------------------------------------
-import { matchTourCommand } from "./conversationHelpers.js";
+import {
+  withTimeout, matchTourCommand } from "./conversationHelpers.js";
 
 describe("matchTourCommand", () => {
   it("yes-style answers advance the tour", () => {
@@ -782,7 +787,8 @@ describe("matchTourCommand", () => {
 // ---------------------------------------------------------------------------
 // Personal assistant intents (reminders + tasks)
 // ---------------------------------------------------------------------------
-import { matchAssistantIntent } from "./conversationHelpers.js";
+import {
+  withTimeout, matchAssistantIntent } from "./conversationHelpers.js";
 
 describe("matchAssistantIntent", () => {
   it("reminder commands match", () => {
@@ -805,5 +811,32 @@ describe("matchAssistantIntent", () => {
     expect(matchAssistantIntent("how are my ads doing today")).toBe(false);
     expect(matchAssistantIntent("tell me about my leads")).toBe(false);
     expect(matchAssistantIntent("")).toBe(false);
+  });
+});
+
+describe("withTimeout", () => {
+  it("resolves with the promise value when it settles in time", async () => {
+    await expect(withTimeout(Promise.resolve("ok"), 1000)).resolves.toBe("ok");
+  });
+
+  it("propagates the original rejection", async () => {
+    await expect(
+      withTimeout(Promise.reject(new Error("boom")), 1000),
+    ).rejects.toThrow("boom");
+  });
+
+  it("rejects with voice_call_timeout when the promise hangs", async () => {
+    const hung = new Promise(() => {});
+    await expect(withTimeout(hung, 20)).rejects.toThrow("voice_call_timeout");
+  });
+
+  it("does not reject late once the promise already resolved", async () => {
+    const v = await withTimeout(
+      new Promise((r) => setTimeout(() => r(42), 5)),
+      50,
+    );
+    expect(v).toBe(42);
+    // Wait past the timeout window — no unhandled rejection should fire.
+    await new Promise((r) => setTimeout(r, 80));
   });
 });
