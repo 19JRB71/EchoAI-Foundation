@@ -85,3 +85,18 @@ environment, copy the full feature-var sets, not single keys; if a degradable
 feature "works but wrong", suspect the *partner* var of an already-set key.
 Also: the voice ID is a short ~20-char code — easy to confuse with the API key
 (long, `sk_`-prefixed).
+
+## 5. Verify ALL runtime deps after install, not a hand-picked few
+The post-install verify originally checked only 4 packages (dotenv/express/pg/
+bcrypt). New features later added deps (imapflow, mailparser, pdf-parse) that the
+verify never covered — so the half-install failure class could ship again and
+only surface as a runtime crash → healthcheck fail → Railway rollback ("deploys
+marked REMOVED").
+
+**Fix:** the verify step iterates `Object.keys(package.json dependencies)` and
+`require.resolve()`s each (resolve, not require — no env/config needed at build).
+Any missing package fails the BUILD loudly.
+
+**Why:** a static verify list silently rots as dependencies grow. **How to
+apply:** any install-verification step must derive its list from package.json,
+never hardcode it.
