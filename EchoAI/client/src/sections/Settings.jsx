@@ -561,6 +561,31 @@ function BrandCard({ brandId, onBrandsChanged }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showDiscovery, setShowDiscovery] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  const startEditName = () => {
+    setNameDraft(brand?.brand_name || "");
+    setEditingName(true);
+  };
+
+  const saveName = async () => {
+    const name = nameDraft.trim();
+    if (!name || savingName) return;
+    setSavingName(true);
+    setError("");
+    try {
+      await api.updateBrand(brandId, { name });
+      setEditingName(false);
+      await load();
+      if (onBrandsChanged) onBrandsChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!brandId) {
@@ -588,7 +613,45 @@ function BrandCard({ brandId, onBrandsChanged }) {
         <Spinner label="Loading…" />
       ) : brand ? (
         <div className="space-y-2 text-sm">
-          <Row label="Name" value={brand.brand_name} />
+          {editingName ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-gray-400">Name</span>
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
+                autoFocus
+                className="rounded-lg border border-gray-700 bg-gray-950 px-2 py-1 text-sm text-gray-100 focus:border-blue-500 focus:outline-none"
+              />
+              <button
+                onClick={saveName}
+                disabled={savingName || !nameDraft.trim()}
+                className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+              >
+                {savingName ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => setEditingName(false)}
+                className="rounded-lg border border-gray-700 px-3 py-1 text-xs text-gray-300 hover:border-gray-500"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <Row label="Name" value={brand.brand_name} />
+              </div>
+              <button
+                onClick={startEditName}
+                aria-label="Edit business name"
+                title="Rename your business (no need to redo brand discovery)"
+                className="rounded-lg border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-blue-500 hover:text-blue-300"
+              >
+                ✏️ Edit
+              </button>
+            </div>
+          )}
           <Row label="Personality" value={brand.brand_personality} />
           <Row label="Voice" value={brand.voice_description} />
           <Row label="Audience" value={brand.target_audience} />
