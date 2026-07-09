@@ -111,6 +111,7 @@ export const SECTION_TIERS = {
   supporters: "starter",
   properties: "starter",
   echoplanner: "starter",
+  echoemail: "starter",
   settings: "starter",
   // Professional
   adstudio: "pro",

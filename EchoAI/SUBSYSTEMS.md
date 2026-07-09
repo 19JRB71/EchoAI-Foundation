@@ -689,3 +689,66 @@ idea warmly and the request is auto-logged for the development team.
 - **Tests.** `test/featureSuggestions.test.js`: scripted-db unit tests for
   match→increment, no-match→conflict-safe insert, classifier failure
   propagation, empty-text rejection, and the marker parse/strip contract.
+
+### Echo Email Assistant subsystem (`/api/echo-email`)
+
+Owner-only, all tiers: Echo connects to the owner's real mailboxes (IMAP/SMTP
+via app passwords), watches them every 15 minutes, triages new mail with AI,
+folds inbox summaries into briefings, and drafts/sends replies — but **never
+sends anything without explicit owner approval**.
+
+- **Auth & ownership.** Routes: auth + lockoutCheck + owner-only guard
+  (`isAdmin || !isTeamMember` mirrored client-side in `canOpenSection`). All
+  queries scope by `user_id`; drafts additionally join accounts on owner.
+- **Accounts.** `utils/emailAccounts.js`: provider presets (gmail/yahoo/
+  icloud/outlook/custom) via `detectProvider` + `presetFor`; app passwords
+  AES-256-GCM encrypted (`utils/encryption.js`); connect verifies IMAP login
+  before saving; status endpoints never return the password.
+- **Monitor.** `utils/emailMonitor.js`, cron `*/15 * * * *` in scheduler.
+  UID-cursor incremental fetch (first sweep stores the cursor, imports
+  nothing; UIDVALIDITY change resets the baseline), max 25 msgs/account/sweep.
+  AI triage (batch) → category urgent/important/contract/lead/invoice/
+  payment/general + one-line summary; **AI failure stores category 'general'
+  with NULL summary — honest, never fabricated**. Dedup on
+  `(account_id, message_uid)` unique index, `ON CONFLICT DO NOTHING` +
+  row-count branch. Per-account and per-message guards (sweep-guard seam);
+  only hard auth failures flip account status to 'error' (transient never).
+- **Alerts.** urgent/contract/payment enqueue an `email_alert` voice event
+  via `enqueueOwnerVoiceEvent` (respects the master voice switch + the
+  "Email alerts" toggle registered in `config/echoVoice.js` EVENT_TYPES and
+  the client `lib/voiceSettings.js` EVENT_META), dedupKey
+  `email:<account>:<uid>`, 12h expiry.
+- **Drafts.** `utils/emailComposer.js`: AI-composed or manual drafts land in
+  `email_drafts` status `pending`. `sendDraft` claims atomically
+  (`UPDATE ... SET status='sending' WHERE status='pending'` row-count branch)
+  so double-approval can't double-send; SMTP failure flips to `failed` with
+  `send_error` stored and maps to 502; discard only from pending. Nodemailer
+  transporter uses 15s connection/greeting timeouts (fail fast, no hangs).
+- **Echo chat intent.** `[[EMAIL_DRAFT: recipient || instruction]]` marker in
+  `echoCompanionController` system prompt; handler resolves the recipient
+  (email regex or ILIKE sender lookup in `email_messages`), creates a pending
+  draft, and tells the owner to review — the AI never claims a send happened.
+- **Contract review.** PDF attachments on `contract`-category mail parsed with
+  `pdf-parse`; plain-English key-terms summary stored on the message (explicit
+  "not legal advice" framing). Parse/AI failure leaves the message intact.
+- **Lead capture.** `lead`-category mail files the sender into the CRM
+  `leads` table with app-code dedup (email match) against the owner's real
+  brand — demo brands (`is_demo`) are never touched; the message row links
+  `lead_id` either way.
+- **Briefings.** `utils/echoBriefing.js` gatherBriefingData adds fail-soft
+  `emailCounts` (24h totals by category); morning/closing agenda speaks one
+  summary line only when accounts exist.
+- **Persistence.** `models/084_email_assistant.sql`: `email_accounts`
+  (encrypted password, cursor + uid_validity, status/last_error),
+  `email_messages` (category, ai_summary, contract_review, lead_id, alerted,
+  unique (account_id, message_uid)), `email_drafts` (status
+  pending|sending|sent|discarded|failed, send_error).
+- **Client.** `sections/EchoEmail.jsx` ("Email & Communications" tool card in
+  the Echo department, section id `echoemail`, all tiers, owner-only):
+  connect form with per-provider app-password help, check-now, categorized
+  inbox digest with filters, pending-draft approval queue (edit/send/
+  discard), contract summaries, recent sent/failed drafts.
+- **Tests.** `tests/echoEmail.test.js`: provider presets, (account,uid)
+  dedup, honest AI-failure degradation, sweep isolation + auth-vs-transient
+  status flips, lead dedup + demo-brand exclusion, atomic approval-gated
+  send/discard, honest SMTP failure, briefing counts.

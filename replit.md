@@ -124,6 +124,7 @@ client wiring). Open that file when working inside a specific subsystem.
 | Beta Program | `/api/admin/beta` | admin-only; capped beta slots + waitlist, activity tracking, inactivity warnings, convert-to-paid |
 | Property CRM | `/api/properties` | all tiers; real-estate brands only (brand_type='real_estate') — listings, buyer/seller leads, open houses + Atlas/Nova automations |
 | Feature Suggestions | `/api/admin/feature-suggestions` | all tiers via Echo chat; unsupported asks auto-logged + deduped; admin tab sorted by request count |
+| Echo Email Assistant | `/api/echo-email` | all tiers, owner-only; multi-account IMAP/SMTP (app passwords), 15-min AI inbox triage, approval-gated drafts, contract review, lead capture |
 | Echo Personal Assistant | `/api/echo-assistant` | all tiers, owner-only; voice reminders (voice→SMS fallback) + prioritized tasks, briefing/closing check-ins, auto-tasks from stale hot leads |
 
 The dashboard nav is team-member-centric: the sidebar lists the 8 AI agents

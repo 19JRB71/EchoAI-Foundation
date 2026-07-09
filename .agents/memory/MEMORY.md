@@ -68,3 +68,4 @@
 - [EchoAI voice barge-in](echoai-voice-barge-in.md) — interrupt = exact short utterance only; drain loop must re-kick after "stopped"; clear pending-answer refs at every reset site.
 - [EchoAI speech-pattern learning](echoai-speech-learning.md) — normalize slang/accent in one choke point; learned phrases rewrite to canonical text; reset confidence ref at EVERY capture boundary or clarify misfires.
 - [EchoAI voice-narrated tour](echoai-voice-tour.md) — tour↔voice engine talk via echoai:tour-state/tour-command window events; final-only utterance matching, never auto-advance, tour speaks its own stop/finish cuts.
+- [EchoAI Email Assistant](echoai-email-assistant.md) — approval-gated atomic send claim, public-host SSRF guard on custom IMAP/SMTP, cursor-first sweep, voice event types registered in BOTH server+client lists.

@@ -36,6 +36,7 @@ const EVENT_TYPES = [
   "personal_reminder",
   "task_alert",
   "task_checkin",
+  "email_alert",
 ];
 
 // Defaults applied when a user has no stored voice_settings (or is missing keys).
@@ -59,6 +60,7 @@ const DEFAULT_SETTINGS = {
     personal_reminder: true,
     task_alert: true,
     task_checkin: true,
+    email_alert: true,
   },
 };
 

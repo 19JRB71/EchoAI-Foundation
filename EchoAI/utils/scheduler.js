@@ -411,6 +411,17 @@ function startScheduler() {
     });
   });
 
+  // Every 15 minutes: Echo Email Assistant inbox sweep — fetch new mail on
+  // every connected account, AI-triage it, alert on urgent/contract/payment,
+  // capture leads into the CRM. Per-account guards keep one bad mailbox from
+  // blocking the rest.
+  cron.schedule("*/15 * * * *", () => {
+    const { sweepAllEmailAccounts } = require("./emailMonitor");
+    sweepAllEmailAccounts().catch((err) => {
+      console.error("Scheduled email inbox sweep errored:", err.message);
+    });
+  });
+
   // Every minute: enqueue any due Echo voice reminders (appointment 15m/5m,
   // follow-up-call-due). Idempotent dedup keys make overlapping ticks safe.
   cron.schedule("* * * * *", () => {

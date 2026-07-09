@@ -40,6 +40,7 @@ export const DEPARTMENTS = {
     { label: "Autonomous Growth", desc: "Guardrails and the log of Echo's autonomous actions.", section: "echogrowth" },
     { label: "Memory", desc: "Searchable history of everything Echo remembers.", section: "echomemory" },
     { label: "Reminders & Tasks", desc: "Your personal planner — voice-set reminders and your task list.", section: "echoplanner" },
+    { label: "Email & Communications", desc: "Echo watches your inboxes — urgent mail, contracts, leads and AI-drafted replies you approve.", section: "echoemail" },
     { label: "Voice Settings", desc: "Echo's spoken briefings, reminders and alerts.", section: "voicesettings" },
   ],
   scout: [
@@ -132,6 +133,7 @@ export const SECTION_TITLES = {
   zapier: "Zapier",
   echomemory: "Echo · Memory",
   echoplanner: "Echo · Reminders & Tasks",
+  echoemail: "Echo · Email & Communications",
   echogrowth: "Echo · Autonomous Growth",
   voicesettings: "Echo · Voice Settings",
   sentinelhealth: "Sentinel · Health",

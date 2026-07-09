@@ -191,6 +191,27 @@ export const api = {
     request(`/api/echo-assistant/tasks/${id}/complete`, { method: "POST" }),
   deleteAssistantTask: (id) =>
     request(`/api/echo-assistant/tasks/${id}`, { method: "DELETE" }),
+  // Echo Email Assistant (owner-only): accounts, inbox intelligence, drafts.
+  listEmailAccounts: () => request("/api/echo-email/accounts"),
+  connectEmailAccount: (data) =>
+    request("/api/echo-email/accounts", { method: "POST", body: data }),
+  removeEmailAccount: (id) =>
+    request(`/api/echo-email/accounts/${id}`, { method: "DELETE" }),
+  checkEmailNow: () => request("/api/echo-email/check-now", { method: "POST" }),
+  getEmailSummary: () => request("/api/echo-email/summary"),
+  listEmailMessages: (category) =>
+    request(
+      `/api/echo-email/messages${category ? `?category=${encodeURIComponent(category)}` : ""}`,
+    ),
+  listEmailDrafts: () => request("/api/echo-email/drafts"),
+  draftEmailMessage: (data) =>
+    request("/api/echo-email/drafts", { method: "POST", body: data }),
+  updateEmailDraft: (id, data) =>
+    request(`/api/echo-email/drafts/${id}`, { method: "PUT", body: data }),
+  sendEmailDraft: (id) =>
+    request(`/api/echo-email/drafts/${id}/send`, { method: "POST" }),
+  discardEmailDraft: (id) =>
+    request(`/api/echo-email/drafts/${id}/discard`, { method: "POST" }),
   // Voice input: POST a recorded clip as multipart to be transcribed with Whisper.
   transcribeEchoAudio: async (blob) => {
     const form = new FormData();

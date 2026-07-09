@@ -21,6 +21,59 @@ const contentCalendarController = require("./contentCalendarController");
 const voiceController = require("./voiceController");
 const echoContext = require("../utils/echoContext");
 const featureSuggestions = require("../utils/featureSuggestions");
+const emailComposer = require("../utils/emailComposer");
+const emailAccounts = require("../utils/emailAccounts");
+
+// ---------------------------------------------------------------------------
+// Echo chat → email draft (voice/chat compose; ALWAYS a pending draft, never
+// sent without explicit approval in the Email tab).
+// ---------------------------------------------------------------------------
+async function createEchoEmailDraft(userId, recipient, instruction) {
+  const accounts = await emailAccounts.listAccounts(userId);
+  if (accounts.length === 0) {
+    const e = new Error("no email account connected");
+    e.friendly = "Connect an email account in the Email tab first, then I can draft it for you.";
+    throw e;
+  }
+
+  let toAddress = null;
+  let toName = null;
+  let replyTo = null;
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(recipient)) {
+    toAddress = recipient;
+  } else if (recipient) {
+    // "reply to John" — find the most recent monitored email from that sender.
+    const { rows } = await db.query(
+      `SELECT * FROM email_messages
+        WHERE user_id = $1 AND (from_name ILIKE $2 OR from_address ILIKE $2)
+        ORDER BY received_at DESC LIMIT 1`,
+      [userId, `%${recipient}%`],
+    );
+    if (rows[0] && rows[0].from_address) {
+      replyTo = rows[0];
+      toAddress = rows[0].from_address;
+      toName = rows[0].from_name;
+    }
+  }
+  if (!toAddress) {
+    const e = new Error("recipient not resolved");
+    e.friendly = `I couldn't find an email address for "${recipient}" — tell me the address and I'll draft it right away.`;
+    throw e;
+  }
+
+  const accountId = replyTo ? replyTo.account_id : accounts[0].account_id;
+  const drafted = await emailComposer.draftEmail(userId, { instruction, replyTo });
+  const saved = await emailComposer.createDraft(userId, {
+    accountId,
+    toAddress,
+    toName,
+    subject:
+      replyTo && replyTo.subject ? `Re: ${replyTo.subject.replace(/^Re:\s*/i, "")}` : drafted.subject,
+    body: drafted.body,
+    replyToMessageId: replyTo ? replyTo.message_id : null,
+  });
+  return { draftId: saved.draft_id, toAddress, toName };
+}
 
 // ---------------------------------------------------------------------------
 // In-process controller invocation (same pattern as setupAgentController.invoke)
@@ -663,6 +716,7 @@ async function sendMessage(req, res) {
       "You run their marketing for them: you can launch Facebook ad campaigns, schedule social posts, send email campaigns, and report performance.",
       'The app handles voice navigation for you: when the user says things like "go to Atlas", "show me my leads", or "open Facebook setup", the dashboard navigates instantly on its own. NEVER say you cannot navigate, open pages, or take them somewhere — if they ask to go somewhere, respond as if you are taking them there (e.g. "Taking you to Atlas now.").',
       "Every action you take requires their one-click approval (or a Facebook password) first — if they ask you to do something, tell them you'll prepare a preview for them to approve.",
+      'EMAIL ASSISTANT RULE: you can draft emails for the owner (sent from their own connected email account, only after they approve the draft in the Email tab). When the user asks you to write, draft, reply to, or send an email, output as the literal last line of your reply the marker [[EMAIL_DRAFT: recipient || what the email should say]] — recipient is the email address (or the sender\'s name if they said "reply to John"), and after the double pipe put a clear instruction of what to write. Include the double square brackets exactly; the marker is stripped before display. In your visible reply, say you\'re preparing the draft for their approval — NEVER claim an email was sent. Only use this marker for actual email-writing requests.',
       'CRITICAL FEATURE-REQUEST RULE: if the user asks you to DO something the platform cannot do yet (any capability outside ads, social posts, email campaigns, reminders/tasks, reporting, and navigation — e.g. "post to TikTok", "sync with QuickBooks", "book me a flight"), NEVER dead-end with a flat "I cannot do that". Instead you MUST do BOTH of these: (1) acknowledge it warmly as a good idea, and (2) output, as the literal last line of your reply, the marker [[FEATURE_REQUEST: short description of what they asked for]] — including the double square brackets exactly. The marker is MANDATORY, not optional: the platform parses it to record the request for the development team, and omitting it silently discards the user\'s idea. The user never sees the marker (it is stripped before display), so always include it. Do NOT claim the suggestion has been noted or logged — the system appends that confirmation itself. Only use the marker when they asked you to perform an unsupported action; never for questions, chit-chat, or things you CAN do.',
       ownerName
         ? `The owner likes to be addressed as "${ownerName}". Use their name naturally and sparingly — at key moments like delivering important news, asking a question, or celebrating a win — never in every sentence.`
@@ -712,6 +766,28 @@ async function sendMessage(req, res) {
       if (!reply) {
         reply = "That's not something I can do just yet — but I think it's a great idea.";
       }
+    }
+
+    // Email-draft capture: the prompt has Echo tag email-writing requests with
+    // [[EMAIL_DRAFT: recipient || instruction]]. Strip the marker, create a
+    // pending draft (never sent without approval), and confirm ONLY on success.
+    const emailMatch = reply.match(/\[\[EMAIL_DRAFT:\s*([\s\S]*?)\]\]/);
+    if (emailMatch) {
+      reply = reply.replace(/\s*\[\[EMAIL_DRAFT:[\s\S]*?\]\]\s*/g, " ").trim();
+      const raw = emailMatch[1];
+      const sep = raw.indexOf("||");
+      const recipient = (sep >= 0 ? raw.slice(0, sep) : raw).trim();
+      const instruction = (sep >= 0 ? raw.slice(sep + 2) : "").trim() || text;
+      try {
+        const draftInfo = await createEchoEmailDraft(userId, recipient, instruction);
+        reply =
+          `${reply} Your draft to ${draftInfo.toName || draftInfo.toAddress} is ready in the Email tab — ` +
+          `nothing goes out until you approve it.`.trim();
+      } catch (draftErr) {
+        console.error("Echo email draft failed:", draftErr.message);
+        reply = `${reply} ${draftErr.friendly || "I couldn't prepare that draft just now — you can also compose it from the Email tab."}`.trim();
+      }
+      if (!reply) reply = "I'll get that email drafted for your approval.";
     }
 
     const uMsg = userMsg(text);

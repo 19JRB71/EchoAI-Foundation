@@ -133,6 +133,16 @@ async function gatherBriefingData(userId, since) {
   const brandIds = brands.map((b) => b.brand_id);
   const fbConnected = await facebookConnected(userId);
   const agenda = await personalAgenda(userId);
+  // Email Assistant inbox counts (last 24h of monitored mail). Fail-soft: a
+  // missing table or monitor hiccup must never break the briefing.
+  let emailCounts = null;
+  try {
+    const { inboxBriefingCounts } = require("./emailMonitor");
+    const counts = await inboxBriefingCounts(userId, 24);
+    if (counts.total > 0) emailCounts = counts;
+  } catch (_) {
+    emailCounts = null;
+  }
   const empty = {
     brands,
     sinceISO: since ? new Date(since).toISOString() : null,
@@ -154,6 +164,7 @@ async function gatherBriefingData(userId, since) {
     upcomingOpenHouses: [],
     remindersToday: agenda.remindersToday,
     openTasks: agenda.openTasks,
+    emailCounts,
   };
   if (brandIds.length === 0) return empty;
 
@@ -321,6 +332,7 @@ async function gatherBriefingData(userId, since) {
     upcomingOpenHouses: openHouseRows,
     remindersToday: agenda.remindersToday,
     openTasks: agenda.openTasks,
+    emailCounts,
   };
 }
 
@@ -841,6 +853,21 @@ function appendAgenda(parts, data) {
     const first = reminders[0];
     parts.push(
       `You have ${reminders.length} reminder${reminders.length === 1 ? "" : "s"} today, starting with ${first.text} at ${formatTime(first.dueAt)}.`
+    );
+  }
+  const ec = data.emailCounts;
+  if (ec && ec.total > 0) {
+    const bits = [];
+    if (ec.urgent) bits.push(`${ec.urgent} urgent`);
+    if (ec.important) bits.push(`${ec.important} important`);
+    if (ec.contract) bits.push(`${ec.contract} with contract${ec.contract === 1 ? "" : "s"} to review`);
+    if (ec.lead) bits.push(`${ec.lead} from potential customers`);
+    if (ec.invoice || ec.payment) {
+      bits.push(`${(ec.invoice || 0) + (ec.payment || 0)} about invoices or payments`);
+    }
+    const detail = bits.length ? ` — ${joinList(bits)}` : "";
+    parts.push(
+      `On email, ${ec.total} new message${ec.total === 1 ? "" : "s"} came in over the last day${detail}.`
     );
   }
   const tasks = data.openTasks || [];

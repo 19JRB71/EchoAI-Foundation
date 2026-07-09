@@ -93,6 +93,11 @@ export const EVENT_META = [
     label: "Task check-ins",
     description: "Echo checks in on tasks that have been open for a few days.",
   },
+  {
+    key: "email_alert",
+    label: "Email alerts",
+    description: "Urgent emails, contracts, and payment notifications from your connected inboxes.",
+  },
 ];
 
 const EVENT_KEYS = EVENT_META.map((e) => e.key);
