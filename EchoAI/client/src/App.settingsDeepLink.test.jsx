@@ -25,6 +25,8 @@ vi.mock("./api.js", () => ({
     getProfile: vi.fn(),
     getAgencySettings: vi.fn(),
     getBrands: vi.fn(),
+    getActiveBrand: vi.fn().mockResolvedValue({ brandId: null }),
+    setActiveBrand: vi.fn().mockResolvedValue({}),
     getSetupLatest: vi.fn(),
     getSubscriptionStatus: vi.fn(),
     getGoals: vi.fn(),
@@ -135,8 +137,13 @@ async function renderDashboard() {
   // …and the brand selector confirms both brands are loaded with Business A
   // (the first real brand) selected.
   await waitFor(() => {
-    expect(screen.getByDisplayValue("Business A")).toBeInTheDocument();
+    expect(pillFor("Business A")).toHaveAttribute("aria-pressed", "true");
   });
+}
+
+// The brand switcher is a row of pill buttons; the active one is aria-pressed.
+function pillFor(name) {
+  return screen.getByRole("button", { name });
 }
 
 describe("App settings deep link (goal-alert click-through)", () => {
@@ -151,7 +158,7 @@ describe("App settings deep link (goal-alert click-through)", () => {
       );
     });
     // The account-wide brand selector followed along too.
-    expect(screen.getByDisplayValue("Business B")).toBeInTheDocument();
+    expect(pillFor("Business B")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("an unknown/foreign brandId does NOT change the selection", async () => {
@@ -166,7 +173,7 @@ describe("App settings deep link (goal-alert click-through)", () => {
         "brand:101|focus:goals",
       );
     });
-    expect(screen.getByDisplayValue("Business A")).toBeInTheDocument();
+    expect(pillFor("Business A")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("an unknown/foreign brandId shows a fallback notice instead of a silent swap", async () => {
