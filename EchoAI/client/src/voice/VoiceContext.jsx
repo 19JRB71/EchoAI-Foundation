@@ -34,6 +34,7 @@ import {
 } from "../lib/voiceSettings.js";
 import { getWarmAudio, killWarmAudio } from "./audioUnlock.js";
 import { standbyGreeting, musicReadyLine } from "./phraseVariety.js";
+import { isProactiveVoiceItem } from "./conversationHelpers.js";
 
 const VoiceContext = createContext(null);
 
@@ -131,6 +132,15 @@ export function VoiceProvider({ active, children }) {
   // spoken surface (briefing, scripted lines, suggestions, nav confirmations)
   // requests the strict ElevenLabs-only path — the voice never switches mid-demo.
   const presentationRef = useRef(false);
+  // CONVERSATION STATE MANAGER hook-in: the conversation engine registers a
+  // synchronous probe that answers "is Echo in an active interaction right
+  // now?" (capturing a command, processing, speaking, or holding a follow-up
+  // window). While it returns true, PROACTIVE queue items (Sage alerts,
+  // reminders, briefings) are HELD — they never interrupt a conversation, and
+  // play only once Echo is fully back to idle passive listening.
+  const conversationBusyProbeRef = useRef(null);
+  // Retry timer for held proactive items (cleared on deactivate).
+  const holdTimerRef = useRef(null);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -426,7 +436,17 @@ export function VoiceProvider({ active, children }) {
     try {
       while (queueRef.current.length > 0) {
         if (mutedRef.current || !activeRef.current) break;
-        const item = queueRef.current.shift();
+        // CONVERSATION-PRIORITY RULE: while the conversation engine reports an
+        // active interaction, proactive items (alerts/reminders/briefings) are
+        // held in place — pick the first item that is allowed to play now.
+        const probe = conversationBusyProbeRef.current;
+        const conversationBusy = !!(probe && probe());
+        let idx = 0;
+        if (conversationBusy) {
+          idx = queueRef.current.findIndex((q) => !isProactiveVoiceItem(q));
+          if (idx === -1) break; // everything is held; retry once idle
+        }
+        const item = queueRef.current.splice(idx, 1)[0];
         currentRef.current = item;
         lastPlayedRef.current = item;
         setCurrent(item);
@@ -511,10 +531,47 @@ export function VoiceProvider({ active, children }) {
         !mutedRef.current &&
         activeRef.current
       ) {
-        setTimeout(() => drain(), 0);
+        const probe = conversationBusyProbeRef.current;
+        const busyNow = !!(probe && probe());
+        const allHeld =
+          busyNow && queueRef.current.every((q) => isProactiveVoiceItem(q));
+        if (allHeld) {
+          // Everything left is a held proactive item. Poll again shortly as a
+          // backstop; the conversation engine also pings us the moment it goes
+          // idle (echoai:conversation-idle), so delivery is usually instant.
+          if (!holdTimerRef.current) {
+            holdTimerRef.current = setTimeout(() => {
+              holdTimerRef.current = null;
+              drain();
+            }, 2000);
+          }
+        } else {
+          setTimeout(() => drain(), 0);
+        }
       }
     }
   }, [speakItem]);
+
+  // Register (or clear) the conversation engine's busy probe.
+  const registerConversationBusyProbe = useCallback((fn) => {
+    conversationBusyProbeRef.current = typeof fn === "function" ? fn : null;
+  }, []);
+
+  // The conversation engine pings this event the moment it returns to idle
+  // passive listening — deliver any held proactive items right away.
+  useEffect(() => {
+    const onIdle = () => {
+      // The idle ping supersedes the 2s backstop — drop it to avoid a
+      // redundant wakeup right after this drain.
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      drain();
+    };
+    window.addEventListener("echoai:conversation-idle", onIdle);
+    return () => window.removeEventListener("echoai:conversation-idle", onIdle);
+  }, [drain]);
 
   const enqueue = useCallback(
     (item, { front = false } = {}) => {
@@ -871,6 +928,10 @@ export function VoiceProvider({ active, children }) {
   useEffect(() => {
     if (active) return;
     stopAll();
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
     deliveredIds.current = new Set();
     speakAttemptsRef.current = new Map();
     briefingTriedRef.current = false;
@@ -927,6 +988,7 @@ export function VoiceProvider({ active, children }) {
       stopAll,
       enqueue,
       markUserInitiated,
+      registerConversationBusyProbe,
     }),
     [
       active,
@@ -952,6 +1014,7 @@ export function VoiceProvider({ active, children }) {
       stopAll,
       enqueue,
       markUserInitiated,
+      registerConversationBusyProbe,
     ],
   );
 

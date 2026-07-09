@@ -70,3 +70,4 @@
 - [EchoAI speech-pattern learning](echoai-speech-learning.md) — normalize slang/accent in one choke point; learned phrases rewrite to canonical text; reset confidence ref at EVERY capture boundary or clarify misfires.
 - [EchoAI voice-narrated tour](echoai-voice-tour.md) — tour↔voice engine talk via echoai:tour-state/tour-command window events; final-only utterance matching, never auto-advance, tour speaks its own stop/finish cuts.
 - [EchoAI Email Assistant](echoai-email-assistant.md) — approval-gated atomic send claim, public-host SSRF guard on custom IMAP/SMTP, cursor-first sweep, voice event types registered in BOTH server+client lists.
+- [EchoAI conversation-priority queue](echoai-conversation-priority.md) — proactive items (notificationId/unknown types) held via busy probe + splice-first-playable drain; interactive never held.

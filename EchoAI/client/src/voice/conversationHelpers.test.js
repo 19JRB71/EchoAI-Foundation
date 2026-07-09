@@ -840,3 +840,43 @@ describe("withTimeout", () => {
     await new Promise((r) => setTimeout(r, 80));
   });
 });
+
+// ---------------------------------------------------------------------------
+// isProactiveVoiceItem — conversation-priority classification
+// ---------------------------------------------------------------------------
+import { isProactiveVoiceItem } from "./conversationHelpers.js";
+
+describe("isProactiveVoiceItem", () => {
+  it("classifies conversation replies as interactive (never held)", () => {
+    expect(isProactiveVoiceItem({ type: "echo_conversation", text: "hi" })).toBe(false);
+  });
+
+  it("classifies tour, wizard status, and demo suggestions as interactive", () => {
+    expect(isProactiveVoiceItem({ type: "tour" })).toBe(false);
+    expect(isProactiveVoiceItem({ type: "status" })).toBe(false);
+    expect(isProactiveVoiceItem({ type: "demo-suggestion" })).toBe(false);
+  });
+
+  it("classifies briefings as proactive", () => {
+    expect(isProactiveVoiceItem({ type: "morning_briefing" })).toBe(true);
+    expect(isProactiveVoiceItem({ type: "weekly_briefing" })).toBe(true);
+  });
+
+  it("classifies anything with a server notificationId as proactive", () => {
+    // Pending-poll items (Sage alerts, reminders, hot-lead alerts) always carry
+    // a notification id — proactive regardless of their type string.
+    expect(isProactiveVoiceItem({ type: "reminder", notificationId: 7 })).toBe(true);
+    expect(isProactiveVoiceItem({ type: "sage_alert", notificationId: 9 })).toBe(true);
+    // Even an unexpected interactive-looking type is held if it came from the poll.
+    expect(isProactiveVoiceItem({ type: "status", notificationId: 3 })).toBe(true);
+  });
+
+  it("classifies unknown types as proactive (fail toward not interrupting)", () => {
+    expect(isProactiveVoiceItem({ type: "mystery" })).toBe(true);
+  });
+
+  it("handles null/undefined without throwing", () => {
+    expect(isProactiveVoiceItem(null)).toBe(false);
+    expect(isProactiveVoiceItem(undefined)).toBe(false);
+  });
+});

@@ -803,3 +803,24 @@ export function withTimeout(promise, ms) {
     );
   });
 }
+
+/**
+ * CONVERSATION-PRIORITY RULE: classify a voice-queue item as PROACTIVE
+ * (Sage alerts, reminders, hot-lead alerts, morning/weekly briefings — anything
+ * Echo initiates on his own) vs INTERACTIVE (a direct reply in an active
+ * conversation, tour narration, wizard status lines, demo suggestions).
+ * Proactive items must NEVER interrupt an active conversation: the queue holds
+ * them until the conversation engine reports it is fully idle again.
+ */
+const INTERACTIVE_TYPES = new Set([
+  "echo_conversation",
+  "tour",
+  "status",
+  "demo-suggestion",
+]);
+export function isProactiveVoiceItem(item) {
+  if (!item) return false;
+  // Anything served by the pending-notifications poll carries a server id.
+  if (item.notificationId) return true;
+  return !INTERACTIVE_TYPES.has(item.type);
+}

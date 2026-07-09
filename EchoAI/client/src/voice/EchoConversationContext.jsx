@@ -324,6 +324,35 @@ export function EchoConversationProvider({ active, children }) {
     stopAllRef.current = voice && voice.stopAll ? voice.stopAll : null;
   }, [voice]);
 
+  // CONVERSATION STATE MANAGER: tell the voice engine, synchronously, whether
+  // Echo is mid-interaction — capturing a command, processing, speaking, or
+  // holding the follow-up window. While busy, the queue HOLDS every proactive
+  // item (Sage alerts, reminders, briefings); they play only once Echo is
+  // fully idle again. Interactive items (conversation replies, tour lines,
+  // wizard status) are never held.
+  useEffect(() => {
+    if (!voice || !voice.registerConversationBusyProbe) return undefined;
+    voice.registerConversationBusyProbe(
+      () =>
+        modeRef.current !== "passive" ||
+        suspendRef.current ||
+        speakingRef.current,
+    );
+    return () => voice.registerConversationBusyProbe(null);
+  }, [voice]);
+
+  // The moment the engine returns to idle passive listening, ping the voice
+  // queue so any held proactive items play immediately (instead of waiting on
+  // the queue's 2s backstop poll).
+  useEffect(() => {
+    if (convState !== "passive") return;
+    try {
+      window.dispatchEvent(new CustomEvent("echoai:conversation-idle"));
+    } catch {
+      /* noop */
+    }
+  }, [convState]);
+
   // Track whether the guided tour is running (TourEngine announces itself),
   // and forward matched tour commands back to it.
   useEffect(() => {
