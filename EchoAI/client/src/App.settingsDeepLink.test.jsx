@@ -33,6 +33,7 @@ vi.mock("./api.js", () => ({
     healthGetStatus: vi.fn(),
     demoGetStatus: vi.fn(),
     acceptTeamInvite: vi.fn(),
+    getSetupStatus: vi.fn().mockResolvedValue({ features: [], doneCount: 0, totalCount: 0 }),
   },
 }));
 
