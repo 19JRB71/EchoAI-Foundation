@@ -71,3 +71,4 @@
 - [EchoAI voice-narrated tour](echoai-voice-tour.md) — tour↔voice engine talk via echoai:tour-state/tour-command window events; final-only utterance matching, never auto-advance, tour speaks its own stop/finish cuts.
 - [EchoAI Email Assistant](echoai-email-assistant.md) — approval-gated atomic send claim, public-host SSRF guard on custom IMAP/SMTP, cursor-first sweep, voice event types registered in BOTH server+client lists.
 - [EchoAI conversation-priority queue](echoai-conversation-priority.md) — proactive items (notificationId/unknown types) held via busy probe + splice-first-playable drain; interactive never held.
+- [EchoAI guided setup](echoai-guided-setup.md) — one server catalog probes real state (unknown on failure, never fabricated); single client injection point; Echo nags about exactly one setup.
