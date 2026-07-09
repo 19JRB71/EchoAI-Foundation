@@ -131,7 +131,37 @@ function describeAudience(targetAudience) {
   return String(targetAudience);
 }
 
-function brandHeader(brand, businessType, theme) {
+/**
+ * Renders the owner's guided-interview answers (collected by the client's
+ * step-by-step questions before generation) as prompt lines. Every field is
+ * optional free text; only answered questions appear. This is what makes a
+ * "hands-off" month still feel personally planned.
+ */
+function interviewBlock(interview) {
+  if (!interview || typeof interview !== "object") return [];
+  const lines = [];
+  const happenings = String(interview.happenings || "").trim();
+  const promotions = String(interview.promotions || "").trim();
+  const tone = String(interview.tone || "").trim();
+  const avoid = String(interview.avoid || "").trim();
+  if (happenings)
+    lines.push(
+      `- This month for the business (events, launches, seasonal moments — weave these into the plan on sensible dates): ${happenings}`
+    );
+  if (promotions)
+    lines.push(
+      `- Offers/promotions to feature this month (give these several dedicated promotional posts): ${promotions}`
+    );
+  if (tone) lines.push(`- Tone the owner asked for this month: ${tone}`);
+  if (avoid)
+    lines.push(
+      `- Topics the owner asked to AVOID — never mention these: ${avoid}`
+    );
+  if (lines.length === 0) return [];
+  return ["", "The business owner answered a planning interview for this month:", ...lines];
+}
+
+function brandHeader(brand, businessType, theme, interview) {
   const name = brand.brand_name || "the brand";
   const personality = brand.brand_personality || "professional and approachable";
   const voice = brand.voice_description || "clear, friendly, and benefit-focused";
@@ -159,6 +189,7 @@ function brandHeader(brand, businessType, theme) {
     ...(geoContextBlock(brand)
       ? ["", geoContextBlock(brand), "Keep every scheduled post locally relevant to this service area, using the right local place names and hashtags."]
       : []),
+    ...interviewBlock(interview),
   ];
 }
 
@@ -169,14 +200,14 @@ function brandHeader(brand, businessType, theme) {
  * controller's rotation — the AI writes copy for the type it is handed, which is
  * what guarantees no two consecutive posts share a type.
  */
-function buildCalendarPrompt(brand, { businessType, theme, slots }) {
+function buildCalendarPrompt(brand, { businessType, theme, slots, interview }) {
   const slotLines = slots.map(
     (s) =>
       `- Slot ${s.index}: day ${s.day} of 30, platform ${s.platform}, content type "${s.contentType}", angle: ${s.angle || "your choice"} (${PLATFORM_GUIDELINES[s.platform] || "write a clear on-brand post"})`
   );
 
   return [
-    ...brandHeader(brand, businessType, theme),
+    ...brandHeader(brand, businessType, theme, interview),
     "",
     `Write EXACTLY ${slots.length} posts, one per slot below, in order:`,
     ...slotLines,
@@ -251,8 +282,8 @@ const CALENDAR_BATCH_SIZE = 20;
 const CALENDAR_BATCH_CONCURRENCY = 4;
 
 /** Fills one batch of slots via a single AI call; returns aligned posts. */
-async function generateCalendarBatch(brand, { businessType, theme, slots }) {
-  const systemPrompt = buildCalendarPrompt(brand, { businessType, theme, slots });
+async function generateCalendarBatch(brand, { businessType, theme, slots, interview }) {
+  const systemPrompt = buildCalendarPrompt(brand, { businessType, theme, slots, interview });
 
   const response = await createMessage(
     {
@@ -303,7 +334,7 @@ async function generateCalendarBatch(brand, { businessType, theme, slots }) {
  * calls (bounded concurrency). Returns an array of validated post objects
  * aligned to the input slots (same order/length).
  */
-async function generateCalendarPosts(brand, { businessType, theme, slots }) {
+async function generateCalendarPosts(brand, { businessType, theme, slots, interview }) {
   // Split the slots into ordered batches.
   const batches = [];
   for (let i = 0; i < slots.length; i += CALENDAR_BATCH_SIZE) {
@@ -321,6 +352,7 @@ async function generateCalendarPosts(brand, { businessType, theme, slots }) {
         businessType,
         theme,
         slots: batches[idx],
+        interview,
       });
     }
   }
@@ -394,6 +426,7 @@ function composePostContent({ postText, hashtags }) {
 }
 
 module.exports = {
+  interviewBlock,
   SUPPORTED_PLATFORMS,
   CONTENT_TYPES,
   POSTING_FREQUENCIES,

@@ -461,12 +461,54 @@ export default function AICalendar({ brandId, onReconnect }) {
   );
 }
 
+// Tone choices offered in the guided interview. "Brand voice" (empty value)
+// means: don't override — the AI already knows the brand's voice.
+const TONE_CHOICES = [
+  { value: "", label: "Keep my usual brand voice" },
+  { value: "fun, playful, and upbeat", label: "More fun & playful" },
+  { value: "polished and professional", label: "More professional" },
+  { value: "warm, inspiring, and motivational", label: "Warm & inspiring" },
+];
+
+// The guided interview steps shown one at a time before generation. Each free-
+// text step is optional and skippable; the wizard ends on the schedule step.
+const INTERVIEW_STEPS = [
+  {
+    key: "happenings",
+    title: "What's going on this month?",
+    hint: "Events, launches, seasonal moments, anything worth posting about — or skip and Nova will plan a natural mix.",
+    placeholder: "e.g. Open house on the 15th, new model home tour, summer buying season",
+  },
+  {
+    key: "promotions",
+    title: "Anything you want to promote?",
+    hint: "Offers, deals, listings, or services to feature. These get dedicated promotional posts.",
+    placeholder: "e.g. Free market analysis for sellers this month",
+  },
+  {
+    key: "tone",
+    title: "How should this month sound?",
+    hint: "Pick a feel for the month's posts.",
+    choices: TONE_CHOICES,
+  },
+  {
+    key: "avoid",
+    title: "Anything to avoid mentioning?",
+    hint: "Topics, competitors, or subjects the posts should stay away from.",
+    placeholder: "e.g. Don't mention pricing or the old office location",
+  },
+];
+
 function GenerateForm({ brandId, onClose, onGenerated }) {
+  const [step, setStep] = useState(0); // 0..3 interview, 4 = schedule
+  const [answers, setAnswers] = useState({ happenings: "", promotions: "", tone: "", avoid: "" });
   const [frequency, setFrequency] = useState("optimal");
   const [platforms, setPlatforms] = useState(["instagram"]);
-  const [theme, setTheme] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const onSchedule = step >= INTERVIEW_STEPS.length;
+  const current = onSchedule ? null : INTERVIEW_STEPS[step];
 
   function togglePlatform(p) {
     setPlatforms((cur) =>
@@ -476,6 +518,10 @@ function GenerateForm({ brandId, onClose, onGenerated }) {
 
   async function submit(e) {
     e.preventDefault();
+    if (!onSchedule) {
+      setStep((s) => s + 1);
+      return;
+    }
     if (platforms.length === 0) {
       setError("Select at least one platform.");
       return;
@@ -483,16 +529,23 @@ function GenerateForm({ brandId, onClose, onGenerated }) {
     setLoading(true);
     setError("");
     try {
+      const interview = {
+        happenings: answers.happenings.trim(),
+        promotions: answers.promotions.trim(),
+        tone: answers.tone.trim(),
+        avoid: answers.avoid.trim(),
+      };
       const data = await api.generateContentCalendar({
         brandId,
         postingFrequency: frequency,
         platforms,
-        contentTheme: theme.trim() || undefined,
+        contentTheme: interview.happenings || undefined,
+        interview,
       });
       onGenerated({
         posts: data.posts || [],
         postingFrequency: frequency,
-        contentTheme: theme.trim() || null,
+        contentTheme: interview.happenings || null,
         connectionWarning: data.connectionWarning || null,
       });
     } catch (err) {
@@ -508,7 +561,9 @@ function GenerateForm({ brandId, onClose, onGenerated }) {
       className="rounded-xl border border-gray-800 bg-gray-900 p-5 shadow-sm"
     >
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-100">Generate a 30-day calendar</h3>
+        <h3 className="text-sm font-semibold text-gray-100">
+          {onSchedule ? "Last step: pick your schedule" : "Plan your month"}
+        </h3>
         <button
           type="button"
           onClick={onClose}
@@ -518,78 +573,145 @@ function GenerateForm({ brandId, onClose, onGenerated }) {
         </button>
       </div>
 
-      <ErrorBanner message={error} />
-
-      <div className="space-y-4">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">
-            Posting frequency
-          </label>
-          <select
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value)}
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100"
-          >
-            {FREQUENCIES.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">Platforms</label>
-          <div className="flex flex-wrap gap-2">
-            {PLATFORMS.map((p) => {
-              const meta = platformMeta(p);
-              const active = platforms.includes(p);
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => togglePlatform(p)}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                    active
-                      ? "border-amber-500 bg-amber-500/10 text-amber-300"
-                      : "border-gray-700 text-gray-400 hover:text-gray-200"
-                  }`}
-                >
-                  <PlatformDot platform={p} />
-                  {meta.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">
-            Content theme / focus (optional)
-          </label>
-          <input
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            placeholder="e.g. Summer launch, customer wins, product education"
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100"
+      {/* Step dots */}
+      <div className="mb-4 flex items-center gap-1.5">
+        {[...INTERVIEW_STEPS, { key: "schedule" }].map((s, i) => (
+          <span
+            key={s.key}
+            className={`h-1.5 rounded-full transition-all ${
+              i === step ? "w-6 bg-amber-500" : i < step ? "w-3 bg-amber-500/50" : "w-3 bg-gray-700"
+            }`}
           />
-        </div>
+        ))}
       </div>
 
-      <div className="mt-5 flex justify-end gap-2">
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-50"
-        >
-          {loading ? "Generating…" : "Generate"}
-        </button>
+      <ErrorBanner message={error} />
+
+      {current ? (
+        <div className="space-y-3">
+          <div>
+            <div className="text-base font-semibold text-gray-100">{current.title}</div>
+            <p className="mt-1 text-xs text-gray-400">{current.hint}</p>
+          </div>
+          {current.choices ? (
+            <div className="flex flex-wrap gap-2">
+              {current.choices.map((c) => {
+                const active = answers[current.key] === c.value;
+                return (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() =>
+                      setAnswers((a) => ({ ...a, [current.key]: c.value }))
+                    }
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                      active
+                        ? "border-amber-500 bg-amber-500/10 text-amber-300"
+                        : "border-gray-700 text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <textarea
+              value={answers[current.key]}
+              onChange={(e) =>
+                setAnswers((a) => ({ ...a, [current.key]: e.target.value }))
+              }
+              rows={3}
+              placeholder={current.placeholder}
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100"
+            />
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-400">
+              Posting frequency
+            </label>
+            <select
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value)}
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100"
+            >
+              {FREQUENCIES.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-400">Platforms</label>
+            <div className="flex flex-wrap gap-2">
+              {PLATFORMS.map((p) => {
+                const meta = platformMeta(p);
+                const active = platforms.includes(p);
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => togglePlatform(p)}
+                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                      active
+                        ? "border-amber-500 bg-amber-500/10 text-amber-300"
+                        : "border-gray-700 text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    <PlatformDot platform={p} />
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-5 flex items-center justify-between gap-2">
+        <div>
+          {step > 0 && !loading && (
+            <button
+              type="button"
+              onClick={() => setStep((s) => s - 1)}
+              className="text-sm text-gray-400 hover:text-gray-200"
+            >
+              ← Back
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {current && !current.choices && (
+            <button
+              type="button"
+              onClick={() => {
+                setAnswers((a) => ({ ...a, [current.key]: "" }));
+                setStep((s) => s + 1);
+              }}
+              className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:text-white"
+            >
+              Skip
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-50"
+          >
+            {loading ? "Generating…" : onSchedule ? "Generate my month" : "Next"}
+          </button>
+        </div>
       </div>
 
       {loading && (
         <p className="mt-3 text-xs text-gray-400">
-          Planning a unique, on-brand post for each scheduled day. This can take a
-          moment…
+          Planning a unique, on-brand post for each scheduled day using your
+          answers. This can take a moment…
         </p>
       )}
     </form>

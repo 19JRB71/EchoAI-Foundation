@@ -333,6 +333,19 @@ async function generateCalendar(req, res) {
   const userId = req.user.userId;
   const { brandId, postingFrequency, platforms, contentTheme, businessType } =
     req.body;
+  // Optional guided-interview answers (all free text, all optional). Bounded so
+  // a giant pasted document can't blow up the AI prompt.
+  const interviewRaw =
+    req.body.interview && typeof req.body.interview === "object"
+      ? req.body.interview
+      : {};
+  const clip = (v) => String(v || "").trim().slice(0, 600);
+  const interview = {
+    happenings: clip(interviewRaw.happenings),
+    promotions: clip(interviewRaw.promotions),
+    tone: clip(interviewRaw.tone),
+    avoid: clip(interviewRaw.avoid),
+  };
   const freq = String(postingFrequency || "").toLowerCase();
   const selected = Array.isArray(platforms)
     ? [...new Set(platforms.map((p) => String(p || "").toLowerCase()))]
@@ -381,6 +394,7 @@ async function generateCalendar(req, res) {
       businessType: String(businessType || "").trim() || brand.industry || null,
       theme,
       slots,
+      interview,
     });
 
     const posts = slots.map((slot, i) => {

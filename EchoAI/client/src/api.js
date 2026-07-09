@@ -658,10 +658,10 @@ export const api = {
     request(`/api/social/accounts/${brandId}/${platform}`, { method: "DELETE" }),
 
   // AI Content Calendar & Auto-Posting Scheduler
-  generateContentCalendar: ({ brandId, postingFrequency, platforms, contentTheme }) =>
+  generateContentCalendar: ({ brandId, postingFrequency, platforms, contentTheme, interview }) =>
     request("/api/content-calendar/generate", {
       method: "POST",
-      body: { brandId, postingFrequency, platforms, contentTheme },
+      body: { brandId, postingFrequency, platforms, contentTheme, interview },
     }),
   saveContentCalendar: ({ brandId, postingFrequency, contentTheme, posts }) =>
     request("/api/content-calendar", {
