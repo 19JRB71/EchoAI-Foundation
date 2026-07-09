@@ -32,6 +32,7 @@ import { preloadEffects, playEffect, stopEffect } from "./sfx.js";
 import {
   parseWakeWord,
   isQuestion,
+  matchAssistantIntent,
   matchLocalIntent,
   matchNavIntent,
   navConfirmation,
@@ -701,6 +702,48 @@ export function EchoConversationProvider({ active, children }) {
         await speakAndWait(musicAck(music));
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow();
+        return;
+      }
+
+      // Personal assistant ("remind me to call Robert at 2pm", "add a task",
+      // "mark off number two", "what's on my task list"). Routed to the
+      // dedicated AI-parsed assistant endpoint so it creates/completes real
+      // reminders and tasks instead of just chatting about them. An explicit
+      // navigation command ("take me to my task list") still wins below.
+      if (!matchNavIntent(text) && matchAssistantIntent(text)) {
+        suspendRef.current = true;
+        setConvState("processing");
+        playEffect("thinking", { volume: 0.35 });
+        let reply = "";
+        let asked = false;
+        try {
+          let timezone = "";
+          try {
+            timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+          } catch {
+            /* default handled server-side */
+          }
+          const result = await api.echoAssistantCommand(text, timezone);
+          reply = (result && result.reply) || "";
+          asked = !!(result && result.isQuestion);
+        } catch {
+          reply =
+            "I couldn't reach your reminder list just now, Sir. Could you try that again in a moment?";
+        }
+        if (!reply) {
+          reply = "Could you say that again with a bit more detail, Sir?";
+          asked = true;
+        }
+        setConvState("speaking");
+        await speakAndWait(reply);
+        asked = asked || isQuestion(reply);
+        try {
+          window.dispatchEvent(new CustomEvent("echoai:assistant-updated"));
+        } catch {
+          /* noop */
+        }
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow(asked);
         return;
       }
 

@@ -123,6 +123,7 @@ client wiring). Open that file when working inside a specific subsystem.
 | Voter CRM | `/api/supporters` | all tiers; political-campaign brands only (brand_type='political') — supporters + campaign events |
 | Beta Program | `/api/admin/beta` | admin-only; capped beta slots + waitlist, activity tracking, inactivity warnings, convert-to-paid |
 | Property CRM | `/api/properties` | all tiers; real-estate brands only (brand_type='real_estate') — listings, buyer/seller leads, open houses + Atlas/Nova automations |
+| Echo Personal Assistant | `/api/echo-assistant` | all tiers, owner-only; voice reminders (voice→SMS fallback) + prioritized tasks, briefing/closing check-ins, auto-tasks from stale hot leads |
 
 The dashboard nav is team-member-centric: the sidebar lists the 8 AI agents
 (Echo/Scout/Atlas/Nova/Pulse/Voice/Forge/Sentinel) + Mission Control; clicking an

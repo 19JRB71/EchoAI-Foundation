@@ -167,6 +167,30 @@ export const api = {
     request(`/api/echo/section-offer?section=${encodeURIComponent(section)}`),
   getEchoSectionBrief: (section) =>
     request("/api/echo/section-brief", { method: "POST", body: { section } }),
+  // Echo personal assistant (owner-only): voice command + reminders/tasks CRUD.
+  echoAssistantCommand: (text, timezone) =>
+    request("/api/echo-assistant/command", {
+      method: "POST",
+      body: timezone ? { text, timezone } : { text },
+    }),
+  listAssistantReminders: () => request("/api/echo-assistant/reminders"),
+  createAssistantReminder: (data) =>
+    request("/api/echo-assistant/reminders", { method: "POST", body: data }),
+  updateAssistantReminder: (id, data) =>
+    request(`/api/echo-assistant/reminders/${id}`, { method: "PUT", body: data }),
+  completeAssistantReminder: (id) =>
+    request(`/api/echo-assistant/reminders/${id}/complete`, { method: "POST" }),
+  deleteAssistantReminder: (id) =>
+    request(`/api/echo-assistant/reminders/${id}`, { method: "DELETE" }),
+  listAssistantTasks: () => request("/api/echo-assistant/tasks"),
+  createAssistantTask: (data) =>
+    request("/api/echo-assistant/tasks", { method: "POST", body: data }),
+  updateAssistantTask: (id, data) =>
+    request(`/api/echo-assistant/tasks/${id}`, { method: "PUT", body: data }),
+  completeAssistantTask: (id) =>
+    request(`/api/echo-assistant/tasks/${id}/complete`, { method: "POST" }),
+  deleteAssistantTask: (id) =>
+    request(`/api/echo-assistant/tasks/${id}`, { method: "DELETE" }),
   // Voice input: POST a recorded clip as multipart to be transcribed with Whisper.
   transcribeEchoAudio: async (blob) => {
     const form = new FormData();

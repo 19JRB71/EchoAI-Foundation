@@ -33,6 +33,9 @@ const EVENT_TYPES = [
   "rep_completed",
   "goal_alert",
   "sage_urgent",
+  "personal_reminder",
+  "task_alert",
+  "task_checkin",
 ];
 
 // Defaults applied when a user has no stored voice_settings (or is missing keys).
@@ -53,6 +56,9 @@ const DEFAULT_SETTINGS = {
     rep_completed: true,
     goal_alert: true,
     sage_urgent: true,
+    personal_reminder: true,
+    task_alert: true,
+    task_checkin: true,
   },
 };
 

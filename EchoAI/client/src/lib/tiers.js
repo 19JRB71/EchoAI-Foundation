@@ -110,6 +110,7 @@ export const SECTION_TIERS = {
   chatbot: "starter",
   supporters: "starter",
   properties: "starter",
+  echoplanner: "starter",
   settings: "starter",
   // Professional
   adstudio: "pro",

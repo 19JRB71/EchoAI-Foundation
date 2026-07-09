@@ -602,3 +602,50 @@ synthesizes EVERY channel into a growing weekly intelligence profile.
 - **Tests.** `test/betaProgram.test.js`: feature-name mapping/untracked set,
   tracking throttle, warning claim-then-send + revert, waitlist open-slot
   claim count + revert, sweep-half isolation.
+
+### Echo Personal Assistant subsystem (`/api/echo-assistant`)
+
+- **Purpose.** The owner's personal reminder + task list, managed by voice
+  ("remind me to call Robert at 2pm tomorrow", "add a task", "mark off number
+  two") or the Echo · Reminders & Tasks dashboard. Reminders are delivered by
+  Echo's voice at their time with an SMS fallback; tasks carry priorities
+  (high = flagged immediately + overdue SMS, medium = daily briefing, low =
+  weekly review) and are auto-created from stale hot leads.
+- **Migration.** `models/081_echo_personal.sql`: `echo_reminders`
+  (text/due_at/recurrence none|daily|weekly|monthly, status
+  scheduled→notifying→delivered|completed|cancelled, `delivery_channel`,
+  `voice_notification_id`, `voice_enqueued_at`), `echo_tasks` (text, priority
+  high|medium|low, due_date, status open|completed, source
+  voice|dashboard|auto, `auto_ref` + unique partial index backstopping
+  auto-task dedup, `overdue_alerted_at`, `last_checkin_at`).
+  `models/082_users_phone.sql`: `users.phone` — the owner's mobile for SMS
+  fallbacks, editable in Settings → Profile (server normalizes to E.164,
+  bare 10-digit defaults to +1; empty clears).
+- **Engine.** `utils/echoPersonal.js`. Per-minute `sweepPersonalReminders`:
+  due reminders claim scheduled→notifying atomically then enqueue a
+  `personal_reminder` voice notification; the fallback pass settles voice-
+  delivered rows, texts the owner (platform `SALES_TWILIO_*` creds) after ~3
+  unclaimed minutes, and expires quietly after 2h; recurring reminders
+  reschedule the same row via `nextOccurrence` (always-future catch-up).
+  Daily 09:00 `runDailyTaskSweep`: auto-tasks from hot leads waiting 24h+
+  (app-code + unique-index dedup), one-time SMS for overdue high-priority
+  tasks, voice check-in every 3 days for stale open tasks. Every sweep is
+  per-row guarded via `module.exports` seams (tests stub a throw).
+- **API.** `controllers/echoAssistantController.js` +
+  `routes/echoAssistantRoutes.js` (auth → lockout → requireOwner; all tiers).
+  Reminders/tasks CRUD is owner-scoped (`user_id = req.user.userId`).
+  `POST /command` parses the utterance with Anthropic (`createMessage`,
+  AI fail → 502) into create/list/complete/cancel intents; list replies use
+  numbered ordering so "mark off number two" resolves ids; a high-priority
+  create enqueues an immediate `task_alert` voice event.
+- **Briefings.** `utils/echoBriefing.js` `personalAgenda()` injects today's
+  reminders + open tasks (low priority Mondays only) into the morning
+  briefing; the 18:00 closing summary asks "did you get to any today?" —
+  `prompts/echoPersona.js` `goalFor` carries both instructions.
+- **Client.** `sections/EchoPlanner.jsx` (section id `echoplanner`,
+  owner/admin-only via `canOpenSection`, starter tier, Echo department card
+  "Reminders & Tasks"): tasks + reminders tabs with add/complete/delete,
+  refreshed live on `echoai:assistant-updated`.
+  `voice/conversationHelpers.js` `matchAssistantIntent` routes reminder/task
+  utterances to `api.echoAssistantCommand` in `EchoConversationContext.jsx`
+  (nav commands still win; reply spoken, follow-up window on questions).

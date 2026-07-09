@@ -38,7 +38,7 @@ const SPOKEN_RULES = [
  */
 function goalFor(kind, ctx = {}) {
   if (kind === "closing") {
-    return "an end-of-day closing summary of what the team accomplished today and a brief preview of tomorrow";
+    return "an end-of-day closing summary of what the team accomplished today and a brief preview of tomorrow. If the data includes a non-empty 'openTasks' array, mention how many personal tasks are still open and END by asking whether they got to any of them today that you should mark off; otherwise close warmly";
   }
   if (kind === "status") {
     return "a short, current 'right now' status update: what's happening, what needs attention, and what's coming up today";
@@ -56,7 +56,7 @@ function goalFor(kind, ctx = {}) {
     return "a short, warm welcome for an owner whose account has no activity yet: greet them by first name, reassure them their AI marketing department is ready and standing by, and — only if the data shows facebookConnected is false — encourage them to connect their Facebook account so the ads agent (Atlas) can start bringing in leads. Close warmly that their team is here and ready to work for them. Do NOT mention zero counts or that there is 'no' data";
   }
   return (
-    "a personalized morning briefing of everything that happened since the owner last logged in — reference specific leads, campaigns, and appointments by name — ending by asking if they're ready to start or want more detail on anything" +
+    "a personalized morning briefing of everything that happened since the owner last logged in — reference specific leads, campaigns, and appointments by name. If the data includes a non-empty 'remindersToday' array, preview today's personal reminders with their times; if it includes a non-empty 'openTasks' array, summarize the open personal tasks (call out high-priority and past-due ones) and END by asking if there's anything on the task list already handled that you should mark off — otherwise end by asking if they're ready to start or want more detail on anything" +
     (ctx.multiBrand
       ? ". Cover all of their businesses in ONE unified briefing, ordered by what needs attention first, attributing each item to the business it belongs to by name"
       : "")

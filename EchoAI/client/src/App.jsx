@@ -69,6 +69,7 @@ import FacebookWizard from "./components/FacebookWizard.jsx";
 import PresenterOverlay from "./components/PresenterOverlay.jsx";
 import { AutonomousTab } from "./companion/EchoBrain.jsx";
 import EchoMemory from "./sections/EchoMemory.jsx";
+import EchoPlanner from "./sections/EchoPlanner.jsx";
 import { agentMeta, sectionTitle } from "./lib/departments.js";
 
 export default function App() {
@@ -185,6 +186,8 @@ export default function App() {
       if (s === "voicesettings") return isAdmin || !isTeamMember;
       // Echo's Memory is the owner's private knowledge base (owner/admin only).
       if (s === "echomemory") return isAdmin || !isTeamMember;
+      // Echo's personal planner (reminders + tasks) is the owner's private list.
+      if (s === "echoplanner") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
       // The Voter CRM only exists for political-campaign brands.
       if (s === "supporters") {
@@ -951,6 +954,8 @@ export default function App() {
               )}
               {section === "echomemory" &&
                 (canOpenSection("echomemory") ? <EchoMemory /> : null)}
+              {section === "echoplanner" &&
+                (canOpenSection("echoplanner") ? <EchoPlanner /> : null)}
               {section === "echogrowth" && (
                 <div className="mx-auto max-w-3xl">
                   <AutonomousTab readOnly={isTeamMember || workspaceRole !== "owner"} />

@@ -5,6 +5,7 @@ const { generateToken } = require("../utils/token");
 const emailController = require("./emailController");
 const { attributeSignup, readReferralCookie } = require("../utils/referralTracking");
 const { getBetaSettings, countUsedSlots } = require("../utils/betaProgram");
+const { normalizeE164 } = require("../utils/phone");
 
 const SALT_ROUNDS = 10;
 
@@ -236,7 +237,7 @@ async function getProfile(req, res) {
     const workspaceId = req.user.userId;
 
     const result = await db.query(
-      `SELECT user_id, email, first_name, preferred_name, subscription_tier, team_size, business_name, industry,
+      `SELECT user_id, email, first_name, preferred_name, phone, subscription_tier, team_size, business_name, industry,
               role, onboarding_completed, onboarding_step, created_at, updated_at
        FROM users
        WHERE user_id = $1`,
@@ -267,6 +268,7 @@ async function getProfile(req, res) {
       email: user.email,
       firstName: user.first_name || null,
       preferredName: user.preferred_name || null,
+      phone: user.phone || null,
       subscriptionTier: workspace.subscription_tier,
       teamSize: workspace.team_size,
       businessName: workspace.business_name,
@@ -296,14 +298,15 @@ async function getProfile(req, res) {
  * team size). Only provided fields are updated.
  */
 async function updateProfile(req, res) {
-  const { email, teamSize, businessName, industry, preferredName } = req.body;
+  const { email, teamSize, businessName, industry, preferredName, phone } = req.body;
 
   if (
     email === undefined &&
     teamSize === undefined &&
     businessName === undefined &&
     industry === undefined &&
-    preferredName === undefined
+    preferredName === undefined &&
+    phone === undefined
   ) {
     return res.status(400).json({ error: "No fields provided to update" });
   }
@@ -338,6 +341,26 @@ async function updateProfile(req, res) {
         : null
     );
   }
+  if (phone !== undefined) {
+    // Mobile number Echo texts for reminder fallbacks and urgent task alerts.
+    // Stored normalized (+1XXXXXXXXXX); an empty string clears it.
+    if (typeof phone === "string" && phone.trim()) {
+      // A bare 10-digit number is a US number typed without the country code —
+      // default it to +1 so Twilio can actually deliver the text.
+      const digits = phone.replace(/\D/g, "");
+      const normalized = normalizeE164(digits.length === 10 ? `1${digits}` : phone);
+      if (!normalized) {
+        return res
+          .status(400)
+          .json({ error: "That phone number doesn't look valid — please use a full mobile number." });
+      }
+      fields.push(`phone = $${idx++}`);
+      values.push(normalized);
+    } else {
+      fields.push(`phone = $${idx++}`);
+      values.push(null);
+    }
+  }
 
   // Always act on the REAL authenticated user, never the remapped workspace
   // owner — a team member must not be able to edit the owner's account.
@@ -348,7 +371,7 @@ async function updateProfile(req, res) {
       `UPDATE users
        SET ${fields.join(", ")}
        WHERE user_id = $${idx}
-       RETURNING user_id, email, subscription_tier, team_size, business_name, industry, preferred_name, updated_at`,
+       RETURNING user_id, email, subscription_tier, team_size, business_name, industry, preferred_name, phone, updated_at`,
       values
     );
 
@@ -366,6 +389,7 @@ async function updateProfile(req, res) {
       businessName: user.business_name,
       industry: user.industry,
       preferredName: user.preferred_name || null,
+      phone: user.phone || null,
       updatedAt: user.updated_at,
     });
   } catch (err) {

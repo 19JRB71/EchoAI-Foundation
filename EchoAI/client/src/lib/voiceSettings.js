@@ -78,6 +78,21 @@ export const EVENT_META = [
     label: "Sales rep completed a lead",
     description: "Alert when a sales rep wraps up a lead in the queue.",
   },
+  {
+    key: "personal_reminder",
+    label: "Personal reminders",
+    description: "Echo speaks your personal reminders when they come due.",
+  },
+  {
+    key: "task_alert",
+    label: "Task alerts",
+    description: "Heads-up when a high-priority task is added or overdue.",
+  },
+  {
+    key: "task_checkin",
+    label: "Task check-ins",
+    description: "Echo checks in on tasks that have been open for a few days.",
+  },
 ];
 
 const EVENT_KEYS = EVENT_META.map((e) => e.key);

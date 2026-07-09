@@ -60,6 +60,7 @@
 - [EchoAI time-of-day greetings](echoai-time-of-day-greetings.md) — greet by user's local clock (5/12/17/21 windows); late pool all "Working late"; tz from availability_schedules, Eastern fallback.
 - [EchoAI Beta Program](echoai-beta-program.md) — one slot predicate (is_beta+role+unlocked), cap enforced in register() FOR UPDATE, emails claim-then-send with revert.
 - [EchoAI Railway/nixpacks deploy](echoai-railway-deploy.md) — bundled npm 10.8.2 silently half-installs (use Yarn + --ignore-engines); optional SDK clients (Stripe) that construct at boot crash the server — guard them.
+- [EchoAI personal assistant](echoai-personal-assistant.md) — owner SMS reads users.phone (+1 default; normalizeE164 won't add it); nav intent beats assistant matcher; numbered-list id resolution.
 - [EchoAI real-estate brand type](echoai-real-estate-brand-type.md) — brand-type vertical checklist; auto-content dedups via source slot key not "any recent post"; no-unique-key claims need advisory-lock placeholder rows.
 - [EchoAI political brand type](echoai-political-brand-type.md) — brand_type='political' gates Voter CRM client+server; ad copy disclaimer enforced in prompt AND code via politicalContext.js.
 - [EchoAI login silence & logout kill](echoai-login-silence-logout-kill.md) — after login greeting Echo stays silent until user initiates; logout must broadcast a kill event — singleton audio elements outlive unmounts.

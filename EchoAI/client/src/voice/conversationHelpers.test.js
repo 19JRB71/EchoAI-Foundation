@@ -778,3 +778,32 @@ describe("matchTourCommand", () => {
     expect(matchTourCommand("ready to see the next one sir")).toBe(null);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Personal assistant intents (reminders + tasks)
+// ---------------------------------------------------------------------------
+import { matchAssistantIntent } from "./conversationHelpers.js";
+
+describe("matchAssistantIntent", () => {
+  it("reminder commands match", () => {
+    expect(matchAssistantIntent("Remind me to call the bank at 2 PM tomorrow")).toBe(true);
+    expect(matchAssistantIntent("set a reminder for my dentist appointment")).toBe(true);
+    expect(matchAssistantIntent("cancel the reminder about the bank")).toBe(true);
+    expect(matchAssistantIntent("what are my reminders")).toBe(true);
+  });
+  it("task commands match", () => {
+    expect(matchAssistantIntent("add a task to review the ad budget")).toBe(true);
+    expect(matchAssistantIntent("put that on my task list")).toBe(true);
+    expect(matchAssistantIntent("what's on my task list")).toBe(true);
+  });
+  it("completions match", () => {
+    expect(matchAssistantIntent("mark off number two")).toBe(true);
+    expect(matchAssistantIntent("mark the bank call as done")).toBe(true);
+    expect(matchAssistantIntent("I already handled that")).toBe(true);
+  });
+  it("ordinary chat does not match", () => {
+    expect(matchAssistantIntent("how are my ads doing today")).toBe(false);
+    expect(matchAssistantIntent("tell me about my leads")).toBe(false);
+    expect(matchAssistantIntent("")).toBe(false);
+  });
+});

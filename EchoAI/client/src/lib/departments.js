@@ -39,6 +39,7 @@ export const DEPARTMENTS = {
     { label: "Weekly Intelligence", desc: "Echo's latest customer-intelligence report.", section: "intelligence" },
     { label: "Autonomous Growth", desc: "Guardrails and the log of Echo's autonomous actions.", section: "echogrowth" },
     { label: "Memory", desc: "Searchable history of everything Echo remembers.", section: "echomemory" },
+    { label: "Reminders & Tasks", desc: "Your personal planner — voice-set reminders and your task list.", section: "echoplanner" },
     { label: "Voice Settings", desc: "Echo's spoken briefings, reminders and alerts.", section: "voicesettings" },
   ],
   scout: [
@@ -130,6 +131,7 @@ export const SECTION_TITLES = {
   feedback: "Customer Feedback",
   zapier: "Zapier",
   echomemory: "Echo · Memory",
+  echoplanner: "Echo · Reminders & Tasks",
   echogrowth: "Echo · Autonomous Growth",
   voicesettings: "Echo · Voice Settings",
   sentinelhealth: "Sentinel · Health",

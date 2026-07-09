@@ -89,6 +89,41 @@ export function parseWakeWord(text) {
   return { matched: true, command };
 }
 
+// Personal-assistant commands (reminders + task list). These route to the
+// dedicated AI-parsed assistant endpoint instead of the general Echo chat, so
+// "remind me to call Robert at 2pm" reliably creates a real reminder. The
+// patterns stay intentionally explicit — informational questions about business
+// data ("what are my leads") must NOT match.
+const ASSISTANT_RE = new RegExp(
+  [
+    // Reminders: "remind me to...", "set a reminder...", "cancel the reminder..."
+    "\\bremind me\\b",
+    "\\b(set|create|make|add|cancel|delete|remove) (a |an |the |my )?reminders?\\b",
+    "\\bwhat (are|do i have for) my reminders\\b",
+    "\\b(any|my) reminders (today|for today|this week)\\b",
+    // Tasks: "add a task...", "put ... on my task list", "what's on my task list"
+    "\\b(add|create|put|make) (a |an )?(new )?task\\b",
+    "\\b(add|put) (that|this|it|[a-z].*) (on|to) my (task |to do |to-do )?list\\b",
+    "\\bmy (task|to do|to-do) list\\b",
+    "\\bwhat('s| is| are) (on )?my (tasks?|to dos?|to-dos?)\\b",
+    // Completing / marking off: "mark off number two", "the bank call is done"
+    "\\b(mark|check|cross|tick) (off|it off|that off|.* off)\\b",
+    "\\bmark .* (as )?(done|complete|completed|finished)\\b",
+    "\\b(i('ve| have)? (already )?(did|done|finished|completed|handled|taken care of)) (that|the|it|my)\\b",
+    "\\b(that|the) [a-z].* is (done|handled|finished|taken care of)\\b",
+  ].join("|"),
+);
+
+/**
+ * True when the utterance is a personal reminder / task-list command that
+ * should go to the assistant endpoint rather than the general chat pipeline.
+ */
+export function matchAssistantIntent(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return false;
+  return ASSISTANT_RE.test(norm);
+}
+
 /** True when Echo's reply is a question and should keep the mic open indefinitely. */
 export function isQuestion(text) {
   return /\?\s*$/.test(String(text || "").trim());
@@ -167,6 +202,11 @@ const NAV_TARGETS = [
   {
     key: "echomemory",
     re: /\b(echo memory|memory bank|my memory|memories)\b/,
+    standalone: false,
+  },
+  {
+    key: "echoplanner",
+    re: /\b(my planner|the planner|reminders and tasks|tasks and reminders|my reminders|my task list)\b/,
     standalone: false,
   },
   {
@@ -295,6 +335,7 @@ const NAV_LABELS = {
   voicesettings: "your voice settings",
   aiteam: "your AI team",
   echomemory: "Echo's memory",
+  echoplanner: "your reminders and tasks",
   echogrowth: "autonomous growth",
   email: "email marketing",
   sms: "your SMS marketing",

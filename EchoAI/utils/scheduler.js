@@ -55,6 +55,10 @@ const {
   enqueueClosingSummaries,
 } = require("./echoVoiceReminders");
 const {
+  sweepPersonalReminders,
+  runDailyTaskSweep,
+} = require("./echoPersonal");
+const {
   runDailyAutonomousGrowth,
   sendDailyAutonomousSummary,
 } = require("../controllers/autonomousGrowthController");
@@ -412,6 +416,22 @@ function startScheduler() {
   cron.schedule("* * * * *", () => {
     sweepDueReminders().catch((err) => {
       console.error("Scheduled Echo voice reminder sweep errored:", err.message);
+    });
+  });
+
+  // Every minute: deliver due personal reminders (voice first, SMS fallback a
+  // few minutes later if the spoken copy wasn't picked up).
+  cron.schedule("* * * * *", () => {
+    sweepPersonalReminders().catch((err) => {
+      console.error("Scheduled personal reminder sweep errored:", err.message);
+    });
+  });
+
+  // 09:00 daily: task housekeeping — auto-tasks from hot leads waiting 24h,
+  // SMS alerts for overdue high-priority tasks, and 3-day stale-task check-ins.
+  cron.schedule("0 9 * * *", () => {
+    runDailyTaskSweep().catch((err) => {
+      console.error("Scheduled daily task sweep errored:", err.message);
     });
   });
 

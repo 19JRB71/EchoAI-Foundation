@@ -78,8 +78,51 @@ function hasActivity(data) {
       // slipped behind pace or run far ahead is exactly what the owner needs).
       (data.goals &&
         Array.isArray(data.goals.perBusiness) &&
-        data.goals.perBusiness.length)
+        data.goals.perBusiness.length) ||
+      // Personal reminders/tasks alone are worth a spoken briefing.
+      (data.remindersToday && data.remindersToday.length) ||
+      (data.openTasks && data.openTasks.length)
   );
+}
+
+/**
+ * Owner's personal reminders due today + open tasks (from Echo's personal
+ * assistant). User-scoped, not brand-scoped — an owner with no brands yet still
+ * hears their reminders. High/medium tasks are spoken daily; low priority only
+ * on Mondays (weekly). Both degrade to empty on any error.
+ */
+async function personalAgenda(userId) {
+  const isMonday = new Date().getDay() === 1;
+  const [reminderRows, taskRows] = await Promise.all([
+    safeRows(
+      `SELECT reminder_text, due_at FROM echo_reminders
+        WHERE user_id = $1 AND status IN ('scheduled','notifying')
+          AND due_at::date <= CURRENT_DATE + INTERVAL '1 day'
+        ORDER BY due_at ASC LIMIT 10`,
+      [userId]
+    ),
+    safeRows(
+      `SELECT task_text, priority, due_date FROM echo_tasks
+        WHERE user_id = $1 AND status = 'open'
+          AND (priority IN ('high','medium') OR $2)
+        ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+                 due_date ASC NULLS LAST, created_at ASC
+        LIMIT 12`,
+      [userId, isMonday]
+    ),
+  ]);
+  return {
+    remindersToday: reminderRows.map((r) => ({
+      text: r.reminder_text,
+      dueAt: r.due_at,
+    })),
+    openTasks: taskRows.map((t) => ({
+      text: t.task_text,
+      priority: t.priority,
+      dueDate: t.due_date,
+      overdue: Boolean(t.due_date && new Date(t.due_date) < new Date(new Date().toDateString())),
+    })),
+  };
 }
 
 /**
@@ -89,6 +132,7 @@ async function gatherBriefingData(userId, since) {
   const brands = await ownerBrands(userId);
   const brandIds = brands.map((b) => b.brand_id);
   const fbConnected = await facebookConnected(userId);
+  const agenda = await personalAgenda(userId);
   const empty = {
     brands,
     sinceISO: since ? new Date(since).toISOString() : null,
@@ -108,6 +152,8 @@ async function gatherBriefingData(userId, since) {
     newPropertyLeads: 0,
     newListings: 0,
     upcomingOpenHouses: [],
+    remindersToday: agenda.remindersToday,
+    openTasks: agenda.openTasks,
   };
   if (brandIds.length === 0) return empty;
 
@@ -273,6 +319,8 @@ async function gatherBriefingData(userId, since) {
     newPropertyLeads: propertyLeadRows[0] ? propertyLeadRows[0].n : 0,
     newListings: newListingRows[0] ? newListingRows[0].n : 0,
     upcomingOpenHouses: openHouseRows,
+    remindersToday: agenda.remindersToday,
+    openTasks: agenda.openTasks,
   };
 }
 
@@ -777,8 +825,33 @@ function templateMorning(firstName, data, part = "morning") {
   if (data.pendingApprovals) {
     parts.push(`${data.pendingApprovals} item${data.pendingApprovals === 1 ? " is" : "s are"} waiting for your approval.`);
   }
-  parts.push("Are you ready to get started, or would you like me to go into more detail on anything?");
+  appendAgenda(parts, data);
+  if (data.openTasks && data.openTasks.length) {
+    parts.push("Is there anything on your task list you've already taken care of that I should mark off?");
+  } else {
+    parts.push("Are you ready to get started, or would you like me to go into more detail on anything?");
+  }
   return parts.join(" ");
+}
+
+/** Speak today's personal reminders + open tasks (shared by morning/closing). */
+function appendAgenda(parts, data) {
+  const reminders = data.remindersToday || [];
+  if (reminders.length) {
+    const first = reminders[0];
+    parts.push(
+      `You have ${reminders.length} reminder${reminders.length === 1 ? "" : "s"} today, starting with ${first.text} at ${formatTime(first.dueAt)}.`
+    );
+  }
+  const tasks = data.openTasks || [];
+  if (tasks.length) {
+    const high = tasks.filter((t) => t.priority === "high");
+    const overdue = tasks.filter((t) => t.overdue);
+    const bits = [`${tasks.length} open task${tasks.length === 1 ? "" : "s"} on your list`];
+    if (high.length) bits.push(`${high.length} high priority — ${joinList(high.slice(0, 3).map((t) => t.text))}`);
+    if (overdue.length) bits.push(`${overdue.length} past due`);
+    parts.push(`You have ${bits.join(", ")}.`);
+  }
 }
 
 /** Deterministic template narration for the closing summary (AI fallback). */
@@ -794,7 +867,13 @@ function templateClosing(firstName, data) {
   if (data.todaysAppointments.length) {
     parts.push(`Looking ahead, you have ${data.todaysAppointments.length} appointment${data.todaysAppointments.length === 1 ? "" : "s"} coming up.`);
   }
-  parts.push("Rest up — I'll have your morning briefing ready tomorrow.");
+  if (data.openTasks && data.openTasks.length) {
+    parts.push(
+      `You still have ${data.openTasks.length} open task${data.openTasks.length === 1 ? "" : "s"} on your list. Did you get to any of them today that I should mark off?`
+    );
+  } else {
+    parts.push("Rest up — I'll have your morning briefing ready tomorrow.");
+  }
   return parts.join(" ");
 }
 

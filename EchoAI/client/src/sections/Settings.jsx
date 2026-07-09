@@ -300,6 +300,7 @@ function ProfileCard({ isTeamMember = false }) {
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState("");
   const [preferredName, setPreferredName] = useState("");
+  const [phone, setPhone] = useState("");
   const [teamSize, setTeamSize] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -313,6 +314,7 @@ function ProfileCard({ isTeamMember = false }) {
         setProfile(data);
         setEmail(data.email || "");
         setPreferredName(data.preferredName || "");
+        setPhone(data.phone || "");
         setTeamSize(data.teamSize != null ? String(data.teamSize) : "");
       } catch (err) {
         setError(err.message);
@@ -332,6 +334,7 @@ function ProfileCard({ isTeamMember = false }) {
       if (email && profile && email !== profile.email) payload.email = email;
       if (profile && preferredName !== (profile.preferredName || ""))
         payload.preferredName = preferredName;
+      if (profile && phone !== (profile.phone || "")) payload.phone = phone;
       if (teamSize !== "") payload.teamSize = Number(teamSize);
       if (Object.keys(payload).length === 0) {
         setNotice("Nothing to update.");
@@ -372,6 +375,15 @@ function ProfileCard({ isTeamMember = false }) {
             onChange={(e) => setPreferredName(e.target.value)}
             placeholder="e.g. James, Boss, Mr. Blacketer (blank = your first name)"
             maxLength={120}
+            className={inputClass}
+          />
+        </Labeled>
+        <Labeled label="Mobile number — where Echo texts reminders and urgent alerts">
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="e.g. (555) 123-4567 (blank = no texts)"
             className={inputClass}
           />
         </Labeled>
