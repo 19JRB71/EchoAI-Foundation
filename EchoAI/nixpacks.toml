@@ -56,7 +56,12 @@ nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake", "yarn"]
 cmds = [
   "rm -rf node_modules",
   "yarn install --production=false --non-interactive --network-concurrency 1 --ignore-engines",
-  "node -e \"require('dotenv');require('express');require('pg');require('bcrypt');console.log('runtime deps verified OK')\""
+  # Verify EVERY production dependency actually landed (not just a hand-picked
+  # few). A half-install (the npm/yarn crash class above) previously shipped an
+  # image missing modules that only fail at runtime → the healthcheck never
+  # passes and Railway rolls the deploy back. require.resolve() catches missing
+  # packages without executing them (no config/env needed at build time).
+  "node -e 'const d=Object.keys(require(process.cwd()+\"/package.json\").dependencies);const bad=[];for(const p of d){try{require.resolve(p)}catch(e){bad.push(p)}}if(bad.length){console.error(\"MISSING DEPS AFTER INSTALL: \"+bad.join(\", \"));process.exit(1)}console.log(\"all \"+d.length+\" runtime deps verified OK\")'"
 ]
 
 [phases.build]
