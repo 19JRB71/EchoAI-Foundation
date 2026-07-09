@@ -113,3 +113,11 @@ node_modules), commit it, and add `--frozen-lockfile` to the install.
 to boot. **How to apply:** if a streak of deploys fails starting at a commit
 that added dependencies, first reproduce the exact builder install (fresh dir +
 same flags) and boot from it; then pin.
+
+**Lockfile URL trap:** a yarn.lock generated inside Replit resolves every
+package to `http://package-firewall.replit.local/npm/...` — Railway can't
+resolve that host, so the build dies with `getaddrinfo ENOTFOUND
+package-firewall.replit.local`. Before committing any lockfile generated here,
+rewrite the resolved URLs to the public registry
+(`sed 's|http://package-firewall.replit.local/npm/|https://registry.yarnpkg.com/|g'`);
+the sha1 fragments/integrity stay valid (same tarballs).
