@@ -109,11 +109,19 @@ async function rows(sql, params) {
   }
 }
 
-async function getBrand(userId) {
-  const r = await rows(
-    "SELECT brand_id, brand_name, geo_targeting FROM brands WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1",
-    [userId],
-  );
+async function getBrand(userId, brandId = null) {
+  // When a brandId is supplied (the dashboard's active brand), resolve THAT
+  // brand — with an ownership join so a foreign id yields null, never data.
+  // Without one, fall back to the owner's first brand (legacy behavior).
+  const r = brandId
+    ? await rows(
+        "SELECT brand_id, brand_name, geo_targeting FROM brands WHERE user_id = $1 AND brand_id = $2 LIMIT 1",
+        [userId, brandId],
+      ).catch(() => [])
+    : await rows(
+        "SELECT brand_id, brand_name, geo_targeting FROM brands WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1",
+        [userId],
+      );
   return r[0] || null;
 }
 
@@ -343,7 +351,15 @@ async function getAgentDetail(req, res) {
 async function getMissionControl(req, res) {
   try {
     const userId = req.user.userId;
-    const brand = await getBrand(userId);
+    // Brand isolation: the client passes the active brand so every number on
+    // Mission Control reflects ONE business (Portfolio View is the only
+    // multi-brand surface). Without ?brandId= we keep the legacy first-brand
+    // behavior for older clients.
+    const requestedBrandId = req.query.brandId ? String(req.query.brandId).trim() : null;
+    const brand = await getBrand(userId, requestedBrandId);
+    if (requestedBrandId && !brand) {
+      return res.status(404).json({ error: "Brand not found" });
+    }
     const bid = brand ? brand.brand_id : null;
     const agents = filterAgentsFor(req, await computeAgents(userId, brand));
 
@@ -380,11 +396,12 @@ async function getMissionControl(req, res) {
          JOIN brand_goals g ON g.goal_id = l.goal_id
          JOIN brands b ON b.brand_id = g.brand_id
         WHERE b.user_id = $1 AND b.is_demo = false
+          ${requestedBrandId ? "AND b.brand_id = $2" : ""}
           AND l.dismissed_at IS NULL
           AND l.alert_date >= CURRENT_DATE - INTERVAL '7 days'
         ORDER BY l.created_at DESC
         LIMIT 20`,
-      [userId]
+      requestedBrandId ? [userId, requestedBrandId] : [userId]
     );
 
     // Posts currently stuck in 'failed' across ALL the user's real brands.
@@ -399,10 +416,11 @@ async function getMissionControl(req, res) {
          FROM social_posts sp
          JOIN brands b ON b.brand_id = sp.brand_id
         WHERE b.user_id = $1 AND b.is_demo = false
+          ${requestedBrandId ? "AND b.brand_id = $2" : ""}
           AND sp.status = 'failed'
         ORDER BY sp.updated_at DESC
         LIMIT 20`,
-      [userId]
+      requestedBrandId ? [userId, requestedBrandId] : [userId]
     );
 
     const attention = agents.filter((a) => a.status === "attention").map((a) => a.name);

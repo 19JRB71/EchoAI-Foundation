@@ -16,6 +16,12 @@ router.post("/discovery", brandDiscoveryController.discovery);
 // Brand management.
 router.post("/", brandController.createBrand);
 router.get("/", brandController.getBrands);
+
+// Last-active brand (restored at login). Registered before /:brandId so the
+// literal path can't be captured by the param route.
+router.get("/active/selection", brandController.getActiveBrand);
+router.put("/active/selection", brandController.setActiveBrand);
+
 router.get("/:brandId", brandController.getBrandProfile);
 router.put("/:brandId", brandController.updateBrand);
 router.delete("/:brandId", brandController.deleteBrand);

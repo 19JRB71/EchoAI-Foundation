@@ -180,10 +180,71 @@ async function deleteBrand(req, res) {
   }
 }
 
+/**
+ * GET /api/brands/active/selection
+ * The brand the owner was last working on (restored at login). Returns
+ * { brandId: null } when never set or when the stored brand no longer exists /
+ * no longer belongs to this user — the client falls back to its default.
+ */
+async function getActiveBrand(req, res) {
+  try {
+    const result = await db.query(
+      `SELECT u.last_active_brand_id AS brand_id
+         FROM users u
+         JOIN brands b ON b.brand_id = u.last_active_brand_id AND b.user_id = u.user_id
+        WHERE u.user_id = $1`,
+      [req.user.userId]
+    );
+    return res.json({ brandId: result.rows.length ? result.rows[0].brand_id : null });
+  } catch (err) {
+    console.error("Get active brand error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch active brand" });
+  }
+}
+
+/**
+ * PUT /api/brands/active/selection
+ * Persist the currently selected brand. Ownership is enforced with a join to
+ * brands on user_id — a foreign brand id 404s and writes nothing. `brandId:
+ * null` clears the selection.
+ */
+async function setActiveBrand(req, res) {
+  const { brandId } = req.body || {};
+  try {
+    if (brandId === null || brandId === undefined || brandId === "") {
+      await db.query(`UPDATE users SET last_active_brand_id = NULL WHERE user_id = $1`, [
+        req.user.userId,
+      ]);
+      return res.json({ brandId: null });
+    }
+    const result = await db.query(
+      `UPDATE users u
+          SET last_active_brand_id = b.brand_id
+         FROM brands b
+        WHERE u.user_id = $1 AND b.brand_id = $2 AND b.user_id = $1
+        RETURNING b.brand_id`,
+      [req.user.userId, String(brandId)]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Brand not found" });
+    }
+    return res.json({ brandId: result.rows[0].brand_id });
+  } catch (err) {
+    // A malformed uuid throws 22P02 — treat it as "not found", not a crash.
+    if (err.code === "22P02") {
+      return res.status(404).json({ error: "Brand not found" });
+    }
+    console.error("Set active brand error:", err.message);
+    return res.status(500).json({ error: "Failed to save active brand" });
+  }
+}
+
 module.exports = {
   createBrand,
   getBrands,
   getBrandProfile,
   updateBrand,
   deleteBrand,
+  getActiveBrand,
+  setActiveBrand,
 };

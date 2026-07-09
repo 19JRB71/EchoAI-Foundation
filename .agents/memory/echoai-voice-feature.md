@@ -84,3 +84,8 @@ already existed and needed NO change: verbal "yes" executing a pending action
 (server `classifyApprovalUtterance`+`runExec`), auto morning briefing on login
 (`autoBriefing` defaults **true**, once/session guard), and music voice
 (`matchMusicIntent`, evaluated before nav).
+
+## Brand context for the voice engine
+App.jsx publishes the active brand + real (non-demo) brand list on `window.__echoaiBrands` and dispatches `echoai:active-brand-changed`; the voice engine reads it at command time (never caches) and dispatches `echoai:switch-brand` to change businesses — App validates the id and ignores the demo brand.
+**Why:** the voice contexts live above App in the tree; props would need heavy re-plumbing, and the demo brand must never become the briefing/persistence target.
+**How to apply:** any new voice feature needing brand scope reads `window.__echoaiBrands` at execution time; brand switching always goes through the `echoai:switch-brand` event, never direct state.

@@ -351,12 +351,37 @@ function sameDay(a, b) {
 }
 
 /**
- * GET /api/echo-voice/briefing — the morning briefing text.
+ * Resolve an optional ?brandId= into an owned, real (non-demo) brand id.
+ * Returns { ok: true, brandId } (null brandId = account-wide) or { ok: false }
+ * when the id isn't a brand this user owns — callers 404 on that so a foreign
+ * or stale id is an explicit error, never a silently different briefing.
+ */
+async function resolveBriefingBrand(userId, raw) {
+  const requested = raw ? String(raw).trim() : "";
+  if (!requested) return { ok: true, brandId: null };
+  try {
+    const r = await db.query(
+      `SELECT brand_id FROM brands
+        WHERE brand_id = $1 AND user_id = $2 AND is_demo = false`,
+      [requested, userId]
+    );
+    return r.rows.length ? { ok: true, brandId: r.rows[0].brand_id } : { ok: false };
+  } catch {
+    // Malformed uuid → same as not found.
+    return { ok: false };
+  }
+}
+
+/**
+ * GET /api/echo-voice/briefing — the morning briefing text (scoped to the
+ * active brand via ?brandId=; account-wide without it).
  * Returns `alreadyDeliveredToday` so the client only auto-plays it once per day.
  * "Since you were last here" uses last_login_at (falls back to last 24h).
  */
 async function getBriefing(req, res) {
   try {
+    const brand = await resolveBriefingBrand(req.user.userId, req.query.brandId);
+    if (!brand.ok) return res.status(404).json({ error: "Brand not found" });
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
     // Time-of-day awareness (owner requirement): the FULL daily briefing only
@@ -366,8 +391,8 @@ async function getBriefing(req, res) {
     const tod = await userPartOfDay(req.user.userId);
     const built =
       tod.part === "morning"
-        ? await buildMorningBriefing(req.user.userId, user)
-        : await buildDayUpdate(req.user.userId, user, tod.part);
+        ? await buildMorningBriefing(req.user.userId, user, brand.brandId)
+        : await buildDayUpdate(req.user.userId, user, tod.part, brand.brandId);
     return res.json({
       text: built.text,
       aiNarrated: built.aiNarrated,
@@ -404,14 +429,15 @@ const MORNING_BRIEFING_TTL_MS = 6 * 60 * 60 * 1000; // 6h
  * Returns `{ text, aiNarrated }`. The heavy work — gathering cross-business data
  * and AI narration — is what we cache; per-request state stays out of the cache.
  */
-async function buildMorningBriefing(userId, userMaybe) {
-  const cached = morningBriefingCache.get(userId);
+async function buildMorningBriefing(userId, userMaybe, brandId = null) {
+  const cacheKey = `${userId}:${brandId || "all"}`;
+  const cached = morningBriefingCache.get(cacheKey);
   if (cached && Date.now() - cached.builtAt < MORNING_BRIEFING_TTL_MS) {
     return { text: cached.text, aiNarrated: cached.aiNarrated };
   }
   const user = userMaybe || (await loadUser(userId));
   const since = user && user.last_login_at ? user.last_login_at : null;
-  const data = await gatherBriefingData(userId, since);
+  const data = await gatherBriefingData(userId, since, brandId);
   // The morning briefing auto-plays on login, so it must be ready fast: give the
   // AI narration a tight budget and a single attempt, then fall back to the
   // instant deterministic template so speech starts within ~2s of login.
@@ -421,7 +447,7 @@ async function buildMorningBriefing(userId, userMaybe) {
     partOfDay: "morning",
     knowledge: await speechKnowledge(userId),
   });
-  morningBriefingCache.set(userId, { text, aiNarrated, builtAt: Date.now() });
+  morningBriefingCache.set(cacheKey, { text, aiNarrated, builtAt: Date.now() });
   return { text, aiNarrated };
 }
 
@@ -431,11 +457,11 @@ async function buildMorningBriefing(userId, userMaybe) {
  * reflects today's live numbers, and it replaces the morning briefing entirely
  * outside the 5:00–11:59 window (a mid-day login must never hear "Good morning").
  */
-async function buildDayUpdate(userId, userMaybe, part) {
+async function buildDayUpdate(userId, userMaybe, part, brandId = null) {
   const user = userMaybe || (await loadUser(userId));
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
-  const data = await gatherBriefingData(userId, startOfDay);
+  const data = await gatherBriefingData(userId, startOfDay, brandId);
   // Same tight budget as the login-time morning briefing: speech must start fast.
   return narrate("status", displayName(user), data, {
     timeout: 1500,
@@ -453,17 +479,22 @@ async function buildDayUpdate(userId, userMaybe, part) {
 async function warmMorningBriefings() {
   const owners = (
     await db.query(
-      `SELECT DISTINCT b.user_id
+      `SELECT DISTINCT b.user_id, u.last_active_brand_id
          FROM brands b
+         JOIN users u ON u.user_id = b.user_id
         WHERE b.is_demo = false`
     )
   ).rows;
   let warmed = 0;
   for (const owner of owners) {
     try {
-      // Force a rebuild so the 06:00 warm always reflects the new day's data.
-      morningBriefingCache.delete(owner.user_id);
-      await buildMorningBriefing(owner.user_id);
+      // Warm the briefing the owner will actually hear at login: their last
+      // active brand's (the client requests that one), falling back to the
+      // account-wide briefing when no brand is remembered. Force a rebuild so
+      // the 06:00 warm always reflects the new day's data.
+      const brandId = owner.last_active_brand_id || null;
+      morningBriefingCache.delete(`${owner.user_id}:${brandId || "all"}`);
+      await buildMorningBriefing(owner.user_id, null, brandId);
       warmed += 1;
     } catch (err) {
       console.error(`Morning briefing warm failed for user ${owner.user_id}:`, err.message);
@@ -493,9 +524,11 @@ async function markBriefingDelivered(req, res) {
  */
 async function getWeeklyBriefing(req, res) {
   try {
+    const brand = await resolveBriefingBrand(req.user.userId, req.query.brandId);
+    if (!brand.ok) return res.status(404).json({ error: "Brand not found" });
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
-    const data = await gatherWeeklyData(req.user.userId);
+    const data = await gatherWeeklyData(req.user.userId, brand.brandId);
     const tod = await userPartOfDay(req.user.userId);
     const { text, aiNarrated } = await narrate("weekly", displayName(user), data, {
       partOfDay: tod.part,
@@ -560,12 +593,14 @@ function isoWeekKey(d) {
 /** GET /api/echo-voice/status — the on-demand "Talk to Echo" status update. */
 async function getStatus(req, res) {
   try {
+    const brand = await resolveBriefingBrand(req.user.userId, req.query.brandId);
+    if (!brand.ok) return res.status(404).json({ error: "Brand not found" });
     const user = await loadUser(req.user.userId);
     const settings = normalizeSettings(user && user.voice_settings);
     // On-demand status is about "right now" — look at today, not since last login.
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    const data = await gatherBriefingData(req.user.userId, startOfDay);
+    const data = await gatherBriefingData(req.user.userId, startOfDay, brand.brandId);
     const { text, aiNarrated } = await narrate("status", displayName(user), data, {
       knowledge: await speechKnowledge(req.user.userId),
     });

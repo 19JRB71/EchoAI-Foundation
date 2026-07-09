@@ -435,12 +435,34 @@ async function setGoalAlertMute(req, res) {
  */
 async function getOverview(req, res) {
   try {
-    const { rows: brands } = await db.query(
-      `SELECT brand_id, brand_name, brand_type FROM brands
-        WHERE user_id = $1 AND is_demo = false
-        ORDER BY created_at ASC`,
-      [req.user.userId]
-    );
+    // Brand isolation: an optional ?brandId= scopes the overview to the active
+    // brand (Mission Control passes it); without it the legacy all-brands
+    // rollup is returned (Portfolio View uses that).
+    const requestedBrandId = req.query.brandId ? String(req.query.brandId).trim() : null;
+    let brands;
+    if (requestedBrandId) {
+      try {
+        const r = await db.query(
+          `SELECT brand_id, brand_name, brand_type FROM brands
+            WHERE user_id = $1 AND is_demo = false AND brand_id = $2`,
+          [req.user.userId, requestedBrandId]
+        );
+        brands = r.rows;
+      } catch {
+        brands = []; // malformed uuid → not found
+      }
+      if (brands.length === 0) {
+        return res.status(404).json({ error: "Brand not found" });
+      }
+    } else {
+      const r = await db.query(
+        `SELECT brand_id, brand_name, brand_type FROM brands
+          WHERE user_id = $1 AND is_demo = false
+          ORDER BY created_at ASC`,
+        [req.user.userId]
+      );
+      brands = r.rows;
+    }
 
     const win = monthWindow();
     const perBrand = [];

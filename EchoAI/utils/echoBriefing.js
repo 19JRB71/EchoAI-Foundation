@@ -20,13 +20,24 @@ const { getMetric } = require("../config/goals");
 const { computeBrandGoals, monthWindow } = require("./goalMetrics");
 const { greetingFor } = require("./timeOfDay");
 
-/** Owner's REAL brand ids + names (the demo brand is excluded from briefings). */
-async function ownerBrands(userId) {
+/**
+ * Owner's REAL brand ids + names (the demo brand is excluded from briefings).
+ * When `brandId` is given, the list is narrowed to that single brand — this is
+ * the seam that scopes an entire briefing to the active brand (every downstream
+ * query filters by these ids). A foreign/unknown brandId yields [] so a
+ * brand-scoped briefing can never leak another user's data.
+ */
+async function ownerBrands(userId, brandId = null) {
   try {
-    const r = await db.query(
-      "SELECT brand_id, brand_name FROM brands WHERE user_id = $1 AND is_demo = false",
-      [userId]
-    );
+    const r = brandId
+      ? await db.query(
+          "SELECT brand_id, brand_name FROM brands WHERE user_id = $1 AND is_demo = false AND brand_id = $2",
+          [userId, brandId]
+        )
+      : await db.query(
+          "SELECT brand_id, brand_name FROM brands WHERE user_id = $1 AND is_demo = false",
+          [userId]
+        );
     return r.rows;
   } catch {
     return [];
@@ -128,8 +139,8 @@ async function personalAgenda(userId) {
 /**
  * Gather the raw numbers/names for a morning briefing since `since`.
  */
-async function gatherBriefingData(userId, since) {
-  const brands = await ownerBrands(userId);
+async function gatherBriefingData(userId, since, brandId = null) {
+  const brands = await ownerBrands(userId, brandId);
   const brandIds = brands.map((b) => b.brand_id);
   const fbConnected = await facebookConnected(userId);
   const agenda = await personalAgenda(userId);
@@ -458,8 +469,8 @@ function normalizeList(val) {
  * (shared by both the AI prompt and the template fallback). Same defensive
  * pattern as gatherBriefingData: every source degrades to zero, never throws.
  */
-async function gatherWeeklyData(userId) {
-  const brands = await ownerBrands(userId);
+async function gatherWeeklyData(userId, brandId = null) {
+  const brands = await ownerBrands(userId, brandId);
   const brandIds = brands.map((b) => b.brand_id);
   const fbConnected = await facebookConnected(userId);
   const base = {
