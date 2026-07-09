@@ -288,6 +288,16 @@ app.use("/api/v2", mobileRoutes);
 // download and serve them locally). Mounted before the SPA fallback.
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Public legal pages (linked from the Facebook app settings — Privacy Policy
+// URL + User Data Deletion URL). Static HTML, no auth, mounted before the SPA
+// fallback so /privacy and /data-deletion never return the dashboard shell.
+app.get("/privacy", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "privacy.html"));
+});
+app.get("/data-deletion", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "data-deletion.html"));
+});
+
 // Serve the built React client (single-origin: API + SPA on one port).
 const clientDist = path.join(__dirname, "client", "dist");
 const clientIndex = path.join(clientDist, "index.html");
