@@ -1,0 +1,35 @@
+#109 - Competitor Website Analysis (Scout)
+What & Why
+No capability currently exists to analyze a competitor's website. James wants Scout to take a manually-entered competitor URL, produce an initial analysis, and then monitor that competitor going forward — flagging when something meaningful changes (pricing, offers, messaging). This complements Scout's existing Facebook Ad Library competitor research and gives a fuller picture of what competitors are doing across both ads and owned website content.
+Done looks like
+
+Business owner can manually add one or more competitor URLs per brand.
+On adding a URL, Scout produces an initial analysis covering (at minimum): pricing/offers found on the site, key messaging/positioning, products or services listed, and any obvious calls-to-action or promotions.
+Analysis is stored and viewable in the dashboard, tied to that brand and that competitor.
+After the initial analysis, Scout monitors the same competitor URL(s) on an ongoing basis (scheduled re-check) and flags meaningful changes — e.g., a new price, new offer/promo, new messaging, redesign — rather than re-alerting on cosmetic/irrelevant changes.
+Alerts on detected changes route into the existing notification system (from #103).
+Multiple competitors can be tracked per brand, and results stay scoped to the correct brand (no cross-brand bleed).
+Business owner can remove a tracked competitor, which stops monitoring for that URL.
+
+Out of scope
+
+Auto-discovering competitors — manual URL entry only for v1 (per this scope).
+Deep technical/SEO analysis (backlinks, site speed, keyword rankings) — this is a content/offer/messaging analysis, not a full SEO audit tool.
+Competitor social media content beyond what Scout already does via the Facebook Ad Library — this ticket is website-specific; broader social monitoring is covered by Social Listening (#108) if applicable.
+
+Steps
+
+Build a UI for adding/removing competitor URLs per brand.
+Build Scout's initial-analysis logic: scrape/read the competitor site and extract pricing, offers, messaging, products/services, CTAs.
+Store analysis results scoped to brand + competitor URL.
+Build scheduled re-check logic (e.g., daily or weekly) to detect meaningful changes vs. the last stored snapshot.
+Build change-relevance filtering so only meaningful changes (price, offer, messaging) trigger an alert — not every minor page edit.
+Wire change alerts into the existing notification system.
+Verify strict brand isolation — one brand's competitor list/analysis never appears under another brand.
+Handle sites that block scraping gracefully (clear error/status, not a silent failure).
+
+Relevant files
+
+replit.md
+Scout component/controller (extend: website analysis + monitoring)
+Notification system (from #103)
