@@ -4,6 +4,7 @@ import {
   _resetVariety,
   maybeFlourish,
   interruptAck,
+  wakeAck,
   standbyGreeting,
   musicReadyLine,
   clarifyQuestion,
@@ -13,6 +14,7 @@ import {
   tackleFirstQuestion,
   musicAck,
   INTERRUPT_ACKS,
+  WAKE_ACKS,
   STANDBY_GREETINGS,
   MUSIC_READY_LINES,
   CLARIFY_QUESTIONS,
@@ -33,6 +35,7 @@ describe("variation pools", () => {
   it("every category has at least 5 variations", () => {
     const pools = [
       INTERRUPT_ACKS,
+      WAKE_ACKS,
       ...Object.values(STANDBY_GREETINGS),
       MUSIC_READY_LINES,
       CLARIFY_QUESTIONS,
@@ -91,6 +94,7 @@ describe("pickVariant", () => {
 describe("convenience pickers", () => {
   it("each picker returns a member of its pool", () => {
     expect(INTERRUPT_ACKS).toContain(interruptAck());
+    expect(WAKE_ACKS).toContain(wakeAck());
     expect(STANDBY_GREETINGS.morning).toContain(standbyGreeting());
     // Time-of-day aware standby greetings pull from the matching pool only.
     for (const part of ["morning", "afternoon", "evening", "late"]) {

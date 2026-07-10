@@ -57,6 +57,7 @@ import {
 } from "./conversationHelpers.js";
 import {
   interruptAck,
+  wakeAck,
   goQuietLine,
   takeYourTimeLine,
   tackleFirstQuestion,
@@ -1308,9 +1309,24 @@ export function EchoConversationProvider({ active, children }) {
           const captured = finalRef.current.trim();
           processCommand(captured);
         }, ACTIVE_PAUSE_MS);
+        return;
       }
+      // Bare wake word ("Hey Echo" with no command): Echo must ANSWER out loud
+      // the instant it hears its name — never just chime and wait in silence.
+      // Speak a short acknowledgement, then hold the listening window open
+      // (indefinite) so the owner can give the command at their own pace.
+      suspendRef.current = true;
+      setConvState("speaking");
+      const wakeGen = cmdGenRef.current;
+      await speakAndWait(wakeAck());
+      // If an interrupt/stop landed while the ack was speaking, cmdGenRef was
+      // bumped — bail so we don't reopen the listening window on top of the
+      // reset the interrupt already performed.
+      if (wakeGen !== cmdGenRef.current) return;
+      // eslint-disable-next-line no-use-before-define
+      openFollowupWindow(true);
     },
-    [clearTimers, processCommand],
+    [clearTimers, processCommand, speakAndWait, openFollowupWindow],
   );
 
   const handleResult = useCallback(

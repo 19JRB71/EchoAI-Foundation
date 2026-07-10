@@ -76,6 +76,22 @@ export function interruptAck() {
   return pickVariant("interrupt", INTERRUPT_ACKS);
 }
 
+// Spoken reply the INSTANT the wake word ("Hey Echo") is heard on its own —
+// Echo must always answer out loud, never just chime and wait in silence.
+export const WAKE_ACKS = [
+  "Yes Sir, I'm listening.",
+  "I'm here Sir — go ahead.",
+  "Right here Sir. What do you need?",
+  "Yes Sir?",
+  "Listening Sir.",
+  "At your service Sir.",
+];
+
+/** Spoken acknowledgement when the owner says the wake word with no command. */
+export function wakeAck() {
+  return pickVariant("wake", WAKE_ACKS);
+}
+
 // Login standby greetings, keyed by the owner's LOCAL part of day (from the
 // server's brand-settings timezone). Echo must NEVER say "Good morning" outside
 // the 5:00–11:59 window — afternoon/evening/late logins get a day-update offer

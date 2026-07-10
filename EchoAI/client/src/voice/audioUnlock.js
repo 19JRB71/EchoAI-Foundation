@@ -87,6 +87,31 @@ export function isAudioUnlocked() {
   return unlocked;
 }
 
+let autoInstalled = false;
+/**
+ * Unlock the warm audio element on the FIRST real user gesture anywhere in the
+ * app — not just the login button. This matters for an already-authenticated
+ * page reload (no login click happens): without it the warm element stays
+ * locked, so voice-triggered replies hit the browser autoplay block and Echo
+ * is silent (speaking into the mic is NOT a browser "user gesture"). Idempotent
+ * and self-removing once unlocked.
+ */
+export function installAutoUnlock() {
+  if (autoInstalled || typeof window === "undefined") return;
+  autoInstalled = true;
+  const handler = () => {
+    unlockAudio();
+    if (unlocked) {
+      window.removeEventListener("pointerdown", handler, true);
+      window.removeEventListener("keydown", handler, true);
+      window.removeEventListener("touchstart", handler, true);
+    }
+  };
+  window.addEventListener("pointerdown", handler, true);
+  window.addEventListener("keydown", handler, true);
+  window.addEventListener("touchstart", handler, true);
+}
+
 /**
  * Prime audio playback. MUST be called from within a user gesture (e.g. a click
  * handler) to be effective. Idempotent and safe to call repeatedly.

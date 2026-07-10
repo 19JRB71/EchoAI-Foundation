@@ -32,7 +32,7 @@ import {
   isQuietHour,
   chunkForSpeech,
 } from "../lib/voiceSettings.js";
-import { getWarmAudio, killWarmAudio } from "./audioUnlock.js";
+import { getWarmAudio, killWarmAudio, installAutoUnlock } from "./audioUnlock.js";
 import { standbyGreeting, musicReadyLine } from "./phraseVariety.js";
 import { isProactiveVoiceItem } from "./conversationHelpers.js";
 
@@ -620,6 +620,12 @@ export function VoiceProvider({ active, children }) {
     if (userInitiatedRef.current) return;
     userInitiatedRef.current = true;
     setUserInitiated(true);
+  }, []);
+  // Unlock voice playback on the first user gesture anywhere — covers an
+  // already-authenticated page reload where no login click fires (otherwise
+  // the warm audio element stays locked and voice replies never sound).
+  useEffect(() => {
+    installAutoUnlock();
   }, []);
   useEffect(() => {
     const onInitiated = () => markUserInitiated();
