@@ -1,0 +1,41 @@
+#106 - Video Generation (Forge) for Ads and Social, with Brand/Competitor Context
+What & Why
+No video capability currently exists. James wants Forge (Creative Director) to generate short video content that both Atlas (ads) and Nova (social posts) can use, closing a gap in the creative pipeline — currently campaigns/posts are text/image only.
+Rather than generating from a blank text prompt alone, Forge should pull real context first: the brand's own website (products, services, messaging, images) to ground the video in what the business actually offers, and — where available — competitor website/Facebook data for creative/format inspiration (never direct copying).
+Done looks like
+
+Forge can generate a short video (target: 10–30 sec) from a prompt strengthened by real brand context, not just raw user text.
+Before generating, Forge pulls relevant content from the brand's own website (copy, product/service info, images) and uses it to auto-build a stronger prompt.
+If Competitor Website Analysis data exists for that brand (see ticket #4, separate build), Forge can optionally reference it for style/format inspiration only — with a guardrail against copying competitor content or messaging directly.
+Generated video is stored and attachable to an Atlas ad campaign as the ad creative.
+Generated video is postable by Nova to connected social accounts (once the unified Facebook posting connection from #105 is live).
+Generation request/status is visible in the UI (pending/processing/ready) — generation is not instant.
+Failed generations show a clear error rather than hanging silently.
+Strict brand isolation maintained: video generated (and any brand/competitor context pulled) for one brand never appears or is available under another brand.
+
+Out of scope
+
+Video editing tools (trimming, manual overlays) — generation only for v1.
+Long-form video (explainers, full commercials) — short clips only.
+Building a full competitor scraping/analysis engine — that's ticket #4 (Competitor Website Analysis) itself. This ticket only consumes that data if/when it already exists; it does not build the scraper.
+Choosing the underlying video-gen API integration is not pre-decided — evaluating and recommending one is part of this ticket's steps (see below).
+
+Steps
+
+Evaluate and select a text/image-to-video API provider (cost, quality, latency, reliability — e.g. Runway, Luma, or similar). Report recommendation before wiring in.
+Build a brand-context pull: fetch relevant content from the brand's own website (product/service info, images, messaging) to auto-strengthen the generation prompt.
+If Competitor Website Analysis data already exists for the brand, allow Forge to optionally reference it for style/format inspiration only — with an explicit guardrail preventing direct content/messaging copying.
+Add a "Generate Video" action under Forge, accepting a text prompt plus the auto-pulled brand context and optional reference assets (logo, product images).
+Build async job handling — show pending/processing/ready states in the UI while generation runs.
+Store completed video scoped strictly to the correct brand (brand isolation, tying into the known cross-brand contamination issue — must be built correctly from the start).
+Wire output into Atlas so a completed video can be selected as ad creative for a campaign.
+Wire output into Nova so a completed video can be selected/posted to a connected social account.
+Handle and surface generation failures clearly (no silent hangs).
+
+Relevant files
+
+replit.md
+Forge component/controller (new: video generation + brand/competitor context pull)
+Atlas ad-creative attachment logic
+Nova posting logic
+Competitor Website Analysis component (read-only dependency, once built)
