@@ -1,5 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
+const crypto = require("node:crypto");
 
 const db = require("../config/db");
 const controller = require("../controllers/echoVoiceController");
@@ -81,7 +82,10 @@ test("clearNotifications (per-brand) scopes to the brand AND the ready window", 
 
   const { sql, params } = calls[0];
   assert.deepStrictEqual(params, ["u1", "b42"]);
-  assert.match(sql, /brand_id = \$2 OR payload->>'brandId' = \$2/i);
+  // brand_id is UUID but payload->>'brandId' is text; a single $2 bound against
+  // both makes Postgres fail type deduction ("operator does not exist: text =
+  // uuid"). Cast brand_id::text so both sides are text and $2 is unambiguous.
+  assert.match(sql, /brand_id::text = \$2 OR payload->>'brandId' = \$2/i);
   assert.match(sql, /deliver_after <= NOW\(\)/i);
   assert.match(sql, /expires_at IS NULL OR expires_at > NOW\(\)/i);
 });
@@ -107,4 +111,21 @@ test("clearNotifications (general) targets only non-brand rows in the ready wind
   assert.match(sql, /brand_id IS NULL AND payload->>'brandId' IS NULL/i);
   assert.match(sql, /deliver_after <= NOW\(\)/i);
   assert.match(sql, /expires_at IS NULL OR expires_at > NOW\(\)/i);
+});
+
+// Regression (real DB, no stub): the per-brand clear runs its UPDATE against
+// Postgres. brand_id is UUID and payload->>'brandId' is text; binding a single
+// $2 to both used to fail type deduction ("operator does not exist: text =
+// uuid"), 500ing the query while the mocked tests above stayed green — which is
+// exactly why the "Clear all" button silently did nothing. This exercises the
+// real query with a brand id no row matches (rowCount 0); it must return 200,
+// not throw. A non-UUID brand id also confirms the cast tolerates any string.
+test("clearNotifications (per-brand) runs against Postgres without a type error", async () => {
+  const res = fakeRes();
+  await controller.clearNotifications(
+    { user: { userId: crypto.randomUUID() }, body: { brandId: "not-a-uuid-42" } },
+    res,
+  );
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.ok, true);
 });

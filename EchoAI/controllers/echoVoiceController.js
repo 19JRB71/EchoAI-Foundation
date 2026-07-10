@@ -950,7 +950,7 @@ async function clearNotifications(req, res) {
         `UPDATE echo_voice_notifications
             SET status = 'dismissed', delivered_at = NOW()
           WHERE user_id = $1 AND status = 'pending'
-            AND (brand_id = $2 OR payload->>'brandId' = $2)
+            AND (brand_id::text = $2 OR payload->>'brandId' = $2)
             ${readyWindow}`,
         [req.user.userId, raw]
       );
