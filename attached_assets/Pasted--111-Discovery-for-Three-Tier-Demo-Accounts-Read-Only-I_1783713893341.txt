@@ -1,0 +1,25 @@
+#111 - Discovery for Three-Tier Demo Accounts (Read-Only Investigation)
+What & Why
+Before building Three-Tier Demo Accounts (Starter / Professional / Enterprise), we need a complete, accurate picture of what's actually built across the platform, plus the existing demo script, so the tiers are designed around real functionality — not guesses — and the top tier can be strengthened rather than rebuilt from scratch.
+Prompt for Replit:
+"I need a complete summary to build a Three-Tier Demo Account feature. This is read-only investigation — no code changes yet. Please answer:
+
+What features/capabilities exist today across the whole platform (all 9 agents plus Hermes), and which ones are fully built and working vs. partially built vs. planned but not started?
+Do we have any existing tier-gating logic already (Starter $197 / Professional $497 / Enterprise $997)? If so, what's actually restricted at each tier today, if anything?
+What does the existing 'Premier Auto Group' demo account currently show/include? What's its current setup and presentation mode?
+List every distinct feature a prospective customer could see or experience, organized by which agent it belongs to (Echo, Scout, Atlas, Nova, Pulse, Voice, Forge, Sentinel, Sage, plus Hermes).
+For each feature, note anything that costs real money to run live (e.g. Twilio calls/SMS, ElevenLabs voice, any paid APIs) versus features that are free to demo.
+Please also share the full current script/flow used for the 'Premier Auto Group' demo account's automated presentation mode — the actual narration/talking points it walks a prospect through, step by step, as it currently exists. I want to see exactly what it says and shows today so I can identify what's missing and strengthen it for the top-tier (Enterprise) version.
+
+Give me a full plain-language capability map plus the current demo script — I'm using this to design a Three-Tier Demo Account so prospective customers can see the difference between the cheapest and most expensive tier before buying."
+Done looks like
+
+A complete feature/capability map across all 9 agents + Hermes, marked built/partial/planned.
+Clarity on existing tier-gating (if any) tied to the $197/$497/$997 pricing.
+Full picture of the current Premier Auto Group demo setup and presentation mode.
+The actual current demo script/narration, in full.
+Clear list of which features cost real money per use (so the demo build doesn't create a live-cost liability) vs. which are free to showcase.
+
+Out of scope
+
+No code changes — this is investigation only. Ticket #112 will cover the actual Three-Tier Demo build once this comes back.
