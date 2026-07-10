@@ -23,6 +23,11 @@ const {
 } = require("../config/echoVoice");
 const { gatherBriefingData, gatherWeeklyData, narrate } = require("../utils/echoBriefing");
 const { userPartOfDay } = require("../utils/timeOfDay");
+const {
+  priorityForEvent,
+  priorityRankSql,
+  PRIORITY_RANK,
+} = require("../config/notificationPriority");
 const { recordShown, recordDecision, isValidKey } = require("../utils/echoSuggestions");
 const { toJsonbParam } = require("../utils/jsonb");
 const echoContext = require("../utils/echoContext");
@@ -711,6 +716,9 @@ async function getPending(req, res) {
     // Brand-scoped alerts (payload.brandId) for OTHER brands are held in the
     // SQL itself — they stay 'pending' and can never starve the LIMIT — and
     // deliver on a later poll once the owner switches to that brand.
+    // Deliver highest-priority (red) alerts first so a "go through them" batch
+    // leads with the urgent items, then falls back to oldest-first within a
+    // priority tier.
     const rows = (
       await db.query(
         `SELECT notification_id, event_type, title, spoken_text, payload, created_at
@@ -719,8 +727,8 @@ async function getPending(req, res) {
             AND deliver_after <= NOW()
             AND (expires_at IS NULL OR expires_at > NOW())
             AND (payload->>'brandId' IS NULL OR payload->>'brandId' = $2)
-          ORDER BY deliver_after ASC, created_at ASC
-          LIMIT 5`,
+          ORDER BY ${priorityRankSql()} ASC, deliver_after ASC, created_at ASC
+          LIMIT 8`,
         [req.user.userId, activeBrandId ? String(activeBrandId) : ""]
       )
     ).rows;
@@ -812,6 +820,148 @@ async function markNotificationDelivered(req, res) {
   }
 }
 
+// Fetch every ready, non-expired pending notification for the owner. Shared by
+// the badge summary and the panel list. This is the VISUAL notification center,
+// so — unlike the spoken /pending queue — it is NOT gated by voice-enabled,
+// quiet hours, or per-event voice toggles: the owner should always see what is
+// waiting even when they've silenced Echo's voice.
+async function loadPendingNotifications(userId) {
+  const rows = (
+    await db.query(
+      `SELECT notification_id, brand_id, event_type, title, spoken_text,
+              payload, created_at
+         FROM echo_voice_notifications
+        WHERE user_id = $1 AND status = 'pending'
+          AND deliver_after <= NOW()
+          AND (expires_at IS NULL OR expires_at > NOW())
+        ORDER BY created_at DESC`,
+      [userId]
+    )
+  ).rows;
+  return rows.map((r) => {
+    // The originating brand: the dedicated brand_id column when set, otherwise
+    // a payload.brandId stamp (some alerts only carry the latter). null = a
+    // general (non-brand) notification.
+    const brandId =
+      r.brand_id ||
+      (r.payload && r.payload.brandId ? String(r.payload.brandId) : null);
+    return {
+      id: r.notification_id,
+      brandId: brandId ? String(brandId) : null,
+      type: r.event_type,
+      priority: priorityForEvent(r.event_type, r.payload),
+      title: r.title || null,
+      text: r.spoken_text || null,
+      createdAt: r.created_at,
+    };
+  });
+}
+
+function emptyCounts() {
+  return { red: 0, yellow: 0, green: 0, total: 0 };
+}
+
+/**
+ * GET /api/echo-voice/notification-summary — per-brand + general badge counts
+ * ({red,yellow,green,total}) for the owner. Drives the colored tab badges; the
+ * client polls it and refetches on change for near-real-time updates.
+ */
+async function getNotificationSummary(req, res) {
+  try {
+    const items = await loadPendingNotifications(req.user.userId);
+    const brands = {};
+    const general = emptyCounts();
+    for (const it of items) {
+      const bucket = it.brandId
+        ? brands[it.brandId] || (brands[it.brandId] = emptyCounts())
+        : general;
+      if (bucket[it.priority] === undefined) continue;
+      bucket[it.priority] += 1;
+      bucket.total += 1;
+    }
+    return res.json({ brands, general, totalCount: items.length });
+  } catch (err) {
+    console.error("getNotificationSummary error:", err.message);
+    return res.status(500).json({ error: "Failed to load notification summary" });
+  }
+}
+
+/**
+ * GET /api/echo-voice/notifications/list?brandId=<id|general> — the pending
+ * notifications for one brand (or the general bucket when brandId is omitted or
+ * "general"), grouped nowhere (the client groups by priority). Owner-scoped.
+ */
+async function listBrandNotifications(req, res) {
+  try {
+    const raw = typeof req.query.brandId === "string" ? req.query.brandId.trim() : "";
+    const wantGeneral = !raw || raw === "general";
+    const items = (await loadPendingNotifications(req.user.userId)).filter((it) =>
+      wantGeneral ? it.brandId === null : it.brandId === raw
+    );
+    // Stable priority order (red → yellow → green), newest first within a tier.
+    items.sort((a, b) => {
+      const ra = PRIORITY_RANK[a.priority] ?? 1;
+      const rb = PRIORITY_RANK[b.priority] ?? 1;
+      if (ra !== rb) return ra - rb;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+    return res.json({ notifications: items });
+  } catch (err) {
+    console.error("listBrandNotifications error:", err.message);
+    return res.status(500).json({ error: "Failed to load notifications" });
+  }
+}
+
+/**
+ * POST /api/echo-voice/notifications/clear — bulk-dismiss pending notifications
+ * for the owner. Optional body { brandId } scopes to one brand ("general"
+ * clears only the non-brand bucket); omit it to clear everything. Powers the
+ * panel's "Clear all" button and the "Hey Echo, clear my notifications" command.
+ */
+async function clearNotifications(req, res) {
+  try {
+    const raw =
+      req.body && typeof req.body.brandId === "string" ? req.body.brandId.trim() : "";
+    let result;
+    // Only clear notifications that are actually surfaced right now — the same
+    // ready/non-expired window summary + list use. Otherwise "clear" would
+    // silently dismiss future-scheduled reminders the owner never saw.
+    const readyWindow =
+      "AND deliver_after <= NOW() AND (expires_at IS NULL OR expires_at > NOW())";
+    if (!raw) {
+      result = await db.query(
+        `UPDATE echo_voice_notifications
+            SET status = 'dismissed', delivered_at = NOW()
+          WHERE user_id = $1 AND status = 'pending'
+            ${readyWindow}`,
+        [req.user.userId]
+      );
+    } else if (raw === "general") {
+      result = await db.query(
+        `UPDATE echo_voice_notifications
+            SET status = 'dismissed', delivered_at = NOW()
+          WHERE user_id = $1 AND status = 'pending'
+            AND brand_id IS NULL AND payload->>'brandId' IS NULL
+            ${readyWindow}`,
+        [req.user.userId]
+      );
+    } else {
+      result = await db.query(
+        `UPDATE echo_voice_notifications
+            SET status = 'dismissed', delivered_at = NOW()
+          WHERE user_id = $1 AND status = 'pending'
+            AND (brand_id = $2 OR payload->>'brandId' = $2)
+            ${readyWindow}`,
+        [req.user.userId, raw]
+      );
+    }
+    return res.json({ ok: true, cleared: result.rowCount });
+  } catch (err) {
+    console.error("clearNotifications error:", err.message);
+    return res.status(500).json({ error: "Failed to clear notifications" });
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // Learned speech patterns
@@ -894,6 +1044,9 @@ module.exports = {
   getStatus,
   getPending,
   markNotificationDelivered,
+  getNotificationSummary,
+  listBrandNotifications,
+  clearNotifications,
   warmMorningBriefings,
   getLearnedPhrases,
   saveLearnedPhrase,

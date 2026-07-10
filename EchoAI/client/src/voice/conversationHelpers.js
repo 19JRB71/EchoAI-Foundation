@@ -527,6 +527,28 @@ export function matchPermissionRetrieve(text) {
 }
 
 // ---------------------------------------------------------------------------
+// Clear notifications ("Hey Echo, clear my notifications")
+// ---------------------------------------------------------------------------
+// Bulk-dismisses every pending notification badge. Requires the word
+// "notification(s)" AND a clearing verb (order-independent, so "clear my
+// notifications" and "mark all notifications as read" both match) so it never
+// collides with clearing music, tasks, or the screen.
+const NOTIFICATION_RE = /\bnotification/;
+const CLEAR_VERB_RE = /\b(clear|dismiss|delete|remove|wipe|get rid of)\b/;
+const MARK_READ_RE = /\bmark\b.*\bread\b/;
+
+/**
+ * True when the owner asks Echo to clear all pending notifications.
+ * @returns {boolean}
+ */
+export function matchClearNotifications(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return false;
+  if (!NOTIFICATION_RE.test(norm)) return false;
+  return CLEAR_VERB_RE.test(norm) || MARK_READ_RE.test(norm);
+}
+
+// ---------------------------------------------------------------------------
 // Live hot-lead handoff ("transfer it" / "keep handling it")
 // ---------------------------------------------------------------------------
 // When Echo is running a live autonomous conversation and hits a strong buying

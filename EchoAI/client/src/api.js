@@ -1503,6 +1503,22 @@ export const api = {
       body: status ? { status } : {},
     }),
 
+  // Notification badge system: per-brand + general badge counts, the per-brand
+  // panel list, and bulk-clear ("Clear all" / "Hey Echo, clear my notifications").
+  echoVoiceNotificationSummary: () =>
+    request("/api/echo-voice/notification-summary"),
+  echoVoiceListNotifications: (brandId) => {
+    const params = new URLSearchParams();
+    if (brandId) params.set("brandId", String(brandId));
+    const qs = params.toString();
+    return request(`/api/echo-voice/notifications/list${qs ? `?${qs}` : ""}`);
+  },
+  echoVoiceClearNotifications: (brandId) =>
+    request("/api/echo-voice/notifications/clear", {
+      method: "POST",
+      body: brandId ? { brandId: String(brandId) } : {},
+    }),
+
   // --- AI Health Monitor + Screenshot Support ---
   healthGetStatus: (brandId) =>
     request(`/api/health-monitor/${brandId}/status`),

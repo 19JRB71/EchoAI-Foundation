@@ -41,6 +41,7 @@ import {
   navLabel,
   matchYesNo,
   matchPermissionRetrieve,
+  matchClearNotifications,
   matchTransferIntent,
   BRIEF_SECTIONS,
   matchMusicIntent,
@@ -893,6 +894,37 @@ export function EchoConversationProvider({ active, children }) {
           return;
         }
         // Neither yes nor no → treat it as a new command below.
+      }
+
+      // CLEAR NOTIFICATIONS: "Hey Echo, clear my notifications" — bulk-dismiss
+      // every pending notification badge (all brands + general). Confirms with a
+      // count; VoiceContext.clearNotifications broadcasts the change so badges
+      // and any open panel update immediately.
+      if (matchClearNotifications(text)) {
+        suspendRef.current = true;
+        setConvState("processing");
+        let cleared = 0;
+        try {
+          cleared =
+            voice && voice.clearNotifications
+              ? await voice.clearNotifications()
+              : 0;
+        } catch {
+          cleared = 0;
+        }
+        if (stale()) return;
+        const line =
+          cleared > 0
+            ? `Done, Sir. I've cleared ${cleared} notification${
+                cleared === 1 ? "" : "s"
+              }.`
+            : "You're all caught up, Sir. There were no notifications to clear.";
+        await speakAndWait(line);
+        if (stale()) return;
+        modeRef.current = "passive";
+        suspendRef.current = false;
+        setConvState("passive");
+        return;
       }
 
       // PERMISSION-TO-SPEAK retrieval: "Hey Echo, what did you need?" — the

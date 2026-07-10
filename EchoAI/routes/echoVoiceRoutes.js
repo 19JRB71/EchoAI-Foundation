@@ -48,6 +48,15 @@ router.get("/status", controller.getStatus);
 
 // Spoken-event queue: reminders + real-time alerts the client drains while open.
 router.get("/pending", controller.getPending);
+
+// Notification badge system: per-brand + general badge counts (visual, always
+// shown), the per-brand panel list, and bulk-clear ("Clear all" / "Hey Echo,
+// clear my notifications"). Registered BEFORE the parameterized :id route so
+// "/notifications/clear" and "/notifications/list" are not swallowed by it.
+router.get("/notification-summary", controller.getNotificationSummary);
+router.get("/notifications/list", controller.listBrandNotifications);
+router.post("/notifications/clear", controller.clearNotifications);
+
 router.post("/notifications/:id/delivered", controller.markNotificationDelivered);
 
 // Learned speech patterns: Echo adapts to the owner's natural phrasing over

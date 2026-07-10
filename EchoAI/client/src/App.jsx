@@ -53,6 +53,9 @@ import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
 import EchoCompanion from "./companion/EchoCompanion.jsx";
 import { DemoSuggestionProvider } from "./demo/DemoSuggestionContext.jsx";
 import { VoiceProvider, useVoice } from "./voice/VoiceContext.jsx";
+import NotificationBadge from "./components/NotificationBadge.jsx";
+import NotificationPanel from "./components/NotificationPanel.jsx";
+import { mergeCounts } from "./lib/notificationPriority.js";
 import {
   EchoConversationProvider,
   useEchoConversation,
@@ -1627,6 +1630,15 @@ function HealthIndicator({ brandId }) {
 }
 
 function BrandBar({ brands, selectedBrandId, onSelect, loading, error }) {
+  const voice = useVoice();
+  const summary = (voice && voice.notificationSummary) || {
+    brands: {},
+    general: { red: 0, yellow: 0, green: 0, total: 0 },
+  };
+  // Which brand's notification panel is open (null = closed). includeGeneral is
+  // set for the active brand so its panel also shows non-brand notifications.
+  const [panel, setPanel] = useState(null);
+
   if (loading)
     return (
       <div className="mb-6">
@@ -1661,23 +1673,53 @@ function BrandBar({ brands, selectedBrandId, onSelect, loading, error }) {
       <div className="flex flex-wrap items-center gap-2">
         {brands.map((b) => {
           const active = String(b.brand_id) === String(selectedBrandId);
+          const base = summary.brands[String(b.brand_id)] || null;
+          // The active tab also carries the general (non-brand) count so nothing
+          // is hidden; inactive tabs show only their own brand's count.
+          const counts = active ? mergeCounts(base, summary.general) : base;
           return (
-            <button
-              key={b.brand_id}
-              type="button"
-              onClick={() => onSelect(b.brand_id)}
-              aria-pressed={active}
-              className={
-                active
-                  ? "rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow"
-                  : "rounded-full border border-gray-700 bg-gray-900 px-4 py-1.5 text-sm text-gray-300 hover:border-indigo-500 hover:text-white"
-              }
-            >
-              {b.brand_name}
-            </button>
+            <div key={b.brand_id} className="relative">
+              <button
+                type="button"
+                onClick={() => onSelect(b.brand_id)}
+                aria-pressed={active}
+                className={
+                  active
+                    ? "rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow"
+                    : "rounded-full border border-gray-700 bg-gray-900 px-4 py-1.5 text-sm text-gray-300 hover:border-indigo-500 hover:text-white"
+                }
+              >
+                {b.brand_name}
+              </button>
+              {counts && counts.total > 0 ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPanel({
+                      brandId: String(b.brand_id),
+                      brandName: b.brand_name,
+                      includeGeneral: active,
+                    });
+                  }}
+                  aria-label={`Open notifications for ${b.brand_name}`}
+                  className="absolute -right-1 -top-1"
+                >
+                  <NotificationBadge counts={counts} />
+                </button>
+              ) : null}
+            </div>
           );
         })}
       </div>
+      {panel ? (
+        <NotificationPanel
+          brandId={panel.brandId}
+          brandName={panel.brandName}
+          includeGeneral={panel.includeGeneral}
+          onClose={() => setPanel(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 - [EchoAI public widget endpoints](echoai-public-widget-endpoints.md) — method-aware CORS (never path-prefix) + gate owner alerts on real state transitions, not raw public POSTs.
+- [EchoAI untested-component import trap](echoai-untested-component-import.md) — a new component nobody imports can ship a bad import that vitest passes but the vite build fails; always rebuild.
 - [EchoAI leads dedup](echoai-leads-dedup.md) — dedup leads in app code (email/phone), no table-wide unique index; the leads table is shared by multiple insert paths.
 - [EchoAI Setup Agent orchestration](echoai-setup-agent-orchestration.md) — onboarding runner: owner guard, token-fenced renewable lease, fail-closed gating, app-code idempotency, AI→502.
 - [EchoAI Autonomous Growth Mode](echoai-autonomous-growth.md) — daily guardrail engine: atomic per-day claim, atomic approve/decline, enforce every guardrail (geo too), $→cents to FB.

@@ -88,6 +88,17 @@ export function VoiceProvider({ active, children }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [firstName, setFirstName] = useState(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // Notification badge system: per-brand + general pending counts for the tab
+  // badges. Polled independently of the spoken queue (it's a VISUAL surface, so
+  // it ignores login-silence / quiet hours) and refetched on change events for
+  // near-real-time updates. The ref mirrors it for reads inside callbacks.
+  const [notificationSummary, setNotificationSummary] = useState({
+    brands: {},
+    general: { red: 0, yellow: 0, green: 0, total: 0 },
+    totalCount: 0,
+  });
+  const notificationSummaryRef = useRef(notificationSummary);
+  notificationSummaryRef.current = notificationSummary;
   const [muted, setMuted] = useState(() => {
     try {
       return localStorage.getItem(MUTE_KEY) === "1";
@@ -497,11 +508,32 @@ export function VoiceProvider({ active, children }) {
           if (canHear) {
             queueRef.current.splice(idx, 0, item); // keep the alert queued in place
             alertPermissionRef.current = "asking";
+            // Count-aware ask: when the held alert belongs to a specific brand,
+            // lead with how many notifications are waiting for THAT business
+            // ("Sir, you have 3 notifications for this business…"); otherwise use
+            // the generic ask. The count comes from the (visual) summary poll.
+            let askLine = PERMISSION_ASK_LINE;
+            try {
+              const bId = item.brandId ? String(item.brandId) : null;
+              const c =
+                bId &&
+                notificationSummaryRef.current &&
+                notificationSummaryRef.current.brands &&
+                notificationSummaryRef.current.brands[bId];
+              const total = c && c.total ? c.total : 0;
+              if (total > 0) {
+                askLine = `Sir, you have ${total} notification${
+                  total === 1 ? "" : "s"
+                } for this business. Would you like me to go through them?`;
+              }
+            } catch {
+              /* fall back to the generic ask line */
+            }
             queueRef.current.unshift({
               id: nextItemId(),
               type: "permission_request",
               title: "Permission to speak",
-              text: PERMISSION_ASK_LINE,
+              text: askLine,
               playIntro: false,
               onPlayed: () => {
                 // Arm the conversation engine to hear the yes/no answer.
@@ -567,6 +599,15 @@ export function VoiceProvider({ active, children }) {
             }
           }
           // blocked → un-terminal; it re-queues below and plays after a gesture.
+          // A terminal outcome changed the server queue → nudge the badge to
+          // refresh right away rather than waiting for the next 30s summary poll.
+          if (status === "played" || status === "skipped" || status === "stopped") {
+            try {
+              window.dispatchEvent(new CustomEvent("echoai:notifications-changed"));
+            } catch {
+              /* noop */
+            }
+          }
         }
         if (status === "played" && item.onPlayed) {
           try {
@@ -1114,6 +1155,57 @@ export function VoiceProvider({ active, children }) {
     };
   }, [active, enqueue]);
 
+  // NOTIFICATION BADGES: poll the per-brand + general pending counts that drive
+  // the colored tab badges. This is a purely VISUAL surface, so — unlike the
+  // spoken /pending queue above — it runs regardless of login-silence, quiet
+  // hours, or mute: the owner should always see what's waiting. A
+  // `echoai:notifications-changed` event (dismiss, clear, delivered) triggers an
+  // immediate refetch so badges update in real time without a page refresh.
+  useEffect(() => {
+    if (!active) return;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const data = await api.echoVoiceNotificationSummary();
+        if (stopped || !data) return;
+        setNotificationSummary({
+          brands: data.brands || {},
+          general: data.general || { red: 0, yellow: 0, green: 0, total: 0 },
+          totalCount: data.totalCount || 0,
+        });
+      } catch {
+        /* transient; try again next tick */
+      }
+    };
+    refresh();
+    const id = setInterval(refresh, POLL_MS);
+    const onChanged = () => refresh();
+    window.addEventListener("echoai:notifications-changed", onChanged);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      window.removeEventListener("echoai:notifications-changed", onChanged);
+    };
+  }, [active]);
+
+  // Bulk-clear pending notifications ("Clear all" button / "Hey Echo, clear my
+  // notifications"). brandId scopes to one brand ("general" = the non-brand
+  // bucket); omit to clear everything. Optimistically refreshes the summary and
+  // broadcasts the change so open panels + badges update immediately.
+  const clearNotifications = useCallback(async (brandId) => {
+    try {
+      const res = await api.echoVoiceClearNotifications(brandId);
+      try {
+        window.dispatchEvent(new CustomEvent("echoai:notifications-changed"));
+      } catch {
+        /* noop */
+      }
+      return res && typeof res.cleared === "number" ? res.cleared : 0;
+    } catch {
+      return 0;
+    }
+  }, []);
+
   // PERMISSION-TO-SPEAK: the conversation engine reports the owner's answer to
   // "do you have a moment?" here. yes → deliver the held alert(s) now; no →
   // acknowledge ("Of course Sir…") and keep them held; anything else (a real
@@ -1228,6 +1320,8 @@ export function VoiceProvider({ active, children }) {
       markUserInitiated,
       registerConversationBusyProbe,
       registerVoiceInputCapableProbe,
+      notificationSummary,
+      clearNotifications,
     }),
     [
       active,
@@ -1255,6 +1349,8 @@ export function VoiceProvider({ active, children }) {
       markUserInitiated,
       registerConversationBusyProbe,
       registerVoiceInputCapableProbe,
+      notificationSummary,
+      clearNotifications,
     ],
   );
 

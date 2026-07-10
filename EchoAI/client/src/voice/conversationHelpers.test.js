@@ -12,6 +12,7 @@ import {
   matchYesNo,
   matchTransferIntent,
   matchBrandSwitch,
+  matchClearNotifications,
   BRIEF_SECTIONS,
 } from "./conversationHelpers.js";
 
@@ -957,5 +958,36 @@ describe("matchBrandSwitch", () => {
     expect(matchBrandSwitch("go to my leads", brands)).toBeNull();
     expect(matchBrandSwitch("how is blacor homes doing", brands)).toBeNull();
     expect(matchBrandSwitch("", brands)).toBeNull();
+  });
+});
+
+describe("matchClearNotifications", () => {
+  it("matches the natural clear phrasings", () => {
+    expect(matchClearNotifications("clear my notifications")).toBe(true);
+    expect(matchClearNotifications("clear notifications")).toBe(true);
+    expect(matchClearNotifications("clear all notifications")).toBe(true);
+    expect(matchClearNotifications("Hey Echo, clear my notifications")).toBe(true);
+    expect(matchClearNotifications("dismiss all notifications")).toBe(true);
+    expect(matchClearNotifications("dismiss my notifications")).toBe(true);
+    expect(matchClearNotifications("get rid of these notifications")).toBe(true);
+    expect(matchClearNotifications("mark all notifications as read")).toBe(true);
+    expect(matchClearNotifications("wipe my notifications")).toBe(true);
+  });
+
+  it("does not trip on unrelated clear commands or empty input", () => {
+    expect(matchClearNotifications("clear the music")).toBe(false);
+    expect(matchClearNotifications("clear my tasks")).toBe(false);
+    expect(matchClearNotifications("clear the screen")).toBe(false);
+    expect(matchClearNotifications("what are my notifications")).toBe(false);
+    expect(matchClearNotifications("go to my leads")).toBe(false);
+    expect(matchClearNotifications("")).toBe(false);
+    expect(matchClearNotifications(null)).toBe(false);
+  });
+
+  it("clear phrases are not interpreted as a yes/no answer", () => {
+    // The clear command must be handled as its own intent, never learned or
+    // resolved as a "yes" (which would corrupt other yes/no flows).
+    expect(matchYesNo("clear my notifications")).toBeNull();
+    expect(matchYesNo("dismiss all notifications")).toBeNull();
   });
 });
