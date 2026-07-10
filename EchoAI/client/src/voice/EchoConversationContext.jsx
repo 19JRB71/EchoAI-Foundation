@@ -40,6 +40,7 @@ import {
   navOfferQuestion,
   navLabel,
   matchYesNo,
+  matchPermissionRetrieve,
   matchTransferIntent,
   BRIEF_SECTIONS,
   matchMusicIntent,
@@ -190,6 +191,7 @@ export function EchoConversationProvider({ active, children }) {
   const pendingBrandOfferRef = useRef(null); // other-business briefing offer: { queue: [brands] }
   const pendingBrandPickRef = useRef(false); // "which business?" question pending
   const pendingTransferOfferRef = useRef(null); // live hot-lead handoff offer: { conversationId }
+  const pendingPermissionRef = useRef(false); // Echo asked "do you have a moment?" — awaiting yes/no
   const learnedMapRef = useRef(new Map()); // normalized phrase -> learned action
   const misheardRef = useRef(null); // { text, at } awaiting a clarified repeat
   const clarifyRetryRef = useRef(false); // asked "say that again?" once already
@@ -364,6 +366,18 @@ export function EchoConversationProvider({ active, children }) {
     );
     return () => voice.registerConversationBusyProbe(null);
   }, [voice]);
+
+  // PERMISSION-TO-SPEAK: tell the voice queue whether Echo can hear a spoken
+  // answer right now. If the mic is unsupported, opted out, or muted, the
+  // "do you have a moment?" handshake is impossible — the queue bypasses it and
+  // delivers alerts directly instead of holding them for an answer that can't come.
+  useEffect(() => {
+    if (!voice || !voice.registerVoiceInputCapableProbe) return undefined;
+    voice.registerVoiceInputCapableProbe(
+      () => supported && enabledRef.current && !mutedRef.current,
+    );
+    return () => voice.registerVoiceInputCapableProbe(null);
+  }, [voice, supported]);
 
   // The moment the engine returns to idle passive listening, ping the voice
   // queue so any held proactive items play immediately (instead of waiting on
@@ -606,6 +620,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBrandOfferRef.current = null;
         pendingBrandPickRef.current = false;
         pendingTransferOfferRef.current = null;
+        pendingPermissionRef.current = false;
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(interruptAck());
@@ -642,6 +657,65 @@ export function EchoConversationProvider({ active, children }) {
         suspendRef.current = false;
         setConvState("active");
         return;
+      }
+
+      // PERMISSION-TO-SPEAK: Echo asked "Excuse me Sir, do you have a moment?"
+      // and is waiting. "Yes" lets the held alert(s) through; "not now"/"no"
+      // stands him down (VoiceContext speaks "Of course Sir…") and holds them
+      // until the owner asks; anything else is a real command — hold the alert
+      // quietly and process the command normally. A clear nav/music command
+      // always counts as "something else", never a yes.
+      if (pendingPermissionRef.current) {
+        pendingPermissionRef.current = false;
+        const answer =
+          matchNavIntent(text) || matchMusicIntent(text)
+            ? null
+            : matchYesNo(text);
+        if (answer === "yes") {
+          maybeLearn("yes", text);
+          try {
+            window.dispatchEvent(
+              new CustomEvent("echoai:permission-answer", {
+                detail: { answer: "yes" },
+              }),
+            );
+          } catch {
+            /* noop */
+          }
+          // Echo stays quiet — VoiceContext delivers the held alert now.
+          modeRef.current = "passive";
+          suspendRef.current = false;
+          setConvState("passive");
+          return;
+        }
+        if (answer === "no") {
+          maybeLearn("no", text);
+          try {
+            window.dispatchEvent(
+              new CustomEvent("echoai:permission-answer", {
+                detail: { answer: "no" },
+              }),
+            );
+          } catch {
+            /* noop */
+          }
+          // VoiceContext speaks the stand-down line and keeps the alert queued.
+          modeRef.current = "passive";
+          suspendRef.current = false;
+          setConvState("passive");
+          return;
+        }
+        // Neither yes nor no → silently hold the alert; fall through so their
+        // actual command (below) is handled as usual.
+        try {
+          window.dispatchEvent(
+            new CustomEvent("echoai:permission-answer", {
+              detail: { answer: "other" },
+            }),
+          );
+        } catch {
+          /* noop */
+        }
       }
 
       // A live hot-lead handoff offer is pending — Echo asked "Want me to
@@ -819,6 +893,22 @@ export function EchoConversationProvider({ active, children }) {
           return;
         }
         // Neither yes nor no → treat it as a new command below.
+      }
+
+      // PERMISSION-TO-SPEAK retrieval: "Hey Echo, what did you need?" — the
+      // owner is circling back to an alert they deferred earlier. Ask
+      // VoiceContext to release it now. Harmless when nothing is held.
+      if (matchPermissionRetrieve(text)) {
+        maybeLearn("yes", text);
+        try {
+          window.dispatchEvent(new CustomEvent("echoai:permission-retrieve"));
+        } catch {
+          /* noop */
+        }
+        modeRef.current = "passive";
+        suspendRef.current = false;
+        setConvState("passive");
+        return;
       }
 
       // The briefing-type question is pending ("full, quick, or specific?").
@@ -1769,6 +1859,22 @@ export function EchoConversationProvider({ active, children }) {
       window.removeEventListener("echoai:autonomous-offer", onOffer);
   }, [active, supported, openFollowupWindow]);
 
+  // PERMISSION-TO-SPEAK: VoiceContext dispatches this the instant Echo finishes
+  // asking "Excuse me Sir, do you have a moment?". Arm the pending-permission
+  // flag and open an active listening window so the owner's yes/no is captured.
+  // If they stay silent, the window closes and the alert stays queued for later
+  // ("Hey Echo, what did you need?").
+  useEffect(() => {
+    if (!active || !supported) return;
+    const onAsk = () => {
+      pendingPermissionRef.current = true;
+      openFollowupWindow(true);
+    };
+    window.addEventListener("echoai:permission-request", onAsk);
+    return () =>
+      window.removeEventListener("echoai:permission-request", onAsk);
+  }, [active, supported, openFollowupWindow]);
+
   // LOGOUT KILL SWITCH: stop the mic, all timers, and any sound effect the
   // instant the app broadcasts a logout, so nothing from the conversation
   // engine keeps playing (or re-triggers speech) after the owner logs out.
@@ -1782,6 +1888,7 @@ export function EchoConversationProvider({ active, children }) {
       pendingBrandOfferRef.current = null;
       pendingBrandPickRef.current = false;
       pendingTransferOfferRef.current = null;
+      pendingPermissionRef.current = false;
       morningStandbyRef.current = false;
       finalRef.current = "";
       modeRef.current = "passive";

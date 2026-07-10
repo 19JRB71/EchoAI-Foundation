@@ -690,7 +690,7 @@ async function gatherWeeklyData(userId, brandId = null) {
   // (deduped 30d-shown / 90d-declined). Read-only here; delivery records them.
   let suggestions = [];
   try {
-    suggestions = await computeSuggestions(userId);
+    suggestions = await computeSuggestions(userId, brandIds);
   } catch (_e) {
     suggestions = [];
   }

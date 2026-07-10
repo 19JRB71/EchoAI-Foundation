@@ -330,33 +330,42 @@ async function upsertRelationship(userId, brandId, rel) {
 async function buildKnowledgeContext(userId, brandId, { focusName = "", mode = "chat" } = {}) {
   try {
     const ownerProfile = await getOwnerProfileRow(userId);
+    // BRAND ISOLATION: when a brand is active, Echo's recalled relationships and
+    // memories are locked to that brand PLUS brand-agnostic owner-level rows
+    // (brand_id IS NULL). No other business's people or context can surface in a
+    // reply, alert, or briefing until the owner explicitly switches brands. When
+    // brandId is null (account-wide contexts) the full owner-scoped set is used.
+    const brandClause = brandId ? " AND (brand_id = $2 OR brand_id IS NULL)" : "";
+    const brandParams = brandId ? [userId, brandId] : [userId];
     const profiles = await safeRows(
       `SELECT profile_id, person_name, person_type, cares_about, history, next_step, sentiment
          FROM echo_relationship_profiles
-        WHERE user_id = $1
+        WHERE user_id = $1${brandClause}
         ORDER BY importance DESC, updated_at DESC
         LIMIT 12`,
-      [userId],
+      brandParams,
     );
     const memories = await safeRows(
       `SELECT title, detail, category
          FROM echo_memory
         WHERE user_id = $1 AND deleted_at IS NULL
-          AND category IN ('preference','goal','concern','decision','personal_context')
+          AND category IN ('preference','goal','concern','decision','personal_context')${brandClause}
         ORDER BY importance DESC, occurred_at DESC
         LIMIT 10`,
-      [userId],
+      brandParams,
     );
 
     let focusProfile = null;
     const fn = clampStr(focusName, 120);
     if (fn) {
+      const focusBrandClause = brandId ? " AND (brand_id = $3 OR brand_id IS NULL)" : "";
+      const focusParams = brandId ? [userId, fn, brandId] : [userId, fn];
       const hit = await safeRows(
         `SELECT profile_id, person_name, person_type, cares_about, history, next_step, sentiment
            FROM echo_relationship_profiles
-          WHERE user_id = $1 AND lower(person_name) = lower($2)
+          WHERE user_id = $1 AND lower(person_name) = lower($2)${focusBrandClause}
           LIMIT 1`,
-        [userId, fn],
+        focusParams,
       );
       focusProfile = hit[0] || null;
     }

@@ -507,6 +507,26 @@ export function matchYesNo(text) {
 }
 
 // ---------------------------------------------------------------------------
+// Permission-to-speak retrieval ("Hey Echo, what did you need?")
+// ---------------------------------------------------------------------------
+// After Echo asks "do you have a moment?" and the owner defers ("not now"),
+// the alert is held. These phrases are how the owner circles back to it later.
+// Kept deliberately specific so it never hijacks a "go ahead" / "I'm ready"
+// meant for a briefing or another pending offer.
+const PERMISSION_RETRIEVE_RE =
+  /\b(what (?:did|do) you (?:need|want)|what (?:was|is) it|what did you need me for|you (?:needed|wanted) me|what did you want to (?:tell|say)|what (?:needed|needs) my attention|what was that about|you had something)\b/;
+
+/**
+ * True when the owner is asking Echo to surface a deferred alert.
+ * @returns {boolean}
+ */
+export function matchPermissionRetrieve(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return false;
+  return PERMISSION_RETRIEVE_RE.test(norm);
+}
+
+// ---------------------------------------------------------------------------
 // Live hot-lead handoff ("transfer it" / "keep handling it")
 // ---------------------------------------------------------------------------
 // When Echo is running a live autonomous conversation and hits a strong buying

@@ -32,9 +32,9 @@ const echoContext = require("../utils/echoContext");
  * "" on any failure so the briefing still renders. It is tone/priority guidance
  * only — the spoken invariant (facts only from `data`) is preserved by framing.
  */
-async function speechKnowledge(userId) {
+async function speechKnowledge(userId, brandId = null) {
   try {
-    return await echoContext.buildKnowledgeContext(userId, null, { mode: "speech" });
+    return await echoContext.buildKnowledgeContext(userId, brandId, { mode: "speech" });
   } catch (_e) {
     return "";
   }
@@ -510,7 +510,7 @@ async function buildMorningBriefing(userId, userMaybe, brandId = null) {
     timeout: 1500,
     attempts: 1,
     partOfDay: "morning",
-    knowledge: await speechKnowledge(userId),
+    knowledge: await speechKnowledge(userId, brandId),
   });
   morningBriefingCache.set(cacheKey, { text, aiNarrated, builtAt: Date.now() });
   return { text, aiNarrated };
@@ -532,7 +532,7 @@ async function buildDayUpdate(userId, userMaybe, part, brandId = null) {
     timeout: 1500,
     attempts: 1,
     partOfDay: part,
-    knowledge: await speechKnowledge(userId),
+    knowledge: await speechKnowledge(userId, brandId),
   });
 }
 
@@ -596,8 +596,8 @@ async function getWeeklyBriefing(req, res) {
     const data = await gatherWeeklyData(req.user.userId, brand.brandId);
     const tod = await userPartOfDay(req.user.userId);
     const { text, aiNarrated } = await narrate("weekly", displayName(user), data, {
+      knowledge: await speechKnowledge(req.user.userId, brand.brandId),
       partOfDay: tod.part,
-      knowledge: await speechKnowledge(req.user.userId),
     });
     const suggestions = data.suggestions || [];
     // Delivering the briefing counts as "shown" — resets each suggestion's
@@ -667,7 +667,7 @@ async function getStatus(req, res) {
     startOfDay.setHours(0, 0, 0, 0);
     const data = await gatherBriefingData(req.user.userId, startOfDay, brand.brandId);
     const { text, aiNarrated } = await narrate("status", displayName(user), data, {
-      knowledge: await speechKnowledge(req.user.userId),
+      knowledge: await speechKnowledge(req.user.userId, brand.brandId),
     });
     return res.json({ text, aiNarrated, style: settings.style, firstName: displayName(user) });
   } catch (err) {

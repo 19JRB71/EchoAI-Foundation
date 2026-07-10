@@ -233,7 +233,7 @@ async function sweepDueReminders() {
 async function enqueueClosingSummaries() {
   const owners = (
     await db.query(
-      `SELECT DISTINCT b.user_id, u.first_name, u.voice_settings
+      `SELECT DISTINCT b.user_id, u.first_name, u.voice_settings, u.last_active_brand_id
          FROM brands b
          JOIN users u ON u.user_id = b.user_id
         WHERE b.is_demo = false`
@@ -248,7 +248,14 @@ async function enqueueClosingSummaries() {
   for (const owner of owners) {
     if (!eventEnabled(owner.voice_settings, "day_summary")) continue;
     try {
-      const data = await gatherBriefingData(owner.user_id, startOfDay);
+      // BRAND ISOLATION: the closing summary is a proactive spoken briefing, so
+      // it is locked to the owner's active brand (falls back to account-wide only
+      // when no brand is remembered) — never a cross-business roll-up.
+      const data = await gatherBriefingData(
+        owner.user_id,
+        startOfDay,
+        owner.last_active_brand_id || null,
+      );
       const { text } = await narrate("closing", firstNameOf(owner), data);
       const id = await enqueueVoiceNotification({
         userId: owner.user_id,

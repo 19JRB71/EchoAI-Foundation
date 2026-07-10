@@ -144,8 +144,15 @@ async function suppressedKeys(userId) {
  * time so gathering briefing data has no side effects. Returns an array of
  * `{ key, channel, section, reason }`, at most MAX_SUGGESTIONS, or [].
  */
-async function computeSuggestions(userId) {
-  const brandIds = await ownerBrandIds(userId);
+async function computeSuggestions(userId, scopedBrandIds = null) {
+  // BRAND ISOLATION: a brand-scoped briefing passes the active brand's id(s), so
+  // gap detection is limited to that brand — Echo never proposes a channel
+  // grounded in another business. An explicit array (even empty) is honored as-is
+  // (empty => no suggestions); only a null/omitted arg falls back to the owner's
+  // full non-demo brand set for account-wide use.
+  const brandIds = Array.isArray(scopedBrandIds)
+    ? scopedBrandIds
+    : await ownerBrandIds(userId);
   if (brandIds.length === 0) return [];
   const suppressed = await suppressedKeys(userId);
 

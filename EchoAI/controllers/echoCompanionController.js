@@ -723,6 +723,12 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
             brand ? brand.brand_name : "their business"
           }. Keep your answers and any data scoped to that business unless they ask you to switch or compare.`
         : `The user's business is ${brand ? brand.brand_name : "their business"}.`,
+      // BRAND LOCK (unconditional, holds even when the Hermes orchestrator is
+      // offline and `orchestration` is empty): every reply must stay inside the
+      // active brand unless the owner explicitly asks to switch or compare.
+      brand
+        ? `BRAND LOCK (critical): unless the owner explicitly asks to switch businesses or to compare, EVERY fact, number, name, lead, campaign, alert, and update in your reply must belong to ${brand.brand_name} — NOTHING from any of their other businesses may appear. If you are unsure whether something belongs to ${brand.brand_name}, leave it out.`
+        : null,
       `Their activation status is "${state.activation_status}".`,
       state.pending_action
         ? 'There is an action awaiting their approval in the companion panel. They can approve it by clicking, or just tell you "yes" / "go ahead" — but if it is high-stakes (spends money or contacts customers) they must say "confirm".'

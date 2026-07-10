@@ -66,6 +66,18 @@ function briefingSessionKey() {
   return `echoai_briefing_${tail}`;
 }
 
+// How long Echo waits (silently) after login before speaking the standby
+// greeting. Applies ONLY to the initial login greeting (type "morning_briefing").
+const GREETING_DELAY_MS = 10000;
+
+// PERMISSION-TO-SPEAK lines. Before delivering a batch of proactive server
+// alerts (anything carrying a notificationId), Echo first asks for a moment and
+// waits for the owner's go-ahead. If they defer, he stands down until they ask.
+const PERMISSION_ASK_LINE =
+  "Excuse me Sir, do you have a moment? Something needs your attention.";
+const PERMISSION_DEFER_LINE =
+  "Of course Sir, I'll be here when you're ready.";
+
 let itemSeq = 0;
 function nextItemId() {
   itemSeq += 1;
@@ -139,8 +151,25 @@ export function VoiceProvider({ active, children }) {
   // reminders, briefings) are HELD — they never interrupt a conversation, and
   // play only once Echo is fully back to idle passive listening.
   const conversationBusyProbeRef = useRef(null);
+  // PERMISSION-TO-SPEAK: reports whether Echo can actually HEAR a spoken answer
+  // right now (mic supported, opted in, not muted). When it can't, the
+  // "do you have a moment?" handshake is impossible, so the gate is bypassed and
+  // alerts are delivered directly (the pre-feature behavior) instead of being
+  // trapped forever waiting for an answer that can never arrive.
+  const voiceInputCapableProbeRef = useRef(null);
   // Retry timer for held proactive items (cleared on deactivate).
   const holdTimerRef = useRef(null);
+  // PERMISSION-TO-SPEAK state machine for proactive server alerts (items with a
+  // notificationId). Echo never speaks an alert outright — he asks first and
+  // waits for the owner's answer:
+  //   'idle'     → no alert awaiting permission; the next alert triggers an ask.
+  //   'asking'   → Echo asked "do you have a moment?"; alerts are HELD until the
+  //                conversation engine reports the owner's answer.
+  //   'granted'  → owner said yes (or "what did you need?"); the held alert(s)
+  //                flow through, then this resets to 'idle' for the next batch.
+  //   'deferred' → owner said "not now"; alerts stay HELD in the queue until the
+  //                owner asks for them ("Hey Echo, what did you need?").
+  const alertPermissionRef = useRef("idle");
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -439,14 +468,59 @@ export function VoiceProvider({ active, children }) {
         // CONVERSATION-PRIORITY RULE: while the conversation engine reports an
         // active interaction, proactive items (alerts/reminders/briefings) are
         // held in place — pick the first item that is allowed to play now.
+        // PERMISSION-TO-SPEAK: server alerts (notificationId) are ALSO held while
+        // we're waiting for the owner's go-ahead ('asking') or after they said
+        // "not now" ('deferred') — until they grant permission / ask what we
+        // needed. The permission ask itself and the login greeting carry no
+        // notificationId, so they are never held here.
         const probe = conversationBusyProbeRef.current;
         const conversationBusy = !!(probe && probe());
-        let idx = 0;
-        if (conversationBusy) {
-          idx = queueRef.current.findIndex((q) => !isProactiveVoiceItem(q));
-          if (idx === -1) break; // everything is held; retry once idle
-        }
+        const alertsWaiting =
+          alertPermissionRef.current === "asking" ||
+          alertPermissionRef.current === "deferred";
+        const isHeld = (q) =>
+          (conversationBusy && isProactiveVoiceItem(q)) ||
+          (alertsWaiting && !!q.notificationId);
+        const idx = queueRef.current.findIndex((q) => !isHeld(q));
+        if (idx === -1) break; // everything is held; a later drain retries it
         const item = queueRef.current.splice(idx, 1)[0];
+        // PERMISSION-TO-SPEAK: the FIRST server alert of a batch is never spoken
+        // outright. Echo asks for a moment and waits; the alert stays queued
+        // (held) until the owner answers. Granted alerts fall straight through.
+        if (item.notificationId && alertPermissionRef.current === "idle") {
+          // Only run the permission handshake if Echo can actually hear the
+          // answer. With no mic (unsupported / opted out / muted) there is no
+          // way to say yes or "not now", so asking would trap the alert forever
+          // — deliver it directly instead, exactly as before this feature.
+          const capProbe = voiceInputCapableProbeRef.current;
+          const canHear = capProbe ? !!capProbe() : true;
+          if (canHear) {
+            queueRef.current.splice(idx, 0, item); // keep the alert queued in place
+            alertPermissionRef.current = "asking";
+            queueRef.current.unshift({
+              id: nextItemId(),
+              type: "permission_request",
+              title: "Permission to speak",
+              text: PERMISSION_ASK_LINE,
+              playIntro: false,
+              onPlayed: () => {
+                // Arm the conversation engine to hear the yes/no answer.
+                try {
+                  window.dispatchEvent(
+                    new CustomEvent("echoai:permission-request"),
+                  );
+                } catch {
+                  /* noop */
+                }
+              },
+            });
+            continue; // speak the ask next, then hold the alert for the answer
+          }
+          // No spoken answer possible → skip the handshake and let the alert
+          // play now. 'granted' is reset back to 'idle' in the finally block
+          // once the batch is delivered.
+          alertPermissionRef.current = "granted";
+        }
         // Brand-isolation validation at the moment of speech: if the owner
         // switched brands after this alert was queued, do NOT speak it. It is
         // not marked delivered, so it stays pending server-side and delivers
@@ -530,6 +604,20 @@ export function VoiceProvider({ active, children }) {
     } finally {
       busyRef.current = false;
       if (!currentRef.current) setCurrent(null);
+      // PERMISSION-TO-SPEAK: once a granted batch of alerts has been delivered
+      // (nothing with a notificationId left queued or playing), reset to 'idle'
+      // so the NEXT batch of alerts asks for permission again. Also covers a
+      // deferred alert that was cleared (e.g. by stopAll) so we never get stuck
+      // holding an empty queue. 'asking' keeps its alert queued, so its
+      // notificationId is still present and it is left untouched here.
+      if (
+        alertPermissionRef.current !== "idle" &&
+        alertPermissionRef.current !== "asking" &&
+        !queueRef.current.some((q) => q.notificationId) &&
+        !(currentRef.current && currentRef.current.notificationId)
+      ) {
+        alertPermissionRef.current = "idle";
+      }
       // An enqueue that raced this loop's unwind (e.g. the barge-in
       // acknowledgement right after stopAll()) hit the busyRef guard and was
       // never played. stopAll() clears the queue, so anything still here is a
@@ -543,13 +631,23 @@ export function VoiceProvider({ active, children }) {
       ) {
         const probe = conversationBusyProbeRef.current;
         const busyNow = !!(probe && probe());
-        const allHeld =
-          busyNow && queueRef.current.every((q) => isProactiveVoiceItem(q));
+        // Alerts awaiting the owner's permission ('asking'/'deferred') are held
+        // too — they must NOT trigger a re-drain spin. They are released by the
+        // permission-answer / permission-retrieve events, not by a timer.
+        const alertsWaiting =
+          alertPermissionRef.current === "asking" ||
+          alertPermissionRef.current === "deferred";
+        const allHeld = queueRef.current.every(
+          (q) =>
+            (busyNow && isProactiveVoiceItem(q)) ||
+            (alertsWaiting && !!q.notificationId),
+        );
         if (allHeld) {
-          // Everything left is a held proactive item. Poll again shortly as a
-          // backstop; the conversation engine also pings us the moment it goes
-          // idle (echoai:conversation-idle), so delivery is usually instant.
-          if (!holdTimerRef.current) {
+          // Everything left is a held item. Only a conversation-busy hold needs
+          // the 2s backstop poll (the engine also pings echoai:conversation-idle
+          // the moment it goes idle); permission holds wait for the owner's
+          // spoken answer, so they schedule nothing here (no spin).
+          if (busyNow && !holdTimerRef.current) {
             holdTimerRef.current = setTimeout(() => {
               holdTimerRef.current = null;
               drain();
@@ -565,6 +663,11 @@ export function VoiceProvider({ active, children }) {
   // Register (or clear) the conversation engine's busy probe.
   const registerConversationBusyProbe = useCallback((fn) => {
     conversationBusyProbeRef.current = typeof fn === "function" ? fn : null;
+  }, []);
+
+  // Register (or clear) the "can Echo hear a spoken answer right now?" probe.
+  const registerVoiceInputCapableProbe = useCallback((fn) => {
+    voiceInputCapableProbeRef.current = typeof fn === "function" ? fn : null;
   }, []);
 
   // The conversation engine pings this event the moment it returns to idle
@@ -651,6 +754,10 @@ export function VoiceProvider({ active, children }) {
 
   const stopAll = useCallback(() => {
     queueRef.current = [];
+    // Clearing the queue drops any held/deferred alert, so reset the
+    // permission gate — otherwise a lingering 'deferred' state would hold the
+    // NEXT alert forever with nothing left to retrieve.
+    alertPermissionRef.current = "idle";
     // Resolve any in-flight speakItem so the drain loop unwinds (else busyRef
     // stays set and future enqueues never play).
     if (resolveRef.current) resolveRef.current("stopped");
@@ -774,6 +881,12 @@ export function VoiceProvider({ active, children }) {
     if (briefingTriedRef.current) return;
     briefingTriedRef.current = true;
     let cancelled = false;
+    // LOGIN GREETING DELAY: after login Echo waits silently for a beat before he
+    // speaks the standby greeting, so the owner isn't greeted the instant the
+    // page paints. This 10s pause applies ONLY to the initial login greeting
+    // (type "morning_briefing") — every other reply, alert, and briefing is
+    // unaffected. Cleared on unmount so a fast logout can't fire a late greeting.
+    let greetTimer = null;
     (async () => {
       try {
         // Scope the login briefing to the brand the dashboard is showing so
@@ -799,7 +912,9 @@ export function VoiceProvider({ active, children }) {
         // start my briefing", "ready", "run it"...). The conversation engine
         // owns delivery — and only IT marks the briefing delivered, so the
         // once-per-day server stamp reflects a briefing that was actually heard.
-        enqueue({
+        greetTimer = setTimeout(() => {
+          if (cancelled) return;
+          enqueue({
           type: "morning_briefing",
           title: "Morning greeting",
           // When the owner has saved morning-music favorites, Echo also lets
@@ -838,13 +953,15 @@ export function VoiceProvider({ active, children }) {
               /* noop */
             }
           },
-        });
+          });
+        }, GREETING_DELAY_MS);
       } catch {
         /* briefing is best-effort; never block the app */
       }
     })();
     return () => {
       cancelled = true;
+      if (greetTimer) clearTimeout(greetTimer);
     };
   }, [active, settingsLoaded, muted, enqueue]);
 
@@ -997,6 +1114,47 @@ export function VoiceProvider({ active, children }) {
     };
   }, [active, enqueue]);
 
+  // PERMISSION-TO-SPEAK: the conversation engine reports the owner's answer to
+  // "do you have a moment?" here. yes → deliver the held alert(s) now; no →
+  // acknowledge ("Of course Sir…") and keep them held; anything else (a real
+  // command) → silently hold them for later retrieval.
+  useEffect(() => {
+    if (!active) return;
+    const onAnswer = (e) => {
+      const answer = (e && e.detail && e.detail.answer) || "";
+      if (answer === "yes") {
+        alertPermissionRef.current = "granted";
+        drain();
+      } else if (answer === "no") {
+        alertPermissionRef.current = "deferred";
+        // Speak the stand-down line; the alert itself stays queued (held).
+        queueRef.current.unshift({
+          id: nextItemId(),
+          type: "permission_defer",
+          title: "Standing by",
+          text: PERMISSION_DEFER_LINE,
+          playIntro: false,
+        });
+        drain();
+      } else {
+        // The owner said something unrelated — hold the alert(s) quietly; their
+        // own command is handled by the conversation engine.
+        alertPermissionRef.current = "deferred";
+      }
+    };
+    const onRetrieve = () => {
+      // "Hey Echo, what did you need?" — release the held alert(s) now.
+      alertPermissionRef.current = "granted";
+      drain();
+    };
+    window.addEventListener("echoai:permission-answer", onAnswer);
+    window.addEventListener("echoai:permission-retrieve", onRetrieve);
+    return () => {
+      window.removeEventListener("echoai:permission-answer", onAnswer);
+      window.removeEventListener("echoai:permission-retrieve", onRetrieve);
+    };
+  }, [active, drain]);
+
   // Load settings once when the provider becomes active.
   useEffect(() => {
     if (!active) return;
@@ -1016,6 +1174,7 @@ export function VoiceProvider({ active, children }) {
     briefingTriedRef.current = false;
     weeklyTriedRef.current = false;
     userInitiatedRef.current = false;
+    alertPermissionRef.current = "idle";
     setUserInitiated(false);
     setNeedsGesture(false);
   }, [active, stopAll]);
@@ -1068,6 +1227,7 @@ export function VoiceProvider({ active, children }) {
       enqueue,
       markUserInitiated,
       registerConversationBusyProbe,
+      registerVoiceInputCapableProbe,
     }),
     [
       active,
@@ -1094,6 +1254,7 @@ export function VoiceProvider({ active, children }) {
       enqueue,
       markUserInitiated,
       registerConversationBusyProbe,
+      registerVoiceInputCapableProbe,
     ],
   );
 
