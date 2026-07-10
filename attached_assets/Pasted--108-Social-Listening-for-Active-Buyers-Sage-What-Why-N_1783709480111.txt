@@ -1,0 +1,40 @@
+#108 - Social Listening for Active Buyers (Sage)
+What & Why
+No capability currently exists to monitor social platforms for people actively signaling buying intent (e.g., "looking for a house shell kit near Ocala," "need extra storage space," posting in local buy/sell/rec groups). James wants Sage (Industry Intelligence Agent) to scan Facebook/Instagram, Twitter/X, and Reddit for these signals per brand, surface them as alerts, and automatically add qualified signals to the CRM as leads for Pulse to work.
+Done looks like
+
+Sage continuously (or on a scheduled interval) scans Facebook/Instagram, Twitter/X, and Reddit for posts/comments indicating active buying intent relevant to each brand's business (e.g., Blacor Homes: people discussing home shells, land + build, downsizing, moving to Florida; South Dixie Storage: people discussing storage needs, decluttering, moving).
+Each brand has its own search criteria/keywords — scoped per brand, not shared across businesses (ties into brand-isolation requirement).
+When a qualifying signal is found, two things happen automatically:
+
+Alert — business owner is notified (dashboard notification + ties into existing notification badge system from #103) with the post content, platform, and link/context.
+CRM entry — the lead is automatically added to Pulse's CRM with source ("Social Listening"), platform, and the original post content/context attached, so it's immediately workable.
+
+
+Sage can distinguish genuine buying-intent signals from noise (e.g., "I hate storage units" vs. "looking for a storage unit near me") — some baseline relevance/intent filtering, not just raw keyword matching.
+Duplicate detection — the same post/person isn't alerted or added to CRM multiple times.
+Setup includes a way for the business owner to define/adjust what counts as a buying signal for their brand (keywords, phrases, or a description Sage uses to judge intent).
+
+Out of scope
+
+Automatically messaging or engaging the person who posted (no auto-DM/auto-reply to strangers on social platforms) — this ticket surfaces leads for the human/CRM to act on, it does not initiate contact.
+Platforms beyond Facebook/Instagram, Twitter/X, and Reddit for v1.
+Paid social listening API integrations requiring separate contracts/approval — use available/free-tier APIs or existing connections where possible; flag if a paid data source is required before building against it.
+
+Steps
+
+Define per-brand buying-signal criteria — build a way for the business owner to input relevant keywords/phrases/description (or provide sensible defaults per business type).
+Build Sage's scanning logic for Facebook/Instagram, Twitter/X, and Reddit — using available public APIs (Reddit API, X API, Meta's public content where accessible) within their terms of service.
+Build intent-relevance filtering so Sage distinguishes real buying signals from unrelated mentions (not pure keyword matching).
+Build duplicate detection so the same signal isn't alerted/added twice.
+Wire matched signals into the existing notification system (ties to #103 badges) to alert the business owner.
+Wire matched signals into Pulse's CRM as a new lead, tagged with source, platform, and original post context.
+Verify strict brand isolation — one brand's social listening criteria/results never surface under another brand.
+Flag clearly if any data source requires a paid tier/contract before implementation, rather than building against an assumption.
+
+Relevant files
+
+replit.md
+Sage component/controller (new: social listening)
+Notification system (from #103)
+Pulse CRM lead-intake logic
