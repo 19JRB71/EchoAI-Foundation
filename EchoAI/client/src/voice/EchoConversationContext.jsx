@@ -1867,7 +1867,14 @@ export function EchoConversationProvider({ active, children }) {
     const onStandby = () => {
       morningStandbyRef.current = true;
       if (!supported || !enabledRef.current || mutedRef.current) return;
-      openFollowupWindow(true);
+      // A BRIEF follow-up window (NOT indefinite): a bare "ready" / "run it"
+      // works for ~30s, then it soft-closes back to PASSIVE wake-word listening
+      // so "Hey Echo" reliably wakes Echo again. An indefinite window would keep
+      // the engine in active-capture mode forever after the greeting, so the
+      // passive wake-word branch never runs and "Hey Echo" stops responding.
+      // morningStandbyRef stays armed, so "Hey Echo, start my briefing" still
+      // delivers the briefing any time after the window closes.
+      openFollowupWindow(false);
     };
     window.addEventListener("echo:briefing-standby", onStandby);
     return () => window.removeEventListener("echo:briefing-standby", onStandby);

@@ -1,0 +1,28 @@
+What & Why
+On login, Echo correctly delivers its time-aware greeting. However, after that initial interaction, saying "Hey Echo" (repeated multiple times) gets no response — the wake word isn't being detected/acted on. This ties into the previously flagged "inconsistent Hey Echo wake word response" issue, but this report isolates it further: the greeting flow works, so voice output isn't broken; the ongoing wake-word listener specifically stops responding after the first interaction completes.
+Done looks like
+
+After the initial login greeting finishes, saying "Hey Echo" reliably wakes Echo and it responds — tested with multiple repeated attempts, not just once.
+Wake word detection continues working for the full session, not just immediately after page load.
+If wake word detection silently fails (mic permission issue, listener not re-arming after a response, browser tab losing focus, etc.), the UI shows a clear listening/not-listening state so the user isn't left wondering if it's broken or just not currently active.
+No regression to the working login-greeting behavior.
+
+Out of scope
+
+Any change to greeting content/timing — that part already works correctly.
+Broader voice system overhaul — this is specifically about wake-word re-arming after the first interaction.
+
+Steps
+
+Reproduce: log in, let the greeting play, then say "Hey Echo" multiple times and confirm no response.
+Check whether the wake-word listener is re-arming/restarting after the greeting's speech output completes (a common bug pattern: listener doesn't resume after the mic is used for TTS playback).
+Check mic/session state — confirm the browser still has an active listening session and hasn't silently dropped it.
+Fix listener re-arming so it reliably returns to a "listening for wake word" state after any Echo speech output or interaction.
+Add/confirm a visible listening-state indicator in the UI so this failure mode is visible next time, not silent.
+Test repeated wake/response cycles across a longer session (not just the first two interactions) to confirm it doesn't degrade over time.
+
+Relevant files
+
+replit.md
+Voice/wake-word listener component
+Echo greeting/TTS playback logic (likely interaction point where listener isn't resuming)

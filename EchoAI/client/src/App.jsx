@@ -1489,6 +1489,7 @@ function EchoConversationOverlay() {
     convState,
     isConversing,
     handsFreeOn,
+    toggleMic,
   } = conv;
 
   // Persistent listening chip — ALWAYS visible so the owner never has to guess
@@ -1512,6 +1513,18 @@ function EchoConversationOverlay() {
 
   const showListenChip = !(isConversing && stateLabel);
   const chipLive = !silenced && micLive;
+  // Be specific about WHY Echo isn't listening so the owner knows whether it's
+  // simply off vs. a real problem — and can fix it in a single tap.
+  const notListeningLabel = !supported
+    ? "Voice not available here"
+    : micState === "denied"
+      ? "Mic blocked — tap to fix"
+      : micState === "muted"
+        ? "Muted — tap to unmute"
+        : "Tap to turn on “Hey Echo”"; // micState === "off"
+  // Off / muted / denied are one-tap fixable (opens the enable prompt or
+  // unmutes); "unsupported" is not, so it stays a plain label.
+  const chipActionable = silenced && supported;
 
   return (
     <>
@@ -1557,47 +1570,63 @@ function EchoConversationOverlay() {
         </div>
       ) : null}
 
-      {showListenChip ? (
-        <div
-          className={`fixed bottom-40 right-6 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-lg ${
-            chipLive
-              ? "border-green-500/25 bg-gray-950/90 shadow-green-500/10"
-              : silenced
-                ? "border-gray-700 bg-gray-950/90"
-                : "border-amber-500/30 bg-gray-950/90 shadow-amber-500/10"
-          }`}
-        >
-          <span className="relative flex h-2 w-2">
-            {chipLive ? (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400/60" />
-            ) : null}
-            <span
-              className={`relative inline-flex h-2 w-2 rounded-full ${
-                chipLive
-                  ? "bg-green-400"
-                  : silenced
-                    ? "bg-gray-500"
-                    : "bg-amber-400"
-              }`}
-            />
-          </span>
-          <span
-            className={`text-[11px] font-medium ${
+      {showListenChip
+        ? (() => {
+            const chipClass = `fixed bottom-40 right-6 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 text-left shadow-lg transition ${
               chipLive
-                ? "text-green-300"
+                ? "border-green-500/25 bg-gray-950/90 shadow-green-500/10"
                 : silenced
-                  ? "text-gray-400"
-                  : "text-amber-300"
-            }`}
-          >
-            {chipLive
-              ? "Listening — say “Hey Echo”"
-              : silenced
-                ? "Not listening"
-                : "Mic reconnecting…"}
-          </span>
-        </div>
-      ) : null}
+                  ? "border-gray-700 bg-gray-950/90"
+                  : "border-amber-500/30 bg-gray-950/90 shadow-amber-500/10"
+            }${chipActionable ? " cursor-pointer hover:border-green-400/50" : ""}`;
+            const inner = (
+              <>
+                <span className="relative flex h-2 w-2">
+                  {chipLive ? (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400/60" />
+                  ) : null}
+                  <span
+                    className={`relative inline-flex h-2 w-2 rounded-full ${
+                      chipLive
+                        ? "bg-green-400"
+                        : silenced
+                          ? "bg-gray-500"
+                          : "bg-amber-400"
+                    }`}
+                  />
+                </span>
+                <span
+                  className={`text-[11px] font-medium ${
+                    chipLive
+                      ? "text-green-300"
+                      : silenced
+                        ? "text-gray-400"
+                        : "text-amber-300"
+                  }`}
+                >
+                  {chipLive
+                    ? "Listening — say “Hey Echo”"
+                    : silenced
+                      ? notListeningLabel
+                      : "Mic reconnecting…"}
+                </span>
+              </>
+            );
+            return chipActionable ? (
+              <button
+                type="button"
+                onClick={toggleMic}
+                title={notListeningLabel}
+                aria-label={notListeningLabel}
+                className={chipClass}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div className={chipClass}>{inner}</div>
+            );
+          })()
+        : null}
 
       {isConversing && stateLabel ? (
         <div className="fixed bottom-40 right-6 z-40 flex items-center gap-3 rounded-full border border-green-500/30 bg-gray-950/95 px-4 py-2 shadow-lg shadow-green-500/10">
