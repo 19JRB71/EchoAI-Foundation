@@ -465,6 +465,12 @@ export const api = {
       body: { muted },
     }),
 
+  // Two-Way Autonomous Conversation — live hot-lead handoff to/from the owner.
+  transferAutonomousConversation: (id) =>
+    request(`/api/autonomous/${id}/transfer`, { method: "POST" }),
+  resumeAutonomousConversation: (id) =>
+    request(`/api/autonomous/${id}/resume`, { method: "POST" }),
+
   // Echo memory (persistent recall) + Autonomous Growth Mode.
   getEchoMemory: () => request("/api/echo/memory"),
   recallEchoMemory: (query) =>

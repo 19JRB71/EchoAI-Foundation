@@ -26,6 +26,7 @@ const {
   generateSmsAutoReply,
   VALID_TEMPERATURES,
 } = require("../prompts/smsMarketingPrompt");
+const autonomousEngine = require("./autonomousConversationController");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
@@ -907,17 +908,34 @@ async function handleInbound(req, res) {
       return emptyTwiml(res);
     }
 
-    // Generate the AI auto-reply (+ temperature). On AI failure, ack silently.
-    let reply;
-    let temperature;
+    // Hand the reply to the Two-Way Autonomous Conversation engine: Hermes reads
+    // the lead's message, Claude writes the response in the brand voice, the CRM
+    // history + live temperature are updated, terminal conditions (stop / booked
+    // / converted) close the thread, and a STRONG buying signal alerts the owner
+    // (voice + SMS) with a transfer offer. When the owner has taken over
+    // (transferred), Echo stays silent.
+    let result;
     try {
-      const out = await generateSmsAutoReply(brand, body, history);
-      reply = out.reply;
-      temperature = out.temperature;
+      result = await autonomousEngine.handleInboundReply({
+        brand,
+        ownerUserId: cfg.owner_user_id,
+        lead,
+        channel: "sms",
+        inboundText: body,
+        history,
+      });
     } catch (err) {
-      console.error("SMS auto-reply generation failed:", err.message);
+      console.error("Autonomous SMS handling failed:", err.message);
       return emptyTwiml(res);
     }
+
+    // Owner is handling it, the lead asked to stop, or the AI turn was skipped
+    // (upstream failure) — acknowledge silently without sending a reply.
+    if (result.transferred || !result.reply) {
+      return emptyTwiml(res);
+    }
+    const reply = result.reply;
+    const newTemp = result.temperature || prevTemp;
 
     // Record the outbound reply (sent via the TwiML <Message> below).
     await db.query(
@@ -926,20 +944,9 @@ async function handleInbound(req, res) {
       [cfg.brand_id, lead.lead_id, reply],
     );
 
-    // Thread the conversation onto the lead + update temperature.
-    const newHistory = [
-      ...history,
-      { role: "user", content: body, at: new Date().toISOString() },
-      { role: "assistant", content: reply, at: new Date().toISOString() },
-    ];
-    const newTemp = VALID_TEMPERATURES.includes(temperature) ? temperature : prevTemp;
-    await db.query(
-      `UPDATE leads SET conversation_history = $1, temperature = $2, updated_at = NOW()
-       WHERE lead_id = $3`,
-      [JSON.stringify(newHistory), newTemp, lead.lead_id],
-    );
-
-    // Hot-lead alert only on a genuine non-hot -> hot transition.
+    // Hot-lead alert (email/push) only on a genuine non-hot -> hot transition.
+    // (The engine separately fires the voice + SMS transfer offer on a strong
+    // buying signal — these are complementary, not duplicates.)
     if (newTemp === "hot" && prevTemp !== "hot") {
       await fireHotLeadAlert(
         owner,

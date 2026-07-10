@@ -37,6 +37,7 @@ const EVENT_TYPES = [
   "task_alert",
   "task_checkin",
   "email_alert",
+  "autonomous_hot_lead",
 ];
 
 // Defaults applied when a user has no stored voice_settings (or is missing keys).
@@ -61,6 +62,7 @@ const DEFAULT_SETTINGS = {
     task_alert: true,
     task_checkin: true,
     email_alert: true,
+    autonomous_hot_lead: true,
   },
 };
 

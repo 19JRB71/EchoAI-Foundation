@@ -752,3 +752,69 @@ sends anything without explicit owner approval**.
   dedup, honest AI-failure degradation, sweep isolation + auth-vs-transient
   status flips, lead dedup + demo-brand exclusion, atomic approval-gated
   send/discard, honest SMTP failure, briefing counts.
+
+### Two-Way Autonomous Conversations subsystem (`/api/autonomous`)
+
+All tiers: when a lead **replies** to any outbound message (SMS/email/chatbot),
+Echo reads the reply and answers autonomously — in the brand's voice — until the
+lead books, converts, says stop/not-interested, or falls silent for 48h. Every
+exchange is logged in the CRM and the lead's live temperature is tracked. A
+strong buying signal alerts the owner by voice **and** SMS; the owner can say
+"transfer it" for a seamless handoff.
+
+- **Two brains.** `utils/autonomousConversationBrain.js` (Hermes 4 via
+  `config/hermes`) decides *conversation intelligence* — intent, state
+  (continue|stop|booked|converted), buyingSignal, temperature
+  (tire_kicker|warm|hot), and a one-line directive. `parseDecision` is a pure,
+  fenced-JSON-tolerant parser that coerces unknown enums to safe defaults
+  (state→'continue', temperature→null) and defaults `buyingSignal` false unless
+  strictly `true`. `analyzeReply` NEVER throws — Hermes unavailable/unconfigured
+  returns null and the engine falls back to a safe default (Echo still replies).
+  `prompts/autonomousReplyPrompt.js` then has **Claude** write the actual reply
+  in brand voice; `directiveForPrompt` injects Hermes's directive into that
+  prompt. AI failure at reply-generation maps to 502 (`err.aiInvalid`).
+- **Engine.** `controllers/autonomousConversationController.js`
+  `handleInboundReply({ brand, channel, leadId, inbound, ... })` →
+  `{ reply, temperature, state, closed, closeReason, transferred }`.
+  `getOrCreateConversation` is concurrency-safe: a partial unique index on the
+  open statuses (`active`, `awaiting_owner`) + `ON CONFLICT DO NOTHING` +
+  read-back means two simultaneous inbound replies can't fork the thread.
+  `closeReasonForState` maps a terminal state (or a `bookedHint`, which is
+  authoritative) to booked|converted|stopped, else null (keep going). A
+  transferred/awaiting-owner conversation short-circuits — Echo stays silent.
+- **Owner escalation.** On `buyingSignal` (once per conversation, stamped
+  atomically on `owner_alerted_at` first), `escalateToOwner` fires
+  `transferOfferText` — "Sir, I'm having a live conversation with a hot lead
+  right now[ for <brand>]. Want me to transfer them to you, or keep handling
+  it?" — as an `autonomous_hot_lead` voice event (via `enqueueOwnerVoiceEvent`,
+  registered in `config/echoVoice.js` EVENT_TYPES + client
+  `lib/voiceSettings.js` EVENT_META) **and** SMS. dedupKey `autoconv-hot-<id>`.
+- **Handoff.** `POST /:id/transfer` (`requestTransfer`) flips the conversation
+  to owner control (Echo goes quiet); `POST /:id/resume` (`resumeConversation`)
+  hands it back. Both are owner/brand-scoped (admin bypasses). Client voice
+  path: the escalation voice event carries `payload.conversationId`; when Echo
+  finishes speaking it, `VoiceContext` dispatches `echoai:autonomous-offer`,
+  `EchoConversationContext` arms `pendingTransferOfferRef` + opens an active
+  listening window, and `matchTransferIntent` (in `conversationHelpers.js`)
+  reads the spoken answer — "transfer it"/"take it over" → `transfer` (calls
+  `api.transferAutonomousConversation`), "keep handling it"/silence → continue.
+  The pending offer is cleared at every conversation reset site.
+- **Channel wiring.** SMS (`smsMarketingController.handleInbound`), chatbot
+  (`websiteChatbotController` — passes prior history + booked hint), and email
+  (`emailMonitor.captureLeadFromEmail`, gated on an existing contact with an
+  email; replies via `utils/email.js sendEmail` from the account address) each
+  route an inbound reply through the engine and use `result.reply` /
+  `result.transferred`. The underlying channels keep their own tier gates.
+- **48h timeout.** `runAutonomousTimeoutSweep` (scheduler) closes conversations
+  with no lead reply for 48h (close_reason `timeout`), guarded per-row.
+- **Persistence.** `models/086_autonomous_conversations.sql`:
+  `autonomous_conversations` (brand_id, lead_id, channel, status
+  active|awaiting_owner|closed, temperature, owner_alerted_at, close_reason,
+  last_inbound_at, partial unique index on open statuses) + a per-exchange
+  message log.
+- **Tests.** `test/autonomousConversation.test.js` (network-free): Hermes
+  `parseDecision` (fenced JSON, enum coercion, buyingSignal strictness, null on
+  garbage), `directiveForPrompt`, `transferOfferText` exact wording,
+  `closeReasonForState` terminal mapping + booked-hint authority.
+  `client/src/voice/conversationHelpers.test.js`: `matchTransferIntent`
+  transfer/continue/yes-no-lean/null cases.

@@ -507,6 +507,35 @@ export function matchYesNo(text) {
 }
 
 // ---------------------------------------------------------------------------
+// Live hot-lead handoff ("transfer it" / "keep handling it")
+// ---------------------------------------------------------------------------
+// When Echo is running a live autonomous conversation and hits a strong buying
+// signal, he asks the owner: "Want me to transfer them to you, or keep handling
+// it?". These phrases interpret the spoken answer. "transfer" hands the lead to
+// the owner; "continue" leaves Echo running it. matchYesNo can't map "transfer
+// it" → yes, so a dedicated matcher is needed. A bare "yes" leans to transfer
+// (the primary call to action) and a bare "no" to continue.
+const TRANSFER_RE =
+  /\b(transfer(?: it| them| the (?:call|lead|conversation))?|take (?:it |them |the (?:call|lead|conversation) )?over|take over|hand (?:it |them )?(?:to me|over)|i (?:will|ll) take (?:it|them|over)|put (?:them|it) through|connect me)\b/;
+const KEEP_HANDLING_RE =
+  /\b(keep handling|keep (?:it |them )?(?:going|handling)|keep going|you handle|you (?:got|ve got) (?:it|this)|handle it|carry on|leave it (?:to|with) you|stay on it|keep at it)\b/;
+
+/**
+ * Interpret a spoken answer to the live hot-lead handoff offer.
+ * @returns {"transfer"|"continue"|null}
+ */
+export function matchTransferIntent(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return null;
+  if (TRANSFER_RE.test(norm)) return "transfer";
+  if (KEEP_HANDLING_RE.test(norm)) return "continue";
+  const yn = matchYesNo(norm);
+  if (yn === "yes") return "transfer";
+  if (yn === "no") return "continue";
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Interrupt commands ("Stop", "Cancel", "Never mind", "Wait", "That's enough")
 // ---------------------------------------------------------------------------
 // These must work even WHILE Echo is speaking, so they are matched against raw

@@ -14,6 +14,8 @@ const db = require("../config/db");
 const { createMessage, MODEL } = require("../config/anthropic");
 const emailAccounts = require("./emailAccounts");
 const { enqueueOwnerVoiceEvent } = require("./echoVoiceNotifications");
+const { sendEmail } = require("./email");
+const autonomousEngine = require("../controllers/autonomousConversationController");
 
 const CATEGORIES = ["urgent", "important", "contract", "lead", "invoice", "payment", "general"];
 const MAX_NEW_PER_SWEEP = 25; // per account per sweep — briefings stay sane
@@ -341,6 +343,7 @@ async function captureLeadFromEmail(account, messageId, m, triage) {
     [brandId, contact.email || "", contact.phone || ""],
   );
   let leadId;
+  const existedBefore = Boolean(existing[0]);
   if (existing[0]) {
     leadId = existing[0].lead_id;
   } else {
@@ -364,6 +367,89 @@ async function captureLeadFromEmail(account, messageId, m, triage) {
     leadId = created[0].lead_id;
   }
   await db.query(`UPDATE email_messages SET lead_id = $2 WHERE message_id = $1`, [messageId, leadId]);
+
+  // Two-Way Autonomous Conversation (email channel): if this is a reply from a
+  // lead we already know (i.e. someone we've reached out to before — a reply to
+  // our outbound), let Echo carry the conversation autonomously. Brand-new cold
+  // inquiries are left for the owner's normal inbox flow. Best-effort — never
+  // breaks the sweep.
+  if (existedBefore && contact.email) {
+    try {
+      await maybeAutonomousEmailReply({
+        account,
+        brandId,
+        leadId,
+        replyToAddress: contact.email,
+        subject: m.subject,
+        inboundText: m.snippet || m.subject || "",
+      });
+    } catch (err) {
+      console.error("Autonomous email reply failed:", err.message);
+    }
+  }
+}
+
+/** Renders a plain-text reply body as simple HTML paragraphs (no markdown). */
+function replyBodyToHtml(text) {
+  const escape = (s) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  return String(text)
+    .split(/\n{2,}/)
+    .map((p) => `<p>${escape(p).replace(/\n/g, "<br>")}</p>`)
+    .join("\n");
+}
+
+/**
+ * Generate + send one autonomous email reply for a lead, and log it in the CRM
+ * via the shared engine. Only sends when the engine produces a reply and the
+ * conversation hasn't been transferred to the owner.
+ */
+async function maybeAutonomousEmailReply({
+  account,
+  brandId,
+  leadId,
+  replyToAddress,
+  subject,
+  inboundText,
+}) {
+  const { rows: brandRows } = await db.query(
+    `SELECT brand_id, brand_name, brand_personality, voice_description, target_audience
+     FROM brands WHERE brand_id = $1`,
+    [brandId],
+  );
+  const brand = brandRows[0];
+  if (!brand) return;
+
+  const { rows: leadRows } = await db.query(
+    `SELECT lead_id, conversation_history, temperature FROM leads WHERE lead_id = $1`,
+    [leadId],
+  );
+  const lead = leadRows[0];
+  if (!lead) return;
+
+  const result = await autonomousEngine.handleInboundReply({
+    brand,
+    ownerUserId: account.user_id,
+    lead,
+    channel: "email",
+    inboundText,
+    history: Array.isArray(lead.conversation_history) ? lead.conversation_history : [],
+  });
+
+  if (result.transferred || !result.reply) return;
+
+  const replySubject = /^re:/i.test(subject || "")
+    ? subject
+    : `Re: ${subject || "your message"}`;
+  await sendEmail({
+    to: replyToAddress,
+    subject: replySubject,
+    html: replyBodyToHtml(result.reply),
+    from: account.email_address || undefined,
+  });
 }
 
 // ---------------------------------------------------------------------------

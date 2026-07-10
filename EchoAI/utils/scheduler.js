@@ -411,6 +411,18 @@ function startScheduler() {
     });
   });
 
+  // Every 15 minutes: close any autonomous lead conversation whose lead has
+  // gone 48h without replying (a terminal condition of the Two-Way Autonomous
+  // Conversation system). Atomic + status-guarded so it never double-acts.
+  cron.schedule("*/15 * * * *", () => {
+    const {
+      runAutonomousTimeoutSweep,
+    } = require("../controllers/autonomousConversationController");
+    runAutonomousTimeoutSweep().catch((err) => {
+      console.error("Scheduled autonomous timeout sweep errored:", err.message);
+    });
+  });
+
   // Every 15 minutes: Echo Email Assistant inbox sweep — fetch new mail on
   // every connected account, AI-triage it, alert on urgent/contract/payment,
   // capture leads into the CRM. Per-account guards keep one bad mailbox from

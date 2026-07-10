@@ -40,6 +40,7 @@ import {
   navOfferQuestion,
   navLabel,
   matchYesNo,
+  matchTransferIntent,
   BRIEF_SECTIONS,
   matchMusicIntent,
   matchInterruptIntent,
@@ -187,6 +188,7 @@ export function EchoConversationProvider({ active, children }) {
   const morningStandbyRef = useRef(false); // greeted; briefing awaits go-ahead
   const pendingBrandOfferRef = useRef(null); // other-business briefing offer: { queue: [brands] }
   const pendingBrandPickRef = useRef(false); // "which business?" question pending
+  const pendingTransferOfferRef = useRef(null); // live hot-lead handoff offer: { conversationId }
   const learnedMapRef = useRef(new Map()); // normalized phrase -> learned action
   const misheardRef = useRef(null); // { text, at } awaiting a clarified repeat
   const clarifyRetryRef = useRef(false); // asked "say that again?" once already
@@ -602,6 +604,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
         pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(interruptAck());
@@ -617,6 +620,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
         pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(goQuietLine());
@@ -637,6 +641,55 @@ export function EchoConversationProvider({ active, children }) {
         suspendRef.current = false;
         setConvState("active");
         return;
+      }
+
+      // A live hot-lead handoff offer is pending — Echo asked "Want me to
+      // transfer them to you, or keep handling it?" during a live autonomous
+      // conversation. "Transfer it" hands the lead to the owner; "keep handling
+      // it" leaves Echo running it. A clear new command always wins.
+      if (pendingTransferOfferRef.current) {
+        const offer = pendingTransferOfferRef.current;
+        pendingTransferOfferRef.current = null;
+        const answer =
+          matchNavIntent(text) || matchMusicIntent(text)
+            ? null
+            : matchTransferIntent(text);
+        if (answer === "transfer") {
+          maybeLearn("yes", text);
+          suspendRef.current = true;
+          setConvState("processing");
+          try {
+            await api.transferAutonomousConversation(offer.conversationId);
+            if (stale()) return;
+            setConvState("speaking");
+            await speakAndWait(
+              "Done, Sir — you're in control of that conversation now. I'll stay out of it until you hand it back to me.",
+            );
+          } catch {
+            if (stale()) return;
+            setConvState("speaking");
+            await speakAndWait(
+              "I couldn't complete the transfer just now, Sir. You can take it over from the dashboard.",
+            );
+          }
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        if (answer === "continue") {
+          maybeLearn("no", text);
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            "Understood, Sir. I'll keep handling it and let you know the moment anything changes.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        // Neither → fall through and treat it as a brand-new command.
       }
 
       // A "want to hear another business?" offer is pending after a per-brand
@@ -676,6 +729,7 @@ export function EchoConversationProvider({ active, children }) {
       // bare business name first; anything else falls through as a command.
       if (pendingBrandPickRef.current) {
         pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
         const ctx = activeBrandCtx();
         const picked = matchBrandSwitch(`switch to ${text}`, ctx.brands);
         if (picked && picked.brand) {
@@ -838,6 +892,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
         pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
         suspendRef.current = true;
         setConvState("processing");
         playEffect("thinking", { volume: 0.35 });
@@ -913,6 +968,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
         pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
         suspendRef.current = true;
         setConvState("processing");
         playEffect("thinking", { volume: 0.35 });
@@ -1217,6 +1273,7 @@ export function EchoConversationProvider({ active, children }) {
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
         pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
         misheardRef.current = null;
         clarifyRetryRef.current = false;
         modeRef.current = "passive";
@@ -1283,6 +1340,7 @@ export function EchoConversationProvider({ active, children }) {
           pendingBriefingChoiceRef.current = false;
           pendingBrandOfferRef.current = null;
           pendingBrandPickRef.current = false;
+          pendingTransferOfferRef.current = null;
           finalRef.current = "";
           clearTimers();
           // Cut the audio NOW (clears the queue and unwinds the drain loop).
@@ -1528,6 +1586,7 @@ export function EchoConversationProvider({ active, children }) {
           pendingBriefingChoiceRef.current = false;
           pendingBrandOfferRef.current = null;
           pendingBrandPickRef.current = false;
+          pendingTransferOfferRef.current = null;
           finalRef.current = "";
           modeRef.current = "passive";
           suspendRef.current = false;
@@ -1569,6 +1628,7 @@ export function EchoConversationProvider({ active, children }) {
     pendingBriefingChoiceRef.current = false;
     pendingBrandOfferRef.current = null;
     pendingBrandPickRef.current = false;
+    pendingTransferOfferRef.current = null;
     misheardRef.current = null;
     clarifyRetryRef.current = false;
     modeRef.current = "passive";
@@ -1675,6 +1735,24 @@ export function EchoConversationProvider({ active, children }) {
     return () => window.removeEventListener("echo:briefing-standby", onStandby);
   }, [active, supported, openFollowupWindow]);
 
+  // LIVE HOT-LEAD HANDOFF: VoiceContext dispatches this the instant Echo
+  // finishes speaking a "transfer or keep handling?" alert for a live
+  // autonomous conversation. Arm the pending offer and open an active listening
+  // window so a spoken "transfer it" completes a seamless handoff. If the owner
+  // stays silent, the follow-up window closes and Echo keeps handling the lead.
+  useEffect(() => {
+    if (!active || !supported) return;
+    const onOffer = (e) => {
+      const conversationId = e && e.detail && e.detail.conversationId;
+      if (!conversationId) return;
+      pendingTransferOfferRef.current = { conversationId };
+      openFollowupWindow(true);
+    };
+    window.addEventListener("echoai:autonomous-offer", onOffer);
+    return () =>
+      window.removeEventListener("echoai:autonomous-offer", onOffer);
+  }, [active, supported, openFollowupWindow]);
+
   // LOGOUT KILL SWITCH: stop the mic, all timers, and any sound effect the
   // instant the app broadcasts a logout, so nothing from the conversation
   // engine keeps playing (or re-triggers speech) after the owner logs out.
@@ -1687,6 +1765,7 @@ export function EchoConversationProvider({ active, children }) {
       pendingBriefingChoiceRef.current = false;
       pendingBrandOfferRef.current = null;
       pendingBrandPickRef.current = false;
+      pendingTransferOfferRef.current = null;
       morningStandbyRef.current = false;
       finalRef.current = "";
       modeRef.current = "passive";

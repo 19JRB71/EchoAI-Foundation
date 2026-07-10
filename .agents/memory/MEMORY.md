@@ -71,6 +71,7 @@
 - [EchoAI voice-narrated tour](echoai-voice-tour.md) — tour↔voice engine talk via echoai:tour-state/tour-command window events; final-only utterance matching, never auto-advance, tour speaks its own stop/finish cuts.
 - [EchoAI Email Assistant](echoai-email-assistant.md) — approval-gated atomic send claim, public-host SSRF guard on custom IMAP/SMTP, cursor-first sweep, voice event types registered in BOTH server+client lists.
 - [EchoAI conversation-priority queue](echoai-conversation-priority.md) — proactive items (notificationId/unknown types) held via busy probe + splice-first-playable drain; interactive never held.
+- [EchoAI autonomous handoff](echoai-autonomous-handoff.md) — open-conversation lookup must include 'transferred' (else new active thread resurrects a handed-off chat); "alert owner once" must be an atomic CAS on owner_alerted_at, never a stale-read boolean.
 - [EchoAI Hermes decision brain](echoai-hermes-brain.md) — Hermes 4 decides intent/routing/on-topic/brand-lock (Claude writes); decide()→null on any fail, tight ~6s single-attempt budget so it never stalls the voice reply.
 - [EchoAI Sage brand isolation](echoai-sage-brand-isolation.md) — Sage delivery paths must resolve ONE active brand; never ANY(owned brands); brand-scoped alerts held in SQL until brand switch.
 - [EchoAI voice latency streaming](echoai-voice-latency-streaming.md) — streamed sentences must never be re-spoken by the final reply or a fallback replay; acks play only from preloaded blobs (miss = skip, never wait).

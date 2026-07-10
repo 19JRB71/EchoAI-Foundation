@@ -955,6 +955,27 @@ export function VoiceProvider({ active, children }) {
             // Carried so the drain loop can re-validate brand isolation at
             // the moment of speech (the owner may switch brands in between).
             brandId: alertBrand,
+            // Live hot-lead handoff: after Echo speaks the "transfer or keep
+            // handling?" alert, hand the conversationId to the conversation
+            // engine so a spoken "transfer it" completes a seamless handoff.
+            onPlayed:
+              n.type === "autonomous_hot_lead" &&
+              n.payload &&
+              n.payload.conversationId
+                ? () => {
+                    try {
+                      window.dispatchEvent(
+                        new CustomEvent("echoai:autonomous-offer", {
+                          detail: {
+                            conversationId: n.payload.conversationId,
+                          },
+                        }),
+                      );
+                    } catch {
+                      /* noop */
+                    }
+                  }
+                : undefined,
           });
         }
       } catch {

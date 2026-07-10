@@ -11,6 +11,7 @@ const zapierController = require("./zapierController");
 const feedbackController = require("./feedbackController");
 const appointmentController = require("./appointmentController");
 const followUpController = require("./followUpController");
+const autonomousEngine = require("./autonomousConversationController");
 const {
   buildAppointmentSchedulerPrompt,
 } = require("../prompts/appointmentBookingPrompt");
@@ -516,6 +517,36 @@ async function chat(req, res) {
           },
         })
         .catch((err) => console.error("Chatbot booking failed:", err.message));
+    }
+
+    // Two-Way Autonomous Conversation tracking: record this chatbot turn, let
+    // Hermes read it for a STRONG buying signal (→ voice + SMS transfer offer to
+    // the owner) and close the thread on a terminal condition (booked / the lead
+    // converts or opts out). The chatbot already wrote the visitor-facing reply,
+    // so the engine reuses it rather than generating a new one. Requires a real
+    // lead — anonymous visitors can't trigger owner escalation. Best-effort.
+    if (leadId) {
+      const priorHistory = messages.slice(0, -2);
+      autonomousEngine
+        .handleInboundReply({
+          brand: {
+            brand_id: brandId,
+            brand_name: brand.brand_name,
+            brand_personality: brand.brand_personality,
+            voice_description: brand.voice_description,
+            target_audience: brand.target_audience,
+          },
+          ownerUserId: brand.owner_user_id,
+          lead: { lead_id: leadId, conversation_history: priorHistory, temperature },
+          channel: "chatbot",
+          inboundText: message,
+          history: priorHistory,
+          existingReply: reply,
+          bookedHint: Boolean(bookIso),
+        })
+        .catch((err) =>
+          console.error("Autonomous chatbot tracking failed:", err.message),
+        );
     }
 
     // Auto-send a short satisfaction survey once we have a lead with real

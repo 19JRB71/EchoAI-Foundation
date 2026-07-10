@@ -308,6 +308,7 @@ All routes are prefixed with `/api`. Unless noted, protected routes require an
 | Facebook | `/api/facebook` | `POST /oauth/initiate`, `GET /oauth/callback`, `GET /accounts`, `POST /select-account`, `POST /disconnect` |
 | Admin | `/api/admin` | Admin-only user/platform management |
 | Voice | `/api/voice` | STT/TTS |
+| Autonomous conversations | `/api/autonomous` | `GET /`, `GET /:id`, `POST /:id/transfer`, `POST /:id/resume` — Echo's two-way autonomous lead conversations (SMS/email/chatbot); Hermes reads the reply, Claude answers in brand voice, hot leads alert the owner for a voice/dashboard handoff |
 
 ---
 

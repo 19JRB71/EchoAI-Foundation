@@ -10,6 +10,7 @@ import {
   navOfferQuestion,
   navLabel,
   matchYesNo,
+  matchTransferIntent,
   matchBrandSwitch,
   BRIEF_SECTIONS,
 } from "./conversationHelpers.js";
@@ -399,6 +400,50 @@ describe("matchYesNo", () => {
     // ...but explicit yes-phrases with please still count.
     expect(matchYesNo("yes please")).toBe("yes");
     expect(matchYesNo("please do")).toBe("yes");
+  });
+});
+
+describe("matchTransferIntent (live hot-lead handoff)", () => {
+  it("recognizes 'transfer' answers as a handoff", () => {
+    for (const t of [
+      "transfer it",
+      "transfer them to me",
+      "transfer the call",
+      "take it over",
+      "take over",
+      "hand it to me",
+      "put them through",
+      "connect me",
+      "I'll take it",
+    ]) {
+      expect(matchTransferIntent(t)).toBe("transfer");
+    }
+  });
+
+  it("recognizes 'keep handling' answers as continue", () => {
+    for (const t of [
+      "keep handling it",
+      "keep going",
+      "you handle it",
+      "you got it",
+      "handle it",
+      "carry on",
+      "stay on it",
+    ]) {
+      expect(matchTransferIntent(t)).toBe("continue");
+    }
+  });
+
+  it("leans a bare yes to transfer and a bare no to continue", () => {
+    expect(matchTransferIntent("yes")).toBe("transfer");
+    expect(matchTransferIntent("no")).toBe("continue");
+    expect(matchTransferIntent("no thanks")).toBe("continue");
+  });
+
+  it("returns null for unrelated speech so it's treated as a new command", () => {
+    expect(matchTransferIntent("take me to my campaigns")).toBe(null);
+    expect(matchTransferIntent("what's my ad spend")).toBe(null);
+    expect(matchTransferIntent("")).toBe(null);
   });
 });
 
