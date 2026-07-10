@@ -46,6 +46,7 @@ const customerIntelligenceRoutes = require("./routes/customerIntelligenceRoutes"
 const portfolioRoutes = require("./routes/portfolioRoutes");
 const capitalFundingRoutes = require("./routes/capitalFundingRoutes");
 const competitorAdSpyRoutes = require("./routes/competitorAdSpyRoutes");
+const competitorSiteRoutes = require("./routes/competitorSiteRoutes");
 const reputationRoutes = require("./routes/reputationRoutes");
 const phoneRoutes = require("./routes/phoneRoutes");
 const websiteChatbotRoutes = require("./routes/websiteChatbotRoutes");
@@ -253,6 +254,7 @@ app.use("/api/intelligence", customerIntelligenceRoutes);
 app.use("/api/portfolio", portfolioRoutes);
 app.use("/api/capital", capitalFundingRoutes);
 app.use("/api/competitor-ads", competitorAdSpyRoutes);
+app.use("/api/competitor-sites", competitorSiteRoutes);
 app.use("/api/reputation", reputationRoutes);
 app.use("/api/phone", phoneRoutes);
 app.use("/api/chatbot", websiteChatbotRoutes);

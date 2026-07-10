@@ -39,6 +39,7 @@ const EVENT_TYPES = [
   "email_alert",
   "autonomous_hot_lead",
   "competitor_ad_threat",
+  "competitor_site_change",
 ];
 
 // Defaults applied when a user has no stored voice_settings (or is missing keys).
@@ -65,6 +66,7 @@ const DEFAULT_SETTINGS = {
     email_alert: true,
     autonomous_hot_lead: true,
     competitor_ad_threat: true,
+    competitor_site_change: true,
   },
 };
 

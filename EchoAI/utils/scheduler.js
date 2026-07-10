@@ -36,6 +36,9 @@ const {
   runCompetitorAdScanForBrand,
   runWeeklyCompetitorAdReportForBrand,
 } = require("../controllers/competitorAdSpyController");
+const {
+  runSiteMonitorForBrand,
+} = require("../controllers/competitorSiteController");
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
 const { runApiQuotaSweep } = require("./apiQuotaMonitor");
 const { runDailyGoalTracking } = require("./goalAlerts");
@@ -283,6 +286,33 @@ async function runCompetitorAdScan() {
     }
   }
   console.log(`Competitor ad scan complete: ${ok}/${rows.length} brands scanned.`);
+}
+
+/**
+ * Scout's Competitor Website Analysis sweep. Runs daily for every real (non-demo)
+ * brand that tracks at least one competitor website: re-reads each due URL,
+ * records only MEANINGFUL changes and pages the owner. The controller enforces
+ * the Enterprise tier per brand (admin bypasses) and claims each site atomically
+ * so overlapping ticks can't double-run. Per-brand failures are logged, never
+ * stopping the sweep.
+ */
+async function runCompetitorSiteMonitor() {
+  const { rows } = await db.query(
+    `SELECT DISTINCT b.*
+       FROM brands b
+       JOIN competitor_websites w ON w.brand_id = b.brand_id
+      WHERE b.is_demo = false`
+  );
+  let ok = 0;
+  for (const brand of rows) {
+    try {
+      await runSiteMonitorForBrand(brand);
+      ok += 1;
+    } catch (err) {
+      console.error(`Competitor site monitor failed for brand ${brand.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Competitor site monitor complete: ${ok}/${rows.length} brands checked.`);
 }
 
 /**
@@ -580,6 +610,15 @@ function startScheduler() {
     });
   });
 
+  // 04:00 daily: Scout re-reads every tracked competitor website and alerts the
+  // owner to meaningful changes (new price/offer/messaging/redesign). Enterprise
+  // gate + atomic per-site claim are enforced inside the controller.
+  cron.schedule("0 4 * * *", () => {
+    runCompetitorSiteMonitor().catch((err) => {
+      console.error("Scheduled competitor site monitor errored:", err.message);
+    });
+  });
+
   // Every 6 hours at :30 (offset from the competitor scan): re-verify every
   // stored social connection so an expired/revoked login is flagged ('error')
   // on the calendar views BEFORE the next scheduled post fails.
@@ -653,6 +692,7 @@ function startScheduler() {
       "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
       "goal tracking: daily 05:45; beta program sweep: daily 09:30; " +
       "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours; " +
+      "competitor website monitor: daily 04:00; " +
       "social connection re-verify: every 6 hours at :30; " +
       "Sage deep research: every 6 hours at :15; Sage urgent scan: every 30 minutes; " +
       "real-estate: listing ads hourly at :20, seller-lead ads + open houses daily 07:30, " +

@@ -25,6 +25,7 @@ import RoiDashboard from "./sections/RoiDashboard.jsx";
 import CustomerIntelligence from "./sections/CustomerIntelligence.jsx";
 import CapitalFunding from "./sections/CapitalFunding.jsx";
 import CompetitorAds from "./sections/CompetitorAds.jsx";
+import CompetitorSites from "./sections/CompetitorSites.jsx";
 import Sage from "./sections/Sage.jsx";
 import Portfolio from "./sections/Portfolio.jsx";
 import Reputation from "./sections/Reputation.jsx";
@@ -1122,6 +1123,11 @@ export default function App() {
                 gate(
                   "competitorads",
                   <CompetitorAds brandId={selectedBrandId} />,
+                )}
+              {section === "competitorsites" &&
+                gate(
+                  "competitorsites",
+                  <CompetitorSites brandId={selectedBrandId} />,
                 )}
               {section === "sage" && (
                 <Sage

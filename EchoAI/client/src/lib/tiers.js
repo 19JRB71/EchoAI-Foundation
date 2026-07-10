@@ -45,6 +45,7 @@ export const SECTION_GATES = {
   intelligence: "enterprise",
   capitalfunding: "enterprise",
   competitorads: "enterprise",
+  competitorsites: "enterprise",
 };
 
 // Accent color per tier. Drives nav highlights, lock badges, group headers and
@@ -134,6 +135,7 @@ export const SECTION_TIERS = {
   intelligence: "enterprise",
   capitalfunding: "enterprise",
   competitorads: "enterprise",
+  competitorsites: "enterprise",
 };
 
 // The tier a section belongs to (for color coding), or null for sections that are

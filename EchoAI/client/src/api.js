@@ -1138,6 +1138,23 @@ export const api = {
       method: "POST",
     }),
 
+  // Competitor Website Analysis (Enterprise)
+  listCompetitorSites: (brandId) =>
+    request(`/api/competitor-sites/${brandId}/sites`),
+  addCompetitorSite: (brandId, url, label) =>
+    request(`/api/competitor-sites/${brandId}/sites`, {
+      method: "POST",
+      body: { url, label },
+    }),
+  removeCompetitorSite: (brandId, siteId) =>
+    request(`/api/competitor-sites/${brandId}/sites/${siteId}`, {
+      method: "DELETE",
+    }),
+  recheckCompetitorSite: (brandId, siteId) =>
+    request(`/api/competitor-sites/${brandId}/sites/${siteId}/recheck`, {
+      method: "POST",
+    }),
+
   getGrantApplications: (brandId) =>
     request(`/api/capital/${brandId}/applications`),
   getGrantApplication: (brandId, applicationId) =>

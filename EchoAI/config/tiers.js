@@ -63,6 +63,7 @@ const FEATURES = {
   customer_intelligence: { name: "Customer Intelligence Engine", tier: "enterprise", description: "An AI brain that studies every channel weekly to build a growing strategic intelligence profile with ranked recommendations and a trajectory score." },
   capital_funding: { name: "Capital & Funding Intelligence", tier: "enterprise", description: "Scout scans grants and funding programs weekly, ranks business opportunities, and Echo drafts complete grant applications from your brand and story." },
   competitor_ad_spy: { name: "Competitor Ad Spy", tier: "enterprise", description: "Scout watches every confirmed competitor's live Facebook ads, alerts you to aggressive new ads, and delivers a weekly ad intelligence report with counter-campaign drafts." },
+  competitor_sites: { name: "Competitor Website Analysis", tier: "enterprise", description: "Scout reads competitor websites you add, analyzes their pricing, offers, messaging and CTAs, then monitors them and alerts you to meaningful changes." },
   api_marketplace: { name: "API Marketplace Access", tier: "enterprise", description: "Access the EchoAI API marketplace." },
   feedback: { name: "Customer Feedback & Surveys", tier: "enterprise", description: "AI survey designer and feedback analyst." },
   priority_support: { name: "Priority Support", tier: "enterprise", description: "Priority access to the EchoAI support team." },

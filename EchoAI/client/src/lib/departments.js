@@ -47,6 +47,7 @@ export const DEPARTMENTS = {
     { label: "Customer Intelligence", desc: "Competitor and market intelligence briefs.", section: "intelligence" },
     { label: "Capital & Funding", desc: "Grants, funding programs, opportunity briefings and Echo-drafted applications.", section: "capitalfunding" },
     { label: "Competitor Ads", desc: "Every confirmed competitor's live Facebook ads, aggressive-ad alerts and a weekly ad intelligence report.", section: "competitorads" },
+    { label: "Competitor Sites", desc: "Add competitor websites — Scout analyzes their pricing, offers and messaging, then alerts you to meaningful changes.", section: "competitorsites" },
     { label: "Google & SEO", desc: "Keyword rankings and SEO content recommendations.", section: "googleseo" },
   ],
   atlas: [
@@ -124,6 +125,7 @@ export const SECTION_TITLES = {
   roi: "ROI Dashboard",
   intelligence: "Customer Intelligence",
   capitalfunding: "Capital & Funding",
+  competitorsites: "Competitor Sites",
   reputation: "Reputation",
   phone: "Phone Agent",
   appointments: "Appointments",
