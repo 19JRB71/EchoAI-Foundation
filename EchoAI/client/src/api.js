@@ -722,6 +722,13 @@ export const api = {
       method: "POST",
       body: { brandId, platform, credentials, username },
     }),
+  // Facebook posting is wired from the unified Facebook connection: pick which
+  // already-connected Page this brand posts to (no manual token pasting).
+  setFacebookBrandPage: ({ brandId, pageId }) =>
+    request("/api/social/facebook-page", {
+      method: "POST",
+      body: { brandId, pageId },
+    }),
   disconnectSocial: (brandId, platform) =>
     request(`/api/social/accounts/${brandId}/${platform}`, { method: "DELETE" }),
 

@@ -8,13 +8,17 @@ const { graphGet, verifyAdAccount } = require("../utils/facebookApi");
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 
-// Permissions EchoAI needs to read and manage the customer's ad account.
+// Permissions for the SINGLE, unified Facebook connection that serves both
+// Atlas (ads) and Nova (organic Page posting). The first five power ad
+// management + Page/insight reads; `pages_manage_posts` is what authorizes
+// publishing to a Page feed, so one login unlocks both ads and posting.
 const SCOPES = [
   "ads_management",
   "ads_read",
   "business_management",
   "pages_show_list",
   "pages_read_engagement",
+  "pages_manage_posts",
 ];
 
 /**
@@ -169,9 +173,10 @@ async function oauthCallback(req, res) {
     //    must not sink the whole connection (ad accounts are the critical part),
     //    so we degrade to an empty list and let the verify step flag it.
     let pages = [];
+    let pageTokens = {};
     try {
       const pageUrl = new URL(`${GRAPH}/me/accounts`);
-      pageUrl.searchParams.set("fields", "id,name,category");
+      pageUrl.searchParams.set("fields", "id,name,category,access_token");
       pageUrl.searchParams.set("access_token", accessToken);
       const pageData = await graphFetch(pageUrl.toString(), "Fetching pages");
       pages = (pageData.data || []).map((p) => ({
@@ -179,24 +184,41 @@ async function oauthCallback(req, res) {
         name: p.name || p.id,
         category: p.category || null,
       }));
+      // Per-Page access tokens authorize publishing to a Page feed (Nova's
+      // organic posting). They are captured here so a single login serves both
+      // ads and posting, and are stored SEPARATELY and encrypted — never in the
+      // client-facing pages list. The user token stays the source of truth for
+      // Atlas (ads); these Page tokens power Nova (posting).
+      for (const p of pageData.data || []) {
+        if (p.id && p.access_token) pageTokens[p.id] = p.access_token;
+      }
     } catch (pageErr) {
       console.warn("Facebook pages fetch failed:", pageErr.message);
     }
 
     const selectedPageRef = pages.length ? pages[0].id : null;
     const encryptedToken = encrypt(accessToken);
+    // Only overwrite stored Page tokens when we actually fetched some; a failed
+    // pages refetch must not wipe previously-captured tokens (COALESCE below).
+    const encryptedPageTokens = Object.keys(pageTokens).length
+      ? encrypt(JSON.stringify(pageTokens))
+      : null;
 
     await db.query(
       `INSERT INTO api_integrations
          (user_id, platform, api_token_encrypted, account_ref, facebook_ad_accounts,
-          page_ref, facebook_pages, connection_status)
-       VALUES ($1, 'facebook', $2, $3, $4::jsonb, $5, $6::jsonb, 'connected')
+          page_ref, facebook_pages, facebook_page_tokens, connection_status)
+       VALUES ($1, 'facebook', $2, $3, $4::jsonb, $5, $6::jsonb, $7, 'connected')
        ON CONFLICT (user_id, platform)
        DO UPDATE SET api_token_encrypted = EXCLUDED.api_token_encrypted,
                      account_ref = EXCLUDED.account_ref,
                      facebook_ad_accounts = EXCLUDED.facebook_ad_accounts,
                      page_ref = EXCLUDED.page_ref,
                      facebook_pages = EXCLUDED.facebook_pages,
+                     facebook_page_tokens = COALESCE(
+                       EXCLUDED.facebook_page_tokens,
+                       api_integrations.facebook_page_tokens
+                     ),
                      connection_status = 'connected'`,
       [
         userId,
@@ -205,6 +227,7 @@ async function oauthCallback(req, res) {
         JSON.stringify(adAccounts),
         selectedPageRef,
         JSON.stringify(pages),
+        encryptedPageTokens,
       ],
     );
 

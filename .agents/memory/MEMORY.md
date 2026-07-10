@@ -35,6 +35,7 @@
 - [EchoAI morning briefing](echoai-morning-briefing.md) — greeting fires every login (token-scoped reload guard, ignore alreadyDeliveredToday); empty accounts get warm welcome + FB-connect nudge.
 - [EchoAI audio autoplay unlock](echoai-audio-autoplay-unlock.md) — auto-play needs a warm <audio> element unlocked on the login-click gesture + reused for every chunk; zero-gesture reloads can't autoplay (browser policy).
 - [EchoAI Facebook scoping](echoai-facebook-scoping.md) — FB connection (token/account/page) is user-scoped by design (api_integrations user_id+platform); don't refactor to brand-scoped as a side task.
+- [EchoAI unified Facebook posting](echoai-facebook-unified-posting.md) — ONE FB OAuth serves ads+posting; page tokens user-scoped in api_integrations, brand→Page mapping is {pageId}-only, token resolved live at publish; legacy accessToken rows unchanged.
 - [EchoAI demo auto-advance](echoai-demo-autoadvance.md) — voice onPlayed fires only on natural completion; auto-advancing steps needs a fallback timer or muted/blocked/error stalls the demo.
 - [EchoAI controller file-name collisions](echoai-controller-file-collisions.md) — generic controller/route names may already exist & be mounted; edit not overwrite, or boot breaks with undefined-callback.
 - [EchoAI weekly briefing guard](echoai-weekly-briefing-guard.md) — claim the per-ISO-week localStorage guard synchronously at enqueue (not onPlayed) so auto + manual weekly triggers can't double-play; manual button never gated.

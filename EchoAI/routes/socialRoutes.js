@@ -12,6 +12,7 @@ const socialController = require("../controllers/socialController");
 router.use(auth, lockout, denyViewerMutations);
 
 router.post("/connect", socialController.connectSocialAccount);
+router.post("/facebook-page", socialController.setFacebookBrandPage);
 router.post("/generate", socialController.generateSocialContent);
 router.post("/schedule", socialController.schedulePost);
 router.put("/posts/:postId/reschedule", socialController.reschedulePost);

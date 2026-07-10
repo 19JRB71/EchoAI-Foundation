@@ -80,12 +80,144 @@ async function loadConnectedAccount(brandId, platform) {
     throw err;
   }
   const row = result.rows[0];
+  const credentials = JSON.parse(decrypt(row.credentials_encrypted));
+  // Facebook posting runs on the unified Facebook connection: the brand's
+  // social_accounts row records WHICH Page it posts to (pageId), while the Page
+  // access token itself lives (encrypted, single source of truth) on the user's
+  // api_integrations row and is resolved live here. Older manually-connected
+  // rows that still carry their own accessToken keep working unchanged.
+  if (platform === "facebook" && !credentials.accessToken && credentials.pageId) {
+    const token = await resolveFacebookPageToken(brandId, credentials.pageId);
+    if (token) credentials.accessToken = token;
+  }
   return {
     accountId: row.account_id,
     username: row.platform_username,
     status: row.connection_status,
-    credentials: JSON.parse(decrypt(row.credentials_encrypted)),
+    credentials,
   };
+}
+
+/**
+ * Resolves the live Facebook Page access token for a brand's selected Page from
+ * the owning user's unified Facebook connection (api_integrations). Returns null
+ * when there is no connection or no stored token for that Page. Keeping the token
+ * in one place (never copied into social_accounts) means it can never go stale.
+ */
+async function resolveFacebookPageToken(brandId, pageId) {
+  const { rows } = await db.query(
+    `SELECT ai.facebook_page_tokens
+       FROM api_integrations ai
+       JOIN brands b ON b.user_id = ai.user_id
+      WHERE b.brand_id = $1 AND ai.platform = 'facebook'
+        AND ai.connection_status = 'connected'`,
+    [brandId]
+  );
+  if (!rows.length || !rows[0].facebook_page_tokens) return null;
+  try {
+    const tokens = JSON.parse(decrypt(rows[0].facebook_page_tokens));
+    return tokens[pageId] || null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+/**
+ * POST /api/social/facebook-page  { brandId, pageId }
+ * Chooses which Facebook Page the given brand posts to (Nova). The Page must
+ * belong to the user's unified Facebook connection and have a stored publish
+ * token (captured during OAuth). Only the Page id is stored in social_accounts;
+ * the token is resolved live at publish time from api_integrations.
+ */
+async function setFacebookBrandPage(req, res) {
+  const userId = req.user.userId;
+  const { brandId, pageId } = req.body;
+  if (!brandId || !pageId) {
+    return res.status(400).json({ error: "brandId and pageId are required" });
+  }
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const { rows } = await db.query(
+      `SELECT facebook_pages, facebook_page_tokens
+         FROM api_integrations
+        WHERE user_id = $1 AND platform = 'facebook'
+          AND connection_status = 'connected'`,
+      [userId]
+    );
+    if (!rows.length) {
+      return res.status(400).json({
+        error: "Connect your Facebook account first, then choose a Page to post from.",
+        needsFacebook: true,
+      });
+    }
+    const pages = rows[0].facebook_pages || [];
+    const page = pages.find((p) => p.id === pageId);
+    if (!page) {
+      return res
+        .status(400)
+        .json({ error: "That Page is not part of your connected Facebook account." });
+    }
+    let tokens = {};
+    try {
+      tokens = rows[0].facebook_page_tokens
+        ? JSON.parse(decrypt(rows[0].facebook_page_tokens))
+        : {};
+    } catch (_e) {
+      tokens = {};
+    }
+    if (!tokens[pageId]) {
+      return res.status(400).json({
+        error:
+          "Reconnect Facebook to grant posting permission for your Pages, then try again.",
+        needsReconnect: true,
+      });
+    }
+
+    // Selecting a Page counts as connecting the Facebook platform for this
+    // account (tier-limited on Starter). Switching Page for an already-connected
+    // brand stays within the limit (facebook is already counted).
+    await enforceSocialPlatformLimit(userId, "facebook");
+
+    // Store only the Page id — the token is resolved live at publish time from
+    // api_integrations (single source of truth), so it never goes stale.
+    const encrypted = encrypt(JSON.stringify({ pageId }));
+    const insert = await db.query(
+      `INSERT INTO social_accounts
+         (brand_id, platform, platform_username, credentials_encrypted, connection_status)
+       VALUES ($1, 'facebook', $2, $3, 'connected')
+       ON CONFLICT (brand_id, platform)
+       DO UPDATE SET platform_username = EXCLUDED.platform_username,
+                     credentials_encrypted = EXCLUDED.credentials_encrypted,
+                     connection_status = 'connected'
+       RETURNING account_id, platform, platform_username,
+                 connection_status, created_at, updated_at`,
+      [brandId, page.name || pageId, encrypted]
+    );
+    const row = insert.rows[0];
+    return res.status(200).json({
+      pageId,
+      account: {
+        platform: row.platform,
+        username: row.platform_username,
+        status: row.connection_status,
+        connectedAt: row.created_at,
+        updatedAt: row.updated_at,
+      },
+    });
+  } catch (err) {
+    console.error("Set Facebook brand page error:", err.message);
+    if (err.statusCode) {
+      const payload = { error: err.message };
+      if (err.upgradeRequired) {
+        payload.upgradeRequired = true;
+        payload.requiredTier = err.requiredTier;
+      }
+      return res.status(err.statusCode).json(payload);
+    }
+    return res.status(500).json({ error: "Failed to set Facebook Page for posting" });
+  }
 }
 
 /**
@@ -853,6 +985,8 @@ module.exports = {
   publishStoredPost,
   publishDuePosts,
   reverifySocialConnections,
+  setFacebookBrandPage,
+  resolveFacebookPageToken,
   // exported for tests (and so the sweep's per-row guard seam is stubbable)
   reverifyAccountRow,
 };

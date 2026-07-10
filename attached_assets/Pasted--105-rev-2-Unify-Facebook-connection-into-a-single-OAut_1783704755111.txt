@@ -1,0 +1,42 @@
+#105 (rev.2) - Unify Facebook connection into a single OAuth flow (Ads + Posting)
+What & Why
+Investigation confirmed EchoAI currently has two separate Facebook connections with different OAuth scopes:
+
+Atlas/Ads — requests ads_management, ads_read, business_management, pages_show_list, pages_read_engagement. Built and working.
+Nova/Posting — separate credential store under "Connect Accounts," requires pages_manage_posts, which the Ads flow never requests. Built and working, but requires a second, disconnected authentication.
+
+Rather than clarify two buttons (rejected — original plan), the better fix is to merge into one OAuth flow that requests all required scopes at once, so the user authenticates with Facebook a single time and both Atlas (ads) and Nova (posting) become usable.
+Done looks like
+
+A single "Connect Facebook" button/flow exists, replacing the two separate entry points.
+That flow requests all scopes needed for both use cases in one grant: ads_management, ads_read, business_management, pages_show_list, pages_read_engagement, and pages_manage_posts.
+On successful auth, the backend stores/derives credentials correctly for both systems — Atlas's ad-campaign code and Nova's posting code each get what they need from the single token/response, with no manual second step.
+Setup Progress checklist collapses to a single item (e.g., "Connect Facebook") that marks complete once the one flow succeeds, and reflects both ads and posting as unlocked.
+Atlas ad functionality (campaign creation, budget optimization, pausing) verified still working post-merge.
+Nova posting functionality (publishing to Page feed) verified working using credentials from the unified flow — this is new wiring, since posting previously came from a separate store.
+No regression: if a user already has one of the two old connections from before this change, migration/backfill is handled (or at minimum, doesn't break/duplicate on next login) rather than silently orphaning existing tokens.
+
+Out of scope
+
+Any change to what Atlas or Nova do with their respective permissions — functionality itself is unchanged, only the connection/auth path is unified.
+Per-user granular consent (e.g., letting a future external beta user opt into only ads or only posting) — flagged as a known tradeoff, not addressed in this ticket.
+Any other integration (Google, Twilio, etc.).
+
+Steps
+
+Update the Facebook OAuth request to include all six scopes in a single flow.
+Remove/hide the second "Connect Accounts" Facebook entry point in the Social Media section.
+Update backend so the single token response populates whatever Atlas's ad code currently reads from, and whatever Nova's posting code currently reads from (both existing systems, one shared credential source).
+Update Setup Progress to a single "Connect Facebook" line item, checked complete once the unified flow succeeds.
+Handle existing users who already completed one or both of the old separate connections — confirm no duplicate/orphaned tokens, no breakage on next load.
+Test both Atlas (create a paused test campaign) and Nova (publish a real test post) end-to-end using only the single unified connection.
+
+Relevant files
+
+replit.md
+Facebook OAuth route/callback (currently split across Atlas and Social Media components)
+Atlas ad controller (token consumption)
+Nova posting controller (token consumption)
+Setup Progress checklist component
+
+Ready to hand to Replit whenever you're ready, James.

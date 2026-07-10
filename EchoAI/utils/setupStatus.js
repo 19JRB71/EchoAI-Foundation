@@ -53,7 +53,9 @@ const SETUP_CATALOG = [
           WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected' LIMIT 1`,
         [userId]
       );
-      return [{ label: "Connect your Facebook account", done: connected }];
+      return [
+        { label: "Connect Facebook — one login enables ads and posting", done: connected },
+      ];
     },
   },
   {
