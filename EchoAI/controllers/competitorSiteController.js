@@ -436,6 +436,16 @@ async function recheckSite(req, res) {
     );
     if (rows.length === 0) return res.status(404).json({ error: "Site not found" });
 
+    // Flip to pending (and clear any stale error) BEFORE the async work so the
+    // client's list poll keeps showing "analyzing" instead of reverting to the
+    // previous analyzed/error state and stopping its poll.
+    await db.query(
+      `UPDATE competitor_websites
+          SET status = 'pending', last_error = NULL, updated_at = NOW()
+        WHERE site_id = $1`,
+      [rows[0].site_id],
+    );
+
     // Non-blocking (web_fetch is slow); the client polls the list for the result.
     checkSite(brand, rows[0]).catch((err) => {
       console.error(`Manual competitor site recheck failed for ${rows[0].site_id}:`, err.message);
