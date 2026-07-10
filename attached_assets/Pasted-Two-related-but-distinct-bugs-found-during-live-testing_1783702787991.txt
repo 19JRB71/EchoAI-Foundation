@@ -1,0 +1,31 @@
+Two related but distinct bugs found during live testing on the BLA COR HOMES brand tab:
+Bug A — Chat panel not tracking active brand: The main dashboard "Viewing Business" selector was set to BLA COR HOMES, but the floating Echo chat panel header displayed "Online Casino Sweepstakes" as the active context. Echo answered a Facebook-connection question using the wrong brand's data/session. This is the cross-brand contamination issue, but isolated to a new root cause: the chat panel's brand context is not subscribing to changes in the dashboard's brand-switcher state — it's stuck on whatever brand was active when the panel was last opened/loaded, not the currently selected tab.
+Bug B — Facebook OAuth not persisting: User completed the Facebook connection flow yesterday. Setup Progress panel still shows "Social media accounts — Next: Connect at least one social account" as incomplete (not part of the 4-of-11 done). This confirms the connection did not save — not a UI/display issue. Additionally, an error banner reading "Echo's assistant is temporarily unavailable. Please try again in a moment" appeared in the chat panel during this session and may be related to the same backend failure (e.g., a broken callback route or expired session token affecting both OAuth writes and Echo's own API calls).
+Done looks like
+
+Chat panel's active brand always matches the dashboard's "Viewing Business" selection in real time — verified by switching brand tabs and confirming the chat panel header updates immediately with no stale state.
+Asking Echo a brand-specific question (e.g., "is my Facebook connected?") returns data scoped to the currently selected brand tab, not a previously loaded one.
+Re-attempting the Facebook OAuth connect flow on BLA COR HOMES completes and persists: Setup Progress shows "Social media accounts" as done, and refreshing the dashboard does not revert it.
+Root cause of the "Echo's assistant is temporarily unavailable" error is identified and logged; if related to Bug B's OAuth callback failure, fixed as part of the same pass — if unrelated, filed as its own follow-up ticket instead of silently patched.
+
+Out of scope
+
+Voice pipeline "please rephrase" loop (separate ticket — confirmed working correctly in chat mode, so this is not a data or intent-layer issue).
+Any other integrations (Google, Twilio) — check Facebook only for this ticket.
+UI redesign of the brand switcher or chat panel.
+
+Steps
+
+Reproduce: open dashboard, confirm chat panel brand mismatch by switching tabs without reloading the page.
+Trace chat panel's brand-context state source — identify why it isn't subscribed to the dashboard-level brand selector.
+Fix state binding so chat panel brand context updates on tab switch.
+Reproduce Facebook OAuth flow end-to-end; capture server logs on the callback step to find where the token write fails.
+Fix persistence issue; confirm Setup Progress updates and survives refresh.
+Investigate "Echo's assistant is temporarily unavailable" error — check if it correlates with the OAuth failure or is a separate backend/API issue.
+
+Relevant files
+
+replit.md
+Brand-switcher / dashboard state management component
+Facebook OAuth callback route
+Echo chat panel component (brand context subscription)

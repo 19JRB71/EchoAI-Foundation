@@ -199,7 +199,7 @@ function Bubble({ msg, onConnectFacebook, connecting }) {
   );
 }
 
-export default function EchoCompanion() {
+export default function EchoCompanion({ brandId = "", onSelectBrand } = {}) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
@@ -270,9 +270,6 @@ export default function EchoCompanion() {
       setActivationStatus(state.activationStatus || "pending");
       setPending(state.pendingAction || null);
       setBusinesses(state.businesses || []);
-      setActiveBrandId((prev) =>
-        prev ?? (state.activeBrandId != null ? String(state.activeBrandId) : null),
-      );
       return state;
     } catch (e) {
       setError(e.message || "Failed to load Echo.");
@@ -281,6 +278,14 @@ export default function EchoCompanion() {
       setLoading(false);
     }
   }, []);
+
+  // The dashboard's "Viewing Business" selector is the single source of truth for
+  // which brand Echo is scoped to. Mirror it in real time so the chat panel header
+  // and every message Echo sends always match the brand tab the owner is looking
+  // at (no stale cross-brand context). Empty selection → null = "all businesses".
+  useEffect(() => {
+    setActiveBrandId(brandId ? String(brandId) : null);
+  }, [brandId]);
 
   // Initial load + resume-after-Facebook-connect detection.
   useEffect(() => {
@@ -559,7 +564,11 @@ export default function EchoCompanion() {
           {businesses.length > 1 ? (
             <select
               value={activeBrandId ?? ""}
-              onChange={(e) => setActiveBrandId(e.target.value || null)}
+              onChange={(e) =>
+                onSelectBrand
+                  ? onSelectBrand(e.target.value)
+                  : setActiveBrandId(e.target.value || null)
+              }
               style={styles.businessSelect}
               aria-label="Active business"
               title="Which business should Echo focus on?"

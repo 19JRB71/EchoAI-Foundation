@@ -58,7 +58,8 @@
 - [EchoAI voice pending yes/no offers](echoai-voice-pending-offer.md) — pending offer must yield to real commands (nav/music first), bare "please" ≠ yes, clear on every mute/timeout exit.
 - [EchoAI geo targeting](echoai-geo-targeting.md) — exclusions are hard blocks on every channel; FB city/county exclusions fail closed to state-level unless the state holds a targeted area.
 - [Postgres bind arity](echoai-pg-bind-arity.md) — SQL-map runners must bind exactly the placeholders each query uses; pg rejects extras; prod-only when data-dependent.
-- [Postgres UUID-vs-text single-param](echoai-pg-uuid-text-param.md) — one $param against a uuid col AND a ->> text field 500s (text=uuid); cast uuid::text; mocked SQL-string tests hide it — add a real-DB exec test.
+- [Postgres UUID-vs-text single-param](echoai-pg-uuid-text-param.md) — one $param vs a uuid col AND a ->> text field 500s (text=uuid); cast uuid::text; SQL-string mocks hide it.
+- [EchoAI active-brand source of truth](echoai-active-brand-source-of-truth.md) — App.jsx selectedBrandId is authoritative; brand-scoped panels (EchoCompanion) take it as a prop + mirror it, never own copy (stale = cross-brand contamination).
 - [EchoAI time-of-day greetings](echoai-time-of-day-greetings.md) — greet by user's local clock (5/12/17/21 windows); late pool all "Working late"; tz from availability_schedules, Eastern fallback.
 - [EchoAI Beta Program](echoai-beta-program.md) — one slot predicate (is_beta+role+unlocked), cap enforced in register() FOR UPDATE, emails claim-then-send with revert.
 - [EchoAI feature-suggestion capture](echoai-feature-suggestions.md) — hidden AI markers need MANDATORY-grade prompt phrasing; "noted" confirmation is server-appended only after DB write succeeds.

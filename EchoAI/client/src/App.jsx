@@ -1191,7 +1191,7 @@ export default function App() {
       )}
       {!isTeamMember ? (
         <ErrorBoundary silent>
-          <EchoCompanion />
+          <EchoCompanion brandId={selectedBrandId} onSelectBrand={setSelectedBrandId} />
         </ErrorBoundary>
       ) : null}
       {!isTeamMember ? (

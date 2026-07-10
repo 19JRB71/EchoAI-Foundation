@@ -182,7 +182,12 @@ Three registered validation steps gate task completion (see the `validation` ski
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- **Always remind the user to hit "Push" in the Git panel** whenever a change
+  needs to reach the live site. This project deploys to Railway from GitHub
+  `main`; the user (non-technical, address as James/Sir) pushes manually via the
+  Replit Git panel — the agent cannot push. After ANY code change that must go
+  live, end the response with a clear reminder to open the Git panel and Push
+  (note whether it's server-only or needs a client rebuild first).
 
 ## Gotchas
 
