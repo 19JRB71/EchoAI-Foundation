@@ -46,6 +46,7 @@ export const DEPARTMENTS = {
   scout: [
     { label: "Customer Intelligence", desc: "Competitor and market intelligence briefs.", section: "intelligence" },
     { label: "Capital & Funding", desc: "Grants, funding programs, opportunity briefings and Echo-drafted applications.", section: "capitalfunding" },
+    { label: "Competitor Ads", desc: "Every confirmed competitor's live Facebook ads, aggressive-ad alerts and a weekly ad intelligence report.", section: "competitorads" },
     { label: "Google & SEO", desc: "Keyword rankings and SEO content recommendations.", section: "googleseo" },
   ],
   atlas: [

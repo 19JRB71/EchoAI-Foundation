@@ -1117,6 +1117,20 @@ export const api = {
     request(`/api/capital/${brandId}/opportunities/${opportunityId}/draft`, {
       method: "POST",
     }),
+  // Competitor Ad Spy (Enterprise)
+  getCompetitorAdFeed: (brandId) =>
+    request(`/api/competitor-ads/${brandId}/feed`),
+  scanCompetitorAds: (brandId) =>
+    request(`/api/competitor-ads/${brandId}/scan`, { method: "POST" }),
+  getCompetitorAdReport: (brandId) =>
+    request(`/api/competitor-ads/${brandId}/report`),
+  generateCompetitorAdReport: (brandId) =>
+    request(`/api/competitor-ads/${brandId}/report/generate`, { method: "POST" }),
+  draftCompetitorCounter: (brandId, adId) =>
+    request(`/api/competitor-ads/${brandId}/ads/${adId}/counter`, {
+      method: "POST",
+    }),
+
   getGrantApplications: (brandId) =>
     request(`/api/capital/${brandId}/applications`),
   getGrantApplication: (brandId, applicationId) =>

@@ -98,6 +98,11 @@ export const EVENT_META = [
     label: "Email alerts",
     description: "Urgent emails, contracts, and payment notifications from your connected inboxes.",
   },
+  {
+    key: "competitor_ad_threat",
+    label: "Competitor ad threats",
+    description: "Scout calls you when a confirmed competitor launches an aggressive new ad.",
+  },
 ];
 
 const EVENT_KEYS = EVENT_META.map((e) => e.key);

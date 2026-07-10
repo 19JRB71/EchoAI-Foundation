@@ -309,6 +309,7 @@ All routes are prefixed with `/api`. Unless noted, protected routes require an
 | Admin | `/api/admin` | Admin-only user/platform management |
 | Voice | `/api/voice` | STT/TTS |
 | Autonomous conversations | `/api/autonomous` | `GET /`, `GET /:id`, `POST /:id/transfer`, `POST /:id/resume` — Echo's two-way autonomous lead conversations (SMS/email/chatbot); Hermes reads the reply, Claude answers in brand voice, hot leads alert the owner for a voice/dashboard handoff |
+| Competitor Ad Spy | `/api/competitor-ads` | `GET /:brandId/feed`, `POST /:brandId/scan`, `GET /:brandId/report`, `POST /:brandId/report/generate`, `POST /:brandId/ads/:adId/counter` — Enterprise. Scout scans every confirmed competitor's live Facebook ads every 6h, Hermes classifies threat, aggressive new ads alert the owner (voice+SMS), Claude writes a weekly ad-intelligence report + counter-campaign drafts. No Facebook token → no-op/empty (nothing fabricated) |
 
 ---
 

@@ -32,6 +32,10 @@ const {
 const {
   runWeeklyOpportunityScanForBrand,
 } = require("../controllers/capitalFundingController");
+const {
+  runCompetitorAdScanForBrand,
+  runWeeklyCompetitorAdReportForBrand,
+} = require("../controllers/competitorAdSpyController");
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
 const { runApiQuotaSweep } = require("./apiQuotaMonitor");
 const { runDailyGoalTracking } = require("./goalAlerts");
@@ -212,6 +216,15 @@ async function runWeeklyAnalytics() {
     } catch (err) {
       console.error(`Weekly opportunity scan failed for brand ${brand.brand_id}:`, err.message);
     }
+
+    // Scout's Competitor Ad Spy weekly report (Enterprise-gated at the source):
+    // refresh each confirmed competitor's live ads and write this week's ad
+    // intelligence report. Best-effort — logged, never stops the rest of the run.
+    try {
+      await runWeeklyCompetitorAdReportForBrand(brand);
+    } catch (err) {
+      console.error(`Weekly competitor ad report failed for brand ${brand.brand_id}:`, err.message);
+    }
   }
 
   console.log(
@@ -244,6 +257,32 @@ async function runCompetitorScan() {
     }
   }
   console.log(`Competitor scan complete: ${ok}/${rows.length} brands scanned.`);
+}
+
+/**
+ * Scout's Competitor Ad Spy scan. Runs every 6 hours: for each active (non-demo)
+ * brand it pulls each CONFIRMED competitor's live Facebook ads, records brand-new
+ * ones, classifies them, and alerts the owner on aggressive new ads. Enterprise-
+ * gated at the source (background path). Best-effort per brand: one failure is
+ * logged and never stops the rest of the sweep. No-ops entirely with no Facebook
+ * token (honesty rule — nothing fabricated).
+ */
+async function runCompetitorAdScan() {
+  const { rows } = await db.query(
+    `SELECT * FROM brands
+     WHERE is_demo = false
+       AND brand_id IN (SELECT DISTINCT brand_id FROM campaigns WHERE status = 'active')`
+  );
+  let ok = 0;
+  for (const brand of rows) {
+    try {
+      await runCompetitorAdScanForBrand(brand);
+      ok += 1;
+    } catch (err) {
+      console.error(`Competitor ad scan failed for brand ${brand.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Competitor ad scan complete: ${ok}/${rows.length} brands scanned.`);
 }
 
 /**
@@ -529,6 +568,15 @@ function startScheduler() {
   cron.schedule("0 */6 * * *", () => {
     runCompetitorScan().catch((err) => {
       console.error("Scheduled competitor scan run errored:", err.message);
+    });
+  });
+
+  // Every 6 hours at :45 (offset from the other 6h jobs): Scout's Competitor Ad
+  // Spy pulls each confirmed competitor's live Facebook ads for every active
+  // brand, records brand-new ones, and alerts the owner on aggressive new ads.
+  cron.schedule("45 */6 * * *", () => {
+    runCompetitorAdScan().catch((err) => {
+      console.error("Scheduled competitor ad scan run errored:", err.message);
     });
   });
 

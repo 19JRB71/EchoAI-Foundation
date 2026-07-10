@@ -818,3 +818,82 @@ strong buying signal alerts the owner by voice **and** SMS; the owner can say
   `closeReasonForState` terminal mapping + booked-hint authority.
   `client/src/voice/conversationHelpers.test.js`: `matchTransferIntent`
   transfer/continue/yes-no-lean/null cases.
+
+### Competitor Ad Spy subsystem (`/api/competitor-ads`)
+
+Enterprise (Scout). Every 6h Scout scans each **confirmed** competitor on a
+brand's Sage watch list (`sage_competitors.status='confirmed'`) via the Facebook
+Ad Library, records brand-new active ads, classifies each new one with Hermes 4,
+and — on an **aggressive** new ad — alerts the owner by voice **and** SMS. A
+weekly (Monday) Claude report summarizes top ads, gaps, and 3 recommendations.
+**Honesty rule:** with no `FACEBOOK_ACCESS_TOKEN` the scan is a no-op and the feed
+reports `connected:false` — nothing is fabricated, no reach/audience-size is ever
+shown, and each ad's snapshot is a **link** to Facebook's Ad Library.
+
+- **Ad Library client.** `utils/competitorAdLibrary.js` — `isConfigured()`
+  (Facebook token present), `fetchCompetitorAds(competitor, brand)` (never throws
+  → `[]` on any failure), `normalizeAd(raw, competitor)` maps a raw Ad Library
+  record to `{ adArchiveId, competitorName, headline, body, cta, snapshotUrl,
+  platforms, deliveryStart }` and **drops empty shells** (an ad with no copy AND
+  no headline tells us nothing real → null). `reachedCountries(brand)` returns a
+  single 2-letter code or defaults to `["US"]` (never invents a market).
+  `pageNameMatchesCompetitor(pageName, competitorName)` gates the name-search
+  fallback (when a competitor has no linked FB page id): a token-subset match that
+  strips apostrophes/`LLC`/`Inc` and rejects near-misses (e.g. rival↔rivalry) so a
+  stranger's ads are never misattributed to a competitor.
+- **Threat brain.** `utils/competitorAdBrain.js` — `classifyNewAds(brand, ads)`
+  asks Hermes 4 to rate each brand-new ad `none|watch|aggressive` with a short
+  angle + one honest reason; returns a `{ adArchiveId → {threatLevel, angle,
+  reason} }` map or `null` when Hermes is unavailable (engine then treats every
+  new ad as `none` — never a fabricated threat). `parseClassification` is a pure,
+  fenced-JSON-tolerant parser that coerces unknown levels to `none` and skips
+  id-less entries.
+- **Report + counter.** `prompts/competitorAdReportPrompt.js` — `generateAdReport`
+  (Claude → `{summary, topAds[], gaps[], recommendations[]}`) and
+  `draftCounterCampaign` (Claude → one counter ad `{angle, headline, primaryText,
+  cta, rationale}`). `validateReport`/`validateCounter` throw `err.aiInvalid`
+  (→502) on empty/bad shapes; report requires a summary + ≥1 recommendation (caps
+  at 3).
+- **Engine.** `controllers/competitorAdSpyController.js` —
+  `scanCompetitorAdsForBrand(brand)` fetches + `upsertAds` (INSERT … ON CONFLICT
+  (brand_id, ad_archive_id) … RETURNING `(xmax=0) AS inserted` → brand-new
+  detection is exact-once), classifies only the new ads, persists threat, and
+  calls `escalateAggressiveAd` for aggressive ones. `escalateAggressiveAd` stamps
+  `owner_alerted_at` under a CAS (`WHERE owner_alerted_at IS NULL`) so the owner
+  is alerted **exactly once** per ad; voice via `enqueueOwnerVoiceEvent`
+  (`competitor_ad_threat`), SMS via the brand's own Twilio number
+  (`buildClient`/`decrypt`/`normalizeE164`). Demo brands (`is_demo`) skip
+  escalation. `generateReportForBrand` upserts one row per `(brand_id,
+  week_date)` (`weekDateFor` buckets to the ISO-week Monday, UTC).
+  `runCompetitorAdScanForBrand` / `runWeeklyCompetitorAdReportForBrand`
+  **self-gate Enterprise at the source** (`getUserTier` + `meetsTier`) since the
+  scheduler bypasses route `featureGate`.
+- **Routes.** `routes/competitorAdSpyRoutes.js` — `auth → lockout →
+  featureGate('competitor_ad_spy')`; `GET /:brandId/feed` (grouped by competitor
+  + latest report + `connected`/counts), `POST /:brandId/scan`, `GET
+  /:brandId/report`, `POST /:brandId/report/generate`, `POST
+  /:brandId/ads/:adId/counter`. All brand-scoped via `getOwnedBrand`. Both the feed
+  and the report read only ads re-seen inside a `last_seen_at > NOW() - 3 days`
+  live window, so an ad the competitor has since pulled stops surfacing (each scan
+  bumps `last_seen_at`) — stale ads aren't shown as if still running.
+- **Scheduler.** `utils/scheduler.js` — `runCompetitorAdScan()` every 6h (only
+  brands with an active campaign, non-demo) + the Monday loop calls
+  `runWeeklyCompetitorAdReportForBrand`.
+- **Persistence.** `models/087_competitor_ad_spy.sql`: `competitor_ads`
+  (`unique(brand_id, ad_archive_id)`, `status`, `threat_level`, `threat_reason`,
+  `owner_alerted_at` for the alert CAS, `delivery_start`) + `competitor_ad_reports`
+  (`unique(brand_id, week_date)`, `summary`, JSONB `top_ads`/`gaps`/
+  `recommendations`).
+- **Client.** `client/src/sections/CompetitorAds.jsx` (feed grouped by
+  competitor, per-ad threat badge + "View on Facebook" link + "Draft counter ad",
+  weekly report card, Scan/Generate buttons) wired in `App.jsx`, gated
+  `enterprise` in both `lib/tiers.js` maps + `SECTION_GATES`; Scout tool card in
+  `lib/departments.js`; voice toggle `competitor_ad_threat` in
+  `lib/voiceSettings.js` EVENT_META.
+- **Tests.** `tests/competitorAdSpy.test.js`: pure helpers (normalizeAd shell
+  dropping, reachedCountries honesty, parseClassification coercion,
+  validateReport/validateCounter, weekDateFor ISO-week, pageNameMatchesCompetitor
+  keeps-own/drops-strangers) + DB-backed brand-new-ad exact-once detection, the
+  escalate-once CAS, the feed live-window (stale ads drop out), and a scheduler
+  loader guard (partial brand → `loadBrandRow` SELECT must only touch real
+  `brands` columns).

@@ -128,6 +128,7 @@ client wiring). Open that file when working inside a specific subsystem.
 | Echo Email Assistant | `/api/echo-email` | all tiers, owner-only; multi-account IMAP/SMTP (app passwords), 15-min AI inbox triage, approval-gated drafts, contract review, lead capture |
 | Echo Personal Assistant | `/api/echo-assistant` | all tiers, owner-only; voice reminders (voice→SMS fallback) + prioritized tasks, briefing/closing check-ins, auto-tasks from stale hot leads |
 | Autonomous Conversations | `/api/autonomous` | all tiers; when a lead replies (SMS/email/chatbot) Echo replies autonomously — Hermes reads intent/state/buying-signal/temperature, Claude writes in brand voice — until book/convert/stop/48h silent. Strong buying signal → owner voice+SMS alert; owner "transfer it" → seamless handoff |
+| Competitor Ad Spy | `/api/competitor-ads` | Enterprise (Scout); every 6h scans each CONFIRMED competitor's live Facebook ads, Hermes classifies threat, aggressive new ad → owner voice+SMS alert, weekly Claude ad-intelligence report + counter-campaign drafts. No FB token → no-op/empty (nothing fabricated); snapshot is a link |
 
 The dashboard nav is team-member-centric: the sidebar lists the 8 AI agents
 (Echo/Scout/Atlas/Nova/Pulse/Voice/Forge/Sentinel) + Mission Control; clicking an

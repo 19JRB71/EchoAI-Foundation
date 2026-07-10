@@ -21,3 +21,6 @@ handles strings/numbers/arrays/objects). Never do `{brand.someField}` for a
 field that could be object-shaped. The same applies to other AI-generated JSON
 columns rendered in the client. A layered ErrorBoundary now contains such
 crashes, but fix the render site too.
+
+## brands table has NO `country` column
+Any query SELECTing `country` from `brands` throws in prod (column doesn't exist). `getOwnedBrand`/`loadBrandRow`-style helpers that copy a column list are the usual culprit. Geo lives in `geo_targeting` (jsonb, areas[] shape) and only supports `"US"` as a country per `utils/geoTargeting.js` — so a `reachedCountries()`-type helper correctly defaults to `["US"]` when no country field is present. **Why:** tests that build a res/req mock and call a controller helper directly BYPASS `getOwnedBrand`, so a non-existent-column SELECT passes every unit test yet 500s on the first real request. **How to apply:** any new brand-scoped read must exercise the real ownership query in at least one test (feed/list path), not just the inner helper.

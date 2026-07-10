@@ -24,6 +24,7 @@ import GoogleSeo from "./sections/GoogleSeo.jsx";
 import RoiDashboard from "./sections/RoiDashboard.jsx";
 import CustomerIntelligence from "./sections/CustomerIntelligence.jsx";
 import CapitalFunding from "./sections/CapitalFunding.jsx";
+import CompetitorAds from "./sections/CompetitorAds.jsx";
 import Sage from "./sections/Sage.jsx";
 import Portfolio from "./sections/Portfolio.jsx";
 import Reputation from "./sections/Reputation.jsx";
@@ -1113,6 +1114,11 @@ export default function App() {
                 gate(
                   "capitalfunding",
                   <CapitalFunding brandId={selectedBrandId} />,
+                )}
+              {section === "competitorads" &&
+                gate(
+                  "competitorads",
+                  <CompetitorAds brandId={selectedBrandId} />,
                 )}
               {section === "sage" && (
                 <Sage
