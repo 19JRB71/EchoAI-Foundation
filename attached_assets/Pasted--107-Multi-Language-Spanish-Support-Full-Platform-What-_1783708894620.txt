@@ -1,0 +1,40 @@
+#107 - Multi-Language Spanish Support (Full Platform)
+What & Why
+EchoAI currently operates English-only. James wants full Spanish support across the platform to serve both his own businesses' Spanish-speaking leads/customers (e.g. Blacor Homes) and future beta customers targeting Spanish-speaking markets. Scope covers three layers: the platform UI itself, the AI team's conversations (voice + chat), and customer-facing outputs the AI team generates (ads, posts, emails). Language should auto-detect rather than require manual setup.
+Done looks like
+
+Platform UI: Dashboard, menus, buttons, Setup Progress, and all navigation elements are available in Spanish, with correct translations (not machine-literal placeholders).
+AI team conversations: Echo (and other agents) can hold a full conversation in Spanish via both chat and voice — understanding Spanish input and responding in Spanish, matching the same personality/tone as the English version.
+Customer-facing outputs: Ads (Atlas), social posts (Nova), emails (Pulse), and any other AI-generated customer content can be produced in Spanish when appropriate for that business/audience.
+Auto-detection: The platform detects language automatically —
+
+For the admin/business-owner side: detects from browser/device language or first message language, and switches the UI and Echo's responses accordingly.
+For end-customer-facing interactions (e.g., Voice phone agent, chatbot, SMS): detects the customer's spoken/typed language in real time and responds in kind, independent of what language the business owner's dashboard is set to.
+
+
+Switching languages mid-session works cleanly — no broken UI strings, no agent getting stuck responding in the wrong language after a detected switch.
+Strict brand isolation maintained — language preference/detection is scoped per conversation/session, not leaking business owner's language setting into a customer-facing interaction or vice versa.
+
+Out of scope
+
+Languages other than English/Spanish — this ticket is Spanish only, not a general i18n framework (though the implementation should be built in a way that doesn't block adding more languages later).
+Manual language toggle UI — auto-detection is the primary mechanism per this ticket; a manual override can be a fast-follow if auto-detect proves unreliable in practice.
+Translating third-party integration UIs (e.g., Twilio's or Facebook's own consoles) — only EchoAI's own interface and AI-generated content are in scope.
+
+Steps
+
+Audit all UI strings (dashboard, buttons, menus, Setup Progress, error messages) and build a translation layer/dictionary for Spanish.
+Add language auto-detection for the business-owner/admin side (browser locale and/or first-message detection) and wire it to switch UI + Echo's chat/voice responses.
+Add separate, independent language auto-detection for end-customer-facing channels (Voice phone agent, website chatbot, SMS) so a customer's language is detected per-interaction, not tied to the business owner's dashboard setting.
+Extend Echo's (and other agents') conversational responses to generate naturally in Spanish — not literal machine translation, matching existing tone/personality.
+Extend AI-generated customer content (Atlas ads, Nova posts, Pulse emails) to support Spanish generation when appropriate for the target audience/brand.
+Test mid-session language switching (e.g., a customer starts in English, switches to Spanish) to confirm no broken state or stuck-language bugs.
+Verify brand/session isolation — confirm one business's or customer's language setting never bleeds into another's session.
+
+Relevant files
+
+replit.md
+UI component tree (string/translation layer)
+Echo chat/voice response generation
+Voice (AI phone agent) — Twilio integration
+Atlas, Nova, Pulse content-generation controllers
