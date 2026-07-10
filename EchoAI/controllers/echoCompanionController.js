@@ -20,6 +20,7 @@ const campaignController = require("./campaignController");
 const contentCalendarController = require("./contentCalendarController");
 const voiceController = require("./voiceController");
 const echoContext = require("../utils/echoContext");
+const echoOrchestrator = require("../utils/echoOrchestrator");
 const featureSuggestions = require("../utils/featureSuggestions");
 const emailComposer = require("../utils/emailComposer");
 const emailAccounts = require("../utils/emailAccounts");
@@ -696,6 +697,23 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
     const ownerProfile = await echoContext.getOwnerProfileRow(userId);
     const guardrail = echoContext.valuesGuardrail(ownerProfile);
 
+    // Hermes 4 is Echo's reasoning brain: it decides the intent, which teammate
+    // owns the request, and how to keep the reply on-topic and brand-locked.
+    // Claude still writes the actual reply — the decision just steers it. This
+    // is non-breaking: if Hermes is unconfigured/slow/down, decide() returns
+    // null and Echo answers exactly as it did before.
+    const decision = await echoOrchestrator.decide({
+      userId,
+      activeBrandName: brand ? brand.brand_name : null,
+      businesses,
+      pendingAction: state.pending_action || null,
+      message: text,
+    });
+    const orchestration = echoOrchestrator.directiveForPrompt(
+      decision,
+      brand ? brand.brand_name : null,
+    );
+
     const system = [
       "You are Echo, the AI marketing companion built into EchoAI — an AI marketing platform.",
       isMultiBusiness
@@ -718,6 +736,7 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
         ? `The owner likes to be addressed as "${ownerName}". Use their name naturally and sparingly — at key moments like delivering important news, asking a question, or celebrating a win — never in every sentence.`
         : null,
       "Be warm, concise, and action-oriented. Keep replies to 1-3 short sentences. Never invent results or data.",
+      orchestration || null,
       knowledge,
       guardrail,
     ]

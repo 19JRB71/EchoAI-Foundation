@@ -24,6 +24,10 @@ const FEATURES = [
     vars: ["ANTHROPIC_API_KEY"],
   },
   {
+    name: "Echo decision brain (Hermes 4 via Nous Portal — falls back to existing behavior)",
+    vars: ["NOUS_PORTAL_API_KEY"],
+  },
+  {
     name: "Voice & image generation (OpenAI)",
     vars: ["OPENAI_API_KEY"],
   },

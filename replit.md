@@ -32,7 +32,8 @@ package. All commands run from `EchoAI/` with **npm** (not pnpm):
 - Required (boot fails fast if any is missing): `DATABASE_URL`, `JWT_SECRET`,
   `SESSION_SECRET`, `ENCRYPTION_KEY`.
 - Feature vars degrade gracefully to 503 / "not configured" when unset:
-  `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, Stripe (`STRIPE_SECRET_KEY`,
+  `ANTHROPIC_API_KEY`, `NOUS_PORTAL_API_KEY` (Echo's Hermes-4 decision brain —
+  missing → Echo falls back to its prior behavior), `OPENAI_API_KEY`, Stripe (`STRIPE_SECRET_KEY`,
   `STRIPE_PUBLISHABLE_KEY`, `STRIPE_PRICE_SEAT`), Twilio + `SALES_TWILIO_*`,
   Facebook (`FACEBOOK_APP_ID/SECRET`, `FACEBOOK_ACCESS_TOKEN`), Google OAuth,
   web-push VAPID keys (must stay stable), `FCM_SERVER_KEY`, mail/SMTP,

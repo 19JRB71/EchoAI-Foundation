@@ -101,6 +101,8 @@ EchoAI/
 | --- | --- |
 | `ANTHROPIC_API_KEY` | AI text (brand discovery, content, reports). |
 | `ANTHROPIC_MODEL` | (Optional) override the Anthropic model id. |
+| `NOUS_PORTAL_API_KEY` | Echo's decision brain (Hermes 4 via Nous Portal). Missing → Echo falls back to its existing behavior. |
+| `NOUS_HERMES_MODEL` / `NOUS_PORTAL_BASE_URL` | (Optional) override the Hermes model id / Nous Portal base URL. |
 | `OPENAI_API_KEY` | Voice (STT/TTS) and image generation. |
 | `STRIPE_SECRET_KEY` | Billing. |
 | `STRIPE_PUBLISHABLE_KEY` | Stripe.js on the client. |
