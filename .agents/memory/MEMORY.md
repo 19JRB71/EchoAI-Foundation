@@ -81,4 +81,5 @@
 - [EchoAI Sage brand isolation](echoai-sage-brand-isolation.md) — Sage delivery paths must resolve ONE active brand; never ANY(owned brands); brand-scoped alerts held in SQL until brand switch.
 - [EchoAI voice latency streaming](echoai-voice-latency-streaming.md) — streamed sentences must never be re-spoken by the final reply or a fallback replay; acks play only from preloaded blobs (miss = skip, never wait).
 - [EchoAI guided setup](echoai-guided-setup.md) — one server catalog probes real state (unknown on failure, never fabricated); single client injection point; Echo nags about exactly one setup.
+- [EchoAI three-tier demo](echoai-demo-tiers.md) — demo mode now seeds ONE is_demo brand per tier (demo_tier); never assume a single demo brand; active_tier drives script+FeatureGate, demo_brand_id NULL = selector mode.
 - [EchoAI SSRF IPv6-mapped bypass](echoai-ssrf-ipv6-mapped.md) — private-host blockers must reject IPv4-mapped/compat IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1); check the embedded IPv4 range.

@@ -169,8 +169,10 @@ export default function AdminDemo() {
             </h3>
             <p className="mt-1 text-sm text-gray-400">
               A fully-loaded demo dealership ("{status?.businessName || "Premier Auto Group"}")
-              to run live sales demos. The data is isolated and inert — nothing
-              ever sends, and it never mixes with real customer stats.
+              seeded across all three plans — Starter, Professional, and
+              Enterprise — so you can show a prospect exactly what each tier
+              unlocks. The data is isolated and inert — nothing ever sends, and
+              it never mixes with real customer stats.
             </p>
           </div>
           <span
@@ -400,9 +402,12 @@ export default function AdminDemo() {
         <h4 className="text-sm font-semibold text-gray-200">Presentation</h4>
         <p className="mt-1 text-sm text-gray-400">
           Use the Demo Mode toggle at the top to start or stop Presentation Mode.
-          Starting it switches your dashboard to the demo dealership and shows a
-          presenter toolbar with guided steps and Echo's spoken pitch. Stopping it
-          returns the dashboard to your real brands.
+          Starting it asks which plan to present — Starter, Professional, or
+          Enterprise — then switches your dashboard to that tier's demo
+          dealership, showing only the features that plan unlocks (higher tiers
+          appear as locked upgrade teasers). A presenter toolbar guides the steps,
+          delivers Echo's spoken pitch, and lets you switch plans live. Stopping
+          it returns the dashboard to your real brands.
         </p>
       </div>
     </div>

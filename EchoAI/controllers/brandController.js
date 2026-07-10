@@ -40,7 +40,7 @@ async function getBrands(req, res) {
     const result = await db.query(
       `SELECT brand_id, brand_name, brand_personality, voice_description,
               visual_style_preferences, target_audience, brand_type, is_demo,
-              created_at, updated_at
+              demo_tier, created_at, updated_at
        FROM brands
        WHERE user_id = $1
        ORDER BY created_at DESC`,

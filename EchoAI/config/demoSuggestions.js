@@ -28,6 +28,7 @@ const SUGGESTION_DEFS = [
     id: "budget-reallocation",
     step: "campaigns",
     agent: "atlas",
+    tier: "starter",
     title: "Budget reallocation opportunity",
     action: "Shifting 30% of Tuesday's budget to Friday…",
     text: ({ prospect }) =>
@@ -41,6 +42,7 @@ const SUGGESTION_DEFS = [
     id: "competitor-threat",
     step: "competitor",
     agent: "scout",
+    tier: "enterprise",
     title: "Competitor threat response",
     action: "Drafting the counter-campaign…",
     text: ({ business }) =>
@@ -54,6 +56,7 @@ const SUGGESTION_DEFS = [
     id: "social-opportunity",
     step: "social",
     agent: "nova",
+    tier: "starter",
     title: "Social media opportunity",
     action: "Rebalancing your social schedule…",
     text: () =>
@@ -67,6 +70,7 @@ const SUGGESTION_DEFS = [
     id: "lead-followup",
     step: "hotLeads",
     agent: "pulse",
+    tier: "starter",
     title: "Lead follow-up insight",
     action: "Sending personalized follow-ups…",
     text: () =>
@@ -80,6 +84,7 @@ const SUGGESTION_DEFS = [
     id: "seasonal-opportunity",
     step: "roi",
     agent: "scout",
+    tier: "starter",
     title: "Seasonal opportunity",
     action: "Preparing the end-of-month burst campaign…",
     text: () =>
@@ -111,6 +116,23 @@ function buildSuggestions({ businessName, prospectName } = {}) {
 
 // Steps that carry a built-in suggestion (used for validation + docs).
 const SUGGESTION_STEPS = SUGGESTION_DEFS.map((s) => s.step);
+
+// Suggestion id -> minimum tier that unlocks it. Used to hide higher-tier
+// suggestions (e.g. the Enterprise-only competitor threat) from a lower-tier
+// demo so each demo only surfaces suggestions for its own unlocked features.
+const TIER_RANK = { starter: 1, pro: 2, enterprise: 3 };
+const SUGGESTION_TIERS = SUGGESTION_DEFS.reduce((acc, s) => {
+  acc[s.id] = s.tier || "starter";
+  return acc;
+}, {});
+
+// Keep only the suggestions whose feature is unlocked at `tier`.
+function filterSuggestionsByTier(suggestions, tier) {
+  const max = TIER_RANK[tier] || 1;
+  return (suggestions || []).filter(
+    (s) => (TIER_RANK[SUGGESTION_TIERS[s.id]] || 1) <= max,
+  );
+}
 
 // Validate an AI-adapted suggestion set: same length + ids/steps as the
 // built-ins, and every spoken field a non-empty string. Returns a normalized
@@ -155,7 +177,9 @@ function validateAdaptedSuggestions(raw) {
 module.exports = {
   buildSuggestions,
   validateAdaptedSuggestions,
+  filterSuggestionsByTier,
   SUGGESTION_DEFS,
   SUGGESTION_STEPS,
+  SUGGESTION_TIERS,
   AGENT_COLORS,
 };

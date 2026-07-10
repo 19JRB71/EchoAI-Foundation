@@ -8,12 +8,16 @@
 const db = require("../config/db");
 const emailController = require("./emailController");
 const { seedDemo, DEMO_BUSINESS_DEFAULT } = require("../utils/demoSeeder");
-const { buildDemoScript, DEMO_STEPS } = require("../config/demoScript");
+const { buildDemoScript, DEMO_STEPS, stepsForTier } = require("../config/demoScript");
 const {
   buildSuggestions,
   validateAdaptedSuggestions,
+  filterSuggestionsByTier,
   SUGGESTION_DEFS,
 } = require("../config/demoSuggestions");
+
+// Demo tiers, weakest first, for validating the presenter's tier choice.
+const DEMO_TIERS = ["starter", "pro", "enterprise"];
 const { createMessage, MODEL } = require("../config/anthropic");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -72,11 +76,26 @@ async function submitDemoRequest(req, res) {
 
 async function readConfig() {
   const res = await db.query(
-    `SELECT active, business_name, prospect_name, demo_brand_id, morning_briefing, seeded_at,
+    `SELECT active, business_name, prospect_name, demo_brand_id, active_tier,
+            morning_briefing, seeded_at,
             suggestions_enabled, custom_scenario, custom_suggestions
        FROM demo_config WHERE id = true`
   );
   return res.rows[0] || null;
+}
+
+// The seeded demo brands (one per tier), ordered weakest-first. Used by the
+// client to render the tier-selection screen and switch between demos.
+async function readDemoBrands() {
+  const res = await db.query(
+    `SELECT brand_id, brand_name, demo_tier
+       FROM brands
+      WHERE is_demo = true AND demo_tier IS NOT NULL`
+  );
+  const order = { starter: 1, pro: 2, enterprise: 3 };
+  return res.rows
+    .map((r) => ({ brandId: r.brand_id, businessName: r.brand_name, tier: r.demo_tier }))
+    .sort((a, b) => (order[a.tier] || 9) - (order[b.tier] || 9));
 }
 
 function shape(cfg) {
@@ -85,6 +104,7 @@ function shape(cfg) {
     businessName: (cfg && cfg.business_name) || DEMO_BUSINESS_DEFAULT,
     prospectName: (cfg && cfg.prospect_name) || "",
     demoBrandId: (cfg && cfg.demo_brand_id) || null,
+    activeTier: (cfg && cfg.active_tier) || null,
     morningBriefing: (cfg && cfg.morning_briefing) || "",
     seeded: !!(cfg && cfg.seeded_at),
     seededAt: (cfg && cfg.seeded_at) || null,
@@ -118,7 +138,8 @@ function resolveSuggestions(cfg, shaped) {
 // GET /api/admin/demo/status
 async function getStatus(req, res) {
   const cfg = await readConfig();
-  res.json(shape(cfg));
+  const demoBrands = await readDemoBrands();
+  res.json({ ...shape(cfg), demoBrands });
 }
 
 // POST /api/admin/demo/seed  — create/refresh the demo dataset.
@@ -126,7 +147,8 @@ async function seed(req, res) {
   try {
     const result = await seedDemo({ businessName: req.body && req.body.businessName });
     const cfg = await readConfig();
-    res.json({ ...shape(cfg), result });
+    const demoBrands = await readDemoBrands();
+    res.json({ ...shape(cfg), demoBrands, result });
   } catch (err) {
     console.error("Demo seed failed:", err.message);
     res.status(500).json({ error: "Failed to seed the demo account." });
@@ -138,7 +160,8 @@ async function reset(req, res) {
   try {
     const result = await seedDemo({});
     const cfg = await readConfig();
-    res.json({ ...shape(cfg), result });
+    const demoBrands = await readDemoBrands();
+    res.json({ ...shape(cfg), demoBrands, result });
   } catch (err) {
     console.error("Demo reset failed:", err.message);
     res.status(500).json({ error: "Failed to reset the demo account." });
@@ -146,20 +169,49 @@ async function reset(req, res) {
 }
 
 // POST /api/admin/demo/activate — turn Presentation Mode on (must be seeded).
+// Body { tier } selects which plan to present: sets the active tier + points the
+// demo at that tier's brand. With no tier, Presentation Mode turns on but no tier
+// is chosen yet (the client shows the tier-selection screen).
 async function activate(req, res) {
   const cfg = await readConfig();
-  if (!cfg || !cfg.demo_brand_id) {
+  const demoBrands = await readDemoBrands();
+  if (!cfg || !cfg.seeded_at || demoBrands.length === 0) {
     return res
       .status(400)
       .json({ error: "Seed the demo account before starting Presentation Mode." });
   }
-  await db.query("UPDATE demo_config SET active = true, updated_at = NOW() WHERE id = true");
-  res.json(shape(await readConfig()));
+
+  const tierRaw = req.body && req.body.tier;
+  if (tierRaw) {
+    const tier = String(tierRaw).toLowerCase();
+    if (!DEMO_TIERS.includes(tier)) {
+      return res.status(400).json({ error: "Unknown demo tier." });
+    }
+    const brand = demoBrands.find((b) => b.tier === tier);
+    if (!brand) {
+      return res
+        .status(400)
+        .json({ error: "That tier isn't seeded. Re-seed the demo and try again." });
+    }
+    await db.query(
+      "UPDATE demo_config SET active = true, active_tier = $1, demo_brand_id = $2, updated_at = NOW() WHERE id = true",
+      [tier, brand.brandId]
+    );
+  } else {
+    // Turn Presentation Mode on but leave the tier unchosen (show the selector).
+    await db.query(
+      "UPDATE demo_config SET active = true, active_tier = NULL, demo_brand_id = NULL, updated_at = NOW() WHERE id = true"
+    );
+  }
+
+  res.json({ ...shape(await readConfig()), demoBrands });
 }
 
 // POST /api/admin/demo/deactivate
 async function deactivate(req, res) {
-  await db.query("UPDATE demo_config SET active = false, updated_at = NOW() WHERE id = true");
+  await db.query(
+    "UPDATE demo_config SET active = false, active_tier = NULL, demo_brand_id = NULL, updated_at = NOW() WHERE id = true"
+  );
   res.json(shape(await readConfig()));
 }
 
@@ -196,17 +248,19 @@ async function updateConfig(req, res) {
     [nextBusiness, nextProspect || null, briefing, nextSuggestionsEnabled]
   );
 
-  if (cfg && cfg.demo_brand_id) {
-    await db.query("UPDATE brands SET brand_name = $1, updated_at = NOW() WHERE brand_id = $2 AND is_demo = true", [
-      nextBusiness,
-      cfg.demo_brand_id,
-    ]);
-  }
+  // Rename EVERY demo brand (one per tier) so all three demos stay consistent.
+  await db.query(
+    "UPDATE brands SET brand_name = $1, updated_at = NOW() WHERE is_demo = true",
+    [nextBusiness]
+  );
 
   res.json(shape(await readConfig()));
 }
 
 // GET /api/admin/demo/script — templated Echo lines + toolbar step definitions.
+// Steps and suggestions are filtered to the active tier so each demo only walks
+// through (and pitches) the features that tier unlocks. With no active tier
+// (selection screen), everything is returned so the caller has the full set.
 async function getScript(req, res) {
   const cfg = await readConfig();
   const shaped = shape(cfg);
@@ -215,8 +269,11 @@ async function getScript(req, res) {
     prospectName: shaped.prospectName,
     morningBriefing: shaped.morningBriefing,
   });
-  const suggestions = resolveSuggestions(cfg, shaped);
-  res.json({ lines, steps: DEMO_STEPS, suggestions, ...shaped });
+  const tier = shaped.activeTier;
+  const steps = tier ? stepsForTier(tier) : DEMO_STEPS;
+  let suggestions = resolveSuggestions(cfg, shaped);
+  if (tier) suggestions = filterSuggestionsByTier(suggestions, tier);
+  res.json({ lines, steps, suggestions, ...shaped });
 }
 
 // POST /api/admin/demo/suggestions/adapt — free-form scenario mode. The

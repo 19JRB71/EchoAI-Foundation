@@ -688,7 +688,11 @@ export const api = {
   demoSeed: (businessName) =>
     request("/api/admin/demo/seed", { method: "POST", body: { businessName } }),
   demoReset: () => request("/api/admin/demo/reset", { method: "POST" }),
-  demoActivate: () => request("/api/admin/demo/activate", { method: "POST" }),
+  demoActivate: (tier) =>
+    request("/api/admin/demo/activate", {
+      method: "POST",
+      body: tier ? { tier } : {},
+    }),
   demoDeactivate: () => request("/api/admin/demo/deactivate", { method: "POST" }),
   demoUpdateConfig: (payload) =>
     request("/api/admin/demo/config", { method: "PUT", body: payload }),

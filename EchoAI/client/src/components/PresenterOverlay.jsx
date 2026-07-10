@@ -33,7 +33,20 @@ function estimateSpeechMs(line) {
 // short beat). Pause/Play, Previous and Next let the presenter take manual
 // control of the pace at any time. Reuses the existing Echo voice engine via
 // useVoice().enqueue — no new audio pipeline.
-export default function PresenterOverlay({ onNavigate, onOpenDepartment, onEnd }) {
+// Tier labels for the presenter's live plan switcher.
+const TIER_LABELS = [
+  ["starter", "Starter"],
+  ["pro", "Professional"],
+  ["enterprise", "Enterprise"],
+];
+
+export default function PresenterOverlay({
+  onNavigate,
+  onOpenDepartment,
+  onEnd,
+  tier,
+  onSwitchTier,
+}) {
   const voice = useVoice();
   // The demo-suggestion controller lives in a context above this overlay. Kept in
   // a ref so goToStep's callback always sees the latest without dep churn.
@@ -297,6 +310,23 @@ export default function PresenterOverlay({ onNavigate, onOpenDepartment, onEnd }
             <span className="hidden text-xs text-gray-500 sm:inline">
               · {script.businessName}
             </span>
+          )}
+          {tier && onSwitchTier && (
+            <div className="ml-1 flex items-center gap-1 rounded-full border border-gray-700 bg-gray-900 p-0.5">
+              {TIER_LABELS.map(([t, label]) => (
+                <button
+                  key={t}
+                  onClick={() => t !== tier && onSwitchTier(t)}
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
+                    t === tier
+                      ? "bg-teal-500 text-black"
+                      : "text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">

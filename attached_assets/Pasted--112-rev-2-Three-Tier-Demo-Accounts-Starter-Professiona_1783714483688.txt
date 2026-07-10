@@ -1,0 +1,42 @@
+#112 (rev.2) - Three-Tier Demo Accounts (Starter / Professional / Enterprise)
+What & Why
+Rather than one flat sales script, build three separate, selectable demo accounts — one per tier — so a prospect can click a button and view each tier as a standalone experience. Tier-gating already exists and works in the codebase ($197 Starter / $497 Professional / $997 Enterprise), and the demo already runs on seeded data at near-zero cost. Currently only one demo account (Premier Auto Group) exists and shows everything flat, with Enterprise-exclusive features barely represented. This ticket creates three distinct demo accounts, each gated to show only that tier's real, working features.
+Done looks like
+
+Three separate demo accounts exist, selectable from a simple entry screen/button set (e.g., "View Starter Demo" / "View Professional Demo" / "View Enterprise Demo").
+Starter demo account — shows only Starter-tier features: FB ads, basic CRM/leads, chatbot, weekly reports, basic social. Enterprise/Pro-only features are hidden or shown as locked/upgrade-teasers, not accessible.
+Professional demo account — shows Starter features plus Professional additions: voice/phone agent, all social platforms, ad creative studio, image studio, follow-up sequences, SMS/email marketing.
+Enterprise demo account — shows everything, including the underused Enterprise-exclusive features that need real presence: competitor ad spy, competitor site analysis, customer intelligence, advanced ROI/boardroom reporting, capital & funding, white-label agency, affiliate program, priority support.
+Each demo account uses its own seeded dataset (can reuse/adapt Premier Auto Group's existing seed data, scaled appropriately per tier) so each feels like a real, lived-in account rather than an empty shell.
+Switching between demo accounts is fast and clearly labeled — a prospect (or James presenting) can jump directly to any tier without walking through the others first.
+Each demo account's presentation includes the existing "proactive AI suggestion" moments (Atlas, Scout, Nova, Pulse) where relevant to that tier's unlocked features.
+Locked/upgrade-teaser elements in the Starter and Professional demos (showing what's available at higher tiers) are visually clear but not clickable/functional — a preview, not a bait-and-switch.
+Demo remains cost-safe across all three accounts: seeded data only, no live API calls triggered; only TTS narration incurs minimal real cost, consistent with current demo behavior.
+Strict isolation between the three demo accounts — no data or state leaks from one tier's demo into another.
+
+Out of scope
+
+Any change to actual tier-gating logic, pricing, or seat costs for real paying customers — this ticket only affects demo/presentation accounts.
+Building new features to showcase — uses only what's already built and confirmed working.
+Fixing the stale replit.md pricing info — separate small ticket (#113).
+
+Steps
+
+Design the demo-selection entry screen/buttons for choosing Starter / Professional / Enterprise.
+Duplicate/adapt the existing Premier Auto Group seed data into three tier-scoped demo accounts (utils/demoSeeder.js), each gated to show only that tier's unlocked features.
+Build "locked feature" visual teasers for Starter/Professional demos, showing what's available at higher tiers without making it functional.
+Slot existing proactive AI suggestions (Atlas, Scout, Nova, Pulse) into whichever tier demo they're relevant to.
+Verify tier-gating middleware correctly restricts each demo account to its intended feature set (reuse existing featureGate.js logic rather than building new gating).
+Confirm strict isolation — no cross-contamination of data/state between the three demo accounts.
+Verify no live API calls are triggered in any of the three demos — seeded data + TTS only.
+Test full run-through of each tier's demo account independently, and test switching between them.
+
+Relevant files
+
+utils/demoSeeder.js
+middleware/featureGate.js
+FeatureGate.jsx
+config/demoScript.js
+config/demoSuggestions.js
+PresenterOverlay.jsx
+Demo-selection entry screen (new component)

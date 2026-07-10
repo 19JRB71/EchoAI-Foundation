@@ -1,19 +1,38 @@
-// Demo account seeder — "Premier Auto Group".
+// Demo account seeder — "Premier Auto Group", three tiers.
 //
-// Populates ONE brand (owned by the platform admin, is_demo = true) with a full,
-// realistic dataset so every EchoAI feature comes alive during a sales demo. The
-// data is STATIC fixtures (no AI / DALL-E calls) — appropriate for a demo, and it
-// never mixes with real customer data (that lives under other user_ids) nor sends
-// anything (background workers skip is_demo brands).
+// Populates THREE brands (all owned by the platform admin, is_demo = true) — one
+// per sellable tier (Starter, Professional, Enterprise) — with realistic,
+// tier-appropriate datasets so a sales prospect sees exactly what THAT plan
+// unlocks. The data is STATIC fixtures (no AI / DALL-E calls) — appropriate for a
+// demo, and it never mixes with real customer data (that lives under other
+// user_ids) nor sends anything (background workers skip is_demo brands).
 //
-// seedDemo() is idempotent: it deletes the existing demo brand (cascading to all
-// child rows) and recreates it, so Reset always returns to a clean known state.
+// Each demo brand is tagged with `demo_tier`; the amount of child data scales
+// with the tier, and higher-tier-only artifacts (ad creatives, competitor
+// intelligence, surveys, etc.) are only seeded for the tiers that unlock them —
+// so the client's existing feature gating renders everything above the brand's
+// tier as a locked upgrade teaser.
+//
+// seedDemo() is idempotent: it deletes ALL existing demo brands (cascading to
+// child rows) and recreates the three, so Reset always returns to a clean state.
 
 const db = require("../config/db");
 
 const DEMO_BUSINESS_DEFAULT = "Premier Auto Group";
 
 const J = (v) => JSON.stringify(v);
+
+// The tiers to seed, weakest first, and their rank for gating comparisons.
+const TIER_ORDER = ["starter", "pro", "enterprise"];
+const TIER_RANK = { starter: 1, pro: 2, enterprise: 3 };
+
+// Per-tier data volume. Higher tiers get a fuller dataset so the demo visibly
+// grows richer as the prospect moves up the plans.
+const TIER_SCALE = {
+  starter: { hot: 8, warm: 10, tire: 6, campaigns: 2, posts: 6 },
+  pro: { hot: 12, warm: 15, tire: 9, campaigns: 3, posts: 10 },
+  enterprise: { hot: 15, warm: 20, tire: 12, campaigns: 4, posts: 15 },
+};
 
 // ---- relative time helpers -------------------------------------------------
 const MIN = 60 * 1000;
@@ -124,79 +143,43 @@ function tireKickerConversation(interest) {
   ];
 }
 
-// ---- main seeder -----------------------------------------------------------
-async function seedDemo({ businessName } = {}) {
-  const client = await db.getClient();
-  try {
-    const adminRes = await client.query(
-      "SELECT user_id FROM users WHERE role = 'admin' ORDER BY created_at ASC LIMIT 1"
+// ---- per-brand seeding -----------------------------------------------------
+// Seeds one demo brand's child data, gating higher-tier artifacts by `tier` and
+// scaling volumes via TIER_SCALE. Returns a counts summary for the response.
+async function seedBrandData(client, { adminUserId, brandId, bizName, tier }) {
+  const rank = TIER_RANK[tier] || 1;
+  const scale = TIER_SCALE[tier] || TIER_SCALE.starter;
+  const isPro = rank >= TIER_RANK.pro;
+  const isEnterprise = rank >= TIER_RANK.enterprise;
+
+  // 1. Leads (+ CRM interactions; follow-up sequences are a Pro feature).
+  const leadIds = { hot: [], warm: [], tire: [] };
+
+  async function insertLead(name, email, phone, temperature, conversation, convStatus) {
+    const res = await client.query(
+      `INSERT INTO leads
+         (brand_id, lead_name, email, phone, temperature, conversation_history, conversion_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING lead_id`,
+      [brandId, name, email, phone, temperature, J(conversation), convStatus]
     );
-    if (adminRes.rows.length === 0) {
-      throw new Error("No admin user found to own the demo account.");
-    }
-    const adminUserId = adminRes.rows[0].user_id;
-
-    const cfgRes = await client.query(
-      "SELECT business_name, prospect_name FROM demo_config WHERE id = true"
-    );
-    const cfg = cfgRes.rows[0] || {};
-    const bizName = (businessName || cfg.business_name || DEMO_BUSINESS_DEFAULT).trim();
-    const prospectName = cfg.prospect_name || null;
-
-    await client.query("BEGIN");
-
-    // 1. Wipe any existing demo brand(s) for this admin (cascade clears children).
+    const leadId = res.rows[0].lead_id;
     await client.query(
-      "DELETE FROM brands WHERE user_id = $1 AND is_demo = true",
-      [adminUserId]
-    );
-
-    // 2. Demo brand.
-    const brandRes = await client.query(
-      `INSERT INTO brands
-         (user_id, brand_name, brand_personality, voice_description,
-          visual_style_preferences, target_audience, is_demo)
-       VALUES ($1, $2, $3, $4, $5, $6, true)
-       RETURNING brand_id`,
+      `INSERT INTO crm_interactions (lead_id, interaction_type, occurred_at, interaction_details)
+       VALUES ($1, 'chatbot_conversation', $2, $3)`,
       [
-        adminUserId,
-        bizName,
-        "Trustworthy, high-energy, community-focused auto dealership that makes car buying easy and pressure-free.",
-        "Warm, confident, and helpful — like a friend who happens to know everything about cars.",
-        J({ primaryColor: "#0B5FA5", accentColor: "#E63946", tone: "energetic-professional" }),
-        J({ location: "Orlando, FL", ageRange: "25-55", interests: ["new vehicles", "pre-owned vehicles", "financing", "trucks", "SUVs"] }),
+        leadId,
+        iso(-Math.floor(Math.random() * 6 + 1) * DAY),
+        J({ summary: `Chatbot conversation — ${temperature} lead`, messageCount: conversation.length }),
       ]
     );
-    const brandId = brandRes.rows[0].brand_id;
+    return leadId;
+  }
 
-    // 3. Leads (+ CRM interactions + follow-up sequences).
-    const leadIds = { hot: [], warm: [], tire: [] };
-
-    async function insertLead(name, email, phone, temperature, conversation, convStatus) {
-      const res = await client.query(
-        `INSERT INTO leads
-           (brand_id, lead_name, email, phone, temperature, conversation_history, conversion_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING lead_id`,
-        [brandId, name, email, phone, temperature, J(conversation), convStatus]
-      );
-      const leadId = res.rows[0].lead_id;
-      await client.query(
-        `INSERT INTO crm_interactions (lead_id, interaction_type, occurred_at, interaction_details)
-         VALUES ($1, 'chatbot_conversation', $2, $3)`,
-        [
-          leadId,
-          iso(-Math.floor(Math.random() * 6 + 1) * DAY),
-          J({ summary: `Chatbot conversation — ${temperature} lead`, messageCount: conversation.length }),
-        ]
-      );
-      return leadId;
-    }
-
-    for (const [name, email, phone, vehicle, interest] of HOT_LEADS) {
-      const id = await insertLead(name, email, phone, "hot", hotConversation(vehicle, interest), "in_progress");
-      leadIds.hot.push({ id, name, email, phone, vehicle });
-      // Active nurture sequence for hot leads.
+  for (const [name, email, phone, vehicle, interest] of HOT_LEADS.slice(0, scale.hot)) {
+    const id = await insertLead(name, email, phone, "hot", hotConversation(vehicle, interest), "in_progress");
+    leadIds.hot.push({ id, name, email, phone, vehicle });
+    if (isPro) {
       const seq = await client.query(
         `INSERT INTO follow_up_sequences
            (brand_id, lead_id, goal, sequence_type, status, current_step, total_steps, source)
@@ -213,10 +196,12 @@ async function seedDemo({ businessName } = {}) {
         [seqId, iso(-1 * DAY), iso(1 * DAY)]
       );
     }
+  }
 
-    for (const [name, email, phone, vehicle, interest] of WARM_LEADS) {
-      const id = await insertLead(name, email, phone, "warm", warmConversation(vehicle, interest), "new");
-      leadIds.warm.push({ id, name, email, phone, vehicle });
+  for (const [name, email, phone, vehicle, interest] of WARM_LEADS.slice(0, scale.warm)) {
+    const id = await insertLead(name, email, phone, "warm", warmConversation(vehicle, interest), "new");
+    leadIds.warm.push({ id, name, email, phone, vehicle });
+    if (isPro) {
       const seq = await client.query(
         `INSERT INTO follow_up_sequences
            (brand_id, lead_id, goal, sequence_type, status, current_step, total_steps, source)
@@ -230,85 +215,91 @@ async function seedDemo({ businessName } = {}) {
         [seq.rows[0].sequence_id, iso(-2 * DAY)]
       );
     }
+  }
 
-    for (const [name, email, phone, interest] of TIRE_KICKER_LEADS) {
-      const id = await insertLead(name, email, phone, "tire_kicker", tireKickerConversation(interest), "new");
-      leadIds.tire.push({ id, name, email, phone });
-    }
+  for (const [name, email, phone, interest] of TIRE_KICKER_LEADS.slice(0, scale.tire)) {
+    const id = await insertLead(name, email, phone, "tire_kicker", tireKickerConversation(interest), "new");
+    leadIds.tire.push({ id, name, email, phone });
+  }
 
-    // 4. Facebook campaigns + weekly analytics.
-    const campaigns = [
-      ["New Arrivals This Week", 600, 11.23, 0.14, 42, "New inventory spotlights for Orlando car buyers aged 25-55."],
-      ["Zero Down Financing Available", 400, 14.28, 0.11, 28, "First-time buyer financing offers."],
-      ["Truck Season", 500, 16.13, 0.13, 31, "Truck buyer targeting — F-150, Silverado, RAM."],
-      ["Certified Pre-Owned Deals", 350, 12.5, 0.1, 19, "Pre-owned inventory under $30k."],
-    ];
-    for (const [cname, budget, cpl, convRate, leads, concept] of campaigns) {
-      await client.query(
-        `INSERT INTO campaigns
-           (brand_id, user_id, campaign_name, budget, cost_per_lead, conversion_rate, ad_creative_variations, launch_date)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          brandId, adminUserId, cname, budget, cpl, convRate,
-          J([{ headline: cname, primaryText: concept, leadsGenerated: leads }]),
-          new Date(Date.now() - 21 * DAY).toISOString().slice(0, 10),
-        ]
-      );
-    }
-    // Four recent weeks of analytics.
-    for (let w = 0; w < 4; w++) {
-      const weekDate = new Date(Date.now() - w * 7 * DAY).toISOString().slice(0, 10);
-      await client.query(
-        `INSERT INTO analytics (brand_id, week_date, total_spend, total_leads, cost_per_lead, conversions, return_on_ad_spend)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (brand_id, week_date) DO NOTHING`,
-        [brandId, weekDate, 1850 - w * 120, 120 - w * 8, 13.2 + w * 0.4, 4 - (w % 2), 6.8 - w * 0.3]
-      );
-    }
+  // 2. Facebook campaigns + weekly analytics (all tiers).
+  const allCampaigns = [
+    ["New Arrivals This Week", 600, 11.23, 0.14, 42, "New inventory spotlights for Orlando car buyers aged 25-55."],
+    ["Zero Down Financing Available", 400, 14.28, 0.11, 28, "First-time buyer financing offers."],
+    ["Truck Season", 500, 16.13, 0.13, 31, "Truck buyer targeting — F-150, Silverado, RAM."],
+    ["Certified Pre-Owned Deals", 350, 12.5, 0.1, 19, "Pre-owned inventory under $30k."],
+  ];
+  const campaigns = allCampaigns.slice(0, scale.campaigns);
+  for (const [cname, budget, cpl, convRate, leads, concept] of campaigns) {
+    await client.query(
+      `INSERT INTO campaigns
+         (brand_id, user_id, campaign_name, budget, cost_per_lead, conversion_rate, ad_creative_variations, launch_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        brandId, adminUserId, cname, budget, cpl, convRate,
+        J([{ headline: cname, primaryText: concept, leadsGenerated: leads }]),
+        new Date(Date.now() - 21 * DAY).toISOString().slice(0, 10),
+      ]
+    );
+  }
+  for (let w = 0; w < 4; w++) {
+    const weekDate = new Date(Date.now() - w * 7 * DAY).toISOString().slice(0, 10);
+    await client.query(
+      `INSERT INTO analytics (brand_id, week_date, total_spend, total_leads, cost_per_lead, conversions, return_on_ad_spend)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (brand_id, week_date) DO NOTHING`,
+      [brandId, weekDate, 1850 - w * 120, 120 - w * 8, 13.2 + w * 0.4, 4 - (w % 2), 6.8 - w * 0.3]
+    );
+  }
 
-    // 5. Content calendar + 15 posts.
+  // 3. Social posts (all tiers). Content calendar is a Pro feature. Starter is
+  // limited to two platforms (matches the live "no 3rd platform below Pro" rule).
+  if (isPro) {
     const now = new Date();
-    const calRes = await client.query(
+    await client.query(
       `INSERT INTO content_calendars (brand_id, month, year, posting_frequency, content_theme, status)
-       VALUES ($1, $2, $3, '3x per week', $4, 'active')
-       RETURNING calendar_id`,
+       VALUES ($1, $2, $3, '3x per week', $4, 'active')`,
       [brandId, now.getMonth() + 1, now.getFullYear(), "New inventory, customer deliveries, financing tips, and weekend sales events."]
     );
-    const calendarId = calRes.rows[0].calendar_id;
-    const postThemes = [
-      ["facebook", "🚗 Just landed: 2024 F-150 lineup now on the lot! Come see them this weekend."],
-      ["instagram", "Another happy customer driving off in their dream car! 🎉 #PremierAutoGroup"],
-      ["youtube", "Financing 101: How zero-down works and who qualifies. Watch now."],
-      ["facebook", "Weekend Sales Event 🔥 Special pricing on all certified pre-owned SUVs."],
-      ["instagram", "Truck season is here 🛻 Swipe to see this week's arrivals."],
-      ["facebook", "Meet the team that makes car buying easy. We're here for you."],
-      ["instagram", "Customer delivery day! Congrats to the Alvarez family on their new RAV4 🥳"],
-      ["youtube", "2024 Silverado walkaround — everything you need to know."],
-      ["facebook", "Trade in your old car for top dollar. Get an instant quote today."],
-      ["instagram", "Behind the scenes at Premier Auto Group ✨"],
-      ["facebook", "Low APR financing available for qualified buyers. Ask us how."],
-      ["youtube", "How to pick between leasing and buying — a quick guide."],
-      ["instagram", "New week, new inventory 🚙 Which one is calling your name?"],
-      ["facebook", "Family car buying made simple. Bring the kids — we've got snacks!"],
-      ["instagram", "5-star service, every time. Thank you for trusting us! ⭐⭐⭐⭐⭐"],
-    ];
-    for (let i = 0; i < postThemes.length; i++) {
-      const [platform, content] = postThemes[i];
-      const future = i >= 7;
-      await client.query(
-        `INSERT INTO social_posts (brand_id, platform, post_content, scheduled_time, published_time, status, engagement_metrics)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          brandId, platform, content,
-          future ? iso((i - 6) * DAY) : iso(-(8 - i) * DAY),
-          future ? null : iso(-(8 - i) * DAY),
-          future ? "scheduled" : "published",
-          future ? null : J({ likes: 40 + i * 7, comments: 3 + (i % 5), shares: 1 + (i % 4) }),
-        ]
-      );
-    }
+  }
+  const allPostThemes = [
+    ["facebook", "🚗 Just landed: 2024 F-150 lineup now on the lot! Come see them this weekend."],
+    ["instagram", "Another happy customer driving off in their dream car! 🎉 #PremierAutoGroup"],
+    ["youtube", "Financing 101: How zero-down works and who qualifies. Watch now."],
+    ["facebook", "Weekend Sales Event 🔥 Special pricing on all certified pre-owned SUVs."],
+    ["instagram", "Truck season is here 🛻 Swipe to see this week's arrivals."],
+    ["facebook", "Meet the team that makes car buying easy. We're here for you."],
+    ["instagram", "Customer delivery day! Congrats to the Alvarez family on their new RAV4 🥳"],
+    ["youtube", "2024 Silverado walkaround — everything you need to know."],
+    ["facebook", "Trade in your old car for top dollar. Get an instant quote today."],
+    ["instagram", "Behind the scenes at Premier Auto Group ✨"],
+    ["facebook", "Low APR financing available for qualified buyers. Ask us how."],
+    ["youtube", "How to pick between leasing and buying — a quick guide."],
+    ["instagram", "New week, new inventory 🚙 Which one is calling your name?"],
+    ["facebook", "Family car buying made simple. Bring the kids — we've got snacks!"],
+    ["instagram", "5-star service, every time. Thank you for trusting us! ⭐⭐⭐⭐⭐"],
+  ];
+  const themePool = isPro ? allPostThemes : allPostThemes.filter(([p]) => p !== "youtube");
+  const postThemes = themePool.slice(0, scale.posts);
+  const futureFrom = Math.ceil(postThemes.length / 2);
+  for (let i = 0; i < postThemes.length; i++) {
+    const [platform, content] = postThemes[i];
+    const future = i >= futureFrom;
+    await client.query(
+      `INSERT INTO social_posts (brand_id, platform, post_content, scheduled_time, published_time, status, engagement_metrics)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        brandId, platform, content,
+        future ? iso((i - futureFrom + 1) * DAY) : iso(-(futureFrom - i) * DAY),
+        future ? null : iso(-(futureFrom - i) * DAY),
+        future ? "scheduled" : "published",
+        future ? null : J({ likes: 40 + i * 7, comments: 3 + (i % 5), shares: 1 + (i % 4) }),
+      ]
+    );
+  }
 
-    // 6. Ad creative packages (Forge) — 5 angles.
+  // 4. Ad creative packages (Forge) — Pro feature.
+  if (isPro) {
     await client.query(
       `INSERT INTO ad_creatives (brand_id, campaign_goal, creative_concept, status)
        VALUES ($1, $2, $3, 'draft')`,
@@ -328,8 +319,10 @@ async function seedDemo({ businessName } = {}) {
         }),
       ]
     );
+  }
 
-    // 7. Competitor intelligence (Scout).
+  // 5. Competitor intelligence (Scout) — Enterprise feature.
+  if (isEnterprise) {
     await client.query(
       `INSERT INTO competitor_intelligence (brand_id, competitor_names, intelligence_report)
        VALUES ($1, $2, $3)`,
@@ -347,17 +340,19 @@ async function seedDemo({ businessName } = {}) {
         }),
       ]
     );
+  }
 
-    // 8. ROI snapshot.
-    await client.query(
-      `INSERT INTO roi_snapshots
-         (brand_id, week_date, total_leads, hot_leads, estimated_lead_value, ad_spend_managed, cost_per_lead, hours_saved, money_saved, total_roi_estimate)
-       VALUES ($1, $2, 120, 15, 127000, 1850, 15.42, 32, 4200, 127000)
-       ON CONFLICT (brand_id, week_date) DO NOTHING`,
-      [brandId, new Date().toISOString().slice(0, 10)]
-    );
+  // 6. ROI snapshot (all tiers).
+  await client.query(
+    `INSERT INTO roi_snapshots
+       (brand_id, week_date, total_leads, hot_leads, estimated_lead_value, ad_spend_managed, cost_per_lead, hours_saved, money_saved, total_roi_estimate)
+     VALUES ($1, $2, 120, 15, 127000, 1850, 15.42, 32, 4200, 127000)
+     ON CONFLICT (brand_id, week_date) DO NOTHING`,
+    [brandId, new Date().toISOString().slice(0, 10)]
+  );
 
-    // 9. Customer intelligence brief (Echo).
+  // 7. Customer intelligence brief (Echo) — Enterprise feature.
+  if (isEnterprise) {
     await client.query(
       `INSERT INTO customer_intelligence
          (brand_id, week_date, raw_profile_data, recommendations, trends_identified, trajectory_score, ai_analysis)
@@ -380,8 +375,10 @@ async function seedDemo({ businessName } = {}) {
         "Premier Auto Group is on a strong upward trajectory. Truck demand and improving lead quality point to an excellent close to the quarter if truck targeting is prioritized.",
       ]
     );
+  }
 
-    // 10. Sales scripts — 6 personas.
+  // 8. Sales scripts — Pro feature.
+  if (isPro) {
     const scripts = [
       ["first_time_buyer", "First-time car buyers, nervous about financing"],
       ["trade_in", "Customers trading in an existing vehicle"],
@@ -406,8 +403,10 @@ async function seedDemo({ businessName } = {}) {
         ]
       );
     }
+  }
 
-    // 11. Reviews (4.8★ average) with Echo-generated responses.
+  // 9. Reviews (4.8★) with Echo-generated responses — Pro feature (Reputation).
+  if (isPro) {
     const reviews = [
       ["Jennifer H.", 5, "Fastest response I've ever had from a dealership. Answered my questions in minutes!", "Thank you so much, Jennifer! Fast, honest service is what we're all about. Enjoy the new ride! 🚗"],
       ["Robert M.", 5, "The staff were incredibly helpful and never pushy. Got a great deal on my F-150.", "We appreciate you, Robert! Congrats on the F-150 — come back anytime. 🛻"],
@@ -421,8 +420,10 @@ async function seedDemo({ businessName } = {}) {
         [brandId, `demo-${reviewer.replace(/\W/g, "")}`, reviewer, stars, text, response, iso(-Math.floor(Math.random() * 20 + 2) * DAY)]
       );
     }
+  }
 
-    // 12. Customer feedback survey + responses (91% satisfaction).
+  // 10. Customer feedback survey + responses — Enterprise feature.
+  if (isEnterprise) {
     const surveyRes = await client.query(
       `INSERT INTO surveys (brand_id, survey_type, questions)
        VALUES ($1, 'general', $2)
@@ -458,8 +459,10 @@ async function seedDemo({ businessName } = {}) {
         ]
       );
     }
+  }
 
-    // 13. Appointments — 18 past + 3 upcoming this week.
+  // 11. Appointments — Pro feature (18 past + 3 upcoming this week).
+  if (isPro) {
     const upcoming = [
       ["David Alvarez", "2024 Ford F-150 test drive", 10, leadIds.hot[2]],
       ["Maria Santos", "Pre-owned SUV test drive", 14, null],
@@ -492,33 +495,92 @@ async function seedDemo({ businessName } = {}) {
         [brandId, start.toISOString(), end.toISOString(), status, `Guest ${i + 1}`, `guest${i + 1}@example.com`]
       );
     }
+  }
 
-    // 14. Save config + morning briefing.
+  return {
+    leads: scale.hot + scale.warm + scale.tire,
+    hotLeads: scale.hot,
+    warmLeads: scale.warm,
+    tireKickers: scale.tire,
+    campaigns: campaigns.length,
+    posts: postThemes.length,
+    reviews: isPro ? 4 : 0,
+    salesScripts: isPro ? 6 : 0,
+    appointments: isPro ? 21 : 0,
+  };
+}
+
+// ---- main seeder -----------------------------------------------------------
+async function seedDemo({ businessName } = {}) {
+  const client = await db.getClient();
+  try {
+    const adminRes = await client.query(
+      "SELECT user_id FROM users WHERE role = 'admin' ORDER BY created_at ASC LIMIT 1"
+    );
+    if (adminRes.rows.length === 0) {
+      throw new Error("No admin user found to own the demo account.");
+    }
+    const adminUserId = adminRes.rows[0].user_id;
+
+    const cfgRes = await client.query(
+      "SELECT business_name, prospect_name FROM demo_config WHERE id = true"
+    );
+    const cfg = cfgRes.rows[0] || {};
+    const bizName = (businessName || cfg.business_name || DEMO_BUSINESS_DEFAULT).trim();
+    const prospectName = cfg.prospect_name || null;
+
+    await client.query("BEGIN");
+
+    // 1. Wipe ALL existing demo brands for this admin (cascade clears children).
+    await client.query(
+      "DELETE FROM brands WHERE user_id = $1 AND is_demo = true",
+      [adminUserId]
+    );
+
+    // 2. Create one demo brand per tier, each with tier-appropriate data.
+    const brands = [];
+    for (const tier of TIER_ORDER) {
+      const brandRes = await client.query(
+        `INSERT INTO brands
+           (user_id, brand_name, brand_personality, voice_description,
+            visual_style_preferences, target_audience, is_demo, demo_tier)
+         VALUES ($1, $2, $3, $4, $5, $6, true, $7)
+         RETURNING brand_id`,
+        [
+          adminUserId,
+          bizName,
+          "Trustworthy, high-energy, community-focused auto dealership that makes car buying easy and pressure-free.",
+          "Warm, confident, and helpful — like a friend who happens to know everything about cars.",
+          J({ primaryColor: "#0B5FA5", accentColor: "#E63946", tone: "energetic-professional" }),
+          J({ location: "Orlando, FL", ageRange: "25-55", interests: ["new vehicles", "pre-owned vehicles", "financing", "trucks", "SUVs"] }),
+          tier,
+        ]
+      );
+      const brandId = brandRes.rows[0].brand_id;
+      const counts = await seedBrandData(client, { adminUserId, brandId, bizName, tier });
+      brands.push({ brandId, tier, counts });
+    }
+
+    // 3. Save config + morning briefing. No tier is active yet: the presenter
+    // chooses which plan to demo on the selection screen after seeding.
     const briefing = buildMorningBriefing(bizName, prospectName);
     await client.query(
       `UPDATE demo_config
-         SET business_name = $1, demo_brand_id = $2, morning_briefing = $3,
-             seeded_at = NOW(), updated_at = NOW()
+         SET business_name = $1, demo_brand_id = NULL, active_tier = NULL,
+             morning_briefing = $2, seeded_at = NOW(), updated_at = NOW()
        WHERE id = true`,
-      [bizName, brandId, briefing]
+      [bizName, briefing]
     );
 
     await client.query("COMMIT");
 
     return {
-      brandId,
       businessName: bizName,
-      counts: {
-        leads: HOT_LEADS.length + WARM_LEADS.length + TIRE_KICKER_LEADS.length,
-        hotLeads: HOT_LEADS.length,
-        warmLeads: WARM_LEADS.length,
-        tireKickers: TIRE_KICKER_LEADS.length,
-        campaigns: campaigns.length,
-        posts: postThemes.length,
-        reviews: reviews.length,
-        salesScripts: scripts.length,
-        appointments: 21,
-      },
+      brands: brands.map((b) => ({ brandId: b.brandId, tier: b.tier })),
+      counts: brands.reduce((acc, b) => {
+        acc[b.tier] = b.counts;
+        return acc;
+      }, {}),
     };
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

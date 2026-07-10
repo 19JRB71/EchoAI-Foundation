@@ -73,6 +73,7 @@ import { roleLabel, roleBadgeClass, canWrite } from "./lib/roles.js";
 import Breadcrumbs from "./components/Breadcrumbs.jsx";
 import FacebookWizard from "./components/FacebookWizard.jsx";
 import PresenterOverlay from "./components/PresenterOverlay.jsx";
+import DemoSelector from "./components/DemoSelector.jsx";
 import { AutonomousTab } from "./companion/EchoBrain.jsx";
 import EchoMemory from "./sections/EchoMemory.jsx";
 import EchoPlanner from "./sections/EchoPlanner.jsx";
@@ -175,6 +176,20 @@ export default function App() {
     setBillingTab("billing");
     setOpenPaymentModal(false);
     setSection("settings");
+  }
+
+  // Pick (or switch to) which plan to present. Points the demo at that tier's
+  // seeded brand so gating simulates that plan, and lands on Mission Control.
+  async function handleDemoSelectTier(tier) {
+    const res = await api.demoActivate(tier);
+    const list = await loadBrands();
+    const brandId =
+      (res && res.demoBrandId) ||
+      (list.find((b) => b.is_demo && b.demo_tier === tier) || {}).brand_id;
+    if (brandId) setSelectedBrandId(brandId);
+    setDeptAgentId(null);
+    setActiveToolTab(null);
+    setSection("missioncontrol");
   }
 
   // Whether the current user can actually open a given section. Sentinel's health
@@ -764,6 +779,10 @@ export default function App() {
   // the dashboard at it, and lands on Mission Control for the briefing.
   useEffect(() => {
     const onStart = async (e) => {
+      // Load brands so the seeded demo brands are present, then turn on
+      // Presentation Mode. The tier-selection screen appears next; picking a
+      // plan (handleDemoSelectTier) points the demo at that tier's brand. A
+      // demoBrandId in the event (e.g. rehydrate) selects it straight away.
       const brandId = e.detail && e.detail.demoBrandId;
       await loadBrands();
       if (brandId) setSelectedBrandId(brandId);
@@ -850,14 +869,27 @@ export default function App() {
     );
   }
 
-  // Effective tier for client-side gating. Admins bypass every gate (treated as
-  // top tier). Otherwise the tier comes from the subscription status; null until
-  // it loads so FeatureGate shows a spinner rather than flashing a prompt.
-  const currentTier = isAdmin
-    ? "enterprise"
-    : billingStatus
-      ? billingStatus.subscriptionTier
+  // While presenting a demo, the effective tier is the SELECTED demo brand's
+  // tier — so the existing FeatureGate renders higher-tier features as locked
+  // upgrade teasers for that plan. Null when the demo is live but no tier is
+  // chosen yet (the tier-selection screen is showing).
+  const selectedBrand = brands.find((b) => b.brand_id === selectedBrandId);
+  const demoSimTier =
+    demoActive && selectedBrand && selectedBrand.is_demo
+      ? selectedBrand.demo_tier || null
       : null;
+
+  // Effective tier for client-side gating. In a demo, simulate the demo brand's
+  // tier. Otherwise admins bypass every gate (treated as top tier); real users
+  // get their subscription tier; null until it loads so FeatureGate shows a
+  // spinner rather than flashing a prompt.
+  const currentTier = demoSimTier
+    ? demoSimTier
+    : isAdmin
+      ? "enterprise"
+      : billingStatus
+        ? billingStatus.subscriptionTier
+        : null;
 
   // Managers (and legacy viewers) are read-only everywhere: they can view every
   // section but must not see write controls. Owner, workspace-admin and the
@@ -1224,9 +1256,22 @@ export default function App() {
           />
         </ErrorBoundary>
       )}
-      {isAdmin && demoActive ? (
+      {isAdmin && demoActive && !demoSimTier ? (
+        <ErrorBoundary silent>
+          <DemoSelector
+            onSelectTier={handleDemoSelectTier}
+            onCancel={() =>
+              window.dispatchEvent(new CustomEvent("echoai:demo-stop"))
+            }
+          />
+        </ErrorBoundary>
+      ) : null}
+      {isAdmin && demoActive && demoSimTier ? (
         <ErrorBoundary silent>
           <PresenterOverlay
+            key={demoSimTier}
+            tier={demoSimTier}
+            onSwitchTier={handleDemoSelectTier}
             onNavigate={handleSelectSection}
             onOpenDepartment={openDepartment}
             onEnd={() =>
