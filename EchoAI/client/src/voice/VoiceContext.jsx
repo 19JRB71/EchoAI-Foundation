@@ -206,9 +206,14 @@ export function VoiceProvider({ active, children }) {
       setNotice("");
     };
     window.addEventListener("echoai:demo-start", onStart);
+    // Fired by App's rehydrate path after a page refresh mid-demo, so the
+    // presentation flag survives reloads (demo-start only fires on a fresh
+    // start from the admin Demo tab).
+    window.addEventListener("echoai:demo-resume", onStart);
     window.addEventListener("echoai:demo-stop", onStop);
     return () => {
       window.removeEventListener("echoai:demo-start", onStart);
+      window.removeEventListener("echoai:demo-resume", onStart);
       window.removeEventListener("echoai:demo-stop", onStop);
     };
   }, []);
@@ -496,8 +501,14 @@ export function VoiceProvider({ active, children }) {
         const alertsWaiting =
           alertPermissionRef.current === "asking" ||
           alertPermissionRef.current === "deferred";
+        // PRESENTATION-MODE RULE: while a sales demo is live, proactive items
+        // (morning briefing, alerts, reminders) are held too — otherwise a
+        // queued briefing sneaks in during a quiet dwell between demo steps
+        // and "Good morning…" replays mid-presentation. Held items are
+        // released by the demo-stop drain.
         const isHeld = (q) =>
-          (conversationBusy && isProactiveVoiceItem(q)) ||
+          ((conversationBusy || presentationRef.current) &&
+            isProactiveVoiceItem(q)) ||
           (alertsWaiting && !!q.notificationId);
         const idx = queueRef.current.findIndex((q) => !isHeld(q));
         if (idx === -1) break; // everything is held; a later drain retries it
@@ -687,7 +698,7 @@ export function VoiceProvider({ active, children }) {
           alertPermissionRef.current === "deferred";
         const allHeld = queueRef.current.every(
           (q) =>
-            (busyNow && isProactiveVoiceItem(q)) ||
+            ((busyNow || presentationRef.current) && isProactiveVoiceItem(q)) ||
             (alertsWaiting && !!q.notificationId),
         );
         if (allHeld) {
@@ -733,6 +744,35 @@ export function VoiceProvider({ active, children }) {
     window.addEventListener("echoai:conversation-idle", onIdle);
     return () => window.removeEventListener("echoai:conversation-idle", onIdle);
   }, [drain]);
+
+  // When the sales demo ends, release the proactive items (briefing, alerts)
+  // that were held for the whole presentation. presentationRef itself is
+  // flipped false by the earlier demo-stop listener; this one only re-kicks
+  // the drain once that flip has happened.
+  useEffect(() => {
+    const onDemoStop = () => {
+      setTimeout(() => drain(), 0);
+    };
+    window.addEventListener("echoai:demo-stop", onDemoStop);
+    return () => window.removeEventListener("echoai:demo-stop", onDemoStop);
+  }, [drain]);
+
+  // Remove any QUEUED (not yet playing) demo lines/suggestions. The presenter
+  // calls this on every step change so a superseded line — especially one that
+  // was autoplay-blocked and re-queued at the front — can never replay later,
+  // stale, over a different step's screen.
+  const clearDemoQueue = useCallback(() => {
+    queueRef.current = queueRef.current.filter(
+      (q) => q.type !== "demo" && q.type !== "demo-suggestion",
+    );
+    // If the ONLY thing waiting on a gesture was a stale demo line we just
+    // dropped, clear the gesture gate; the next demo enqueue re-arms it if the
+    // browser blocks again.
+    if (needsGestureRef.current && queueRef.current.length === 0) {
+      needsGestureRef.current = false;
+      setNeedsGesture(false);
+    }
+  }, []);
 
   const enqueue = useCallback(
     (item, { front = false } = {}) => {
@@ -1324,6 +1364,7 @@ export function VoiceProvider({ active, children }) {
       skip,
       stopAll,
       enqueue,
+      clearDemoQueue,
       markUserInitiated,
       registerConversationBusyProbe,
       registerVoiceInputCapableProbe,
@@ -1353,6 +1394,7 @@ export function VoiceProvider({ active, children }) {
       skip,
       stopAll,
       enqueue,
+      clearDemoQueue,
       markUserInitiated,
       registerConversationBusyProbe,
       registerVoiceInputCapableProbe,

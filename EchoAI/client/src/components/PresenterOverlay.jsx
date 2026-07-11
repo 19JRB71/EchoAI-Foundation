@@ -147,6 +147,10 @@ export default function PresenterOverlay({
       const steps = stepsRef.current;
       if (i < 0 || i >= steps.length) return;
       clearAdvanceTimer();
+      // Drop any queued line from a superseded step (including one that was
+      // autoplay-blocked and re-queued). Without this, a stale line — often
+      // the "good morning" opener — replays later over a different step.
+      if (voice && voice.clearDemoQueue) voice.clearDemoQueue();
       const token = (runTokenRef.current += 1);
       indexRef.current = i;
       setIndex(i);
@@ -237,6 +241,40 @@ export default function PresenterOverlay({
 
   // Clean up the pending advance timer if the overlay unmounts (demo ended).
   useEffect(() => () => clearAdvanceTimer(), [clearAdvanceTimer]);
+
+  // AUTOPLAY GATE: when the browser blocks Echo's audio before any click
+  // (e.g. the demo resumed on a fresh page load), the current line is parked
+  // waiting for a gesture. Suspend the auto-advance fallback so the demo
+  // doesn't silently skip unheard steps; the moment the first click unlocks
+  // audio, the parked line plays and the fallback is re-armed.
+  const needsGesture = !!(voice && voice.needsGesture);
+  const needsGestureRef = useRef(needsGesture);
+  useEffect(() => {
+    const was = needsGestureRef.current;
+    needsGestureRef.current = needsGesture;
+    if (indexRef.current < 0) return;
+    if (needsGesture) {
+      // Blocked: freeze in place. The parked line replays after a gesture.
+      clearAdvanceTimer();
+    } else if (was && !pausedRef.current) {
+      // Just unlocked: the parked line is playing now — re-arm the safety net
+      // for the CURRENT step (its onPlayed still carries the right run token).
+      // Mirrors goToStep's arm: on suggestion steps the estimate covers the
+      // step line PLUS the suggestion pitch, so timing stays consistent.
+      const steps = stepsRef.current;
+      const step = steps[indexRef.current];
+      const sc = scriptRef.current;
+      const line = sc && sc.lines && step ? sc.lines[step.speak] : null;
+      const suggestion =
+        sc && step && sc.suggestionsEnabled && Array.isArray(sc.suggestions)
+          ? sc.suggestions.find((s) => s.step === step.key)
+          : null;
+      armFallback(
+        indexRef.current,
+        suggestion ? `${line || ""} ${suggestion.text}` : line,
+      );
+    }
+  }, [needsGesture, clearAdvanceTimer, armFallback]);
 
   const togglePause = useCallback(() => {
     setPaused((prev) => {
@@ -349,6 +387,12 @@ export default function PresenterOverlay({
         <div className="px-1 pb-1 text-xs text-red-300">{error}</div>
       ) : (
         <>
+          {needsGesture && (
+            <div className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200">
+              Click anywhere to start Echo's audio — the browser blocks sound
+              until the first click.
+            </div>
+          )}
           {/* Playback controls — the demo auto-advances; these let the presenter
               take the wheel. */}
           <div className="mb-2 flex items-center gap-2">

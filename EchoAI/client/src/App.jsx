@@ -762,6 +762,15 @@ export default function App() {
         if (!alive || !status || !status.active) return;
         if (status.demoBrandId) setSelectedBrandId(status.demoBrandId);
         setDemoActive(true);
+        // Tell the voice engine Presentation Mode is live again. Without this
+        // the engine's presentation flag stays off after a refresh, so the
+        // strict demo voice isn't applied and queued proactive items (morning
+        // briefing, alerts) can play mid-demo.
+        try {
+          window.dispatchEvent(new CustomEvent("echoai:demo-resume"));
+        } catch {
+          /* best-effort */
+        }
       } catch {
         /* not seeded / not admin — nothing to rehydrate */
       }

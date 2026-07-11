@@ -945,6 +945,7 @@ const INTERACTIVE_TYPES = new Set([
   "echo_conversation",
   "tour",
   "status",
+  "demo",
   "demo-suggestion",
 ]);
 export function isProactiveVoiceItem(item) {

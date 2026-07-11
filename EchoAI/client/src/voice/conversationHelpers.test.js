@@ -980,6 +980,13 @@ describe("isProactiveVoiceItem", () => {
     expect(isProactiveVoiceItem({ type: "demo-suggestion" })).toBe(false);
   });
 
+  it("classifies presenter demo lines as interactive (never held mid-demo)", () => {
+    // The presentation-mode hold in the drain loop holds PROACTIVE items while
+    // a demo is live. Demo step lines must be interactive or the demo would
+    // hold its own narration and freeze.
+    expect(isProactiveVoiceItem({ type: "demo" })).toBe(false);
+  });
+
   it("classifies briefings as proactive", () => {
     expect(isProactiveVoiceItem({ type: "morning_briefing" })).toBe(true);
     expect(isProactiveVoiceItem({ type: "weekly_briefing" })).toBe(true);
