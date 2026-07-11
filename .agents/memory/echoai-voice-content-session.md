@@ -1,29 +1,27 @@
 ---
-name: EchoAI voice content creation session
-description: Lifecycle rules for the "let's create some content" voice review session (contentSessionRef).
+name: EchoAI multi-turn voice sessions
+description: Durable rules for any multi-turn voice session/pending ref in the conversation engine.
 ---
 
-# Voice content session (client)
+# Multi-turn voice sessions
 
-**Rule:** any long-lived voice "pending session" ref (like `contentSessionRef`)
-must be cleared AND its server session shelved (`voiceContentComplete(id, true)`
-fire-and-forget + `echoai:content-session` null dispatch) at EVERY engine reset
-site — there are more than the obvious ones:
+**Rule 1:** any long-lived voice session state must be cleared AND its
+server-side session shelved (cancelled, fire-and-forget) at *every* engine
+reset path — not just the obvious interrupt. The engine has several
+independent reset paths (barge-in during speech, watchdog force-reset, mute
+via voice AND via button, logout, follow-up timeout, competing command
+categories that win mid-session), and each one is a separate code path.
 
-1. interrupt inside `processCommand`
-2. barge-in interrupt inside `handleResult` (separate code path!)
-3. mute voice intent AND the `muteMic` button action (two paths)
-4. logout kill switch
-5. stuck-suspend watchdog force-reset
-6. follow-up window timeout
-7. nav/music command mid-session (command wins, session shelved)
+**Why:** a review failed precisely because two of the less obvious reset paths
+were missed — a stale session ref silently hijacks later utterances and
+misinterprets them as session commands.
 
-**Why:** the first architect review failed precisely because barge-in and the
-watchdog were missed — a stale ref hijacks later utterances as review verdicts.
+**How to apply:** before shipping a new multi-turn voice flow, enumerate every
+place existing pending refs are cleared and mirror the cleanup at each one.
 
-**How to apply:** when adding any new multi-turn voice session, grep for all
-sites that clear `pendingTransferOfferRef` and mirror the cleanup at each.
+**Rule 2:** any voice command that commits/schedules something must match a
+strict, explicit phrase — loose agreement ("yes", "okay") must never commit.
 
-Other invariants: approve matcher is strict/exact (loose "yes"/"okay" must
-never schedule); `normalizeSpeech` turns apostrophes into spaces, so matcher
-regexes need `let ?s` / `that ?s` forms, never `let'?s`.
+**Rule 3:** speech normalization converts apostrophes to spaces before
+matchers run, so matcher regexes must accept the space-split contraction form
+("let ?s", "that ?s"), never the literal apostrophe form.
