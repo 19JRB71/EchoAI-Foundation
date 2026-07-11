@@ -971,8 +971,12 @@ function appendSetupReminder(parts, data) {
   const r = data.setupReminder;
   if (!r || !r.label) return;
   const next = r.nextStep ? ` — the next step is to ${r.nextStep.toLowerCase()}` : "";
+  // Name the brand when the owner has more than one, so a reminder about an
+  // older brand can't be mistaken for the one they're currently working in.
+  const multiBrand = Array.isArray(data.brands) && data.brands.length > 1;
+  const forBrand = multiBrand && r.brandName ? ` for ${r.brandName}` : "";
   parts.push(
-    `One more thing: your ${r.label.toLowerCase()} setup isn't finished yet${next}. The setup guide in that section will walk you through it.`
+    `One more thing: your ${r.label.toLowerCase()} setup${forBrand} isn't finished yet${next}. The setup guide in that section will walk you through it.`
   );
 }
 

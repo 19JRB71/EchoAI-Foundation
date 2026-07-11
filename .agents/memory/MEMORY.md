@@ -1,4 +1,5 @@
 - [EchoAI public widget endpoints](echoai-public-widget-endpoints.md) — method-aware CORS (never path-prefix) + gate owner alerts on real state transitions, not raw public POSTs.
+- [EchoAI self-echo filtering](echoai-self-echo-filter.md) — recognizer finalizes Echo's own TTS seconds after playback; filter (never deaf-gate) finals in a ~7s post-TTS window w/ full-line overlap match.
 - [EchoAI untested-component import trap](echoai-untested-component-import.md) — a new component nobody imports can ship a bad import that vitest passes but the vite build fails; always rebuild.
 - [EchoAI leads dedup](echoai-leads-dedup.md) — dedup leads in app code (email/phone), no table-wide unique index; the leads table is shared by multiple insert paths.
 - [EchoAI Setup Agent orchestration](echoai-setup-agent-orchestration.md) — onboarding runner: owner guard, token-fenced renewable lease, fail-closed gating, app-code idempotency, AI→502.

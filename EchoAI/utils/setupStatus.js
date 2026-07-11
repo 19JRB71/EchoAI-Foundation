@@ -63,17 +63,27 @@ const SETUP_CATALOG = [
     label: "Social media accounts",
     section: "social",
     async steps(userId, brandId) {
-      const connected = await exists(
-        `SELECT 1 FROM social_accounts
-          WHERE brand_id = $1 AND connection_status = 'connected' LIMIT 1`,
+      // Distinguish "never connected" from "connected but broken": a row with
+      // connection_status = 'error' means the owner DID connect an account but
+      // it now needs attention — telling them to "connect one" would be
+      // confusing and wrong.
+      const { rows } = await db.query(
+        "SELECT connection_status FROM social_accounts WHERE brand_id = $1",
         [brandId]
       );
+      const connected = rows.some((r) => r.connection_status === "connected");
+      const hasBroken = !connected && rows.length > 0;
       const posted = await exists(
         "SELECT 1 FROM social_posts WHERE brand_id = $1 LIMIT 1",
         [brandId]
       );
       return [
-        { label: "Connect at least one social account", done: connected },
+        {
+          label: hasBroken
+            ? "Reconnect your social account — it needs attention"
+            : "Connect at least one social account",
+          done: connected,
+        },
         { label: "Schedule your first post", done: posted },
       ];
     },

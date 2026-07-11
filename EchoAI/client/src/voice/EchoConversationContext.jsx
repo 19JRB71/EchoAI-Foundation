@@ -125,6 +125,13 @@ const SPEAK_SAFETY_MS = 90000;
 // the owner's immediate reply is silently dropped — which reads as "Echo is
 // ignoring me". 800ms covers speaker tail-off without eating quick answers.
 const SPEAK_COOLDOWN_MS = 800;
+// Keep running the self-echo FILTER (not a deaf gate — real speech still
+// passes) on final transcripts for this long after Echo's audio ends. The
+// recognizer can finalize a capture of Echo's own voice several seconds after
+// playback stops, well past the short cooldown — without this window those
+// late transcripts were processed as the owner's speech and Echo answered
+// its own questions.
+const SELF_ECHO_WINDOW_MS = 7000;
 // After Echo asks a question, ignore ALL speech for at least this long so Echo's
 // own voice trailing off can't answer its own question. Also kept short — the
 // owner usually answers a question right away.
@@ -197,6 +204,7 @@ export function EchoConversationProvider({ active, children }) {
   const speakingClearRef = useRef(null); // timer that lifts speakingRef post-cooldown
   const audioPlayingRef = useRef(false); // audio ACTUALLY playing (tts-start → tts-end)
   const recentEchoTextsRef = useRef([]); // last few lines Echo spoke (self-echo filter)
+  const lastTtsEndAtRef = useRef(0); // when Echo's audio last finished (epoch ms)
   const acceptInputAtRef = useRef(0); // ignore speech until this epoch-ms timestamp
   const finalRef = useRef(""); // accumulated final transcript for active capture
   const pauseTimerRef = useRef(null);
@@ -305,6 +313,7 @@ export function EchoConversationProvider({ active, children }) {
     };
     const onSpeakEnd = () => {
       audioPlayingRef.current = false;
+      lastTtsEndAtRef.current = Date.now();
       if (speakingClearRef.current) clearTimeout(speakingClearRef.current);
       speakingClearRef.current = setTimeout(() => {
         speakingRef.current = false;
@@ -2609,12 +2618,20 @@ export function EchoConversationProvider({ active, children }) {
       // real speech passes straight through, so fast answers are never lost.
       const gated =
         speakingRef.current || Date.now() < acceptInputAtRef.current;
+      // The recognizer can finalize a capture of Echo's OWN voice several
+      // seconds after playback ends — long past the cooldown gate. Keep the
+      // self-echo FILTER active for a wider window after the last audio end;
+      // real speech still passes (isSelfEcho only drops matches against what
+      // Echo actually said), so this adds no deaf time.
+      const echoWindow =
+        gated || Date.now() - lastTtsEndAtRef.current < SELF_ECHO_WINDOW_MS;
       let interim = "";
       let addedFinal = false;
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const chunk = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          if (gated && isSelfEcho(chunk, recentEchoTextsRef.current)) continue;
+          if (echoWindow && isSelfEcho(chunk, recentEchoTextsRef.current))
+            continue;
           finalRef.current = `${finalRef.current} ${chunk}`.trim();
           addedFinal = true;
           // Track the weakest final-chunk confidence for this capture; a low

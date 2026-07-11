@@ -168,6 +168,19 @@ export function isSelfEcho(heard, recentTexts) {
       const hits = words.filter((w) => tailSet.has(w)).length;
       if (hits / words.length >= 0.7) return true;
     }
+    // Long leaks aren't only tails: the recognizer often finalizes a capture
+    // of Echo's own voice SECONDS after playback ends, and that capture can
+    // contain the middle (or all) of Echo's sentence — which the tail check
+    // misses, letting Echo "answer its own question". For 5+ word chunks, an
+    // overwhelming word overlap with the WHOLE line is Echo's own voice.
+    // Short real answers never take this branch, so "yes" / "no" stay safe,
+    // and the 80% bar keeps real commands that merely reuse a few of Echo's
+    // words passing through.
+    if (words.length >= 5) {
+      const lineSet = new Set(spoken.split(" "));
+      const lineHits = words.filter((w) => lineSet.has(w)).length;
+      if (lineHits / words.length >= 0.8) return true;
+    }
   }
   return false;
 }

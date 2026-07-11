@@ -58,6 +58,43 @@ test("mentions the unfinished setup and its next step", () => {
   assert.ok(text.includes("set up your chatbot"));
 });
 
+test("names the brand when the owner has more than one", () => {
+  const text = templateMorning(
+    "James",
+    baseData({
+      brands: [
+        { brand_id: "b1", brand_name: "Blacor Homes" },
+        { brand_id: "b2", brand_name: "Second Venture" },
+      ],
+      setupReminder: {
+        key: "social",
+        label: "Social media accounts",
+        section: "social",
+        brandName: "Second Venture",
+        nextStep: "Connect at least one social account",
+      },
+    })
+  );
+  assert.ok(text.includes("social media accounts setup for Second Venture"));
+});
+
+test("omits the brand name when the owner has just one brand", () => {
+  const text = templateMorning(
+    "James",
+    baseData({
+      setupReminder: {
+        key: "social",
+        label: "Social media accounts",
+        section: "social",
+        brandName: "Blacor Homes",
+        nextStep: "Schedule your first post",
+      },
+    })
+  );
+  assert.ok(text.includes("social media accounts setup isn't finished"));
+  assert.ok(!text.includes("for Blacor Homes"));
+});
+
 test("handles a reminder without a next step", () => {
   const text = templateMorning(
     "James",

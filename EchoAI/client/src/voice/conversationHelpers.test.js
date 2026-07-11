@@ -68,6 +68,29 @@ describe("isSelfEcho", () => {
     expect(isSelfEcho("open my leads", null)).toBe(false);
   });
 
+  it("flags a long leak of the MIDDLE of Echo's sentence (late-finalized capture)", () => {
+    const line =
+      "One more thing: your social media accounts setup isn't finished yet — the next step is to connect at least one social account.";
+    // The recognizer finalized a capture of the middle of the line, not the tail.
+    expect(
+      isSelfEcho("your social media accounts setup isn't finished yet", [line]),
+    ).toBe(true);
+    expect(
+      isSelfEcho("one more thing your social media accounts setup", [line]),
+    ).toBe(true);
+  });
+
+  it("lets a real 5+ word command through even when it reuses a few of Echo's words", () => {
+    expect(
+      isSelfEcho("read me my hot leads please", [question]),
+    ).toBe(false);
+    expect(
+      isSelfEcho("open the social media section now", [
+        "Your social media accounts setup isn't finished yet.",
+      ]),
+    ).toBe(false);
+  });
+
   it("checks every recent line, not just the newest", () => {
     const older = "Shall I schedule that post for tomorrow morning?";
     expect(
