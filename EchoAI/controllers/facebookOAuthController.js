@@ -255,7 +255,8 @@ async function getConnectedAccounts(req, res) {
   const userId = req.user.userId;
   try {
     const result = await db.query(
-      `SELECT account_ref, facebook_ad_accounts, page_ref, facebook_pages, connection_status
+      `SELECT account_ref, facebook_ad_accounts, page_ref, facebook_pages,
+              facebook_page_tokens, api_token_encrypted, connection_status
        FROM api_integrations
        WHERE user_id = $1 AND platform = 'facebook'`,
       [userId],
@@ -273,13 +274,61 @@ async function getConnectedAccounts(req, res) {
     }
 
     const row = result.rows[0];
+    let pages = row.facebook_pages || [];
+
+    // Refresh the Page list live from Facebook on every load. The stored list
+    // is a snapshot from connect time, so Pages the owner grants LATER (via a
+    // reconnect or Facebook's own Settings → Business integrations screen)
+    // would otherwise never appear in the picker. Graph failures fall back to
+    // the stored snapshot — this refresh must never break the picker.
+    if (row.connection_status === "connected" && row.api_token_encrypted) {
+      try {
+        const accessToken = decrypt(row.api_token_encrypted);
+        const pageUrl = new URL(`${GRAPH}/me/accounts`);
+        pageUrl.searchParams.set("fields", "id,name,category,access_token");
+        pageUrl.searchParams.set("access_token", accessToken);
+        const pageData = await graphFetch(pageUrl.toString(), "Refreshing pages");
+        const livePages = (pageData.data || []).map((p) => ({
+          id: p.id,
+          name: p.name || p.id,
+          category: p.category || null,
+        }));
+        // Merge live page tokens over the stored ones (live wins; keep stored
+        // tokens for pages Graph momentarily omits so publishing keeps working).
+        const storedTokens = row.facebook_page_tokens
+          ? JSON.parse(decrypt(row.facebook_page_tokens))
+          : {};
+        const liveTokens = {};
+        for (const p of pageData.data || []) {
+          if (p.id && p.access_token) liveTokens[p.id] = p.access_token;
+        }
+        const mergedTokens = { ...storedTokens, ...liveTokens };
+        await db.query(
+          `UPDATE api_integrations
+             SET facebook_pages = $1::jsonb, facebook_page_tokens = $2
+           WHERE user_id = $3 AND platform = 'facebook'`,
+          [
+            JSON.stringify(livePages),
+            Object.keys(mergedTokens).length
+              ? encrypt(JSON.stringify(mergedTokens))
+              : row.facebook_page_tokens,
+            userId,
+          ],
+        );
+        pages = livePages;
+      } catch (err) {
+        console.error("Facebook live page refresh failed:", err.message);
+        // Fall back to the stored snapshot — never sink the picker.
+      }
+    }
+
     return res.status(200).json({
       configured: oauthConfigured(),
       connected: row.connection_status === "connected",
       connectionStatus: row.connection_status,
       accounts: row.facebook_ad_accounts || [],
       selectedAccountId: row.account_ref,
-      pages: row.facebook_pages || [],
+      pages,
       selectedPageId: row.page_ref,
     });
   } catch (err) {

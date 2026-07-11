@@ -46,3 +46,15 @@ existing grant. The OAuth dialog URL must send `auth_type=rerequest` so the
 asset-selection screens appear on every connect. Harmless on first connects.
 **Why:** owner reconnected to share a second business's Page and only got the
 ad-account confirm; the new Page never appeared in the picker.
+
+## Page list must be refreshed live, not a connect-time snapshot
+
+The Page picker reads facebook_pages stored at OAuth-callback time; Facebook
+pre-selects the previous grant on re-auth, so owners routinely finish a
+reconnect WITHOUT adding the new Page — and even when they add it later via
+Facebook Settings → Business integrations, a snapshot list never shows it.
+GET /api/facebook/accounts now live-refreshes /me/accounts (updates
+facebook_pages, merges live page tokens over stored; graph failure falls back
+to snapshot). **Why:** owner's second-business Page never appeared despite
+reconnecting. **How to apply:** treat any FB asset list shown for user choice
+as live data; snapshots only as a fallback.
