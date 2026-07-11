@@ -52,9 +52,11 @@ export default function LandingPage() {
 
 function Logo({ className = "" }) {
   return (
-    <span className={`font-extrabold tracking-tight ${className}`}>
-      Zor<span className="text-teal-400">echo</span>
-    </span>
+    <img
+      src="/zorecho-wordmark.png"
+      alt="Zorecho"
+      className={`h-6 w-auto sm:h-7 ${className}`}
+    />
   );
 }
 

@@ -151,9 +151,7 @@ export default function Sidebar({
   const logo = branding.logoUrl ? (
     <img src={branding.logoUrl} alt={branding.agencyName} className="max-h-9 w-auto object-contain" />
   ) : isDefaultBrand ? (
-    <span className="text-xl font-bold tracking-tight text-white">
-      Zor<span style={{ color: brandTeal }}>echo</span>
-    </span>
+    <img src="/zorecho-wordmark.png" alt="Zorecho" className="h-6 w-auto object-contain" />
   ) : (
     <span className="text-xl font-bold tracking-tight text-white">{branding.agencyName}</span>
   );

@@ -104,9 +104,11 @@ export default function Login({ onLogin, invitePending = false }) {
               className="mx-auto max-h-12 w-auto object-contain"
             />
           ) : isDefaultBrand ? (
-            <h1 className="text-2xl font-bold text-gray-100">
-              Zor<span style={{ color: branding.primaryColor }}>echo</span>
-            </h1>
+            <img
+              src="/zorecho-wordmark.png"
+              alt="Zorecho"
+              className="mx-auto h-8 w-auto object-contain"
+            />
           ) : (
             <h1 className="text-2xl font-bold text-gray-100">
               {branding.agencyName}
