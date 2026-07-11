@@ -101,6 +101,11 @@ async function initiateOAuth(req, res) {
     authUrl.searchParams.set("state", state);
     authUrl.searchParams.set("scope", SCOPES.join(","));
     authUrl.searchParams.set("response_type", "code");
+    // Re-show Facebook's granular asset-selection screens (which Pages / ad
+    // accounts to share) on every connect. Without this, a RE-connect gets
+    // Facebook's quick "you already granted this" confirm dialog, so the owner
+    // never gets the chance to add a newly-needed Page to the existing grant.
+    authUrl.searchParams.set("auth_type", "rerequest");
     return res.status(200).json({ authUrl: authUrl.toString() });
   });
 }

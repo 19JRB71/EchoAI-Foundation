@@ -28,3 +28,10 @@ won't start until pause+play" bugs:
 
 **Why:** the voice queue outlives demo steps and page loads; anything queued
 before/during a demo will eventually play unless explicitly held or purged.
+
+5. **Every demo-exit path must clear the SERVER flag.** `demo_config.active`
+   drives rehydrate-on-load; the tier-selector Cancel only dispatched the
+   client `echoai:demo-stop` event, so any later dashboard load (e.g. an OAuth
+   redirect back) resurrected Presentation Mode. The central demo-stop handler
+   now best-effort calls the deactivate endpoint — keep every new exit path
+   routed through it.

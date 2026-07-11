@@ -798,6 +798,16 @@ export default function App() {
       setDemoActive(true);
     };
     const onStop = async () => {
+      // Always turn the server-side Presentation Mode flag off, no matter which
+      // UI dispatched the stop. The tier-selector's Cancel used to close the
+      // demo only client-side, leaving demo_config.active = true — so the very
+      // next dashboard load (e.g. returning from a Facebook OAuth redirect)
+      // rehydrated and "instantly put me in demo mode".
+      try {
+        await api.demoDeactivate();
+      } catch {
+        /* best-effort; the End Demo / Stop buttons already deactivated */
+      }
       // Reload real brands and move the selector off the demo brand so the admin
       // is never left "stuck" showing Premier Auto Group after a demo.
       const list = await loadBrands();

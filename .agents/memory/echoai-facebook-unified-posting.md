@@ -37,3 +37,12 @@ updates every brand at once and no brand row holds a stale copy.
 
 **Out of scope (left as-is):** `campaignController` env `FACEBOOK_PAGE_ID`;
 Instagram posting stays manual credential entry.
+
+## Reconnect must re-show asset selection
+
+Facebook shows a quick "already granted" confirm on re-auth, hiding the
+granular Page/ad-account pickers — so an owner can never ADD a new Page to an
+existing grant. The OAuth dialog URL must send `auth_type=rerequest` so the
+asset-selection screens appear on every connect. Harmless on first connects.
+**Why:** owner reconnected to share a second business's Page and only got the
+ad-account confirm; the new Page never appeared in the picker.
