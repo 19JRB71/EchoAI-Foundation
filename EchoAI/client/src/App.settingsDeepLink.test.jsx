@@ -9,6 +9,12 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
+// This file renders the full <App> (heaviest client test). Under parallel-suite
+// CPU load (validation runs server tests, the client build, and this suite
+// concurrently) the default 5s test timeout / 1s waitFor flake even though the
+// logic is fine — every assertion still settles as soon as React flushes.
+vi.setConfig({ testTimeout: 30000 });
+
 // --- Router: App only uses useNavigate. ---
 vi.mock("react-router-dom", () => ({
   useNavigate: () => vi.fn(),
@@ -131,15 +137,24 @@ beforeEach(() => {
 
 async function renderDashboard() {
   render(<App />);
+  // Generous timeouts: the default 1s waitFor flakes under parallel-suite CPU
+  // load (validation runs test/client-test/client-build concurrently) — the
+  // brands fetch chain simply hasn't flushed yet on a loaded machine.
   // Mission Control stub is up once the profile resolves…
-  await waitFor(() => {
-    expect(screen.getByText("alert-brand-b")).toBeInTheDocument();
-  });
+  await waitFor(
+    () => {
+      expect(screen.getByText("alert-brand-b")).toBeInTheDocument();
+    },
+    { timeout: 10000 },
+  );
   // …and the brand selector confirms both brands are loaded with Business A
   // (the first real brand) selected.
-  await waitFor(() => {
-    expect(pillFor("Business A")).toHaveAttribute("aria-pressed", "true");
-  });
+  await waitFor(
+    () => {
+      expect(pillFor("Business A")).toHaveAttribute("aria-pressed", "true");
+    },
+    { timeout: 10000 },
+  );
 }
 
 // The brand switcher is a row of pill buttons; the active one is aria-pressed.
