@@ -43,6 +43,7 @@ const { runHourlyHealthSweep } = require("../controllers/healthMonitorController
 const { runApiQuotaSweep } = require("./apiQuotaMonitor");
 const { runDailyGoalTracking } = require("./goalAlerts");
 const { runBetaProgramSweep } = require("./betaProgram");
+const { runWeeklyAutopilot } = require("../controllers/autopilotController");
 const {
   runListingPromotionSweep,
   runSellerLeadAdSweep,
@@ -590,6 +591,15 @@ function startScheduler() {
   cron.schedule("15 8 * * 1", () => {
     runWeeklyCrossBusinessIntelligence().catch((err) => {
       console.error("Scheduled cross-business intelligence run errored:", err.message);
+    });
+  });
+
+  // Mondays 06:30: Autopilot drafts each enabled brand's week in one batch —
+  // posts with graphics plus test ads — then alerts the owner to review.
+  // Early on purpose: the batch should be waiting when the owner logs in.
+  cron.schedule("30 6 * * 1", () => {
+    runWeeklyAutopilot().catch((err) => {
+      console.error("Scheduled autopilot weekly run errored:", err.message);
     });
   });
 

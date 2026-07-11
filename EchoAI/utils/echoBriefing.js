@@ -103,6 +103,7 @@ function hasActivity(data) {
       (data.campaigns && data.campaigns.length) ||
       (data.sentinelFixes && data.sentinelFixes.length) ||
       data.pendingApprovals ||
+      data.autopilotPending ||
       data.competitorNote ||
       data.newSupporters ||
       (data.upcomingCampaignEvents && data.upcomingCampaignEvents.length) ||
@@ -192,6 +193,7 @@ async function gatherBriefingData(userId, since, brandId = null) {
     campaigns: [],
     sentinelFixes: [],
     pendingApprovals: 0,
+    autopilotPending: 0,
     competitorNote: null,
     sageNote: null,
     facebookConnected: fbConnected,
@@ -228,6 +230,7 @@ async function gatherBriefingData(userId, since, brandId = null) {
     propertyLeadRows,
     newListingRows,
     openHouseRows,
+    autopilotRows,
   ] = await Promise.all([
       safeRows(
         `SELECT l.lead_name, l.temperature, l.created_at, b.brand_name
@@ -341,6 +344,16 @@ async function gatherBriefingData(userId, since, brandId = null) {
           ORDER BY oh.event_date ASC LIMIT 3`,
         [brandIds]
       ),
+      // Autopilot: drafted items in READY batches still waiting for the
+      // owner's yes/no — the briefing surfaces them so nothing sits unreviewed.
+      safeRows(
+        `SELECT COUNT(*)::int AS n
+           FROM autopilot_batch_items i
+           JOIN autopilot_batches ab ON ab.batch_id = i.batch_id
+          WHERE ab.brand_id = ANY($1) AND ab.status = 'ready'
+            AND i.status = 'pending'`,
+        [brandIds]
+      ),
     ]);
 
   const sentinelFixes = [];
@@ -364,6 +377,7 @@ async function gatherBriefingData(userId, since, brandId = null) {
     campaigns,
     sentinelFixes: sentinelFixes.slice(0, 5),
     pendingApprovals: approvals[0] ? approvals[0].n : 0,
+    autopilotPending: autopilotRows[0] ? autopilotRows[0].n : 0,
     competitorNote:
       competitor[0] && competitor[0].intelligence_report
         ? summarizeCompetitor(competitor[0].intelligence_report)
@@ -889,6 +903,11 @@ function templateMorning(firstName, data, part = "morning") {
   }
   if (data.pendingApprovals) {
     parts.push(`${data.pendingApprovals} item${data.pendingApprovals === 1 ? " is" : "s are"} waiting for your approval.`);
+  }
+  if (data.autopilotPending) {
+    parts.push(
+      `Your week's content is drafted and waiting: ${data.autopilotPending} item${data.autopilotPending === 1 ? "" : "s"} in the Autopilot batch need${data.autopilotPending === 1 ? "s" : ""} your yes or no. Just say "let's review the batch" whenever you're ready.`
+    );
   }
   appendAgenda(parts, data);
   appendSetupReminder(parts, data);

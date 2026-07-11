@@ -625,7 +625,11 @@ async function completeSession(req, res) {
 
 module.exports = {
   PUBLISHABLE_PLATFORMS,
+  PLATFORM_IMAGE_PURPOSE,
   proposeScheduledTime,
+  getUsablePlatforms,
+  gatherIntelligence,
+  getBrandTimezone,
   startSession,
   submitAnswers,
   getSession,

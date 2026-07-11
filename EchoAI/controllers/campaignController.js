@@ -139,6 +139,109 @@ async function connectFacebookAccount(req, res) {
 }
 
 /**
+ * Launches a Facebook campaign + ad set for an OWNED brand and stores the
+ * record in the campaigns table. Shared by the manual create-campaign endpoint
+ * and Autopilot's approve-ad path so both go through the exact same steps.
+ * The Facebook objects are created PAUSED (nothing spends until reviewed at
+ * Facebook), while the local row is 'active' — its daily budget counts toward
+ * the owner's committed spend from launch.
+ *
+ * @param {object} p { userId, brand, name?, goal, budget, targetAudience?, creativeOverride? }
+ * @returns {{campaignId, facebookCampaignId, facebookAdSetId, facebookCreativeId, objective}}
+ */
+async function launchFacebookCampaign(p) {
+  const { userId, brand, name, goal, budget, targetAudience, creativeOverride } = p;
+
+  const { accessToken, accountRef } = await getFacebookIntegration(userId);
+  const objective = GOAL_TO_OBJECTIVE[goal] || GOAL_TO_OBJECTIVE.leads;
+  const campaignName = name || `${brand.brand_name} - ${goal}`;
+  const dailyBudgetCents = Math.round(Number(budget) * 100);
+
+  // 1. Create the campaign (paused so nothing spends until reviewed).
+  const campaign = await graphPost(
+    `${accountRef}/campaigns`,
+    {
+      name: campaignName,
+      objective,
+      status: "PAUSED",
+      special_ad_categories: [],
+    },
+    accessToken
+  );
+
+  // 2. Create the ad set.
+  const adSet = await graphPost(
+    `${accountRef}/adsets`,
+    {
+      name: `${campaignName} - Ad Set`,
+      campaign_id: campaign.id,
+      daily_budget: dailyBudgetCents,
+      billing_event: "IMPRESSIONS",
+      optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
+      targeting: buildTargeting(targetAudience, brand.geo_targeting),
+      status: "PAUSED",
+    },
+    accessToken
+  );
+
+  // 3. Creative copy: the caller's approved creative when supplied (Autopilot),
+  // otherwise brand-tailored generated variations; optionally push to Facebook.
+  const variations = creativeOverride
+    ? [creativeOverride]
+    : generateCreativeVariations(brand, { campaignGoal: goal, count: 3 });
+  let creativeId = null;
+  const pageId = process.env.FACEBOOK_PAGE_ID;
+  const linkUrl = process.env.FACEBOOK_LINK_URL;
+
+  if (pageId && linkUrl) {
+    const primary = variations[0];
+    const creative = await graphPost(
+      `${accountRef}/adcreatives`,
+      {
+        name: `${campaignName} - Creative`,
+        object_story_spec: {
+          page_id: pageId,
+          link_data: {
+            message: primary.primaryText,
+            link: linkUrl,
+            name: primary.headline,
+            call_to_action: { type: "LEARN_MORE", value: { link: linkUrl } },
+          },
+        },
+      },
+      accessToken
+    );
+    creativeId = creative.id;
+  }
+
+  // 4. Store the campaign record locally.
+  const inserted = await db.query(
+    `INSERT INTO campaigns
+       (brand_id, user_id, campaign_name, budget, ad_creative_variations,
+        launch_date, facebook_campaign_id, facebook_adset_id, status)
+     VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, 'active')
+     RETURNING campaign_id`,
+    [
+      brand.brand_id,
+      userId,
+      campaignName,
+      budget,
+      JSON.stringify(variations),
+      campaign.id,
+      adSet.id,
+    ]
+  );
+
+  return {
+    campaignId: inserted.rows[0].campaign_id,
+    facebookCampaignId: campaign.id,
+    facebookAdSetId: adSet.id,
+    facebookCreativeId: creativeId,
+    objective,
+  };
+}
+
+/**
  * POST /api/campaigns
  * Creates a Facebook campaign + ad set + initial ad creative, stores the record
  * in the campaigns table, and returns the campaign ID.
@@ -162,90 +265,16 @@ async function createCampaign(req, res) {
     }
     const brand = brandResult.rows[0];
 
-    const { accessToken, accountRef } = await getFacebookIntegration(userId);
-    const objective = GOAL_TO_OBJECTIVE[goal] || GOAL_TO_OBJECTIVE.leads;
-    const campaignName = name || `${brand.brand_name} - ${goal}`;
-    const dailyBudgetCents = Math.round(Number(budget) * 100);
-
-    // 1. Create the campaign (paused so nothing spends until reviewed).
-    const campaign = await graphPost(
-      `${accountRef}/campaigns`,
-      {
-        name: campaignName,
-        objective,
-        status: "PAUSED",
-        special_ad_categories: [],
-      },
-      accessToken
-    );
-
-    // 2. Create the ad set.
-    const adSet = await graphPost(
-      `${accountRef}/adsets`,
-      {
-        name: `${campaignName} - Ad Set`,
-        campaign_id: campaign.id,
-        daily_budget: dailyBudgetCents,
-        billing_event: "IMPRESSIONS",
-        optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
-        targeting: buildTargeting(targetAudience, brand.geo_targeting),
-        status: "PAUSED",
-      },
-      accessToken
-    );
-
-    // 3. Generate brand-tailored creative copy and (optionally) push an ad creative.
-    const variations = generateCreativeVariations(brand, { campaignGoal: goal, count: 3 });
-    let creativeId = null;
-    const pageId = process.env.FACEBOOK_PAGE_ID;
-    const linkUrl = process.env.FACEBOOK_LINK_URL;
-
-    if (pageId && linkUrl) {
-      const primary = variations[0];
-      const creative = await graphPost(
-        `${accountRef}/adcreatives`,
-        {
-          name: `${campaignName} - Creative`,
-          object_story_spec: {
-            page_id: pageId,
-            link_data: {
-              message: primary.primaryText,
-              link: linkUrl,
-              name: primary.headline,
-              call_to_action: { type: "LEARN_MORE", value: { link: linkUrl } },
-            },
-          },
-        },
-        accessToken
-      );
-      creativeId = creative.id;
-    }
-
-    // 4. Store the campaign record locally.
-    const inserted = await db.query(
-      `INSERT INTO campaigns
-         (brand_id, user_id, campaign_name, budget, ad_creative_variations,
-          launch_date, facebook_campaign_id, facebook_adset_id, status)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, 'active')
-       RETURNING campaign_id`,
-      [
-        brandId,
-        userId,
-        campaignName,
-        budget,
-        JSON.stringify(variations),
-        campaign.id,
-        adSet.id,
-      ]
-    );
-
-    return res.status(201).json({
-      campaignId: inserted.rows[0].campaign_id,
-      facebookCampaignId: campaign.id,
-      facebookAdSetId: adSet.id,
-      facebookCreativeId: creativeId,
-      objective,
+    const launched = await launchFacebookCampaign({
+      userId,
+      brand,
+      name,
+      goal,
+      budget,
+      targetAudience,
     });
+
+    return res.status(201).json(launched);
   } catch (err) {
     const status = err.statusCode || 500;
     console.error("Create campaign error:", err.message);
@@ -417,6 +446,7 @@ async function generateAdCreative(req, res) {
 
 module.exports = {
   connectFacebookAccount,
+  launchFacebookCampaign,
   createCampaign,
   optimizeCampaign,
   getCampaignPerformance,
