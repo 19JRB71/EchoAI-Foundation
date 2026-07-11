@@ -300,9 +300,16 @@ export function VoiceProvider({ active, children }) {
         resolveRef.current = settle;
         (async () => {
           // Duck any background music while Echo speaks (restored in settle()).
+          // The spoken text rides along so the conversation engine can tell
+          // Echo's own voice leaking back through the mic apart from a real
+          // answer from the owner (self-echo filter in handleResult).
           if (!mutedRef.current && activeRef.current) {
             try {
-              window.dispatchEvent(new Event("echoai:tts-start"));
+              window.dispatchEvent(
+                new CustomEvent("echoai:tts-start", {
+                  detail: { text: item.text || "" },
+                }),
+              );
             } catch {
               /* noop */
             }

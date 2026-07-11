@@ -129,6 +129,49 @@ export function isQuestion(text) {
   return /\?\s*$/.test(String(text || "").trim());
 }
 
+// ---------------------------------------------------------------------------
+// Self-echo detection
+// ---------------------------------------------------------------------------
+// Right after Echo stops talking there is a short window where the recognizer
+// can still deliver a transcript of Echo's OWN trailing audio (speaker →
+// microphone leak plus recognition latency). The engine used to drop ALL
+// speech in that window — which also silently ate the owner's quick answer to
+// a question ("yes" spoken the instant the question ends). Instead we now
+// compare what was heard against the TAIL of what Echo just said: only the
+// end of Echo's speech can leak after playback finishes, so matching against
+// the last few words keeps short real answers ("no", "yes") safe even when
+// the same word appeared earlier in Echo's sentence.
+const ECHO_TAIL_WORDS = 12;
+
+/**
+ * True when a transcript chunk heard in the brief window after Echo spoke is
+ * (part of) Echo's own speech leaking back through the mic.
+ * @param {string} heard raw transcript chunk from the recognizer.
+ * @param {string[]} recentTexts the last few lines Echo spoke (raw text).
+ */
+export function isSelfEcho(heard, recentTexts) {
+  const norm = normalizeSpeech(heard);
+  if (!norm) return true; // nothing real captured — treat as noise
+  const words = norm.split(" ");
+  for (const spokenRaw of Array.isArray(recentTexts) ? recentTexts : []) {
+    const spoken = normalizeSpeech(spokenRaw);
+    if (!spoken) continue;
+    const tail = spoken.split(" ").slice(-ECHO_TAIL_WORDS).join(" ");
+    // Exact phrase containment in the tail → clearly Echo's own trailing audio.
+    if (` ${tail} `.includes(` ${norm} `)) return true;
+    // Fuzzy match for slightly-misheard leaks: a longer heard phrase whose
+    // words overwhelmingly appear in the tail is still Echo's own voice.
+    // Short real answers (1–2 words) never take this branch, so a quick
+    // "yes" / "no thanks" can't be misclassified.
+    if (words.length >= 3) {
+      const tailSet = new Set(tail.split(" "));
+      const hits = words.filter((w) => tailSet.has(w)).length;
+      if (hits / words.length >= 0.7) return true;
+    }
+  }
+  return false;
+}
+
 // Phrases Echo handles itself, without a round-trip to the server.
 const MUTE_RE = /\b(mute yourself|mute yourself now|go quiet|be quiet|stop listening|mute)\b/;
 const PATIENCE_RE =

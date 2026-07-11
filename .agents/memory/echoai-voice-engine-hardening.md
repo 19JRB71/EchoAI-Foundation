@@ -26,7 +26,27 @@ Rule set: every awaited network/AI call inside the voice command pipeline must b
   60s straight → bump gen, clear timers/pending, force passive. Belt-and-braces
   so the mic can never silently stay dead even if a path misses a guard.
 
-**Why:** these four failure modes (deaf hang, stale reply spoken late, Stop
-ignored while thinking, false-wake auto speech) each read to the owner as
-"Echo is broken / talks randomly". Any new awaited call added to the pipeline
-must follow the same withTimeout + stale() pattern.
+- **Never hard-drop speech during speak-cooldown / post-question gates.** Fast
+  answers to Echo's own question arrive inside those windows; dropping them is
+  the #1 "Echo asked and then ignored my answer" cause. Accept FINAL chunks
+  during the gates and filter only genuine self-echo via `isSelfEcho(heard,
+  recentEchoTexts)` (tail-of-last-12-words containment + ≥70% fuzzy overlap for
+  ≥3-word captures; short "yes"/"no" always pass). Feed `recentEchoTextsRef`
+  from the `tts-start` event's `detail.text` — never re-derive from queue state.
+- **Bare wake word must always be acknowledged.** An empty-command wake match in
+  active mode must play the wake SFX + a short spoken ack + open the follow-up
+  window with timers. A silent "reopen active with no timers" branch parks the
+  session forever and reads as 3-4 failed "Hey Echo" retries.
+- **runningRef/micLive are NOT liveness.** A wedged SpeechRecognition session
+  can stay "running" forever without firing onend — green chip, deaf mic.
+  Heartbeat (`heartbeatAtRef`) on start + every recognizer event
+  (audio/sound/speech/result/error); the 1s watchdog force-recycles any session
+  with no heartbeat for 75s (past the engine's own ~60s cap). `stopRecognition`
+  must null ALL lifecycle handlers before `abort()` (stop() fallback) so a
+  late onend can't double-restart.
+
+**Why:** these failure modes (deaf hang, stale reply spoken late, Stop
+ignored while thinking, false-wake auto speech, dropped fast answers, silent
+wake, zombie session) each read to the owner as "Echo is broken / ignores me".
+Any new awaited call added to the pipeline must follow the same withTimeout +
+stale() pattern; any new gate must self-echo-filter rather than drop.

@@ -33,6 +33,7 @@ import { preloadAcks, playAckNow } from "./acks.js";
 import {
   parseWakeWord,
   isQuestion,
+  isSelfEcho,
   matchAssistantIntent,
   matchLocalIntent,
   matchNavIntent,
@@ -133,6 +134,13 @@ const OFFER_TIMEOUT_MS = 8000; // best-effort nav offers (generic fallback ok)
 // for this long, something wedged — force-reset to passive so the mic can
 // never silently stay dead. Belt-and-braces on top of the per-call timeouts.
 const STUCK_SUSPEND_MS = 60000;
+// A healthy Web Speech session always produces SOME event within ~60s (audio
+// start, a sound/speech event, a result, an error, or onend at the engine's
+// own session cap). A session still flagged "running" with total silence past
+// this cap is a ZOMBIE — the browser engine wedged without ever firing onend —
+// which used to leave a green "Listening" indicator while the mic was actually
+// deaf, forever. The 1s watchdog force-recycles it.
+const ZOMBIE_SESSION_MS = 75000;
 
 function getSpeechRecognition() {
   if (typeof window === "undefined") return null;
@@ -178,6 +186,8 @@ export function EchoConversationProvider({ active, children }) {
   const suspendRef = useRef(false); // ignore results while processing/speaking
   const speakingRef = useRef(false); // Echo audio is playing (or in its cooldown)
   const speakingClearRef = useRef(null); // timer that lifts speakingRef post-cooldown
+  const audioPlayingRef = useRef(false); // audio ACTUALLY playing (tts-start → tts-end)
+  const recentEchoTextsRef = useRef([]); // last few lines Echo spoke (self-echo filter)
   const acceptInputAtRef = useRef(0); // ignore speech until this epoch-ms timestamp
   const finalRef = useRef(""); // accumulated final transcript for active capture
   const pauseTimerRef = useRef(null);
@@ -252,7 +262,18 @@ export function EchoConversationProvider({ active, children }) {
   // stays true for SPEAK_COOLDOWN_MS after it ends, so trailing audio / speaker
   // echo can never feed back into recognition and make Echo talk to itself.
   useEffect(() => {
-    const onSpeakStart = () => {
+    const onSpeakStart = (e) => {
+      audioPlayingRef.current = true;
+      // Remember what Echo is saying so the post-speech gates can tell Echo's
+      // own trailing audio apart from a real answer from the owner (self-echo
+      // filter in handleResult). Keep only the last few lines.
+      const spokenText = e && e.detail && e.detail.text;
+      if (spokenText) {
+        recentEchoTextsRef.current.push(String(spokenText));
+        if (recentEchoTextsRef.current.length > 4) {
+          recentEchoTextsRef.current.shift();
+        }
+      }
       if (speakingClearRef.current) {
         clearTimeout(speakingClearRef.current);
         speakingClearRef.current = null;
@@ -267,6 +288,7 @@ export function EchoConversationProvider({ active, children }) {
       }, SPEAK_SAFETY_MS);
     };
     const onSpeakEnd = () => {
+      audioPlayingRef.current = false;
       if (speakingClearRef.current) clearTimeout(speakingClearRef.current);
       speakingClearRef.current = setTimeout(() => {
         speakingRef.current = false;
@@ -425,10 +447,21 @@ export function EchoConversationProvider({ active, children }) {
       rec.onresult = null;
       rec.onerror = null;
       rec.onend = null;
+      rec.onaudiostart = null;
+      rec.onsoundstart = null;
+      rec.onsoundend = null;
+      rec.onspeechstart = null;
+      rec.onspeechend = null;
       try {
-        rec.stop();
+        // abort() tears down even a wedged (zombie) session immediately;
+        // stop() politely waits for pending results a zombie never delivers.
+        rec.abort();
       } catch {
-        /* already stopped */
+        try {
+          rec.stop();
+        } catch {
+          /* already stopped */
+        }
       }
       recognitionRef.current = null;
     }
@@ -454,6 +487,9 @@ export function EchoConversationProvider({ active, children }) {
   // can never hot-loop the recognizer; reset to 0 on any healthy session.
   const failStreakRef = useRef(0);
   const lastStartAtRef = useRef(0);
+  // Last recognizer activity of ANY kind (start, audio/sound/speech events,
+  // results, errors). Drives the zombie-session recycle in the watchdog.
+  const heartbeatAtRef = useRef(0);
 
   // Fallback restart with a short delay — used when an immediate restart isn't
   // safe (start() threw, or the engine is dying instantly on every start).
@@ -581,10 +617,28 @@ export function EchoConversationProvider({ active, children }) {
         openFollowupWindow();
       }
       if (!text) {
-        // Nothing captured — quietly reopen the follow-up window.
-        modeRef.current = "active";
-        suspendRef.current = false;
-        setConvState("active");
+        if (wake.matched) {
+          // Bare "Hey Echo" spoken while ALREADY in an active window. This
+          // used to reopen silently — no acknowledgement, no timers — so the
+          // owner heard nothing and retried "Hey Echo" over and over into the
+          // same dead-end ("I said Hey Echo four times and nothing happened").
+          // Treat it exactly like a fresh bare wake: answer out loud and hold
+          // the window open, so EVERY "Hey Echo" gets an audible response.
+          playEffect("wake");
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(wakeAck());
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow(true);
+          return;
+        }
+        // Nothing captured at all — reopen a NORMAL 30s follow-up window. The
+        // old silent reopen never re-armed a timer, parking the engine in
+        // active mode forever. openFollowupWindow still honors patienceRef,
+        // so "give me a minute" keeps the window open indefinitely.
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow(false);
         return;
       }
       setListeningText("");
@@ -1464,7 +1518,7 @@ export function EchoConversationProvider({ active, children }) {
       // the command generation makes the in-flight command stale, so its
       // late-arriving reply is dropped instead of spoken.
       if (
-        (speakingRef.current || suspendRef.current) &&
+        (audioPlayingRef.current || suspendRef.current) &&
         !interruptedRef.current
       ) {
         let heard = "";
@@ -1509,17 +1563,24 @@ export function EchoConversationProvider({ active, children }) {
         return;
       }
       if (suspendRef.current) return;
-      // Echo is speaking (or within its post-speech cooldown): ignore everything
-      // the mic hears so Echo can never respond to its own voice.
-      if (speakingRef.current) return;
-      // Post-question grace period: right after Echo asks something, drop all
-      // speech briefly so its own trailing audio can't answer the question.
-      if (Date.now() < acceptInputAtRef.current) return;
+      // Echo's audio is ACTUALLY playing: only the barge-in interrupts handled
+      // above are honored — anything else the mic hears right now is Echo's
+      // own voice coming back through the speakers.
+      if (audioPlayingRef.current) return;
+      // Post-speech gates: the short cooldown after audio ends plus the
+      // post-question grace period. They exist so Echo's trailing audio can't
+      // answer its own question — but they used to drop ALL speech, silently
+      // eating a quick answer ("yes" spoken the instant a question ends).
+      // Now only chunks matching what Echo just said (self-echo) are dropped;
+      // real speech passes straight through, so fast answers are never lost.
+      const gated =
+        speakingRef.current || Date.now() < acceptInputAtRef.current;
       let interim = "";
       let addedFinal = false;
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const chunk = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
+          if (gated && isSelfEcho(chunk, recentEchoTextsRef.current)) continue;
           finalRef.current = `${finalRef.current} ${chunk}`.trim();
           addedFinal = true;
           // Track the weakest final-chunk confidence for this capture; a low
@@ -1531,6 +1592,9 @@ export function EchoConversationProvider({ active, children }) {
               confRef.current === null ? conf : Math.min(confRef.current, conf);
           }
         } else {
+          // Interim chunks during the gate are skipped — the verdict on that
+          // speech comes from its FINAL chunk (echo-checked above).
+          if (gated) continue;
           interim += chunk;
         }
       }
@@ -1605,8 +1669,25 @@ export function EchoConversationProvider({ active, children }) {
     // Ask the engine for alternates — improves accuracy for regional accents.
     rec.maxAlternatives = 3;
     rec.lang = (typeof navigator !== "undefined" && navigator.language) || "en-US";
-    rec.onresult = handleResult;
+    // Heartbeat on every recognizer event: a wedged (zombie) session emits
+    // NOTHING at all — no results, no sound events, no onend — which is how
+    // the watchdog below detects it and force-recycles the instance. Without
+    // this, a zombie kept runningRef=true forever: green "Listening" chip,
+    // completely deaf mic.
+    const beat = () => {
+      heartbeatAtRef.current = Date.now();
+    };
+    rec.onaudiostart = beat;
+    rec.onsoundstart = beat;
+    rec.onsoundend = beat;
+    rec.onspeechstart = beat;
+    rec.onspeechend = beat;
+    rec.onresult = (e) => {
+      heartbeatAtRef.current = Date.now();
+      handleResult(e);
+    };
     rec.onerror = (e) => {
+      heartbeatAtRef.current = Date.now();
       const code = e && e.error;
       if (code === "not-allowed" || code === "service-not-allowed") {
         setDenied(true);
@@ -1643,6 +1724,7 @@ export function EchoConversationProvider({ active, children }) {
     try {
       rec.start();
       lastStartAtRef.current = Date.now();
+      heartbeatAtRef.current = Date.now();
       runningRef.current = true;
       setMicLive(true);
       setDenied(false);
@@ -1692,6 +1774,21 @@ export function EchoConversationProvider({ active, children }) {
   useEffect(() => {
     if (!(supported && micEnabled && !muted && active)) return undefined;
     const watchdog = setInterval(() => {
+      // ZOMBIE recycle: a session that claims to be running but has produced
+      // zero events past the engine's own ~60s session cap is wedged — the
+      // classic "green Listening chip but Echo is deaf" failure. Tear it down
+      // hard (abort) and start a fresh instance immediately.
+      if (
+        runningRef.current &&
+        heartbeatAtRef.current &&
+        Date.now() - heartbeatAtRef.current > ZOMBIE_SESSION_MS
+      ) {
+        stopRecognition();
+        if (wantListeningRef.current) {
+          startRecognitionRef.current && startRecognitionRef.current();
+        }
+        return;
+      }
       if (
         wantListeningRef.current &&
         !runningRef.current &&
@@ -1701,7 +1798,7 @@ export function EchoConversationProvider({ active, children }) {
       }
     }, 1000);
     return () => clearInterval(watchdog);
-  }, [supported, micEnabled, muted, active]);
+  }, [supported, micEnabled, muted, active, stopRecognition]);
 
   // STUCK-STATE watchdog: if the engine has been suspended (processing /
   // speaking) with no audio actually playing for STUCK_SUSPEND_MS straight,

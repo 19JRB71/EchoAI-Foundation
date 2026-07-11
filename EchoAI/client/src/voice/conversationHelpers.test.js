@@ -4,6 +4,7 @@ import {
   normalizeSpeech,
   parseWakeWord,
   isQuestion,
+  isSelfEcho,
   matchLocalIntent,
   matchNavIntent,
   navConfirmation,
@@ -20,6 +21,52 @@ describe("normalizeSpeech", () => {
   it("lowercases, strips punctuation, collapses whitespace", () => {
     expect(normalizeSpeech("  Hey,  ECHO!!  ")).toBe("hey echo");
     expect(normalizeSpeech(null)).toBe("");
+  });
+});
+
+describe("isSelfEcho", () => {
+  const question = "You have three hot leads waiting. Want me to read them out?";
+
+  it("flags Echo's own trailing audio (exact tail phrase) as self-echo", () => {
+    expect(isSelfEcho("want me to read them out", [question])).toBe(true);
+    expect(isSelfEcho("read them out", [question])).toBe(true);
+  });
+
+  it("flags a slightly-misheard longer leak via fuzzy tail overlap", () => {
+    // 5 of 6 words appear in the tail (>= 70%).
+    expect(isSelfEcho("want me to reed them out", [question])).toBe(true);
+  });
+
+  it("lets a quick real answer through — the whole point of the fix", () => {
+    expect(isSelfEcho("yes", [question])).toBe(false);
+    expect(isSelfEcho("no", [question])).toBe(false);
+    expect(isSelfEcho("yes please", [question])).toBe(false);
+    expect(isSelfEcho("go ahead sir", [question])).toBe(false);
+  });
+
+  it("only matches against the TAIL, so a short answer word from earlier in Echo's sentence is safe", () => {
+    // "no" appears early in Echo's line but not in the last 12 words —
+    // a spoken "no" right after must be treated as the owner's answer.
+    const line =
+      "There are no new leads today. Would you like me to walk you through the campaign numbers instead?";
+    expect(isSelfEcho("no", [line])).toBe(false);
+  });
+
+  it("treats empty/noise captures as echo (drop)", () => {
+    expect(isSelfEcho("", [question])).toBe(true);
+    expect(isSelfEcho("   ", [question])).toBe(true);
+  });
+
+  it("passes real speech when there is nothing recent to compare against", () => {
+    expect(isSelfEcho("open my leads", [])).toBe(false);
+    expect(isSelfEcho("open my leads", null)).toBe(false);
+  });
+
+  it("checks every recent line, not just the newest", () => {
+    const older = "Shall I schedule that post for tomorrow morning?";
+    expect(
+      isSelfEcho("schedule that post for tomorrow morning", [older, question]),
+    ).toBe(true);
   });
 });
 
