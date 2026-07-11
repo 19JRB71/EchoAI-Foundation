@@ -1,5 +1,5 @@
 // Client mirror of the server notification priority classification
-// (EchoAI/config/notificationPriority.js). Keep the event map in sync with the
+// (Zorecho/config/notificationPriority.js). Keep the event map in sync with the
 // server; the server is authoritative and stamps each notification with a
 // `priority`, but this mirror lets the client derive/order defensively and owns
 // the visual styling (colors + labels) for the badge and panel.

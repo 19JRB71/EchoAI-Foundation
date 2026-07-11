@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const nodemailer = require("nodemailer");
 
-const FROM = process.env.EMAIL_FROM || "EchoAI <no-reply@echoai.com>";
+const FROM = process.env.EMAIL_FROM || "Zorecho <no-reply@echoai.com>";
 const MAX_RETRIES = Number(process.env.EMAIL_MAX_RETRIES || 3);
 
 let transporter = null;

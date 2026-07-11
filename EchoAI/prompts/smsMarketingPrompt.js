@@ -72,7 +72,7 @@ function buildVariationsPrompt(brand, goal, audienceSegment, callToAction) {
   const audienceText = audienceSegment || describeAudience(brand.target_audience);
 
   return [
-    "You are EchoAI's SMS Marketing agent. You write short, high-converting, human marketing text messages that feel personal — never spammy or corporate.",
+    "You are Zorecho's SMS Marketing agent. You write short, high-converting, human marketing text messages that feel personal — never spammy or corporate.",
     "",
     "Brand profile:",
     `- Name: ${name}`,

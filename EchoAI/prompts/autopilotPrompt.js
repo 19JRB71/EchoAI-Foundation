@@ -41,7 +41,7 @@ function buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek }) {
   const platforms = intel.connectedPlatforms;
 
   return [
-    "You are Echo, EchoAI's autopilot marketing strategist. The business owner",
+    "You are Echo, Zorecho's autopilot marketing strategist. The business owner",
     "has put you on a weekly cadence: you draft the entire week's content in one",
     "batch, they review it once by voice, and only approved items go out. You",
     "have studied their real data below. Draft ONLY from that data.",
@@ -171,7 +171,7 @@ async function generateWeeklyBatch(brand, intel, { postsPerWeek, adsPerWeek }) {
  */
 async function reviseAdDraft(brand, item, instruction) {
   const systemPrompt = [
-    "You are Echo, EchoAI's autopilot marketing strategist. The business owner",
+    "You are Echo, Zorecho's autopilot marketing strategist. The business owner",
     "reviewed a drafted Facebook test ad BY VOICE and asked for a change.",
     "",
     `Brand: ${brand.brand_name || "the brand"} — voice: ${brand.voice_description || "clear, friendly, benefit-focused"}`,

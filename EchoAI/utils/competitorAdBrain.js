@@ -23,7 +23,7 @@ const VALID_LEVELS = new Set(["none", "watch", "aggressive"]);
 
 function buildSystemPrompt() {
   return [
-    "You are the reasoning core of Scout, EchoAI's competitive-intelligence agent.",
+    "You are the reasoning core of Scout, Zorecho's competitive-intelligence agent.",
     "You are given ONE small business and a batch of BRAND-NEW competitor ads Scout just found running in the Facebook Ad Library.",
     "For EACH ad, decide — honestly, from the ad's actual words — how much of a competitive threat it is to THIS business right now.",
     "Never invent urgency that is not there. Most ads are routine ('none' or 'watch'). Reserve 'aggressive' for ads that directly attack this business's position: an aggressive offer that undercuts it (deep discount, 'zero down', 'beat any price'), a direct competitive claim, a land-grab on this business's core audience or service, or a limited-time push clearly aimed at pulling away its customers.",

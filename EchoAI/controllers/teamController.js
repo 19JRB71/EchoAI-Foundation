@@ -103,7 +103,7 @@ async function getOwnerContext(ownerId) {
 
 /**
  * POST /api/team/invite  (auth, lockout, admin+)
- * Invites a person by email + role. If they already have an EchoAI account they
+ * Invites a person by email + role. If they already have an Zorecho account they
  * are linked immediately (active); otherwise a pending record + 48h token email.
  */
 async function inviteMember(req, res) {
@@ -146,7 +146,7 @@ async function inviteMember(req, res) {
         .json({ error: "You can't invite yourself — you're the account owner." });
     }
 
-    // Does this email already have an EchoAI account?
+    // Does this email already have an Zorecho account?
     const existing = await db.query(
       "SELECT user_id FROM users WHERE lower(email) = $1",
       [email]

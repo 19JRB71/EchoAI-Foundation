@@ -1,4 +1,4 @@
-// Client mirror of the geo region definitions in EchoAI/utils/geoTargeting.js.
+// Client mirror of the geo region definitions in Zorecho/utils/geoTargeting.js.
 // KEEP IN SYNC with the server (region codes, names, cities).
 
 export const US_STATES = {

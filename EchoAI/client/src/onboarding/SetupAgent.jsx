@@ -554,7 +554,7 @@ export default function SetupAgent({ onClose, onExitToSection }) {
       <div className="flex items-center gap-4">
         <Avatar />
         <div>
-          <h1 className="text-xl font-bold md:text-2xl">EchoAI Setup Agent</h1>
+          <h1 className="text-xl font-bold md:text-2xl">Zorecho Setup Agent</h1>
           <p className="text-sm text-white/60">I&apos;ll set up your account for you.</p>
         </div>
       </div>
@@ -821,7 +821,7 @@ export default function SetupAgent({ onClose, onExitToSection }) {
                   ) : (
                     <p className="mt-2 text-xs text-white/40">
                       You&apos;ll approve this on {kind === "facebook" ? "Facebook" : "Google"}
-                      &apos;s own secure page — EchoAI never sees your password.
+                      &apos;s own secure page — Zorecho never sees your password.
                     </p>
                   )}
                   <div className="mt-4 flex flex-wrap gap-3">

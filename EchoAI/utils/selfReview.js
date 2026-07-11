@@ -204,7 +204,7 @@ async function gatherEvidence() {
 
 function buildPrompt(evidence) {
   return [
-    "You are Sage, the strategy analyst for EchoAI, an AI marketing platform.",
+    "You are Sage, the strategy analyst for Zorecho, an AI marketing platform.",
     "Below is REAL operational data from the past week. Study it and propose",
     "the highest-impact platform improvements.",
     "",

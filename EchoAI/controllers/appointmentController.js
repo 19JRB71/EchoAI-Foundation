@@ -399,7 +399,7 @@ async function syncToCalendar(appt, brand, timeZone) {
     if (!calendar.hasCalendarScope(scope)) return null;
     const eventId = await calendar.createEvent(accessToken, {
       summary: appt.title || `Appointment — ${brand.brand_name || ""}`.trim(),
-      description: appt.description || `Booked via EchoAI (${appt.source}).`,
+      description: appt.description || `Booked via Zorecho (${appt.source}).`,
       location: appt.location || undefined,
       startIso: new Date(appt.start_time).toISOString(),
       endIso: new Date(appt.end_time).toISOString(),

@@ -22,7 +22,7 @@ if (process.env.STRIPE_SECRET_KEY) {
 }
 
 /**
- * Maps an EchoAI subscription tier to the corresponding Stripe Price ID.
+ * Maps an Zorecho subscription tier to the corresponding Stripe Price ID.
  * Price IDs are created in the Stripe dashboard and provided via env vars.
  */
 const tierPriceIds = {

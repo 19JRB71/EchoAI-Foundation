@@ -1,5 +1,5 @@
 // Step 1 — Welcome & account setup.
-// Warmly introduces EchoAI and confirms the customer's business name,
+// Warmly introduces Zorecho and confirms the customer's business name,
 // industry/niche, and team size, saving them to the user profile.
 
 import { useEffect, useState } from "react";
@@ -68,9 +68,9 @@ export default function StepWelcome({ onNext }) {
 
   return (
     <Card>
-      <h1 className="text-2xl font-bold text-gray-100">Welcome to EchoAI 👋</h1>
+      <h1 className="text-2xl font-bold text-gray-100">Welcome to Zorecho 👋</h1>
       <p className="mt-3 text-sm leading-relaxed text-gray-400">
-        EchoAI is your always-on AI marketing team. We learn your brand inside
+        Zorecho is your always-on AI marketing team. We learn your brand inside
         and out, then design, launch, and continuously optimize Facebook ad
         campaigns that bring you qualified leads — automatically. Let's spend a
         couple of minutes getting your account ready.
@@ -95,7 +95,7 @@ export default function StepWelcome({ onNext }) {
             className={inputClass}
           />
         </Field>
-        <Field label="How many team members will use EchoAI?">
+        <Field label="How many team members will use Zorecho?">
           <input
             type="number"
             min="1"

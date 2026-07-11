@@ -1,6 +1,6 @@
 // Session freshness tracking for Echo's "welcome back" ritual.
 //
-// Permanent login means the owner can open EchoAI days later without re-entering
+// Permanent login means the owner can open Zorecho days later without re-entering
 // a password. When they return after being away for more than 8 hours we treat
 // it as a brand-new session: Echo plays the morning wake-up music and delivers
 // the morning briefing automatically — no fresh login required. This module

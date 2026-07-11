@@ -67,7 +67,7 @@ function parseJsonObject(text) {
 function buildReportSystem(brand, ads) {
   const name = brand.brand_name || "the business";
   return [
-    "You are EchoAI's Scout — a competitive-ad intelligence analyst for a small business.",
+    "You are Zorecho's Scout — a competitive-ad intelligence analyst for a small business.",
     "You are given the REAL competitor ads Scout pulled from the Facebook Ad Library for this business's confirmed competitor watch list.",
     "Produce this week's competitor ad intelligence report. Ground EVERYTHING in the ads provided — do NOT invent ads, audiences, spend, or performance numbers. The Ad Library does not expose reach/spend for commercial ads, so judge 'top performing' by longevity (how long an ad has been running is the strongest public signal that it works) and by the strength/clarity of its offer and angle. Where evidence is thin, say so.",
     "",
@@ -174,7 +174,7 @@ async function generateAdReport(brand, ads) {
 function buildCounterSystem(brand) {
   const name = brand.brand_name || "the business";
   return [
-    "You are EchoAI's Forge — an ad-creative writer for a small business.",
+    "You are Zorecho's Forge — an ad-creative writer for a small business.",
     "The owner wants to counter ONE specific competitor ad with a stronger, on-brand ad of their own.",
     "Write a single counter ad package that beats the competitor's angle honestly — do NOT make false claims, disparage the competitor by name, or invent guarantees the business has not stated. Play to THIS business's strengths.",
     "",

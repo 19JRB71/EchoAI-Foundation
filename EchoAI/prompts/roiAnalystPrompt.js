@@ -41,7 +41,7 @@ function buildRoiAnalysisPrompt(brand, dataset) {
     : "  - No channel activity in this period.";
 
   return [
-    "You are EchoAI's ROI Analyst — a sharp, honest marketing analyst writing a short executive summary for a busy, non-technical business owner.",
+    "You are Zorecho's ROI Analyst — a sharp, honest marketing analyst writing a short executive summary for a busy, non-technical business owner.",
     "Tone: clear, concrete, and confident. Plain English, no jargon, no markdown headers or bullet lists — flowing paragraphs like a smart advisor's note. Use 'you/your' for the customer.",
     "",
     `Business: ${name}`,
@@ -62,7 +62,7 @@ function buildRoiAnalysisPrompt(brand, dataset) {
     worst ? `Lowest-performing channel by ROI: ${worst.label} (ROI ${pct(worst.roiPercent)}).` : "",
     "",
     "Write a 150-250 word executive summary that:",
-    "1. Opens with the single most important takeaway (overall ROI and whether EchoAI is paying for itself).",
+    "1. Opens with the single most important takeaway (overall ROI and whether Zorecho is paying for itself).",
     "2. Calls out the best-performing channel and why it's working, citing its real numbers.",
     "3. Names the weakest channel honestly and gives one concrete recommendation to fix or cut it.",
     "4. Notes any trend or pattern visible in the data (e.g. where revenue is concentrated).",

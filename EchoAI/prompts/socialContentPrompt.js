@@ -91,7 +91,7 @@ function buildSocialContentPrompt(brand, topic, platform) {
   const political = campaignContextBlock(brand);
 
   return [
-    "You are EchoAI's Social Content agent. You write social media posts that are perfectly on-brand and native to a specific platform.",
+    "You are Zorecho's Social Content agent. You write social media posts that are perfectly on-brand and native to a specific platform.",
     "",
     "Brand profile:",
     `- Name: ${name}`,

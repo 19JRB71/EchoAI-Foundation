@@ -1,6 +1,6 @@
 /**
  * White-label agency configuration helpers (single source of truth for the
- * default EchoAI branding and the validators used when an agency owner saves
+ * default Zorecho branding and the validators used when an agency owner saves
  * their custom branding).
  *
  * The defaults are returned to the client whenever a request's domain does not
@@ -8,10 +8,10 @@
  * apply (it never has to hard-code colors itself).
  */
 
-// EchoAI's own branding — amber accent on a near-black shell. Mirrors the
+// Zorecho's own branding — amber accent on a near-black shell. Mirrors the
 // hard-coded Tailwind values the client used before white-labeling existed.
 const DEFAULT_BRANDING = {
-  agencyName: "EchoAI",
+  agencyName: "Zorecho",
   logoUrl: null,
   primaryColor: "#f59e0b", // amber-500
   secondaryColor: "#111827", // gray-900

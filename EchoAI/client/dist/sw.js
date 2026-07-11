@@ -1,4 +1,4 @@
-/* EchoAI service worker.
+/* Zorecho service worker.
  *
  * Served from the site root (public/ is copied verbatim to dist/ by Vite) so it
  * controls the whole app scope ("/"). It does three things:
@@ -15,7 +15,7 @@
 // index.html + hashed JS/CSS. Without a bump, a returning PWA user keeps being
 // served the old precached shell (old bundle) forever, regardless of HTTP
 // Cache-Control headers — the service worker answers from its own cache first.
-const CACHE = "echoai-shell-v71";
+const CACHE = "echoai-shell-v72";
 
 // The app shell. Hashed Vite asset filenames are cached at runtime (see fetch
 // handler), so we only need the entry points here.
@@ -97,7 +97,7 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { title: "EchoAI", body: event.data ? event.data.text() : "" };
+    payload = { title: "Zorecho", body: event.data ? event.data.text() : "" };
   }
 
   const title = payload.title || "🔥 Hot lead!";

@@ -1,6 +1,6 @@
 // Shared Sage intelligence accessor.
 //
-// Sage (EchoAI's Industry Intelligence agent) researches each brand's industry
+// Sage (Zorecho's Industry Intelligence agent) researches each brand's industry
 // with live web search and stores the result. This module is the single place
 // other agents read that intelligence so their generative prompts stay grounded
 // in real, current market conditions instead of the model's stale priors.
@@ -70,7 +70,7 @@ function sageBlock(sageContext) {
   if (!sageContext) return "";
   return [
     "",
-    "LIVE INDUSTRY INTELLIGENCE (from Sage, EchoAI's dedicated industry-research agent — this reflects real, current market conditions gathered from live web research; ground your recommendations in it):",
+    "LIVE INDUSTRY INTELLIGENCE (from Sage, Zorecho's dedicated industry-research agent — this reflects real, current market conditions gathered from live web research; ground your recommendations in it):",
     sageContext,
   ].join("\n");
 }

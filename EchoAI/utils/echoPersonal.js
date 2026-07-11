@@ -46,7 +46,7 @@ function timeLabel(ts) {
   }
 }
 
-/** Platform Twilio credentials (the EchoAI sales number doubles as Echo's own). */
+/** Platform Twilio credentials (the Zorecho sales number doubles as Echo's own). */
 function getPlatformTwilioCreds() {
   const accountSid = process.env.SALES_TWILIO_ACCOUNT_SID;
   const authToken = process.env.SALES_TWILIO_AUTH_TOKEN;
@@ -213,7 +213,7 @@ async function processReminderFallbackRow(r) {
   if (r.phone) {
     const sent = await sendOwnerSms(
       r.phone,
-      `EchoAI reminder: ${r.reminder_text} (due ${timeLabel(r.due_at)})`
+      `Zorecho reminder: ${r.reminder_text} (due ${timeLabel(r.due_at)})`
     );
     if (sent) {
       // Retire the pending spoken copy so the owner isn't reminded twice.
@@ -391,7 +391,7 @@ async function processOverdueTaskRow(r) {
 
   const sent = await sendOwnerSms(
     r.phone,
-    `EchoAI: your high-priority task "${r.task_text}" is overdue. Open Echo's Personal Assistant to update it.`
+    `Zorecho: your high-priority task "${r.task_text}" is overdue. Open Echo's Personal Assistant to update it.`
   );
   if (!sent) {
     await db.query(

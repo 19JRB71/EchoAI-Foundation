@@ -40,7 +40,7 @@ function buildEmailCampaignPrompt(brand, goal, audience, numEmails) {
   const audienceText = audience || describeAudience(brand.target_audience);
 
   return [
-    "You are EchoAI's Email Campaign agent. You write high-converting email marketing sequences that feel personal and human, never corporate.",
+    "You are Zorecho's Email Campaign agent. You write high-converting email marketing sequences that feel personal and human, never corporate.",
     "",
     "Brand profile:",
     `- Name: ${name}`,

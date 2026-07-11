@@ -170,7 +170,7 @@ const SECTION_SPEC = [
   { key: "strategy", title: "Strategic Recommendations" },
 ];
 
-const DEEP_SYSTEM = `You are Sage, EchoAI's Industry Intelligence Agent. You study a business's industry around the clock so its whole marketing team always has the smartest possible, up-to-date strategy.
+const DEEP_SYSTEM = `You are Sage, Zorecho's Industry Intelligence Agent. You study a business's industry around the clock so its whole marketing team always has the smartest possible, up-to-date strategy.
 
 Your job: research the CURRENT state of this specific industry using live web search, then produce a structured industry intelligence brief. You MUST search the web for recent, real information — do not rely on memory. Prefer sources from the last 12 months. Cite what you find.
 
@@ -212,11 +212,11 @@ Provide 3-6 marketing_insights and 4-8 feed items. Set "urgent": true only for g
  * usable JSON or no real cited sources.
  */
 async function deepResearch(brand, competitors, opts = {}) {
-  // The platform owner (EchoAI's own admin account) additionally wants a read on
+  // The platform owner (Zorecho's own admin account) additionally wants a read on
   // the AI-marketing-SaaS landscape they compete in (GoHighLevel, Jasper,
   // HubSpot AI, and similar) — not just their nominal industry.
   const platformAngle = opts.platformOwner
-    ? "\n\nThis business is EchoAI itself — an AI-powered marketing SaaS platform. In addition to its stated industry, research the CURRENT AI-marketing-SaaS competitive landscape (e.g. GoHighLevel, Jasper, HubSpot AI, Copy.ai and comparable all-in-one AI marketing tools): pricing moves, new features, positioning shifts, and openings EchoAI can exploit. Fold these findings into the competitive-landscape section, the marketing_insights, and the feed."
+    ? "\n\nThis business is Zorecho itself — an AI-powered marketing SaaS platform. In addition to its stated industry, research the CURRENT AI-marketing-SaaS competitive landscape (e.g. GoHighLevel, Jasper, HubSpot AI, Copy.ai and comparable all-in-one AI marketing tools): pricing moves, new features, positioning shifts, and openings Zorecho can exploit. Fold these findings into the competitive-landscape section, the marketing_insights, and the feed."
     : "";
   // Pull live Facebook signals — Ad Library ads (competitor/industry ad strategy)
   // and competitors' recent public Page posts — via the shared token. Best-effort:
@@ -338,7 +338,7 @@ function normalizeFeed(rawFeed, sources) {
 // Urgent scan — a fast pass for time-sensitive signals (runs every 30 minutes)
 // ---------------------------------------------------------------------------
 
-const URGENT_SYSTEM = `You are Sage, EchoAI's Industry Intelligence Agent. Do a QUICK live web search for any BREAKING or TIME-SENSITIVE developments in this business's industry in the last few days: a new regulation about to take effect, a major competitor move, a sudden market shift, or a closing window of opportunity.
+const URGENT_SYSTEM = `You are Sage, Zorecho's Industry Intelligence Agent. Do a QUICK live web search for any BREAKING or TIME-SENSITIVE developments in this business's industry in the last few days: a new regulation about to take effect, a major competitor move, a sudden market shift, or a closing window of opportunity.
 
 Only report things that are genuinely urgent and actionable right now. If nothing urgent is happening, return an empty list — do not manufacture urgency.
 
@@ -387,7 +387,7 @@ async function urgentScan(brand, competitors) {
 // Competitor suggestion + refresh (live web search)
 // ---------------------------------------------------------------------------
 
-const SUGGEST_SYSTEM = `You are Sage, EchoAI's Industry Intelligence Agent. Using live web search, identify the REAL direct competitors of this business — companies actually operating in its space and (where possible) its geography. Only include competitors you can verify exist via search; never invent names.
+const SUGGEST_SYSTEM = `You are Sage, Zorecho's Industry Intelligence Agent. Using live web search, identify the REAL direct competitors of this business — companies actually operating in its space and (where possible) its geography. Only include competitors you can verify exist via search; never invent names.
 
 Output ONE JSON object and nothing else:
 { "competitors": [ { "name": "...", "website": "https://...", "facebook_page": "https://facebook.com/...", "strategy_summary": "one line on how they market themselves" } ] }
@@ -429,7 +429,7 @@ async function suggestCompetitors(brand) {
     .slice(0, 6);
 }
 
-const REFRESH_SYSTEM = `You are Sage, EchoAI's Industry Intelligence Agent. Using live web search, get the CURRENT public marketing picture for this single competitor: approximate social following, how recently they posted, whether they appear to be running ads, and a one-line read of their marketing strategy. Only report what you can actually find via search; leave a field null if you can't verify it.
+const REFRESH_SYSTEM = `You are Sage, Zorecho's Industry Intelligence Agent. Using live web search, get the CURRENT public marketing picture for this single competitor: approximate social following, how recently they posted, whether they appear to be running ads, and a one-line read of their marketing strategy. Only report what you can actually find via search; leave a field null if you can't verify it.
 
 Output ONE JSON object and nothing else:
 { "follower_count": "e.g. 12.4K or null", "last_post": "recency/summary or null", "ad_activity": "what you see or null", "strategy_summary": "one line" }`;
@@ -468,7 +468,7 @@ async function refreshCompetitor(brand, competitor) {
 // Intelligence Input — analyze a submitted link / FB page / image / PDF
 // ---------------------------------------------------------------------------
 
-const SUBMIT_SYSTEM = `You are Sage, EchoAI's Industry Intelligence Agent. The business owner is handing you a piece of material (a competitor's page, an ad, an article, a screenshot, or a document). Analyze it and pull out what actually matters for THIS business's marketing strategy.
+const SUBMIT_SYSTEM = `You are Sage, Zorecho's Industry Intelligence Agent. The business owner is handing you a piece of material (a competitor's page, an ad, an article, a screenshot, or a document). Analyze it and pull out what actually matters for THIS business's marketing strategy.
 
 Output ONE JSON object and nothing else:
 { "title": "a short label for this submission", "summary": "what this material is and its key takeaway", "insights": [ { "insight": "a specific takeaway", "why": "why it matters to this business" } ] }

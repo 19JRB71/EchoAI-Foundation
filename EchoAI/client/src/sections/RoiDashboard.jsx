@@ -173,7 +173,7 @@ function BasicRoiDashboard({ brandId }) {
             "'": "&#39;",
           })[c],
       );
-    const title = `EchoAI ROI Report — ${esc(roi?.brandName || "Your Business")}`;
+    const title = `Zorecho ROI Report — ${esc(roi?.brandName || "Your Business")}`;
     const date = new Date().toLocaleDateString(undefined, {
       year: "numeric",
       month: "long",
@@ -231,7 +231,7 @@ function BasicRoiDashboard({ brandId }) {
       <div>
         <h2 className="text-xl font-bold text-gray-100">Your ROI</h2>
         <p className="mt-1 text-sm text-gray-400">
-          Exactly how much value EchoAI is delivering for{" "}
+          Exactly how much value Zorecho is delivering for{" "}
           {roi?.brandName || "your business"}.
         </p>
       </div>
@@ -275,7 +275,7 @@ function BasicRoiDashboard({ brandId }) {
               12-week ROI trend
             </h3>
             <p className="mb-4 text-xs text-gray-500">
-              Estimated value generated each week since you joined EchoAI.
+              Estimated value generated each week since you joined Zorecho.
             </p>
             <RoiTrendChart data={history} />
           </div>
@@ -370,7 +370,7 @@ function BasicRoiDashboard({ brandId }) {
                   Monthly ROI report
                 </h3>
                 <p className="text-xs text-gray-500">
-                  A personalized summary of what EchoAI did for you this month.
+                  A personalized summary of what Zorecho did for you this month.
                 </p>
               </div>
               <div className="flex gap-2">

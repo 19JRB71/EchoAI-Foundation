@@ -1,5 +1,5 @@
 /**
- * AI Image Prompt Engineer agent for EchoAI's Image Studio.
+ * AI Image Prompt Engineer agent for Zorecho's Image Studio.
  *
  * Where `imagePromptBuilder.js` assembles a single DALL-E prompt directly from a
  * brand + description, this agent uses Anthropic to first design FIVE distinct,
@@ -110,7 +110,7 @@ function buildSystemPrompt(brand, purpose, contentDescription) {
   const audience = describeField(brand.target_audience, "a general audience");
 
   return [
-    "You are EchoAI's AI Image Prompt Engineer — an expert at writing prompts for AI image generators (DALL-E 3) that consistently produce professional, marketing-quality, on-brand visuals.",
+    "You are Zorecho's AI Image Prompt Engineer — an expert at writing prompts for AI image generators (DALL-E 3) that consistently produce professional, marketing-quality, on-brand visuals.",
     "",
     "Brand profile:",
     `- Name: ${name}`,

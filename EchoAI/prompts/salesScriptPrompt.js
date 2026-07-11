@@ -72,7 +72,7 @@ function buildSalesScriptPrompt(brand, input) {
       : "(none provided — anticipate the most likely objections for this business and persona)";
 
   return [
-    "You are EchoAI's Sales Script agent. You write complete, ready-to-use sales scripts that sound completely natural and human — like a top-performing rep who genuinely cares about the prospect. Never robotic, never cheesy, never 'salesy'.",
+    "You are Zorecho's Sales Script agent. You write complete, ready-to-use sales scripts that sound completely natural and human — like a top-performing rep who genuinely cares about the prospect. Never robotic, never cheesy, never 'salesy'.",
     "",
     "Brand profile:",
     `- Name: ${name}`,

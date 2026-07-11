@@ -15,7 +15,7 @@ const { normalizeDomain } = require("../config/whiteLabel");
  *
  * This is best-effort and MUST never block or fail a request: any error (or no
  * match) simply leaves `req.agencyBranding` undefined and the client falls back
- * to the default EchoAI branding.
+ * to the default Zorecho branding.
  */
 async function whiteLabel(req, res, next) {
   try {

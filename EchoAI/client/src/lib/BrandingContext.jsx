@@ -31,7 +31,7 @@ export function BrandingProvider({ children }) {
           applyBrandingToDocument(next);
         }
       } catch {
-        // No branding available -> keep the EchoAI defaults.
+        // No branding available -> keep the Zorecho defaults.
         if (active) applyBrandingToDocument(DEFAULT_BRANDING);
       } finally {
         if (active) setLoading(false);

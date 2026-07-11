@@ -50,7 +50,7 @@ async function sendToTokens(tokens, payload = {}) {
         body: JSON.stringify({
           registration_ids: batch,
           notification: {
-            title: payload.title || "EchoAI",
+            title: payload.title || "Zorecho",
             body: payload.body || "",
           },
           data: payload.data || {},

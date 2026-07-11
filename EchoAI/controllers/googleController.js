@@ -44,7 +44,7 @@ function dashboardRedirect(status, message) {
   return `/dashboard?${params.toString()}`;
 }
 
-/** Which EchoAI services a stored scope string unlocks. */
+/** Which Zorecho services a stored scope string unlocks. */
 function servicesFromScope(scope) {
   const granted = String(scope || "").split(/\s+/).filter(Boolean);
   const services = {};
@@ -263,7 +263,7 @@ async function oauthCallback(req, res) {
       return res.redirect(
         dashboardRedirect(
           "error",
-          "Google didn't return offline access. Remove EchoAI from your Google account permissions, then reconnect.",
+          "Google didn't return offline access. Remove Zorecho from your Google account permissions, then reconnect.",
         ),
       );
     }

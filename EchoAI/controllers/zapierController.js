@@ -137,7 +137,7 @@ async function testWebhook(req, res) {
       brandId: webhook.brand_id,
       triggeredAt: new Date().toISOString(),
       data: {
-        message: "This is a test payload from EchoAI.",
+        message: "This is a test payload from Zorecho.",
         event: webhook.event_name,
       },
     };

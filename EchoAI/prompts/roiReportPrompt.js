@@ -4,7 +4,7 @@
  * generateRoiReport(brand, roi, history) calls Anthropic to write a friendly,
  * specific, results-focused monthly summary that reads like a note from a trusted
  * marketing partner — celebrating wins, acknowledging what's still improving, and
- * building confidence that EchoAI is worth every dollar. It is grounded in the
+ * building confidence that Zorecho is worth every dollar. It is grounded in the
  * REAL computed ROI breakdown so every claim references an actual number.
  */
 
@@ -35,8 +35,8 @@ function buildRoiReportPrompt(brand, roi, history) {
       : "  - Not enough weekly history yet.";
 
   return [
-    "You are EchoAI's customer success partner writing a customer's monthly ROI report.",
-    "Tone: warm, human, specific, and confident — like a trusted marketing partner who genuinely cares, NOT a software changelog. Use 'we' (EchoAI) and 'you/your' (the customer).",
+    "You are Zorecho's customer success partner writing a customer's monthly ROI report.",
+    "Tone: warm, human, specific, and confident — like a trusted marketing partner who genuinely cares, NOT a software changelog. Use 'we' (Zorecho) and 'you/your' (the customer).",
     "",
     `Customer / brand: ${name}`,
     "",
@@ -45,7 +45,7 @@ function buildRoiReportPrompt(brand, roi, history) {
     `- Hours saved: ${Math.round(h.hoursSaved || 0)}`,
     `- Money saved vs. hiring an agency / in-house: ${money(h.moneySaved)}`,
     `- Return on investment: ${Math.round(h.roiPercent || 0)}%`,
-    `- Their EchoAI plan: ${sub.tier || "starter"} at ${money(sub.monthlyPrice)}/mo`,
+    `- Their Zorecho plan: ${sub.tier || "starter"} at ${money(sub.monthlyPrice)}/mo`,
     "",
     "Where the value came from:",
     `- Leads: ${leads.total || 0} total, ${leads.hot || 0} hot/sales-ready, worth about ${money(leads.estimatedValue)}`,

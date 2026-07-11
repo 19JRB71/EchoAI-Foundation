@@ -1,5 +1,5 @@
 /**
- * AI agents for EchoAI's Email Marketing subsystem.
+ * AI agents for Zorecho's Email Marketing subsystem.
  *
  * Two agents:
  *   - Email Campaign Writer (`generateCampaignEmail`): writes ONE on-brand
@@ -95,7 +95,7 @@ function normalizeEmail(raw) {
  */
 async function generateCampaignEmail(brand, { goal, audienceSegment, topic }) {
   const system = [
-    "You are EchoAI's Email Campaign Writer — an expert direct-response email copywriter.",
+    "You are Zorecho's Email Campaign Writer — an expert direct-response email copywriter.",
     "Write ONE complete, on-brand marketing email.",
     "",
     "Brand profile:",
@@ -165,7 +165,7 @@ async function generateDripSequence(brand, { goal, audienceSegment, numEmails })
   count = Math.min(MAX_DRIP_EMAILS, Math.max(MIN_DRIP_EMAILS, Math.round(count)));
 
   const system = [
-    "You are EchoAI's Drip Sequence Designer — an expert at automated email nurture sequences.",
+    "You are Zorecho's Drip Sequence Designer — an expert at automated email nurture sequences.",
     `Design a cohesive ${count}-email drip sequence that moves the reader toward the goal step by step.`,
     "",
     "Brand profile:",

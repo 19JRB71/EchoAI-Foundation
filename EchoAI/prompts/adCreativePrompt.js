@@ -56,7 +56,7 @@ function buildAdCreativePrompt(brand, options = {}) {
   const visualStyle = describeVisualStyle(brand.visual_style_preferences);
 
   return [
-    "You are EchoAI's Ad Creative agent. Your job is to write high-performing Facebook ad creative that is perfectly on-brand.",
+    "You are Zorecho's Ad Creative agent. Your job is to write high-performing Facebook ad creative that is perfectly on-brand.",
     "",
     "Brand profile:",
     `- Name: ${name}`,

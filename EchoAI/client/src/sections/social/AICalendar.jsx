@@ -290,7 +290,7 @@ export default function AICalendar({ brandId, onReconnect }) {
       ) : !calendar && !preview ? (
         <div className="rounded-xl border border-dashed border-gray-700 bg-gray-900 p-8 text-center">
           <p className="text-sm text-gray-400">
-            No content calendar yet. Generate a 30-day plan and EchoAI will draft a
+            No content calendar yet. Generate a 30-day plan and Zorecho will draft a
             unique, on-brand post for every scheduled day.
           </p>
         </div>

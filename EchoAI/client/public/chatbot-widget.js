@@ -1,8 +1,8 @@
 /*
- * EchoAI Website Chatbot Widget — self-contained, zero-dependency.
+ * Zorecho Website Chatbot Widget — self-contained, zero-dependency.
  *
  * Paste this onto any website:
- *   <script src="https://YOUR-ECHOAI-DOMAIN/chatbot-widget.js"
+ *   <script src="https://YOUR-ZORECHO-DOMAIN/chatbot-widget.js"
  *           data-brand-id="YOUR-BRAND-ID" defer></script>
  *
  * It renders a chat bubble in the bottom-right corner. The API base is derived
@@ -21,7 +21,7 @@
 
   var brandId = script && script.getAttribute("data-brand-id");
   if (!brandId) {
-    console.error("[EchoAI] chatbot-widget.js: missing data-brand-id attribute");
+    console.error("[Zorecho] chatbot-widget.js: missing data-brand-id attribute");
     return;
   }
 
@@ -179,7 +179,7 @@
   var footer = document.createElement("div");
   footer.style.cssText =
     "text-align:center;font-size:11px;color:#9ca3af;padding:6px 0 10px;background:#fff;";
-  footer.innerHTML = "Powered by EchoAI";
+  footer.innerHTML = "Powered by Zorecho";
 
   form.appendChild(input);
   form.appendChild(sendBtn);

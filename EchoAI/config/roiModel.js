@@ -12,10 +12,10 @@ const ROI_MODEL = {
   leadValue: 75,
   hotLeadValue: 350,
 
-  // Blended hourly cost of the marketing labor EchoAI automates away.
+  // Blended hourly cost of the marketing labor Zorecho automates away.
   hourlyRate: 60,
 
-  // Typical monthly retainer of a small marketing agency EchoAI replaces.
+  // Typical monthly retainer of a small marketing agency Zorecho replaces.
   agencyMonthlyRetainer: 4000,
 
   // Estimated hours of manual work saved per automated task.

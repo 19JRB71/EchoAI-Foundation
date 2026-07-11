@@ -9,7 +9,7 @@ const salesAgentController = require("../controllers/salesAgentController");
 // Twilio webhooks + owner join link — NO auth. Twilio's servers (and the owner
 // tapping the SMS link) hit these directly; authenticity of the Twilio calls is
 // enforced via X-Twilio-Signature inside the handlers using the sales auth
-// token. This is EchoAI's OWN dedicated sales number, separate from /api/phone.
+// token. This is Zorecho's OWN dedicated sales number, separate from /api/phone.
 // ---------------------------------------------------------------------------
 router.post("/inbound", salesAgentController.initiateDemoCall);
 router.post("/voice/:callId", salesAgentController.handleSalesConversation);

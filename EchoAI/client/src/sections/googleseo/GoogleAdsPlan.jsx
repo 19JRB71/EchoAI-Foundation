@@ -46,7 +46,7 @@ export default function GoogleAdsPlan() {
     return (
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 text-sm text-gray-400 shadow-sm">
         No Google Ads plan yet. When you opt in to Google ads during account setup,
-        EchoAI builds a keyword targeting plan for you here.
+        Zorecho builds a keyword targeting plan for you here.
       </div>
     );
   }

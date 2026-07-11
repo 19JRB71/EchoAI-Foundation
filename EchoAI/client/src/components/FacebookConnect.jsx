@@ -159,14 +159,14 @@ export default function FacebookConnect({ onChange }) {
               Connected
             </span>
             <span className="text-sm text-gray-400">
-              Your Facebook account is linked to EchoAI.
+              Your Facebook account is linked to Zorecho.
             </span>
           </div>
 
           {state.accounts.length > 0 ? (
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-300">
-                Ad account EchoAI manages
+                Ad account Zorecho manages
               </label>
               <select
                 value={state.selectedAccountId || ""}
@@ -204,8 +204,8 @@ export default function FacebookConnect({ onChange }) {
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-gray-400">
-            Connect your Facebook account so EchoAI can run and optimize your ad
-            campaigns. You'll authorize EchoAI securely through Facebook — no
+            Connect your Facebook account so Zorecho can run and optimize your ad
+            campaigns. You'll authorize Zorecho securely through Facebook — no
             tokens to copy or paste.
           </p>
           {state?.configured && <ConnectButton onError={setError} />}

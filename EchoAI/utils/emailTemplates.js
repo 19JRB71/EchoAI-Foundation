@@ -1,5 +1,5 @@
 const APP_URL = process.env.APP_URL || "https://app.echoai.com";
-const BRAND = "EchoAI";
+const BRAND = "Zorecho";
 const ACCENT = "#4f46e5";
 
 function escapeHtml(value) {
@@ -29,7 +29,7 @@ function paragraphsToHtml(text) {
 }
 
 /**
- * Shared, on-brand HTML shell: EchoAI logo placeholder, heading, body, and a
+ * Shared, on-brand HTML shell: Zorecho logo placeholder, heading, body, and a
  * single clear call-to-action button.
  */
 function layout({ heading, bodyHtml, ctaLabel, ctaUrl }) {
@@ -55,7 +55,7 @@ function layout({ heading, bodyHtml, ctaLabel, ctaUrl }) {
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
             <tr>
               <td style="padding:24px 32px;border-bottom:1px solid #f0f0f0;">
-                <!-- EchoAI logo placeholder -->
+                <!-- Zorecho logo placeholder -->
                 <span style="font-size:22px;font-weight:800;color:${ACCENT};letter-spacing:-0.5px;">${BRAND}</span>
               </td>
             </tr>
@@ -245,7 +245,7 @@ const ROLE_BLURB = {
 };
 
 /**
- * Invitation email for a NEW person (no EchoAI account yet). Contains the
+ * Invitation email for a NEW person (no Zorecho account yet). Contains the
  * secure one-time accept link that expires in 48 hours.
  */
 function teamInvitationEmail({ businessName, role, acceptUrl, expiresHours }) {
@@ -272,7 +272,7 @@ function teamInvitationEmail({ businessName, role, acceptUrl, expiresHours }) {
 }
 
 /**
- * Notification for an EXISTING EchoAI user who was added to a workspace
+ * Notification for an EXISTING Zorecho user who was added to a workspace
  * immediately (no acceptance step needed).
  */
 function teamMemberAddedEmail({ businessName, role, loginUrl }) {
@@ -290,7 +290,7 @@ function teamMemberAddedEmail({ businessName, role, loginUrl }) {
     html: layout({
       heading: "You've joined a team",
       bodyHtml,
-      ctaLabel: "Log in to EchoAI",
+      ctaLabel: "Log in to Zorecho",
       ctaUrl: loginUrl || APP_URL,
     }),
   };

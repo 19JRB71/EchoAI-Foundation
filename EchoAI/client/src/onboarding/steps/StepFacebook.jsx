@@ -40,9 +40,9 @@ export default function StepFacebook({ onNext, onBack, onConnected }) {
         Connect your Facebook ad account
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-gray-400">
-        EchoAI runs your campaigns directly inside your own Facebook Ads account,
+        Zorecho runs your campaigns directly inside your own Facebook Ads account,
         so you always stay in full control of your budget and data. Authorize
-        EchoAI securely through Facebook — there are no tokens to copy or paste.
+        Zorecho securely through Facebook — there are no tokens to copy or paste.
       </p>
 
       <div className="mt-6">

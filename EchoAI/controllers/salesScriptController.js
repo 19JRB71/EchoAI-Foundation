@@ -71,7 +71,7 @@ async function generateScript(req, res) {
     console.error("Generate sales script error:", err.message);
     // Surface upstream AI provider failures (billing, rate limits, outages) as a
     // 502 with a clearer message instead of a generic 500, so the cause is
-    // distinguishable from an EchoAI code fault.
+    // distinguishable from an Zorecho code fault.
     if (typeof err.status === "number" && err.status >= 400) {
       return res.status(502).json({
         error:

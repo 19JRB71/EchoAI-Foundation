@@ -56,7 +56,7 @@ export default function AdminDiagnostics() {
           Full Diagnostic Report
         </h3>
         <p className="mt-1 text-sm text-gray-400">
-          Scans every part of your EchoAI account — brand configuration, posting
+          Scans every part of your Zorecho account — brand configuration, posting
           schedule, campaigns, lead pipeline, goals, automation, integrations, API
           credits, voice, Sage intelligence and team — then lists the top 10 things
           to fix, highest priority first.

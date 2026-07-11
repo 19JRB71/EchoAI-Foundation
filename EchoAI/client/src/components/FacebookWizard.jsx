@@ -6,7 +6,7 @@ import { useVoice } from "../voice/VoiceContext.jsx";
 // Facebook Setup Wizard
 //
 // A plain-English, mobile-responsive, resumable wizard that walks a business
-// owner through connecting their Facebook Business account to EchoAI. It lives
+// owner through connecting their Facebook Business account to Zorecho. It lives
 // in Atlas's department ("Connect Facebook") and branches based on where the
 // owner already is:
 //   welcome → questions → [Business Manager] → [Ad Account] → [Page↔Account]
@@ -29,7 +29,7 @@ const ALL_STEPS = [
   { id: "bm", label: "Create Business Manager" },
   { id: "adaccount", label: "Create Ad Account" },
   { id: "page", label: "Connect your Page" },
-  { id: "connect", label: "Connect to EchoAI" },
+  { id: "connect", label: "Connect to Zorecho" },
   { id: "verify", label: "Verify connection" },
   { id: "launch", label: "Launch first campaign" },
 ];
@@ -567,8 +567,8 @@ function ConnectStep({ oauthError = "" }) {
   return (
     <div className="text-center">
       <StepHeading
-        title="Connect Facebook to EchoAI"
-        subtitle="This is the important part. You'll sign in on Facebook's own secure screen — EchoAI never sees your password."
+        title="Connect Facebook to Zorecho"
+        subtitle="This is the important part. You'll sign in on Facebook's own secure screen — Zorecho never sees your password."
       />
 
       <div className="mt-4 rounded-xl border border-gray-800 bg-gray-900 p-4 text-left">

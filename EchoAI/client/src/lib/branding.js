@@ -1,7 +1,7 @@
-// Default EchoAI branding. Mirrors config/whiteLabel.js on the server so the
+// Default Zorecho branding. Mirrors config/whiteLabel.js on the server so the
 // client always has a complete theme even before (or without) an agency match.
 export const DEFAULT_BRANDING = {
-  agencyName: "EchoAI",
+  agencyName: "Zorecho",
   logoUrl: null,
   primaryColor: "#f59e0b", // amber-500
   secondaryColor: "#111827", // gray-900
@@ -23,7 +23,7 @@ export function normalizeBranding(raw) {
   };
 }
 
-// Returns whether a branding object is the unmodified EchoAI default (used to
+// Returns whether a branding object is the unmodified Zorecho default (used to
 // keep the stylized "Echo[AI]" wordmark only for the first-party brand).
 export function isDefaultBrand(branding) {
   return !branding || branding.agencyName === DEFAULT_BRANDING.agencyName;

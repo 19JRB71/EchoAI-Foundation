@@ -8,7 +8,7 @@ export default function GoogleConnectTab() {
           Connect your Google account
         </h3>
         <p className="mt-1 text-sm text-gray-400">
-          Link Google so EchoAI can surface your Business Profile, Ads,
+          Link Google so Zorecho can surface your Business Profile, Ads,
           Analytics, and Search Console insights in one place.
         </p>
       </div>

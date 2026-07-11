@@ -11,7 +11,7 @@ const {
 const { isPolitical, ensureDisclaimer } = require("../utils/politicalContext");
 const { fbGeoLocations } = require("../utils/geoTargeting");
 
-// Maps an EchoAI campaign goal to a Facebook campaign objective.
+// Maps an Zorecho campaign goal to a Facebook campaign objective.
 const GOAL_TO_OBJECTIVE = {
   lead_generation: "OUTCOME_LEADS",
   sales: "OUTCOME_SALES",

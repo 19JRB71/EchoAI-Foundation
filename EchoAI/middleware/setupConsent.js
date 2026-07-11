@@ -39,7 +39,7 @@ async function requireSetupConsent(req, res, next) {
 
     if (!session.consent_granted) {
       return res.status(403).json({
-        error: "Setup consent is required before EchoAI can configure your account.",
+        error: "Setup consent is required before Zorecho can configure your account.",
         consentRequired: true,
       });
     }

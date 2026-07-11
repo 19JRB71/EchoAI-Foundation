@@ -503,7 +503,7 @@ const ACTIONS = [
       return {
         status: "needs_connection",
         connect: "google",
-        detail: "Connect Google Calendar so EchoAI can sync your bookings.",
+        detail: "Connect Google Calendar so Zorecho can sync your bookings.",
       };
     },
   },
@@ -624,7 +624,7 @@ const ACTIONS = [
           status: "needs_connection",
           connect: "facebook",
           detail:
-            "Connect your Facebook account so EchoAI can launch your first ad campaign using the creatives we just generated.",
+            "Connect your Facebook account so Zorecho can launch your first ad campaign using the creatives we just generated.",
         };
       }
 

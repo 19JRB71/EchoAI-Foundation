@@ -12,7 +12,7 @@ const { trackFeatureUse } = require("../utils/betaProgram");
  *
  * Workspace resolution
  * --------------------
- * EchoAI supports team members: a user can be invited into another account
+ * Zorecho supports team members: a user can be invited into another account
  * owner's workspace with a role. To make the entire existing (user_id-scoped)
  * codebase operate transparently inside the employer's workspace, we remap the
  * EFFECTIVE user id for active team members:

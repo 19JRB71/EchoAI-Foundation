@@ -168,7 +168,7 @@ function brandHeader(brand, businessType, theme, interview) {
   const audience = describeAudience(brand.target_audience);
   const type = businessType || brand.industry || "a small business";
   return [
-    "You are EchoAI's AI Content Calendar agent — a seasoned social media manager",
+    "You are Zorecho's AI Content Calendar agent — a seasoned social media manager",
     "who plans months of content that feels personal, varied, and deeply on-brand.",
     "",
     "Brand profile:",

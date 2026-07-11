@@ -11,7 +11,7 @@ const inputClass =
 
 export default function Login({ onLogin, invitePending = false }) {
   const { branding } = useBranding();
-  const isDefaultBrand = branding.agencyName === "EchoAI";
+  const isDefaultBrand = branding.agencyName === "Zorecho";
   const [mode, setMode] = useState(invitePending ? "register" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -104,7 +104,7 @@ export default function Login({ onLogin, invitePending = false }) {
             />
           ) : isDefaultBrand ? (
             <h1 className="text-2xl font-bold text-gray-100">
-              Echo<span style={{ color: branding.primaryColor }}>AI</span>
+              Zor<span style={{ color: branding.primaryColor }}>echo</span>
             </h1>
           ) : (
             <h1 className="text-2xl font-bold text-gray-100">

@@ -1,5 +1,11 @@
 # EchoAI
 
+**Customer-facing brand name: "Zorecho"** (rebranded July 2026 — all user-visible
+strings, PWA manifest, emails, prompts, and wordmarks say Zorecho; the assistant
+persona "Echo", the 8 agent names, and ALL internal identifiers stay unchanged:
+`EchoAI/` directory, routes, env vars, lowercase keys like `echoai_chat_session_`,
+`echoai-shell-v*` cache names, and the `echoai.com` email domain).
+
 EchoAI is an AI-powered SaaS marketing platform: Facebook/Google ad automation, a
 lead-qualification chatbot + embeddable website widget, brand discovery, weekly
 analytics & auto-optimization, multi-platform social/video/email/image content

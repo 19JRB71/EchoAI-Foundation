@@ -61,7 +61,7 @@ export function isCredentialFailure(post) {
   return CREDENTIAL_FAILURE_RE.test(reason);
 }
 
-// Mirrors MAX_PUBLISH_ATTEMPTS in EchoAI/controllers/socialController.js: the
+// Mirrors MAX_PUBLISH_ATTEMPTS in Zorecho/controllers/socialController.js: the
 // total number of publish attempts the server gives a post before marking it
 // 'failed' on a transient platform error. Keep in sync with the server.
 export const MAX_PUBLISH_ATTEMPTS = 2;

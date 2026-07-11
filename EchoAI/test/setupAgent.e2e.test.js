@@ -67,7 +67,7 @@ function installAiStub() {
     const sys = String(system || "");
 
     // 1. Setup interview — complete after a couple of answers.
-    if (sys.includes("You are EchoAI's Setup Agent")) {
+    if (sys.includes("You are Zorecho's Setup Agent")) {
       const userTurns = (messages || []).filter((m) => m.role === "user").length;
       const complete = userTurns >= 3;
       return textResponse({

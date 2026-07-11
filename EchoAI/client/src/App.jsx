@@ -1009,9 +1009,9 @@ export default function App() {
                 <div className="mx-auto max-w-xl rounded-2xl border border-gray-700 bg-gray-900/60 p-8 text-center">
                   <h2 className="text-xl font-bold text-gray-100">White Label</h2>
                   <p className="mt-3 text-sm leading-relaxed text-gray-300">
-                    White-label agency accounts are provisioned by the EchoAI team.
+                    White-label agency accounts are provisioned by the Zorecho team.
                     Contact support to have your agency enabled and start reselling
-                    EchoAI under your own brand.
+                    Zorecho under your own brand.
                   </p>
                 </div>
               </FeatureGate>

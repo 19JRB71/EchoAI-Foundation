@@ -192,8 +192,8 @@ export default function GoogleConnect({ onChange }) {
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-gray-400">
-            Connect your Google account so EchoAI can read your Business Profile,
-            Ads, Analytics, and Search Console data. You'll authorize EchoAI
+            Connect your Google account so Zorecho can read your Business Profile,
+            Ads, Analytics, and Search Console data. You'll authorize Zorecho
             securely through Google — no tokens to copy or paste.
           </p>
           {state?.configured && <ConnectButton onError={setError} />}

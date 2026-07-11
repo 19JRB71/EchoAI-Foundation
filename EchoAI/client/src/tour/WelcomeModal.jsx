@@ -1,5 +1,5 @@
 // First-login welcome modal shown to new users right after onboarding. Greets
-// them by business name, summarizes what EchoAI will do, and offers to start the
+// them by business name, summarizes what Zorecho will do, and offers to start the
 // guided tour or jump straight to the dashboard.
 
 const POINTS = [
@@ -16,7 +16,7 @@ const POINTS = [
   {
     icon: "📈",
     title: "Grow with insight",
-    text: "Track ROI in real time and let EchoAI tell you exactly what to do next.",
+    text: "Track ROI in real time and let Zorecho tell you exactly what to do next.",
   },
 ];
 
@@ -30,7 +30,7 @@ export default function WelcomeModal({ businessName, tourLabel, onStart, onSkip 
             Welcome{businessName ? `, ${businessName}` : ""}!
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-gray-400">
-            EchoAI is your AI marketing team — here's what it's about to do for your
+            Zorecho is your AI marketing team — here's what it's about to do for your
             business:
           </p>
         </div>

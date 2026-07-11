@@ -142,7 +142,7 @@ export default function Sidebar({
   ownerBusinessName = null,
 }) {
   const { branding } = useBranding();
-  const isDefaultBrand = branding.agencyName === "EchoAI";
+  const isDefaultBrand = branding.agencyName === "Zorecho";
   const brandTeal = branding.primaryColor || "#14B8A6";
   const roster = useRoster(canOpenDepartment);
   const [mobileTeamOpen, setMobileTeamOpen] = useState(false);
@@ -151,7 +151,7 @@ export default function Sidebar({
     <img src={branding.logoUrl} alt={branding.agencyName} className="max-h-9 w-auto object-contain" />
   ) : isDefaultBrand ? (
     <span className="text-xl font-bold tracking-tight text-white">
-      Echo<span style={{ color: brandTeal }}>AI</span>
+      Zor<span style={{ color: brandTeal }}>echo</span>
     </span>
   ) : (
     <span className="text-xl font-bold tracking-tight text-white">{branding.agencyName}</span>

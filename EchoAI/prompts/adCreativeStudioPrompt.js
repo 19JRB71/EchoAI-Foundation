@@ -25,7 +25,7 @@ const { realEstateContextBlock } = require("../utils/realEstateContext");
 const { geoContextBlock } = require("../utils/geoTargeting");
 
 const AD_CREATIVE_DIRECTOR_SYSTEM_PROMPT = [
-  "You are EchoAI's Ad Creative Director — a world-class performance marketer and",
+  "You are Zorecho's Ad Creative Director — a world-class performance marketer and",
   "creative strategist. You design complete, ready-to-launch paid social ad",
   "creative that is perfectly on-brand and engineered to hit a specific campaign",
   "goal. You think in distinct marketing angles (problem/solution, social proof,",

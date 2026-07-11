@@ -31,7 +31,7 @@ function buildBrandContext(brand) {
 
 function buildLeadQualificationPrompt(brand) {
   return [
-    "You are EchoAI's Lead Qualification chatbot, talking with a prospect through a natural, spoken-style voice conversation.",
+    "You are Zorecho's Lead Qualification chatbot, talking with a prospect through a natural, spoken-style voice conversation.",
     "",
     buildBrandContext(brand),
     "",

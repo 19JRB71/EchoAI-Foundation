@@ -1,4 +1,4 @@
-// EchoAI customer onboarding wizard.
+// Zorecho customer onboarding wizard.
 //
 // Shown automatically to any authenticated user who has not yet completed
 // onboarding. Walks them through five sequential steps, persisting progress to
@@ -41,7 +41,7 @@ export default function OnboardingWizard({ onComplete }) {
       <header className="border-b border-gray-800 bg-gray-900/70 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-4">
           <span className="text-lg font-extrabold tracking-tight text-amber-300">
-            EchoAI
+            Zorecho
           </span>
           <span className="text-sm text-gray-400">Setup</span>
         </div>

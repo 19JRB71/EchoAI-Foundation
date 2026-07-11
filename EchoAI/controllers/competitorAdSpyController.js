@@ -204,7 +204,7 @@ async function escalateAggressiveAd(brand, adRow, classification) {
       const firstName = row.first_name && row.first_name.trim() ? row.first_name.trim() : "there";
       const body = `${firstName}, Scout spotted a new aggressive ad from ${competitor}.${
         reason ? ` ${reason}` : ""
-      } Check Competitor Ads in EchoAI.`;
+      } Check Competitor Ads in Zorecho.`;
       await client.messages.create({ to: ownerPhone, from: row.phone_number, body });
     }
   } catch (err) {

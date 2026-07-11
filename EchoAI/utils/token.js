@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 
 // Permanent login: a "remember this device" token lives for 30 days so Echo is
-// already signed in whenever the owner opens EchoAI on their regular device.
+// already signed in whenever the owner opens Zorecho on their regular device.
 // When the user opts out of remembering the device we issue a short-lived token
 // AND the client keeps it in sessionStorage, so it disappears when the browser
 // closes.

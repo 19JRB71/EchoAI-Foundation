@@ -380,7 +380,7 @@ async function getRevenueReport(req, res) {
 /**
  * GET /api/agencies/branding  (public)
  * Returns the branding for the agency matching the request's domain (attached
- * by the white-label middleware), or the default EchoAI branding when the
+ * by the white-label middleware), or the default Zorecho branding when the
  * domain does not map to an active agency. Used by the client to theme itself.
  */
 function getBranding(req, res) {

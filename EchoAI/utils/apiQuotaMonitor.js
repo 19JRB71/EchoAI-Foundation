@@ -7,7 +7,7 @@
  * service ever runs out silently. The latest level for every provider is stored
  * so the Sentinel health monitor can show them all at a glance.
  *
- * HONESTY RULE (EchoAI convention — never fabricate data): only providers that
+ * HONESTY RULE (Zorecho convention — never fabricate data): only providers that
  * actually expose remaining credits/quota through an API return real numbers.
  *   - ElevenLabs: GET /user/subscription → character_count + character_limit.
  *   - Twilio:     GET Balance.json → account balance (only when platform-level
@@ -56,7 +56,7 @@ function fmtInt(n) {
 function numOrNull(v) {
   // Preserve null semantics: unavailable/not-configured providers report null
   // numeric fields and must NOT be persisted as 0 (Number(null) === 0), which
-  // would fabricate a quota level (EchoAI honesty rule — never invent numbers).
+  // would fabricate a quota level (Zorecho honesty rule — never invent numbers).
   if (v === null || v === undefined || v === "") return null;
   return Number.isFinite(Number(v)) ? Number(v) : null;
 }

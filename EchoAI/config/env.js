@@ -62,7 +62,7 @@ const FEATURES = [
     vars: ["FCM_SERVER_KEY"],
   },
   {
-    name: "AI Sales Agent (dedicated EchoAI sales Twilio line)",
+    name: "AI Sales Agent (dedicated Zorecho sales Twilio line)",
     vars: [
       "SALES_TWILIO_ACCOUNT_SID",
       "SALES_TWILIO_AUTH_TOKEN",

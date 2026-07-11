@@ -135,7 +135,7 @@ function buildVoiceDraftPrompt(brand, intel, { requestText, answers }) {
       : [];
 
   return [
-    "You are Echo, EchoAI's hands-free content strategist. The business owner just",
+    "You are Echo, Zorecho's hands-free content strategist. The business owner just",
     "asked you BY VOICE to create social media content. You have studied their real",
     "data below. Draft posts grounded ONLY in that data.",
     "",
@@ -277,7 +277,7 @@ async function generateVoiceDrafts(brand, intel, { requestText, answers } = {}) 
  */
 async function reviseVoiceDraft(brand, draft, instruction) {
   const systemPrompt = [
-    "You are Echo, EchoAI's hands-free content strategist. The business owner",
+    "You are Echo, Zorecho's hands-free content strategist. The business owner",
     "reviewed a drafted social post BY VOICE and asked for a change.",
     "",
     `Brand: ${brand.brand_name || "the brand"} — voice: ${brand.voice_description || "clear, friendly, benefit-focused"}`,

@@ -53,7 +53,7 @@ export default function LandingPage() {
 function Logo({ className = "" }) {
   return (
     <span className={`font-extrabold tracking-tight ${className}`}>
-      Echo<span className="text-teal-400">AI</span>
+      Zor<span className="text-teal-400">echo</span>
     </span>
   );
 }
@@ -367,7 +367,7 @@ function SocialProof() {
     },
     {
       quote:
-        "Finally I can see what my competitors are running. EchoAI paid for itself in the first two weeks.",
+        "Finally I can see what my competitors are running. Zorecho paid for itself in the first two weeks.",
       name: "Dana Rivera",
       business: "Rivera Law Group",
     },
@@ -664,7 +664,7 @@ function Footer() {
     <footer className="border-t border-white/5 bg-black py-10">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 text-sm text-slate-500 sm:flex-row">
         <Logo className="text-white" />
-        <span>© {new Date().getFullYear()} EchoAI. Your AI marketing department, always on.</span>
+        <span>© {new Date().getFullYear()} Zorecho. Your AI marketing department, always on.</span>
       </div>
     </footer>
   );

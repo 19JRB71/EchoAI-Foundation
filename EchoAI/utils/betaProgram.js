@@ -105,7 +105,7 @@ function warningEmailHtml(name) {
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
       <h2 style="color:#1f2937;">Hey${who}, we noticed you haven't logged in recently 👋</h2>
       <p style="color:#374151; font-size:15px; line-height:1.6;">
-        Your free beta access to EchoAI is reserved for active testers.
+        Your free beta access to Zorecho is reserved for active testers.
         Log in this week to keep your spot — we'd hate to give it away!
       </p>
       <p style="color:#374151; font-size:15px; line-height:1.6;">
@@ -121,11 +121,11 @@ function waitlistEmailHtml() {
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
       <h2 style="color:#1f2937;">A beta spot just opened up! 🎉</h2>
       <p style="color:#374151; font-size:15px; line-height:1.6;">
-        Good news — a spot in the EchoAI beta program is now available.
+        Good news — a spot in the Zorecho beta program is now available.
         Head to the signup page and create your free account before the
         spot fills up again.
       </p>
-      <p style="color:#6b7280; font-size:13px;">— The EchoAI team</p>
+      <p style="color:#6b7280; font-size:13px;">— The Zorecho team</p>
     </div>`;
 }
 
@@ -163,7 +163,7 @@ async function sendInactiveWarnings() {
     try {
       await sendEmail({
         to: user.email,
-        subject: "Your EchoAI beta spot — quick heads up",
+        subject: "Your Zorecho beta spot — quick heads up",
         html: warningEmailHtml(user.first_name || user.business_name || ""),
       });
       sent += 1;
@@ -211,7 +211,7 @@ async function notifyWaitlist() {
     try {
       await sendEmail({
         to: entry.email,
-        subject: "An EchoAI beta spot just opened up",
+        subject: "An Zorecho beta spot just opened up",
         html: waitlistEmailHtml(),
       });
       notified += 1;

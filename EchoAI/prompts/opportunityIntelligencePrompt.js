@@ -31,7 +31,7 @@ function clampPriority(n) {
 function buildOpportunityPrompt(brand, profile) {
   const name = brand.brand_name || "the business";
   return [
-    "You are EchoAI's Scout — an opportunity intelligence analyst who finds ways for a small business to grow and win customers.",
+    "You are Zorecho's Scout — an opportunity intelligence analyst who finds ways for a small business to grow and win customers.",
     "Given ONE business's profile (and any competitor intelligence provided), produce this week's opportunity briefing.",
     "Be honest and specific; ground everything in the profile. Where the data is thin, say so and suggest how to gather more rather than inventing facts.",
     "",

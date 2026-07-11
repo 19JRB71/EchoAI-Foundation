@@ -47,11 +47,11 @@ const FEATURE_COPY = {
   },
   affiliate: {
     title: "Affiliate Program",
-    blurb: "Earn recurring commission by referring new businesses to EchoAI.",
+    blurb: "Earn recurring commission by referring new businesses to Zorecho.",
   },
   agency: {
     title: "White Label",
-    blurb: "Resell EchoAI under your own brand with custom domains, theming, and client management.",
+    blurb: "Resell Zorecho under your own brand with custom domains, theming, and client management.",
   },
 };
 

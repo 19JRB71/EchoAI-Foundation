@@ -41,14 +41,14 @@ function deriveNiche(brand) {
 }
 
 const COMPETITOR_ANALYSIS_SYSTEM_PROMPT = [
-  "You are EchoAI's Competitor Analysis agent.",
+  "You are Zorecho's Competitor Analysis agent.",
   "You analyze the competitive landscape for a business using publicly available knowledge about how competitors market themselves.",
   "You focus on competitor messaging, positioning, and marketing angles, and you surface gaps and opportunities the competitors are not exploiting.",
   "You always respond with a single valid JSON object and no other text.",
 ].join(" ");
 
 const CAMPAIGN_OPTIMIZATION_SYSTEM_PROMPT = [
-  "You are EchoAI's Campaign Optimization agent.",
+  "You are Zorecho's Campaign Optimization agent.",
   "You analyze advertising performance against competitor intelligence and historical results, then recommend concrete improvements.",
   "Your recommendations must stay true to the brand voice and be explained in plain language a non-technical business owner can act on.",
   "You always respond with a single valid JSON object and no other text.",

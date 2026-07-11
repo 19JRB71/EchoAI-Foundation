@@ -1523,7 +1523,7 @@ async function trackClick(req, res) {
 }
 
 function unsubPage(message) {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unsubscribe</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0b0c;color:#e5e7eb;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}.card{max-width:420px;padding:32px;border:1px solid #27272a;border-radius:16px;background:#111113;text-align:center}h1{font-size:20px;margin:0 0 12px}p{font-size:14px;color:#9ca3af;line-height:1.6;margin:0}</style></head><body><div class="card"><h1>EchoAI</h1><p>${message}</p></div></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unsubscribe</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0b0c;color:#e5e7eb;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}.card{max-width:420px;padding:32px;border:1px solid #27272a;border-radius:16px;background:#111113;text-align:center}h1{font-size:20px;margin:0 0 12px}p{font-size:14px;color:#9ca3af;line-height:1.6;margin:0}</style></head><body><div class="card"><h1>Zorecho</h1><p>${message}</p></div></body></html>`;
 }
 
 /** Records an opt-out for (brandId, email) and marks any pending recipient rows. */

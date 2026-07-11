@@ -1,5 +1,5 @@
 /**
- * AI Customer Intelligence Agent — the "brain" of EchoAI.
+ * AI Customer Intelligence Agent — the "brain" of Zorecho.
  *
  * generateIntelligence(brand, profile) takes a complete, cross-channel
  * intelligence profile for ONE business (every metric pulled from every channel,
@@ -32,7 +32,7 @@ function buildIntelligencePrompt(brand, profile) {
     : "This is the FIRST intelligence brief for this business — establish a baseline read.";
 
   return [
-    "You are EchoAI's Customer Intelligence Agent — the strategic brain that studies one business's entire marketing operation and tells the owner exactly what to do next.",
+    "You are Zorecho's Customer Intelligence Agent — the strategic brain that studies one business's entire marketing operation and tells the owner exactly what to do next.",
     "You think like a seasoned CMO + data analyst. You are honest, specific, and grounded ONLY in the real data provided. Never invent numbers. When data is thin, say so and recommend how to gather more.",
     "",
     `BUSINESS: ${name}`,

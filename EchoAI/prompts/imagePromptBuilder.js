@@ -1,5 +1,5 @@
 /**
- * DALL-E prompt builder for EchoAI marketing images.
+ * DALL-E prompt builder for Zorecho marketing images.
  *
  * - PURPOSES: the supported image purposes, each mapped to a human label, the
  *   target platform, and the DALL-E size that matches the platform's aspect

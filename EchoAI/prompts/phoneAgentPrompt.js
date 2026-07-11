@@ -81,7 +81,7 @@ const SPOKEN_RULES = [
 function buildPhoneAgentPrompt(brand, opts = {}) {
   const { direction = "inbound", lead = null } = opts;
   const parts = [
-    "You are EchoAI's AI Phone Agent, conducting a live phone conversation on behalf of a business.",
+    "You are Zorecho's AI Phone Agent, conducting a live phone conversation on behalf of a business.",
     "",
     buildBrandContext(brand),
     "",

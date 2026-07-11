@@ -151,7 +151,7 @@ export default function VoiceLandingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-black text-gray-100">
-      {/* Section 1: Business header (the customer's brand, no EchoAI branding) */}
+      {/* Section 1: Business header (the customer's brand, no Zorecho branding) */}
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-5 text-center">
         <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
           {brand.businessName}

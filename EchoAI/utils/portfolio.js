@@ -292,9 +292,9 @@ async function mostUrgentForBrand(brandId) {
 }
 
 /**
- * EchoAI-as-a-business card (Part 7). The owner is also building EchoAI itself, so
+ * Zorecho-as-a-business card (Part 7). The owner is also building Zorecho itself, so
  * it shows up in the portfolio alongside their client businesses — but only for
- * the platform owner/admin (a normal customer's EchoAI isn't "their" business).
+ * the platform owner/admin (a normal customer's Zorecho isn't "their" business).
  * Metrics come from real platform tables (users, subscriptions).
  */
 async function echoBusinessCard() {
@@ -330,7 +330,7 @@ async function echoBusinessCard() {
   return {
     isEcho: true,
     brandId: null,
-    name: "EchoAI (your platform)",
+    name: "Zorecho (your platform)",
     metrics: {
       payingCustomers: subsRow.rows.length,
       mrr: round2(mrr),
@@ -344,7 +344,7 @@ async function echoBusinessCard() {
 /**
  * The unified portfolio overview (Parts 1 + 7): one card per real business, a
  * portfolio summary, the unified approval queue, and the unified hot-lead list —
- * all with the demo brand excluded. When `isAdmin`, EchoAI-as-a-business is
+ * all with the demo brand excluded. When `isAdmin`, Zorecho-as-a-business is
  * appended.
  */
 async function gatherPortfolioOverview(userId, { isAdmin = false } = {}) {

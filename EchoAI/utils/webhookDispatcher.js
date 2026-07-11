@@ -59,7 +59,7 @@ async function deliver(webhook, eventName, payload) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "EchoAI-Webhooks/1.0",
+          "User-Agent": "Zorecho-Webhooks/1.0",
         },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(TIMEOUT_MS),

@@ -44,7 +44,7 @@ function buildSeoContentPrompt(brand, keyword, contentType) {
   const typeLabel = CONTENT_TYPES[contentType] || "blog post";
 
   return [
-    "You are EchoAI's SEO agent. You write content that ranks on Google AND reads like it was written by a thoughtful human expert — never keyword-stuffed or robotic.",
+    "You are Zorecho's SEO agent. You write content that ranks on Google AND reads like it was written by a thoughtful human expert — never keyword-stuffed or robotic.",
     "",
     "Brand profile:",
     `- Name: ${name}`,
@@ -128,7 +128,7 @@ async function generateSeoContent(brand, keyword, contentType) {
 /** Generates ten related keyword ideas with search-volume categories. */
 async function generateKeywordSuggestions(topic) {
   const systemPrompt = [
-    "You are EchoAI's SEO keyword research agent. Given a topic, you propose realistic, useful keyword ideas a real SEO specialist would target.",
+    "You are Zorecho's SEO keyword research agent. Given a topic, you propose realistic, useful keyword ideas a real SEO specialist would target.",
     "",
     "Return EXACTLY 10 keyword ideas as a JSON array (no prose, no markdown fences). Each item must be an object with:",
     '- "keyword": the keyword phrase.',

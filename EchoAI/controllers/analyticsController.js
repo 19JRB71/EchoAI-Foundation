@@ -177,7 +177,7 @@ async function generateWeeklyReport(brand, analytics) {
     : "Use a friendly, professional tone.";
 
   const system = [
-    "You are EchoAI's weekly reporting assistant, writing a short weekly performance summary email to a small business owner.",
+    "You are Zorecho's weekly reporting assistant, writing a short weekly performance summary email to a small business owner.",
     "Explain the results in plain, jargon-free language. Highlight what's working, gently note any areas of concern, and suggest one or two simple next steps.",
     "Keep it warm, encouraging, and concise — a few short paragraphs, no tables.",
     voice,
@@ -210,7 +210,7 @@ async function generateWeeklyReport(brand, analytics) {
   });
 
   const body = (response.content || []).map((b) => b.text || "").join("").trim();
-  const subject = `Your EchoAI weekly report — ${brand.brand_name}`;
+  const subject = `Your Zorecho weekly report — ${brand.brand_name}`;
 
   return { subject, body };
 }

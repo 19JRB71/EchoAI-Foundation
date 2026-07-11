@@ -72,7 +72,7 @@ function buildVideoContentPrompt(brand, topic, platform, length) {
     LENGTH_GUIDELINES[normalizedLength] || "Match the requested video length.";
 
   return [
-    "You are EchoAI's Video Content agent. You write complete, production-ready short-form and long-form video packages that are perfectly on-brand and native to a specific platform.",
+    "You are Zorecho's Video Content agent. You write complete, production-ready short-form and long-form video packages that are perfectly on-brand and native to a specific platform.",
     "",
     "Brand profile:",
     `- Name: ${name}`,

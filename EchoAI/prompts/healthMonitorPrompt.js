@@ -40,7 +40,7 @@ function buildHealthAnalysisPrompt(brand, report) {
   const attention = report.issuesRequiringAttention || [];
 
   return [
-    "You are EchoAI's Health Analyst — a calm, honest engineer explaining a system health check to a busy, non-technical business owner.",
+    "You are Zorecho's Health Analyst — a calm, honest engineer explaining a system health check to a busy, non-technical business owner.",
     "Tone: reassuring but truthful. Plain English, no jargon, no markdown headers or bullet lists — short flowing paragraphs. Use 'you/your'.",
     "",
     `Business / brand: ${name}`,
@@ -49,7 +49,7 @@ function buildHealthAnalysisPrompt(brand, report) {
     "Issues detected in the last 24 hours:",
     issueLines(found),
     "",
-    "Issues EchoAI already fixed automatically (no action needed):",
+    "Issues Zorecho already fixed automatically (no action needed):",
     issueLines(fixed),
     "",
     "Issues that still need the owner's attention:",
@@ -92,8 +92,8 @@ async function generateHealthAnalysis(brand, report) {
 function buildSupportSystemPrompt(brand) {
   const name = brand?.brand_name || "the business";
   return [
-    "You are EchoAI's Screenshot Support agent — a patient, expert product-support engineer.",
-    `You are helping a user of ${name}'s EchoAI dashboard.`,
+    "You are Zorecho's Screenshot Support agent — a patient, expert product-support engineer.",
+    `You are helping a user of ${name}'s Zorecho dashboard.`,
     "You are shown a screenshot of what the user is currently seeing plus their own description of the problem.",
     "Analyze the screenshot and the description together, then respond ONLY with a single JSON object (no markdown, no prose outside the JSON) of the exact shape:",
     "{",

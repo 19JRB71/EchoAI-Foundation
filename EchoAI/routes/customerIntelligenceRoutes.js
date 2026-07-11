@@ -6,7 +6,7 @@ const lockout = require("../middleware/lockout");
 const featureGate = require("../middleware/featureGate");
 const ci = require("../controllers/customerIntelligenceController");
 
-// The Customer Intelligence Engine is EchoAI's most advanced Enterprise feature.
+// The Customer Intelligence Engine is Zorecho's most advanced Enterprise feature.
 // Order is always auth → lockout → featureGate (never gate before lockout).
 router.use(auth, lockout);
 const enterprise = featureGate("customer_intelligence");

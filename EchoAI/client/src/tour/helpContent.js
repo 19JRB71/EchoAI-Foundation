@@ -24,7 +24,7 @@ export const HELP_CONTENT = {
   },
   campaigns: {
     title: "Facebook Campaigns",
-    what: "Automated ad campaigns that EchoAI builds, launches, and optimizes for you.",
+    what: "Automated ad campaigns that Zorecho builds, launches, and optimizes for you.",
     features: [
       "AI targeting and creative selection",
       "Weekly budget shifts toward top performers",
@@ -54,7 +54,7 @@ export const HELP_CONTENT = {
   },
   roi: {
     title: "ROI Dashboard",
-    what: "Turns your activity into a clear estimate of the value EchoAI is generating.",
+    what: "Turns your activity into a clear estimate of the value Zorecho is generating.",
     features: [
       "Lead, conversion, and revenue impact estimates",
       "Week-over-week tracking",
@@ -130,7 +130,7 @@ export const HELP_CONTENT = {
       "Inbound answering and outbound dialing",
       "Powered by your own Twilio number",
     ],
-    tip: "Connect Twilio in Settings, then point your number's voice webhook at EchoAI.",
+    tip: "Connect Twilio in Settings, then point your number's voice webhook at Zorecho.",
   },
   appointments: {
     title: "Appointments",
@@ -148,13 +148,13 @@ export const HELP_CONTENT = {
     features: [
       "Pulls in reviews automatically",
       "AI-drafted, on-brand reply suggestions",
-      "Respond without leaving EchoAI",
+      "Respond without leaving Zorecho",
     ],
     tip: "Reply to every review — responsiveness is what future customers notice most.",
   },
   zapier: {
     title: "Zapier & Webhooks",
-    what: "Send EchoAI events to thousands of other apps via outbound webhooks.",
+    what: "Send Zorecho events to thousands of other apps via outbound webhooks.",
     features: [
       "Fire events like new-lead to any endpoint",
       "Secure, retrying delivery",
@@ -204,7 +204,7 @@ export const HELP_CONTENT = {
   },
   affiliate: {
     title: "Affiliate Program",
-    what: "Earn commission by referring new customers to EchoAI.",
+    what: "Earn commission by referring new customers to Zorecho.",
     features: [
       "Your personal referral link",
       "Referral and conversion tracking",
@@ -214,13 +214,13 @@ export const HELP_CONTENT = {
   },
   agency: {
     title: "White Label",
-    what: "Resell EchoAI as your own branded product.",
+    what: "Resell Zorecho as your own branded product.",
     features: [
       "Your branding, domain, and pricing",
       "Manage your own customers",
       "Track the revenue you generate",
     ],
-    tip: "Set your prices with room above your EchoAI cost to build a healthy margin.",
+    tip: "Set your prices with room above your Zorecho cost to build a healthy margin.",
   },
   feedback: {
     title: "Customer Feedback",

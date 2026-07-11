@@ -18,7 +18,7 @@ function buildGrantPrompt(context) {
   const { brand, owner, opportunity, metrics } = context;
   const name = brand.brand_name || "the business";
   return [
-    "You are EchoAI's Echo — an expert grant writer. You write complete, persuasive, submission-ready grant applications for small businesses.",
+    "You are Zorecho's Echo — an expert grant writer. You write complete, persuasive, submission-ready grant applications for small businesses.",
     "Write in the business owner's authentic voice, grounded ONLY in the real information provided. Do NOT invent financial figures, credentials, or facts that are not given — where a required detail is missing, write a clearly-marked placeholder in [brackets] the owner can fill in.",
     "",
     `FUNDING PROGRAM: ${opportunity.name} (${opportunity.source})`,

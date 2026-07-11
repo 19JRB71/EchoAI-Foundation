@@ -47,7 +47,7 @@ const STARTER_STEPS = [
     section: "campaigns",
     target: "nav-campaigns",
     title: "Automated Facebook ads",
-    body: "EchoAI builds, launches, and optimizes your Facebook ad campaigns automatically. Connect an ad account and the AI handles targeting and weekly budget shifts toward your best performers.",
+    body: "Zorecho builds, launches, and optimizes your Facebook ad campaigns automatically. Connect an ad account and the AI handles targeting and weekly budget shifts toward your best performers.",
     placement: "right",
   },
   {
@@ -63,7 +63,7 @@ const STARTER_STEPS = [
     section: "social",
     target: "nav-social",
     title: "Social media on autopilot",
-    body: "Generate on-brand posts for every platform and schedule them ahead of time. EchoAI publishes automatically at the times you choose, so your feeds stay active without the daily grind.",
+    body: "Generate on-brand posts for every platform and schedule them ahead of time. Zorecho publishes automatically at the times you choose, so your feeds stay active without the daily grind.",
     placement: "right",
   },
   {
@@ -79,7 +79,7 @@ const STARTER_STEPS = [
     section: "roi",
     target: "nav-roi",
     title: "See your return",
-    body: "The ROI dashboard turns all your activity into a clear estimate of the value EchoAI is generating — leads, conversions, and revenue impact — tracked week over week.",
+    body: "The ROI dashboard turns all your activity into a clear estimate of the value Zorecho is generating — leads, conversions, and revenue impact — tracked week over week.",
     placement: "right",
   },
   {
@@ -115,7 +115,7 @@ const PRO_EXTRA_STEPS = [
     section: "contentcalendar",
     target: "nav-contentcalendar",
     title: "Content calendar",
-    body: "Let the AI plan a full month of social posts across your platforms in one click. Activate the calendar and EchoAI auto-publishes everything on schedule — pause or edit any post any time.",
+    body: "Let the AI plan a full month of social posts across your platforms in one click. Activate the calendar and Zorecho auto-publishes everything on schedule — pause or edit any post any time.",
     placement: "right",
   },
   {
@@ -123,7 +123,7 @@ const PRO_EXTRA_STEPS = [
     section: "followups",
     target: "nav-followups",
     title: "Follow-up sequences",
-    body: "Never let a lead go cold. EchoAI writes and sends multi-touch follow-up sequences over email and SMS, nurturing each lead until they're ready to buy.",
+    body: "Never let a lead go cold. Zorecho writes and sends multi-touch follow-up sequences over email and SMS, nurturing each lead until they're ready to buy.",
     placement: "right",
   },
   {
@@ -167,7 +167,7 @@ const ENT_EXTRA_STEPS = [
     section: "agency",
     target: "nav-agency",
     title: "White label",
-    body: "Resell EchoAI as your own product. Apply your branding, domain, and pricing, then manage your customers and revenue from the agency portal — your clients never see EchoAI.",
+    body: "Resell Zorecho as your own product. Apply your branding, domain, and pricing, then manage your customers and revenue from the agency portal — your clients never see Zorecho.",
     placement: "right",
   },
   {
@@ -190,7 +190,7 @@ const ENT_EXTRA_STEPS = [
     id: "enterprise-perks",
     target: null,
     title: "Every feature & priority support",
-    body: "Enterprise unlocks every feature EchoAI offers plus priority support. Each plan includes 1 seat; invite your whole team from Settings and add extra seats any time for $50/seat per month.",
+    body: "Enterprise unlocks every feature Zorecho offers plus priority support. Each plan includes 1 seat; invite your whole team from Settings and add extra seats any time for $50/seat per month.",
     placement: "center",
   },
 ];
@@ -215,7 +215,7 @@ const WRAP_UP_STEPS = [
     id: "finish",
     target: null,
     title: "You're ready to grow",
-    body: "That's the tour! Everything you've seen is ready to use now. Pick a section from the sidebar to dive in — and remember, EchoAI is working for your business around the clock.",
+    body: "That's the tour! Everything you've seen is ready to use now. Pick a section from the sidebar to dive in — and remember, Zorecho is working for your business around the clock.",
     placement: "center",
   },
 ];

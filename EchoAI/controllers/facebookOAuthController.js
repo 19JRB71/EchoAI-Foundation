@@ -339,7 +339,7 @@ async function getConnectedAccounts(req, res) {
 
 /**
  * POST /api/facebook/select-account  { accountId }
- * Sets which connected ad account EchoAI should manage. The id must be one of
+ * Sets which connected ad account Zorecho should manage. The id must be one of
  * the accounts returned by Facebook at connect time.
  */
 async function selectAccount(req, res) {
@@ -379,7 +379,7 @@ async function selectAccount(req, res) {
 
 /**
  * POST /api/facebook/select-page  { pageId }
- * Sets which connected Facebook Page EchoAI should run ads through. The id must
+ * Sets which connected Facebook Page Zorecho should run ads through. The id must
  * be one of the pages returned by Facebook at connect time.
  */
 async function selectPage(req, res) {
@@ -424,7 +424,7 @@ async function selectPage(req, res) {
  * returns a per-item checklist the UI renders as green checks / yellow warnings:
  *   - ad account is selected and reachable
  *   - a Facebook Page is selected
- *   - EchoAI holds the ads_management permission (can create/manage campaigns)
+ *   - Zorecho holds the ads_management permission (can create/manage campaigns)
  *   - a Meta Pixel exists on the ad account (informational — warns if none)
  * Each check is independent so one failing item can't hide the others. The
  * endpoint never returns the access token.
@@ -453,7 +453,7 @@ async function verifyConnection(req, res) {
         id: "adAccount",
         label: "Ad account selected",
         status: "warn",
-        detail: "Pick which ad account EchoAI should manage above.",
+        detail: "Pick which ad account Zorecho should manage above.",
       });
     } else {
       try {
@@ -501,7 +501,7 @@ async function verifyConnection(req, res) {
         label: "Campaign permissions granted",
         status: hasAds ? "pass" : "warn",
         detail: hasAds
-          ? "EchoAI can create and manage campaigns for you."
+          ? "Zorecho can create and manage campaigns for you."
           : "Reconnect and approve all permissions so Atlas can manage your ads.",
       });
     } catch (e) {

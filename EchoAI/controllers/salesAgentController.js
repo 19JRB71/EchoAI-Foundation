@@ -1,7 +1,7 @@
 /**
- * AI Sales Agent controller — EchoAI's OWN inbound demo sales line ("Echo").
+ * AI Sales Agent controller — Zorecho's OWN inbound demo sales line ("Echo").
  *
- * This is platform-level (EchoAI selling itself) and admin-managed, so it is
+ * This is platform-level (Zorecho selling itself) and admin-managed, so it is
  * deliberately SEPARATE from the per-brand phone agent (controllers/
  * phoneController.js). Key differences:
  *   - Twilio creds come from platform env vars (SALES_TWILIO_*), not the
@@ -37,7 +37,7 @@ const HEY_ECHO_RE = /\bhey,?\s+echo\b/i;
 // Config / credentials helpers
 // ---------------------------------------------------------------------------
 
-/** Platform sales Twilio credentials (dedicated EchoAI sales number). */
+/** Platform sales Twilio credentials (dedicated Zorecho sales number). */
 function getSalesTwilioCreds() {
   const accountSid = process.env.SALES_TWILIO_ACCOUNT_SID;
   const authToken = process.env.SALES_TWILIO_AUTH_TOKEN;
@@ -194,7 +194,7 @@ function sayAndGather(twiml, callId, baseUrl, speech) {
 
 /**
  * POST /api/sales-agent/inbound
- * A prospect dials the dedicated EchoAI sales number. Greets them as Echo and
+ * A prospect dials the dedicated Zorecho sales number. Greets them as Echo and
  * starts the qualification conversation. Always returns 200 TwiML.
  */
 async function initiateDemoCall(req, res) {
@@ -226,7 +226,7 @@ async function initiateDemoCall(req, res) {
     const config = await loadConfig();
     if (!config.enabled) {
       twiml.say(
-        "Thanks for calling EchoAI. Our AI assistant is currently offline. Please try again later.",
+        "Thanks for calling Zorecho. Our AI assistant is currently offline. Please try again later.",
       );
       twiml.hangup();
       res.type("text/xml").send(twiml.toString());
@@ -547,7 +547,7 @@ async function sendThreeWayInvite(callId, reqBaseUrl) {
     reqBaseUrl || getPublicBaseUrl(null) || process.env.PUBLIC_BASE_URL || "";
   const joinLink = `${baseUrl}/api/sales-agent/join/${callId}`;
   const who = call.prospect_name || call.prospect_phone || "a prospect";
-  const body = `🔥 Hot EchoAI sales call — ${who} is at interest ${call.interest_score}/10. Tap to join as co-pilot: ${joinLink}`;
+  const body = `🔥 Hot Zorecho sales call — ${who} is at interest ${call.interest_score}/10. Tap to join as co-pilot: ${joinLink}`;
 
   const sent = await sendSalesSms(config.owner_phone, body);
   await db.query(
@@ -639,7 +639,7 @@ function handleConference(req, res) {
 }
 
 function joinPage(message) {
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>EchoAI Sales Co-Pilot</title></head><body style="font-family:system-ui;background:#0b1020;color:#e5e7eb;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0"><div style="text-align:center;padding:24px"><h1 style="font-size:20px">EchoAI Sales Co-Pilot</h1><p style="color:#9ca3af">${message}</p></div></body></html>`;
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Zorecho Sales Co-Pilot</title></head><body style="font-family:system-ui;background:#0b1020;color:#e5e7eb;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0"><div style="text-align:center;padding:24px"><h1 style="font-size:20px">Zorecho Sales Co-Pilot</h1><p style="color:#9ca3af">${message}</p></div></body></html>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -884,7 +884,7 @@ async function bookDemo(req, res) {
     if (call.prospect_phone) {
       smsSent = await sendSalesSms(
         call.prospect_phone,
-        `Thanks for your interest in EchoAI! Book your demo here: ${config.booking_link}`,
+        `Thanks for your interest in Zorecho! Book your demo here: ${config.booking_link}`,
       );
     }
 

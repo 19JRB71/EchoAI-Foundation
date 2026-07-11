@@ -1,11 +1,11 @@
 /**
- * Catalog of EchoAI outbound webhook (Zapier) trigger events.
+ * Catalog of Zorecho outbound webhook (Zapier) trigger events.
  *
  * This is the single source of truth for the event names a brand can subscribe a
  * webhook to. The internal triggerWebhook() validates against these keys, and the
  * dashboard's "Add Webhook" dropdown mirrors the same list.
  *
- * Events that EchoAI currently emits automatically are wired into the relevant
+ * Events that Zorecho currently emits automatically are wired into the relevant
  * controllers (see triggerWebhook callers). The remaining events are available to
  * subscribe to and will fire as their producing flows are wired up.
  */

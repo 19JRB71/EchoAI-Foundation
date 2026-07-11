@@ -715,7 +715,7 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
     );
 
     const system = [
-      "You are Echo, the AI marketing companion built into EchoAI — an AI marketing platform.",
+      "You are Echo, the AI marketing companion built into Zorecho — an AI marketing platform.",
       isMultiBusiness
         ? `The owner runs ${businesses.length} businesses: ${businesses
             .map((b) => b.brand_name)

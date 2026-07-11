@@ -3,7 +3,7 @@ require("dotenv").config();
 /**
  * Google integration configuration.
  *
- * EchoAI connects to a customer's Google services (Business Profile, Ads,
+ * Zorecho connects to a customer's Google services (Business Profile, Ads,
  * Analytics, Search Console) via a single OAuth flow. Without the OAuth client
  * credentials the connect flow cannot run, so endpoints surface a clear 503 /
  * "not configured" response instead of bouncing the user to a broken Google
@@ -18,7 +18,7 @@ const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo";
 
-// Permissions EchoAI requests across the customer's Google marketing surfaces.
+// Permissions Zorecho requests across the customer's Google marketing surfaces.
 const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
   "https://www.googleapis.com/auth/adwords",
@@ -29,7 +29,7 @@ const SCOPES = [
   "email",
 ];
 
-// Maps each granted OAuth scope to the EchoAI service it unlocks, so the UI can
+// Maps each granted OAuth scope to the Zorecho service it unlocks, so the UI can
 // show per-service connection status from the single stored grant.
 const SERVICE_SCOPES = {
   businessProfile: "https://www.googleapis.com/auth/business.manage",

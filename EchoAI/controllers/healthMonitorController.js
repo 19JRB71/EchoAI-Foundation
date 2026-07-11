@@ -100,7 +100,7 @@ async function probeTwilio(brandId) {
 
 async function probeStripe(brandId, userId) {
   // Billing is per-user, not per-brand. A past-due or locked subscription is a
-  // critical issue the owner must resolve to keep using EchoAI.
+  // critical issue the owner must resolve to keep using Zorecho.
   const { rows } = await db.query(
     `SELECT payment_status, is_locked, failed_payment_at
      FROM subscriptions
@@ -171,7 +171,7 @@ async function probeScheduler(brandId) {
       system: "Scheduler",
       severity: "warning",
       message: `${n} follow-up message${n === 1 ? "" : "s"} are overdue and haven't sent.`,
-      detail: "The automated scheduler is behind. EchoAI will retry these automatically.",
+      detail: "The automated scheduler is behind. Zorecho will retry these automatically.",
       autoFixable: false,
     },
   ];
@@ -294,7 +294,7 @@ async function probeStaleSendingSms(brandId) {
       system: "SMS campaigns",
       severity: "info",
       message: `${n} SMS campaign${n === 1 ? "" : "s"} appear stuck mid-send.`,
-      detail: "EchoAI cleared the stuck state automatically.",
+      detail: "Zorecho cleared the stuck state automatically.",
       autoFixable: true,
     },
   ];
@@ -498,12 +498,12 @@ async function notifyOwner(brand, record) {
   const title = critical ? "⚠️ Action needed on your account" : "A setup issue needs your attention";
   const summary =
     record.ai_analysis ||
-    "EchoAI's health monitor found an issue that needs your attention. Open your dashboard to review it.";
+    "Zorecho's health monitor found an issue that needs your attention. Open your dashboard to review it.";
 
   if (email) {
     const html = `<p>Hi,</p><p>${summary.replace(/\n/g, "<br/>")}</p>` +
-      `<p>Open your EchoAI dashboard and click the health indicator to see the details.</p>`;
-    await sendEmail({ to: email, subject: `${title} — ${brand.brand_name || "EchoAI"}`, html }).catch(
+      `<p>Open your Zorecho dashboard and click the health indicator to see the details.</p>`;
+    await sendEmail({ to: email, subject: `${title} — ${brand.brand_name || "Zorecho"}`, html }).catch(
       (err) => console.error("Health email failed:", err.message),
     );
   }

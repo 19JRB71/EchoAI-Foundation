@@ -56,7 +56,7 @@ function normalizeSource(s) {
 function buildFundingPrompt(brand, profile) {
   const name = brand.brand_name || "the business";
   return [
-    "You are EchoAI's Scout — a funding & grants research specialist who finds capital for small businesses.",
+    "You are Zorecho's Scout — a funding & grants research specialist who finds capital for small businesses.",
     "You know the real landscape of U.S. small-business funding: federal grants on Grants.gov, SBA loan & grant programs, USDA Rural Development programs, State of Florida economic-development and small-business programs, and private/corporate foundation grant programs.",
     "Given ONE business's profile, surface the funding programs it most plausibly qualifies for. Be honest and specific.",
     "",

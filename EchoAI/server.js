@@ -220,9 +220,9 @@ app.use(
 
 app.get("/api/health", (req, res) => {
   res.json({
-    name: "EchoAI",
+    name: "Zorecho",
     status: "ok",
-    message: "EchoAI API is running",
+    message: "Zorecho API is running",
   });
 });
 
@@ -380,7 +380,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`EchoAI server is running on port ${PORT} (${IS_PROD ? "production" : "development"})`);
+  console.log(`Zorecho server is running on port ${PORT} (${IS_PROD ? "production" : "development"})`);
   const enabled = features.filter((f) => f.enabled).map((f) => f.name);
   const disabled = features.filter((f) => !f.enabled).map((f) => f.name);
   console.log(`Features enabled: ${enabled.length ? enabled.join(", ") : "(none)"}`);

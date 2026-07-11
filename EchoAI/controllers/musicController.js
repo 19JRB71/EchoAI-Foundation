@@ -3,7 +3,7 @@
 // Playback itself runs entirely client-side via the YouTube IFrame API using
 // video IDs, so no API key is needed just to play a known track. SEARCH (turning
 // "play some lofi" into a video ID) requires the YouTube Data API v3, which needs
-// YOUTUBE_API_KEY. Following EchoAI's feature-var convention, search degrades to
+// YOUTUBE_API_KEY. Following Zorecho's feature-var convention, search degrades to
 // 503 "not configured" when the key is unset — it never mocks results.
 
 const SEARCH_ENDPOINT = "https://www.googleapis.com/youtube/v3/search";

@@ -1,5 +1,5 @@
 /**
- * Tier configuration — the single source of truth that maps every gated EchoAI
+ * Tier configuration — the single source of truth that maps every gated Zorecho
  * feature to the subscription tier required to use it.
  *
  * Tier hierarchy (TIER_RANK): free < starter < pro < enterprise. The retired
@@ -55,8 +55,8 @@ const FEATURES = {
   email_marketing: { name: "AI Email Marketing", tier: "pro", description: "AI-written one-time email blasts and automated drip sequences with open/click tracking and unsubscribe handling." },
 
   // --- Enterprise ---
-  white_label: { name: "White-Label Agency", tier: "enterprise", description: "Resell EchoAI under your own brand and domain." },
-  affiliate: { name: "Affiliate Program", tier: "enterprise", description: "Earn commission by referring new EchoAI customers." },
+  white_label: { name: "White-Label Agency", tier: "enterprise", description: "Resell Zorecho under your own brand and domain." },
+  affiliate: { name: "Affiliate Program", tier: "enterprise", description: "Earn commission by referring new Zorecho customers." },
   mobile_api: { name: "Mobile App API", tier: "enterprise", description: "Native iOS/Android backend access (mobile v2 API)." },
   advanced_analytics: { name: "Advanced Analytics", tier: "enterprise", description: "Deeper reporting and ROI analytics." },
   advanced_roi: { name: "Advanced ROI Dashboard", tier: "enterprise", description: "Multi-channel dollar attribution, AI ROI analyst, and weekly ROI snapshot history." },
@@ -64,9 +64,9 @@ const FEATURES = {
   capital_funding: { name: "Capital & Funding Intelligence", tier: "enterprise", description: "Scout scans grants and funding programs weekly, ranks business opportunities, and Echo drafts complete grant applications from your brand and story." },
   competitor_ad_spy: { name: "Competitor Ad Spy", tier: "enterprise", description: "Scout watches every confirmed competitor's live Facebook ads, alerts you to aggressive new ads, and delivers a weekly ad intelligence report with counter-campaign drafts." },
   competitor_sites: { name: "Competitor Website Analysis", tier: "enterprise", description: "Scout reads competitor websites you add, analyzes their pricing, offers, messaging and CTAs, then monitors them and alerts you to meaningful changes." },
-  api_marketplace: { name: "API Marketplace Access", tier: "enterprise", description: "Access the EchoAI API marketplace." },
+  api_marketplace: { name: "API Marketplace Access", tier: "enterprise", description: "Access the Zorecho API marketplace." },
   feedback: { name: "Customer Feedback & Surveys", tier: "enterprise", description: "AI survey designer and feedback analyst." },
-  priority_support: { name: "Priority Support", tier: "enterprise", description: "Priority access to the EchoAI support team." },
+  priority_support: { name: "Priority Support", tier: "enterprise", description: "Priority access to the Zorecho support team." },
 };
 
 function tierRank(tier) {

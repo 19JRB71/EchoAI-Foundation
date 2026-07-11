@@ -246,7 +246,7 @@ export default function AdvancedRoiDashboard({ brandId }) {
         <div>
           <h2 className="text-xl font-bold text-gray-100">Advanced ROI</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Exactly how much revenue EchoAI is generating, with dollar attribution across every channel.
+            Exactly how much revenue Zorecho is generating, with dollar attribution across every channel.
           </p>
         </div>
         {/* Date range selector */}

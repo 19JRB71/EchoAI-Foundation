@@ -21,7 +21,7 @@ export default function StepBrandDiscovery({ onNext, onBack }) {
         Let's get to know your brand
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-gray-400">
-        For EchoAI to represent you authentically, it needs to understand who you
+        For Zorecho to represent you authentically, it needs to understand who you
         are — your voice, your values, and the customers you serve. Next you'll
         have a short <span className="font-semibold">three-part conversation</span>{" "}
         with our AI brand agent.
@@ -29,12 +29,12 @@ export default function StepBrandDiscovery({ onNext, onBack }) {
       <p className="mt-3 text-sm leading-relaxed text-gray-400">
         There are no wrong answers — just answer naturally and honestly, the way
         you'd describe your business to a friend. The more real you are, the
-        better EchoAI will sound like you.
+        better Zorecho will sound like you.
       </p>
 
       {done ? (
         <div className="mt-6 rounded-lg bg-green-50 p-4 text-sm font-medium text-green-700">
-          ✓ Brand profile complete. EchoAI now knows your voice.
+          ✓ Brand profile complete. Zorecho now knows your voice.
         </div>
       ) : (
         <button

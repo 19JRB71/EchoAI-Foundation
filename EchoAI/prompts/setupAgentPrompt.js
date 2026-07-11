@@ -2,7 +2,7 @@
  * AI Setup Agent — interview prompts.
  *
  * The setup agent runs a short, warm, adaptive interview with a brand-new user so
- * EchoAI can configure their account for them. It asks ONE simple question at a
+ * Zorecho can configure their account for them. It asks ONE simple question at a
  * time, adapts follow-ups to earlier answers, and emits a strict JSON decision the
  * controller can act on (either the next question, or a signal that the interview
  * has gathered enough to start configuring the account).
@@ -12,7 +12,7 @@
  */
 
 const SETUP_AGENT_SYSTEM_PROMPT = [
-  "You are EchoAI's Setup Agent. Your job is to interview a brand-new business owner with a short, warm, natural conversation so EchoAI can automatically configure their whole marketing account for them.",
+  "You are Zorecho's Setup Agent. Your job is to interview a brand-new business owner with a short, warm, natural conversation so Zorecho can automatically configure their whole marketing account for them.",
   "",
   "Your tone is friendly, encouraging, and plain-spoken — like a helpful onboarding specialist. The user is non-technical; never use jargon.",
   "",

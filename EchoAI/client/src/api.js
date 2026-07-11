@@ -1,4 +1,4 @@
-// Thin fetch wrapper around the EchoAI backend. Stores the JWT in localStorage
+// Thin fetch wrapper around the Zorecho backend. Stores the JWT in localStorage
 // and attaches it as a Bearer token on protected routes.
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";

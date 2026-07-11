@@ -1,5 +1,5 @@
 /**
- * Thin, per-platform client for the social platforms EchoAI publishes to.
+ * Thin, per-platform client for the social platforms Zorecho publishes to.
  *
  * Each platform exposes three operations used by the social controller and the
  * scheduler:

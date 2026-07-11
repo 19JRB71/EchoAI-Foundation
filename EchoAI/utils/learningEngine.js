@@ -132,7 +132,7 @@ async function studyBrand(brand) {
   }
 
   const system = [
-    "You are Sage, EchoAI's learning analyst. Below are a business owner's REAL",
+    "You are Sage, Zorecho's learning analyst. Below are a business owner's REAL",
     "recent content-review decisions (approve / decline / revise, with their",
     "spoken change requests). Distill them into durable preference learnings.",
     "",

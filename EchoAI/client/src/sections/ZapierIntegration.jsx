@@ -20,7 +20,7 @@ const EVENTS = [
 
 const EVENT_LABELS = Object.fromEntries(EVENTS.map((e) => [e.key, e.label]));
 
-// Placeholder for the (not-yet-published) EchoAI Zapier app listing.
+// Placeholder for the (not-yet-published) Zorecho Zapier app listing.
 const ZAPIER_DOCS_URL = "https://zapier.com/apps";
 
 export default function ZapierIntegration({ brandId }) {
@@ -119,9 +119,9 @@ export default function ZapierIntegration({ brandId }) {
         <div>
           <h2 className="text-xl font-bold text-gray-100">Zapier Integration</h2>
           <p className="mt-1 max-w-2xl text-sm text-gray-400">
-            Connect EchoAI to thousands of apps — Google Sheets, Mailchimp,
+            Connect Zorecho to thousands of apps — Google Sheets, Mailchimp,
             Calendly, Slack, QuickBooks and more. Add a Zapier webhook URL for a
-            trigger event and EchoAI will POST the event payload to it as it
+            trigger event and Zorecho will POST the event payload to it as it
             happens.
           </p>
           <a
@@ -130,7 +130,7 @@ export default function ZapierIntegration({ brandId }) {
             rel="noopener noreferrer"
             className="mt-2 inline-block text-sm font-medium text-amber-400 hover:text-amber-300"
           >
-            View EchoAI Zapier documentation →
+            View Zorecho Zapier documentation →
           </a>
         </div>
         {brandId && (

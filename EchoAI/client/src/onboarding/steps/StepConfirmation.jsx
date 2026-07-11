@@ -78,7 +78,7 @@ export default function StepConfirmation({
       <div className="text-4xl">🎉</div>
       <h1 className="mt-3 text-2xl font-bold text-gray-100">You're all set!</h1>
       <p className="mt-2 text-sm leading-relaxed text-gray-400">
-        Congratulations — EchoAI is ready to go to work for your business.
+        Congratulations — Zorecho is ready to go to work for your business.
       </p>
 
       <ul className="mx-auto mt-6 max-w-sm space-y-2 text-left">
