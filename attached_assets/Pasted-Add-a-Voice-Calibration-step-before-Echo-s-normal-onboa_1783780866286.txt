@@ -1,0 +1,48 @@
+Add a Voice Calibration step before Echo’s normal onboarding.
+
+The purpose is to learn each user’s natural speech rhythm and create a personalized turn-taking profile so Echo feels like talking to a patient human rather than a voice bot.
+
+During calibration, Echo should hold a natural 3–5 minute conversation with the user and measure:
+
+* Average speaking speed
+* Typical pause length
+* Longest thinking pauses
+* Volume and microphone quality
+* Frequency of mid-sentence pauses
+* Whether the user often continues after words such as “and,” “but,” “so,” or “uh”
+* Preferred response delay
+* Stop-command recognition
+* User interruption behavior
+* Background-noise level
+* Common names and business-specific vocabulary
+
+The system must create a user-specific voice profile with settings such as:
+
+* End-of-turn silence threshold
+* Minimum response delay
+* Interruption sensitivity
+* Stop-command phrases
+* Voice activity threshold
+* Preferred conversation style
+* Microphone gain recommendations
+
+The calibration conversation should feel natural and friendly. Echo should say:
+
+“Before we set up your business, let’s talk for a few minutes so I can learn how you communicate. This helps me avoid interrupting you and respond more naturally.”
+
+During calibration:
+
+1. Ask the user open-ended questions.
+2. Allow natural pauses without speaking too quickly.
+3. Test the phrases “stop,” “wait,” “hold on,” and “let me finish.”
+4. Test whether Echo stops playback immediately when the user begins speaking.
+5. Record all calibration events in the voice flight recorder.
+6. Show a summary of the learned settings.
+7. Let the user choose Fast, Balanced, or Patient Listener.
+8. Allow recalibration at any time in Settings.
+9. Allow the user to delete and rebuild the voice profile.
+10. Never use voice recordings beyond the stated purpose without permission.
+
+The system should continue learning from normal conversations, but it must not make large automatic changes based on one interaction. Adjustments should be gradual and reversible.
+
+Important: this feature must not replace debugging the current voice pipeline. Stop-command failures, interruption failures, premature end-of-turn detection, microphone reopening problems, and playback conflicts must still be logged and fixed at the system level.
