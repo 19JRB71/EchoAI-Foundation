@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../api";
 import { useBranding } from "../lib/BrandingContext.jsx";
+import { isDefaultBrand as isDefaultBranding } from "../lib/branding.js";
 import { tierForSection } from "../lib/tiers.js";
 import { AGENTS_META } from "../lib/departments.js";
 import MusicWidget from "./MusicWidget.jsx";
@@ -142,7 +143,7 @@ export default function Sidebar({
   ownerBusinessName = null,
 }) {
   const { branding } = useBranding();
-  const isDefaultBrand = branding.agencyName === "Zorecho";
+  const isDefaultBrand = isDefaultBranding(branding);
   const brandTeal = branding.primaryColor || "#14B8A6";
   const roster = useRoster(canOpenDepartment);
   const [mobileTeamOpen, setMobileTeamOpen] = useState(false);

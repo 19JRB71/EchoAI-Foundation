@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import { useBranding } from "../lib/BrandingContext.jsx";
+import { isDefaultBrand as isDefaultBranding } from "../lib/branding.js";
 import { getReferralCode, clearReferralCode } from "../lib/referral.js";
 import HealthSupportWidget from "../components/HealthSupportWidget.jsx";
 import { unlockAudio } from "../voice/audioUnlock.js";
@@ -11,7 +12,7 @@ const inputClass =
 
 export default function Login({ onLogin, invitePending = false }) {
   const { branding } = useBranding();
-  const isDefaultBrand = branding.agencyName === "Zorecho";
+  const isDefaultBrand = isDefaultBranding(branding);
   const [mode, setMode] = useState(invitePending ? "register" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
