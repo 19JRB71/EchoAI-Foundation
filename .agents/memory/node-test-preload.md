@@ -28,6 +28,14 @@ rewrite with a marker env var: set `__X_DONE=<value>` after the first rewrite an
 short-circuit on it. `npm`'s `pretest` script runs in a *separate* process before
 the test process, so it does NOT see that marker — recompute there independently.
 
+**Gotcha — single-file runs skip `pretest`.** `npm test` runs
+`tests/setupTestDb.js` via the `pretest` script, which provisions the isolated
+test DB *and applies pending migrations*. A direct
+`node --require ./tests/dbGuard.js --test tests/foo.test.js` skips that, so a
+newly added migration is missing and tests fail with a misleading
+"relation does not exist". Run `node tests/setupTestDb.js` first (or use full
+`npm test`).
+
 **Physical DB isolation pattern (EchoAI onboarding suite).** Destructive tests
 must never share tables with real data. The robust guarantee is a *separate
 Postgres database* (distinct namespace), not naming heuristics: derive

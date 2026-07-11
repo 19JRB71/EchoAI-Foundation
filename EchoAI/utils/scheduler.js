@@ -594,6 +594,16 @@ function startScheduler() {
     });
   });
 
+  // Mondays 05:00 (before the 06:30 autopilot batch): Sage studies the week's
+  // accumulated approve/decline/revise decisions and distills them into
+  // learnings — so this morning's batch already reflects what Echo learned.
+  cron.schedule("0 5 * * 1", () => {
+    const { runWeeklyLearningStudy } = require("./learningEngine");
+    runWeeklyLearningStudy().catch((err) => {
+      console.error("Scheduled learning study errored:", err.message);
+    });
+  });
+
   // Mondays 06:30: Autopilot drafts each enabled brand's week in one batch —
   // posts with graphics plus test ads — then alerts the owner to review.
   // Early on purpose: the batch should be waiting when the owner logs in.

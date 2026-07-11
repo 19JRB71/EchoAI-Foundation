@@ -25,6 +25,7 @@ const { composePostContent, DEFAULT_POSTING_TIMES } = require("../prompts/conten
 const { buildImagePrompt } = require("../prompts/imagePromptBuilder");
 const { renderFromPrompt, persistImage } = require("./imageController");
 const { zonedWallTimeToUtc, isValidTimezone } = require("../utils/timezone");
+const { recordSignal, learningContextForBrand } = require("../utils/learningEngine");
 
 const DEFAULT_TIMEZONE = "America/New_York";
 
@@ -294,6 +295,7 @@ async function startSession(req, res) {
 
     const requestText = typeof request === "string" ? request.trim().slice(0, 500) : "";
     const intel = await gatherIntelligence(brand, connectedPlatforms);
+    brand._learningContext = await learningContextForBrand(brandId);
     const result = await generateVoiceDrafts(brand, intel, { requestText });
 
     if (result.questions) {
@@ -361,6 +363,7 @@ async function submitAnswers(req, res) {
     }
 
     const intel = await gatherIntelligence(brand, connectedPlatforms);
+    brand._learningContext = await learningContextForBrand(brand.brand_id);
     const result = await generateVoiceDrafts(brand, intel, {
       requestText: session.request_text || "",
       answers: paired,
@@ -497,6 +500,16 @@ async function reviseDraft(req, res) {
     if (updated.rows.length === 0) {
       return res.status(409).json({ error: "This draft is no longer editable" });
     }
+    recordSignal({
+      brandId: draft.brand_id,
+      userId,
+      source: "voice_content",
+      itemType: "post",
+      platform: draft.platform,
+      action: "revise",
+      instruction,
+      content: draft.post_content,
+    });
     return res.json(draftView(updated.rows[0]));
   } catch (err) {
     console.error("Voice content revise error:", err.message);
@@ -556,6 +569,15 @@ async function approveDraft(req, res) {
     await client.query("COMMIT");
     client.release();
 
+    recordSignal({
+      brandId: draft.brand_id,
+      userId,
+      source: "voice_content",
+      itemType: "post",
+      platform: row.platform,
+      action: "approve",
+      content: row.post_content,
+    });
     return res.json({
       ...draftView({ ...row, status: "approved", posted_post_id: inserted.rows[0].post_id }),
       postId: inserted.rows[0].post_id,
@@ -587,6 +609,15 @@ async function skipDraft(req, res) {
     if (updated.rows.length === 0) {
       return res.status(409).json({ error: "This draft was already handled" });
     }
+    recordSignal({
+      brandId: draft.brand_id,
+      userId,
+      source: "voice_content",
+      itemType: "post",
+      platform: draft.platform,
+      action: "decline",
+      content: draft.post_content,
+    });
     return res.json(draftView(updated.rows[0]));
   } catch (err) {
     console.error("Voice content skip error:", err.message);

@@ -36,6 +36,7 @@ export const SECTION_GATES = {
   appointments: "pro",
   followups: "pro",
   contentcalendar: "pro",
+  autopilot: "pro",
   sms: "pro",
   email: "pro",
   // Enterprise
@@ -119,6 +120,7 @@ export const SECTION_TIERS = {
   adstudio: "pro",
   image: "pro",
   contentcalendar: "pro",
+  autopilot: "pro",
   video: "pro",
   followups: "pro",
   phone: "pro",

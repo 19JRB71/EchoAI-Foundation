@@ -148,6 +148,7 @@ function buildVoiceDraftPrompt(brand, intel, { requestText, answers }) {
     ...(campaignContextBlock(brand) ? ["", campaignContextBlock(brand)] : []),
     ...(realEstateContextBlock(brand) ? ["", realEstateContextBlock(brand)] : []),
     ...(geoContextBlock(brand) ? ["", geoContextBlock(brand)] : []),
+    ...(brand._learningContext ? ["", brand._learningContext] : []),
     "",
     `Connected platforms you may draft for (ONLY these): ${platforms.join(", ")}`,
     "",

@@ -196,6 +196,8 @@ async function gatherBriefingData(userId, since, brandId = null) {
     autopilotPending: 0,
     competitorNote: null,
     sageNote: null,
+    learningNote: null,
+    openQuestion: null,
     facebookConnected: fbConnected,
     goals: null,
     newSupporters: 0,
@@ -367,6 +369,40 @@ async function gatherBriefingData(userId, since, brandId = null) {
 
   const goals = summarizeGoals(goalRows);
 
+  // Learning Engine: what Echo learned this week, plus at most one open
+  // question to ask the owner. Selecting a question marks it "asked" so the
+  // same one isn't repeated every morning (re-asked only after 3 quiet days).
+  let learningNote = null;
+  let openQuestion = null;
+  try {
+    const learnedRows = await db.query(
+      `SELECT COUNT(*)::int AS n FROM echo_learnings
+        WHERE brand_id = ANY($1) AND active = TRUE
+          AND updated_at > NOW() - INTERVAL '7 days'`,
+      [brandIds]
+    );
+    const n = learnedRows.rows[0] ? learnedRows.rows[0].n : 0;
+    if (n > 0) {
+      learningNote = `I picked up ${n} new thing${n === 1 ? "" : "s"} about your preferences this week from your yes-and-no calls — my drafts already reflect ${n === 1 ? "it" : "them"}.`;
+    }
+    const q = await db.query(
+      `UPDATE echo_open_questions SET status = 'asked', asked_at = NOW()
+        WHERE question_id = (
+          SELECT question_id FROM echo_open_questions
+           WHERE brand_id = ANY($1)
+             AND (status = 'pending'
+                  OR (status = 'asked' AND asked_at < NOW() - INTERVAL '3 days'))
+           ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at
+           LIMIT 1
+           FOR UPDATE SKIP LOCKED)
+        RETURNING question`,
+      [brandIds]
+    );
+    if (q.rows[0]) openQuestion = q.rows[0].question;
+  } catch (err) {
+    console.error("Briefing learning lookup failed:", err.message);
+  }
+
   return {
     brands,
     sinceISO: sinceParam.toISOString(),
@@ -383,6 +419,8 @@ async function gatherBriefingData(userId, since, brandId = null) {
         ? summarizeCompetitor(competitor[0].intelligence_report)
         : null,
     sageNote: summarizeSageFindings(sageFindings),
+    learningNote,
+    openQuestion,
     facebookConnected: fbConnected,
     goals,
     newSupporters: supporterRows[0] ? supporterRows[0].n : 0,
@@ -908,6 +946,12 @@ function templateMorning(firstName, data, part = "morning") {
     parts.push(
       `Your week's content is drafted and waiting: ${data.autopilotPending} item${data.autopilotPending === 1 ? "" : "s"} in the Autopilot batch need${data.autopilotPending === 1 ? "s" : ""} your yes or no. Just say "let's review the batch" whenever you're ready.`
     );
+  }
+  if (data.learningNote) {
+    parts.push(data.learningNote);
+  }
+  if (data.openQuestion) {
+    parts.push(`Quick question so I can draft better for you: ${data.openQuestion}`);
   }
   appendAgenda(parts, data);
   appendSetupReminder(parts, data);

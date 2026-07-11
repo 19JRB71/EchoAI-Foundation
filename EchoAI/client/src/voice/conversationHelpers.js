@@ -222,6 +222,7 @@ const NAV_TARGETS = [
   { key: "action:facebook", re: /\bfacebook\b/, standalone: false },
   { key: "voicesettings", re: /\bvoice settings\b/, standalone: true },
   { key: "contentcalendar", re: /\bcontent calendar\b/, standalone: true },
+  { key: "autopilot", re: /\bauto ?pilot\b/, standalone: false },
   {
     key: "sentinelhealth",
     re: /\b(sentinel health|health monitor|system health|health check)\b/,
@@ -387,6 +388,7 @@ const NAV_LABELS = {
   appointments: "your appointments",
   followups: "your follow-up sequences",
   contentcalendar: "your content calendar",
+  autopilot: "autopilot",
   chatbot: "your website chatbot",
   adstudio: "the ad creative studio",
   image: "the image studio",
@@ -1071,6 +1073,73 @@ export function matchContentReviewCommand(text) {
   if (CONTENT_REVISE_RE.test(norm))
     return { action: "revise", instruction: text.trim() };
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Autopilot Mode ("Hey Echo, let's review the batch" / "set up autopilot")
+// ---------------------------------------------------------------------------
+// Weekly-batch review: Echo walks the owner through every pending item —
+// posts with graphics plus test ads — and NOTHING publishes or spends without
+// an explicit approve. The same strict review verbs as content creation
+// (matchContentReviewCommand) drive the verdicts.
+const AUTOPILOT_REVIEW_RE =
+  /^(?:hey )?(?:echo[,!]? )?(?:let ?s |lets |can we |could we |i (?:want|d like) to |time to |please )?(?:review|go (?:over|through)|walk (?:me )?through|look at|check)(?: the| this week ?s| my)? (?:batch|weekly batch|autopilot batch|autopilot items|approvals?)\b/;
+const AUTOPILOT_REVIEW_ALT_RE =
+  /^(?:hey )?(?:echo[,!]? )?(?:what ?s in the batch|review the week|review my week|show me the batch)\b/;
+const AUTOPILOT_SETUP_RE =
+  /^(?:hey )?(?:echo[,!]? )?(?:let ?s |lets |can (?:you|we) |could (?:you|we) |please |help me )*(?:set ?up|turn on|enable|start|activate|switch on)(?: the)? auto ?pilot(?: mode)?\b/;
+
+/** "Let's review the batch" — start the weekly autopilot review. */
+export function matchAutopilotReviewIntent(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return null;
+  if (AUTOPILOT_REVIEW_RE.test(norm) || AUTOPILOT_REVIEW_ALT_RE.test(norm)) {
+    return { review: true };
+  }
+  return null;
+}
+
+/** "Set up autopilot" / "turn on autopilot" — the voice onboarding walkthrough. */
+export function matchAutopilotSetupIntent(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return null;
+  return AUTOPILOT_SETUP_RE.test(norm) ? { setup: true } : null;
+}
+
+/**
+ * Spoken presentation of one autopilot batch item. Posts read like content
+ * drafts; ads always state the exact daily budget out loud — the owner hears
+ * what a yes costs BEFORE approving.
+ */
+export function speakableAutopilotItem(item, index, total) {
+  const ord = DRAFT_ORDINALS[index] || `number ${index + 1}`;
+  const platformName =
+    { facebook: "Facebook", twitter: "X", linkedin: "LinkedIn" }[
+      item.platform
+    ] || item.platform || "social";
+  if (item.itemType === "ad") {
+    const budget =
+      item.adDailyBudget != null
+        ? ` at ${item.adDailyBudget} dollars a day`
+        : "";
+    return `${total > 1 ? `Item ${index + 1} of ${total}` : "Next up"} is a Facebook test ad${budget}. The headline: ${item.adHeadline || "no headline"}. The ad reads: ${item.postContent}`;
+  }
+  let when = "";
+  if (item.scheduledTime) {
+    const d = new Date(item.scheduledTime);
+    if (!Number.isNaN(d.getTime())) {
+      when = ` I'd post it ${d.toLocaleString(undefined, {
+        weekday: "long",
+        hour: "numeric",
+        minute: "2-digit",
+      })}.`;
+    }
+  }
+  const intro =
+    total > 1
+      ? `The ${ord} one is a ${platformName} post:`
+      : `Here's the post, for ${platformName}:`;
+  return `${intro} ${item.postContent}${when}`;
 }
 
 /** Ordinal position line for the walkthrough ("first", "second", ...). */

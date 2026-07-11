@@ -36,6 +36,7 @@ const {
 } = require("./voiceContentController");
 const { launchFacebookCampaign } = require("./campaignController");
 const { evaluateAdSpend, suggestDailyBudget, getBrandSpend } = require("../utils/spendLimits");
+const { recordSignal, learningContextForBrand } = require("../utils/learningEngine");
 const { computeSetupStatus } = require("../utils/setupStatus");
 const pushController = require("./pushController");
 
@@ -394,6 +395,7 @@ async function generateBatchForBrand(batch, brand, settings) {
     }
 
     const intel = await gatherIntelligence(brand, platforms);
+    brand._learningContext = await learningContextForBrand(brandId);
     const result = await generateWeeklyBatch(brand, intel, {
       postsPerWeek: settings.postsPerWeek,
       adsPerWeek,
@@ -656,6 +658,15 @@ async function approveItem(req, res) {
           [inserted.rows[0].post_id, itemId]
         );
         await client.query("COMMIT");
+        recordSignal({
+          brandId: item.brand_id,
+          userId,
+          source: "autopilot",
+          itemType: "post",
+          platform: row.platform,
+          action: "approve",
+          content: row.post_content,
+        });
         return res.json({
           ...itemView({ ...row, status: "approved", posted_post_id: inserted.rows[0].post_id }),
           scheduledTime: inserted.rows[0].scheduled_time,
@@ -724,6 +735,15 @@ async function approveItem(req, res) {
         [launched.campaignId, dailyBudget, itemId]
       );
       await client.query("COMMIT");
+      recordSignal({
+        brandId: item.brand_id,
+        userId,
+        source: "autopilot",
+        itemType: "ad",
+        platform: "facebook",
+        action: "approve",
+        content: item.post_content,
+      });
       return res.json({
         ...itemView({
           ...claimed.rows[0],
@@ -765,6 +785,15 @@ async function declineItem(req, res) {
     if (updated.rows.length === 0) {
       return res.status(409).json({ error: "This item was already handled" });
     }
+    recordSignal({
+      brandId: item.brand_id,
+      userId,
+      source: "autopilot",
+      itemType: item.item_type,
+      platform: item.platform,
+      action: "decline",
+      content: item.post_content,
+    });
     return res.json(itemView(updated.rows[0]));
   } catch (err) {
     console.error("Autopilot decline error:", err.message);
@@ -802,6 +831,16 @@ async function reviseItem(req, res) {
       if (updated.rows.length === 0) {
         return res.status(409).json({ error: "This item is no longer editable" });
       }
+      recordSignal({
+        brandId: item.brand_id,
+        userId,
+        source: "autopilot",
+        itemType: "post",
+        platform: item.platform,
+        action: "revise",
+        instruction,
+        content: item.post_content,
+      });
       return res.json(itemView(updated.rows[0]));
     }
 
@@ -815,6 +854,16 @@ async function reviseItem(req, res) {
     if (updated.rows.length === 0) {
       return res.status(409).json({ error: "This item is no longer editable" });
     }
+    recordSignal({
+      brandId: item.brand_id,
+      userId,
+      source: "autopilot",
+      itemType: "ad",
+      platform: "facebook",
+      action: "revise",
+      instruction,
+      content: item.post_content,
+    });
     return res.json(itemView(updated.rows[0]));
   } catch (err) {
     console.error("Autopilot revise error:", err.message);
@@ -884,6 +933,169 @@ async function completeBatch(req, res) {
   }
 }
 
+/**
+ * GET /api/autopilot/learnings?brandId=
+ * What Echo has learned about this brand's taste (active learnings, newest
+ * first) — shown in the Autopilot section so the owner can audit/forget them.
+ */
+async function listLearnings(req, res) {
+  const userId = req.user.userId;
+  const brandId = req.query.brandId;
+  if (!brandId) return res.status(400).json({ error: "brandId is required" });
+
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const rows = await db.query(
+      `SELECT learning_id, insight, category, evidence_count, updated_at
+         FROM echo_learnings
+        WHERE brand_id = $1 AND active = TRUE
+        ORDER BY updated_at DESC
+        LIMIT 50`,
+      [brandId]
+    );
+    return res.json({ learnings: rows.rows });
+  } catch (err) {
+    console.error("Autopilot list learnings error:", err.message);
+    return res.status(500).json({ error: "Failed to load learnings" });
+  }
+}
+
+/**
+ * POST /api/autopilot/learnings/:learningId/forget
+ * Owner tells Echo a learning is wrong — deactivate it (ownership enforced
+ * via the brands join; 404 on a foreign row).
+ */
+async function forgetLearning(req, res) {
+  const userId = req.user.userId;
+  const { learningId } = req.params;
+
+  try {
+    const updated = await db.query(
+      `UPDATE echo_learnings l SET active = FALSE, updated_at = NOW()
+         FROM brands b
+        WHERE l.learning_id = $1 AND l.active = TRUE
+          AND b.brand_id = l.brand_id AND b.user_id = $2
+        RETURNING l.learning_id`,
+      [learningId, userId]
+    );
+    if (updated.rows.length === 0) {
+      return res.status(404).json({ error: "Learning not found" });
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Autopilot forget learning error:", err.message);
+    return res.status(500).json({ error: "Failed to forget that" });
+  }
+}
+
+/**
+ * GET /api/autopilot/questions?brandId=
+ * Echo's open questions for this brand (pending or asked), oldest first.
+ */
+async function listOpenQuestions(req, res) {
+  const userId = req.user.userId;
+  const brandId = req.query.brandId;
+  if (!brandId) return res.status(400).json({ error: "brandId is required" });
+
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const rows = await db.query(
+      `SELECT question_id, question, context, status, created_at
+         FROM echo_open_questions
+        WHERE brand_id = $1 AND status IN ('pending', 'asked')
+        ORDER BY created_at
+        LIMIT 10`,
+      [brandId]
+    );
+    return res.json({ questions: rows.rows });
+  } catch (err) {
+    console.error("Autopilot list questions error:", err.message);
+    return res.status(500).json({ error: "Failed to load questions" });
+  }
+}
+
+/**
+ * POST /api/autopilot/questions/:questionId/answer  Body: { answer }
+ * The owner's answer becomes a permanent owner_answer learning (highest-trust
+ * category) and the question closes. Atomic claim on the status flip so a
+ * double-submit can't create two learnings.
+ */
+async function answerOpenQuestion(req, res) {
+  const userId = req.user.userId;
+  const { questionId } = req.params;
+  const answer = String(req.body.answer || "").trim().slice(0, 1000);
+  if (!answer) return res.status(400).json({ error: "answer is required" });
+
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    const claimed = await client.query(
+      `UPDATE echo_open_questions q
+          SET status = 'answered', answer = $3, answered_at = NOW()
+         FROM brands b
+        WHERE q.question_id = $1 AND q.status IN ('pending', 'asked')
+          AND b.brand_id = q.brand_id AND b.user_id = $2
+        RETURNING q.brand_id, q.user_id, q.question`,
+      [questionId, userId, answer]
+    );
+    if (claimed.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Question not found or already handled" });
+    }
+    const q = claimed.rows[0];
+    const insight = `${q.question} — Owner's answer: ${answer}`.slice(0, 500);
+    await client.query(
+      `INSERT INTO echo_learnings (brand_id, user_id, insight, category)
+       VALUES ($1, $2, $3, 'owner_answer')
+       ON CONFLICT ON CONSTRAINT uq_echo_learnings_brand_insight
+       DO UPDATE SET active = TRUE, evidence_count = echo_learnings.evidence_count + 1,
+                     updated_at = NOW()`,
+      [q.brand_id, q.user_id, insight]
+    );
+    await client.query("COMMIT");
+    return res.json({ ok: true });
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
+    console.error("Autopilot answer question error:", err.message);
+    return res.status(500).json({ error: "Failed to save your answer" });
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * POST /api/autopilot/questions/:questionId/dismiss
+ * Owner doesn't want to answer — close the question without learning anything.
+ */
+async function dismissOpenQuestion(req, res) {
+  const userId = req.user.userId;
+  const { questionId } = req.params;
+
+  try {
+    const updated = await db.query(
+      `UPDATE echo_open_questions q SET status = 'dismissed'
+         FROM brands b
+        WHERE q.question_id = $1 AND q.status IN ('pending', 'asked')
+          AND b.brand_id = q.brand_id AND b.user_id = $2
+        RETURNING q.question_id`,
+      [questionId, userId]
+    );
+    if (updated.rows.length === 0) {
+      return res.status(404).json({ error: "Question not found or already handled" });
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Autopilot dismiss question error:", err.message);
+    return res.status(500).json({ error: "Failed to dismiss the question" });
+  }
+}
+
 module.exports = {
   weekStartOf,
   computeReadiness,
@@ -898,6 +1110,11 @@ module.exports = {
   reviseItem,
   generateItemImage,
   completeBatch,
+  listLearnings,
+  forgetLearning,
+  listOpenQuestions,
+  answerOpenQuestion,
+  dismissOpenQuestion,
   generateBatchForBrand,
   processBrandWeeklyBatch,
   runWeeklyAutopilot,

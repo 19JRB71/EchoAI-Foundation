@@ -55,6 +55,7 @@ function buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek }) {
     ...(campaignContextBlock(brand) ? ["", campaignContextBlock(brand)] : []),
     ...(realEstateContextBlock(brand) ? ["", realEstateContextBlock(brand)] : []),
     ...(geoContextBlock(brand) ? ["", geoContextBlock(brand)] : []),
+    ...(brand._learningContext ? ["", brand._learningContext] : []),
     "",
     `Connected platforms you may draft posts for (ONLY these): ${platforms.join(", ")}`,
     "",

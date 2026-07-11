@@ -57,6 +57,9 @@ import {
   matchContentCreateIntent,
   matchContentReviewCommand,
   speakableDraft,
+  matchAutopilotReviewIntent,
+  matchAutopilotSetupIntent,
+  speakableAutopilotItem,
   normalizeSpeech,
   CONFIDENCE_THRESHOLD,
   withTimeout,
@@ -213,6 +216,9 @@ export function EchoConversationProvider({ active, children }) {
   // { sessionId, phase: 'questions'|'review', questions, qIndex, answers,
   //   drafts, index, approvedCount, guided } — null when no session is live.
   const contentSessionRef = useRef(null);
+  // Autopilot weekly-batch review session ("let's review the batch"):
+  // { batchId, items, index, approvedCount } — null when no review is live.
+  const autopilotSessionRef = useRef(null);
   const learnedMapRef = useRef(new Map()); // normalized phrase -> learned action
   const misheardRef = useRef(null); // { text, at } awaiting a clarified repeat
   const clarifyRetryRef = useRef(false); // asked "say that again?" once already
@@ -772,6 +778,142 @@ export function EchoConversationProvider({ active, children }) {
         if (stale()) return;
         await presentContentDraft(sess);
       }
+
+      // ---- autopilot weekly-batch review helpers ---------------------------
+      // The review reuses the content overlay panel: items are mapped to the
+      // draft shape VoiceContentOverlay expects, so James can READ each post
+      // or ad while Echo reads it aloud.
+      function autopilotOverlay() {
+        const sess = autopilotSessionRef.current;
+        try {
+          window.dispatchEvent(
+            new CustomEvent("echoai:content-session", {
+              detail: sess
+                ? {
+                    sessionId: `autopilot-${sess.batchId}`,
+                    phase: "review",
+                    drafts: sess.items.map((it) => ({
+                      draftId: it.itemId,
+                      platform: it.platform,
+                      postContent:
+                        it.itemType === "ad" && it.adHeadline
+                          ? `${it.adHeadline} — ${it.postContent}`
+                          : it.postContent,
+                      imageUrl: it.imageUrl || null,
+                      scheduledTime: it.scheduledTime || null,
+                      status: it.status,
+                    })),
+                    index: sess.index,
+                    approvedCount: sess.approvedCount,
+                  }
+                : null,
+            }),
+          );
+        } catch {
+          /* noop */
+        }
+      }
+      // Close out the review with an honest tally. The batch is only marked
+      // complete when NOTHING is left pending — anything still waiting keeps
+      // surfacing in the morning briefing until it's decided. No server call
+      // is needed to "shelve": every approve/decline already committed.
+      async function finishAutopilotReview(sess, cancelled) {
+        autopilotSessionRef.current = null;
+        autopilotOverlay();
+        const pendingLeft = sess.items.filter(
+          (it) => it.status === "pending",
+        ).length;
+        if (!cancelled && pendingLeft === 0) {
+          api.autopilotCompleteBatch(sess.batchId, false).catch(() => {});
+        }
+        const n = sess.approvedCount;
+        const approvedLine =
+          n > 0
+            ? `${n} item${n === 1 ? " is" : "s are"} approved and on the schedule.`
+            : "Nothing was approved this pass.";
+        const leftLine =
+          pendingLeft > 0
+            ? ` ${pendingLeft} ${pendingLeft === 1 ? "is" : "are"} still waiting — I'll keep them in the Autopilot section and remind you in the morning briefing.`
+            : "";
+        setConvState("speaking");
+        await speakAndWait(
+          `${cancelled ? "Understood, Sir — stopping there." : "That's the batch, Sir."} ${approvedLine}${leftLine}`,
+        );
+        if (stale()) return;
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow();
+      }
+      // Read the current batch item aloud, then ask for the verdict. Ads say
+      // the exact daily budget out loud before any approval is possible.
+      async function presentAutopilotItem(sess, reintro = "") {
+        const item = sess.items[sess.index];
+        if (!item) {
+          await finishAutopilotReview(sess, false);
+          return;
+        }
+        autopilotSessionRef.current = sess;
+        autopilotOverlay();
+        suspendRef.current = true;
+        setConvState("speaking");
+        const ask =
+          item.itemType === "ad"
+            ? "Shall I launch it, make a change, or skip it?"
+            : `Shall I approve it, make a change, ${item.imageUrl ? "" : "create the visual, "}or skip it?`;
+        await speakAndWait(
+          `${reintro}${speakableAutopilotItem(item, sess.index, sess.items.length)} ${ask}`,
+        );
+        if (stale()) return;
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow(true);
+      }
+      // Move past the current item (after an approve/decline ack line).
+      async function nextAutopilotItem(sess, ackLine) {
+        sess.index += 1;
+        if (sess.index >= sess.items.length) {
+          if (ackLine) {
+            setConvState("speaking");
+            await speakAndWait(ackLine);
+            if (stale()) return;
+          }
+          await finishAutopilotReview(sess, false);
+          return;
+        }
+        await presentAutopilotItem(sess, ackLine ? `${ackLine} ` : "");
+      }
+      // Server batch → local review session over the still-pending items.
+      async function beginAutopilotReview(batch) {
+        const items = Array.isArray(batch.items)
+          ? batch.items.filter((it) => it.status === "pending")
+          : [];
+        if (!items.length) {
+          setConvState("speaking");
+          await speakAndWait(
+            "Everything in this week's batch is already handled, Sir — nothing waiting on you.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        const posts = items.filter((it) => it.itemType !== "ad").length;
+        const ads = items.length - posts;
+        const sess = {
+          batchId: batch.batchId,
+          items,
+          index: 0,
+          approvedCount: 0,
+        };
+        suspendRef.current = true;
+        setConvState("speaking");
+        const parts = [];
+        if (posts) parts.push(`${posts} post${posts === 1 ? "" : "s"}`);
+        if (ads) parts.push(`${ads} test ad${ads === 1 ? "" : "s"}`);
+        await speakAndWait(
+          `This week's batch has ${parts.join(" and ")} waiting for you, Sir. Nothing posts and not a dollar is spent until you say approve. Let's go through them.`,
+        );
+        if (stale()) return;
+        await presentAutopilotItem(sess);
+      }
       if (!text) {
         if (wake.matched) {
           // Bare "Hey Echo" spoken while ALREADY in an active window. This
@@ -835,6 +977,12 @@ export function EchoConversationProvider({ active, children }) {
           contentSessionRef.current = null;
           contentOverlay();
         }
+        if (autopilotSessionRef.current) {
+          // Shelve the autopilot review — approves/declines already committed,
+          // untouched items stay pending for the next pass.
+          autopilotSessionRef.current = null;
+          autopilotOverlay();
+        }
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
@@ -858,6 +1006,10 @@ export function EchoConversationProvider({ active, children }) {
             .catch(() => {});
           contentSessionRef.current = null;
           contentOverlay();
+        }
+        if (autopilotSessionRef.current) {
+          autopilotSessionRef.current = null;
+          autopilotOverlay();
         }
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
@@ -1177,6 +1329,183 @@ export function EchoConversationProvider({ active, children }) {
               );
               if (stale()) return;
               contentSessionRef.current = sess;
+              // eslint-disable-next-line no-use-before-define
+              openFollowupWindow(true);
+            }
+            return;
+          }
+          return;
+        }
+      }
+
+      // An autopilot batch review is live — the utterance is a verdict on the
+      // current item. A clear nav/music command always wins and shelves the
+      // review (every approve/decline already committed server-side; anything
+      // untouched simply stays pending and keeps surfacing in the briefing).
+      if (autopilotSessionRef.current) {
+        const sess = autopilotSessionRef.current;
+        if (matchNavIntent(text) || matchMusicIntent(text)) {
+          autopilotSessionRef.current = null;
+          autopilotOverlay();
+          // Fall through — the nav/music command is handled normally below.
+        } else {
+          const verdict = matchContentReviewCommand(text);
+          const item = sess.items[sess.index];
+          if (!verdict || !item) {
+            suspendRef.current = true;
+            setConvState("speaking");
+            await speakAndWait(
+              `Just tell me, Sir: "${item && item.itemType === "ad" ? "launch it" : "approve"}", the change you want, "skip it", or "that's all".`,
+            );
+            if (stale()) return;
+            // eslint-disable-next-line no-use-before-define
+            openFollowupWindow(true);
+            return;
+          }
+          suspendRef.current = true;
+          if (verdict.action === "repeat") {
+            await presentAutopilotItem(sess);
+            return;
+          }
+          if (verdict.action === "done") {
+            await finishAutopilotReview(sess, false);
+            return;
+          }
+          if (verdict.action === "approve") {
+            setConvState("processing");
+            playEffect("thinking", { volume: 0.35 });
+            let approved = null;
+            let failLine = "";
+            try {
+              approved = await withTimeout(
+                api.autopilotApproveItem(item.itemId),
+                CONTENT_TIMEOUT_MS,
+              );
+            } catch (err) {
+              approved = null;
+              if (err && err.message === "spend_limit") {
+                // Hard spend limit — spoken honestly, never overridden by voice.
+                failLine = `I can't launch that one, Sir. ${(err.data && err.data.message) || "It would break the spending limits you set."} Say "skip it" to pass on it, or adjust the limits in the Autopilot section.`;
+              } else if (err && err.status === 409) {
+                failLine =
+                  "That one's already been handled, Sir — moving on.";
+              }
+            }
+            if (stale()) return;
+            if (!approved) {
+              if (failLine.startsWith("That one's already")) {
+                item.status = "handled";
+                await nextAutopilotItem(sess, failLine);
+                return;
+              }
+              setConvState("speaking");
+              await speakAndWait(
+                failLine ||
+                  "I couldn't get that one through just now, Sir. Try again, skip it, or handle it from the Autopilot section.",
+              );
+              if (stale()) return;
+              autopilotSessionRef.current = sess;
+              // eslint-disable-next-line no-use-before-define
+              openFollowupWindow(true);
+              return;
+            }
+            item.status = "approved";
+            sess.approvedCount += 1;
+            await nextAutopilotItem(
+              sess,
+              item.itemType === "ad"
+                ? `Launched, Sir — the test ad is live at ${approved.adDailyBudget != null ? `${approved.adDailyBudget} dollars a day` : "your set budget"}, inside your limits.`
+                : "Approved and on the schedule.",
+            );
+            return;
+          }
+          if (verdict.action === "skip") {
+            setConvState("processing");
+            let declined = null;
+            try {
+              declined = await withTimeout(
+                api.autopilotDeclineItem(item.itemId),
+                FETCH_TIMEOUT_MS,
+              );
+            } catch {
+              declined = null;
+            }
+            if (stale()) return;
+            if (!declined) {
+              setConvState("speaking");
+              await speakAndWait(
+                "I couldn't mark that one declined just now, Sir. Say it again, or handle it from the Autopilot section.",
+              );
+              if (stale()) return;
+              autopilotSessionRef.current = sess;
+              // eslint-disable-next-line no-use-before-define
+              openFollowupWindow(true);
+              return;
+            }
+            item.status = "declined";
+            await nextAutopilotItem(
+              sess,
+              item.itemType === "ad"
+                ? "Declined — not a dollar spent."
+                : "Declined — it won't go out.",
+            );
+            return;
+          }
+          if (verdict.action === "image") {
+            setConvState("processing");
+            playEffect("thinking", { volume: 0.35 });
+            let updated = null;
+            try {
+              updated = await withTimeout(
+                api.autopilotItemImage(item.itemId),
+                CONTENT_TIMEOUT_MS,
+              );
+            } catch {
+              updated = null;
+            }
+            if (stale()) return;
+            if (updated && updated.imageUrl) {
+              item.imageUrl = updated.imageUrl;
+              await presentAutopilotItem(
+                sess,
+                "The visual's done — it's on your screen. ",
+              );
+            } else {
+              setConvState("speaking");
+              await speakAndWait(
+                "I couldn't create that visual just now, Sir. Approve, skip, or ask me again in a moment.",
+              );
+              if (stale()) return;
+              autopilotSessionRef.current = sess;
+              // eslint-disable-next-line no-use-before-define
+              openFollowupWindow(true);
+            }
+            return;
+          }
+          if (verdict.action === "revise") {
+            setConvState("processing");
+            playEffect("thinking", { volume: 0.35 });
+            let updated = null;
+            try {
+              updated = await withTimeout(
+                api.autopilotReviseItem(item.itemId, verdict.instruction),
+                CONTENT_TIMEOUT_MS,
+              );
+            } catch {
+              updated = null;
+            }
+            if (stale()) return;
+            if (updated && updated.postContent) {
+              item.postContent = updated.postContent;
+              if (updated.adHeadline != null) item.adHeadline = updated.adHeadline;
+              await presentAutopilotItem(sess, "Here's the new version. ");
+            } else {
+              setConvState("speaking");
+              await speakAndWait(
+                "I couldn't make that change just now, Sir. Say it again, or approve or skip this one.",
+              );
+              if (stale()) return;
+              autopilotSessionRef.current = sess;
               // eslint-disable-next-line no-use-before-define
               openFollowupWindow(true);
             }
@@ -1549,6 +1878,237 @@ export function EchoConversationProvider({ active, children }) {
         return;
       }
 
+      // Autopilot batch review ("Hey Echo, let's review the batch"). Walks
+      // through this week's pending posts + test ads one at a time — nothing
+      // publishes and not a dollar is spent without an explicit approve.
+      const apReview = matchAutopilotReviewIntent(text);
+      if (apReview) {
+        const brandCtx = activeBrandCtx();
+        if (!brandCtx.id) {
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            "I'd love to, Sir, but I need a business set up first. Add one and we'll get going.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = false;
+        pendingBrandOfferRef.current = null;
+        pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
+        suspendRef.current = true;
+        setConvState("processing");
+        let batch = null;
+        let fetchFailed = false;
+        try {
+          const resp = await withTimeout(
+            api.autopilotGetBatch(brandCtx.id),
+            FETCH_TIMEOUT_MS,
+          );
+          batch = resp && resp.batch ? resp.batch : null;
+        } catch {
+          fetchFailed = true;
+        }
+        if (stale()) return;
+        if (fetchFailed) {
+          setConvState("speaking");
+          await speakAndWait(
+            "I couldn't pull up the batch just now, Sir. Give me another go in a moment.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        if (!batch) {
+          setConvState("speaking");
+          await speakAndWait(
+            'There\'s no batch drafted yet, Sir. Say "set up autopilot" and I\'ll get your first week ready.',
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        if (batch.status === "generating") {
+          setConvState("speaking");
+          await speakAndWait(
+            "I'm still drafting this week's batch, Sir — give me a few minutes and ask again.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        if (batch.status === "failed") {
+          setConvState("speaking");
+          await speakAndWait(
+            "The last batch run hit a snag, Sir — nothing was drafted. Open the Autopilot section and hit run again, or just ask me to set up autopilot.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        if (batch.status !== "ready") {
+          setConvState("speaking");
+          await speakAndWait(
+            "This week's batch is already wrapped up, Sir. The next one lands Monday morning.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        await beginAutopilotReview(batch);
+        return;
+      }
+
+      // Autopilot setup walkthrough ("Hey Echo, set up autopilot"). Checks the
+      // real connections first — if anything's missing Echo says exactly what
+      // and opens the right section; if everything's wired, it turns autopilot
+      // on and drafts the first week on the spot.
+      const apSetup = matchAutopilotSetupIntent(text);
+      if (apSetup) {
+        const brandCtx = activeBrandCtx();
+        if (!brandCtx.id) {
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            "I'd love to, Sir, but I need a business set up first. Add one and we'll get going.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = false;
+        pendingBrandOfferRef.current = null;
+        pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
+        suspendRef.current = true;
+        setConvState("processing");
+        let readiness = null;
+        try {
+          readiness = await withTimeout(
+            api.autopilotReadiness(brandCtx.id),
+            FETCH_TIMEOUT_MS,
+          );
+        } catch {
+          readiness = null;
+        }
+        if (stale()) return;
+        if (!readiness) {
+          setConvState("speaking");
+          await speakAndWait(
+            "I couldn't check the connections just now, Sir. Give me another go in a moment.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        if (!readiness.ready) {
+          const missing = Array.isArray(readiness.missing)
+            ? readiness.missing
+            : [];
+          const first = missing[0] || null;
+          if (first && first.section) {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("echoai:navigate-section", {
+                  detail: first.section,
+                }),
+              );
+            } catch {
+              /* noop */
+            }
+          }
+          const labels = missing.map((m) => m.label).join(" Then: ");
+          setConvState("speaking");
+          await speakAndWait(
+            `Almost there, Sir — a couple of connections first. ${labels}${first ? " I've opened the right section for you." : ""} Once that's done, say "set up autopilot" again and I'll take it from there.`,
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        // Everything's connected — turn it on, then draft the first week.
+        try {
+          await withTimeout(
+            api.autopilotSaveSettings({ brandId: brandCtx.id, enabled: true }),
+            FETCH_TIMEOUT_MS,
+          );
+        } catch {
+          if (stale()) return;
+          setConvState("speaking");
+          await speakAndWait(
+            "I couldn't switch autopilot on just now, Sir. Try the Autopilot section, or ask me again in a moment.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        if (stale()) return;
+        setConvState("speaking");
+        await speakAndWait(
+          "Autopilot is on, Sir. I'm drafting your first week now — posts, graphics and a test ad. This takes a few minutes, so bear with me.",
+        );
+        if (stale()) return;
+        setConvState("processing");
+        playEffect("thinking", { volume: 0.35 });
+        let firstBatch = null;
+        let existingBatch = false;
+        let stillDrafting = false;
+        try {
+          firstBatch = await withTimeout(
+            api.autopilotRunNow(brandCtx.id, true),
+            CONTENT_TIMEOUT_MS * 2,
+          );
+        } catch (err) {
+          firstBatch = null;
+          if (err && err.message === "voice_call_timeout") {
+            // The run is still going server-side — say so honestly; the batch
+            // will be waiting in the Autopilot section when it lands.
+            stillDrafting = true;
+          } else if (err && err.status === 409) {
+            existingBatch = true;
+          }
+        }
+        if (stale()) return;
+        if (firstBatch && firstBatch.status === "ready") {
+          await beginAutopilotReview(firstBatch);
+          return;
+        }
+        if (existingBatch) {
+          setConvState("speaking");
+          await speakAndWait(
+            'There\'s already a batch for this week, Sir. Say "review the batch" and we\'ll go through it.',
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        setConvState("speaking");
+        await speakAndWait(
+          stillDrafting
+            ? 'I\'m still drafting, Sir — it\'s taking a little longer than usual. Say "review the batch" in a few minutes and we\'ll go through it.'
+            : "The first draft run hit a snag, Sir — nothing was drafted. Open the Autopilot section and hit run, or ask me again in a moment.",
+        );
+        if (stale()) return;
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow();
+        return;
+      }
+
       // Voice content creation ("Hey Echo, let's create some content"). Echo
       // studies the brand's REAL performance + competitor intel, drafts posts
       // (visuals on request), and walks through them one at a time. NOTHING is
@@ -1885,6 +2445,16 @@ export function EchoConversationProvider({ active, children }) {
             /* noop */
           }
         }
+        if (autopilotSessionRef.current) {
+          autopilotSessionRef.current = null;
+          try {
+            window.dispatchEvent(
+              new CustomEvent("echoai:content-session", { detail: null }),
+            );
+          } catch {
+            /* noop */
+          }
+        }
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
@@ -1974,6 +2544,16 @@ export function EchoConversationProvider({ active, children }) {
               .voiceContentComplete(contentSessionRef.current.sessionId, true)
               .catch(() => {});
             contentSessionRef.current = null;
+            try {
+              window.dispatchEvent(
+                new CustomEvent("echoai:content-session", { detail: null }),
+              );
+            } catch {
+              /* noop */
+            }
+          }
+          if (autopilotSessionRef.current) {
+            autopilotSessionRef.current = null;
             try {
               window.dispatchEvent(
                 new CustomEvent("echoai:content-session", { detail: null }),
@@ -2284,6 +2864,16 @@ export function EchoConversationProvider({ active, children }) {
               /* noop */
             }
           }
+          if (autopilotSessionRef.current) {
+            autopilotSessionRef.current = null;
+            try {
+              window.dispatchEvent(
+                new CustomEvent("echoai:content-session", { detail: null }),
+              );
+            } catch {
+              /* noop */
+            }
+          }
           pendingBriefRef.current = null;
           pendingBriefingChoiceRef.current = false;
           pendingBrandOfferRef.current = null;
@@ -2333,6 +2923,18 @@ export function EchoConversationProvider({ active, children }) {
         .voiceContentComplete(contentSessionRef.current.sessionId, true)
         .catch(() => {});
       contentSessionRef.current = null;
+      try {
+        window.dispatchEvent(
+          new CustomEvent("echoai:content-session", { detail: null }),
+        );
+      } catch {
+        /* noop */
+      }
+    }
+    if (autopilotSessionRef.current) {
+      // Same rule for a live autopilot review — never let it hijack the
+      // first utterance after unmuting.
+      autopilotSessionRef.current = null;
       try {
         window.dispatchEvent(
           new CustomEvent("echoai:content-session", { detail: null }),
@@ -2509,6 +3111,18 @@ export function EchoConversationProvider({ active, children }) {
           .voiceContentComplete(contentSessionRef.current.sessionId, true)
           .catch(() => {});
         contentSessionRef.current = null;
+        try {
+          window.dispatchEvent(
+            new CustomEvent("echoai:content-session", { detail: null }),
+          );
+        } catch {
+          /* noop */
+        }
+      }
+      if (autopilotSessionRef.current) {
+        // Shelve the autopilot review — nothing publishes or spends without
+        // an explicit approve, so dropping the local state is always safe.
+        autopilotSessionRef.current = null;
         try {
           window.dispatchEvent(
             new CustomEvent("echoai:content-session", { detail: null }),

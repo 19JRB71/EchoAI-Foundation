@@ -1556,6 +1556,65 @@ export const api = {
       method: "POST",
       body: { cancelled: cancelled === true },
     }),
+  // Autopilot Mode ("Hey Echo, let's review the batch")
+  autopilotGetSettings: (brandId) =>
+    request(`/api/autopilot/settings?brandId=${encodeURIComponent(brandId)}`),
+  autopilotSaveSettings: (settings) =>
+    request("/api/autopilot/settings", { method: "PUT", body: settings }),
+  autopilotReadiness: (brandId) =>
+    request(`/api/autopilot/readiness?brandId=${encodeURIComponent(brandId)}`),
+  autopilotGetBatch: (brandId) =>
+    request(`/api/autopilot/batch?brandId=${encodeURIComponent(brandId)}`),
+  autopilotRunNow: (brandId, firstRun) =>
+    request("/api/autopilot/run", {
+      method: "POST",
+      body: { brandId, firstRun: firstRun === true },
+    }),
+  autopilotApproveItem: (itemId, dailyBudget) =>
+    request(`/api/autopilot/items/${itemId}/approve`, {
+      method: "POST",
+      body: dailyBudget != null ? { dailyBudget } : {},
+    }),
+  autopilotDeclineItem: (itemId) =>
+    request(`/api/autopilot/items/${itemId}/decline`, {
+      method: "POST",
+      body: {},
+    }),
+  autopilotReviseItem: (itemId, instruction) =>
+    request(`/api/autopilot/items/${itemId}/revise`, {
+      method: "POST",
+      body: { instruction },
+    }),
+  autopilotItemImage: (itemId) =>
+    request(`/api/autopilot/items/${itemId}/image`, {
+      method: "POST",
+      body: {},
+    }),
+  autopilotCompleteBatch: (batchId, cancelled) =>
+    request(`/api/autopilot/batches/${batchId}/complete`, {
+      method: "POST",
+      body: { cancelled: cancelled === true },
+    }),
+  // Learning Engine (what Echo has learned from the owner's decisions)
+  autopilotLearnings: (brandId) =>
+    request(`/api/autopilot/learnings?brandId=${encodeURIComponent(brandId)}`),
+  autopilotForgetLearning: (learningId) =>
+    request(`/api/autopilot/learnings/${learningId}/forget`, {
+      method: "POST",
+      body: {},
+    }),
+  autopilotQuestions: (brandId) =>
+    request(`/api/autopilot/questions?brandId=${encodeURIComponent(brandId)}`),
+  autopilotAnswerQuestion: (questionId, answer) =>
+    request(`/api/autopilot/questions/${questionId}/answer`, {
+      method: "POST",
+      body: { answer },
+    }),
+  autopilotDismissQuestion: (questionId) =>
+    request(`/api/autopilot/questions/${questionId}/dismiss`, {
+      method: "POST",
+      body: {},
+    }),
   echoVoiceGetPending: (clientHour, activeBrandId) => {
     const params = new URLSearchParams();
     if (Number.isInteger(clientHour)) params.set("clientHour", String(clientHour));

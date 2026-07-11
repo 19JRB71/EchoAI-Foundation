@@ -16,6 +16,9 @@ import {
   matchClearNotifications,
   matchContentCreateIntent,
   matchContentReviewCommand,
+  matchAutopilotReviewIntent,
+  matchAutopilotSetupIntent,
+  speakableAutopilotItem,
   speakableDraft,
   BRIEF_SECTIONS,
 } from "./conversationHelpers.js";
@@ -1157,5 +1160,98 @@ describe("speakableDraft", () => {
     );
     expect(line).toContain("for LinkedIn");
     expect(line).not.toContain("I'd schedule");
+  });
+});
+
+describe("matchAutopilotReviewIntent", () => {
+  it("matches natural review-the-batch phrasings", () => {
+    expect(matchAutopilotReviewIntent("let's review the batch")).toEqual({
+      review: true,
+    });
+    expect(matchAutopilotReviewIntent("Hey Echo, review the batch")).toEqual({
+      review: true,
+    });
+    expect(
+      matchAutopilotReviewIntent("walk me through this week's batch"),
+    ).toEqual({ review: true });
+    expect(matchAutopilotReviewIntent("go over the approvals")).toEqual({
+      review: true,
+    });
+    expect(matchAutopilotReviewIntent("what's in the batch")).toEqual({
+      review: true,
+    });
+    expect(matchAutopilotReviewIntent("show me the batch")).toEqual({
+      review: true,
+    });
+  });
+
+  it("ignores unrelated talk about batches or reviews", () => {
+    expect(matchAutopilotReviewIntent("review the reviews on google")).toBeNull();
+    expect(matchAutopilotReviewIntent("I made a batch of cookies")).toBeNull();
+    expect(matchAutopilotReviewIntent("review")).toBeNull();
+    expect(matchAutopilotReviewIntent("")).toBeNull();
+  });
+});
+
+describe("matchAutopilotSetupIntent", () => {
+  it("matches setup / turn-on phrasings", () => {
+    expect(matchAutopilotSetupIntent("set up autopilot")).toEqual({
+      setup: true,
+    });
+    expect(matchAutopilotSetupIntent("Hey Echo, turn on autopilot")).toEqual({
+      setup: true,
+    });
+    expect(
+      matchAutopilotSetupIntent("can you help me set up auto pilot mode"),
+    ).toEqual({ setup: true });
+    expect(matchAutopilotSetupIntent("enable autopilot")).toEqual({
+      setup: true,
+    });
+  });
+
+  it("ignores plain mentions of autopilot", () => {
+    expect(matchAutopilotSetupIntent("what is autopilot")).toBeNull();
+    expect(matchAutopilotSetupIntent("autopilot")).toBeNull();
+    expect(matchAutopilotSetupIntent("")).toBeNull();
+  });
+});
+
+describe("speakableAutopilotItem", () => {
+  it("speaks the exact daily budget aloud for ads", () => {
+    const line = speakableAutopilotItem(
+      {
+        itemType: "ad",
+        platform: "facebook",
+        adHeadline: "Big Sale",
+        adDailyBudget: 15,
+        postContent: "Shop now and save.",
+      },
+      1,
+      3,
+    );
+    expect(line).toContain("Item 2 of 3");
+    expect(line).toContain("at 15 dollars a day");
+    expect(line).toContain("Big Sale");
+    expect(line).toContain("Shop now and save.");
+  });
+
+  it("omits the budget phrase when no budget is set", () => {
+    const line = speakableAutopilotItem(
+      { itemType: "ad", adHeadline: "H", postContent: "Body" },
+      0,
+      1,
+    );
+    expect(line).not.toContain("dollars a day");
+    expect(line).toContain("test ad");
+  });
+
+  it("reads posts like content drafts with platform name", () => {
+    const line = speakableAutopilotItem(
+      { itemType: "post", platform: "twitter", postContent: "Hello world" },
+      0,
+      2,
+    );
+    expect(line).toContain("The first one is a X post:");
+    expect(line).toContain("Hello world");
   });
 });

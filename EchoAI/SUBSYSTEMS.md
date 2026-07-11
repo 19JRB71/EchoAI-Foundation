@@ -897,3 +897,55 @@ shown, and each ad's snapshot is a **link** to Facebook's Ad Library.
   escalate-once CAS, the feed live-window (stale ads drop out), and a scheduler
   loader guard (partial brand → `loadBrandRow` SELECT must only touch real
   `brands` columns).
+
+### Autopilot Mode + Learning Engine subsystem (`/api/autopilot`)
+
+Pro (`content_calendar` gate; `denyViewerMutations`). Mondays 06:30 Autopilot
+drafts each enabled brand's whole week in one batch — social posts with
+graphics plus test ads under owner-set spend limits — then alerts the owner to
+approve/decline/revise each item from the Autopilot section. Mondays **05:00**
+(deliberately before the batch) Sage runs the weekly **learning study**, so the
+morning's batch already reflects what Echo learned.
+
+- **Migrations.** `093_autopilot.sql` — `autopilot_settings`,
+  `autopilot_batches`, `autopilot_batch_items`. `094_learning_engine.sql` —
+  `echo_learning_signals` (raw decisions; `distilled_at` marks studied),
+  `echo_learnings` (`UNIQUE (brand_id, insight)`, `active` flag,
+  `evidence_count`, `category` incl. `owner_answer`), `echo_open_questions`
+  (`UNIQUE (brand_id, question)`, status `pending/asked/answered/dismissed`,
+  `asked_at`).
+- **Signal capture.** `utils/learningEngine.js` `recordSignal` is
+  fire-and-forget (never throws, trims/bounds fields) and is called **after
+  COMMIT** at all 7 decision sites: `autopilotController`
+  `approveItem`/`declineItem`/`reviseItem` (post + ad variants) and
+  `voiceContentController` `approveDraft`/`skipDraft` (as decline)/
+  `reviseDraft`.
+- **Weekly study.** `studyBrand` skips honestly below
+  `MIN_SIGNALS_TO_STUDY = 4` undistilled signals (they stay undistilled — no
+  fabricated learnings). Otherwise Claude distills signals into learnings +
+  clarifying questions, persisted transactionally with `ON CONFLICT` upserts;
+  signals are marked `distilled_at` only after successful persistence. AI
+  failure → the brand is skipped (non-fatal), never mocked.
+  `runWeeklyLearningStudy` excludes `is_demo` brands and guards each brand
+  iteration (sweep-guard seam: `module.exports.studyBrand`).
+- **Prompt feedback loop.** `learningContextForBrand` returns `null` when
+  nothing is learned, else a compact block of active learnings ordered by
+  evidence. Callers set `brand._learningContext` before `generateWeeklyBatch`
+  and both `generateVoiceDrafts` call sites; `prompts/autopilotPrompt.js` and
+  `prompts/voiceContentPrompt.js` splice it in only when present.
+- **Briefing surfacing.** `utils/echoBriefing.js` adds `learningNote` (real
+  7-day active-learning count) and `openQuestion`: one question per briefing,
+  claimed atomically (`UPDATE … WHERE status='pending'` … `FOR UPDATE SKIP
+  LOCKED`) → `asked`; pending questions first, an `asked` question is re-asked
+  after 3 quiet days.
+- **Learning/question API.** `GET /learnings`, `POST
+  /learnings/:learningId/forget` (deactivates), `GET /questions`, `POST
+  /questions/:questionId/answer` (transaction: atomic status claim + upserts an
+  `owner_answer` learning via `uq_echo_learnings_brand_insight`), `POST
+  /questions/:questionId/dismiss`. All ownership-checked via a `brands` join on
+  `user_id`.
+- **Client.** `sections/Autopilot.jsx` loads learnings + questions alongside
+  the batch (failures degrade to empty, never block the queue) and renders an
+  "Echo has a question" card (Answer/Skip) plus a "What Echo has learned" card
+  (Forget). `api.js`: `autopilotLearnings`, `autopilotForgetLearning`,
+  `autopilotQuestions`, `autopilotAnswerQuestion`, `autopilotDismissQuestion`.

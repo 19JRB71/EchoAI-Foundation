@@ -25,6 +25,7 @@ import RoiDashboard from "./sections/RoiDashboard.jsx";
 import CustomerIntelligence from "./sections/CustomerIntelligence.jsx";
 import CapitalFunding from "./sections/CapitalFunding.jsx";
 import CompetitorAds from "./sections/CompetitorAds.jsx";
+import Autopilot from "./sections/Autopilot.jsx";
 import CompetitorSites from "./sections/CompetitorSites.jsx";
 import Sage from "./sections/Sage.jsx";
 import Portfolio from "./sections/Portfolio.jsx";
@@ -1120,6 +1121,8 @@ export default function App() {
                     onPrefillConsumed={() => setSocialPrefillImage(null)}
                   />,
                 )}
+              {section === "autopilot" &&
+                gate("autopilot", <Autopilot brandId={selectedBrandId} />)}
               {section === "video" && gate("video", <VideoContent brandId={selectedBrandId} />)}
               {section === "sales" && gate("sales", <SalesScripts brandId={selectedBrandId} />)}
               {section === "email" &&

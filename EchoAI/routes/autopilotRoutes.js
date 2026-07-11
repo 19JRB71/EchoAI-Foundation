@@ -24,4 +24,12 @@ router.post("/items/:itemId/revise", autopilot.reviseItem);
 router.post("/items/:itemId/image", autopilot.generateItemImage);
 router.post("/batches/:batchId/complete", autopilot.completeBatch);
 
+// Learning Engine: what Echo has learned from the owner's review decisions,
+// plus the open questions it wants answered when a pattern is ambiguous.
+router.get("/learnings", autopilot.listLearnings);
+router.post("/learnings/:learningId/forget", autopilot.forgetLearning);
+router.get("/questions", autopilot.listOpenQuestions);
+router.post("/questions/:questionId/answer", autopilot.answerOpenQuestion);
+router.post("/questions/:questionId/dismiss", autopilot.dismissOpenQuestion);
+
 module.exports = router;
