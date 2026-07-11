@@ -1723,7 +1723,15 @@ export function EchoConversationProvider({ active, children }) {
       // A clear new nav/music command always wins over the pending question.
       if (pendingBriefingChoiceRef.current) {
         pendingBriefingChoiceRef.current = false;
-        if (!matchNavIntent(text) && !matchMusicIntent(text)) {
+        // Real commands (nav, music, content creation) always win over the
+        // pending briefing offer — matchBriefingChoice treats ANY leftover
+        // utterance as a "specific briefing topic", which used to swallow
+        // "let's create some content" into a briefing answer.
+        if (
+          !matchNavIntent(text) &&
+          !matchMusicIntent(text) &&
+          !matchContentCreateIntent(text)
+        ) {
           const choice = matchBriefingChoice(text);
           if (choice === "none") {
             // Declined — stay quiet and return to passive listening.
@@ -1785,7 +1793,14 @@ export function EchoConversationProvider({ active, children }) {
       // go-ahead. Any briefing request / start phrase / short go-ahead bark
       // ("ready", "run it", "let's go") delivers the morning briefing NOW —
       // Echo never starts it on his own.
-      if (morningStandbyRef.current && matchBriefingStart(text)) {
+      if (
+        morningStandbyRef.current &&
+        matchBriefingStart(text) &&
+        // "I'm ready to do a facebook post" contains the go-ahead bark
+        // "ready" — an explicit content-creation command must never be
+        // hijacked into starting the briefing.
+        !matchContentCreateIntent(text)
+      ) {
         morningStandbyRef.current = false;
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
