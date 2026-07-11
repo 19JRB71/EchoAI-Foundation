@@ -1,0 +1,1083 @@
+# BUILD FEATURE: ECHO GUIDED SETUP WIZARD
+
+## PROJECT OVERVIEW
+
+Build an intelligent, interactive onboarding and integration setup wizard inside the Echo platform.
+
+The goal is to make connecting external accounts and services extremely simple for non-technical business owners.
+
+The user should not need to understand API keys, developer settings, webhooks, access tokens, permissions, or complicated third-party dashboards.
+
+The experience should feel similar to DocuSign, where an indicator moves from one required action to the next and clearly shows the user where to click.
+
+Echo should guide the customer through every setup step using:
+
+* Spoken or written instructions
+* Highlighted buttons
+* Moving arrows or tabs
+* Screen overlays
+* Progress tracking
+* Contextual help
+* Screenshot-based screen analysis when the user gets stuck
+* A self-updating guidance library that improves when third-party platforms change their interfaces
+
+This feature should become part of Echo’s main customer onboarding system.
+
+---
+
+# PRIMARY OBJECTIVE
+
+Create an onboarding experience where a customer can:
+
+1. Create an Echo account.
+2. Answer a short list of questions about their business.
+3. Choose which services they want to connect.
+4. Click “Connect.”
+5. Log into the selected service.
+6. Follow Echo’s highlighted instructions.
+7. Complete the setup without needing technical knowledge or outside help.
+
+The customer experience should feel like:
+
+> “Echo is sitting beside me and showing me exactly what to do.”
+
+---
+
+# FEATURE NAME
+
+Use the internal feature name:
+
+## Echo Guided Setup
+
+Possible customer-facing title:
+
+## Let’s Get Echo Connected
+
+Customer-facing introductory message:
+
+> Welcome to Echo. I’m going to help connect your business accounts. Just follow my guidance, and I’ll walk you through each step.
+
+---
+
+# DESIGN PRINCIPLES
+
+The entire wizard must follow the KISS principle:
+
+## Keep It Simple
+
+The interface should:
+
+* Use plain English.
+* Show one action at a time.
+* Avoid technical terminology.
+* Avoid large forms.
+* Avoid overwhelming the user with too many options.
+* Clearly explain why each permission is needed.
+* Allow users to skip optional integrations.
+* Save progress automatically.
+* Allow the user to leave and continue later.
+* Work well on desktop, tablet, and mobile.
+* Use large, clear buttons.
+* Provide immediate confirmation after each completed step.
+
+Do not display API keys, client secrets, developer settings, webhook URLs, or technical configuration details to normal customers unless absolutely required.
+
+Whenever possible, use official OAuth login and authorization flows.
+
+---
+
+# ONBOARDING FLOW
+
+## STEP 1: WELCOME SCREEN
+
+Display:
+
+> Welcome to Echo
+> Let’s connect your business so I can begin working for you.
+
+Include a short explanation:
+
+> This setup usually takes a few minutes. I’ll guide you one step at a time.
+
+Buttons:
+
+* Start Setup
+* Continue Previous Setup
+* Do This Later
+
+Include a setup progress indicator.
+
+Example:
+
+* Business Profile
+* Email
+* Calendar
+* Facebook
+* Instagram
+* Website
+* CRM
+* Complete
+
+---
+
+## STEP 2: BUSINESS PROFILE
+
+Ask simple questions, one screen at a time.
+
+Questions may include:
+
+* What is your business name?
+* What industry are you in?
+* What services or products do you offer?
+* What city or area do you serve?
+* What is your website?
+* What is your main business goal?
+* Do you want help getting leads?
+* Do you want Echo to help manage existing leads?
+* Do you want social media assistance?
+* Do you want email and calendar assistance?
+
+Save these answers to the customer’s Echo profile and Hermes knowledge system.
+
+Do not present all questions on one long form.
+
+---
+
+## STEP 3: CHOOSE CONNECTIONS
+
+Show available integrations as simple cards.
+
+Possible integrations:
+
+* Gmail
+* Google Calendar
+* Facebook
+* Instagram
+* Website
+* CRM
+* Google Business Profile
+* LinkedIn
+* SMS provider
+* Phone system
+* Advertising accounts
+
+Each card should include:
+
+* Service logo
+* Service name
+* Short explanation
+* Connection status
+* Connect button
+* Skip button
+
+Example:
+
+> Facebook
+> Connect your Facebook Page so Echo can help with content, leads, messages, and marketing insights.
+
+Status options:
+
+* Not Connected
+* Connecting
+* Connected
+* Needs Attention
+* Permission Expired
+* Reconnect Required
+
+---
+
+# OFFICIAL LOGIN CONNECTION FLOW
+
+Whenever possible, customers should never manually enter API keys.
+
+The preferred flow is:
+
+1. Customer clicks Connect Facebook.
+2. Official Facebook login opens.
+3. Customer logs in.
+4. Customer approves permissions.
+5. Echo verifies the connection.
+6. Echo displays confirmation.
+
+Confirmation example:
+
+> Facebook is connected successfully.
+
+Provide a button:
+
+* Continue Setup
+
+Use the same basic experience for Google, Instagram, LinkedIn, CRM systems, and future integrations.
+
+---
+
+# GUIDED SCREEN OVERLAY
+
+Build a screen guidance layer that can display instructions on top of supported setup pages.
+
+The guidance layer should include:
+
+* A highlighted border around the next button or field
+* A moving arrow or pointer
+* A floating instruction tab
+* A dimmed background outside the highlighted area
+* A short instruction
+* A Next button when appropriate
+* A Back button
+* A Repeat Instruction button
+* A Help Me button
+* An Exit Guide button
+
+Example instruction:
+
+> Click “Continue” to allow Echo to connect to your Facebook Page.
+
+The pointer should attach to a detected webpage element, not just a fixed screen coordinate.
+
+Preferred targeting methods:
+
+* DOM selector
+* Element ID
+* Element role
+* Button label
+* Accessibility label
+* Text content
+* Relative element position
+* Computer vision fallback
+
+Avoid relying only on x/y coordinates because third-party websites frequently change layouts and screen sizes.
+
+---
+
+# SCREEN DETECTION
+
+The system should attempt to identify the customer’s current screen before displaying guidance.
+
+Each supported screen should have a stored screen definition.
+
+A screen definition may include:
+
+* Platform name
+* Screen name
+* Page URL pattern
+* Visible page title
+* Required text
+* Optional text
+* Expected buttons
+* Expected fields
+* DOM selectors
+* Accessibility labels
+* Reference screenshot
+* Device type
+* Browser type
+* Account type
+* Screen version
+* Date last verified
+
+Example screen definition:
+
+```json
+{
+  "platform": "facebook",
+  "screen_name": "page_permission_selection",
+  "url_patterns": [
+    "facebook.com/dialog/oauth",
+    "facebook.com/v*/dialog/oauth"
+  ],
+  "required_text": [
+    "Choose what you allow"
+  ],
+  "target_action": {
+    "type": "button",
+    "text": "Continue"
+  },
+  "version": "2026-01",
+  "status": "verified"
+}
+```
+
+---
+
+# NORMAL GUIDANCE PROCESS
+
+The guidance engine should follow this logic:
+
+1. Detect the current page.
+2. Match it against known screen definitions.
+3. Identify the next required action.
+4. Highlight the correct element.
+5. Display a simple instruction.
+6. Detect when the action is completed.
+7. Move automatically to the next step.
+8. Update the setup progress.
+9. Confirm successful connection.
+
+---
+
+# HELP ME BUTTON
+
+Place a clearly visible Help Me button inside the setup wizard and overlay.
+
+When clicked, display:
+
+> I can analyze your current screen and help you find the next step.
+
+Before capturing the screen, request permission.
+
+Display:
+
+> Echo will capture this screen to identify the next button. Please make sure no private information is visible that you do not want analyzed.
+
+Buttons:
+
+* Analyze My Screen
+* Cancel
+
+Only capture the active setup window or browser tab when technically possible.
+
+Do not silently capture screens.
+
+---
+
+# SCREENSHOT ANALYSIS FLOW
+
+When the user approves screen analysis:
+
+1. Capture the active setup screen.
+2. Automatically blur or mask obvious sensitive information when possible.
+3. Send the screenshot to the screen-analysis service.
+4. Identify:
+
+   * Platform
+   * Screen type
+   * Visible buttons
+   * Fields
+   * Warnings
+   * Error messages
+   * Permission options
+   * Likely next action
+5. Return the location and label of the recommended action.
+6. Move the guidance tab or highlight to that location.
+7. Explain the next step in plain English.
+8. Ask the customer to confirm if the suggested element is correct when confidence is low.
+
+Example:
+
+> Facebook has changed this page. Click the blue “Continue” button in the lower-right section of the window.
+
+---
+
+# CONFIDENCE LEVELS
+
+Every screen-analysis result should include a confidence score.
+
+Example:
+
+```json
+{
+  "platform": "facebook",
+  "screen_type": "permission_review",
+  "recommended_action": "Click Continue",
+  "target_text": "Continue",
+  "confidence": 0.94
+}
+```
+
+Behavior:
+
+* Confidence above 0.90: highlight automatically.
+* Confidence between 0.70 and 0.89: highlight and ask for confirmation.
+* Confidence below 0.70: do not guess. Offer alternate instructions or human support.
+
+Never automatically click financial, legal, publishing, deletion, account-management, or permission-sensitive buttons on behalf of the user without explicit approval.
+
+---
+
+# SELF-UPDATING GUIDANCE LIBRARY
+
+When Echo discovers that a third-party platform has changed its interface, it should create a proposed new screen version.
+
+Do not immediately replace the existing verified guide based on one screenshot.
+
+New discoveries should move through these statuses:
+
+* Unrecognized
+* Proposed
+* Under Review
+* Verified
+* Active
+* Deprecated
+* Rejected
+
+When a new screen is detected:
+
+1. Save a sanitized representation of the screen.
+2. Save detected text and page structure.
+3. Save the recommended action.
+4. Save the integration and setup step.
+5. Save device and browser information.
+6. Create a proposed screen definition.
+7. Compare it with existing screen versions.
+8. Determine whether it is:
+
+   * A completely new screen
+   * A new layout variation
+   * A mobile version
+   * A business-account variation
+   * A regional variation
+   * A temporary error screen
+9. Send it to an admin verification queue.
+10. After verification, activate the new guide for matching future users.
+
+---
+
+# LEARNING RULE
+
+Echo should learn from interface changes once, then reuse that knowledge for future customers.
+
+However, it must not assume every customer sees the same layout.
+
+Store multiple verified variations for:
+
+* Desktop
+* Mobile
+* Tablet
+* Different browsers
+* Personal accounts
+* Business accounts
+* Facebook Pages
+* Business Manager accounts
+* New and old interface versions
+* Regional interface differences
+* Permission variations
+* Error screens
+
+The system should choose the correct guide based on the user’s current screen.
+
+---
+
+# ADMIN REVIEW DASHBOARD
+
+Create an admin-only dashboard for reviewing newly discovered screens.
+
+Dashboard sections:
+
+* New Screen Discoveries
+* Proposed Guide Updates
+* Low-Confidence Screens
+* Frequently Failed Steps
+* Recently Changed Platforms
+* Active Screen Versions
+* Deprecated Screen Versions
+* User Help Requests
+
+Each discovery should show:
+
+* Platform
+* Integration
+* Setup step
+* Date detected
+* Number of users affected
+* Device
+* Browser
+* Account type
+* Sanitized screenshot
+* Detected elements
+* Recommended next action
+* AI confidence
+* Existing matching screens
+* Approve button
+* Edit button
+* Reject button
+* Merge with Existing Version button
+
+Admin actions:
+
+* Approve guide
+* Correct target element
+* Rewrite instruction
+* Add alternate selector
+* Mark as mobile-only
+* Mark as error screen
+* Mark as temporary
+* Disable screen definition
+* Publish update
+
+---
+
+# SCREEN DEFINITION DATA MODEL
+
+Create database tables or equivalent structures for:
+
+## integrations
+
+Fields:
+
+* id
+* name
+* platform
+* status
+* oauth_enabled
+* setup_flow_version
+* created_at
+* updated_at
+
+## setup_sessions
+
+Fields:
+
+* id
+* user_id
+* business_id
+* current_step
+* completion_percentage
+* status
+* started_at
+* last_activity_at
+* completed_at
+
+## setup_steps
+
+Fields:
+
+* id
+* integration_id
+* step_order
+* step_name
+* instruction
+* expected_screen_id
+* required
+* skippable
+* success_condition
+
+## screen_definitions
+
+Fields:
+
+* id
+* platform
+* screen_name
+* version
+* status
+* device_type
+* browser_type
+* account_type
+* url_patterns
+* required_text
+* optional_text
+* expected_elements
+* target_element
+* alternate_targets
+* reference_image_url
+* confidence_threshold
+* verified_by
+* verified_at
+* last_seen_at
+* created_at
+* updated_at
+
+## screen_discoveries
+
+Fields:
+
+* id
+* setup_session_id
+* platform
+* screenshot_url
+* sanitized_screenshot_url
+* detected_text
+* detected_elements
+* recommended_action
+* target_coordinates
+* target_selector
+* confidence
+* review_status
+* first_seen_at
+* last_seen_at
+* occurrence_count
+
+## guidance_events
+
+Fields:
+
+* id
+* user_id
+* setup_session_id
+* integration_id
+* screen_definition_id
+* event_type
+* success
+* error_message
+* created_at
+
+## user_permissions
+
+Fields:
+
+* id
+* user_id
+* screen_capture_permission
+* analytics_permission
+* improvement_program_permission
+* updated_at
+
+---
+
+# PRIVACY AND SECURITY REQUIREMENTS
+
+This feature may handle sensitive screens and account permissions.
+
+Implement the following protections:
+
+* Require user permission before every screen capture unless the user has explicitly enabled temporary session-based permission.
+* Never capture passwords.
+* Never capture payment information.
+* Attempt to detect and mask:
+
+  * Password fields
+  * Credit card fields
+  * Social Security numbers
+  * Bank information
+  * Access tokens
+  * API secrets
+  * Private messages
+  * Personal contact information
+* Encrypt screenshots during transmission and storage.
+* Automatically delete raw screenshots after analysis unless the user agrees to contribute the sanitized version to the improvement system.
+* Store sanitized screenshots separately from raw screenshots.
+* Limit admin access to authorized personnel.
+* Log all admin screenshot access.
+* Allow customers to delete their setup screenshots.
+* Clearly explain what is captured and why.
+* Never use customer screenshots for unrelated model training without explicit permission.
+* Never allow one customer’s private data to appear in another customer’s guidance.
+
+---
+
+# CUSTOMER PERMISSION OPTIONS
+
+During onboarding, allow the user to choose:
+
+## Standard Privacy
+
+Screenshots are analyzed temporarily and deleted after the session.
+
+## Help Improve Echo
+
+Sanitized screen layouts may be retained to improve future setup guidance.
+
+Default to Standard Privacy.
+
+Do not require users to contribute screenshots to use the setup wizard.
+
+---
+
+# ERROR HANDLING
+
+The setup wizard must recognize common problems.
+
+Examples:
+
+* User is logged into the wrong account.
+* User does not own a Facebook Page.
+* User is not a page administrator.
+* Required permission was denied.
+* Browser blocked the pop-up.
+* OAuth window was closed.
+* Session expired.
+* Connection token expired.
+* Facebook or Google returned an error.
+* Account requires two-factor authentication.
+* Business account verification is incomplete.
+* User selected the wrong business.
+* User has multiple pages.
+* Connection succeeded but verification failed.
+
+For each error, display:
+
+* What happened
+* Why it may have happened
+* The simplest next action
+* Try Again button
+* Help Me button
+* Skip for Now button
+* Contact Support button
+
+Do not display raw developer error messages to customers.
+
+Log technical errors for administrators.
+
+---
+
+# SUCCESS EXPERIENCE
+
+After an integration connects successfully, show a clear success screen.
+
+Example:
+
+> Facebook is connected.
+
+Then explain what Echo can now do.
+
+Example:
+
+> Echo can now review your Facebook Page activity, assist with content, organize leads, and provide marketing insights based on the permissions you approved.
+
+Buttons:
+
+* Connect Next Service
+* Return to Setup
+* Go to Echo Dashboard
+
+Include a visual completion checkmark and updated progress.
+
+---
+
+# FINAL SETUP SCREEN
+
+When setup is complete, display:
+
+> Echo is ready.
+
+Include a summary:
+
+* Business profile completed
+* Gmail connected
+* Calendar connected
+* Facebook connected
+* Instagram connected
+* Website added
+* CRM connected
+
+Then display:
+
+> I’ll begin learning about your business and preparing your first briefing.
+
+Buttons:
+
+* Enter Echo
+* Review Connections
+* Invite a Team Member
+
+---
+
+# VOICE AND PERSONALITY
+
+Echo’s setup personality should be:
+
+* Professional
+* Calm
+* Friendly
+* Confident
+* Slightly humorous when appropriate
+* Never condescending
+* Never overly technical
+
+Example phrases:
+
+> Great. That’s connected.
+
+> One down, three to go.
+
+> Facebook moved that button again. I found it.
+
+> No problem. Let me look at the screen and guide you from here.
+
+> You’re almost finished.
+
+> That permission was declined, so this feature will remain unavailable until you reconnect it.
+
+---
+
+# PROGRESS SAVING
+
+The wizard should automatically save:
+
+* Completed business questions
+* Connected integrations
+* Skipped integrations
+* Current setup step
+* Failed setup attempts
+* Pending permissions
+* Screen guide version used
+
+When the user returns, display:
+
+> Welcome back. You were connecting Facebook. Would you like to continue?
+
+---
+
+# HUMAN SUPPORT ESCALATION
+
+If Echo cannot confidently guide the customer, provide a support escalation option.
+
+Support request should automatically include:
+
+* User ID
+* Integration
+* Current setup step
+* Error code
+* Browser
+* Device
+* Screen-definition version
+* Screenshot only if the user approved sharing it
+* Previous attempted steps
+
+Do not require the customer to explain everything again.
+
+Possible options:
+
+* Live chat
+* Schedule setup assistance
+* Email support
+* Paid concierge setup
+
+---
+
+# OPTIONAL CONCIERGE SETUP
+
+Add a future-ready option for customers who want Echo’s team to help connect everything.
+
+Display:
+
+> Want us to help set everything up?
+
+Possible plans:
+
+* Self Setup
+* Guided Setup
+* Concierge Setup
+
+Do not hard-code pricing yet.
+
+Create admin settings so pricing can be added later.
+
+---
+
+# ANALYTICS
+
+Track:
+
+* Setup completion rate
+* Average setup completion time
+* Drop-off step
+* Most skipped integrations
+* Most common errors
+* Help Me button usage
+* Screenshot analysis usage
+* Successful screen recognition rate
+* Low-confidence recognition rate
+* Human support escalation rate
+* Integration connection success rate
+* Screen definitions that cause failures
+* Device and browser breakdown
+
+Create an admin analytics dashboard.
+
+---
+
+# IMPLEMENTATION PHASES
+
+## PHASE 1: CORE WIZARD
+
+Build:
+
+* Welcome screen
+* Business questions
+* Integration selection
+* Setup progress
+* OAuth connection buttons
+* Connection confirmation
+* Save and resume
+* Error handling
+
+## PHASE 2: GUIDED OVERLAY
+
+Build:
+
+* Highlight box
+* Moving pointer
+* Floating instruction tab
+* Known screen definitions
+* DOM-based targeting
+* Automatic step advancement
+* Help Me button
+
+## PHASE 3: SCREEN ANALYSIS
+
+Build:
+
+* User-approved screenshot capture
+* Sensitive-data masking
+* AI screen analysis
+* Button and field detection
+* Confidence scoring
+* Dynamic guidance placement
+
+## PHASE 4: SELF-UPDATING LIBRARY
+
+Build:
+
+* New screen discovery storage
+* Screen versioning
+* Admin verification
+* Multiple layout variations
+* Publishing and rollback controls
+
+## PHASE 5: EXPANSION
+
+Expand guided setup to:
+
+* Google
+* Instagram
+* LinkedIn
+* CRM systems
+* Google Business Profile
+* Website verification
+* Phone systems
+* Advertising accounts
+* Domain settings
+
+---
+
+# DEVELOPMENT RULES
+
+* Keep the feature modular.
+* Do not tightly couple it only to Facebook.
+* Create a reusable integration-guide engine.
+* Use configuration-driven setup steps.
+* Allow administrators to add or edit instructions without redeploying the entire application.
+* Separate customer-facing language from technical logic.
+* Maintain version history.
+* Include rollback capability.
+* Never publish an AI-generated guide without validation.
+* Prioritize OAuth over manual credential entry.
+* Build with accessibility in mind.
+* Ensure keyboard navigation works.
+* Ensure highlighted elements remain visible when the screen scrolls.
+* Recalculate overlay placement when the window resizes.
+* Support mobile-responsive guidance.
+
+---
+
+# TECHNICAL ARCHITECTURE
+
+Use the existing Echo technology stack where possible.
+
+Recommended components:
+
+## Frontend
+
+* Setup wizard interface
+* Progress tracker
+* Integration cards
+* Guided overlay
+* Screenshot permission modal
+* Dynamic pointer positioning
+* Mobile-responsive layout
+
+## Backend
+
+* Setup session manager
+* Integration connection manager
+* Screen-definition engine
+* Screen-analysis service
+* Guidance decision engine
+* Admin review service
+* Analytics service
+* Audit logging
+
+## AI SERVICES
+
+The screen-analysis AI should return structured JSON rather than unstructured text.
+
+Required response format:
+
+```json
+{
+  "platform": "facebook",
+  "screen_name": "permission_confirmation",
+  "screen_matches_known_version": false,
+  "detected_elements": [
+    {
+      "type": "button",
+      "text": "Continue",
+      "bounding_box": {
+        "x": 812,
+        "y": 690,
+        "width": 142,
+        "height": 48
+      }
+    }
+  ],
+  "recommended_action": {
+    "action": "click",
+    "target_text": "Continue",
+    "explanation": "Click Continue to approve the selected permissions."
+  },
+  "confidence": 0.94,
+  "contains_sensitive_information": false
+}
+```
+
+Validate all AI responses before using them.
+
+---
+
+# ACCEPTANCE CRITERIA
+
+The feature is considered successful when:
+
+1. A non-technical user can complete the main Echo setup without developer assistance.
+2. Users are never required to manually create API keys for supported OAuth integrations.
+3. The wizard displays one clear action at a time.
+4. Known screens are recognized automatically.
+5. The guide correctly highlights the next action.
+6. Users can click Help Me when a screen changes.
+7. Screenshots are only captured with permission.
+8. The system can propose a new screen guide when a platform changes.
+9. New guides require validation before becoming active.
+10. Future users can benefit from previously verified screen changes.
+11. Setup progress is saved automatically.
+12. Customers can leave and continue later.
+13. Admins can review failures and new screen discoveries.
+14. Sensitive information is protected.
+15. The system is reusable across multiple integrations.
+
+---
+
+# CUSTOMER-FACING VALUE PROPOSITION
+
+The final experience should support this promise:
+
+> Connecting your business should not require technical knowledge. Echo walks you through every step, shows you exactly where to click, and learns when other platforms change.
+
+Alternative marketing statement:
+
+> When another platform changes, Echo learns the new process so you don’t have to.
+
+---
+
+# FINAL BUILD DIRECTION
+
+Do not treat this as a basic tutorial or slideshow.
+
+Build it as an intelligent, reusable, screen-aware setup system that:
+
+* Guides customers
+* Detects where they are
+* Responds when they get stuck
+* Learns new interface variations
+* Reduces support requests
+* Makes Echo easier to adopt
+* Supports Echo’s long-term vision as a business assistant
+
+Start by reviewing the existing Echo onboarding and integration architecture.
+
+Reuse existing authentication, business-profile, Hermes, database, and integration components where appropriate.
+
+Do not replace working functionality unnecessarily.
+
+Create this feature in phases, beginning with the core setup wizard and known-screen guidance system.
+
+Before changing production behavior, create a development version and test it using mock Facebook, Google, and integration screens.

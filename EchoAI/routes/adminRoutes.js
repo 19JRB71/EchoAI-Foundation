@@ -7,6 +7,7 @@ const betaAdminController = require("../controllers/betaAdminController");
 const featureSuggestionAdminController = require("../controllers/featureSuggestionAdminController");
 const demoController = require("../controllers/demoController");
 const diagnosticsController = require("../controllers/diagnosticsController");
+const selfReviewAdminController = require("../controllers/selfReviewAdminController");
 
 const router = express.Router();
 
@@ -43,6 +44,12 @@ router.put(
   "/feature-suggestions/:suggestionId/status",
   featureSuggestionAdminController.updateSuggestionStatus,
 );
+
+// Echo Self-Review (Sage's weekly platform study — recommendation-only).
+router.get("/self-review/reports", selfReviewAdminController.listReports);
+router.get("/self-review/reports/:reportId", selfReviewAdminController.getReport);
+router.post("/self-review/run", selfReviewAdminController.runNow);
+router.put("/self-review/items/:itemId/status", selfReviewAdminController.updateItemStatus);
 
 // Demo Account & Sales Presentation Mode.
 router.get("/demo/status", demoController.getStatus);

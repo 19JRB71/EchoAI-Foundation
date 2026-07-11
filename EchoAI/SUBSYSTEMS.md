@@ -949,3 +949,49 @@ morning's batch already reflects what Echo learned.
   "Echo has a question" card (Answer/Skip) plus a "What Echo has learned" card
   (Forget). `api.js`: `autopilotLearnings`, `autopilotForgetLearning`,
   `autopilotQuestions`, `autopilotAnswerQuestion`, `autopilotDismissQuestion`.
+
+### Echo Self-Review subsystem (`/api/admin/self-review`)
+
+Admin-only weekly platform study: every Monday 07:15 (after the 05:00 learning
+study and 06:30 autopilot batch) Sage reads the past week of REAL operational
+data and asks Claude for ranked, evidence-based platform improvement
+recommendations. **Recommendation-only** — it never changes any system; the
+admin reads the report and triages items.
+
+- **Evidence gathering** (`utils/selfReview.js` `gatherEvidence`). Read-only
+  probes, each individually guarded `safeRows`-style: failed social posts
+  (reason lives in `engagement_metrics->>'error'`), SMS failures
+  (permanent vs transient), email recipient failures (joined via
+  campaigns→brands), health-check status counts, API quota snapshots + alert
+  log, support tickets, pending feature suggestions by request count, survey
+  sentiment, learning signals by source/action, and adoption counts. Demo
+  brands excluded at the query layer everywhere. A failed probe is recorded in
+  `evidence.readErrors` — surfaced honestly in the report and the admin UI,
+  never implied as "all healthy".
+- **Concurrency.** One report per ISO week: `runWeeklySelfReview` claims the
+  week atomically via `INSERT ... ON CONFLICT (week_start) DO NOTHING`
+  (UNIQUE `week_start`). Losers see the existing row's status. A `failed`
+  week is rerun only with `rerunFailed: true` (the manual admin run) via an
+  atomic status-guarded reset that also deletes the stale items. All terminal
+  writes are `WHERE status = 'running'` guarded so out-of-band changes are
+  never clobbered (finalize + item inserts share one transaction; a missed
+  guard rolls back).
+- **Honesty.** Evidence is persisted BEFORE the AI call, so a failed report
+  still shows the real gathered data. AI failure → report `failed` with the
+  reason (cron logs it; the manual run maps it to 502). AI output is strictly
+  validated (`parseAiReport`): JSON only, non-empty summary, 1–10 items with
+  non-empty title/recommendation, impact normalized to high/medium/low.
+- **Persistence** (`models/095_self_review.sql`): `self_review_reports`
+  (UNIQUE week_start, status running/completed/failed, summary, evidence
+  JSONB, error) + `self_review_items` (rank, title, recommendation, evidence,
+  impact, admin triage status new/planned/dismissed/done, CASCADE).
+- **Routes** (`routes/adminRoutes.js` → `controllers/selfReviewAdminController.js`,
+  behind the router-level auth+admin guard): `GET /reports` (26 newest +
+  item/new counts), `GET /reports/:reportId` (report + ranked items),
+  `POST /run` (manual: completed week → 409, running → 409, AI fail → 502,
+  failed week → atomic rerun), `PUT /items/:itemId/status`.
+- **Client.** Admin panel tab `client/src/admin/AdminSelfReview.jsx`
+  ("Self-Review"): week chips (failed/running/new-count badges), summary card,
+  readErrors banner, ranked recommendation cards with impact badge + triage
+  select. `api.js`: `adminGetSelfReviewReports`, `adminGetSelfReviewReport`,
+  `adminRunSelfReview`, `adminUpdateSelfReviewItemStatus`.

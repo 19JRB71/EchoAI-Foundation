@@ -604,6 +604,17 @@ function startScheduler() {
     });
   });
 
+  // Mondays 07:15 (after the learning study and the autopilot batch): Sage
+  // studies the past week of REAL platform data (failures, feedback, feature
+  // asks, quotas, adoption) and writes an evidence-based improvement report
+  // for the admin. Recommendation-only — it never changes any system.
+  cron.schedule("15 7 * * 1", () => {
+    const { runWeeklySelfReview } = require("./selfReview");
+    runWeeklySelfReview().catch((err) => {
+      console.error("Scheduled self-review errored:", err.message);
+    });
+  });
+
   // Mondays 06:30: Autopilot drafts each enabled brand's week in one batch —
   // posts with graphics plus test ads — then alerts the owner to review.
   // Early on purpose: the batch should be waiting when the owner logs in.

@@ -679,6 +679,18 @@ export const api = {
       body: { status },
     }),
 
+  // Echo Self-Review (admin-only).
+  adminGetSelfReviewReports: () => request("/api/admin/self-review/reports"),
+  adminGetSelfReviewReport: (reportId) =>
+    request(`/api/admin/self-review/reports/${reportId}`),
+  adminRunSelfReview: () =>
+    request("/api/admin/self-review/run", { method: "POST" }),
+  adminUpdateSelfReviewItemStatus: (itemId, status) =>
+    request(`/api/admin/self-review/items/${itemId}/status`, {
+      method: "PUT",
+      body: { status },
+    }),
+
   // Full Diagnostic Report (admin-only).
   adminGetDiagnostics: () => request("/api/admin/diagnostics/report"),
 
