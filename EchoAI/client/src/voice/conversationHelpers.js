@@ -1039,7 +1039,7 @@ export function matchBrandSwitch(text, brands) {
 // The matcher is deliberately explicit — "content"/"posts" must be the OBJECT
 // of a create-ish verb so ordinary sentences can't trigger a whole workflow.
 const CONTENT_CREATE_RE =
-  /^(?:hey )?(?:echo[,!]? )?(?:let ?s |lets |can (?:you|we) |could (?:you|we) |i (?:want|need) (?:you )?to |help me |time to |please )?(?:create|make|draft|write|generate|whip up|put together|work on|build)(?: up)?(?: some| a few| me some| us some| some new| new| a| this week ?s)? (?:content|posts?|social (?:media )?(?:content|posts?)|marketing content)\b(.*)$/;
+  /^(?:hey )?(?:echo[,!]? )?(?:let ?s |lets |can (?:you|we) |could (?:you|we) |i (?:want|need) (?:you )?to |(?:i ?m |we ?re )?ready to |help me |time to |please )?(?:create|make|draft|write|generate|whip up|put together|work on|build|do)(?: up)?(?: some| a few| me some| us some| some new| new| an?| this week ?s)?( facebook| instagram| insta| linkedin| twitter| tiktok)? (?:content|posts?|social (?:media )?(?:content|posts?)|marketing content)\b(.*)$/;
 
 /**
  * Detects "let's create some content" style requests.
@@ -1051,8 +1051,14 @@ export function matchContentCreateIntent(text) {
   if (!norm) return null;
   const m = norm.match(CONTENT_CREATE_RE);
   if (!m) return null;
-  const trailing = (m[1] || "").trim();
-  return { request: trailing };
+  // A platform word before "post" ("do a facebook post") becomes part of the
+  // topic hint so the drafting session knows which platform the owner meant.
+  const platform = (m[1] || "").trim();
+  const trailing = (m[2] || "").trim();
+  const request = [platform ? `for ${platform}` : "", trailing]
+    .filter(Boolean)
+    .join(" ");
+  return { request };
 }
 
 // Review-walkthrough commands while Echo is presenting a draft. Approve is

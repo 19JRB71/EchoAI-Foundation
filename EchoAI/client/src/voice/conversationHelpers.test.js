@@ -1103,6 +1103,24 @@ describe("matchContentCreateIntent", () => {
     ).toEqual({ request: "about the summer sale" });
   });
 
+  it("matches natural 'ready to do a facebook post' phrasing", () => {
+    expect(
+      matchContentCreateIntent("Hey Echo, I'm ready to do a Facebook post"),
+    ).toEqual({ request: "for facebook" });
+    expect(matchContentCreateIntent("i m ready to do a facebook post")).toEqual({
+      request: "for facebook",
+    });
+    expect(matchContentCreateIntent("ready to create some posts")).toEqual({
+      request: "",
+    });
+    expect(matchContentCreateIntent("do a facebook post")).toEqual({
+      request: "for facebook",
+    });
+    expect(
+      matchContentCreateIntent("let's do an instagram post about move-in specials"),
+    ).toEqual({ request: "for instagram about move in specials" });
+  });
+
   it("does NOT match unrelated sentences", () => {
     expect(matchContentCreateIntent("open the content calendar")).toBeNull();
     expect(matchContentCreateIntent("what content is scheduled")).toBeNull();
