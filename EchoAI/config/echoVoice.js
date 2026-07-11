@@ -108,7 +108,93 @@ function normalizeSettings(stored) {
     ...(Array.isArray(s.musicFavorites)
       ? { musicFavorites: sanitizeMusicFavorites(s.musicFavorites) }
       : {}),
+    // Voice Calibration profile (per-user turn-taking timings). Only persisted
+    // when set — absent means "not calibrated" and the engine uses balanced
+    // defaults. Saving settings WITHOUT the key deletes the profile.
+    ...(s.voiceProfile && typeof s.voiceProfile === "object"
+      ? { voiceProfile: normalizeVoiceProfile(s.voiceProfile) }
+      : {}),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Voice Calibration profile — per-user turn-taking timings measured by the
+// calibration conversation. Clamps MUST stay in sync with the client mirror
+// in `client/src/voice/calibration.js` (PROFILE_PRESETS / PROFILE_CLAMPS):
+// a corrupt or malicious stored profile must never be able to wedge the
+// engine with an absurd end-of-turn wait.
+// ---------------------------------------------------------------------------
+const VOICE_PROFILE_STYLES = {
+  fast: { activePauseMs: 700, finalPauseMs: 350, continuationExtraMs: 600 },
+  balanced: { activePauseMs: 900, finalPauseMs: 450, continuationExtraMs: 900 },
+  patient: { activePauseMs: 1600, finalPauseMs: 800, continuationExtraMs: 1500 },
+};
+const VOICE_PROFILE_CLAMPS = {
+  activePauseMs: [500, 2500],
+  finalPauseMs: [300, 1200],
+  continuationExtraMs: [0, 2500],
+};
+const VOICE_PROFILE_STAT_KEYS = [
+  "avgPauseMs",
+  "maxPauseMs",
+  "p90PauseMs",
+  "wordsPerMin",
+  "thinkingPauses",
+  "continuationResumes",
+  "answers",
+];
+
+function clampProfileNum(value, [min, max], fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+/**
+ * Normalize a stored voiceProfile blob: valid style enum, clamped timings,
+ * sanitized stats (real measurements only — never a fabricated 0 for
+ * "unknown"). Returns null for anything that isn't a usable object.
+ */
+function normalizeVoiceProfile(profile) {
+  if (!profile || typeof profile !== "object") return null;
+  const style = VOICE_PROFILE_STYLES[profile.style] ? profile.style : "balanced";
+  const preset = VOICE_PROFILE_STYLES[style];
+  const out = {
+    style,
+    activePauseMs: clampProfileNum(
+      profile.activePauseMs,
+      VOICE_PROFILE_CLAMPS.activePauseMs,
+      preset.activePauseMs,
+    ),
+    finalPauseMs: clampProfileNum(
+      profile.finalPauseMs,
+      VOICE_PROFILE_CLAMPS.finalPauseMs,
+      preset.finalPauseMs,
+    ),
+    continuationExtraMs: clampProfileNum(
+      profile.continuationExtraMs,
+      VOICE_PROFILE_CLAMPS.continuationExtraMs,
+      preset.continuationExtraMs,
+    ),
+    calibratedAt:
+      typeof profile.calibratedAt === "string" && profile.calibratedAt
+        ? profile.calibratedAt.slice(0, 40)
+        : null,
+  };
+  if (profile.stats && typeof profile.stats === "object") {
+    const stats = {};
+    for (const key of VOICE_PROFILE_STAT_KEYS) {
+      const raw = profile.stats[key];
+      // Only genuine numbers count — Number(null)/Number("") coerce to 0,
+      // which would fabricate a measurement that was never taken.
+      if (typeof raw !== "number") continue;
+      if (Number.isFinite(raw) && raw >= 0) stats[key] = Math.round(raw);
+    }
+    const stop = profile.stats.stopTest;
+    stats.stopTest = stop === "passed" || stop === "failed" ? stop : "skipped";
+    out.stats = stats;
+  }
+  return out;
 }
 
 function clampHour(value, fallback) {
@@ -175,6 +261,7 @@ module.exports = {
   sanitizeMusicFavorites,
   resolveMusicFavorites,
   normalizeSettings,
+  normalizeVoiceProfile,
   voiceForStyle,
   isQuietHour,
 };

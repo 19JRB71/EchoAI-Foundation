@@ -77,6 +77,7 @@ import {
 } from "./phraseVariety.js";
 import { api } from "../api.js";
 import { recordVoiceEvent } from "./flightRecorder.js";
+import { timingsForProfile, endsWithContinuationCue } from "./calibration.js";
 
 const EchoConversationContext = createContext(null);
 
@@ -111,11 +112,16 @@ const LEARNED_CANON = {
 
 const MIC_MUTE_KEY = "echoai_mic_muted";
 const MIC_OPTIN_KEY = "echoai_mic_optin";
-// Finalize a spoken command after this much silence.
-const ACTIVE_PAUSE_MS = 900;
-// When the recognizer delivers a FINAL result (it detected end of speech
-// itself), commit much faster — the browser already decided you stopped.
-const FINAL_PAUSE_MS = 450;
+// End-of-turn timing is now PER-USER: the Voice Calibration profile
+// (settings.voiceProfile, see ./calibration.js) supplies
+//   activePauseMs  — silence after interim speech before finalizing (was the
+//                    fixed ACTIVE_PAUSE_MS = 900)
+//   finalPauseMs   — faster commit when the recognizer delivered a FINAL
+//                    chunk (was the fixed FINAL_PAUSE_MS = 450)
+//   continuationExtraMs — extra wait when the speech tail ends on a
+//                    continuation cue ("and", "but", "so", "uh"…) — the
+//                    speaker is mid-thought (pause-talk-pause rhythm).
+// Uncalibrated users get the balanced preset, which equals the old constants.
 // How long Echo stays listening for a follow-up after a (non-question) reply.
 const FOLLOWUP_MS = 30000;
 // Safety cap so a muted/blocked TTS can never hang the conversation.
@@ -232,6 +238,16 @@ export function EchoConversationProvider({ active, children }) {
   const misheardRef = useRef(null); // { text, at } awaiting a clarified repeat
   const clarifyRetryRef = useRef(false); // asked "say that again?" once already
   const confRef = useRef(null); // lowest recognizer confidence of the capture
+  // Per-user turn-taking timings from the Voice Calibration profile (kept in
+  // a ref so recognition callbacks always read the live values).
+  const profileTimingsRef = useRef(timingsForProfile(null));
+  // Last transcript we logged a continuation-extension for (avoid spamming
+  // the flight recorder on every interim reschedule of the same utterance).
+  const lastCueLoggedRef = useRef("");
+  // Voice Calibration holds the mic: the calibration screen runs its OWN
+  // recognizer, so the engine must fully release the mic while it's active
+  // (two live SpeechRecognition instances fight over the device).
+  const [calibrationHold, setCalibrationHold] = useState(false);
   // Latest voice.stopAll, readable from stable callbacks (handleResult) without
   // adding the ever-changing `voice` object to their dependency lists.
   const stopAllRef = useRef(null);
@@ -2506,7 +2522,7 @@ export function EchoConversationProvider({ active, children }) {
         pauseTimerRef.current = setTimeout(() => {
           const captured = finalRef.current.trim();
           processCommand(captured);
-        }, ACTIVE_PAUSE_MS);
+        }, profileTimingsRef.current.activePauseMs);
         return;
       }
       // Bare wake word ("Hey Echo" with no command): Echo must ANSWER out loud
@@ -2709,11 +2725,24 @@ export function EchoConversationProvider({ active, children }) {
       if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
       // When the recognizer already delivered a FINAL chunk it has detected end
       // of speech itself — commit fast so Echo feels instant. Interim-only text
-      // keeps the longer pause (the user may still be mid-sentence).
+      // keeps the longer pause (the user may still be mid-sentence). Both waits
+      // come from the user's calibration profile; a trailing continuation cue
+      // ("and", "but", "so", "uh"…) means they're mid-thought — hold longer.
+      const timings = profileTimingsRef.current;
+      const basePause = addedFinal ? timings.finalPauseMs : timings.activePauseMs;
+      const trailingCue = endsWithContinuationCue(shown);
+      const waitMs = trailingCue ? basePause + timings.continuationExtraMs : basePause;
+      if (trailingCue && shown !== lastCueLoggedRef.current) {
+        lastCueLoggedRef.current = shown;
+        recordVoiceEvent("pause-extended-continuation", {
+          tail: shown.slice(-40),
+          waitMs,
+        });
+      }
       pauseTimerRef.current = setTimeout(() => {
         const captured = finalRef.current.trim();
         if (captured) processCommand(captured);
-      }, addedFinal ? FINAL_PAUSE_MS : ACTIVE_PAUSE_MS);
+      }, waitMs);
       // If nothing final has landed yet, keep waiting for the pause on interim.
       if (!addedFinal && !finalRef.current) {
         finalRef.current = "";
@@ -2819,10 +2848,31 @@ export function EchoConversationProvider({ active, children }) {
   }, [handleResult, restartNow, scheduleRestart, stopRecognition]);
   startRecognitionRef.current = startRecognition;
 
-  // Master listening controller: run recognition whenever we should be
-  // listening (opted in, supported, not muted, provider active), else stop.
+  // Keep the per-user turn-taking timings live: whenever settings load or
+  // save (including a fresh calibration), the recognition callbacks pick up
+  // the new profile on their next event via the ref.
   useEffect(() => {
-    const shouldListen = supported && micEnabled && !muted && active;
+    profileTimingsRef.current = timingsForProfile(
+      voice && voice.settings ? voice.settings.voiceProfile : null,
+    );
+  }, [voice && voice.settings]);
+
+  // Voice Calibration mic-hold: the calibration screen broadcasts
+  // `echoai:calibration-state` {active} while it runs its own recognizer;
+  // the engine releases the mic for the duration and resumes after.
+  useEffect(() => {
+    const onCalibration = (e) => {
+      setCalibrationHold(Boolean(e && e.detail && e.detail.active));
+    };
+    window.addEventListener("echoai:calibration-state", onCalibration);
+    return () => window.removeEventListener("echoai:calibration-state", onCalibration);
+  }, []);
+
+  // Master listening controller: run recognition whenever we should be
+  // listening (opted in, supported, not muted, provider active, and the
+  // calibration screen isn't holding the mic), else stop.
+  useEffect(() => {
+    const shouldListen = supported && micEnabled && !muted && active && !calibrationHold;
     wantListeningRef.current = shouldListen;
     if (shouldListen) {
       if (!runningRef.current) startRecognition();
@@ -2837,7 +2887,7 @@ export function EchoConversationProvider({ active, children }) {
       setListeningText("");
     }
     return undefined;
-  }, [supported, micEnabled, muted, active, startRecognition, stopRecognition, clearTimers]);
+  }, [supported, micEnabled, muted, active, calibrationHold, startRecognition, stopRecognition, clearTimers]);
 
   // Watchdog: every second, if we SHOULD be listening but no recognition
   // instance is live and no restart is already scheduled, start one. This is

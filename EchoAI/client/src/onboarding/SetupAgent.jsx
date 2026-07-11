@@ -3,8 +3,12 @@ import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import { classifyExecuteError } from "./executeError.js";
 import { useVoiceInput, detectIsMobile } from "./useVoiceInput.js";
+import VoiceCalibration from "./VoiceCalibration.jsx";
 
 const VOICE_MODE_KEY = "echoai_setup_voice_mode";
+// Set once the user completes OR skips voice calibration, so we never re-offer
+// it on a resumed/re-opened setup session.
+const CALIBRATION_OFFERED_KEY = "echoai_calibration_offered";
 
 function MicIcon({ className = "h-8 w-8" }) {
   return (
@@ -252,7 +256,21 @@ export default function SetupAgent({ onClose, onExitToSection }) {
 
         if (!s.interviewComplete) {
           setQuestion(data.question || null);
-          setPhase("interview");
+          // Voice Calibration runs ONCE, before the business interview, so
+          // Echo learns the user's speech rhythm before any real conversation.
+          // Never re-offered on resume (localStorage flag) or if a profile
+          // already exists from a prior calibration.
+          let offerCalibration = false;
+          try {
+            if (!localStorage.getItem(CALIBRATION_OFFERED_KEY)) {
+              const vs = await api.echoVoiceGetSettings().catch(() => null);
+              offerCalibration = !(vs && vs.settings && vs.settings.voiceProfile);
+            }
+          } catch {
+            offerCalibration = false;
+          }
+          if (!active) return;
+          setPhase(offerCalibration ? "calibration" : "interview");
         } else if (!s.consentGranted) {
           setPhase("consent");
         } else {
@@ -480,6 +498,22 @@ export default function SetupAgent({ onClose, onExitToSection }) {
         >
           Close
         </button>
+      </div>,
+    );
+  }
+
+  if (phase === "calibration") {
+    const finishCalibration = () => {
+      try {
+        localStorage.setItem(CALIBRATION_OFFERED_KEY, "1");
+      } catch {
+        /* localStorage unavailable — worst case we offer again next time */
+      }
+      setPhase("interview");
+    };
+    return shell(
+      <div className="flex flex-1 items-center justify-center py-6">
+        <VoiceCalibration onComplete={finishCalibration} onSkip={finishCalibration} />
       </div>,
     );
   }

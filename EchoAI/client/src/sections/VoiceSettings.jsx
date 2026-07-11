@@ -9,6 +9,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Spinner from "../components/Spinner.jsx";
 import { useVoice } from "../voice/VoiceContext.jsx";
+import VoiceCalibration from "../onboarding/VoiceCalibration.jsx";
+import {
+  STYLE_LABELS,
+  PROFILE_PRESETS,
+  describeProfile,
+  profileForStyle,
+} from "../voice/calibration.js";
 import {
   VOICE_STYLE_META,
   EVENT_META,
@@ -52,6 +59,8 @@ export default function VoiceSettings() {
   const [err, setErr] = useState("");
   const [previewing, setPreviewing] = useState(false);
   const [diagCopiedAt, setDiagCopiedAt] = useState(0);
+  // Voice Calibration re-run (renders the calibration conversation inline).
+  const [recalibrating, setRecalibrating] = useState(false);
 
   // Load current settings once the context is ready.
   useEffect(() => {
@@ -227,6 +236,98 @@ export default function VoiceSettings() {
               );
             })}
           </div>
+        </section>
+
+        {/* Listening rhythm (Voice Calibration profile) */}
+        <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+          <div className="mb-1 text-sm font-semibold text-gray-100">
+            Listening rhythm
+          </div>
+          <p className="mb-3 text-xs text-gray-400">
+            How long Echo waits before answering when you pause. Calibration
+            measures your natural rhythm in a short conversation; you can also
+            just pick a style.
+          </p>
+          {recalibrating ? (
+            <VoiceCalibration
+              onComplete={async (profile) => {
+                setRecalibrating(false);
+                setDraft((d) => ({ ...d, voiceProfile: profile }));
+                try {
+                  await voice.refreshSettings();
+                } catch {
+                  /* draft already reflects the new profile */
+                }
+              }}
+              onSkip={() => setRecalibrating(false)}
+            />
+          ) : (
+            <>
+              <ul className="mb-3 space-y-1.5">
+                {describeProfile(draft.voiceProfile).map((line) => (
+                  <li key={line} className="text-xs text-gray-300">
+                    • {line}
+                  </li>
+                ))}
+              </ul>
+              <div className="mb-3 grid gap-3 sm:grid-cols-3">
+                {Object.keys(PROFILE_PRESETS).map((style) => {
+                  const selected =
+                    draft.voiceProfile && draft.voiceProfile.style === style;
+                  return (
+                    <button
+                      key={style}
+                      type="button"
+                      onClick={() =>
+                        update({
+                          voiceProfile: profileForStyle(style, draft.voiceProfile),
+                        })
+                      }
+                      className={`rounded-xl border p-3 text-left transition ${
+                        selected
+                          ? "border-teal-500 bg-teal-500/10"
+                          : "border-gray-700 bg-gray-950 hover:border-gray-600"
+                      }`}
+                    >
+                      <div className="text-sm font-semibold text-gray-100">
+                        {STYLE_LABELS[style]}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        Waits about{" "}
+                        {(PROFILE_PRESETS[style].activePauseMs / 1000).toFixed(1)}s
+                        of silence before answering.
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRecalibrating(true)}
+                  className="rounded-lg border border-gray-700 px-4 py-2 text-xs font-semibold text-gray-200 hover:border-teal-500"
+                >
+                  {draft.voiceProfile ? "Recalibrate my voice" : "Calibrate my voice"}
+                </button>
+                {draft.voiceProfile ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      // Removing the KEY (not nulling it) is what deletes the
+                      // profile server-side — normalize only persists it when set.
+                      setDraft((d) => {
+                        const { voiceProfile, ...rest } = d;
+                        return rest;
+                      })
+                    }
+                    className="rounded-lg border border-gray-700 px-4 py-2 text-xs font-semibold text-red-300 hover:border-red-500"
+                  >
+                    Delete calibration
+                  </button>
+                ) : null}
+              </div>
+            </>
+          )}
         </section>
 
         {/* Volume */}

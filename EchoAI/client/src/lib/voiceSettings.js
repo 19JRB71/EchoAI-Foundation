@@ -6,6 +6,8 @@
  * filters), but the client normalizes for display + optimistic UI.
  */
 
+import { clampProfile } from "../voice/calibration.js";
+
 export const VOICE_STYLE_META = {
   professional: {
     label: "Professional",
@@ -163,6 +165,13 @@ export function normalizeSettings(stored) {
           .map((f) => f.trim().slice(0, 200))
           .slice(0, 5)
       : [],
+    // Voice Calibration profile — MUST be carried through every normalize/save
+    // round-trip or an ordinary settings save would silently wipe the user's
+    // calibration. Absent = not calibrated. Clamping lives in
+    // voice/calibration.js (clampProfile); the server re-clamps on save.
+    ...(s.voiceProfile && typeof s.voiceProfile === "object"
+      ? { voiceProfile: clampProfile(s.voiceProfile) }
+      : {}),
   };
 }
 

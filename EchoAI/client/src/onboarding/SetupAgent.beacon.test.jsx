@@ -87,6 +87,9 @@ async function beaconBody(call) {
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.setItem("echoai_token", TOKEN);
+  // These tests exercise the interview phase; skip the voice-calibration
+  // offer that would otherwise render first for a fresh browser profile.
+  localStorage.setItem("echoai_calibration_offered", "1");
   // jsdom has no Beacon API — install a stub we can assert against.
   navigator.sendBeacon = vi.fn(() => true);
   api.pauseSetupSession.mockResolvedValue(undefined);
