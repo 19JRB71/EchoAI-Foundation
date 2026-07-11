@@ -1,0 +1,226 @@
+I need you to pause all new feature development and perform a complete technical audit of Echo/Zorecho.
+
+Do not make any code changes yet.
+
+I am repeatedly being told that voice, routing, listening, and command-handling issues are fixed, but the same or similar problems keep returning. I am also receiving multiple Anthropic charges in a single day, and I need to understand exactly what is happening before we continue.
+
+Your job is to investigate the system and give me a plain-English report that a nontechnical business owner can understand.
+
+Please audit the following areas:
+
+1. VOICE PIPELINE
+
+Map the complete voice interaction from beginning to end:
+
+* Wake-word detection
+* Browser microphone listener
+* Speech-to-text
+* Conversation state
+* Intent matching
+* Hermes routing
+* Specialist-agent execution
+* Text-to-speech
+* Listener restart after Echo speaks
+* Listener restart after errors, silence, cancellation, tab changes, or inactivity
+
+For each stage, explain:
+
+* What code or service controls it
+* What can fail
+* Whether the failure is logged
+* Whether there is an automatic recovery process
+* Whether the current implementation is reliable
+* Whether multiple systems are competing for control of the microphone or conversation state
+
+2. RECURRING BUG AUDIT
+
+Review recent voice and command fixes and determine whether they were:
+
+* Root-cause fixes
+* Temporary patches
+* Narrow exceptions
+* Duplicate fixes in different files
+* Changes that could conflict with one another
+* Fixes that were built locally but never deployed
+* Fixes that were deployed but overwritten by later work
+
+Create a table containing:
+
+* Bug description
+* Claimed fix
+* File or component changed
+* Test performed
+* Whether it is live
+* Whether the root cause is actually resolved
+* Risk of recurrence
+
+Pay special attention to:
+
+* Commands being swallowed after Echo offers a briefing
+* “Let’s create content” being interpreted as a briefing answer
+* “I’m ready to do a Facebook post” starting the wrong workflow
+* Echo failing to hear “Hey Echo”
+* The browser microphone listener silently stopping
+* Echo failing to restart listening after speaking
+* Conversation states remaining active too long
+* One intent taking precedence over a more relevant intent
+
+3. ANTHROPIC USAGE AND COST AUDIT
+
+Identify every place in the system where an Anthropic API call can be triggered.
+
+Include:
+
+* Direct user conversations
+* Lead replies
+* Content creation
+* Ad creation
+* Sage research
+* Competitor scans
+* Briefings
+* Analytics
+* Health checks
+* Summaries
+* Memory processing
+* Intent classification
+* Hermes routing
+* Background jobs
+* Retry logic
+* Failed jobs that automatically retry
+* Development or testing calls
+* Duplicate calls caused by React rendering, loops, scheduled jobs, or repeated webhooks
+
+For every Anthropic-powered feature, report:
+
+* Trigger
+* Frequency
+* Model used
+* Average input tokens
+* Average output tokens
+* Estimated cost per call
+* Estimated daily cost
+* Estimated monthly cost
+* Whether the call is necessary
+* Whether it can use cached information
+* Whether it can use a cheaper model
+* Whether it can run less often
+* Whether it should require user approval
+
+4. BACKGROUND AUTOMATION AUDIT
+
+List every scheduled or autonomous job currently running.
+
+For each job, show:
+
+* Name
+* Purpose
+* Schedule
+* Businesses it runs for
+* Number of AI calls per run
+* Retry behavior
+* Failure behavior
+* Whether jobs overlap
+* Whether the same information is being researched repeatedly
+* Whether it continues running when no customer needs the result
+* Whether it is running in development, production, or both
+
+Check specifically for:
+
+* Jobs running every six hours
+* Jobs duplicated for all businesses
+* Jobs running more than once because of multiple server instances
+* Cron jobs and queue workers both triggering the same task
+* Jobs that restart and repeat after deployment
+* Loops caused by failed completion states
+
+5. DEPLOYMENT AUDIT
+
+Confirm:
+
+* Which fixes exist only in the current workspace
+* Which fixes were pushed to Git
+* Which fixes are deployed on the live site
+* Which version the live site is currently running
+* Whether the client and server are running matching versions
+* Whether old code is still active anywhere
+* Whether multiple deployments are responding to the same events
+* Whether environment variables differ between development and production
+
+6. LOGGING AND FLIGHT RECORDER AUDIT
+
+Review the current flight recorder.
+
+Tell me whether it records enough information to diagnose:
+
+* Wake word detected
+* Microphone listener started
+* Microphone listener stopped
+* Audio received
+* Transcript created
+* Transcript confidence
+* Intent selected
+* Competing intents
+* Conversation state before and after
+* Hermes route chosen
+* Agent selected
+* API call made
+* Tokens consumed
+* Cost of the call
+* Retry count
+* Response spoken
+* Listener restarted
+* Final success or failure
+
+If any of these are missing, list exactly what should be added.
+
+7. COST-CONTROL RECOMMENDATIONS
+
+Design a cost-control system for Echo that includes:
+
+* Daily budget
+* Monthly budget
+* Per-business budget
+* Per-agent budget
+* Alerts at 50%, 75%, 90%, and 100%
+* Emergency shutoff
+* Maximum retry count
+* Duplicate-request detection
+* Prompt caching
+* Response caching
+* Model selection based on task difficulty
+* No-AI handling for database lookups, navigation, CRM lookups, calendar checks, and simple commands
+* User approval for expensive research
+* Reduced frequency for background scans
+* A dashboard showing cost by feature, agent, business, and model
+
+Do not create a new AI Governor agent unless it is truly necessary. First determine whether these controls should be normal application logic, middleware, or part of Hermes.
+
+8. FINAL REPORT
+
+Give me the report in this exact structure:
+
+A. Executive summary
+B. Most likely cause of recurring voice failures
+C. Most likely cause of high Anthropic usage
+D. Confirmed bugs
+E. Suspected bugs
+F. Fixes built but not deployed
+G. Duplicate or unnecessary AI calls
+H. Background jobs currently running
+I. Immediate actions that cost nothing
+J. Changes that will reduce cost fastest
+K. Changes that will improve voice reliability fastest
+L. Recommended order of work
+M. Risks of continuing without these changes
+
+For every conclusion, include evidence from the code, logs, job configuration, or billing-related usage records.
+
+Do not tell me something is fixed unless you can show:
+
+* The root cause
+* The exact change
+* The test that reproduces the old failure
+* The test that proves the new behavior
+* Whether the fix is deployed live
+
+Do not start coding until I review and approve the audit.
