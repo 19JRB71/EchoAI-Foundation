@@ -58,3 +58,20 @@ facebook_pages, merges live page tokens over stored; graph failure falls back
 to snapshot). **Why:** owner's second-business Page never appeared despite
 reconnecting. **How to apply:** treat any FB asset list shown for user choice
 as live data; snapshots only as a fallback.
+
+## Full reset is the reliable fix when a Page won't appear
+
+When reconnects (even with `auth_type=rerequest` + live page refresh) still
+never surface a Page, the working fix is a **two-sided reset**:
+1. Disconnect in EchoAI (deletes the user's api_integrations facebook row;
+   Disconnect buttons live in Settings AND the Connected Accounts Page picker).
+2. Remove the app on Facebook: facebook.com/settings/?tab=business_tools →
+   remove the app. This is the step that makes Facebook forget the old
+   partial Page grant; without it FB keeps skipping the checklist.
+3. Reconnect — FB then shows the fresh "Choose the Pages" screen; recommend
+   **"Opt in to all current and future Pages"** so new business Pages never
+   need this again.
+**Why:** FB remembers the original partial selection ("one Page only") across
+reconnects; verified fixed for a multi-brand owner this way.
+Brand→Page mappings ({pageId} pointers in social_accounts) survive the reset;
+tokens come back on reconnect, so brands don't need re-picking unless desired.
