@@ -1014,3 +1014,101 @@ export function matchBrandSwitch(text, brands) {
   }
   return best ? { brand: best } : null;
 }
+
+// ---------------------------------------------------------------------------
+// Voice content creation ("Hey Echo, let's create some content")
+// ---------------------------------------------------------------------------
+// Kicks off the voice content session: Echo gathers the brand's real
+// intelligence, drafts posts + visuals, and walks the owner through each one.
+// The matcher is deliberately explicit — "content"/"posts" must be the OBJECT
+// of a create-ish verb so ordinary sentences can't trigger a whole workflow.
+const CONTENT_CREATE_RE =
+  /^(?:hey )?(?:echo[,!]? )?(?:let ?s |lets |can (?:you|we) |could (?:you|we) |i (?:want|need) (?:you )?to |help me |time to |please )?(?:create|make|draft|write|generate|whip up|put together|work on|build)(?: up)?(?: some| a few| me some| us some| some new| new| a| this week ?s)? (?:content|posts?|social (?:media )?(?:content|posts?)|marketing content)\b(.*)$/;
+
+/**
+ * Detects "let's create some content" style requests.
+ * @returns {{ request: string }|null} request = any trailing topic hint
+ *   ("about the summer sale"), possibly empty.
+ */
+export function matchContentCreateIntent(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return null;
+  const m = norm.match(CONTENT_CREATE_RE);
+  if (!m) return null;
+  const trailing = (m[1] || "").trim();
+  return { request: trailing };
+}
+
+// Review-walkthrough commands while Echo is presenting a draft. Approve is
+// EXPLICIT and exact-ish — nothing is ever scheduled off a loose match.
+const CONTENT_APPROVE_RE =
+  /^(?:yes[,!]? )?(?:approve|approved|approve it|approve that(?: one)?|schedule it|schedule that(?: one)?|post it|publish it|ship it|send it|book it|lock it in|i approve|go ahead and (?:schedule|post) it|yes schedule it|yes post it)$/;
+const CONTENT_SKIP_RE =
+  /^(?:skip|skip it|skip this one|skip that(?: one)?|pass|pass on (?:this|that)(?: one)?|drop it|toss it|not that one|no skip it|next(?: one)?(?: please)?|move on)$/;
+const CONTENT_IMAGE_RE =
+  /^(?:(?:can you |could you |please )?(?:create|generate|make|add|show me|do|build|give me)(?: me| us)?(?: the| a| an| its)? (?:visual|image|picture|graphic|photo|artwork)(?: for (?:it|this|that)(?: one)?)?|what about (?:the|a) (?:visual|image|picture))$/;
+const CONTENT_REPEAT_RE =
+  /^(?:(?:can you |could you |please )?(?:read|say) (?:it|that)(?: one)? again|repeat (?:it|that)(?: please)?|one more time|come again)$/;
+const CONTENT_DONE_RE =
+  /^(?:(?:that ?s|thats|that is) (?:all|enough|it)(?: for now)?|we ?re done|were done|i ?m done|im done|done for now|wrap it up|finish up|end (?:the )?session|no more)$/;
+const CONTENT_REVISE_RE =
+  /^(?:change|revise|rewrite|redo|edit|tweak|adjust|shorten|lengthen|soften|punch up|reword|make it|can you make it|could you make it|add|remove|take out|drop the|mention|include|start it|end it)\b/;
+
+/**
+ * Interprets the owner's spoken command while reviewing a content draft.
+ * @returns {{ action: 'approve'|'skip'|'image'|'repeat'|'done' } |
+ *           { action: 'revise', instruction: string } | null}
+ *   null = not a review command (caller falls through / asks for guidance).
+ */
+export function matchContentReviewCommand(text) {
+  const norm = normalizeSpeech(text);
+  if (!norm) return null;
+  if (CONTENT_APPROVE_RE.test(norm)) return { action: "approve" };
+  if (CONTENT_SKIP_RE.test(norm)) return { action: "skip" };
+  if (CONTENT_IMAGE_RE.test(norm)) return { action: "image" };
+  if (CONTENT_REPEAT_RE.test(norm)) return { action: "repeat" };
+  if (CONTENT_DONE_RE.test(norm)) return { action: "done" };
+  if (CONTENT_REVISE_RE.test(norm))
+    return { action: "revise", instruction: text.trim() };
+  return null;
+}
+
+/** Ordinal position line for the walkthrough ("first", "second", ...). */
+const DRAFT_ORDINALS = [
+  "first",
+  "second",
+  "third",
+  "fourth",
+  "fifth",
+  "sixth",
+  "seventh",
+  "eighth",
+];
+
+/**
+ * Composes the spoken presentation of one draft: position, platform, the post
+ * itself, and the proposed schedule slot — then the review question.
+ */
+export function speakableDraft(draft, index, total) {
+  const ord = DRAFT_ORDINALS[index] || `number ${index + 1}`;
+  const platformName =
+    { facebook: "Facebook", twitter: "X", linkedin: "LinkedIn" }[
+      draft.platform
+    ] || draft.platform;
+  let when = "";
+  if (draft.scheduledTime) {
+    const d = new Date(draft.scheduledTime);
+    if (!Number.isNaN(d.getTime())) {
+      when = ` I'd schedule it for ${d.toLocaleString(undefined, {
+        weekday: "long",
+        hour: "numeric",
+        minute: "2-digit",
+      })}.`;
+    }
+  }
+  const intro =
+    total > 1
+      ? `Here's the ${ord} one, for ${platformName}:`
+      : `Here's what I've got, for ${platformName}:`;
+  return `${intro} ${draft.postContent}${when}`;
+}

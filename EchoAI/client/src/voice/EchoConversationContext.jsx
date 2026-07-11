@@ -54,6 +54,9 @@ import {
   matchStatusIntent,
   matchBrandSwitch,
   matchLearnedPhrase,
+  matchContentCreateIntent,
+  matchContentReviewCommand,
+  speakableDraft,
   normalizeSpeech,
   CONFIDENCE_THRESHOLD,
   withTimeout,
@@ -129,6 +132,9 @@ const POST_QUESTION_MS = 1200;
 // speak the honest failure line and reopen listening.
 const FETCH_TIMEOUT_MS = 20000; // simple data fetches (briefing/status text)
 const AI_TIMEOUT_MS = 60000; // AI pipeline replies (Echo chat, assistant)
+// Heavy content generation (multi-post drafting, DALL-E visuals) legitimately
+// runs long — give it a generous budget before declaring failure.
+const CONTENT_TIMEOUT_MS = 180000;
 const OFFER_TIMEOUT_MS = 8000; // best-effort nav offers (generic fallback ok)
 // If the engine has been suspended (processing/speaking) with NO audio playing
 // for this long, something wedged — force-reset to passive so the mic can
@@ -203,6 +209,10 @@ export function EchoConversationProvider({ active, children }) {
   const pendingBrandPickRef = useRef(false); // "which business?" question pending
   const pendingTransferOfferRef = useRef(null); // live hot-lead handoff offer: { conversationId }
   const pendingPermissionRef = useRef(false); // Echo asked "do you have a moment?" — awaiting yes/no
+  // Voice content creation session ("let's create some content"):
+  // { sessionId, phase: 'questions'|'review', questions, qIndex, answers,
+  //   drafts, index, approvedCount, guided } — null when no session is live.
+  const contentSessionRef = useRef(null);
   const learnedMapRef = useRef(new Map()); // normalized phrase -> learned action
   const misheardRef = useRef(null); // { text, at } awaiting a clarified repeat
   const clarifyRetryRef = useRef(false); // asked "say that again?" once already
@@ -616,6 +626,152 @@ export function EchoConversationProvider({ active, children }) {
         // eslint-disable-next-line no-use-before-define
         openFollowupWindow();
       }
+
+      // ---- voice content creation helpers ---------------------------------
+      // Broadcast the live session snapshot so the on-screen review panel
+      // (VoiceContentOverlay) mirrors what Echo is talking through.
+      function contentOverlay() {
+        const sess = contentSessionRef.current;
+        try {
+          window.dispatchEvent(
+            new CustomEvent("echoai:content-session", {
+              detail: sess
+                ? {
+                    sessionId: sess.sessionId,
+                    phase: sess.phase,
+                    drafts: sess.drafts,
+                    index: sess.index,
+                    approvedCount: sess.approvedCount,
+                  }
+                : null,
+            }),
+          );
+        } catch {
+          /* noop */
+        }
+      }
+      // Close out the session (finished or cancelled) with an honest tally —
+      // only posts the owner explicitly approved were scheduled.
+      async function finishContentSession(sess, cancelled) {
+        contentSessionRef.current = null;
+        contentOverlay();
+        api.voiceContentComplete(sess.sessionId, cancelled).catch(() => {});
+        const n = sess.approvedCount;
+        setConvState("speaking");
+        await speakAndWait(
+          cancelled
+            ? n > 0
+              ? `Understood, Sir — stopping there. ${n} post${n === 1 ? " is" : "s are"} already scheduled; the rest I've set aside.`
+              : "Understood, Sir — I've set that content aside. Nothing was scheduled."
+            : n > 0
+              ? `All wrapped up, Sir. ${n} post${n === 1 ? " is" : "s are"} approved and scheduled — I'll handle the posting from here.`
+              : "That's all of them, Sir. Nothing was scheduled — just say the word when you want another pass.",
+        );
+        if (stale()) return;
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow();
+      }
+      // Read the current draft aloud, then ask for the verdict.
+      async function presentContentDraft(sess, reintro = "") {
+        const draft = sess.drafts[sess.index];
+        if (!draft) {
+          await finishContentSession(sess, false);
+          return;
+        }
+        contentSessionRef.current = sess;
+        contentOverlay();
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait(
+          `${reintro}${speakableDraft(draft, sess.index, sess.drafts.length)} Shall I schedule it, make a change, create the visual, or skip it?`,
+        );
+        if (stale()) return;
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow(true);
+      }
+      // Move past the current draft (after an approve/skip ack line).
+      async function nextContentDraft(sess, ackLine) {
+        sess.index += 1;
+        if (sess.index >= sess.drafts.length) {
+          if (ackLine) {
+            setConvState("speaking");
+            await speakAndWait(ackLine);
+            if (stale()) return;
+          }
+          await finishContentSession(sess, false);
+          return;
+        }
+        await presentContentDraft(sess, ackLine ? `${ackLine} ` : "");
+      }
+      // Ask the next clarifying question (questions phase).
+      async function askContentQuestion(sess) {
+        contentSessionRef.current = sess;
+        contentOverlay();
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait(sess.questions[sess.qIndex]);
+        if (stale()) return;
+        // eslint-disable-next-line no-use-before-define
+        openFollowupWindow(true);
+      }
+      // Server session state → local walkthrough state, then either ask the
+      // first clarifying question or start reviewing the drafts.
+      async function beginContentSession(state) {
+        const drafts = Array.isArray(state.drafts)
+          ? state.drafts.filter((d) => d.status === "pending")
+          : [];
+        if (
+          Array.isArray(state.questions) &&
+          state.questions.length &&
+          !drafts.length
+        ) {
+          const sess = {
+            sessionId: state.sessionId,
+            phase: "questions",
+            questions: state.questions.map((q) => String(q)),
+            qIndex: 0,
+            answers: [],
+            drafts: [],
+            index: 0,
+            approvedCount: 0,
+          };
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            "A couple of quick questions first so I get this right, Sir.",
+          );
+          if (stale()) return;
+          await askContentQuestion(sess);
+          return;
+        }
+        if (!drafts.length) {
+          setConvState("speaking");
+          await speakAndWait(
+            "I couldn't put any drafts together just now, Sir. Give me another go in a moment.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        const sess = {
+          sessionId: state.sessionId,
+          phase: "review",
+          questions: [],
+          qIndex: 0,
+          answers: [],
+          drafts,
+          index: 0,
+          approvedCount: 0,
+        };
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait(
+          `I've drafted ${drafts.length} post${drafts.length === 1 ? "" : "s"} based on what's been working and what your competitors are up to. Nothing goes out until you approve it. Let's walk through them.`,
+        );
+        if (stale()) return;
+        await presentContentDraft(sess);
+      }
       if (!text) {
         if (wake.matched) {
           // Bare "Hey Echo" spoken while ALREADY in an active window. This
@@ -670,6 +826,15 @@ export function EchoConversationProvider({ active, children }) {
       // while Echo is quietly listening.
       if (matchInterruptIntent(text)) {
         maybeLearn("stop", text);
+        if (contentSessionRef.current) {
+          // Cancel the live content session server-side; already-approved
+          // posts stay scheduled, everything else is set aside untouched.
+          api
+            .voiceContentComplete(contentSessionRef.current.sessionId, true)
+            .catch(() => {});
+          contentSessionRef.current = null;
+          contentOverlay();
+        }
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
@@ -687,6 +852,13 @@ export function EchoConversationProvider({ active, children }) {
       // Local intents handled without a server round-trip.
       const intent = matchLocalIntent(text);
       if (intent === "mute") {
+        if (contentSessionRef.current) {
+          api
+            .voiceContentComplete(contentSessionRef.current.sessionId, true)
+            .catch(() => {});
+          contentSessionRef.current = null;
+          contentOverlay();
+        }
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
@@ -820,6 +992,198 @@ export function EchoConversationProvider({ active, children }) {
           return;
         }
         // Neither → fall through and treat it as a brand-new command.
+      }
+
+      // A voice content session is live — the utterance is either an answer to
+      // a clarifying question or a review verdict on the current draft. A
+      // clear nav/music command always wins and shelves the session (nothing
+      // is ever scheduled without an explicit "approve").
+      if (contentSessionRef.current) {
+        const sess = contentSessionRef.current;
+        if (matchNavIntent(text) || matchMusicIntent(text)) {
+          contentSessionRef.current = null;
+          api.voiceContentComplete(sess.sessionId, true).catch(() => {});
+          contentOverlay();
+          // Fall through — the nav/music command is handled normally below.
+        } else if (sess.phase === "questions") {
+          sess.answers.push(text);
+          sess.qIndex += 1;
+          if (sess.qIndex < sess.questions.length) {
+            await askContentQuestion(sess);
+            return;
+          }
+          // All questions answered → draft for real now.
+          contentSessionRef.current = null;
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            "Perfect, Sir. Give me a moment to put the drafts together.",
+          );
+          if (stale()) return;
+          setConvState("processing");
+          playEffect("thinking", { volume: 0.35 });
+          let state = null;
+          try {
+            state = await withTimeout(
+              api.voiceContentAnswers(sess.sessionId, sess.answers),
+              CONTENT_TIMEOUT_MS,
+            );
+          } catch {
+            state = null;
+          }
+          if (stale()) return;
+          if (!state) {
+            setConvState("speaking");
+            await speakAndWait(
+              'I hit a snag drafting that content, Sir. Say "create some content" and we\'ll try again.',
+            );
+            if (stale()) return;
+            // eslint-disable-next-line no-use-before-define
+            openFollowupWindow();
+            return;
+          }
+          await beginContentSession(state);
+          return;
+        } else {
+          // Review phase: interpret the verdict for the current draft.
+          const verdict = matchContentReviewCommand(text);
+          const draft = sess.drafts[sess.index];
+          if (!verdict || !draft) {
+            suspendRef.current = true;
+            setConvState("speaking");
+            await speakAndWait(
+              'Just tell me, Sir: "approve", the change you want, "create the visual", "skip it", or "that\'s all".',
+            );
+            if (stale()) return;
+            // eslint-disable-next-line no-use-before-define
+            openFollowupWindow(true);
+            return;
+          }
+          suspendRef.current = true;
+          if (verdict.action === "repeat") {
+            await presentContentDraft(sess);
+            return;
+          }
+          if (verdict.action === "done") {
+            await finishContentSession(sess, false);
+            return;
+          }
+          if (verdict.action === "skip") {
+            api.voiceContentSkip(sess.sessionId, draft.draftId).catch(() => {});
+            draft.status = "skipped";
+            await nextContentDraft(sess, "Skipped.");
+            return;
+          }
+          if (verdict.action === "approve") {
+            setConvState("processing");
+            let approvedResult = null;
+            try {
+              approvedResult = await withTimeout(
+                api.voiceContentApprove(sess.sessionId, draft.draftId),
+                FETCH_TIMEOUT_MS,
+              );
+            } catch {
+              approvedResult = null;
+            }
+            if (stale()) return;
+            if (!approvedResult) {
+              setConvState("speaking");
+              await speakAndWait(
+                "I couldn't schedule that one just now, Sir. Want to try approving it again?",
+              );
+              if (stale()) return;
+              contentSessionRef.current = sess;
+              // eslint-disable-next-line no-use-before-define
+              openFollowupWindow(true);
+              return;
+            }
+            draft.status = "approved";
+            sess.approvedCount += 1;
+            let when = "";
+            if (approvedResult.scheduledTime) {
+              const at = new Date(approvedResult.scheduledTime);
+              if (!Number.isNaN(at.getTime())) {
+                when = ` for ${at.toLocaleString(undefined, {
+                  weekday: "long",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}`;
+              }
+            }
+            await nextContentDraft(sess, `Done — it's scheduled${when}.`);
+            return;
+          }
+          if (verdict.action === "image") {
+            setConvState("speaking");
+            await speakAndWait(
+              "On it, Sir — creating the visual now. This takes a little while.",
+            );
+            if (stale()) return;
+            setConvState("processing");
+            playEffect("thinking", { volume: 0.35 });
+            let updated = null;
+            try {
+              updated = await withTimeout(
+                api.voiceContentImage(sess.sessionId, draft.draftId),
+                CONTENT_TIMEOUT_MS,
+              );
+            } catch {
+              updated = null;
+            }
+            if (stale()) return;
+            setConvState("speaking");
+            if (updated && updated.imageUrl) {
+              draft.imageUrl = updated.imageUrl;
+              contentSessionRef.current = sess;
+              contentOverlay();
+              await speakAndWait(
+                "The visual's ready — it's up on your screen now. Shall I schedule it, make a change, or skip it?",
+              );
+            } else {
+              await speakAndWait(
+                "I couldn't create the visual just now, Sir. We can still schedule the post without it — approve, change it, or skip it.",
+              );
+            }
+            if (stale()) return;
+            contentSessionRef.current = sess;
+            // eslint-disable-next-line no-use-before-define
+            openFollowupWindow(true);
+            return;
+          }
+          if (verdict.action === "revise") {
+            setConvState("processing");
+            playEffect("thinking", { volume: 0.35 });
+            let updated = null;
+            try {
+              updated = await withTimeout(
+                api.voiceContentRevise(
+                  sess.sessionId,
+                  draft.draftId,
+                  verdict.instruction,
+                ),
+                CONTENT_TIMEOUT_MS,
+              );
+            } catch {
+              updated = null;
+            }
+            if (stale()) return;
+            if (updated && updated.postContent) {
+              draft.postContent = updated.postContent;
+              await presentContentDraft(sess, "Here's the new version. ");
+            } else {
+              setConvState("speaking");
+              await speakAndWait(
+                "I couldn't make that change just now, Sir. Say it again, or approve or skip this one.",
+              );
+              if (stale()) return;
+              contentSessionRef.current = sess;
+              // eslint-disable-next-line no-use-before-define
+              openFollowupWindow(true);
+            }
+            return;
+          }
+          return;
+        }
       }
 
       // A "want to hear another business?" offer is pending after a per-brand
@@ -1185,6 +1549,67 @@ export function EchoConversationProvider({ active, children }) {
         return;
       }
 
+      // Voice content creation ("Hey Echo, let's create some content"). Echo
+      // studies the brand's REAL performance + competitor intel, drafts posts
+      // (visuals on request), and walks through them one at a time. NOTHING is
+      // scheduled until the owner explicitly says "approve".
+      const contentIntent = matchContentCreateIntent(text);
+      if (contentIntent) {
+        const brandCtx = activeBrandCtx();
+        if (!brandCtx.id) {
+          suspendRef.current = true;
+          setConvState("speaking");
+          await speakAndWait(
+            "I'd love to, Sir, but I need a business set up first. Add one and we'll get creating.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        pendingBriefRef.current = null;
+        pendingBriefingChoiceRef.current = false;
+        pendingBrandOfferRef.current = null;
+        pendingBrandPickRef.current = false;
+        pendingTransferOfferRef.current = null;
+        suspendRef.current = true;
+        setConvState("speaking");
+        await speakAndWait(
+          `On it, Sir. Give me a moment to look at what's been working for ${brandCtx.name || "the business"} and what your competitors are doing.`,
+        );
+        if (stale()) return;
+        setConvState("processing");
+        playEffect("thinking", { volume: 0.35 });
+        let state = null;
+        let failLine = "";
+        try {
+          state = await withTimeout(
+            api.voiceContentStart(brandCtx.id, contentIntent.request),
+            CONTENT_TIMEOUT_MS,
+          );
+        } catch (err) {
+          state = null;
+          failLine =
+            err && err.message === "no_connected_platforms"
+              ? "Before I can schedule anything, Sir, I need a social account I can actually post to — Facebook, X, or LinkedIn. Connect one in the Social Media section and we'll get creating."
+              : "";
+        }
+        if (stale()) return;
+        if (!state) {
+          setConvState("speaking");
+          await speakAndWait(
+            failLine ||
+              "I hit a snag putting the content together, Sir. Give me another go in a moment.",
+          );
+          if (stale()) return;
+          // eslint-disable-next-line no-use-before-define
+          openFollowupWindow();
+          return;
+        }
+        await beginContentSession(state);
+        return;
+      }
+
       // Music playback ("play some lofi", "pause the music", "skip", "louder").
       // Handled locally by nudging the MusicProvider via a window event.
       const music = matchMusicIntent(text);
@@ -1445,7 +1870,21 @@ export function EchoConversationProvider({ active, children }) {
       }, 1000);
       followupTimerRef.current = setTimeout(async () => {
         clearTimers();
-        // Soft close → back to passive wake-word listening.
+        // Soft close → back to passive wake-word listening. A live content
+        // session is shelved server-side (cancelled); approved posts stay.
+        if (contentSessionRef.current) {
+          api
+            .voiceContentComplete(contentSessionRef.current.sessionId, true)
+            .catch(() => {});
+          contentSessionRef.current = null;
+          try {
+            window.dispatchEvent(
+              new CustomEvent("echoai:content-session", { detail: null }),
+            );
+          } catch {
+            /* noop */
+          }
+        }
         pendingBriefRef.current = null;
         pendingBriefingChoiceRef.current = false;
         pendingBrandOfferRef.current = null;
@@ -1528,6 +1967,21 @@ export function EchoConversationProvider({ active, children }) {
         if (matchInterruptIntent(heard.trim())) {
           interruptedRef.current = true;
           cmdGenRef.current += 1; // cancel any in-flight command
+          if (contentSessionRef.current) {
+            // Shelve the live content review server-side; approved posts stay
+            // scheduled, everything else is set aside untouched.
+            api
+              .voiceContentComplete(contentSessionRef.current.sessionId, true)
+              .catch(() => {});
+            contentSessionRef.current = null;
+            try {
+              window.dispatchEvent(
+                new CustomEvent("echoai:content-session", { detail: null }),
+              );
+            } catch {
+              /* noop */
+            }
+          }
           pendingBriefRef.current = null;
           pendingBriefingChoiceRef.current = false;
           pendingBrandOfferRef.current = null;
@@ -1817,6 +2271,19 @@ export function EchoConversationProvider({ active, children }) {
           stuckTicksRef.current = 0;
           cmdGenRef.current += 1; // drop whatever is still in flight
           clearTimers();
+          if (contentSessionRef.current) {
+            api
+              .voiceContentComplete(contentSessionRef.current.sessionId, true)
+              .catch(() => {});
+            contentSessionRef.current = null;
+            try {
+              window.dispatchEvent(
+                new CustomEvent("echoai:content-session", { detail: null }),
+              );
+            } catch {
+              /* noop */
+            }
+          }
           pendingBriefRef.current = null;
           pendingBriefingChoiceRef.current = false;
           pendingBrandOfferRef.current = null;
@@ -1859,6 +2326,21 @@ export function EchoConversationProvider({ active, children }) {
     setMuted(true);
     writeBool(MIC_MUTE_KEY, true);
     clearTimers();
+    if (contentSessionRef.current) {
+      // Shelve any live content review — a stale session must never hijack
+      // the first utterance after unmuting.
+      api
+        .voiceContentComplete(contentSessionRef.current.sessionId, true)
+        .catch(() => {});
+      contentSessionRef.current = null;
+      try {
+        window.dispatchEvent(
+          new CustomEvent("echoai:content-session", { detail: null }),
+        );
+      } catch {
+        /* noop */
+      }
+    }
     pendingBriefRef.current = null;
     pendingBriefingChoiceRef.current = false;
     pendingBrandOfferRef.current = null;
@@ -2019,6 +2501,22 @@ export function EchoConversationProvider({ active, children }) {
       clearTimers();
       stopRecognition();
       stopEffect();
+      if (contentSessionRef.current) {
+        // Fire-and-forget shelve; the token may already be cleared, in which
+        // case the server-side session simply stays open (harmless — nothing
+        // is ever scheduled without an explicit approve).
+        api
+          .voiceContentComplete(contentSessionRef.current.sessionId, true)
+          .catch(() => {});
+        contentSessionRef.current = null;
+        try {
+          window.dispatchEvent(
+            new CustomEvent("echoai:content-session", { detail: null }),
+          );
+        } catch {
+          /* noop */
+        }
+      }
       pendingBriefRef.current = null;
       pendingBriefingChoiceRef.current = false;
       pendingBrandOfferRef.current = null;

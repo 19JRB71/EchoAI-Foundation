@@ -9,6 +9,7 @@ const socialApi = require("../utils/socialApi");
 const { getUserTier } = require("../middleware/featureGate");
 const { meetsTier } = require("../config/tiers");
 const { alertOwnerOfFailedSend } = require("../utils/failedSendAlerts");
+const { getPublicBaseUrl } = require("../config/twilio");
 
 // Starter accounts may connect at most this many distinct social platforms.
 // Professional and above are unlimited (all 6 platforms).
@@ -640,8 +641,20 @@ async function getPostPerformance(req, res) {
  */
 async function publishStoredPost(post) {
   const account = await loadConnectedAccount(post.brand_id, post.platform);
+  // Posts drafted with a visual store a relative /uploads/images/... path;
+  // platforms fetch the image themselves so they need an absolute public URL.
+  let imageUrl;
+  if (post.image_url) {
+    if (/^https:\/\//i.test(post.image_url)) {
+      imageUrl = post.image_url;
+    } else {
+      const base = getPublicBaseUrl();
+      if (base) imageUrl = `${base}${post.image_url}`;
+    }
+  }
   const result = await socialApi.publishPost(post.platform, account.credentials, {
     content: post.post_content,
+    imageUrl,
   });
   // A publish without a platform post id leaves an unreconcilable record, so
   // treat it as a failure rather than marking it published.
@@ -767,7 +780,7 @@ async function publishDuePosts() {
        LIMIT 50
        FOR UPDATE OF sp SKIP LOCKED
      )
-     RETURNING post_id, brand_id, platform, post_content, publish_attempts`
+     RETURNING post_id, brand_id, platform, post_content, image_url, publish_attempts`
   );
 
   let published = 0;

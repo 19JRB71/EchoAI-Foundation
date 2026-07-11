@@ -73,6 +73,7 @@ import { roleLabel, roleBadgeClass, canWrite } from "./lib/roles.js";
 import Breadcrumbs from "./components/Breadcrumbs.jsx";
 import FacebookWizard from "./components/FacebookWizard.jsx";
 import PresenterOverlay from "./components/PresenterOverlay.jsx";
+import VoiceContentOverlay from "./components/VoiceContentOverlay.jsx";
 import DemoSelector from "./components/DemoSelector.jsx";
 import { AutonomousTab } from "./companion/EchoBrain.jsx";
 import EchoMemory from "./sections/EchoMemory.jsx";
@@ -1240,6 +1241,11 @@ export default function App() {
       {!isTeamMember ? (
         <ErrorBoundary silent>
           <GlobalStopButton />
+        </ErrorBoundary>
+      ) : null}
+      {!isTeamMember ? (
+        <ErrorBoundary silent>
+          <VoiceContentOverlay />
         </ErrorBoundary>
       ) : null}
       {showFbWizard && (

@@ -1518,6 +1518,44 @@ export const api = {
       method: "POST",
       body: { phrase, action },
     }),
+  // Voice content creation ("Hey Echo, let's create some content")
+  voiceContentStart: (brandId, requestText) =>
+    request("/api/voice-content/start", {
+      method: "POST",
+      body: { brandId, request: requestText || "" },
+    }),
+  voiceContentGetSession: (sessionId) =>
+    request(`/api/voice-content/${sessionId}`),
+  voiceContentAnswers: (sessionId, answers) =>
+    request(`/api/voice-content/${sessionId}/answers`, {
+      method: "POST",
+      body: { answers },
+    }),
+  voiceContentImage: (sessionId, draftId) =>
+    request(`/api/voice-content/${sessionId}/drafts/${draftId}/image`, {
+      method: "POST",
+      body: {},
+    }),
+  voiceContentRevise: (sessionId, draftId, instruction) =>
+    request(`/api/voice-content/${sessionId}/drafts/${draftId}/revise`, {
+      method: "POST",
+      body: { instruction },
+    }),
+  voiceContentApprove: (sessionId, draftId) =>
+    request(`/api/voice-content/${sessionId}/drafts/${draftId}/approve`, {
+      method: "POST",
+      body: {},
+    }),
+  voiceContentSkip: (sessionId, draftId) =>
+    request(`/api/voice-content/${sessionId}/drafts/${draftId}/skip`, {
+      method: "POST",
+      body: {},
+    }),
+  voiceContentComplete: (sessionId, cancelled) =>
+    request(`/api/voice-content/${sessionId}/complete`, {
+      method: "POST",
+      body: { cancelled: cancelled === true },
+    }),
   echoVoiceGetPending: (clientHour, activeBrandId) => {
     const params = new URLSearchParams();
     if (Number.isInteger(clientHour)) params.set("clientHour", String(clientHour));

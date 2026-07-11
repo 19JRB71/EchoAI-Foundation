@@ -184,6 +184,24 @@ async function publishPost(platform, credentials, post) {
   switch (platform) {
     case "facebook": {
       requireFields(platform, credentials, ["accessToken", "pageId"]);
+      // With an image, publish via /photos (Facebook fetches the public URL
+      // and creates a photo post with the copy as its caption). Without one,
+      // fall back to a plain text post on /feed.
+      if (post?.imageUrl) {
+        const params = new URLSearchParams({
+          url: post.imageUrl,
+          caption: content,
+          access_token: credentials.accessToken,
+        });
+        const data = await httpJson(`${GRAPH_BASE}/${credentials.pageId}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: params.toString(),
+        });
+        // /photos returns { id (photo id), post_id (the feed post) } — prefer
+        // post_id so metrics fetches read the actual post object.
+        return { externalId: data.post_id || data.id, raw: data };
+      }
       const params = new URLSearchParams({
         message: content,
         access_token: credentials.accessToken,

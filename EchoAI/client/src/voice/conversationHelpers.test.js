@@ -14,6 +14,9 @@ import {
   matchTransferIntent,
   matchBrandSwitch,
   matchClearNotifications,
+  matchContentCreateIntent,
+  matchContentReviewCommand,
+  speakableDraft,
   BRIEF_SECTIONS,
 } from "./conversationHelpers.js";
 
@@ -1036,5 +1039,123 @@ describe("matchClearNotifications", () => {
     // resolved as a "yes" (which would corrupt other yes/no flows).
     expect(matchYesNo("clear my notifications")).toBeNull();
     expect(matchYesNo("dismiss all notifications")).toBeNull();
+  });
+});
+
+describe("matchContentCreateIntent", () => {
+  it("matches core create-content phrasings", () => {
+    expect(matchContentCreateIntent("let's create some content")).toEqual({
+      request: "",
+    });
+    expect(matchContentCreateIntent("Hey Echo, let's create some content")).toEqual({
+      request: "",
+    });
+    expect(matchContentCreateIntent("create some posts")).toEqual({
+      request: "",
+    });
+    expect(matchContentCreateIntent("can you draft some social media posts")).toEqual(
+      { request: "" },
+    );
+    expect(matchContentCreateIntent("make some content")).toEqual({
+      request: "",
+    });
+    expect(
+      matchContentCreateIntent("i want you to write some marketing content"),
+    ).toEqual({ request: "" });
+  });
+
+  it("captures a trailing topic hint", () => {
+    expect(
+      matchContentCreateIntent("let's create some content about the summer sale"),
+    ).toEqual({ request: "about the summer sale" });
+  });
+
+  it("does NOT match unrelated sentences", () => {
+    expect(matchContentCreateIntent("open the content calendar")).toBeNull();
+    expect(matchContentCreateIntent("what content is scheduled")).toBeNull();
+    expect(matchContentCreateIntent("I made some coffee")).toBeNull();
+    expect(matchContentCreateIntent("create a new brand")).toBeNull();
+    expect(matchContentCreateIntent("")).toBeNull();
+  });
+});
+
+describe("matchContentReviewCommand", () => {
+  it("approve requires an explicit approve/schedule phrase", () => {
+    expect(matchContentReviewCommand("approve")).toEqual({ action: "approve" });
+    expect(matchContentReviewCommand("Approve it")).toEqual({
+      action: "approve",
+    });
+    expect(matchContentReviewCommand("schedule it")).toEqual({
+      action: "approve",
+    });
+    expect(matchContentReviewCommand("yes, schedule it")).toEqual({
+      action: "approve",
+    });
+    // Loose agreement alone must NOT schedule anything.
+    expect(matchContentReviewCommand("yes")).toBeNull();
+    expect(matchContentReviewCommand("sounds good")).toBeNull();
+    expect(matchContentReviewCommand("okay")).toBeNull();
+  });
+
+  it("skip / repeat / done / image commands", () => {
+    expect(matchContentReviewCommand("skip it")).toEqual({ action: "skip" });
+    expect(matchContentReviewCommand("next one")).toEqual({ action: "skip" });
+    expect(matchContentReviewCommand("read it again")).toEqual({
+      action: "repeat",
+    });
+    expect(matchContentReviewCommand("that's all")).toEqual({ action: "done" });
+    expect(matchContentReviewCommand("we're done")).toEqual({ action: "done" });
+    expect(matchContentReviewCommand("create the visual")).toEqual({
+      action: "image",
+    });
+    expect(matchContentReviewCommand("can you make the image")).toEqual({
+      action: "image",
+    });
+  });
+
+  it("revision instructions carry the raw text", () => {
+    expect(
+      matchContentReviewCommand("make it shorter and punchier"),
+    ).toEqual({ action: "revise", instruction: "make it shorter and punchier" });
+    expect(matchContentReviewCommand("add a mention of the discount")).toEqual({
+      action: "revise",
+      instruction: "add a mention of the discount",
+    });
+    expect(matchContentReviewCommand("change the opening line")).toEqual({
+      action: "revise",
+      instruction: "change the opening line",
+    });
+  });
+
+  it("unrecognized speech returns null (caller asks for guidance)", () => {
+    expect(matchContentReviewCommand("hmm interesting")).toBeNull();
+    expect(matchContentReviewCommand("")).toBeNull();
+  });
+});
+
+describe("speakableDraft", () => {
+  it("speaks position, platform, content and schedule slot", () => {
+    const line = speakableDraft(
+      {
+        platform: "facebook",
+        postContent: "Big news this week!",
+        scheduledTime: "2026-07-14T14:00:00.000Z",
+      },
+      0,
+      3,
+    );
+    expect(line).toContain("first one, for Facebook");
+    expect(line).toContain("Big news this week!");
+    expect(line).toContain("I'd schedule it for");
+  });
+
+  it("handles single draft and missing time", () => {
+    const line = speakableDraft(
+      { platform: "linkedin", postContent: "Hello" },
+      0,
+      1,
+    );
+    expect(line).toContain("for LinkedIn");
+    expect(line).not.toContain("I'd schedule");
   });
 });

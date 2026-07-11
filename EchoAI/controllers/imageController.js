@@ -553,6 +553,8 @@ async function deleteImage(req, res) {
 
 module.exports = {
   UPLOADS_DIR,
+  renderFromPrompt,
+  persistImage,
   generateImage,
   generateAdCreativeSet,
   generateImagePrompts,
