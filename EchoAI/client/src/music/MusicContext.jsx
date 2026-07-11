@@ -307,17 +307,14 @@ export function MusicProvider({ children }) {
     };
     const onTtsStart = () => duck();
     const onTtsEnd = () => unduck();
-    const onMorning = () => playQuery(MORNING_QUERY);
 
     window.addEventListener("echoai:music-command", onCommand);
     window.addEventListener("echoai:tts-start", onTtsStart);
     window.addEventListener("echoai:tts-end", onTtsEnd);
-    window.addEventListener("echoai:morning-return", onMorning);
     return () => {
       window.removeEventListener("echoai:music-command", onCommand);
       window.removeEventListener("echoai:tts-start", onTtsStart);
       window.removeEventListener("echoai:tts-end", onTtsEnd);
-      window.removeEventListener("echoai:morning-return", onMorning);
     };
   }, [playQuery, playFavorites, pause, resume, skip, stop, nudgeVolume, duck, unduck]);
 

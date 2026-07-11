@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, getToken, setToken, clearToken } from "./api.js";
-import { startSessionTracking, wasAwayLong } from "./lib/session.js";
+import { startSessionTracking } from "./lib/session.js";
 import { MusicProvider } from "./music/MusicContext.jsx";
 import Sidebar, { accentTierForSection } from "./components/Sidebar.jsx";
 import Spinner from "./components/Spinner.jsx";
@@ -85,11 +85,6 @@ import { agentMeta, sectionTitle } from "./lib/departments.js";
 export default function App() {
   const navigate = useNavigate();
   const [authed, setAuthed] = useState(Boolean(getToken()));
-  // Captured once at first render (before session tracking stamps "now"): true
-  // when we booted already-signed-in after being away >8h — a "new session" that
-  // should trigger Echo's morning music + briefing without a fresh login.
-  const [wasReturningSession] = useState(() => Boolean(getToken()) && wasAwayLong());
-  const morningReturnFired = useRef(false);
   const [section, setSection] = useState("missioncontrol");
   const [brands, setBrands] = useState([]);
   const [selectedBrandId, setSelectedBrandId] = useState("");
@@ -808,21 +803,13 @@ export default function App() {
     };
   }, [loadBrands]);
 
-  // Keep the last-active timestamp fresh while signed in, so a later return can
-  // be classified as a new session (>8h away).
+  // Keep the last-active timestamp fresh while signed in. (Music is never
+  // auto-started on a return visit — playback only ever begins from an
+  // explicit command or button press.)
   useEffect(() => {
     if (!authed) return undefined;
     return startSessionTracking();
   }, [authed]);
-
-  // Returning after >8h without a fresh login → announce a new session so the
-  // voice layer plays the morning wake-up music and delivers the briefing.
-  useEffect(() => {
-    if (!authed || !onboardingCompleted || !wasReturningSession) return;
-    if (morningReturnFired.current) return;
-    morningReturnFired.current = true;
-    window.dispatchEvent(new CustomEvent("echoai:morning-return"));
-  }, [authed, onboardingCompleted, wasReturningSession]);
 
   function handleLogin(token, rememberDevice = true) {
     setToken(token, rememberDevice);
