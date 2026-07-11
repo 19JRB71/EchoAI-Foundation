@@ -202,6 +202,26 @@ function FacebookPagePicker({ brandId, onConnected }) {
     }
   }
 
+  async function handleDisconnect() {
+    // The Facebook connection is account-wide (one login serves every
+    // business), so a disconnect resets it for ALL businesses — say so.
+    const ok = window.confirm(
+      "Disconnect Facebook? This resets the connection for ALL your businesses. " +
+        "You'll reconnect fresh and pick which Pages to share on Facebook's screen.",
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.disconnectFacebook();
+      await loadFb();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleSave() {
     if (!pageId) {
       setError("Choose a Page to post from.");
@@ -263,14 +283,24 @@ function FacebookPagePicker({ brandId, onConnected }) {
             Facebook is connected, but we don’t see any Pages you manage. Make
             sure you granted access to your Page, then reconnect.
           </p>
-          <button
-            type="button"
-            onClick={startConnect}
-            disabled={busy}
-            className="rounded-lg bg-[#1877F2] px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {busy ? "Opening Facebook…" : "Reconnect Facebook"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={startConnect}
+              disabled={busy}
+              className="rounded-lg bg-[#1877F2] px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+            >
+              {busy ? "Opening Facebook…" : "Reconnect Facebook"}
+            </button>
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              disabled={busy}
+              className="rounded-lg border border-red-700/50 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-60"
+            >
+              Disconnect
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
@@ -313,6 +343,14 @@ function FacebookPagePicker({ brandId, onConnected }) {
               className="rounded-lg border border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-700"
             >
               Reconnect Facebook
+            </button>
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              disabled={busy}
+              className="rounded-lg border border-red-700/50 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-60"
+            >
+              Disconnect
             </button>
           </div>
         </div>

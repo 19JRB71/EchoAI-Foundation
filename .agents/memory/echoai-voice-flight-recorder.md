@@ -8,7 +8,7 @@ The voice engine has an always-on flight recorder (`client/src/voice/flightRecor
 **Why:** live-site voice bugs (self-echo, ignored commands, "went silent") were impossible to diagnose from verbal descriptions; the recorder captures the causal chain with wall-clock ms timestamps and ≥1.5s gap markers.
 
 **How to apply:**
-- When James reports a live voice bug, FIRST ask him to reproduce it and paste the diagnostic report — don't guess from the description.
+- When the owner reports a live voice bug, FIRST ask them to reproduce it and paste the diagnostic report — don't guess from the description.
 - Any NEW voice decision point (a new drop/accept/gate branch) must call `recordVoiceEvent` too, or the report goes blind to it.
 - Keep it in-memory + manual-copy only; never add automatic upload (privacy promise is in the UI copy).
 - `recordVoiceEvent` must stay never-throw — a broken recorder must not break the voice engine.
