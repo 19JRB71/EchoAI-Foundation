@@ -14,6 +14,11 @@ import {
   EVENT_META,
   formatHour,
 } from "../lib/voiceSettings.js";
+import {
+  buildVoiceReport,
+  getVoiceEvents,
+  clearVoiceEvents,
+} from "../voice/flightRecorder.js";
 
 function Toggle({ checked, onChange, disabled }) {
   return (
@@ -46,6 +51,7 @@ export default function VoiceSettings() {
   const [savedAt, setSavedAt] = useState(0);
   const [err, setErr] = useState("");
   const [previewing, setPreviewing] = useState(false);
+  const [diagCopiedAt, setDiagCopiedAt] = useState(0);
 
   // Load current settings once the context is ready.
   useEffect(() => {
@@ -374,6 +380,65 @@ export default function VoiceSettings() {
           )}
         </section>
       </fieldset>
+
+      {/* Voice diagnostic recorder (flight recorder) */}
+      <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+        <div className="text-sm font-semibold text-gray-100">
+          Voice diagnostic report
+        </div>
+        <p className="mb-3 mt-1 text-xs text-gray-400">
+          Echo quietly keeps a log of this session&apos;s voice activity — what
+          the microphone heard, what Echo said, and what it decided to do with
+          each phrase. If Echo misbehaves (talks to herself, ignores a command,
+          interrupts you), copy the report right after it happens and paste it
+          to support — it shows exactly what went wrong. Nothing is sent
+          anywhere unless you share it, and the log clears when you reload or
+          close the tab.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={async () => {
+              const report = buildVoiceReport();
+              try {
+                await navigator.clipboard.writeText(report);
+                setDiagCopiedAt(Date.now());
+              } catch {
+                // Clipboard blocked (some browsers/iframes): download instead.
+                const blob = new Blob([report], { type: "text/plain" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "echo-voice-report.txt";
+                a.click();
+                URL.revokeObjectURL(url);
+                setDiagCopiedAt(Date.now());
+              }
+            }}
+            className="rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-200 transition hover:bg-gray-800"
+          >
+            📋 Copy diagnostic report
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              clearVoiceEvents();
+              setDiagCopiedAt(0);
+            }}
+            className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-xs text-gray-400 transition hover:bg-gray-900"
+          >
+            Clear log
+          </button>
+          {diagCopiedAt > 0 && (
+            <span className="text-xs text-teal-300">
+              Copied — paste it into the chat.
+            </span>
+          )}
+          <span className="text-xs text-gray-500">
+            {getVoiceEvents().length} events recorded this session
+          </span>
+        </div>
+      </section>
 
       {err && (
         <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">

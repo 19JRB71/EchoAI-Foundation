@@ -76,6 +76,7 @@ import {
   maybeFlourish,
 } from "./phraseVariety.js";
 import { api } from "../api.js";
+import { recordVoiceEvent } from "./flightRecorder.js";
 
 const EchoConversationContext = createContext(null);
 
@@ -298,6 +299,7 @@ export function EchoConversationProvider({ active, children }) {
           recentEchoTextsRef.current.shift();
         }
       }
+      recordVoiceEvent("echo-speaks", { text: spokenText });
       if (speakingClearRef.current) {
         clearTimeout(speakingClearRef.current);
         speakingClearRef.current = null;
@@ -314,6 +316,7 @@ export function EchoConversationProvider({ active, children }) {
     const onSpeakEnd = () => {
       audioPlayingRef.current = false;
       lastTtsEndAtRef.current = Date.now();
+      recordVoiceEvent("echo-audio-ended");
       if (speakingClearRef.current) clearTimeout(speakingClearRef.current);
       speakingClearRef.current = setTimeout(() => {
         speakingRef.current = false;
@@ -559,6 +562,7 @@ export function EchoConversationProvider({ active, children }) {
   const processCommand = useCallback(
     async (raw) => {
       let text = (raw || "").trim();
+      recordVoiceEvent("command-processing", { text });
       // Claim a fresh command generation: any older in-flight command becomes
       // stale (its late reply is dropped), and an interrupt bumping the counter
       // makes THIS command stale too. Checked after every await below.
@@ -2544,6 +2548,7 @@ export function EchoConversationProvider({ active, children }) {
           heard += ` ${event.results[i][0].transcript}`;
         }
         if (matchInterruptIntent(heard.trim())) {
+          recordVoiceEvent("barge-in", { heard: heard.trim() });
           interruptedRef.current = true;
           cmdGenRef.current += 1; // cancel any in-flight command
           if (contentSessionRef.current) {
@@ -2630,8 +2635,20 @@ export function EchoConversationProvider({ active, children }) {
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const chunk = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          if (echoWindow && isSelfEcho(chunk, recentEchoTextsRef.current))
+          if (echoWindow && isSelfEcho(chunk, recentEchoTextsRef.current)) {
+            recordVoiceEvent("dropped-as-echo-of-self", {
+              heard: chunk,
+              gated,
+              msSinceEchoStopped: Date.now() - lastTtsEndAtRef.current,
+            });
             continue;
+          }
+          recordVoiceEvent("heard", {
+            text: chunk,
+            gated,
+            echoWindow,
+            mode: modeRef.current,
+          });
           finalRef.current = `${finalRef.current} ${chunk}`.trim();
           addedFinal = true;
           // Track the weakest final-chunk confidence for this capture; a low
@@ -2671,6 +2688,7 @@ export function EchoConversationProvider({ active, children }) {
         const combined = `${finalRef.current} ${interim}`.trim();
         const { matched, command } = parseWakeWord(combined);
         if (matched) {
+          recordVoiceEvent("wake-word", { command });
           finalRef.current = "";
           goActive(command);
           return;
@@ -2740,6 +2758,8 @@ export function EchoConversationProvider({ active, children }) {
     rec.onerror = (e) => {
       heartbeatAtRef.current = Date.now();
       const code = e && e.error;
+      // "no-speech" fires constantly during normal quiet — not worth logging.
+      if (code !== "no-speech") recordVoiceEvent("mic-error", { code });
       if (code === "not-allowed" || code === "service-not-allowed") {
         setDenied(true);
         wantListeningRef.current = false;
@@ -2785,6 +2805,7 @@ export function EchoConversationProvider({ active, children }) {
       setMicLive(false);
       recognitionRef.current = null;
       const name = (err && err.name) || "";
+      recordVoiceEvent("mic-start-failed", { code: name || "unknown" });
       if (name === "NotAllowedError" || name === "SecurityError") {
         // Permission is hard-blocked: fail closed, no retry loop. The user can
         // re-enable from the mic button, which reopens the permission prompt.
@@ -2834,6 +2855,10 @@ export function EchoConversationProvider({ active, children }) {
         heartbeatAtRef.current &&
         Date.now() - heartbeatAtRef.current > ZOMBIE_SESSION_MS
       ) {
+        recordVoiceEvent("mic-restarted", {
+          reason: "zombie-session",
+          silentForMs: Date.now() - heartbeatAtRef.current,
+        });
         stopRecognition();
         if (wantListeningRef.current) {
           startRecognitionRef.current && startRecognitionRef.current();

@@ -85,4 +85,5 @@
 - [EchoAI multi-turn voice sessions](echoai-voice-content-session.md) — session state must be cleared+shelved on EVERY engine reset path (they're separate code paths); commit commands stay strict; apostrophes normalize to spaces.
 - [EchoAI three-tier demo](echoai-demo-tiers.md) — demo mode now seeds ONE is_demo brand per tier (demo_tier); never assume a single demo brand; active_tier drives script+FeatureGate, demo_brand_id NULL = selector mode.
 - [EchoAI SSRF IPv6-mapped bypass](echoai-ssrf-ipv6-mapped.md) — private-host blockers must reject IPv4-mapped/compat IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1); check the embedded IPv4 range.
+- [EchoAI voice flight recorder](echoai-voice-flight-recorder.md) — live voice bugs: ask for the pasted Settings→Voice diagnostic report first; new voice decision branches must recordVoiceEvent.
 - [Pooled pg client monkeypatch trap](echoai-pooled-client-patch.md) — test stubs on pool.connect/client.query must pass through connect(cb) and un-patch on release, or later pool.query deadlocks silently.
