@@ -1,0 +1,141 @@
+ZORECHO REDESIGN — NEW DEVELOPMENT PROCESS
+
+We are changing the development process for the Zorecho rebrand.
+
+After reviewing the early Phase 1 work, we've decided to separate design from implementation.
+
+New Roles
+ChatGPT (Creative Director)
+
+ChatGPT will own:
+
+Product design
+User experience
+Visual direction
+Branding
+Layouts
+Motion concepts
+Color system
+Typography
+Component design
+Landing page concepts
+Mission Control concepts
+Dashboard concepts
+Login concepts
+Mobile concepts
+
+ChatGPT will provide high-fidelity visual mockups for every screen.
+
+These mockups become the approved design specification.
+
+Replit
+
+Replit owns engineering.
+
+Your responsibility is NOT to redesign the interface.
+
+Your responsibility is to faithfully implement the approved visual designs into the existing application.
+
+Think of the mockups as UI specifications.
+
+Do not reinterpret them.
+
+Do not simplify them.
+
+Do not redesign them.
+
+Match them as closely as practical while preserving responsive behavior, accessibility, and existing functionality.
+
+Current Direction
+
+The attached concept image is now the visual target.
+
+Use it as the reference for quality, spacing, hierarchy, glass styling, lighting, animations, and component behavior.
+
+Maintain the existing platform architecture.
+
+Preserve all existing business logic.
+
+Preserve APIs.
+
+Preserve databases.
+
+Preserve automations.
+
+Preserve routing.
+
+Preserve integrations.
+
+This is a visual implementation project—not a functional rewrite.
+
+Workflow
+
+For every future screen:
+
+ChatGPT creates the approved concept.
+Replit reviews it for technical feasibility.
+Replit implements it.
+Screenshots are returned.
+Revisions are made.
+Approval is received.
+Move to the next screen.
+
+No production page should be redesigned until its concept has been approved.
+
+Immediate Task
+
+Pause broad redesign work.
+
+Wait for the first finalized Mission Control concept.
+
+Once received:
+
+Analyze it.
+Break it into reusable components.
+Explain the implementation strategy.
+Identify any technical constraints.
+Estimate implementation effort.
+
+Do not begin implementation until instructed.
+
+Long-Term Goal
+
+The finished product should feel like one continuous experience from:
+
+Landing Page
+
+↓
+
+Login
+
+↓
+
+Onboarding
+
+↓
+
+Mission Control
+
+↓
+
+Departments
+
+↓
+
+Reports
+
+↓
+
+Settings
+
+↓
+
+Admin
+
+The customer should feel like they are walking through different rooms inside the same AI company.
+
+I think this changes everything.
+
+From now on, instead of asking Replit to "design," we'll hand it polished concepts. It can then focus on what it's exceptionally good at: translating those designs into a working application while preserving all the functionality you've already built.
+
+That lets us keep creative control over Zorecho's identity while using Replit's engineering strengths to bring it to life. I think that's the strongest combination for this project.
