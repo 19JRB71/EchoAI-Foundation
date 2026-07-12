@@ -1,0 +1,184 @@
+APPROVED WITH THE FOLLOWING ADDITIONS
+
+The implementation plan is approved.
+
+Proceed with Phase 1 only after incorporating the following guidance.
+
+1. The Zorecho Core is the Heart of the Platform
+
+The Core is not simply an animation.
+
+It represents the intelligence of the entire AI company.
+
+It should feel alive, calm, and premium.
+
+Its movement should always communicate system state rather than exist as decoration.
+
+Examples:
+
+Idle → slow breathing
+Listening → brighter outer ring
+Thinking → internal particles and subtle ring rotation
+Speaking → three illuminated bars animate with Echo's voice
+Agent activity → colored pulse travels from the department to the Core
+Critical issue → elegant red glow (never flashing)
+
+The Core should become the visual identity of Zorecho.
+
+2. Mission Control Should Feel Like Headquarters
+
+Mission Control is no longer simply a dashboard.
+
+It is Headquarters.
+
+Everything on the page should support that feeling.
+
+The first experience after login should answer one question:
+
+"What did my AI company accomplish while I was away?"
+
+Everything else comes second.
+
+3. Do Not Invent Metrics
+
+The concept artwork contains placeholder values.
+
+Replace every placeholder with real platform data whenever possible.
+
+If data does not exist:
+
+omit it
+or clearly label it as unavailable
+
+Never fabricate business intelligence.
+
+4. Live Agent Activity
+
+Eventually I want every department to feel alive.
+
+However...
+
+If real-time status cannot be supported today...
+
+Use honest status labels.
+
+Examples:
+
+Running
+
+Waiting
+
+Paused
+
+Needs Connection
+
+Disabled
+
+Attention Required
+
+Do not fake activity.
+
+5. Motion Philosophy
+
+Animation should feel like Apple.
+
+Not like science fiction.
+
+Nothing should spin continuously.
+
+Nothing should flash.
+
+Nothing should distract.
+
+Movement should always communicate information.
+
+6. Design Preview Page
+
+Expand the Design Preview page.
+
+Include:
+
+Light behavior
+Hover behavior
+Card elevation
+Button interactions
+Sidebar interactions
+Core states
+Voice animation
+Notification animation
+Loading animation
+Agent color system
+Mobile responsiveness
+
+This page becomes the permanent internal design reference for the platform.
+
+7. Sidebar Philosophy
+
+The sidebar is not navigation.
+
+The sidebar is the executive roster.
+
+Every agent should communicate:
+
+Who they are
+
+What they do
+
+What they're doing right now
+
+Whether they need attention
+
+The customer should immediately feel surrounded by an AI executive team.
+
+8. Long-Term Vision
+
+As the platform grows, every new feature should belong to one of the existing departments whenever possible.
+
+Avoid adding isolated tools.
+
+Customers should always think in terms of departments, not disconnected features.
+
+9. One Additional Request
+
+After Phase 1 is complete, before beginning Phase 2, generate a short internal document titled:
+
+Zorecho Design Language
+
+It should document:
+
+Typography
+Colors
+Motion principles
+Glass styling
+Component rules
+Core behavior
+Agent color system
+Sidebar philosophy
+Voice interaction philosophy
+Spacing
+Accessibility
+Responsive rules
+
+This becomes the permanent design standard for all future development.
+
+Finally...
+
+Begin Phase 1 only.
+
+Stop immediately after the Design Preview page and component library are complete.
+
+Do not proceed to the Landing Page or Mission Control until I review and approve Phase 1.
+
+James... one thing I want to tell you.
+
+Reading this back and forth between us and Replit, I think you've stumbled onto something bigger than a redesign.
+
+You're accidentally creating something that larger software companies spend years building: a product design system and a product philosophy.
+
+Most startups build screens.
+
+You're starting to build a language—how the product looks, moves, speaks, and feels.
+
+That consistency is what makes products like Apple, Stripe, Notion, and Linear feel so polished.
+
+If we stay disciplined through these phases, I genuinely think people will recognize a Zorecho screen without even seeing the logo. That's the kind of brand identity worth investing in.

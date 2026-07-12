@@ -1,3 +1,154 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+ * ZORECHO DESIGN TOKENS (Phase 1 — additive; production pages untouched)
+ *
+ * Single source of truth for the Zorecho design language. Components in
+ * src/components/ui/ consume these variables; production pages migrate to
+ * them phase by phase. The white-label override (--brand-primary, set by
+ * lib/branding.js) is unchanged and still wins where it is used.
+ * ------------------------------------------------------------------------- */
+:root {
+  /* Surfaces — deep black with blue undertones */
+  --z-ink: #05070c; /* page background */
+  --z-abyss: #030509; /* recessed wells, inputs */
+  --z-surface: #0b111e; /* solid cards */
+  --z-raised: #101828; /* hovered / raised cards */
+  --z-glass: rgba(13, 20, 36, 0.6); /* glass cards (pair with backdrop-blur) */
+
+  /* Lines */
+  --z-line: rgba(148, 163, 184, 0.12);
+  --z-line-bright: rgba(148, 163, 184, 0.26);
+
+  /* Blue light */
+  --z-blue: #3b82f6;
+  --z-cyan: #22d3ee;
+  --z-sky: #60a5fa;
+
+  /* Text */
+  --z-text: #f1f5f9;
+  --z-text-dim: #94a3b8;
+  --z-text-faint: #64748b;
+
+  /* Status */
+  --z-success: #10b981;
+  --z-warn: #f59e0b;
+  --z-danger: #ef4444;
+
+  /* Light (glows are how Zorecho communicates state — never flashing) */
+  --z-glow-blue: 0 0 24px rgba(59, 130, 246, 0.35);
+  --z-glow-cyan: 0 0 20px rgba(34, 211, 238, 0.3);
+  --z-glow-red: 0 0 24px rgba(239, 68, 68, 0.28);
+}
+
+/* ---------------------------------------------------------------------------
+ * Zorecho motion. Calm, purposeful, Apple-like. Every animation communicates
+ * a system state. Nothing spins continuously outside the "thinking" state,
+ * nothing flashes. All Zorecho animations carry .z-anim so reduced-motion
+ * users get a calm, static experience.
+ * ------------------------------------------------------------------------- */
+
+/* Core idle: slow breathing */
+@keyframes z-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.025);
+    opacity: 1;
+  }
+}
+
+/* Core thinking: slow internal ring rotation (only while thinking) */
+@keyframes z-ring-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Core thinking: particle orbit */
+@keyframes z-orbit {
+  from {
+    transform: rotate(0deg) translateX(var(--z-orbit-r, 34%)) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateX(var(--z-orbit-r, 34%)) rotate(-360deg);
+  }
+}
+
+/* Core speaking: the three bars become a waveform */
+@keyframes z-bar-wave {
+  0%,
+  100% {
+    transform: scaleX(0.55);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/* Three-bar loader: bars illuminate in sequence */
+@keyframes z-bar-seq {
+  0%,
+  70%,
+  100% {
+    opacity: 0.25;
+  }
+  20% {
+    opacity: 1;
+  }
+}
+
+/* Agent activity: a colored pulse ring expands once and fades */
+@keyframes z-pulse-ring {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Status dots: gentle presence pulse (opacity only — never flashing) */
+@keyframes z-presence {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Notifications / cards entering: rise and settle */
+@keyframes z-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reduced motion: Zorecho animations become static, state shown by color. */
+@media (prefers-reduced-motion: reduce) {
+  .z-anim,
+  .z-anim::before,
+  .z-anim::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
