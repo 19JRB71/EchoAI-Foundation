@@ -1,0 +1,365 @@
+Do not build, edit, refactor, deploy, or change any code yet.
+
+I want your technical opinion on a possible new direction for Echo/Zorecho.
+
+The idea is to stop treating Anthropic as the default brain for nearly every AI task. Instead, Echo would become a multi-model system that uses different AI providers for the jobs they are best suited for.
+
+Think of it like one body with different specialized parts working together:
+
+* Hermes = coordinator and router
+* OpenAI/ChatGPT = marketing content, Facebook posts, ad copy, business strategy, creative writing, campaign planning, and possibly some general reasoning
+* Anthropic/Claude = selected reasoning tasks, development support, code-related work, or other tasks where Claude performs best
+* ElevenLabs = voice generation
+* Local application logic = navigation, database retrieval, CRM lookups, scheduling, publishing, settings, and other tasks that do not require an LLM
+* Other models in the future = specialized jobs where they are more accurate, faster, or cheaper
+
+The customer should experience one unified assistant called Echo. They should not need to know which model handled the request.
+
+My reason for considering this is cost and quality.
+
+Anthropic credits are being consumed by background activity before I have even meaningfully used Echo for Facebook ads and content creation. I have also found that ChatGPT often produces content and marketing copy that better matches what I want.
+
+I want you to review whether Echo can become provider-agnostic and route each task to the best and most cost-effective system.
+
+Please analyze the current codebase and return a plain-English technical recommendation.
+
+Do not make any code changes.
+
+Please address the following:
+
+1. CURRENT AI ARCHITECTURE
+
+Map how AI requests currently move through Echo.
+
+Identify:
+
+* Where Hermes makes routing decisions
+* Whether all AI calls currently flow through one Anthropic wrapper
+* Which agents are tightly coupled to Anthropic
+* Which prompts, tools, response parsers, or data structures assume Claude
+* Which features can already work without an LLM
+* Whether there is currently any provider abstraction layer
+* Whether model names are hard-coded throughout the codebase
+* Whether changing providers would affect memory, tools, structured outputs, streaming, retries, or logging
+
+2. MULTI-MODEL FEASIBILITY
+
+Evaluate whether Echo can support multiple AI providers behind one common interface.
+
+The ideal flow would be:
+
+User request
+→ deterministic rules first
+→ no-AI path if possible
+→ Hermes determines task type
+→ provider router selects the best approved model
+→ specialist completes the task
+→ Echo returns one unified response
+
+Explain whether this can be added safely without rebuilding the entire platform.
+
+3. RECOMMENDED RESPONSIBILITIES
+
+Give your opinion on which provider or system should handle each category.
+
+Evaluate at least:
+
+* Facebook posts
+* Facebook ads
+* Email marketing
+* Website copy
+* Business strategy
+* Lead replies
+* Customer-service answers
+* Industry research
+* Competitor research
+* Document summaries
+* Contract summaries
+* Intent classification
+* Hermes routing
+* Voice conversations
+* Coding and debugging
+* Long-form reasoning
+* Database lookups
+* CRM retrieval
+* Calendar commands
+* Publishing and scheduling
+* Briefings
+* Analytics summaries
+
+For every category, recommend one of:
+
+* No LLM
+* OpenAI
+* Anthropic
+* Cheaper small model
+* Existing cached knowledge
+* Human approval required
+* Configurable by business or administrator
+
+Explain the reason for every recommendation.
+
+4. COST IMPACT
+
+Estimate how multi-model routing could reduce Anthropic usage.
+
+Please separate:
+
+* Current background Anthropic usage
+* User-triggered Anthropic usage
+* Tasks that could use no AI
+* Tasks that could use cached results
+* Tasks that could move to a cheaper model
+* Tasks that could move to OpenAI
+* Tasks that should remain on Anthropic
+
+Do not claim exact savings without evidence. Provide low, expected, and high savings estimates based on the code and scheduler behavior.
+
+Also explain whether adding a second provider creates any hidden costs, such as:
+
+* Duplicate subscriptions
+* More API calls
+* Prompt translation work
+* Additional logging
+* More testing
+* Longer response latency
+* Provider failover accidentally calling two models
+* Increased engineering complexity
+
+5. CONTENT ENGINE DESIGN
+
+Evaluate creating a provider-independent “Content Engine.”
+
+The Content Engine would handle:
+
+* Facebook posts
+* Ad copy
+* Email campaigns
+* Website copy
+* Captions
+* Sales copy
+* Content calendars
+* Campaign ideas
+
+Hermes would send content requests to the Content Engine, and the Content Engine could use OpenAI by default while remaining configurable.
+
+Please explain:
+
+* Whether this is better than hard-coding “Facebook posts go to OpenAI”
+* How the Content Engine should receive business facts, brand voice, audience, offer, and prior content
+* How it should avoid repeating previously published content
+* How cached research should be reused
+* How the provider could be changed later without rewriting agents
+* What structured output format it should return to Echo
+
+6. PROVIDER ROUTER DESIGN
+
+Propose a simple provider-routing design.
+
+It should consider:
+
+* Task category
+* Whether an LLM is necessary
+* Required reasoning quality
+* Cost
+* Speed
+* Privacy level
+* Context size
+* Need for web search
+* Need for structured output
+* Provider availability
+* Remaining daily budget
+* Whether a cached answer already exists
+
+The router must not call multiple premium models for the same request unless explicitly authorized.
+
+Explain how fallback should work.
+
+For example:
+
+* If OpenAI fails, should it fall back to Anthropic?
+* Should fallback happen automatically?
+* Should fallback require user approval for expensive tasks?
+* How do we prevent one failed request from charging two providers repeatedly?
+
+7. COMMON PROVIDER INTERFACE
+
+Describe the common interface you would recommend for all AI providers.
+
+It should ideally support:
+
+* System instructions
+* User messages
+* Conversation context
+* Tools or function calling
+* Structured JSON responses
+* Streaming
+* Token usage
+* Estimated cost
+* Retries
+* Timeouts
+* Model selection
+* Feature label
+* Business ID
+* User ID
+* Request ID
+* Cache metadata
+* Web search usage
+* Safety or refusal status
+
+Show a proposed interface or pseudocode, but do not implement it.
+
+8. MEMORY AND KNOWLEDGE COMPATIBILITY
+
+Explain how Echo’s memory, company brain, industry brain, and future Knowledge Hub should work across multiple providers.
+
+The stored knowledge must not depend on one model’s proprietary conversation format.
+
+Address:
+
+* Shared company facts
+* Brand voice
+* Industry knowledge
+* Prior research
+* Prior generated content
+* Conversation summaries
+* Embeddings
+* Semantic search
+* Cache invalidation
+* Client data isolation
+* Provider-specific prompt formatting
+
+9. QUALITY CONTROL
+
+Explain how we would verify that OpenAI genuinely performs better for content rather than relying only on opinion.
+
+Propose a small comparison test using real Echo tasks.
+
+For example:
+
+* 10 Facebook posts
+* 5 Facebook ads
+* 5 lead replies
+* 3 email campaigns
+* 3 strategy tasks
+
+Compare providers on:
+
+* Brand match
+* Accuracy
+* Originality
+* Call-to-action quality
+* Need for rewriting
+* Response time
+* Cost
+* User preference
+
+Do not run paid comparison tests yet. Just design the test.
+
+10. SECURITY AND PRIVACY
+
+Review whether sending client data to multiple providers creates additional risk.
+
+Address:
+
+* Which information should never be sent unless necessary
+* Business-specific private data
+* Lead data
+* Customer emails
+* Contracts
+* Authentication tokens
+* Payment information
+* Data-retention settings
+* Provider agreements
+* Logging and redaction
+* Client consent or disclosure
+* Per-business provider restrictions
+
+11. FAILURE MODES
+
+Identify risks such as:
+
+* Hermes choosing the wrong provider
+* Different providers producing inconsistent behavior
+* Structured-output incompatibility
+* Tool-calling differences
+* A provider outage
+* Duplicate billing during fallback
+* One provider receiving too much context
+* Prompts gradually diverging
+* Caches returning content created by another business
+* Costs becoming harder to understand
+* Debugging becoming more complex
+
+For each major risk, recommend a mitigation.
+
+12. RECOMMENDED MIGRATION PLAN
+
+Provide a phased migration plan that does not disrupt the live system.
+
+Consider a sequence such as:
+
+Phase 1:
+
+* Add provider-independent usage tracking and budgets
+
+Phase 2:
+
+* Build a provider abstraction without changing live behavior
+* Anthropic remains the only active provider initially
+
+Phase 3:
+
+* Move one low-risk category, such as owner-requested Facebook content, to OpenAI behind a feature flag
+
+Phase 4:
+
+* Compare quality and cost
+* Keep an immediate rollback option
+
+Phase 5:
+
+* Expand routing to other content categories
+
+Phase 6:
+
+* Add carefully controlled fallback
+
+Do not assume this is the correct sequence. Recommend the safest one based on the existing code.
+
+13. FINAL RECOMMENDATION
+
+Return the report in this structure:
+
+A. Executive summary
+B. Is the multi-model idea technically sound?
+C. Does Echo already have pieces of this architecture?
+D. What would need to change?
+E. What should remain unchanged?
+F. Best tasks for OpenAI
+G. Best tasks for Anthropic
+H. Tasks that should use no AI
+I. Estimated Anthropic cost reduction
+J. New costs and complexity introduced
+K. Main risks
+L. Safest pilot project
+M. Recommended migration phases
+N. Clear recommendation: proceed, postpone, or reject
+
+For every important conclusion, cite the relevant files, components, or current code behavior.
+
+Do not build anything.
+
+Do not add an OpenAI key.
+
+Do not install packages.
+
+Do not change environment variables.
+
+Do not change routing.
+
+Do not change Anthropic behavior.
+
+Do not deploy.
+
+I only want an evidence-based architecture review and recommendation so I can decide whether to approve a small pilot.
