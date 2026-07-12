@@ -162,3 +162,9 @@ id = "K-101WKrohcT-L7PgA3Hx"
 uri = "file://screenshots/phase1-review/mobile-06-loading.png"
 type = "image"
 title = "Mobile — Loading"
+
+[[outputs]]
+id = "l0li-mO9p9TXtyZQQZXLW"
+uri = "file://screenshots/mission-control-plan/MISSION_CONTROL_IMPLEMENTATION_PLAN.md"
+type = "text"
+title = "Mission Control — Implementation Plan (awaiting your approval)"

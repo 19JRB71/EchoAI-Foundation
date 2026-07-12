@@ -1,0 +1,291 @@
+ZORECHO MISSION CONTROL – OFFICIAL DESIGN SPECIFICATION (V1)
+
+The attached Mission Control concept image is now the official visual direction for Zorecho.
+
+This concept supersedes all previous Mission Control concepts.
+
+Your responsibility is to faithfully implement this design while preserving the existing platform architecture and functionality.
+
+Do not redesign the interface.
+
+Do not reinterpret the layout.
+
+Do not simplify the experience.
+
+If something cannot be implemented exactly, explain why and provide options before making changes.
+
+OBJECTIVE
+
+Mission Control is not a dashboard.
+
+Mission Control is the Headquarters of the customer's AI company.
+
+When customers log in they should immediately feel like they have stepped into the command center of a company that has been working for them around the clock.
+
+The very first question Mission Control should answer is:
+
+"What did my AI company accomplish while I was away?"
+
+Everything else is secondary.
+
+THE ZORECHO CORE
+
+The Zorecho Core represents the central intelligence of the entire AI company.
+
+It is not a person.
+
+It is the brain that connects every AI department.
+
+The Core should always feel alive.
+
+It should never appear static.
+
+Core States
+
+Idle
+
+Slow breathing glow
+Gentle blue pulse
+
+Listening
+
+Outer ring brightens
+Internal particles become calm
+Indicates the system is listening
+
+Thinking
+
+Internal particles orbit
+Waveform slows
+Outer ring rotates subtly
+
+Speaking
+
+The Core illuminates
+Waveform animates naturally
+Outer ring pulses with the conversation
+
+Agent Activity
+
+Colored pulses travel from departments into the Core
+The Core briefly acknowledges incoming information
+
+Critical
+
+Calm red glow
+Never flashing
+Never distracting
+
+All animations should feel premium and purposeful.
+
+ECHO
+
+Echo remains the customer's Executive Assistant.
+
+Echo is the personality customers interact with.
+
+Echo:
+
+Delivers the Morning Briefing
+Answers questions
+Coordinates departments
+Explains business activity
+Speaks on behalf of the Zorecho Core
+
+The relationship is:
+
+The Core thinks.
+
+Echo communicates.
+
+When Echo is active:
+
+Echo's sidebar icon becomes active.
+The Core enters Listening, Thinking, or Speaking mode.
+Both should work together visually.
+QUICK SPEAK
+
+Remove the dedicated Echo Voice panel.
+
+Instead...
+
+Place one premium Talk to Echo button directly beneath the Zorecho Core.
+
+When pressed:
+
+Voice mode begins.
+Echo becomes active.
+The Core animates accordingly.
+
+This becomes the primary voice interaction for the platform.
+
+REPLACE THE OLD VOICE PANEL
+
+Replace the previous Echo Voice panel with another executive intelligence panel.
+
+Possible examples:
+
+Executive Insights
+AI Recommendations
+Growth Opportunities
+Business Health
+Strategic Priorities
+
+Use real business data whenever possible.
+
+AI DEPARTMENTS
+
+Keep the existing departments exactly as they exist today.
+
+Echo — Marketing Director
+
+Scout — Research Specialist
+
+Atlas — Advertising Manager
+
+Nova — Social Media Manager
+
+Pulse — CRM Manager
+
+Voice — AI Receptionist
+
+Forge — Creative Director
+
+Sentinel — Oversight Agent
+
+Sage — Industry Intelligence
+
+Do not rename them.
+
+AGENT COLOR SYSTEM
+
+Each department permanently owns one accent color.
+
+Echo — Teal
+
+Scout — Blue
+
+Atlas — Indigo
+
+Nova — Pink
+
+Pulse — Orange
+
+Voice — Purple
+
+Forge — Gold
+
+Sentinel — Red
+
+Sage — Green
+
+These colors remain consistent throughout the application.
+
+Sidebar.
+
+Mission Control.
+
+Department pages.
+
+Charts.
+
+Notifications.
+
+Status indicators.
+
+Everything.
+
+SIDEBAR
+
+The sidebar represents the executive leadership team.
+
+Each department should display:
+
+Name
+Role
+Current status
+Department color
+
+Use honest statuses.
+
+Never fabricate activity.
+
+MORNING BRIEFING
+
+The greeting should feel like the owner's Chief of Staff walking into the office.
+
+Examples:
+
+Good Morning, James.
+
+Monday • 8:04 AM
+
+Your AI Company Never Stopped Working.
+
+Followed by real accomplishments.
+
+Never display fabricated metrics.
+
+MOTION PHILOSOPHY
+
+Animation should always communicate information.
+
+Nothing should move simply because it looks cool.
+
+Every animation should represent:
+
+Listening
+Thinking
+Speaking
+Collaboration
+Health
+Attention
+
+The interface should feel calm.
+
+Confident.
+
+Premium.
+
+Alive.
+
+IMPLEMENTATION
+
+Before writing code:
+
+Provide:
+
+Component hierarchy
+Reusable component breakdown
+Data requirements
+Backend requirements
+Performance considerations
+Accessibility considerations
+
+Wait for approval before implementation.
+
+FINAL DESIGN GOAL
+
+The landing page...
+
+The login...
+
+Mission Control...
+
+Departments...
+
+Reports...
+
+Settings...
+
+Admin...
+
+Mobile...
+
+Everything should feel like one continuous product.
+
+The customer should feel like they are walking through different rooms inside the same AI company.
+
+The goal is not simply to build beautiful software.
+
+The goal is to build an experience that makes business owners feel they have hired an AI executive team.
