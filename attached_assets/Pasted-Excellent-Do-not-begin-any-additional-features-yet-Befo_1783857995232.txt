@@ -1,0 +1,191 @@
+Excellent. Do not begin any additional features yet.
+
+Before we move forward, give me a final implementation and deployment report for the cost-control work that was just completed.
+
+I need plain-English confirmation of the following:
+
+1. GIT AND CHECKPOINT STATUS
+
+* Name of the rollback checkpoint created
+* Starting Git commit
+* Current Git commit
+* Whether all cost-control changes are committed
+* Whether everything is pushed to GitHub
+* Whether there are any uncommitted or local-only code changes
+* Exact rollback procedure if the deployment causes problems
+
+2. PRODUCTION DEPLOYMENT STATUS
+
+* Whether the changes are deployed to Railway production
+* Current production deployment version or commit
+* Whether the production client and server are running the same version
+* Whether the server restarted successfully
+* Whether the production logs show any new errors
+* Whether a deployment rollback is immediately available
+
+Do not say “live” unless you have verified that the production deployment contains the new commit.
+
+3. BACKGROUND JOB STATUS
+
+List every AI-consuming background job and show:
+
+* Job name
+* Previous schedule
+* Current schedule
+* Whether enabled in production
+* Whether enabled in development
+* Provider used
+* Estimated calls per day before
+* Estimated calls per day now
+
+Confirm specifically:
+
+* Sage urgent scanning is disabled by default
+* Sage deep research is reduced
+* Competitor scanning is reduced
+* Development and preview environments cannot run production AI schedules
+* Hot reloads and server restarts do not trigger paid AI activity
+* Jobs cannot run simultaneously in development and production using the same key
+
+4. AI SWITCH STATUS
+
+Show the current effective value in production for each switch, without revealing any secret values:
+
+* AI_ENABLED
+* USER_AI_ENABLED
+* BACKGROUND_AI_ENABLED
+* SAGE_RESEARCH_ENABLED
+* COMPETITOR_RESEARCH_ENABLED
+* DEVELOPMENT_AI_ENABLED
+* OPENAI_CONTENT_ENABLED
+* ANTHROPIC_CONTENT_ENABLED
+
+Explain what happens when each switch is turned off.
+
+5. BUDGET SETTINGS
+
+Show the current configured limits for:
+
+* Global daily AI spend
+* Global monthly AI spend
+* Background AI daily spend
+* Development AI daily spend
+* Per-business daily spend
+* Per-business monthly spend
+* Maximum calls per minute
+* Maximum retry count
+* Maximum provider fallback attempts
+
+If any limit is currently unset, say so clearly.
+
+Recommend temporary limits for the next two-day owner test based on keeping costs tightly controlled.
+
+Do not change the limits until I approve them.
+
+6. LEDGER VERIFICATION
+
+Perform one controlled paid test request through each currently enabled provider:
+
+* One Anthropic request
+* One OpenAI request
+* One Hermes request, if Hermes usage incurs a paid provider cost
+
+Keep the requests extremely small.
+
+For each test, confirm the ledger recorded:
+
+* Provider
+* Model
+* Environment
+* Business
+* Feature
+* Task label
+* Input tokens
+* Output tokens
+* Retry count
+* Duration
+* Success or failure
+* Estimated cost
+* User-triggered or background
+* Deployment version
+
+Report the exact recorded cost for each controlled test.
+
+Do not run larger test prompts.
+
+7. EMERGENCY SHUTOFF PROOF
+
+In a controlled environment, prove:
+
+* A paid request succeeds while AI is enabled.
+* The emergency stop blocks the next request before it reaches the provider.
+* The ledger records the blocked attempt correctly.
+* Re-enabling AI restores service.
+* No queued requests are released unexpectedly after service is restored.
+
+8. DEVELOPMENT PROTECTION PROOF
+
+Confirm through logs or tests that:
+
+* Development starts with background AI disabled.
+* Development cannot access the production API key by default.
+* Scheduled AI jobs are skipped in development.
+* A refresh, rebuild, hot reload, or restart generates zero paid AI requests.
+* A developer must explicitly enable a named live test.
+* Development usage is labeled separately in the ledger.
+
+9. TEST RESULTS
+
+Summarize:
+
+* Total tests run
+* Total passed
+* Total failed
+* Names or categories of the 21 new cost-control tests
+* Whether tests cover Anthropic, OpenAI, Hermes, schedulers, budgets, ledger entries, emergency shutoff, and environment guards
+* Any important behavior not yet covered by automated tests
+
+10. KNOWN LIMITATIONS
+
+List every known limitation or unfinished item, including:
+
+* Whether the Sentinel dashboard is complete
+* Whether semantic caching is built
+* Whether exact duplicate request prevention is built
+* Whether provider routing is built
+* Whether the Creative Engine is built
+* Whether per-customer budgets are fully enforced
+* Whether alerts at 50%, 75%, 90%, and 100% are active
+* Whether email or owner notifications are active
+* Whether cost estimates are exact or model-rate estimates
+
+11. TWO-DAY TEST RECOMMENDATION
+
+Give me a tightly controlled test configuration for the next one to two days.
+
+Include:
+
+* Recommended daily budget
+* Recommended monthly budget
+* Which background jobs should remain disabled
+* Which single business should be used for testing
+* Which providers should be enabled
+* Which features should be tested
+* What I should watch on the dashboard
+* What would require an immediate shutdown
+* What success should look like after 24 hours
+* What success should look like after 48 hours
+
+12. FINAL STATUS
+
+End with one of these exact conclusions:
+
+A. Cost controls are deployed and ready for controlled owner testing.
+
+B. Cost controls are implemented but not yet safely deployed.
+
+C. Cost controls still have unresolved blockers.
+
+Support the conclusion with evidence.
+
+Do not begin the Creative Engine, Knowledge Hub, semantic caching, voice restructuring, or any new product feature until I review this report and approve the next phase.
