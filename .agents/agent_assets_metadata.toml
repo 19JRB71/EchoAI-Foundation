@@ -1,0 +1,164 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "X9xm-HGNpe9M6-SmcE_yo"
+uri = "file://screenshots/phase1-review/PHASE1_REVIEW.md"
+type = "text"
+title = "Phase 1 Review — full report"
+
+[[outputs]]
+id = "Ai0GwuKB4ATSMF3pKDifV"
+uri = "file://screenshots/phase1-review/desktop-01-top.png"
+type = "image"
+title = "Desktop — header, typography, palette top"
+
+[[outputs]]
+id = "E2Vtb4TFJuk-WL382tcRD"
+uri = "file://screenshots/phase1-review/desktop-02-typography.png"
+type = "image"
+title = "Desktop — Typography"
+
+[[outputs]]
+id = "Yqe0s3D_txjj-9OqUnMCq"
+uri = "file://screenshots/phase1-review/desktop-03-color-light.png"
+type = "image"
+title = "Desktop — Color & Light (full palette)"
+
+[[outputs]]
+id = "Y1sb1E1BTRBYyv5sJMqW5"
+uri = "file://screenshots/phase1-review/desktop-04-buttons.png"
+type = "image"
+title = "Desktop — Buttons"
+
+[[outputs]]
+id = "sLoR_g796kqzDom3YL5n1"
+uri = "file://screenshots/phase1-review/desktop-05-cards-hover.png"
+type = "image"
+title = "Desktop — Cards & elevation (hover)"
+
+[[outputs]]
+id = "cvil28bZTST3UMH3dzHRg"
+uri = "file://screenshots/phase1-review/desktop-06-forms.png"
+type = "image"
+title = "Desktop — Forms"
+
+[[outputs]]
+id = "vAupF-spx81nstIEvC3W5"
+uri = "file://screenshots/phase1-review/desktop-07-tables.png"
+type = "image"
+title = "Desktop — Tables"
+
+[[outputs]]
+id = "wQHNysvkJoWdcF7zUnP40"
+uri = "file://screenshots/phase1-review/desktop-08-badges-status.png"
+type = "image"
+title = "Desktop — Badges & status"
+
+[[outputs]]
+id = "BkFScVQ2wDaOnRxjrTwb1"
+uri = "file://screenshots/phase1-review/desktop-09-agent-roster.png"
+type = "image"
+title = "Desktop — Agent colors & Executive Roster"
+
+[[outputs]]
+id = "-RMt6hCp7lbI4i_xKUpzT"
+uri = "file://screenshots/phase1-review/desktop-10-core-idle.png"
+type = "image"
+title = "Core — Idle"
+
+[[outputs]]
+id = "PeV6U7jwgqB8nnrVrh6h4"
+uri = "file://screenshots/phase1-review/desktop-11-core-listening.png"
+type = "image"
+title = "Core — Listening"
+
+[[outputs]]
+id = "U6xHwSWtrR700N16rV5Nq"
+uri = "file://screenshots/phase1-review/desktop-12-core-thinking.png"
+type = "image"
+title = "Core — Thinking"
+
+[[outputs]]
+id = "WA95wx3v2pfFZLX_HvSZe"
+uri = "file://screenshots/phase1-review/desktop-13-core-speaking.png"
+type = "image"
+title = "Core — Speaking"
+
+[[outputs]]
+id = "Ok6LDYUP_owG51-PAx-W9"
+uri = "file://screenshots/phase1-review/desktop-14-core-agent-pulse.png"
+type = "image"
+title = "Core — Agent Activity pulse (Pulse)"
+
+[[outputs]]
+id = "sC30vIo7_WwPud4iauy14"
+uri = "file://screenshots/phase1-review/desktop-15-core-critical.png"
+type = "image"
+title = "Core — Critical health"
+
+[[outputs]]
+id = "N7E0ktZivZB2l7rHFxzqQ"
+uri = "file://screenshots/phase1-review/desktop-16-voice.png"
+type = "image"
+title = "Desktop — Voice"
+
+[[outputs]]
+id = "JOY9n7eYpj9Uip6zg0-ui"
+uri = "file://screenshots/phase1-review/desktop-17-loading.png"
+type = "image"
+title = "Desktop — Loading"
+
+[[outputs]]
+id = "McfJBtKglcYXlhKWX6fmv"
+uri = "file://screenshots/phase1-review/desktop-18-notifications-toasts.png"
+type = "image"
+title = "Desktop — Notifications & toasts"
+
+[[outputs]]
+id = "0_EogXa7-Nfd0UBZ3Yupi"
+uri = "file://screenshots/phase1-review/desktop-19-charts.png"
+type = "image"
+title = "Desktop — Chart theme"
+
+[[outputs]]
+id = "G0lbnUB-wMo7zNfsHf_oQ"
+uri = "file://screenshots/phase1-review/desktop-20-motion.png"
+type = "image"
+title = "Desktop — Motion principles"
+
+[[outputs]]
+id = "DhrWrMt3OIQ2jgj6qnMLk"
+uri = "file://screenshots/phase1-review/mobile-01-top.png"
+type = "image"
+title = "Mobile — header & typography"
+
+[[outputs]]
+id = "1ZvZrYeTLP0A9DTF2gdd0"
+uri = "file://screenshots/phase1-review/mobile-02-buttons.png"
+type = "image"
+title = "Mobile — Buttons"
+
+[[outputs]]
+id = "ua_lXL0c7gHnCnMu1vt8d"
+uri = "file://screenshots/phase1-review/mobile-03-forms.png"
+type = "image"
+title = "Mobile — Forms"
+
+[[outputs]]
+id = "qcdB2cgXWPLF2Gv2pegVQ"
+uri = "file://screenshots/phase1-review/mobile-04-agent-roster.png"
+type = "image"
+title = "Mobile — palette & roster"
+
+[[outputs]]
+id = "_R13pp0JfWVH6Me86NK3z"
+uri = "file://screenshots/phase1-review/mobile-05-core.png"
+type = "image"
+title = "Mobile — Zorecho Core"
+
+[[outputs]]
+id = "K-101WKrohcT-L7PgA3Hx"
+uri = "file://screenshots/phase1-review/mobile-06-loading.png"
+type = "image"
+title = "Mobile — Loading"
