@@ -34,4 +34,18 @@ if (process.env[MARKER]) {
 // migration runner, etc.) sees the isolated test database — never the real one.
 process.env.DATABASE_URL = testUrl;
 
+// AI cost controls in tests: every AI-wrapper suite stubs the provider SDK, so
+// no real credits can be spent — but the admission gate (utils/aiGate.js) would
+// otherwise 503 every stubbed call (this is a development environment) and the
+// per-minute rate limit would throttle fast stub loops. Lift both HERE, for the
+// test run only. Tests that verify the dev-block/rate-limit behavior override
+// these process-locally. Respect explicit values so a suite can be launched
+// with different policy on purpose.
+if (process.env.DEVELOPMENT_AI_ENABLED === undefined) {
+  process.env.DEVELOPMENT_AI_ENABLED = "true";
+}
+if (process.env.AI_MAX_CALLS_PER_MINUTE === undefined) {
+  process.env.AI_MAX_CALLS_PER_MINUTE = "0"; // 0 = unlimited
+}
+
 module.exports = { testUrl };

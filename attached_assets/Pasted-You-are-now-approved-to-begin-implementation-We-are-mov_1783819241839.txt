@@ -1,0 +1,792 @@
+You are now approved to begin implementation.
+
+We are moving Echo/Zorecho into a seven-day launch sprint.
+
+The objective is not to redesign the entire platform or add unnecessary features. The objective is to make Echo stable, economically sustainable, measurable, and ready to accept its first paying customers within one week.
+
+I want to test the live system personally for one to two days before opening it to customers. After the test period, I will ask you for a complete production-readiness and performance report.
+
+GENERAL RULES
+
+1. Stop all unrelated feature development.
+2. Do not rebuild systems that already work.
+3. Protect the live system with checkpoints and feature flags.
+4. Complete the highest-impact cost and reliability changes first.
+5. Preserve immediate rollback capability.
+6. Do not claim anything is fixed without evidence.
+7. Do not allow development or preview environments to consume production AI credits.
+8. Do not create another AI agent when ordinary application logic will solve the problem.
+9. Keep the customer experience unified under Echo. Customers should not know or care which AI provider handled a task.
+10. Optimize for a safe launch within seven days, not architectural perfection.
+
+CREATE A CHECKPOINT FIRST
+
+Before changing code:
+
+* Create a named rollback checkpoint.
+* Record the current Git commit.
+* Record the current production deployment version.
+* Record current environment variables without displaying secret values.
+* Record which schedulers and background jobs are currently enabled.
+* Confirm that the current live site is functioning.
+* Create a launch branch if that is consistent with the current deployment workflow.
+
+Name the checkpoint something similar to:
+
+PRE_LAUNCH_COST_AND_ROUTING_CHECKPOINT_2026_07_11
+
+PHASE 1 — STOP THE COST BLEEDING
+
+This is the first priority.
+
+1. Add strict environment protection.
+
+Production AI schedulers must run only in the production environment.
+
+Development, preview, staging, and local environments must default to:
+
+* Background AI disabled
+* Sage scheduled research disabled
+* Competitor research disabled
+* Autonomous AI jobs disabled
+* Production API keys unavailable
+* Paid model calls mocked unless explicitly enabled for a controlled test
+
+Log:
+
+* Environment name
+* Scheduler startup
+* Every job skipped because of environment restrictions
+* Whether live AI testing is enabled
+
+A rebuild, refresh, hot reload, startup, deployment, or preview session must never automatically trigger a paid AI call.
+
+2. Reduce background research immediately.
+
+Change temporary launch defaults to:
+
+* Sage urgent scan: disabled by default
+* Sage deep industry research: once daily at most
+* Competitor scan: once daily at most
+* Website monitoring: use a non-AI change detector first
+* Morning briefing pre-generation: only for active test businesses
+* Autonomous growth analysis: disabled unless manually enabled
+* Weekly intelligence stack: disabled during the launch sprint unless required for testing
+
+Do not run research for:
+
+* Demo businesses
+* Inactive businesses
+* Businesses without a configured research topic
+* Businesses without configured competitors
+* Businesses that have not opted into the feature
+* Businesses whose research result is still fresh
+
+Make these schedules configurable through administrator settings or environment configuration.
+
+3. Add emergency controls.
+
+Add these or equivalent controls:
+
+AI_ENABLED
+USER_AI_ENABLED
+BACKGROUND_AI_ENABLED
+SAGE_RESEARCH_ENABLED
+COMPETITOR_RESEARCH_ENABLED
+DEVELOPMENT_AI_ENABLED
+OPENAI_CONTENT_ENABLED
+ANTHROPIC_CONTENT_ENABLED
+
+Requirements:
+
+* User-requested AI can remain available while background AI is disabled.
+* Sage can be disabled independently.
+* Anthropic and OpenAI can be disabled independently.
+* Blocked requests must return an honest message, not silently fail.
+* The administrator must be able to disable expensive activity quickly.
+
+PHASE 2 — BUILD THE CENTRAL AI USAGE LEDGER
+
+Every paid AI request must be visible.
+
+Use the existing AI provider wrappers as centralized chokepoints.
+
+Record the following for every AI call:
+
+* Timestamp
+* Environment
+* Deployment version
+* Provider
+* Model
+* Business ID
+* User ID when available
+* Agent
+* Feature
+* Task type
+* Background job name when applicable
+* Request ID
+* Conversation ID when applicable
+* User-triggered or autonomous
+* Input tokens
+* Output tokens
+* Cached-input tokens when available
+* Cached-output or reused-response information when available
+* Web searches
+* Retry number
+* Duration
+* Success or failure
+* Error category
+* Estimated cost
+* Whether a cache was checked
+* Cache hit or miss
+* Reason for cache miss
+* Whether a fallback provider was used
+
+Use actual provider usage metadata whenever it is available.
+
+Do not rely only on estimates.
+
+Create summaries for:
+
+* Cost today
+* Cost this month
+* Projected monthly cost
+* Cost by provider
+* Cost by business
+* Cost by feature
+* Cost by agent
+* Cost by model
+* Cost from background jobs
+* Cost from development
+* Cost from retries
+* Cost from web research
+* Most expensive requests
+* Most repeated requests
+
+PHASE 3 — HARD BUDGETS AND SHUTOFFS
+
+Implement budget controls in normal application logic at the central provider-wrapper level.
+
+Support:
+
+* Global daily budget
+* Global monthly budget
+* Development daily budget
+* Per-business daily budget
+* Per-business monthly budget
+* Background-research daily budget
+* Per-feature budget
+* Maximum calls per minute
+* Maximum retry count
+* Maximum fallback attempts
+
+Budget checks must happen before a paid request is sent.
+
+At 50%:
+
+* Record an informational alert.
+
+At 75%:
+
+* Warn the administrator.
+
+At 90%:
+
+* Disable optional background AI.
+* Continue essential customer-requested activity if permitted.
+
+At 100%:
+
+* Stop paid calls according to the configured policy.
+* Return a clear message.
+* Never continue retrying.
+
+Add an emergency owner shutoff.
+
+PHASE 4 — PREVENT DUPLICATE PAID REQUESTS
+
+Implement exact duplicate protection first.
+
+Generate a request fingerprint using:
+
+* Business ID
+* User ID when relevant
+* Task type
+* Feature
+* Provider or provider category
+* Model configuration
+* System prompt version
+* Business-knowledge version
+* Normalized request
+* Important parameters
+* Time window when the answer is time-sensitive
+
+If the same request is currently in progress:
+
+* Do not start another provider call.
+* Join the existing request.
+* Return the same completed result to all waiting callers.
+
+If the same request was recently completed and is still valid:
+
+* Return the cached result.
+
+Protect against:
+
+* Double-clicks
+* Multiple form submissions
+* Browser refreshes
+* React duplicate events
+* Repeated webhooks
+* Scheduler overlap
+* Multiple server instances
+* Retry loops
+* Repeated voice commands
+* Deployment restarts
+
+Use a database-backed or distributed lock. Do not rely only on local server memory.
+
+PHASE 5 — REUSE PREVIOUS KNOWLEDGE
+
+Build a conservative knowledge and research cache.
+
+Echo should not pay repeatedly to rediscover information it already knows.
+
+Reuse:
+
+* Company facts
+* Service descriptions
+* Product information
+* Service areas
+* Brand voice
+* Audience profiles
+* Offer details
+* Industry research
+* Competitor research
+* Website summaries
+* SEO keyword research
+* Frequently asked questions
+* Previously summarized documents
+* Approved strategy information
+* Published-content history
+
+Separate:
+
+A. Knowledge cache
+
+This may be reused aggressively until the source changes or the information expires.
+
+B. Final-response cache
+
+Only reuse the final wording when the request is effectively identical and the user did not request a fresh version.
+
+When the user says:
+
+* Another
+* Different
+* Fresh
+* New version
+* Rewrite
+* Give me more options
+
+Do not return the identical copy.
+
+Reuse the research, business facts, audience, offer, and brand context, then generate only the new wording.
+
+Cache policies should account for freshness:
+
+* Static company facts: valid until changed
+* Brand voice: valid until changed
+* Products and services: valid until changed
+* Industry knowledge: configurable, often 7–30 days
+* Competitor information: valid until a change is detected or expiration occurs
+* Current news, laws, prices, policies, platform rules, and other time-sensitive information: short expiration and revalidation required
+* Lead-specific content: isolated to that lead and business
+* Private client data: never shared across businesses
+
+Every cache entry must include:
+
+* Business or shared-industry scope
+* Source
+* Created date
+* Last verified date
+* Expiration date
+* Knowledge version
+* Prompt version
+* Data-isolation key
+
+PHASE 6 — MULTI-MODEL PROVIDER FOUNDATION
+
+Build a provider-independent AI interface.
+
+Do not hard-code:
+
+“Facebook content always goes to OpenAI.”
+
+Instead, create task categories and provider routing.
+
+Recommended conceptual interface:
+
+generate({
+taskType,
+systemInstructions,
+messages,
+businessId,
+userId,
+requestId,
+feature,
+agent,
+requiresJson,
+requiresStreaming,
+requiresWebSearch,
+privacyLevel,
+preferredProvider,
+allowedProviders,
+maximumCost,
+timeout,
+cachePolicy
+})
+
+Return a normalized result such as:
+
+{
+text,
+json,
+provider,
+model,
+tokensIn,
+tokensOut,
+estimatedCost,
+duration,
+cacheHit,
+fallbackUsed,
+refusal,
+error
+}
+
+All agents should receive the same normalized response shape.
+
+Provider-specific differences must remain inside adapters.
+
+Initially support:
+
+* Anthropic
+* OpenAI
+* No-LLM deterministic processing
+
+Keep existing Hermes behavior unless a change is necessary to support task classification.
+
+PHASE 7 — CREATIVE ENGINE PILOT
+
+Create a provider-independent Creative Engine.
+
+This is the first multi-model pilot.
+
+The Creative Engine should support owner-requested:
+
+* Facebook posts
+* Facebook ads
+* Email marketing copy
+* Website copy
+* Captions
+* Sales copy
+* Campaign ideas
+* Content-calendar ideas
+
+Use OpenAI as the default provider for the pilot, behind a feature flag.
+
+The Creative Engine must receive:
+
+* Business facts
+* Industry
+* Brand voice
+* Target customer
+* Offer
+* Service area
+* Desired platform
+* Goal
+* Call to action
+* Prior published content
+* Content the owner has rejected
+* Relevant cached research
+
+It must avoid accidental duplication of prior published content.
+
+The output should use a provider-neutral structured format, such as:
+
+{
+contentType,
+headline,
+primaryText,
+callToAction,
+platform,
+audience,
+objective,
+variations,
+complianceNotes,
+sourcesUsed,
+provider,
+model,
+estimatedCost
+}
+
+Do not automatically publish anything generated during the pilot.
+
+The owner must review and approve content.
+
+Keep instant rollback to Anthropic or the previous content path.
+
+PHASE 8 — NO-AI PATHS
+
+Audit frequent Echo requests and ensure deterministic tasks do not call a paid model.
+
+These should normally use application logic:
+
+* Navigation
+* Opening a page
+* Starting or stopping music
+* Settings changes
+* CRM lookups
+* Contact retrieval
+* Calendar retrieval
+* Existing appointment lookup
+* Existing post lookup
+* Publishing approved content
+* Scheduling approved content
+* Integration-status checks
+* Reading already prepared reports
+* Retrieving cached research
+* Repeating Echo’s last answer
+* Displaying account status
+* Showing billing usage
+
+Keep local intent matching before Hermes or a premium model.
+
+PHASE 9 — SENTINEL OWNER DASHBOARD
+
+Create an owner-facing system dashboard in Sentinel.
+
+Display:
+
+AI COSTS
+
+* Cost today
+* Cost this month
+* Projected monthly cost
+* Remaining daily budget
+* Remaining monthly budget
+* Cost by provider
+* Cost by business
+* Cost by feature
+* Cost by agent
+* Cost from background jobs
+* Cost from development
+* Cost from retries
+
+EFFICIENCY
+
+* Calls today
+* Cache hit rate
+* Exact duplicate requests prevented
+* In-flight requests combined
+* Estimated savings from caching
+* No-AI requests handled
+* Most repeated requests
+* Most expensive requests
+
+SYSTEM HEALTH
+
+* Anthropic status
+* OpenAI status
+* Hermes status
+* Voice status
+* Scheduler status
+* Background AI status
+* Emergency shutoff status
+* Current environment
+* Deployment version
+* Last failure
+* Last successful AI call
+
+BACKGROUND JOBS
+
+* Job name
+* Schedule
+* Last run
+* Next run
+* Business
+* Provider
+* Cost of last run
+* Status
+* Enabled or disabled
+* Reason disabled
+
+The dashboard is for the platform owner, not normal customers.
+
+PHASE 10 — VOICE RELIABILITY WITHOUT A REBUILD
+
+Do not create another voice-control agent.
+
+Use the existing architecture.
+
+Implement:
+
+1. A central intent-priority ladder.
+
+Real commands should outrank pending offers and stale conversation states.
+
+Example priority:
+
+* Stop, cancel, mute, emergency commands
+* Direct navigation commands
+* Direct task commands
+* Active required confirmations
+* Active guided workflow answers
+* Optional offers
+* Small talk or fallback conversation
+
+Avoid adding isolated phrase patches when a central precedence rule can solve the entire category.
+
+2. Improve the flight recorder.
+
+Record:
+
+* Microphone started
+* Microphone stopped
+* Wake word detected
+* Raw transcript
+* Transcript confidence
+* Conversation state before processing
+* All matching intents considered
+* Winning intent
+* Reason it won
+* Hermes route
+* Agent selected
+* Provider selected
+* Paid call made or avoided
+* Tokens
+* Cost
+* Retry count
+* Spoken response
+* Listener restart
+* Conversation state after processing
+* Final success or failure
+
+Mirror important voice events server-side so live failures can be reviewed remotely.
+
+3. Add a voice-health self-test.
+
+The test should verify:
+
+* Microphone permission
+* Listener active
+* Speech received
+* Transcript produced
+* Wake phrase recognized
+* Intent matched
+* Response spoken
+* Listener restarted
+
+The entire test should take approximately 10–20 seconds.
+
+PHASE 11 — LAUNCH-SCOPE RULES
+
+For this launch sprint, do not build:
+
+* A full public Knowledge Hub
+* Hundreds of industry brains
+* New autonomous agents
+* Complex automatic provider benchmarking
+* Fully automatic model failover
+* Major UI redesigns
+* Nonessential reporting
+* Unproven background automations
+* Features unrelated to getting the first customers onboarded and paid
+
+Prepare the architecture for future industry brains, but do not let that delay launch.
+
+PHASE 12 — CUSTOMER-READY REQUIREMENTS
+
+Before accepting paying customers, verify:
+
+* Signup works
+* Login works
+* Password recovery works
+* Business onboarding works
+* Business data is isolated
+* Billing or subscription collection works
+* Subscription status is enforced
+* Customer cancellation works
+* Failed payment behavior is defined
+* Email verification works if required
+* Required integrations connect correctly
+* Customer cannot access owner/admin controls
+* Demo data is not shown to real customers
+* Background jobs do not run unexpectedly
+* AI usage is attributable to the correct customer
+* Customer budgets or plan limits are enforceable
+* Errors return honest messages
+* Essential actions are logged
+* Privacy policy and terms links exist
+* A support/contact path exists
+* Backups are running
+* Rollback is possible
+* Production secrets are protected
+* Test keys are separate from production keys
+
+PHASE 13 — TEST PLAN
+
+After implementation, run a controlled one-to-two-day owner test.
+
+Create a launch test checklist covering:
+
+VOICE
+
+* Wake Echo repeatedly
+* Test after inactivity
+* Test after Echo speaks
+* Test after cancellation
+* Test after tab change
+* Test after computer sleep
+* Test pending-offer conflicts
+* Test direct content commands
+
+CONTENT
+
+* Create Facebook post
+* Create Facebook ad
+* Create email
+* Request a different version
+* Confirm previous research is reused
+* Confirm old final wording is not repeated when a fresh version is requested
+* Confirm provider and cost are logged
+
+COST
+
+* Confirm development jobs are off
+* Confirm Sage urgent scans are off
+* Confirm daily budget works
+* Confirm emergency shutoff works
+* Confirm duplicates are blocked
+* Confirm cache hits are visible
+* Confirm background cost is near the configured target
+
+CUSTOMER EXPERIENCE
+
+* Create a clean test customer
+* Complete onboarding
+* Connect one integration
+* Generate content
+* Schedule or publish approved content
+* Review dashboard
+* Confirm billing status
+* Confirm client data isolation
+* Confirm logout and login
+* Confirm mobile and desktop usability
+
+FAILURE TESTS
+
+* Disable Anthropic
+* Disable OpenAI
+* Exceed budget
+* Trigger duplicate request
+* Cause timeout
+* Lose microphone permission
+* Restart server
+* Deploy a new version
+* Confirm graceful and honest behavior
+
+PHASE 14 — REPORT AFTER THE TEST PERIOD
+
+After one to two days of live owner testing, produce a report with:
+
+A. Executive summary
+B. Current production version
+C. Total AI spend during test
+D. Cost by provider
+E. Cost by feature
+F. Cost by business
+G. Cost from background activity
+H. Calls prevented by caching
+I. Calls handled without AI
+J. Voice success rate
+K. Voice failure categories
+L. Content-generation quality
+M. Errors encountered
+N. Fixes completed during test
+O. Remaining launch blockers
+P. Estimated cost per active customer
+Q. Recommended subscription pricing floor
+R. Safe number of initial customers
+S. Go-live recommendation: ready, conditional, or not ready
+T. Rollback status
+
+Use actual logs and usage records, not guesses.
+
+IMPLEMENTATION ORDER
+
+Follow this order unless the current codebase provides a strong technical reason not to:
+
+1. Create checkpoint.
+2. Add production-only scheduler guards.
+3. Disable or reduce high-frequency background AI.
+4. Add emergency AI switches.
+5. Build centralized cost ledger.
+6. Add hard budgets and alerts.
+7. Add exact duplicate protection.
+8. Add safe development mode.
+9. Add no-AI command paths.
+10. Build provider-independent interface.
+11. Pilot OpenAI through the Creative Engine.
+12. Add conservative knowledge caching.
+13. Build Sentinel owner dashboard.
+14. Improve centralized voice intent priority.
+15. Expand the voice flight recorder.
+16. Run full launch tests.
+17. Deploy for one-to-two-day owner test.
+18. Produce the production-readiness report.
+
+REPORT AFTER EACH STAGE
+
+After every stage, tell me:
+
+* What changed
+* Files changed
+* Why it was needed
+* Tests added
+* Test results
+* Estimated cost reduction
+* Remaining risks
+* Whether deployed
+* Whether rollback is available
+
+Do not use “fixed” without giving me:
+
+* Root cause
+* Exact change
+* Reproduction test
+* Test result
+* Deployment status
+
+START NOW
+
+Begin with:
+
+1. The checkpoint
+2. Scheduler environment guards
+3. Reduction or disabling of Sage’s high-frequency scans
+4. Emergency AI switches
+5. Central AI usage ledger
+6. Hard daily and monthly budgets
+
+Do not begin the broader Creative Engine or voice changes until the cost controls are implemented, tested, and shown to be working.
+
+The immediate business goal is:
+
+* Stop unnecessary spending
+* Test Echo personally for one to two days
+* Resolve critical launch blockers
+* Begin accepting paying customers within seven days
+* Improve the system from real usage after launch
+
+Move quickly, but do not trade away data isolation, billing accuracy, rollback safety, or protection against runaway AI spending.

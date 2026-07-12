@@ -8,6 +8,7 @@ const featureSuggestionAdminController = require("../controllers/featureSuggesti
 const demoController = require("../controllers/demoController");
 const diagnosticsController = require("../controllers/diagnosticsController");
 const selfReviewAdminController = require("../controllers/selfReviewAdminController");
+const aiControlAdminController = require("../controllers/aiControlAdminController");
 
 const router = express.Router();
 
@@ -50,6 +51,13 @@ router.get("/self-review/reports", selfReviewAdminController.listReports);
 router.get("/self-review/reports/:reportId", selfReviewAdminController.getReport);
 router.post("/self-review/run", selfReviewAdminController.runNow);
 router.put("/self-review/items/:itemId/status", selfReviewAdminController.updateItemStatus);
+
+// AI cost controls (launch sprint): status, switches, budgets, emergency stop.
+router.get("/ai/status", aiControlAdminController.getAiStatus);
+router.put("/ai/settings", aiControlAdminController.updateAiSetting);
+router.delete("/ai/settings/:key", aiControlAdminController.resetAiSetting);
+router.post("/ai/emergency-stop", aiControlAdminController.emergencyStop);
+router.post("/ai/resume", aiControlAdminController.resumeAi);
 
 // Demo Account & Sales Presentation Mode.
 router.get("/demo/status", demoController.getStatus);

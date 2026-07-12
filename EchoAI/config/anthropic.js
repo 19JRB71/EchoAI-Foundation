@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const Anthropic = require("@anthropic-ai/sdk");
 const { makeUnconfiguredClient } = require("../utils/optionalClient");
+const { assertAiAllowed } = require("../utils/aiGate");
+const { recordUsage, categorizeAiError, newRequestId } = require("../utils/aiUsage");
 
 // The Anthropic SDK throws at construction when no key is available (arg
 // undefined AND no ANTHROPIC_API_KEY in env), which would crash the whole server
@@ -70,13 +72,51 @@ async function createMessage(params, opts = {}) {
   const attempts = Math.max(1, opts.attempts || DEFAULT_AI_ATTEMPTS);
   const label = opts.label || "AI request";
 
+  // Admission gate: emergency switches, environment policy, rate limit, and
+  // budgets — checked ONCE before any money is spent (not per retry). Throws
+  // an honest 503 when blocked. Returns resolved metadata for the ledger.
+  const meta = await assertAiAllowed("anthropic", opts);
+  const requestId = newRequestId();
+  const startedAt = Date.now();
+  const ledgerBase = {
+    provider: "anthropic",
+    model: params.model || MODEL,
+    feature: opts.feature || label,
+    requestId,
+    ...meta,
+  };
+
   let lastErr;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      return await anthropic.messages.create(params, { timeout, maxRetries: 0 });
+      const response = await anthropic.messages.create(params, { timeout, maxRetries: 0 });
+      const usage = response.usage || {};
+      recordUsage({
+        ...ledgerBase,
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        cachedInputTokens: usage.cache_read_input_tokens,
+        webSearches:
+          usage.server_tool_use && usage.server_tool_use.web_search_requests
+            ? usage.server_tool_use.web_search_requests
+            : 0,
+        retryCount: attempt - 1,
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
+      return response;
     } catch (err) {
       lastErr = err;
-      if (attempt >= attempts || !isTransientAiError(err)) throw err;
+      if (attempt >= attempts || !isTransientAiError(err)) {
+        recordUsage({
+          ...ledgerBase,
+          retryCount: attempt - 1,
+          durationMs: Date.now() - startedAt,
+          success: false,
+          errorCategory: categorizeAiError(err),
+        });
+        throw err;
+      }
       const backoffMs = Math.min(8000, 500 * 2 ** (attempt - 1));
       console.warn(
         `${label}: attempt ${attempt}/${attempts} failed (${err && err.message}); retrying in ${backoffMs}ms`
@@ -101,13 +141,36 @@ async function streamMessage(params, opts = {}, onDelta) {
   const attempts = Math.max(1, opts.attempts || DEFAULT_AI_ATTEMPTS);
   const label = opts.label || "AI stream";
 
+  // Same admission gate as createMessage — checked once, before any spend.
+  const meta = await assertAiAllowed("anthropic", opts);
+  const requestId = newRequestId();
+  const startedAt = Date.now();
+  const ledgerBase = {
+    provider: "anthropic",
+    model: params.model || MODEL,
+    feature: opts.feature || label,
+    requestId,
+    ...meta,
+  };
+
   let lastErr;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     let emitted = false;
+    // Streaming usage arrives in events: message_start carries input tokens,
+    // message_delta carries the running output token count.
+    let inputTokens = null;
+    let cachedInputTokens = null;
+    let outputTokens = null;
     try {
       const stream = anthropic.messages.stream(params, { timeout, maxRetries: 0 });
       let full = "";
       for await (const event of stream) {
+        if (event.type === "message_start" && event.message && event.message.usage) {
+          inputTokens = event.message.usage.input_tokens ?? null;
+          cachedInputTokens = event.message.usage.cache_read_input_tokens ?? null;
+        } else if (event.type === "message_delta" && event.usage) {
+          outputTokens = event.usage.output_tokens ?? outputTokens;
+        }
         if (
           event.type === "content_block_delta" &&
           event.delta &&
@@ -125,10 +188,31 @@ async function streamMessage(params, opts = {}, onDelta) {
           }
         }
       }
+      recordUsage({
+        ...ledgerBase,
+        inputTokens,
+        outputTokens,
+        cachedInputTokens,
+        retryCount: attempt - 1,
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
       return full;
     } catch (err) {
       lastErr = err;
-      if (emitted || attempt >= attempts || !isTransientAiError(err)) throw err;
+      if (emitted || attempt >= attempts || !isTransientAiError(err)) {
+        recordUsage({
+          ...ledgerBase,
+          inputTokens,
+          outputTokens,
+          cachedInputTokens,
+          retryCount: attempt - 1,
+          durationMs: Date.now() - startedAt,
+          success: false,
+          errorCategory: categorizeAiError(err),
+        });
+        throw err;
+      }
       const backoffMs = Math.min(8000, 500 * 2 ** (attempt - 1));
       console.warn(
         `${label}: attempt ${attempt}/${attempts} failed (${err && err.message}); retrying in ${backoffMs}ms`

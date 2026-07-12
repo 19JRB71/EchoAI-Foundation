@@ -1,5 +1,8 @@
 const cron = require("node-cron");
 const db = require("../config/db");
+const { ENVIRONMENT, ENVIRONMENT_BASIS } = require("../config/environment");
+const { getSwitch, backgroundAiAllowedHere } = require("../config/aiControls");
+const { runWithAiContext } = require("./aiContext");
 const {
   recordWeeklyAnalyticsForBrand,
   generateWeeklyReport,
@@ -423,316 +426,396 @@ async function runWeeklyCrossBusinessIntelligence() {
   console.log(`Cross-business intelligence complete: ${generated} owner report(s) generated.`);
 }
 
+// ---------------------------------------------------------------------------
+// Launch-sprint cost controls: every job is registered through scheduleJob so
+// (a) ALL jobs run inside a background AI context — any AI call a job makes is
+//     attributed to it in the usage ledger and gated as "background", and
+// (b) AI-consuming jobs are skipped — with an honest, non-spammy log — when
+//     background AI is not allowed here (non-production environment, emergency
+//     shutoff, BACKGROUND_AI_ENABLED off) or their specific control switch is
+//     off. Switches live in config/aiControls.js (admin-tunable, no redeploy).
+// ---------------------------------------------------------------------------
+
+const JOBS = []; // registry for the admin status endpoint / Sentinel dashboard
+
+// Log a skip only when the reason CHANGES for a job, so a 30-minute cron that
+// stays disabled doesn't flood the log — but the first skip is always visible.
+const lastSkipReason = new Map();
+
+async function executeJob({ name, ai, control, run }) {
+  if (ai) {
+    const gate = await backgroundAiAllowedHere();
+    let reason = gate.allowed ? null : gate.reason;
+    if (!reason && control && !(await getSwitch(control))) {
+      reason = `its control switch is off (${control}=false)`;
+    }
+    if (reason) {
+      if (lastSkipReason.get(name) !== reason) {
+        console.log(`Scheduler: skipping "${name}" — ${reason}.`);
+        lastSkipReason.set(name, reason);
+      }
+      const job = JOBS.find((j) => j.name === name);
+      if (job) {
+        job.lastSkippedAt = new Date().toISOString();
+        job.lastSkipReason = reason;
+      }
+      return { ran: false, reason };
+    }
+    if (lastSkipReason.has(name)) {
+      console.log(`Scheduler: "${name}" is enabled again; resuming.`);
+      lastSkipReason.delete(name);
+    }
+  }
+  const job = JOBS.find((j) => j.name === name);
+  if (job) job.lastRanAt = new Date().toISOString();
+  await runWithAiContext({ triggeredBy: "background", jobName: name }, run);
+  return { ran: true };
+}
+
+function scheduleJob({ name, cronExpr, run, ai = false, control = null }) {
+  JOBS.push({ name, cronExpr, ai, control });
+  cron.schedule(cronExpr, () => {
+    executeJob({ name, ai, control, run }).catch((err) => {
+      console.error(`Scheduled job "${name}" errored:`, err.message);
+    });
+  });
+}
+
+function listScheduledJobs() {
+  return JOBS.map((j) => ({ ...j }));
+}
+
 /**
- * Schedules the weekly analytics job for every Monday at 08:00.
+ * Registers every recurring job. AI-consuming jobs carry ai: true (skipped
+ * outside production / when switched off); operational jobs (publishing,
+ * reminders, sweeps) always run so scheduled work is never silently dropped.
  */
 function startScheduler() {
-  // Minute 0, hour 8, any day of month, any month, Monday (1).
-  cron.schedule("0 8 * * 1", () => {
-    runWeeklyAnalytics().catch((err) => {
-      console.error("Scheduled weekly analytics run errored:", err.message);
-    });
+  console.log(
+    `Scheduler starting — environment: ${ENVIRONMENT} (detected via ${ENVIRONMENT_BASIS}). ` +
+      "Background AI jobs run only when allowed by the AI controls."
+  );
+
+  // Mondays 08:00: weekly analytics + optimization + reports for every active
+  // brand. Part of the Monday AI stack — OFF by default during the launch
+  // sprint (WEEKLY_AI_STACK_ENABLED).
+  scheduleJob({
+    name: "weekly-analytics",
+    cronExpr: "0 8 * * 1",
+    ai: true,
+    control: "WEEKLY_AI_STACK_ENABLED",
+    run: runWeeklyAnalytics,
   });
 
   // Every minute: publish any scheduled social posts that are now due.
-  cron.schedule("* * * * *", () => {
-    publishDuePosts().catch((err) => {
-      console.error("Scheduled social post publish run errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "social-publish", cronExpr: "* * * * *", run: publishDuePosts });
 
   // Every 5 minutes: send any due follow-up touchpoints (email/SMS/phone).
-  cron.schedule("*/5 * * * *", () => {
-    executeDueTouchpoints().catch((err) => {
-      console.error("Scheduled follow-up touchpoint run errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "follow-up-touchpoints", cronExpr: "*/5 * * * *", run: executeDueTouchpoints });
 
   // Top of every hour: send any due drip-sequence emails.
-  cron.schedule("0 * * * *", () => {
-    sendDueDripEmails().catch((err) => {
-      console.error("Scheduled drip email run errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "drip-emails", cronExpr: "0 * * * *", run: sendDueDripEmails });
 
   // Every 5 minutes: send any scheduled one-time email blasts that are now
   // due. On total failure the blast flips to 'failed' and the owner is alerted.
-  cron.schedule("*/5 * * * *", () => {
-    sendDueScheduledCampaigns().catch((err) => {
-      console.error("Scheduled email blast run errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "email-blasts", cronExpr: "*/5 * * * *", run: sendDueScheduledCampaigns });
 
   // Top of every hour: run the AI Health Monitor sweep over every active brand,
   // silently auto-fixing safe issues and alerting owners only on critical ones.
-  cron.schedule("0 * * * *", () => {
-    runHourlyHealthSweep().catch((err) => {
-      console.error("Scheduled health monitor sweep errored:", err.message);
-    });
-  });
+  // Registered ai:false on purpose: detection is deterministic and must keep
+  // running; its CONDITIONAL AI analysis is gated at the provider wrapper.
+  scheduleJob({ name: "health-monitor-sweep", cronExpr: "0 * * * *", run: runHourlyHealthSweep });
 
   // Top of every hour: Sentinel checks the platform's third-party API credit /
   // quota levels (ElevenLabs, OpenAI, Anthropic, Twilio, Google Cloud) and alerts
   // the platform owner by voice + push the moment any drops below 20% remaining or
   // a critical threshold — so no service ever runs out silently.
-  cron.schedule("0 * * * *", () => {
-    runApiQuotaSweep({ notify: true }).catch((err) => {
-      console.error("Scheduled API quota sweep errored:", err.message);
-    });
+  scheduleJob({
+    name: "api-quota-sweep",
+    cronExpr: "0 * * * *",
+    run: () => runApiQuotaSweep({ notify: true }),
   });
 
   // Every 15 minutes: close any autonomous lead conversation whose lead has
   // gone 48h without replying (a terminal condition of the Two-Way Autonomous
   // Conversation system). Atomic + status-guarded so it never double-acts.
-  cron.schedule("*/15 * * * *", () => {
-    const {
-      runAutonomousTimeoutSweep,
-    } = require("../controllers/autonomousConversationController");
-    runAutonomousTimeoutSweep().catch((err) => {
-      console.error("Scheduled autonomous timeout sweep errored:", err.message);
-    });
+  scheduleJob({
+    name: "autonomous-timeout-sweep",
+    cronExpr: "*/15 * * * *",
+    run: () => {
+      const {
+        runAutonomousTimeoutSweep,
+      } = require("../controllers/autonomousConversationController");
+      return runAutonomousTimeoutSweep();
+    },
   });
 
   // Every 15 minutes: Echo Email Assistant inbox sweep — fetch new mail on
   // every connected account, AI-triage it, alert on urgent/contract/payment,
   // capture leads into the CRM. Per-account guards keep one bad mailbox from
-  // blocking the rest.
-  cron.schedule("*/15 * * * *", () => {
-    const { sweepAllEmailAccounts } = require("./emailMonitor");
-    sweepAllEmailAccounts().catch((err) => {
-      console.error("Scheduled email inbox sweep errored:", err.message);
-    });
+  // blocking the rest. AI triage is the core of the sweep, so it pauses when
+  // background AI is off.
+  scheduleJob({
+    name: "email-inbox-sweep",
+    cronExpr: "*/15 * * * *",
+    ai: true,
+    run: () => {
+      const { sweepAllEmailAccounts } = require("./emailMonitor");
+      return sweepAllEmailAccounts();
+    },
   });
 
   // Every minute: enqueue any due Echo voice reminders (appointment 15m/5m,
   // follow-up-call-due). Idempotent dedup keys make overlapping ticks safe.
-  cron.schedule("* * * * *", () => {
-    sweepDueReminders().catch((err) => {
-      console.error("Scheduled Echo voice reminder sweep errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "voice-reminders", cronExpr: "* * * * *", run: sweepDueReminders });
 
   // Every minute: deliver due personal reminders (voice first, SMS fallback a
   // few minutes later if the spoken copy wasn't picked up).
-  cron.schedule("* * * * *", () => {
-    sweepPersonalReminders().catch((err) => {
-      console.error("Scheduled personal reminder sweep errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "personal-reminders", cronExpr: "* * * * *", run: sweepPersonalReminders });
 
   // 09:00 daily: task housekeeping — auto-tasks from hot leads waiting 24h,
   // SMS alerts for overdue high-priority tasks, and 3-day stale-task check-ins.
-  cron.schedule("0 9 * * *", () => {
-    runDailyTaskSweep().catch((err) => {
-      console.error("Scheduled daily task sweep errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "daily-task-sweep", cronExpr: "0 9 * * *", run: runDailyTaskSweep });
 
   // 18:00 daily: enqueue Echo's end-of-day closing summary for every owner.
-  cron.schedule("0 18 * * *", () => {
-    enqueueClosingSummaries().catch((err) => {
-      console.error("Scheduled Echo closing summary run errored:", err.message);
-    });
+  // AI-written, so it pauses when background AI is off.
+  scheduleJob({
+    name: "closing-summaries",
+    cronExpr: "0 18 * * *",
+    ai: true,
+    run: enqueueClosingSummaries,
   });
 
   // 07:00 daily: Autonomous Growth Mode. For every owner who turned it on, Echo
   // reviews each brand's campaigns and — strictly within the owner's guardrails —
   // adjusts budgets, pauses losers and reallocates to winners, refreshes fatigued
-  // ads, tunes follow-up timing, and learns from conversion data. Anything beyond
-  // a guardrail is logged as a proposal instead of acted on.
-  cron.schedule("0 7 * * *", () => {
-    console.log("Autonomous Growth: starting the daily review of every enabled brand.");
-    runDailyAutonomousGrowth().catch((err) => {
-      console.error("Scheduled Autonomous Growth run errored:", err.message);
-    });
+  // ads, tunes follow-up timing, and learns from conversion data. OFF by default
+  // during the launch sprint (AUTONOMOUS_GROWTH_ENABLED).
+  scheduleJob({
+    name: "autonomous-growth",
+    cronExpr: "0 7 * * *",
+    ai: true,
+    control: "AUTONOMOUS_GROWTH_ENABLED",
+    run: () => {
+      console.log("Autonomous Growth: starting the daily review of every enabled brand.");
+      return runDailyAutonomousGrowth();
+    },
   });
 
   // 20:00 daily: send each owner the plain-English recap of everything Echo did
-  // autonomously today (deduped per owner per day).
-  cron.schedule("0 20 * * *", () => {
-    sendDailyAutonomousSummary().catch((err) => {
-      console.error("Scheduled Autonomous Growth summary errored:", err.message);
-    });
+  // autonomously today (deduped per owner per day). Tied to the same switch —
+  // with growth off there is nothing to recap.
+  scheduleJob({
+    name: "autonomous-growth-summary",
+    cronExpr: "0 20 * * *",
+    ai: true,
+    control: "AUTONOMOUS_GROWTH_ENABLED",
+    run: sendDailyAutonomousSummary,
   });
 
   // 06:00 daily: snapshot every real business's portfolio health score so the
   // Multi-Business Chief of Staff's 12-week trajectory keeps building itself.
-  cron.schedule("0 6 * * *", () => {
-    runDailyHealthSnapshots().catch((err) => {
-      console.error("Scheduled portfolio health snapshot run errored:", err.message);
-    });
-    // Faster Echo: pre-generate every owner's morning briefing at 06:00 so the
-    // first login of the day plays it instantly instead of synthesizing on demand.
-    warmMorningBriefings().catch((err) => {
-      console.error("Scheduled morning briefing warm run errored:", err.message);
-    });
+  // Deterministic scoring (no AI) — always runs.
+  scheduleJob({
+    name: "portfolio-health-snapshots",
+    cronExpr: "0 6 * * *",
+    run: runDailyHealthSnapshots,
+  });
+
+  // 06:00 daily: pre-generate every owner's morning briefing so the first
+  // login of the day plays it instantly instead of synthesizing on demand.
+  // AI-written — pauses when background AI is off (the briefing then falls
+  // back to on-demand generation at login, a user-triggered call).
+  scheduleJob({
+    name: "morning-briefing-warm",
+    cronExpr: "0 6 * * *",
+    ai: true,
+    run: warmMorningBriefings,
   });
 
   // 05:45 daily: snapshot every brand's goal progress (trend + history) and
   // alert owners on at-risk / hit / exceeding goals via voice + push. Runs
   // BEFORE the 06:00 briefing warm so the pre-generated morning briefing reads
   // that morning's fresh goal snapshots (not yesterday's).
-  cron.schedule("45 5 * * *", () => {
-    runDailyGoalTracking().catch((err) => {
-      console.error("Scheduled goal tracking run errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "goal-tracking", cronExpr: "45 5 * * *", run: runDailyGoalTracking });
 
   // 09:30 daily: beta program sweep — email friendly warnings to beta testers
   // who've gone quiet, and notify the waitlist when slots open up.
-  cron.schedule("30 9 * * *", () => {
-    runBetaProgramSweep().catch((err) => {
-      console.error("Scheduled beta program sweep errored:", err.message);
-    });
-  });
+  scheduleJob({ name: "beta-program-sweep", cronExpr: "30 9 * * *", run: runBetaProgramSweep });
 
   // Mondays 08:15 (after the weekly analytics run at 08:00): generate each
   // multi-business owner's weekly cross-business intelligence report.
-  cron.schedule("15 8 * * 1", () => {
-    runWeeklyCrossBusinessIntelligence().catch((err) => {
-      console.error("Scheduled cross-business intelligence run errored:", err.message);
-    });
+  scheduleJob({
+    name: "cross-business-intelligence",
+    cronExpr: "15 8 * * 1",
+    ai: true,
+    control: "WEEKLY_AI_STACK_ENABLED",
+    run: runWeeklyCrossBusinessIntelligence,
   });
 
   // Mondays 05:00 (before the 06:30 autopilot batch): Sage studies the week's
   // accumulated approve/decline/revise decisions and distills them into
   // learnings — so this morning's batch already reflects what Echo learned.
-  cron.schedule("0 5 * * 1", () => {
-    const { runWeeklyLearningStudy } = require("./learningEngine");
-    runWeeklyLearningStudy().catch((err) => {
-      console.error("Scheduled learning study errored:", err.message);
-    });
+  scheduleJob({
+    name: "weekly-learning-study",
+    cronExpr: "0 5 * * 1",
+    ai: true,
+    control: "WEEKLY_AI_STACK_ENABLED",
+    run: () => {
+      const { runWeeklyLearningStudy } = require("./learningEngine");
+      return runWeeklyLearningStudy();
+    },
   });
 
   // Mondays 07:15 (after the learning study and the autopilot batch): Sage
   // studies the past week of REAL platform data (failures, feedback, feature
   // asks, quotas, adoption) and writes an evidence-based improvement report
   // for the admin. Recommendation-only — it never changes any system.
-  cron.schedule("15 7 * * 1", () => {
-    const { runWeeklySelfReview } = require("./selfReview");
-    runWeeklySelfReview().catch((err) => {
-      console.error("Scheduled self-review errored:", err.message);
-    });
+  scheduleJob({
+    name: "weekly-self-review",
+    cronExpr: "15 7 * * 1",
+    ai: true,
+    control: "WEEKLY_AI_STACK_ENABLED",
+    run: () => {
+      const { runWeeklySelfReview } = require("./selfReview");
+      return runWeeklySelfReview();
+    },
   });
 
   // Mondays 06:30: Autopilot drafts each enabled brand's week in one batch —
   // posts with graphics plus test ads — then alerts the owner to review.
   // Early on purpose: the batch should be waiting when the owner logs in.
-  cron.schedule("30 6 * * 1", () => {
-    runWeeklyAutopilot().catch((err) => {
-      console.error("Scheduled autopilot weekly run errored:", err.message);
-    });
+  scheduleJob({
+    name: "weekly-autopilot",
+    cronExpr: "30 6 * * 1",
+    ai: true,
+    control: "WEEKLY_AI_STACK_ENABLED",
+    run: runWeeklyAutopilot,
   });
 
-  // Every 6 hours (00:00, 06:00, 12:00, 18:00): Scout scans competitor/market
-  // activity for every active brand and refreshes its intelligence briefing.
-  cron.schedule("0 */6 * * *", () => {
-    runCompetitorScan().catch((err) => {
-      console.error("Scheduled competitor scan run errored:", err.message);
-    });
+  // 05:00 daily (launch cadence — was every 6 hours): Scout scans competitor/
+  // market activity for every active brand and refreshes its briefing.
+  scheduleJob({
+    name: "competitor-scan",
+    cronExpr: "0 5 * * *",
+    ai: true,
+    control: "COMPETITOR_RESEARCH_ENABLED",
+    run: runCompetitorScan,
   });
 
-  // Every 6 hours at :45 (offset from the other 6h jobs): Scout's Competitor Ad
+  // 05:45 daily (launch cadence — was every 6 hours): Scout's Competitor Ad
   // Spy pulls each confirmed competitor's live Facebook ads for every active
   // brand, records brand-new ones, and alerts the owner on aggressive new ads.
-  cron.schedule("45 */6 * * *", () => {
-    runCompetitorAdScan().catch((err) => {
-      console.error("Scheduled competitor ad scan run errored:", err.message);
-    });
+  scheduleJob({
+    name: "competitor-ad-scan",
+    cronExpr: "45 5 * * *",
+    ai: true,
+    control: "COMPETITOR_RESEARCH_ENABLED",
+    run: runCompetitorAdScan,
   });
 
   // 04:00 daily: Scout re-reads every tracked competitor website and alerts the
   // owner to meaningful changes (new price/offer/messaging/redesign). Enterprise
   // gate + atomic per-site claim are enforced inside the controller.
-  cron.schedule("0 4 * * *", () => {
-    runCompetitorSiteMonitor().catch((err) => {
-      console.error("Scheduled competitor site monitor errored:", err.message);
-    });
+  scheduleJob({
+    name: "competitor-site-monitor",
+    cronExpr: "0 4 * * *",
+    ai: true,
+    control: "COMPETITOR_RESEARCH_ENABLED",
+    run: runCompetitorSiteMonitor,
   });
 
-  // Every 6 hours at :30 (offset from the competitor scan): re-verify every
-  // stored social connection so an expired/revoked login is flagged ('error')
-  // on the calendar views BEFORE the next scheduled post fails.
-  cron.schedule("30 */6 * * *", () => {
-    reverifySocialConnections().catch((err) => {
-      console.error("Scheduled social connection re-verify errored:", err.message);
-    });
+  // Every 6 hours at :30 (non-AI): re-verify every stored social connection so
+  // an expired/revoked login is flagged ('error') on the calendar views BEFORE
+  // the next scheduled post fails.
+  scheduleJob({
+    name: "social-connection-reverify",
+    cronExpr: "30 */6 * * *",
+    run: reverifySocialConnections,
   });
 
-  // Every 6 hours at :15 (offset from Scout's competitor scan): Sage runs a deep
+  // 06:15 daily (launch cadence — was every 6 hours): Sage runs a deep
   // live-web-search industry-research cycle for every real brand, refreshing the
   // rolling brief + findings feed and paging owners on urgent signals.
-  cron.schedule("15 */6 * * *", () => {
-    runSageDeepCycle().catch((err) => {
-      console.error("Scheduled Sage deep research run errored:", err.message);
-    });
+  scheduleJob({
+    name: "sage-deep-research",
+    cronExpr: "15 6 * * *",
+    ai: true,
+    control: "SAGE_RESEARCH_ENABLED",
+    run: runSageDeepCycle,
   });
 
-  // Every 30 minutes: Sage does a fast urgent scan for breaking, time-sensitive
-  // developments in each brand's industry and pages the owner (deduped per day).
-  cron.schedule("*/30 * * * *", () => {
-    runSageUrgentScan().catch((err) => {
-      console.error("Scheduled Sage urgent scan run errored:", err.message);
-    });
+  // Every 30 minutes: Sage's fast urgent scan for breaking, time-sensitive
+  // developments. OFF by default during the launch sprint (SAGE_URGENT_ENABLED)
+  // — this was the single biggest credit burner (48 ticks/day × every brand).
+  scheduleJob({
+    name: "sage-urgent-scan",
+    cronExpr: "*/30 * * * *",
+    ai: true,
+    control: "SAGE_URGENT_ENABLED",
+    run: runSageUrgentScan,
   });
 
   // Real-estate automations (real_estate brands only, demo brands excluded):
   // Hourly at :20 — Atlas drafts a listing-promotion ad within 24h of a new
   // active listing (idempotent via property_listings.ad_promoted_at).
-  cron.schedule("20 * * * *", () => {
-    runListingPromotionSweep().catch((err) => {
-      console.error("Scheduled listing promotion sweep errored:", err.message);
-    });
+  scheduleJob({
+    name: "re-listing-promotion",
+    cronExpr: "20 * * * *",
+    ai: true,
+    run: runListingPromotionSweep,
   });
 
-  // 07:30 daily — Atlas keeps a fresh seller-lead ad draft (per brand / 30 days),
-  // and the open-house automation runs: promote 1 week out, remind interested
-  // buyers the day before, follow up with attendees the day after.
-  cron.schedule("30 7 * * *", () => {
-    runSellerLeadAdSweep().catch((err) => {
-      console.error("Scheduled seller-lead ad sweep errored:", err.message);
-    });
-    runOpenHouseSweep().catch((err) => {
-      console.error("Scheduled open house sweep errored:", err.message);
-    });
+  // 07:30 daily — Atlas keeps a fresh seller-lead ad draft (per brand / 30
+  // days). AI drafting, so it pauses when background AI is off.
+  scheduleJob({
+    name: "re-seller-lead-ads",
+    cronExpr: "30 7 * * *",
+    ai: true,
+    run: runSellerLeadAdSweep,
   });
+
+  // 07:30 daily — open-house automation: promote 1 week out, remind interested
+  // buyers the day before, follow up with attendees the day after. Reminder
+  // messaging keeps running even when background AI is paused.
+  scheduleJob({ name: "re-open-house", cronExpr: "30 7 * * *", run: runOpenHouseSweep });
 
   // 09:00 / 13:00 / 17:00 daily — Nova schedules one real-estate post per
   // connected platform (3x/day, deduped per slot).
-  cron.schedule("0 9 * * *", () => {
-    runRealEstateContentRun(0).catch((err) => {
-      console.error("Scheduled Nova RE content run errored:", err.message);
-    });
+  scheduleJob({
+    name: "re-content-morning",
+    cronExpr: "0 9 * * *",
+    ai: true,
+    run: () => runRealEstateContentRun(0),
   });
-  cron.schedule("0 13 * * *", () => {
-    runRealEstateContentRun(1).catch((err) => {
-      console.error("Scheduled Nova RE content run errored:", err.message);
-    });
+  scheduleJob({
+    name: "re-content-midday",
+    cronExpr: "0 13 * * *",
+    ai: true,
+    run: () => runRealEstateContentRun(1),
   });
-  cron.schedule("0 17 * * *", () => {
-    runRealEstateContentRun(2).catch((err) => {
-      console.error("Scheduled Nova RE content run errored:", err.message);
-    });
+  scheduleJob({
+    name: "re-content-evening",
+    cronExpr: "0 17 * * *",
+    ai: true,
+    run: () => runRealEstateContentRun(2),
   });
 
+  const aiJobs = JOBS.filter((j) => j.ai).length;
   console.log(
-    "Schedulers started (weekly analytics: Mondays 08:00; social posts: every minute; " +
-      "follow-up touchpoints: every 5 minutes; drip emails: hourly; health monitor: hourly; " +
-      "API quota monitor: hourly; " +
-      "Echo voice reminders: every minute; Echo closing summary: daily 18:00; " +
-      "Autonomous Growth: daily 07:00, summary daily 20:00; portfolio health: daily 06:00; " +
-      "goal tracking: daily 05:45; beta program sweep: daily 09:30; " +
-      "cross-business intelligence: Mondays 08:15; competitor scan: every 6 hours; " +
-      "competitor website monitor: daily 04:00; " +
-      "social connection re-verify: every 6 hours at :30; " +
-      "Sage deep research: every 6 hours at :15; Sage urgent scan: every 30 minutes; " +
-      "real-estate: listing ads hourly at :20, seller-lead ads + open houses daily 07:30, " +
-      "Nova RE content 09:00/13:00/17:00)."
+    `Schedulers started: ${JOBS.length} jobs registered (${aiJobs} AI-consuming, ` +
+      `gated by the AI controls; ${JOBS.length - aiJobs} operational). ` +
+      "Launch cadence: Sage deep research daily 06:15, competitor scan daily 05:00, " +
+      "ad spy daily 05:45, site monitor daily 04:00; Sage urgent scan and the Monday " +
+      "AI stack (analytics/learning/autopilot/self-review/cross-business) are " +
+      "switched off until re-enabled via the AI controls."
   );
 }
 
 module.exports = {
   startScheduler,
+  listScheduledJobs,
+  executeJob,
   runWeeklyAnalytics,
   runDailyHealthSnapshots,
   runWeeklyCrossBusinessIntelligence,

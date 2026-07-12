@@ -15,6 +15,9 @@ require("dotenv").config();
 // plain fetch (no extra SDK) — the same request shape as /v1/chat/completions.
 // ---------------------------------------------------------------------------
 
+const { assertAiAllowed } = require("../utils/aiGate");
+const { recordUsage, categorizeAiError, newRequestId } = require("../utils/aiUsage");
+
 const BASE_URL = (
   process.env.NOUS_PORTAL_BASE_URL || "https://inference-api.nousresearch.com/v1"
 ).replace(/\/+$/, "");
@@ -82,6 +85,19 @@ async function createCompletion(params, opts = {}) {
   const attempts = Math.max(1, opts.attempts || DEFAULT_ATTEMPTS);
   const label = opts.label || "Hermes request";
 
+  // Admission gate (switches, environment policy, rate limit, budgets) —
+  // checked once before any paid request. Throws an honest 503 when blocked.
+  const meta = await assertAiAllowed("hermes", opts);
+  const requestId = newRequestId();
+  const startedAt = Date.now();
+  const ledgerBase = {
+    provider: "hermes",
+    model: opts.model || params.model || MODEL,
+    feature: opts.feature || label,
+    requestId,
+    ...meta,
+  };
+
   const messages = [];
   if (params.system) messages.push({ role: "system", content: params.system });
   for (const m of params.messages || []) messages.push(m);
@@ -129,10 +145,27 @@ async function createCompletion(params, opts = {}) {
           ? json.choices[0].message.content.trim()
           : "";
       if (!text) throw new Error("Hermes returned an empty response.");
+      recordUsage({
+        ...ledgerBase,
+        inputTokens: json.usage ? json.usage.prompt_tokens : null,
+        outputTokens: json.usage ? json.usage.completion_tokens : null,
+        retryCount: attempt - 1,
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
       return text;
     } catch (err) {
       lastErr = err;
-      if (attempt >= attempts || !isTransientHermesError(err)) throw err;
+      if (attempt >= attempts || !isTransientHermesError(err)) {
+        recordUsage({
+          ...ledgerBase,
+          retryCount: attempt - 1,
+          durationMs: Date.now() - startedAt,
+          success: false,
+          errorCategory: categorizeAiError(err),
+        });
+        throw err;
+      }
       const backoffMs = Math.min(4000, 400 * 2 ** (attempt - 1));
       console.warn(
         `${label}: attempt ${attempt}/${attempts} failed (${err && err.message}); retrying in ${backoffMs}ms`,
