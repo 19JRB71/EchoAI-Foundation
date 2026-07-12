@@ -368,6 +368,10 @@ export const api = {
     request(
       `/api/agents/mission-control${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`
     ),
+  getMissionControlV2: (brandId) =>
+    request(
+      `/api/agents/mission-control/v2${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`
+    ),
   getAgentDetail: (agentId) => request(`/api/agents/${agentId}`),
 
   // Target Goals & KPI tracking (Prompt 67).

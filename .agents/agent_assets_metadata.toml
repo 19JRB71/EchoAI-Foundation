@@ -168,3 +168,27 @@ id = "l0li-mO9p9TXtyZQQZXLW"
 uri = "file://screenshots/mission-control-plan/MISSION_CONTROL_IMPLEMENTATION_PLAN.md"
 type = "text"
 title = "Mission Control — Implementation Plan (awaiting your approval)"
+
+[[outputs]]
+id = "L14qMdwXVOMy1a151k_oH"
+uri = "file://attached_assets/mcv2/01-current-mc-with-preview-banner.png"
+type = "image"
+title = "1. Current Mission Control (unchanged) with your admin preview button"
+
+[[outputs]]
+id = "-FS2KMl_oxQxCRKswNHiP"
+uri = "file://attached_assets/mcv2/02-mcv2-top.png"
+type = "image"
+title = "2. New Mission Control — briefing header, KPI strip, Zorecho Core"
+
+[[outputs]]
+id = "JEqasiX5Whig-OzDW3Kvr"
+uri = "file://attached_assets/mcv2/03-mcv2-full.png"
+type = "image"
+title = "3. New Mission Control — full page"
+
+[[outputs]]
+id = "mDkikBm7AUoMpE5vWk4Y2"
+uri = "file://attached_assets/mcv2/04-mcv2-bottom.png"
+type = "image"
+title = "4. New Mission Control — bottom panels and status footer"

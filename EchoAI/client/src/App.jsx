@@ -53,6 +53,7 @@ import SectionHelp from "./tour/SectionHelp.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import HealthSupportWidget from "./components/HealthSupportWidget.jsx";
 import EchoCompanion from "./companion/EchoCompanion.jsx";
+import MissionControlV2 from "./missioncontrol/MissionControlV2.jsx";
 import { DemoSuggestionProvider } from "./demo/DemoSuggestionContext.jsx";
 import { VoiceProvider, useVoice } from "./voice/VoiceContext.jsx";
 import NotificationBadge from "./components/NotificationBadge.jsx";
@@ -210,6 +211,8 @@ export default function App() {
       // The Email Assistant reads the owner's personal inboxes (owner/admin only).
       if (s === "echoemail") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
+      // Mission Control V2 — admin-only preview while the redesign is staged.
+      if (s === "missioncontrolv2") return isAdmin;
       // The Voter CRM only exists for political-campaign brands.
       if (s === "supporters") {
         const b = brands.find(
@@ -1070,12 +1073,49 @@ export default function App() {
               {section === "portfolio" &&
                 (canOpenSection("portfolio") ? <Portfolio /> : null)}
               {section === "missioncontrol" && (
-                <MissionControl
-                  brandId={selectedBrandId}
-                  onNavigate={handleSelectSection}
-                  onOpenDepartment={openDepartment}
-                />
+                <>
+                  {isAdmin && (
+                    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/30 px-4 py-2.5">
+                      <span className="text-xs text-cyan-200">
+                        A redesigned Mission Control is staged for preview (admin only).
+                      </span>
+                      <button
+                        onClick={() => handleSelectSection("missioncontrolv2")}
+                        className="shrink-0 rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20"
+                      >
+                        Preview new Mission Control
+                      </button>
+                    </div>
+                  )}
+                  <MissionControl
+                    brandId={selectedBrandId}
+                    onNavigate={handleSelectSection}
+                    onOpenDepartment={openDepartment}
+                  />
+                </>
               )}
+              {section === "missioncontrolv2" &&
+                (canOpenSection("missioncontrolv2") ? (
+                  <>
+                    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-2.5">
+                      <span className="text-xs text-gray-400">
+                        Admin preview — the current Mission Control is unchanged for customers.
+                      </span>
+                      <button
+                        onClick={() => handleSelectSection("missioncontrol")}
+                        className="shrink-0 rounded-lg border border-gray-700 bg-gray-800/60 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-gray-700/60"
+                      >
+                        Back to current Mission Control
+                      </button>
+                    </div>
+                    <MissionControlV2
+                      brandId={selectedBrandId}
+                      onNavigate={handleSelectSection}
+                      onOpenDepartment={openDepartment}
+                      onUpgrade={handleUpgrade}
+                    />
+                  </>
+                ) : null)}
               {section === "aiteam" && (
                 <AiTeam onOpenDepartment={openDepartment} />
               )}

@@ -230,6 +230,14 @@ export default function EchoCompanion({ brandId = "", onSelectBrand } = {}) {
     if (suggestion) setOpen(true);
   }, [suggestion]);
 
+  // Manual open from elsewhere in the app (e.g. the Mission Control "Talk to
+  // Echo" button). Still user-initiated — Echo never auto-opens itself.
+  useEffect(() => {
+    const openHandler = () => setOpen(true);
+    window.addEventListener("echoai:open-companion", openHandler);
+    return () => window.removeEventListener("echoai:open-companion", openHandler);
+  }, []);
+
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
       if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
