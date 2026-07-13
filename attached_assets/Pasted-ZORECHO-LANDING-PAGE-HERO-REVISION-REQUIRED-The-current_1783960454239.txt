@@ -1,0 +1,249 @@
+ZORECHO LANDING PAGE HERO — REVISION REQUIRED
+
+The current hero preview is not approved yet.
+
+It is clean and functional, but it still feels like a conventional SaaS landing page. The approved concept has more energy, more depth, more color, and a stronger visual focus on the Zorecho Core.
+
+This revision should remain behind the private preview route.
+
+Do not publish or replace the live landing page.
+
+Primary goal
+
+The Zorecho Core must become the unmistakable hero of the page.
+
+The visitor’s eye should go to the Core first, then the headline, then the demonstration.
+
+The page should feel like the entrance to Zorecho Headquarters—not a collection of boxes arranged on a software landing page.
+
+1. Enlarge the Zorecho Core
+
+The current Core is too small and visually weak.
+
+Increase the Core and its surrounding network substantially so it occupies approximately 40–45% of the primary hero width on a large desktop.
+
+The Core should:
+
+Be the dominant focal point
+Have greater illuminated depth
+Use stronger cyan and electric-blue bloom
+Show multiple visible rings
+Include a brighter animated waveform
+Have subtle particles and ambient light behind it
+Feel connected to the page rather than placed inside a small module
+
+Do not let the Core become oversized enough to crowd the headline or briefing panel.
+
+2. Remove the boxed-in feeling
+
+The current version places too many elements inside separate dark rectangles.
+
+Reduce unnecessary containers around:
+
+Echo’s introduction
+The agent network
+The Core
+The sample briefing
+
+Allow the Core, connection lines, and agent nodes to breathe within the hero.
+
+Use panels only where they improve readability.
+
+The center experience should feel open, cinematic, and connected.
+
+3. Restore the color and lighting from the reference
+
+The current preview is too dim and visually flat.
+
+Match the reference more closely with:
+
+Cyan and electric-blue illumination around the Core
+Clear permanent agent colors
+Brighter connection lines
+Soft blue atmospheric glow behind the center
+Controlled colored reflections
+Small moving light pulses
+Subtle particles
+A restrained horizon or data-light texture near the bottom
+
+Do not turn the page into neon overload. The objective is richer depth, not excessive brightness.
+
+4. Make the agent network more visible
+
+The nine agents currently fade too far into the background.
+
+Increase their legibility and presence:
+
+Larger agent cards or nodes
+Clear names and real roles
+Brighter department-colored borders or accents
+More visible connection paths
+Honest status labels
+Better spacing around the Core
+
+Use the real product roles:
+
+Echo — Marketing Director and personal assistant
+Scout — Research Specialist
+Atlas — Advertising Manager
+Nova — Social Media Manager
+Pulse — CRM Manager
+Voice — AI Receptionist
+Forge — Creative Director
+Sentinel — Oversight Agent
+Sage — Industry Intelligence
+5. Improve Echo’s presentation
+
+Echo should feel like an active assistant guiding the visitor through the experience.
+
+Do not leave Echo as a small static speech box disconnected from the Core.
+
+When the demo is idle:
+
+Show a compact Echo introduction
+Keep the Core calmly illuminated
+
+When the visitor clicks Watch Echo Work:
+
+Echo becomes visibly active
+The Core brightens
+The waveform starts moving
+Echo’s node glows teal
+The briefing begins building in real time
+6. Make the example briefing dynamic
+
+The sample briefing should not appear as a fully completed, static dashboard panel before the demo starts.
+
+At rest, show a clean waiting state:
+
+Example Zorecho Morning Briefing
+
+When the demo begins, reveal each item sequentially as Echo speaks:
+
+Ten new leads arrived overnight
+Seven customer emails need attention
+Voice answered twelve calls
+Three appointments were booked
+Scout found two competitor campaigns
+Nova prepared today’s content
+
+As each item is spoken:
+
+The related agent lights up
+Its connection line pulses
+The briefing item fades or slides into place
+The Core reacts to the speech
+
+Keep the Sample Data label visible and clear.
+
+7. Strengthen the headline area
+
+Keep:
+
+Meet Your AI Company.
+
+Increase its scale and visual confidence so it feels more premium.
+
+Reduce the supporting paragraph to:
+
+A connected AI workforce for marketing, lead follow-up, customer calls, content, research, and business intelligence—working around the clock.
+
+Keep the line:
+
+Always working. Always improving. Always yours.
+
+Use more breathing room and stronger typography hierarchy.
+
+8. Remove duplicated calls to action
+
+The current preview repeats Watch Echo Work in multiple places.
+
+Use only:
+
+Primary CTA: Start Your AI Company
+Secondary CTA: Watch Echo Work
+Demo conclusion CTA: See Mission Control
+
+Do not show duplicate buttons with the same action simultaneously.
+
+9. Simplify the bottom trust strip
+
+Do not use customer logos, ratings, customer counts, or performance statistics unless verified.
+
+Use the neutral trust strip:
+
+Trusted by businesses across the U.S.
+
+Supporting line:
+
+Built to help businesses grow, connect, and operate more efficiently with AI.
+
+Approved neutral benefits:
+
+All Types of Businesses
+Every Industry Served
+Secure and Private
+24/7 AI Workforce
+
+Do not make unverified compliance claims. Use Secure and Private unless specific compliance standards are documented.
+
+10. Zorecho Core animation requirements
+
+The Core must illuminate and react visibly.
+
+Idle
+Slow breathing glow
+Gentle waveform motion
+Subtle ring movement
+Low-level particles
+Demo activation
+Smooth illumination increase
+Waveform wakes up
+Echo node activates
+Connections brighten
+Speaking
+Waveform reacts to Echo’s audio
+Outer rings pulse naturally
+Light pulses travel to the department currently being discussed
+Briefing cards appear in sequence
+Completion
+Core settles smoothly back into idle
+Final CTA appears
+
+Also support pause, replay, mute, and reduced-motion preferences.
+
+11. Visual hierarchy
+
+The visitor’s eye should move in this order:
+
+Zorecho Core
+“Meet Your AI Company”
+Echo introduction
+Example Morning Briefing
+Primary CTA
+
+The current version places too much emphasis on the text column and too little on the Core.
+
+Correct that hierarchy.
+
+12. Scope and review
+
+For this revision:
+
+Change only the landing-page navigation and hero preview
+Preserve existing routes and button functionality
+Do not redesign the rest of the landing page
+Do not publish
+Do not push live
+Do not begin backend-page redesign work
+
+Return:
+
+Full-width desktop screenshot
+Laptop screenshot
+Mobile screenshot
+Core idle-state screenshot
+Core speaking-state screenshot
+Short screen recording or GIF of the demo sequence, if available
+
+Stop and wait for approval after the revised preview is ready.

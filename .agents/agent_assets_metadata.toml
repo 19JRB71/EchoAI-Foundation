@@ -294,3 +294,33 @@ id = "H3Ubco4pSMQqD_Qf9fEWw"
 uri = "file://screenshots/core-speaking.png"
 type = "image"
 title = "Zorecho Core — Speaking mid-demo"
+
+[[outputs]]
+id = "kxVBjhbd2kLs1lTBRCGMz"
+uri = "file://screenshots/v3-desktop.png"
+type = "image"
+title = "V3 Hero — Desktop (1920px)"
+
+[[outputs]]
+id = "0tYjGaE344hFnz5q0FET8"
+uri = "file://screenshots/v3-laptop.png"
+type = "image"
+title = "V3 Hero — Laptop (1366px)"
+
+[[outputs]]
+id = "uWmEE19TecqmmkO3vN-k0"
+uri = "file://screenshots/v3-mobile.png"
+type = "image"
+title = "V3 Hero — Mobile (390px)"
+
+[[outputs]]
+id = "NNBYeVUDNoIbUBEMCgLe8"
+uri = "file://screenshots/v3-core-idle.png"
+type = "image"
+title = "V3 Core — Idle state"
+
+[[outputs]]
+id = "HitBWSo-cS474qRo4gK1j"
+uri = "file://screenshots/v3-core-speaking.png"
+type = "image"
+title = "V3 Core — Speaking state (Echo active)"

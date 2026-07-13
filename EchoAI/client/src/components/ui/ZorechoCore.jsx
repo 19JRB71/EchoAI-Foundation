@@ -143,7 +143,7 @@ export default function ZorechoCore({
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
-                className={speaking ? "z-anim" : ""}
+                className={speaking || state === "idle" ? "z-anim" : ""}
                 style={{
                   display: "block",
                   width: size * (i === 1 ? 0.3 : 0.24),
@@ -160,8 +160,11 @@ export default function ZorechoCore({
                   transition: "box-shadow 400ms ease, opacity 400ms ease",
                   animation: speaking
                     ? `z-bar-wave ${0.7 + i * 0.18}s ease-in-out infinite`
-                    : undefined,
-                  animationDelay: speaking ? `${i * 0.12}s` : undefined,
+                    : state === "idle"
+                      ? `z-bar-wave-gentle ${3.2 + i * 0.5}s ease-in-out infinite`
+                      : undefined,
+                  animationDelay:
+                    speaking || state === "idle" ? `${i * 0.12}s` : undefined,
                 }}
               />
             ))}

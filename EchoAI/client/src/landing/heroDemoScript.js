@@ -49,7 +49,7 @@ export const DEMO_STEPS = [
     text: "Three appointments were booked.",
     audio: `${AUDIO_BASE}/06-appointments.mp3`,
     agentId: "voice",
-    rowId: "calls",
+    rowId: "appointments",
   },
   {
     id: "scout",
@@ -97,7 +97,14 @@ export const BRIEFING_ROWS = [
     agentId: "voice",
     value: "12",
     label: "Calls Answered",
-    sub: "3 appointments booked",
+    sub: "handled by Voice",
+  },
+  {
+    id: "appointments",
+    agentId: "voice",
+    value: "3",
+    label: "Appointments Booked",
+    sub: "added to the calendar",
   },
   {
     id: "competitors",

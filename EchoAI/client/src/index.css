@@ -83,6 +83,19 @@
   }
 }
 
+/* Core idle: gentle low-amplitude waveform motion */
+@keyframes z-bar-wave-gentle {
+  0%,
+  100% {
+    transform: scaleX(0.94);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
 /* Core speaking: the three bars become a waveform */
 @keyframes z-bar-wave {
   0%,
