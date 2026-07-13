@@ -156,6 +156,68 @@
   }
 }
 
+/* Hero connectors: lit lines breathe slowly (the Core powering the page) */
+@keyframes z-line-breathe {
+  0%,
+  100% {
+    opacity: 0.16;
+  }
+  50% {
+    opacity: 0.34;
+  }
+}
+
+/* Echo card mini equalizer bars while Echo speaks */
+@keyframes z-eq {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* Atmospheric dust: tiny particles drifting slowly upward, fading in/out */
+@keyframes z-float {
+  0% {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  15% {
+    opacity: var(--z-float-o, 0.28);
+  }
+  85% {
+    opacity: var(--z-float-o, 0.28);
+  }
+  100% {
+    transform: translateY(-52px);
+    opacity: 0;
+  }
+}
+
+/* Ambient haze: sub-perceptual drift of a soft light field */
+@keyframes z-haze-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(26px, -16px, 0);
+  }
+}
+
+/* Lit agent nodes: soft glow swell (opacity only — never flashing) */
+@keyframes z-node-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
 /* Reduced motion: Zorecho animations become static, state shown by color. */
 @media (prefers-reduced-motion: reduce) {
   .z-anim,

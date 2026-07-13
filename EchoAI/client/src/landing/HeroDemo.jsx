@@ -90,11 +90,12 @@ function HeroNav() {
 function EchoSpeech({ started, playing, text }) {
   return (
     <div
-      className="relative mx-auto w-full max-w-lg rounded-2xl border border-cyan-400/20 bg-white/[0.03] px-5 py-3.5 backdrop-blur-sm transition-shadow duration-700"
+      className="relative mx-auto w-full max-w-lg rounded-2xl border border-cyan-400/20 bg-white/[0.03] px-5 py-3.5 backdrop-blur-sm transition-[box-shadow,border-color] duration-700"
       style={{
         boxShadow: playing
-          ? "0 0 40px rgba(34,211,238,0.16)"
+          ? "0 0 46px rgba(34,211,238,0.20), inset 0 0 18px rgba(34,211,238,0.05)"
           : "0 0 20px rgba(34,211,238,0.06)",
+        borderColor: playing ? "rgba(34,211,238,0.45)" : undefined,
       }}
       role="status"
       aria-live="polite"
@@ -119,8 +120,16 @@ function EchoSpeech({ started, playing, text }) {
           {[5, 9, 7, 11, 6].map((h, i) => (
             <span
               key={i}
-              className="w-[2.5px] rounded-full bg-cyan-400/90"
-              style={{ height: playing ? h : 3, transition: "height 0.4s" }}
+              className={`w-[2.5px] rounded-full bg-cyan-400/90 ${playing ? "z-anim" : ""}`}
+              style={{
+                height: playing ? h : 3,
+                transition: "height 0.4s",
+                transformOrigin: "bottom",
+                animation: playing
+                  ? `z-eq ${0.8 + i * 0.14}s ease-in-out infinite`
+                  : undefined,
+                animationDelay: playing ? `${i * 0.09}s` : undefined,
+              }}
             />
           ))}
         </span>
@@ -162,6 +171,17 @@ function AgentChip({ id, lit, active, align }) {
         opacity: lit ? 1 : 0.85,
       }}
     >
+      {/* Soft glow swell once the department is online (opacity-only) */}
+      {lit && (
+        <span
+          aria-hidden="true"
+          className="z-anim pointer-events-none absolute inset-0 rounded-xl"
+          style={{
+            boxShadow: `0 0 24px ${color}40`,
+            animation: "z-node-glow 4.6s ease-in-out infinite",
+          }}
+        />
+      )}
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold transition-all duration-500"
         style={{
@@ -230,13 +250,21 @@ function Connectors({ litAgents, activeAgent }) {
         const active = activeAgent === p.id;
         return (
           <g key={p.id}>
+            {/* Wide glow underlay — breathes slowly once lit (the Core
+                powering the department), holds steady for reduced motion. */}
             <path
               d={p.d}
               fill="none"
               stroke={p.color}
               strokeWidth="1.2"
               opacity={lit ? 0.3 : 0.12}
-              style={{ transition: "opacity 0.6s" }}
+              className={lit ? "z-anim" : undefined}
+              style={{
+                transition: "opacity 0.6s",
+                animation: lit
+                  ? `z-line-breathe ${5 + (p.id.length % 3)}s ease-in-out infinite`
+                  : undefined,
+              }}
             />
             <path
               d={p.d}
@@ -246,9 +274,18 @@ function Connectors({ litAgents, activeAgent }) {
               opacity={lit ? 0.95 : 0.45}
               style={{ transition: "opacity 0.6s" }}
             />
+            {/* Energy pulse travels OUTWARD from the Core toward the active
+                department (paths are drawn agent→core, so reverse the motion). */}
             {active && !reduceMotion && (
               <circle r="1" fill={p.color} className="z-anim">
-                <animateMotion dur="1.6s" repeatCount="indefinite" path={p.d} />
+                <animateMotion
+                  dur="1.6s"
+                  repeatCount="indefinite"
+                  path={p.d}
+                  calcMode="linear"
+                  keyPoints="1;0"
+                  keyTimes="0;1"
+                />
               </circle>
             )}
             {active && reduceMotion && (
@@ -301,19 +338,90 @@ function AmbientParticles() {
   );
 }
 
+/* ————— Hero-wide atmosphere: drifting dust + a slow ambient haze ————— */
+
+const DUST = [
+  { left: "12%", top: "30%", s: 2, dur: 22, delay: 0, o: 0.26 },
+  { left: "22%", top: "58%", s: 2, dur: 27, delay: -8, o: 0.2 },
+  { left: "31%", top: "22%", s: 3, dur: 24, delay: -15, o: 0.24 },
+  { left: "44%", top: "70%", s: 2, dur: 30, delay: -4, o: 0.18 },
+  { left: "55%", top: "26%", s: 2, dur: 26, delay: -19, o: 0.22 },
+  { left: "63%", top: "62%", s: 3, dur: 21, delay: -11, o: 0.26 },
+  { left: "72%", top: "34%", s: 2, dur: 28, delay: -6, o: 0.2 },
+  { left: "83%", top: "54%", s: 2, dur: 25, delay: -17, o: 0.24 },
+  { left: "90%", top: "28%", s: 2, dur: 23, delay: -2, o: 0.18 },
+  { left: "48%", top: "44%", s: 2, dur: 29, delay: -13, o: 0.16 },
+];
+
+function HeroAtmosphere({ playing }) {
+  if (prefersReducedMotion()) return null;
+  return (
+    <>
+      {/* Faint ambient data haze, drifting sub-perceptually */}
+      <div
+        aria-hidden="true"
+        className="z-anim pointer-events-none absolute left-1/4 top-24 h-[28rem] w-[44rem] rounded-full blur-3xl transition-opacity duration-1000"
+        style={{
+          background:
+            "radial-gradient(ellipse, rgba(34,211,238,0.05) 0%, rgba(59,130,246,0.035) 50%, transparent 78%)",
+          opacity: playing ? 1 : 0.7,
+          animation: "z-haze-drift 30s ease-in-out infinite",
+        }}
+      />
+      {/* Tiny particles floating upward through the space */}
+      {DUST.map((p, i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className="z-anim pointer-events-none absolute rounded-full"
+          style={{
+            left: p.left,
+            top: p.top,
+            width: p.s,
+            height: p.s,
+            backgroundColor: "#7dd3fc",
+            boxShadow: "0 0 6px rgba(34,211,238,0.6)",
+            opacity: 0,
+            "--z-float-o": p.o,
+            animation: `z-float ${p.dur}s linear infinite`,
+            animationDelay: `${p.delay}s`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 /* ————— Layered rings + bloom that make the Core the hero ————— */
 
 function CoreAura({ playing }) {
+  const reduceMotion = prefersReducedMotion();
   return (
     <>
-      {/* Deep atmospheric bloom */}
+      {/* Volumetric light rays — a faint fan of light slowly wheeling behind
+          the Core, as if it sits in a physical space. */}
+      {!reduceMotion && (
+        <div
+          aria-hidden="true"
+          className="z-anim pointer-events-none absolute -inset-28 rounded-full transition-opacity duration-1000 sm:-inset-40"
+          style={{
+            background:
+              "conic-gradient(from 210deg, transparent 0deg, rgba(34,211,238,0.055) 14deg, transparent 30deg, transparent 116deg, rgba(59,130,246,0.05) 132deg, transparent 150deg, transparent 238deg, rgba(34,211,238,0.045) 252deg, transparent 268deg)",
+            filter: "blur(5px)",
+            opacity: playing ? 0.95 : 0.55,
+            animation: "z-ring-rotate 120s linear infinite",
+          }}
+        />
+      )}
+      {/* Deep atmospheric bloom — smoothly follows Echo's voice while
+          speaking (--z-level is written by the audio analyser, 0..1). */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-24 rounded-full transition-opacity duration-1000 sm:-inset-32"
+        className="pointer-events-none absolute -inset-24 rounded-full transition-opacity duration-500 sm:-inset-32"
         style={{
           background:
             "radial-gradient(circle, rgba(34,211,238,0.22) 0%, rgba(59,130,246,0.12) 40%, transparent 72%)",
-          opacity: playing ? 1 : 0.65,
+          opacity: playing ? "calc(0.6 + var(--z-level, 0.5) * 0.4)" : 0.65,
         }}
       />
       {/* Breathing inner halo */}
@@ -338,6 +446,24 @@ function CoreAura({ playing }) {
           boxShadow: playing ? "0 0 24px rgba(34,211,238,0.25)" : "none",
         }}
       />
+      {/* Almost-imperceptible shimmer travelling around the inner ring —
+          the Core is never frozen, even at idle. */}
+      {!reduceMotion && (
+        <div
+          aria-hidden="true"
+          className="z-anim pointer-events-none absolute -inset-5 rounded-full transition-opacity duration-1000"
+          style={{
+            background:
+              "conic-gradient(from 0deg, transparent 0deg, rgba(103,232,249,0.55) 26deg, transparent 70deg)",
+            opacity: playing ? 0.75 : 0.4,
+            animation: `z-ring-rotate ${playing ? 36 : 70}s linear infinite`,
+            maskImage:
+              "radial-gradient(circle closest-side, transparent 96%, black 97.5%, black 99%, transparent 100%)",
+            WebkitMaskImage:
+              "radial-gradient(circle closest-side, transparent 96%, black 97.5%, black 99%, transparent 100%)",
+          }}
+        />
+      )}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -inset-12 rounded-full border transition-all duration-1000 sm:-inset-14"
@@ -396,10 +522,18 @@ function BriefingRow({ row, active }) {
   );
 }
 
-function BriefingPanel({ litRows, activeRow, started, done }) {
+function BriefingPanel({ litRows, activeRow, started, done, playing }) {
   const visibleRows = BRIEFING_ROWS.filter((row) => litRows.has(row.id));
   return (
-    <aside className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-5 backdrop-blur-sm">
+    <aside
+      className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-5 backdrop-blur-sm transition-[box-shadow,border-color] duration-700"
+      style={{
+        borderColor: playing ? "rgba(34,211,238,0.25)" : undefined,
+        boxShadow: playing
+          ? "0 0 34px rgba(34,211,238,0.10), inset 0 0 24px rgba(34,211,238,0.03)"
+          : "none",
+      }}
+    >
       <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300">
         Example Morning Briefing
       </p>
@@ -598,6 +732,41 @@ export default function HeroDemo() {
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
 
+  // Audio-reactive lighting: an AnalyserNode reads Echo's voice and writes a
+  // smoothed 0..1 level to the --z-level CSS variable on the hero section,
+  // which the Core's bloom consumes. Purely additive — if WebAudio is
+  // unavailable (or throws), --z-level simply keeps its CSS default and the
+  // existing calm animations carry the scene.
+  const sectionRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+
+  // When a cinematic beat (pauseAfterMs) is counting down between two lines,
+  // this holds the index of the NEXT step. If the user pauses during the
+  // beat, resume() continues to that step instead of replaying the line
+  // that already finished.
+  const pendingNextRef = useRef(null);
+
+  const ensureAnalyser = () => {
+    if (analyserRef.current || prefersReducedMotion()) return;
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const src = ctx.createMediaElementSource(a);
+      const an = ctx.createAnalyser();
+      an.fftSize = 256;
+      src.connect(an);
+      an.connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      analyserRef.current = an;
+    } catch {
+      analyserRef.current = null;
+    }
+  };
+
   const clearTimer = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -622,6 +791,17 @@ export default function HeroDemo() {
       setStepIdx(DEMO_STEPS.length - 1);
       return;
     }
+    // Cinematic beat: a short silence after lines that ask for one
+    // ("Hello. I'm Echo." … "Welcome to Zorecho.") before the next line.
+    const beat = DEMO_STEPS[from] ? DEMO_STEPS[from].pauseAfterMs || 0 : 0;
+    if (beat > 0) {
+      pendingNextRef.current = next;
+      timerRef.current = setTimeout(() => {
+        pendingNextRef.current = null;
+        if (statusRef.current === "playing") playStep(next);
+      }, beat);
+      return;
+    }
     playStep(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -630,6 +810,7 @@ export default function HeroDemo() {
     (idx) => {
       clearTimer();
       const step = DEMO_STEPS[idx];
+      pendingNextRef.current = null;
       setStepIdx(idx);
       setStatus("playing");
       if (step.agentId) {
@@ -667,6 +848,10 @@ export default function HeroDemo() {
       a.pause();
       a.src = step.audio;
       a.muted = mutedRef.current;
+      ensureAnalyser();
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
       a.onended = () => {
         if (statusRef.current === "playing") advance(idx);
       };
@@ -696,6 +881,12 @@ export default function HeroDemo() {
       start();
       return;
     }
+    // Paused during a cinematic beat (the previous line already finished):
+    // continue straight to the next step instead of replaying it.
+    if (pendingNextRef.current != null) {
+      playStep(pendingNextRef.current);
+      return;
+    }
     setStatus("playing");
     const a = audioRef.current;
     const step = DEMO_STEPS[stepIdx];
@@ -720,6 +911,7 @@ export default function HeroDemo() {
 
   const skip = () => {
     clearTimer();
+    pendingNextRef.current = null;
     stopAudio();
     setLitAgents(new Set(AGENTS_META.map((a) => a.id)));
     setLitRows(new Set(BRIEFING_ROWS.map((r) => r.id)));
@@ -752,8 +944,42 @@ export default function HeroDemo() {
         a.pause();
         a.src = "";
       }
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+        analyserRef.current = null;
+      }
     };
   }, []);
+
+  // While Echo speaks, sample the analyser each frame and write a smoothed
+  // level to --z-level (a CSS variable — no React re-renders involved).
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return undefined;
+    if (status !== "playing" || !analyserRef.current) {
+      el.style.setProperty("--z-level", "0.5");
+      return undefined;
+    }
+    const an = analyserRef.current;
+    const data = new Uint8Array(an.frequencyBinCount);
+    let level = 0.5;
+    let raf = 0;
+    const tick = () => {
+      an.getByteFrequencyData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 1) sum += data[i];
+      const raw = Math.min(1, sum / data.length / 120);
+      level += (raw - level) * 0.16;
+      el.style.setProperty("--z-level", level.toFixed(3));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.style.setProperty("--z-level", "0.5");
+    };
+  }, [status]);
 
   const step = stepIdx >= 0 ? DEMO_STEPS[stepIdx] : null;
   const playing = status === "playing";
@@ -764,8 +990,11 @@ export default function HeroDemo() {
   const coreState = playing ? "speaking" : "idle";
 
   return (
-    <section className="relative overflow-hidden bg-[#02040a]">
+    <section ref={sectionRef} className="relative overflow-hidden bg-[#02040a]">
       <HeroNav />
+
+      {/* Cinematic atmosphere: drifting dust + slow haze across the hero */}
+      <HeroAtmosphere playing={playing} />
 
       {/* Atmospheric lighting — soft blue glow concentrated behind the Core */}
       <div
@@ -788,7 +1017,15 @@ export default function HeroDemo() {
           </span>
           <h1 className="mt-6 text-5xl font-black leading-[1.02] tracking-tight sm:text-6xl xl:text-[4rem]">
             Meet Your{" "}
-            <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <span
+              className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent"
+              style={{
+                filter: playing
+                  ? "drop-shadow(0 0 26px rgba(34,211,238,0.30))"
+                  : "none",
+                transition: "filter 1.2s ease",
+              }}
+            >
               AI Company.
             </span>
           </h1>
@@ -934,6 +1171,7 @@ export default function HeroDemo() {
             activeRow={activeRow}
             started={started}
             done={done}
+            playing={playing}
           />
         </div>
       </div>

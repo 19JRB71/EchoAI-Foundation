@@ -324,3 +324,33 @@ id = "HitBWSo-cS474qRo4gK1j"
 uri = "file://screenshots/v3-core-speaking.png"
 type = "image"
 title = "V3 Core — Speaking state (Echo active)"
+
+[[outputs]]
+id = "fnysFei485OccyxadY2oT"
+uri = "file://screenshots/v4-hero-demo.gif"
+type = "image"
+title = "Hero demo — full 18s cinematic run"
+
+[[outputs]]
+id = "EfBfMh-_TpK3b44cHlIxg"
+uri = "file://screenshots/v4-desktop-idle.png"
+type = "image"
+title = "Desktop — idle state"
+
+[[outputs]]
+id = "ez6OMDQXvlTpnxSRUppGl"
+uri = "file://screenshots/v4-desktop-speaking.png"
+type = "image"
+title = "Desktop — Echo speaking"
+
+[[outputs]]
+id = "kC_HRPsLNLXyBeZGigZN7"
+uri = "file://screenshots/v4-laptop.png"
+type = "image"
+title = "Laptop view"
+
+[[outputs]]
+id = "JtMoXDQ98ln6__LQgEaKo"
+uri = "file://screenshots/v4-mobile.png"
+type = "image"
+title = "Mobile view"

@@ -1,0 +1,268 @@
+ZORECHO LANDING PAGE HERO — CINEMATIC PASS (FINAL HERO REVISION)
+
+The overall layout is approved.
+
+Do NOT redesign the hero layout.
+
+The remaining work is not about structure—it is about emotion, atmosphere, motion, lighting, and making visitors feel like they have just entered the headquarters of their own AI company.
+
+This is the final cinematic polish before approval.
+
+Objective
+
+When someone lands on Zorecho, the first reaction should be:
+
+"I've never seen a software website like this."
+
+The page should feel alive.
+
+Not flashy.
+
+Not distracting.
+
+Premium.
+
+Confident.
+
+Futuristic.
+
+Calm.
+
+1. Make the Zorecho Core feel alive
+
+The Core is currently beautiful but static.
+
+It must become the heartbeat of the page.
+
+Idle Mode
+
+The Core should continuously:
+
+slowly breathe
+softly illuminate
+gently pulse
+rotate the outer rings almost imperceptibly
+move tiny particles around itself
+animate the center waveform with a calm idle rhythm
+
+Nothing should ever feel frozen.
+
+Speaking Mode
+
+When Echo begins speaking:
+
+center waveform reacts naturally to the audio
+cyan illumination increases
+outer rings brighten
+connection lines glow
+tiny pulses travel outward toward the active department
+surrounding light blooms increase smoothly
+
+Never flash.
+
+Never jitter.
+
+Everything should feel expensive.
+
+2. Add cinematic atmosphere
+
+The current page is too clean.
+
+Add subtle environmental depth.
+
+Examples:
+
+soft blue atmospheric glow behind the Core
+faint volumetric light rays
+floating particles
+slight moving background energy
+gentle reflections
+faint ambient data haze
+
+The page should feel like Mission Control exists in a physical space.
+
+3. The Core should power the page
+
+The visitor should subconsciously feel that the Core is powering everything around it.
+
+Ideas:
+
+connection lines breathe slowly
+agent nodes softly glow
+Echo card subtly illuminates when speaking
+Morning Briefing panel reacts as data appears
+headline receives a faint cyan reflection during demo
+
+The Core should feel like the energy source of the interface.
+
+4. Make Echo feel present
+
+Echo should not feel like text inside a card.
+
+Echo should feel like a living assistant.
+
+When demo begins:
+
+Echo:
+
+"Hello.
+
+I'm Echo."
+
+Pause.
+
+"Welcome to Zorecho."
+
+Pause.
+
+"While you were away..."
+
+The interface begins responding.
+
+Echo is introducing the visitor to their AI company.
+
+5. Build the Morning Briefing live
+
+The Morning Briefing should not already exist.
+
+It should build itself while Echo talks.
+
+Each report appears one at a time.
+
+Lead count.
+
+Calls.
+
+Appointments.
+
+Competitor alerts.
+
+Social content.
+
+The corresponding department lights up as each item appears.
+
+6. Increase emotional impact
+
+This page should not feel like software.
+
+It should feel like:
+
+Walking into NASA Mission Control.
+
+Walking into Jarvis.
+
+Walking into your own AI headquarters.
+
+The user should feel excited before clicking anything.
+
+7. Motion philosophy
+
+Motion should communicate intelligence.
+
+Never decorate.
+
+Every animation must have purpose.
+
+Examples:
+
+✓ Core breathing
+
+✓ Agent activation
+
+✓ Waveform reacting
+
+✓ Briefing building
+
+✓ Light pulses traveling
+
+Avoid:
+
+Excessive spinning
+
+Rapid flashing
+
+Constant movement
+
+Gaming effects
+
+Everything should remain calm and premium.
+
+8. Refine lighting
+
+Increase:
+
+cyan bloom
+blue glow
+edge lighting
+depth
+reflections
+subtle gradients
+
+Do NOT simply increase brightness.
+
+Create richer lighting instead.
+
+9. Audio synchronization
+
+The demo animation should synchronize with Echo.
+
+Every spoken sentence should trigger visible interface responses.
+
+The visitor should feel like Echo is controlling the interface in real time.
+
+10. Preserve performance
+
+All animation should remain lightweight.
+
+Respect reduced-motion settings.
+
+Avoid heavy GPU effects.
+
+Keep frame rates smooth.
+
+Deliverables
+
+Do NOT publish.
+
+Do NOT push live.
+
+Return:
+
+Updated desktop screenshot
+Updated laptop screenshot
+Updated mobile screenshot
+15–20 second screen recording (or GIF) showing:
+idle Core
+demo starting
+Echo speaking
+Morning Briefing building
+agent activations
+Core returning to idle
+
+Wait for approval before deployment.
+
+Creative Direction
+
+Imagine this scene:
+
+The visitor opens the page.
+
+The room is quiet.
+
+The Zorecho Core slowly comes alive.
+
+Echo speaks:
+
+"Hello... I'm Echo."
+
+The Core brightens.
+
+The AI workforce wakes up.
+
+One by one, the departments illuminate.
+
+The Morning Briefing assembles itself.
+
+When the demonstration ends, the visitor has already experienced what it feels like to own an AI company.
+
+That emotional experience—not just the layout—is the goal of this final pass.

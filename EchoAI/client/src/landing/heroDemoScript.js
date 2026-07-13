@@ -8,20 +8,33 @@
 
 const AUDIO_BASE = "/landing-demo";
 
+// `pauseAfterMs` — a short cinematic beat of silence after the line finishes,
+// before the next one starts (Echo "pausing"). Skipped when the demo is
+// paused/skipped; omitted (0) for the briefing items so they flow naturally.
 export const DEMO_STEPS = [
   {
-    id: "intro",
-    text: "Hello. I'm Echo, your personal AI assistant.",
-    audio: `${AUDIO_BASE}/01-intro.mp3`,
+    id: "hello",
+    text: "Hello. I'm Echo.",
+    audio: `${AUDIO_BASE}/01-hello.mp3`,
     agentId: "echo",
     rowId: null,
+    pauseAfterMs: 650,
   },
   {
-    id: "greeting",
-    text: "Good morning. Here is your example business briefing.",
-    audio: `${AUDIO_BASE}/02-greeting.mp3`,
+    id: "welcome",
+    text: "Welcome to Zorecho.",
+    audio: `${AUDIO_BASE}/02-welcome.mp3`,
     agentId: null,
     rowId: null,
+    pauseAfterMs: 750,
+  },
+  {
+    id: "away",
+    text: "While you were away, your AI team kept working. Here is your example briefing.",
+    audio: `${AUDIO_BASE}/03-away.mp3`,
+    agentId: null,
+    rowId: null,
+    pauseAfterMs: 450,
   },
   {
     id: "leads",
