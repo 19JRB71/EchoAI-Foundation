@@ -89,6 +89,49 @@ test("computeKpis returns [] without a brand — reserved space, not zeros", asy
   }
 });
 
+test("computeWorkforce returns nulls without a brand — never a fabricated 0", async () => {
+  const restore = stubDb(async () => {
+    throw new Error("must not query without a brand");
+  });
+  try {
+    assert.deepEqual(await mc.computeWorkforce(null, 0), {
+      campaignsRunning: null,
+      conversationsActive: null,
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("computeWorkforce counts open autonomous conversations for the brand", async () => {
+  const captured = [];
+  const restore = stubDb(async (sql, params) => {
+    captured.push({ sql, params });
+    return { rows: [{ n: 3 }] };
+  });
+  try {
+    const wf = await mc.computeWorkforce("00000000-0000-0000-0000-000000000001", 2);
+    assert.deepEqual(wf, { campaignsRunning: 2, conversationsActive: 3 });
+    assert.equal(captured.length, 1);
+    assert.ok(captured[0].sql.includes("autonomous_conversations"));
+    assert.ok(captured[0].sql.includes("'active','awaiting_owner'"));
+    assert.equal(highestPlaceholder(captured[0].sql), captured[0].params.length);
+  } finally {
+    restore();
+  }
+});
+
+test("computeWorkforce never turns a non-numeric campaign count into a number", async () => {
+  const restore = stubDb(async () => ({ rows: [{ n: 0 }] }));
+  try {
+    const wf = await mc.computeWorkforce("00000000-0000-0000-0000-000000000001", undefined);
+    assert.equal(wf.campaignsRunning, null);
+    assert.equal(wf.conversationsActive, 0);
+  } finally {
+    restore();
+  }
+});
+
 test("computeZorechoScore is null (not 0) when no goals exist", async () => {
   const restore = stubDb(async (sql) => {
     if (sql.includes("FROM brands")) return { rows: [] };

@@ -1098,6 +1098,8 @@ export default function App() {
                 (canOpenSection("missioncontrolv2") ? (
                   <MissionControlV2
                     brandId={selectedBrandId}
+                    brands={brands}
+                    onSelectBrand={setSelectedBrandId}
                     onNavigate={handleSelectSection}
                     onOpenDepartment={openDepartment}
                     onUpgrade={handleUpgrade}

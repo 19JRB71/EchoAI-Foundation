@@ -85,10 +85,10 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
   const right = roster.filter((a) => !["echo", "scout", "atlas", "nova"].includes(a.id));
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-cyan-950/70 bg-gradient-to-b from-[#050b1d] to-[#03060f] p-4 sm:p-5">
+    <div className="relative overflow-hidden rounded-2xl border border-cyan-950/70 bg-gradient-to-b from-[#050b1d] to-[#03060f] p-4 sm:p-6">
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse at 50% 45%, rgba(14,60,110,0.16), transparent 60%)" }}
+        style={{ background: "radial-gradient(ellipse at 50% 45%, rgba(14,60,110,0.22), transparent 62%)" }}
         aria-hidden="true"
       />
       <div className="relative">
@@ -101,8 +101,8 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
           </div>
 
           <div className="relative z-10 flex flex-col items-center px-1 sm:px-8">
-            <div className="relative flex h-48 w-48 items-center justify-center sm:h-56 sm:w-56">
-              <div className="mcv2-core-ring absolute inset-0 rounded-full border-2 border-cyan-500/40" style={{ boxShadow: "0 0 40px rgba(34,211,238,0.22), inset 0 0 30px rgba(34,211,238,0.08)" }} />
+            <div className="relative flex h-52 w-52 items-center justify-center sm:h-64 sm:w-64">
+              <div className="mcv2-core-ring absolute inset-0 rounded-full border-2 border-cyan-500/40" style={{ boxShadow: "0 0 60px rgba(34,211,238,0.3), inset 0 0 40px rgba(34,211,238,0.1)" }} />
               <div className="mcv2-core-ring-slow absolute inset-3 rounded-full border border-cyan-400/25" />
               <div
                 className="mcv2-core absolute inset-6 rounded-full"
@@ -128,7 +128,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
               </div>
             </div>
             <div className="mt-3 text-center">
-              <div className="text-[15px] font-bold tracking-[0.3em] text-gray-100">ZORECHO CORE</div>
+              <div className="text-[17px] font-bold tracking-[0.32em] text-gray-100" style={{ textShadow: "0 0 24px rgba(34,211,238,0.35)" }}>ZORECHO CORE</div>
               <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
                 <span
                   className="inline-block h-1.5 w-1.5 rounded-full"

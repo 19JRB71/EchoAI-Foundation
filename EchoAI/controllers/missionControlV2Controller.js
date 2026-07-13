@@ -34,6 +34,22 @@ async function n(sql, params) {
     return 0;
   }
 }
+// Executive Command Panel workforce summary — real platform counts only.
+// Without a brand context the counts are null (never a fabricated 0), so the
+// client renders "—".
+async function computeWorkforce(brandId, activeCampaigns) {
+  if (!brandId) return { campaignsRunning: null, conversationsActive: null };
+  const conversationsActive = await n(
+    "SELECT COUNT(*)::int AS n FROM autonomous_conversations WHERE brand_id = $1 AND status IN ('active','awaiting_owner')",
+    [brandId],
+  );
+  const campaigns = Number(activeCampaigns);
+  return {
+    campaignsRunning: Number.isFinite(campaigns) ? campaigns : null,
+    conversationsActive,
+  };
+}
+
 async function rows(sql, params) {
   try {
     const r = await db.query(sql, params);
@@ -519,6 +535,8 @@ async function getMissionControlV2(req, res) {
       (attentionNames.length ? `${attentionNames.join(" and ")} need${attentionNames.length === 1 ? "s" : ""} your attention. ` : "The whole team is running smoothly. ") +
       (fixesWeek ? `Sentinel auto-fixed ${fixesWeek} issue${fixesWeek === 1 ? "" : "s"} this week.` : "No problems detected.");
 
+    const workforce = await computeWorkforce(bid, activeCampaigns);
+
     const geo = (brand ? parseGeo(brand.geo_targeting) : null) || { areas: [], exclusions: [] };
     const geoCoverage = brand
       ? {
@@ -551,6 +569,7 @@ async function getMissionControlV2(req, res) {
       goalAlerts,
       failedPosts,
       systemStatus,
+      workforce,
     });
   } catch (err) {
     console.error("getMissionControlV2 error:", err.message);
@@ -561,6 +580,7 @@ async function getMissionControlV2(req, res) {
 module.exports = {
   getMissionControlV2,
   // exported for tests
+  computeWorkforce,
   computeKpis,
   computeZorechoScore,
   computeActivityFeed,

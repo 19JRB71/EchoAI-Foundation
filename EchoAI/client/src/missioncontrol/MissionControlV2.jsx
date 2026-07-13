@@ -43,6 +43,8 @@ function kpiDeltaLabel(k) {
 
 export default function MissionControlV2({
   brandId,
+  brands,
+  onSelectBrand,
   onNavigate,
   onOpenDepartment,
   onUpgrade,
@@ -115,9 +117,12 @@ export default function MissionControlV2({
       <div className="flex min-h-0 flex-1">
         <div className="hidden lg:flex">
           <ExecutiveSidebar
-            agents={data.agents}
-            onOpenDepartment={onOpenDepartment}
+            data={data}
+            brands={brands}
+            selectedBrandId={brandId}
+            onSelectBrand={onSelectBrand}
             onNavigate={onNavigate}
+            onTalkToEcho={talkToEcho}
           />
         </div>
 
