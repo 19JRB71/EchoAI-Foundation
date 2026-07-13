@@ -35,7 +35,7 @@ describe("CoreHero voice-state mapping", () => {
     mockConv.current = null;
     renderHero();
     expect(heroRoot().className).toContain("mcv2-idle");
-    expect(screen.getByText("All Systems Operational")).toBeTruthy();
+    expect(screen.getByText("AI Workforce Operational")).toBeTruthy();
   });
 
   it("passive → idle", () => {
@@ -59,12 +59,20 @@ describe("CoreHero voice-state mapping", () => {
     expect(container.querySelector(".mcv2-orbit")).toBeTruthy();
   });
 
-  it("speaking → speaking", () => {
+  it("speaking → speaking, with the center light-pulse emitter", () => {
     mockConv.current = { convState: "speaking" };
     const { container } = renderHero();
     expect(heroRoot().className).toContain("mcv2-speaking");
     expect(screen.getByText("Echo Speaking")).toBeTruthy();
+    // The subtle light pulse emits from the center only while speaking.
+    expect(container.querySelector(".mcv2-core-emit")).toBeTruthy();
     // No thinking particles while speaking.
     expect(container.querySelector(".mcv2-orbit")).toBeFalsy();
+  });
+
+  it("the light-pulse emitter is absent outside the speaking state", () => {
+    mockConv.current = { convState: "active" };
+    const { container } = renderHero();
+    expect(container.querySelector(".mcv2-core-emit")).toBeFalsy();
   });
 });

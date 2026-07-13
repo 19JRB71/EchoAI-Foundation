@@ -73,7 +73,7 @@ function Connectors({ left, right }) {
       {paths.map((p, idx) => (
         <g key={p.key}>
           <path d={p.d} fill="none" stroke={p.color} strokeWidth="1.1" opacity="0.12" />
-          <path d={p.d} fill="none" stroke={p.color} strokeWidth="0.35" opacity="0.75" />
+          <path d={p.d} fill="none" stroke={p.color} strokeWidth="0.35" opacity="0.75" className="mcv2-line" />
           {/* Traveling light pulse — a subtle spark flowing along the line
               toward the core, staggered per line so they never sync up. */}
           <circle r="0.85" fill={p.color} opacity="0" className="mcv2-line-pulse">
@@ -150,6 +150,13 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
                   ))}
                 </div>
               )}
+              {/* Speaking state — a subtle light pulse emitted from the center */}
+              {coreState === "speaking" && (
+                <div
+                  className="mcv2-core-emit pointer-events-none absolute inset-10 rounded-full border border-cyan-300/50"
+                  aria-hidden="true"
+                />
+              )}
               <div
                 className="mcv2-core absolute inset-8 rounded-full"
                 style={{
@@ -182,7 +189,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
                     ? "Echo Thinking"
                     : coreState === "listening"
                       ? "Echo Listening"
-                      : "All Systems Operational"}
+                      : "AI Workforce Operational"}
               </div>
               <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
                 <span
@@ -204,7 +211,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
           </div>
         </div>
 
-        <div className="mt-6 flex justify-center">
+        <div className="mt-9 flex justify-center">
           <button
             onClick={onTalkToEcho}
             className="flex items-center gap-3 rounded-2xl border border-cyan-400/60 bg-cyan-500/10 px-7 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-500/20"

@@ -245,12 +245,16 @@ export default function MissionControlV2({
     >
       <style>{`
         .mcv2 .mcv2-core-bar { animation: mcv2bar 2.6s ease-in-out infinite; transform-origin: bottom; transition: filter .7s ease; }
-        .mcv2 .mcv2-core { animation: mcv2breathe 5s ease-in-out infinite; transition: filter .7s ease; }
+        .mcv2 .mcv2-core { animation: mcv2breathe 3.5s ease-in-out infinite; transition: filter .7s ease; }
         .mcv2 .mcv2-core-ring { animation: mcv2ringbreathe 7s ease-in-out infinite; transition: transform .6s ease; }
         .mcv2 .mcv2-core-ring-slow { animation: mcv2ring 6s ease-in-out 1.2s infinite; }
         .mcv2 .mcv2-orbit { animation: mcv2orbit 3.2s linear infinite; }
-        /* Listening — the outer ring expands slightly */
+        /* Listening — the outer ring expands slightly, waveform gets more active,
+           and the sidebar mic glows (handled in ExecutiveSidebar). */
         .mcv2 .mcv2-listening .mcv2-core-ring { animation: mcv2ringlisten 2.4s ease-in-out infinite; }
+        .mcv2 .mcv2-listening .mcv2-core-bar { animation-duration: 1.4s; }
+        /* Thinking — the waveform rests while the particles orbit */
+        .mcv2 .mcv2-thinking .mcv2-core-bar { animation-play-state: paused; opacity: .45; }
         /* Speaking — the whole core comes alive: faster/fuller waveform, brighter
            glow, pulsing rings. The .7s filter transitions above let everything
            settle back down smoothly when Echo stops. */
@@ -258,6 +262,8 @@ export default function MissionControlV2({
         .mcv2 .mcv2-speaking .mcv2-core { animation-duration: 1.8s; filter: brightness(1.35); }
         .mcv2 .mcv2-speaking .mcv2-core-ring { animation: mcv2ringspeak 1.6s ease-in-out infinite; }
         .mcv2 .mcv2-speaking .mcv2-core-ring-slow { animation: mcv2ringspeak 1.6s ease-in-out .4s infinite; }
+        .mcv2 .mcv2-speaking .mcv2-line { animation: mcv2linespeak 1.6s ease-in-out infinite; }
+        .mcv2 .mcv2-core-emit { animation: mcv2emit 1.8s ease-out infinite; opacity: 0; }
         @keyframes mcv2bar { 0%,100% { transform: scaleY(0.55); opacity:.7 } 50% { transform: scaleY(1); opacity:1 } }
         @keyframes mcv2ring { 0%,100% { opacity:.5 } 50% { opacity:.9 } }
         @keyframes mcv2ringlisten { 0%,100% { opacity:.75; transform: scale(1.05) } 50% { opacity:1; transform: scale(1.09) } }
@@ -266,12 +272,15 @@ export default function MissionControlV2({
         @keyframes mcv2ringbright { 0%,100% { opacity:.7 } 50% { opacity:1 } }
         @keyframes mcv2barspeak { 0%,100% { transform: scaleY(0.35); opacity:.75 } 50% { transform: scaleY(1.12); opacity:1 } }
         @keyframes mcv2ringspeak { 0%,100% { opacity:.7; transform: scale(1) } 50% { opacity:1; transform: scale(1.03) } }
+        @keyframes mcv2linespeak { 0%,100% { opacity:.55; stroke-width:.35 } 50% { opacity:1; stroke-width:.55 } }
+        @keyframes mcv2emit { 0% { opacity:.55; transform: scale(.92) } 100% { opacity:0; transform: scale(1.25) } }
         @keyframes mcv2orbit { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
         @media (prefers-reduced-motion: reduce) {
           .mcv2 .mcv2-core-bar, .mcv2 .mcv2-core, .mcv2 .mcv2-core-ring, .mcv2 .mcv2-core-ring-slow, .mcv2 .mcv2-orbit,
           .mcv2 .mcv2-speaking .mcv2-core-bar, .mcv2 .mcv2-speaking .mcv2-core, .mcv2 .mcv2-speaking .mcv2-core-ring, .mcv2 .mcv2-speaking .mcv2-core-ring-slow,
-          .mcv2 .mcv2-listening .mcv2-core-ring { animation: none; }
-          .mcv2 .mcv2-line-pulse { display: none; }
+          .mcv2 .mcv2-speaking .mcv2-line, .mcv2 .mcv2-core-emit,
+          .mcv2 .mcv2-listening .mcv2-core-ring, .mcv2 .mcv2-listening .mcv2-core-bar { animation: none; }
+          .mcv2 .mcv2-line-pulse, .mcv2 .mcv2-core-emit { display: none; }
         }
       `}</style>
 
