@@ -210,3 +210,9 @@ id = "n6Y40JsM-b7YnFfb2Rsrg"
 uri = "file://screenshots/mcv2-revision-desktop.png"
 type = "image"
 title = "Mission Control V2 — Revision (Executive Command Panel)"
+
+[[outputs]]
+id = "JaOyNKCtccQGfEFek0UA-"
+uri = "file://screenshots/zorecho-core-updated.png"
+type = "image"
+title = "Zorecho Core — Updated Mission Control"
