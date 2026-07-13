@@ -35,7 +35,7 @@ describe("CoreHero voice-state mapping", () => {
     mockConv.current = null;
     renderHero();
     expect(heroRoot().className).toContain("mcv2-idle");
-    expect(screen.getByText("AI Company Operating")).toBeTruthy();
+    expect(screen.getByText("All Systems Operational")).toBeTruthy();
   });
 
   it("passive → idle", () => {

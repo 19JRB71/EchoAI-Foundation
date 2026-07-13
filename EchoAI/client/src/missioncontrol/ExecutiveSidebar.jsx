@@ -136,8 +136,12 @@ export default function ExecutiveSidebar({
               >
                 E
                 <span
-                  className="absolute -right-1 -top-1 h-2 w-2 rounded-full border border-[#04070f]"
-                  style={{ backgroundColor: echoStatus, boxShadow: `0 0 6px ${echoStatus}` }}
+                  className={`absolute -right-1 -top-1 h-2 w-2 rounded-full border border-[#04070f] ${voiceState ? "animate-pulse" : ""}`}
+                  style={{
+                    backgroundColor: echoStatus,
+                    boxShadow: voiceState ? `0 0 10px ${echoStatus}, 0 0 4px ${echoStatus}` : `0 0 6px ${echoStatus}`,
+                  }}
+                  data-testid="sidebar-echo-dot"
                 />
               </span>
               <span className="min-w-0 flex-1">
@@ -153,6 +157,7 @@ export default function ExecutiveSidebar({
                     )}
                     <svg
                       className={`relative h-4 w-4 ${micLive || voiceState ? "text-cyan-300" : "text-cyan-400/70 group-hover:text-cyan-300"}`}
+                      style={micLive || voiceState ? { filter: "drop-shadow(0 0 5px rgba(103,232,249,0.9))" } : undefined}
                       fill="none"
                       viewBox="0 0 24 24"
                       strokeWidth={1.7}

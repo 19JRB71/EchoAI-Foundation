@@ -56,12 +56,12 @@ function Connectors({ left, right }) {
   left.forEach((a, i) => {
     const meta = AGENTS_META.find((m) => m.id === a.id) || {};
     const y = yFor(left.length, i);
-    paths.push({ d: `M 26,${y} C 38,${y} 39,50 49,50`, color: meta.color || "#22d3ee", key: `l-${a.id}` });
+    paths.push({ d: `M 26,${y} C 35,${y} 40,50 49,50`, color: meta.color || "#22d3ee", key: `l-${a.id}` });
   });
   right.forEach((a, i) => {
     const meta = AGENTS_META.find((m) => m.id === a.id) || {};
     const y = yFor(right.length, i);
-    paths.push({ d: `M 74,${y} C 62,${y} 61,50 51,50`, color: meta.color || "#22d3ee", key: `r-${a.id}` });
+    paths.push({ d: `M 74,${y} C 65,${y} 60,50 51,50`, color: meta.color || "#22d3ee", key: `r-${a.id}` });
   });
   return (
     <svg
@@ -78,17 +78,17 @@ function Connectors({ left, right }) {
               toward the core, staggered per line so they never sync up. */}
           <circle r="0.85" fill={p.color} opacity="0" className="mcv2-line-pulse">
             <animateMotion
-              dur={`${2.6 + (idx % 3) * 0.5}s`}
-              begin={`${idx * 0.45}s`}
+              dur={`${3.8 + (idx % 3) * 0.6}s`}
+              begin={`${idx * 0.65}s`}
               repeatCount="indefinite"
               path={p.d}
             />
             <animate
               attributeName="opacity"
-              values="0;0.9;0.9;0"
+              values="0;0.85;0.85;0"
               keyTimes="0;0.15;0.85;1"
-              dur={`${2.6 + (idx % 3) * 0.5}s`}
-              begin={`${idx * 0.45}s`}
+              dur={`${3.8 + (idx % 3) * 0.6}s`}
+              begin={`${idx * 0.65}s`}
               repeatCount="indefinite"
             />
           </circle>
@@ -132,7 +132,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
           </div>
 
           <div className="relative z-10 flex flex-col items-center px-1 sm:px-8">
-            <div className="relative flex h-64 w-64 items-center justify-center sm:h-80 sm:w-80">
+            <div className="relative flex h-[18.5rem] w-[18.5rem] items-center justify-center sm:h-[23rem] sm:w-[23rem]">
               <div className="mcv2-core-ring absolute inset-0 rounded-full border-2 border-cyan-500/40" style={{ boxShadow: "0 0 70px rgba(34,211,238,0.32), inset 0 0 45px rgba(34,211,238,0.1)" }} />
               <div className="mcv2-core-ring-slow absolute inset-4 rounded-full border border-cyan-400/25" />
               {/* Thinking state — subtle orbiting particles around the core */}
@@ -143,7 +143,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
                       key={deg}
                       className="absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-full bg-cyan-300"
                       style={{
-                        transform: `rotate(${deg}deg) translateX(calc(50% + 7.2rem))`,
+                        transform: `rotate(${deg}deg) translateX(calc(50% + 8.4rem))`,
                         boxShadow: "0 0 8px rgba(103,232,249,0.9)",
                       }}
                     />
@@ -182,7 +182,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
                     ? "Echo Thinking"
                     : coreState === "listening"
                       ? "Echo Listening"
-                      : "AI Company Operating"}
+                      : "All Systems Operational"}
               </div>
               <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
                 <span
