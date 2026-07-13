@@ -1,0 +1,199 @@
+ZORECHO LANDING PAGE HERO — PREVIEW BUILD ONLY
+
+The attached image is the approved visual direction for the new Zorecho landing-page hero.
+
+Your job is to recreate this hero inside the existing application as faithfully as practical while preserving the current landing page, routing, authentication, and business functionality.
+
+Critical release rule
+
+Do not publish, deploy, push, or replace the live landing page yet.
+
+Build this behind a private preview route or admin-only preview switch.
+
+When complete, return:
+
+Full-resolution desktop screenshot
+Laptop screenshot
+Mobile screenshot
+Screenshot of the Core in idle mode
+Screenshot of the Core while Echo is speaking
+
+Stop and wait for approval. We expect revisions before anything goes live.
+
+Visual target
+
+Match the attached concept’s:
+
+Deep black and blue-black background
+Premium cyan and electric-blue lighting
+Spacious navigation
+Large “Meet Your AI Company” headline
+Central Zorecho Core
+Nine connected AI agents
+Right-side example briefing panel
+Glass-style panels
+Agent color identities
+Typography, spacing, borders, depth, and hierarchy
+
+Do not reinterpret this as a generic SaaS hero. It must feel like the entrance to the same Zorecho Headquarters customers see after logging in.
+
+Zorecho Core behavior
+
+The Core must feel alive rather than appearing as a static image.
+
+Idle
+Soft breathing illumination
+Gentle movement in the center waveform
+Subtle outer-ring pulse
+Slow ambient particles
+Demo begins
+Core brightens smoothly
+Echo becomes active
+Waveform begins moving
+Agent connections illuminate as their departments are mentioned
+Echo speaking
+Center waveform reacts to the spoken audio
+Outer rings pulse naturally
+Cyan illumination increases
+Small light pulses travel along the relevant agent connection lines
+Echo’s agent node glows teal
+The Core returns smoothly to idle after Echo finishes
+
+No flashing, aggressive spinning, or distracting effects. The animation should feel premium, calm, and purposeful.
+
+Echo introduction and demo
+
+Do not autoplay audible speech when the page first loads.
+
+Initially show the Core in idle mode with a clear button:
+
+Watch Echo Work
+
+When clicked, begin a short example demonstration.
+
+Suggested script:
+
+“Hello. I’m Echo, your personal AI assistant.
+Good morning. Here is your example business briefing.
+Ten new leads arrived overnight.
+Seven customer emails need attention.
+Voice answered twelve calls and booked three appointments.
+Scout found two new competitor campaigns.
+Nova prepared today’s social content.
+Your AI company is online and ready. Would you like to see Mission Control?”
+
+As each department is mentioned, illuminate its permanent color:
+
+Echo — teal
+Scout — blue
+Atlas — indigo
+Nova — pink
+Pulse — orange
+Voice — purple
+Forge — gold
+Sentinel — red
+Sage — green
+
+Clearly label the briefing:
+
+Example Zorecho Morning Briefing — Sample Data
+
+The demonstration must never imply that the example numbers belong to the visitor.
+
+Demo controls
+
+Provide:
+
+Play
+Pause
+Replay
+Mute/unmute
+Skip demo
+
+The visitor must still be able to use the page without completing the demonstration.
+
+Hero copy
+
+Headline:
+
+Meet Your AI Company.
+
+Supporting copy:
+
+Zorecho is your connected AI workforce—helping manage marketing, lead follow-up, customer calls, research, content, and business intelligence around the clock.
+
+Primary CTA:
+
+Start Your AI Company
+
+Secondary CTA:
+
+Watch Echo Work
+
+Closing demo CTA:
+
+See Mission Control
+
+Use the existing real signup, login, and demo routes. Do not create dead buttons.
+
+Agent roles
+
+Use the actual product roles:
+
+Echo — Marketing Director and personal assistant
+Scout — Research Specialist
+Atlas — Advertising Manager
+Nova — Social Media Manager
+Pulse — CRM Manager
+Voice — AI Receptionist
+Forge — Creative Director
+Sentinel — Oversight Agent
+Sage — Industry Intelligence
+
+Do not copy incorrect role labels from generated artwork.
+
+Honesty requirements
+
+The concept image includes illustrative trust statistics, customer counts, ratings, and recognizable company logos.
+
+Do not publish any unverified claims, including:
+
+“2,500+ businesses”
+“98% customer satisfaction”
+“100M+ leads”
+Ratings or review totals
+Customer logos or endorsements without written permission
+
+Replace that area in the preview with either:
+
+Real, verified Zorecho information
+A neutral product-benefit strip
+Or omit it temporarily
+
+Never use invented social proof.
+
+Reuse and consistency
+
+Reuse the same shared Zorecho Core component and animation states used in Mission Control.
+
+Do not create a separate Core that looks or behaves differently.
+
+Landing page → login → Mission Control must feel like one continuous experience.
+
+Performance and accessibility
+Respect reduced-motion settings
+Provide captions or visible demo text
+Do not require audio to understand the demonstration
+Keep the hero usable while assets load
+Avoid excessive GPU-heavy effects
+Ensure buttons and controls work by keyboard
+Maintain readable contrast
+Scope freeze
+
+For this pass, build only the navigation and hero experience shown in the attached reference.
+
+Do not redesign the remainder of the landing page yet.
+
+Do not publish anything.
+
+Return screenshots and wait for approval before making further changes or pushing the design live.

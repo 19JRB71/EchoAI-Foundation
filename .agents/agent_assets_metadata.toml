@@ -264,3 +264,33 @@ id = "nBaWEN5fqsYAOSSsixIwL"
 uri = "file://screenshots/hero-mobile-done.png"
 type = "image"
 title = "Mobile — briefing complete"
+
+[[outputs]]
+id = "5AwtsveRWsplULKgjs-QV"
+uri = "file://screenshots/hero-desktop-full.png"
+type = "image"
+title = "Hero — Desktop (1920×1080)"
+
+[[outputs]]
+id = "nyfwi1_FWNgLOGkfBdkBI"
+uri = "file://screenshots/hero-laptop.png"
+type = "image"
+title = "Hero — Laptop (1366×768)"
+
+[[outputs]]
+id = "CuV845j0llFXS_QawIjC5"
+uri = "file://screenshots/hero-mobile.png"
+type = "image"
+title = "Hero — Mobile (390×844)"
+
+[[outputs]]
+id = "fxsydC26A9H8K6A9jV6k6"
+uri = "file://screenshots/core-idle.png"
+type = "image"
+title = "Zorecho Core — Idle close-up"
+
+[[outputs]]
+id = "H3Ubco4pSMQqD_Qf9fEWw"
+uri = "file://screenshots/core-speaking.png"
+type = "image"
+title = "Zorecho Core — Speaking mid-demo"
