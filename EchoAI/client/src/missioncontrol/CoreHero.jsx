@@ -1,4 +1,5 @@
 import { AGENTS_META } from "../lib/departments.js";
+import { useEchoConversation } from "../voice/EchoConversationContext.jsx";
 
 // Zorecho Core — the centerpiece of Mission Control V2, matching the approved
 // concept: a glowing waveform core with curved, agent-colored connector lines
@@ -69,23 +70,53 @@ function Connectors({ left, right }) {
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      {paths.map((p) => (
+      {paths.map((p, idx) => (
         <g key={p.key}>
           <path d={p.d} fill="none" stroke={p.color} strokeWidth="1.1" opacity="0.12" />
           <path d={p.d} fill="none" stroke={p.color} strokeWidth="0.35" opacity="0.75" />
+          {/* Traveling light pulse — a subtle spark flowing along the line
+              toward the core, staggered per line so they never sync up. */}
+          <circle r="0.85" fill={p.color} opacity="0" className="mcv2-line-pulse">
+            <animateMotion
+              dur={`${2.6 + (idx % 3) * 0.5}s`}
+              begin={`${idx * 0.45}s`}
+              repeatCount="indefinite"
+              path={p.d}
+            />
+            <animate
+              attributeName="opacity"
+              values="0;0.9;0.9;0"
+              keyTimes="0;0.15;0.85;1"
+              dur={`${2.6 + (idx % 3) * 0.5}s`}
+              begin={`${idx * 0.45}s`}
+              repeatCount="indefinite"
+            />
+          </circle>
         </g>
       ))}
     </svg>
   );
 }
 
+// Map the real voice-engine state onto the Core's visual state. No engine
+// (team member / provider inactive) → calm idle breathing.
+function coreStateOf(conv) {
+  if (!conv) return "idle";
+  if (conv.convState === "speaking") return "speaking";
+  if (conv.convState === "processing") return "thinking";
+  if (conv.convState === "active") return "listening";
+  return "idle";
+}
+
 export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statusLine, healthy = true }) {
   const roster = Array.isArray(agents) ? agents : [];
   const left = roster.filter((a) => ["echo", "scout", "atlas", "nova"].includes(a.id));
   const right = roster.filter((a) => !["echo", "scout", "atlas", "nova"].includes(a.id));
+  const conv = useEchoConversation();
+  const coreState = coreStateOf(conv);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-cyan-950/70 bg-gradient-to-b from-[#050b1d] to-[#03060f] p-4 sm:p-6">
+    <div className={`mcv2-hero mcv2-${coreState} relative overflow-hidden rounded-2xl border border-cyan-950/70 bg-gradient-to-b from-[#050b1d] to-[#03060f] p-4 sm:p-6`}>
       <div
         className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse at 50% 45%, rgba(14,60,110,0.22), transparent 62%)" }}
@@ -101,35 +132,59 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
           </div>
 
           <div className="relative z-10 flex flex-col items-center px-1 sm:px-8">
-            <div className="relative flex h-52 w-52 items-center justify-center sm:h-64 sm:w-64">
-              <div className="mcv2-core-ring absolute inset-0 rounded-full border-2 border-cyan-500/40" style={{ boxShadow: "0 0 60px rgba(34,211,238,0.3), inset 0 0 40px rgba(34,211,238,0.1)" }} />
-              <div className="mcv2-core-ring-slow absolute inset-3 rounded-full border border-cyan-400/25" />
+            <div className="relative flex h-64 w-64 items-center justify-center sm:h-80 sm:w-80">
+              <div className="mcv2-core-ring absolute inset-0 rounded-full border-2 border-cyan-500/40" style={{ boxShadow: "0 0 70px rgba(34,211,238,0.32), inset 0 0 45px rgba(34,211,238,0.1)" }} />
+              <div className="mcv2-core-ring-slow absolute inset-4 rounded-full border border-cyan-400/25" />
+              {/* Thinking state — subtle orbiting particles around the core */}
+              {coreState === "thinking" && (
+                <div className="mcv2-orbit pointer-events-none absolute inset-2" aria-hidden="true">
+                  {[0, 120, 240].map((deg) => (
+                    <span
+                      key={deg}
+                      className="absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-full bg-cyan-300"
+                      style={{
+                        transform: `rotate(${deg}deg) translateX(calc(50% + 7.2rem))`,
+                        boxShadow: "0 0 8px rgba(103,232,249,0.9)",
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
               <div
-                className="mcv2-core absolute inset-6 rounded-full"
+                className="mcv2-core absolute inset-8 rounded-full"
                 style={{
                   background:
                     "radial-gradient(circle at 50% 45%, rgba(34,211,238,0.4), rgba(14,116,144,0.2) 55%, rgba(3,10,25,0.95) 100%)",
-                  boxShadow: "0 0 80px rgba(34,211,238,0.3), inset 0 0 50px rgba(34,211,238,0.18)",
+                  boxShadow: "0 0 100px rgba(34,211,238,0.32), inset 0 0 60px rgba(34,211,238,0.18)",
                 }}
               />
               <div className="relative flex items-end gap-1" aria-hidden="true">
-                {[10, 20, 32, 44, 34, 50, 34, 44, 32, 20, 10].map((h, i) => (
+                {[12, 24, 40, 55, 42, 62, 42, 55, 40, 24, 12].map((h, i) => (
                   <span
                     key={i}
-                    className="mcv2-core-bar w-1.5 rounded-full"
+                    className="mcv2-core-bar w-2 rounded-full"
                     style={{
                       height: `${h}px`,
                       animationDelay: `${i * 0.14}s`,
                       background: "linear-gradient(to top, #0891b2, #67e8f9)",
-                      boxShadow: "0 0 10px rgba(103,232,249,0.5)",
+                      boxShadow: "0 0 12px rgba(103,232,249,0.55)",
                     }}
                   />
                 ))}
               </div>
             </div>
-            <div className="mt-3 text-center">
-              <div className="text-[17px] font-bold tracking-[0.32em] text-gray-100" style={{ textShadow: "0 0 24px rgba(34,211,238,0.35)" }}>ZORECHO CORE</div>
-              <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+            <div className="mt-4 text-center">
+              <div className="text-[18px] font-bold tracking-[0.32em] text-gray-100" style={{ textShadow: "0 0 26px rgba(34,211,238,0.4)" }}>ZORECHO CORE</div>
+              <div className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-400/90">
+                {coreState === "speaking"
+                  ? "Echo Speaking"
+                  : coreState === "thinking"
+                    ? "Echo Thinking"
+                    : coreState === "listening"
+                      ? "Echo Listening"
+                      : "AI Company Operating"}
+              </div>
+              <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
                 <span
                   className="inline-block h-1.5 w-1.5 rounded-full"
                   style={{
@@ -149,7 +204,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
           </div>
         </div>
 
-        <div className="mt-4 flex justify-center">
+        <div className="mt-6 flex justify-center">
           <button
             onClick={onTalkToEcho}
             className="flex items-center gap-3 rounded-2xl border border-cyan-400/60 bg-cyan-500/10 px-7 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-500/20"

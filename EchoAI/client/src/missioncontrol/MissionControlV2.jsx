@@ -245,14 +245,26 @@ export default function MissionControlV2({
     >
       <style>{`
         .mcv2 .mcv2-core-bar { animation: mcv2bar 2.6s ease-in-out infinite; transform-origin: bottom; }
-        .mcv2 .mcv2-core { animation: mcv2glow 4s ease-in-out infinite; }
-        .mcv2 .mcv2-core-ring { animation: mcv2ring 6s ease-in-out infinite; }
+        .mcv2 .mcv2-core { animation: mcv2breathe 5s ease-in-out infinite; }
+        .mcv2 .mcv2-core-ring { animation: mcv2ringbreathe 7s ease-in-out infinite; transition: transform .6s ease; }
         .mcv2 .mcv2-core-ring-slow { animation: mcv2ring 6s ease-in-out 1.2s infinite; }
+        .mcv2 .mcv2-orbit { animation: mcv2orbit 3.2s linear infinite; }
+        /* Listening — the outer ring expands slightly */
+        .mcv2 .mcv2-listening .mcv2-core-ring { animation: mcv2ringlisten 2.4s ease-in-out infinite; }
+        /* Speaking — the whole core comes alive: faster waveform, brighter rings */
+        .mcv2 .mcv2-speaking .mcv2-core-bar { animation-duration: .85s; }
+        .mcv2 .mcv2-speaking .mcv2-core { animation-duration: 1.8s; }
+        .mcv2 .mcv2-speaking .mcv2-core-ring { animation: mcv2ringbright 1.8s ease-in-out infinite; }
         @keyframes mcv2bar { 0%,100% { transform: scaleY(0.55); opacity:.7 } 50% { transform: scaleY(1); opacity:1 } }
-        @keyframes mcv2glow { 0%,100% { opacity:.85 } 50% { opacity:1 } }
         @keyframes mcv2ring { 0%,100% { opacity:.5 } 50% { opacity:.9 } }
+        @keyframes mcv2ringlisten { 0%,100% { opacity:.75; transform: scale(1.05) } 50% { opacity:1; transform: scale(1.09) } }
+        @keyframes mcv2breathe { 0%,100% { opacity:.82; transform: scale(1) } 50% { opacity:1; transform: scale(1.025) } }
+        @keyframes mcv2ringbreathe { 0%,100% { opacity:.5; transform: scale(1) } 50% { opacity:.85; transform: scale(1.015) } }
+        @keyframes mcv2ringbright { 0%,100% { opacity:.7 } 50% { opacity:1 } }
+        @keyframes mcv2orbit { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
         @media (prefers-reduced-motion: reduce) {
-          .mcv2 .mcv2-core-bar, .mcv2 .mcv2-core, .mcv2 .mcv2-core-ring, .mcv2 .mcv2-core-ring-slow { animation: none; }
+          .mcv2 .mcv2-core-bar, .mcv2 .mcv2-core, .mcv2 .mcv2-core-ring, .mcv2 .mcv2-core-ring-slow, .mcv2 .mcv2-orbit { animation: none; }
+          .mcv2 .mcv2-line-pulse { display: none; }
         }
       `}</style>
 

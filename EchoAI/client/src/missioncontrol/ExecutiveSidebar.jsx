@@ -1,4 +1,5 @@
 import { AGENTS_META } from "../lib/departments.js";
+import { useEchoConversation } from "../voice/EchoConversationContext.jsx";
 
 // Mission Control V2 — left "Executive Command Panel". The nine-agent roster
 // lives in the Zorecho Core visualization (the official view of the AI
@@ -81,6 +82,27 @@ export default function ExecutiveSidebar({
   const echoColor = echoMeta.color || "#14B8A6";
   const echoStatus = echo ? STATUS_COLOR[echo.status] || "#f59e0b" : "#6b7280";
 
+  // Live voice state — real engine state only (null for team members or when
+  // the provider is inactive). Drives the mic indicator + "Listening…" text.
+  const conv = useEchoConversation();
+  const voiceState =
+    conv?.convState === "speaking"
+      ? "speaking"
+      : conv?.convState === "processing"
+        ? "thinking"
+        : conv?.convState === "active"
+          ? "listening"
+          : null;
+  const micLive = Boolean(conv?.handsFreeOn);
+  const voiceLabel =
+    voiceState === "listening"
+      ? "Listening…"
+      : voiceState === "thinking"
+        ? "Thinking…"
+        : voiceState === "speaking"
+          ? "Speaking…"
+          : null;
+
   const activeAgents = roster.filter((a) => a.status === "active" || a.status === "working").length;
   const kpis = Object.fromEntries((Array.isArray(data?.kpis) ? data.kpis : []).map((k) => [k.key, k]));
   const health = data?.systemStatus?.health;
@@ -99,12 +121,18 @@ export default function ExecutiveSidebar({
           <button
             onClick={onTalkToEcho}
             data-testid="sidebar-echo"
-            className="group w-full rounded-xl border border-cyan-950/70 bg-[#070d1c]/90 px-2.5 py-2.5 text-left transition-colors hover:border-cyan-700/50"
+            className="group w-full rounded-xl border bg-[#081021]/95 px-3 py-3 text-left transition-colors hover:border-cyan-600/60"
+            style={{
+              borderColor: voiceState ? `${echoColor}88` : `${echoColor}44`,
+              boxShadow: voiceState
+                ? `0 0 22px ${echoColor}33, inset 0 0 14px ${echoColor}14`
+                : `0 0 14px ${echoColor}1a`,
+            }}
           >
             <span className="flex items-start gap-2.5">
               <span
-                className="relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[14px] font-bold"
-                style={{ backgroundColor: `${echoColor}1f`, color: echoColor, border: `1px solid ${echoColor}55` }}
+                className="relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[15px] font-bold"
+                style={{ backgroundColor: `${echoColor}26`, color: echoColor, border: `1px solid ${echoColor}66`, boxShadow: `0 0 12px ${echoColor}2e` }}
               >
                 E
                 <span
@@ -114,15 +142,35 @@ export default function ExecutiveSidebar({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-1.5">
-                  <span className="text-[13px] font-semibold text-gray-100">Echo</span>
-                  <svg className="h-3.5 w-3.5 shrink-0 text-cyan-400/80 group-hover:text-cyan-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d={ACTION_ICONS.mic} />
-                  </svg>
+                  <span className="text-[13.5px] font-semibold text-gray-100">Echo</span>
+                  <span className="relative flex shrink-0 items-center" data-testid="sidebar-echo-mic">
+                    {(micLive || voiceState) && (
+                      <span
+                        className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-40"
+                        style={{ backgroundColor: echoColor }}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <svg
+                      className={`relative h-4 w-4 ${micLive || voiceState ? "text-cyan-300" : "text-cyan-400/70 group-hover:text-cyan-300"}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.7}
+                      stroke="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d={ACTION_ICONS.mic} />
+                    </svg>
+                  </span>
                 </span>
-                <span className="block text-[10px] text-gray-500">
-                  {echo ? STATUS_LABEL[echo.status] || "Working" : "Your assistant"}
+                <span
+                  className="block text-[10.5px]"
+                  style={{ color: voiceLabel ? echoColor : "#6b7280" }}
+                  data-testid="sidebar-echo-state"
+                >
+                  {voiceLabel || (echo ? STATUS_LABEL[echo.status] || "Working" : "Your assistant")}
                 </span>
-                {echo && echo.currentTask && (
+                {!voiceLabel && echo && echo.currentTask && (
                   <span className="mt-0.5 block truncate text-[10px] italic text-gray-600 group-hover:text-gray-500">
                     {echo.currentTask}
                   </span>
