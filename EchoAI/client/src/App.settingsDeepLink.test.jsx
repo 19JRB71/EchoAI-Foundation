@@ -78,10 +78,11 @@ vi.mock("./components/Sidebar.jsx", () => ({
   accentTierForSection: () => null,
 }));
 
-// --- The two ends of the deep link. MissionControl is reduced to buttons that
-// fire onNavigate exactly the way the real alert rows do; Settings is reduced
-// to a probe that reports which brandId / focus nonce actually reached it. ---
-vi.mock("./sections/MissionControl.jsx", () => ({
+// --- The two ends of the deep link. Mission Control (the live V2 screen) is
+// reduced to buttons that fire onNavigate exactly the way the real alert rows
+// do; Settings is reduced to a probe that reports which brandId / focus nonce
+// actually reached it. ---
+vi.mock("./missioncontrol/MissionControlV2.jsx", () => ({
   default: ({ onNavigate }) => (
     <div>
       <button

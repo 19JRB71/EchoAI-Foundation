@@ -48,12 +48,31 @@ export default function MissionControlV2({
   onNavigate,
   onOpenDepartment,
   onUpgrade,
-  onExitPreview,
 }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => new Date());
+  // Mobile-only nav drawer (< lg): the fixed full-screen layout covers the
+  // app shell, so on small screens the Executive sidebar opens as a slide-over
+  // (same component, same actions). Invisible on lg+ where the sidebar is
+  // docked — the approved desktop layout is unchanged.
+  const [navOpen, setNavOpen] = useState(false);
+  const closeNav = useCallback(() => setNavOpen(false), []);
+  const navigateAndClose = useCallback(
+    (...args) => {
+      setNavOpen(false);
+      if (onNavigate) onNavigate(...args);
+    },
+    [onNavigate],
+  );
+  const selectBrandAndClose = useCallback(
+    (id) => {
+      setNavOpen(false);
+      if (onSelectBrand) onSelectBrand(id);
+    },
+    [onSelectBrand],
+  );
 
   const load = useCallback(async () => {
     setError("");
@@ -286,16 +305,25 @@ export default function MissionControlV2({
 
       {/* Top bar */}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-950/60 bg-[#04070f] px-4 py-2.5 sm:px-5">
-        <div>
-          <div className="text-[13px] font-extrabold uppercase tracking-[0.3em] text-gray-100">
-            Mission <span className="text-cyan-400">Control</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setNavOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-950/70 bg-[#070d1c]/90 text-gray-300 hover:border-cyan-700/50 hover:text-cyan-200 lg:hidden"
+            aria-label="Open menu"
+            data-testid="mcv2-menu-button"
+          >
+            <svg className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+          <div>
+            <div className="text-[13px] font-extrabold uppercase tracking-[0.3em] text-gray-100">
+              Mission <span className="text-cyan-400">Control</span>
+            </div>
+            <div className="text-[10px] text-gray-500">Headquarters of Your AI Company</div>
           </div>
-          <div className="text-[10px] text-gray-500">Headquarters of Your AI Company</div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden items-center gap-2 rounded-lg border border-cyan-900/50 bg-cyan-950/30 px-2.5 py-1 text-[10px] text-cyan-200 sm:flex">
-            Admin preview — customers still see the current Mission Control
-          </span>
           <span className="relative" title={`${attentionCount} item${attentionCount === 1 ? "" : "s"} need attention`}>
             <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
@@ -317,17 +345,32 @@ export default function MissionControlV2({
               </span>
             </span>
           )}
-          {onExitPreview && (
-            <button
-              onClick={onExitPreview}
-              className="rounded-lg border border-gray-700 bg-gray-800/60 px-3 py-1.5 text-[11px] font-semibold text-gray-200 hover:bg-gray-700/60"
-              data-testid="exit-mcv2-preview"
-            >
-              Exit preview
-            </button>
-          )}
         </div>
       </div>
+
+      {/* Mobile nav drawer (< lg) — same ExecutiveSidebar, as a slide-over. */}
+      {navOpen && (
+        <div className="fixed inset-0 z-[80] flex lg:hidden" data-testid="mcv2-mobile-nav">
+          <div className="flex max-w-[80vw]">
+            <ExecutiveSidebar
+              data={data}
+              brands={brands}
+              selectedBrandId={brandId}
+              onSelectBrand={selectBrandAndClose}
+              onNavigate={navigateAndClose}
+              onTalkToEcho={() => {
+                setNavOpen(false);
+                talkToEcho();
+              }}
+            />
+          </div>
+          <button
+            className="flex-1 bg-black/60"
+            onClick={closeNav}
+            aria-label="Close menu"
+          />
+        </div>
+      )}
 
       {body}
     </div>

@@ -7,7 +7,9 @@ import Sidebar, { accentTierForSection } from "./components/Sidebar.jsx";
 import Spinner from "./components/Spinner.jsx";
 import TierBadge from "./components/TierBadge.jsx";
 import Login from "./sections/Login.jsx";
-import MissionControl from "./sections/MissionControl.jsx";
+// Mission Control was redesigned July 2026; the live section is now
+// missioncontrol/MissionControlV2.jsx. The legacy section component remains at
+// sections/MissionControl.jsx (still unit-tested) for reference/rollback.
 import AiTeam from "./sections/AiTeam.jsx";
 import Overview from "./sections/Overview.jsx";
 import Leads from "./sections/Leads.jsx";
@@ -211,8 +213,10 @@ export default function App() {
       // The Email Assistant reads the owner's personal inboxes (owner/admin only).
       if (s === "echoemail") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
-      // Mission Control V2 — admin-only preview while the redesign is staged.
-      if (s === "missioncontrolv2") return isAdmin;
+      // Retired preview id — the redesigned Mission Control now IS the
+      // "missioncontrol" section for everyone. Old deep links to the preview
+      // id are rejected so a stale ?section= link can't land on a blank pane.
+      if (s === "missioncontrolv2") return false;
       // The Voter CRM only exists for political-campaign brands.
       if (s === "supporters") {
         const b = brands.find(
@@ -1073,39 +1077,15 @@ export default function App() {
               {section === "portfolio" &&
                 (canOpenSection("portfolio") ? <Portfolio /> : null)}
               {section === "missioncontrol" && (
-                <>
-                  {isAdmin && (
-                    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/30 px-4 py-2.5">
-                      <span className="text-xs text-cyan-200">
-                        A redesigned Mission Control is staged for preview (admin only).
-                      </span>
-                      <button
-                        onClick={() => handleSelectSection("missioncontrolv2")}
-                        className="shrink-0 rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20"
-                      >
-                        Preview new Mission Control
-                      </button>
-                    </div>
-                  )}
-                  <MissionControl
-                    brandId={selectedBrandId}
-                    onNavigate={handleSelectSection}
-                    onOpenDepartment={openDepartment}
-                  />
-                </>
+                <MissionControlV2
+                  brandId={selectedBrandId}
+                  brands={brands}
+                  onSelectBrand={setSelectedBrandId}
+                  onNavigate={handleSelectSection}
+                  onOpenDepartment={openDepartment}
+                  onUpgrade={handleUpgrade}
+                />
               )}
-              {section === "missioncontrolv2" &&
-                (canOpenSection("missioncontrolv2") ? (
-                  <MissionControlV2
-                    brandId={selectedBrandId}
-                    brands={brands}
-                    onSelectBrand={setSelectedBrandId}
-                    onNavigate={handleSelectSection}
-                    onOpenDepartment={openDepartment}
-                    onUpgrade={handleUpgrade}
-                    onExitPreview={() => handleSelectSection("missioncontrol")}
-                  />
-                ) : null)}
               {section === "aiteam" && (
                 <AiTeam onOpenDepartment={openDepartment} />
               )}
