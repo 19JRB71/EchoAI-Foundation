@@ -39,16 +39,35 @@ function agentColor(agentId) {
 // ---------------------------------------------------------------------------
 // KPI strip
 // ---------------------------------------------------------------------------
-export function KpiTile({ label, value, deltaPct, deltaLabel, accent = "#22d3ee" }) {
+const KPI_ICONS = {
+  check: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  calendar: "M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5",
+  phone: "M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z",
+  users: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z",
+  dollar: "M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  clock: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z",
+};
+
+export function KpiTile({ label, value, deltaPct, deltaLabel, accent = "#22d3ee", icon }) {
   const up = deltaPct != null && deltaPct > 0;
   const down = deltaPct != null && deltaPct < 0;
   return (
-    <div className="rounded-2xl border border-cyan-950/70 bg-[#050b1d]/90 px-4 py-3">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{label}</div>
-      <div className="mt-1 text-2xl font-extrabold text-gray-50" style={{ textShadow: `0 0 18px ${accent}33` }}>
+    <div
+      className="rounded-2xl border border-cyan-950/70 bg-[#050b1d]/90 px-3.5 py-3"
+      style={{ boxShadow: `inset 0 0 30px rgba(5,15,35,0.5)` }}
+    >
+      <div className="flex items-center gap-1.5">
+        {icon && KPI_ICONS[icon] && (
+          <svg className="h-3.5 w-3.5 shrink-0" style={{ color: accent }} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d={KPI_ICONS[icon]} />
+          </svg>
+        )}
+        <div className="text-[10px] font-semibold leading-tight text-gray-400">{label}</div>
+      </div>
+      <div className="mt-1 text-[26px] font-extrabold leading-none text-gray-50" style={{ textShadow: `0 0 18px ${accent}44` }}>
         {value}
       </div>
-      <div className="mt-0.5 text-[11px]">
+      <div className="mt-1.5 text-[10.5px]">
         {deltaPct == null ? (
           <span className="text-gray-600">{deltaLabel || "no baseline yet"}</span>
         ) : (
@@ -125,7 +144,7 @@ export function ZorechoScoreCard({ score }) {
 // ---------------------------------------------------------------------------
 // Activity feed
 // ---------------------------------------------------------------------------
-export function ActivityFeed({ items }) {
+export function ActivityFeed({ items, onViewAll }) {
   const feed = Array.isArray(items) ? items : [];
   return (
     <Panel
@@ -143,18 +162,28 @@ export function ActivityFeed({ items }) {
           No activity yet — your AI team's real actions will appear here as they happen.
         </div>
       ) : (
-        <ul className="space-y-2.5">
-          {feed.slice(0, 8).map((e, i) => (
-            <li key={i} className="flex items-start gap-2.5">
-              <span
-                className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: agentColor(e.agentId), boxShadow: `0 0 6px ${agentColor(e.agentId)}` }}
-              />
-              <span className="min-w-0 flex-1 truncate text-[12px] text-gray-300">{e.text}</span>
-              <span className="shrink-0 text-[10px] text-gray-600">{relTime(e.ts)}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-2.5">
+            {feed.slice(0, 8).map((e, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span
+                  className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: agentColor(e.agentId), boxShadow: `0 0 6px ${agentColor(e.agentId)}` }}
+                />
+                <span className="min-w-0 flex-1 truncate text-[12px] text-gray-300">{e.text}</span>
+                <span className="shrink-0 text-[10px] text-gray-600">{relTime(e.ts)}</span>
+              </li>
+            ))}
+          </ul>
+          {onViewAll && (
+            <button
+              onClick={onViewAll}
+              className="mt-3 w-full text-center text-[11px] font-semibold text-cyan-300 hover:text-cyan-200"
+            >
+              View Full Activity →
+            </button>
+          )}
+        </>
       )}
     </Panel>
   );
@@ -216,23 +245,28 @@ export function AttentionPanel({ items, onNavigate }) {
 export function GlancePanel({ glance }) {
   const g = glance || {};
   const rows = [
-    { label: "Posts Published", value: g.postsPublished },
-    { label: "New Leads", value: g.newLeads },
-    { label: "Calls Answered", value: g.callsAnswered },
-    { label: "Appointments", value: g.appointmentsBooked },
-    { label: "Issues Resolved", value: g.issuesResolved },
-    { label: "Reviews Responded", value: g.reviewsResponded },
+    { label: "Posts Published", value: g.postsPublished, color: "#22d3ee" },
+    { label: "New Leads", value: g.newLeads, color: "#34d399" },
+    { label: "Calls Answered", value: g.callsAnswered, color: "#a78bfa" },
+    { label: "Appointments", value: g.appointmentsBooked, color: "#f97316" },
+    { label: "Issues Resolved", value: g.issuesResolved, color: "#f43f5e" },
+    { label: "Reviews Responded", value: g.reviewsResponded, color: "#fbbf24" },
   ];
   return (
     <Panel title="Today at a Glance" accent="#fbbf24">
       {glance == null ? (
         <div className="py-2 text-[12px] text-gray-500">Add a business to see today's numbers.</div>
       ) : (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-3">
           {rows.map((r) => (
-            <div key={r.label} className="flex items-baseline gap-2">
-              <span className="text-lg font-extrabold text-gray-100">{r.value ?? 0}</span>
-              <span className="text-[10px] leading-tight text-gray-500">{r.label}</span>
+            <div key={r.label} className="flex items-center gap-2">
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-extrabold"
+                style={{ backgroundColor: `${r.color}1a`, color: r.color, border: `1px solid ${r.color}44` }}
+              >
+                {r.value ?? 0}
+              </span>
+              <span className="text-[10px] leading-tight text-gray-400">{r.label}</span>
             </div>
           ))}
         </div>
@@ -260,15 +294,30 @@ export function RevenuePanel({ revenueImpact, revenueTrend }) {
             <span className="ml-1 rounded bg-gray-800 px-1 py-px text-[9px] uppercase tracking-wide text-gray-400">estimate</span>
           </div>
           {trend.length > 0 && (
-            <div className="mt-3 flex h-14 items-end gap-1.5">
-              {trend.map((t, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t bg-emerald-400/70"
-                  style={{ height: `${Math.max(6, (t.revenue / maxRev) * 100)}%` }}
-                  title={`$${Number(t.revenue).toLocaleString()}`}
-                />
-              ))}
+            <div className="mt-3">
+              <div className="flex h-14 items-end gap-1.5">
+                {trend.map((t, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-t"
+                    style={{
+                      height: `${Math.max(6, (t.revenue / maxRev) * 100)}%`,
+                      background: "linear-gradient(to top, #0e7490, #34d399)",
+                      boxShadow: "0 0 8px rgba(52,211,153,0.25)",
+                    }}
+                    title={`$${Number(t.revenue).toLocaleString()}`}
+                  />
+                ))}
+              </div>
+              <div className="mt-1 flex gap-1.5">
+                {trend.map((t, i) => (
+                  <div key={i} className="flex-1 text-center text-[8px] uppercase text-gray-600">
+                    {t.periodEnd
+                      ? new Date(t.periodEnd).toLocaleDateString(undefined, { month: "numeric", day: "numeric" })
+                      : ""}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {trend.length === 0 && (
@@ -280,7 +329,23 @@ export function RevenuePanel({ revenueImpact, revenueTrend }) {
   );
 }
 
+// Donut arcs are the REAL breakdown proportions (share of total automated
+// hours per task type) — never a fabricated "% of manual work" figure.
+const DONUT_COLORS = ["#a78bfa", "#22d3ee", "#34d399", "#fbbf24", "#f97316"];
+
 export function TimePanel({ timeSaved }) {
+  const breakdown = Array.isArray(timeSaved?.breakdown)
+    ? timeSaved.breakdown.filter((b) => Number(b.hours) > 0)
+    : [];
+  const totalBreak = breakdown.reduce((s, b) => s + Number(b.hours), 0);
+  const R = 15.9155; // unit-circumference radius
+  let offset = 25;
+  const arcs = breakdown.slice(0, 5).map((b, i) => {
+    const pct = totalBreak > 0 ? (Number(b.hours) / totalBreak) * 100 : 0;
+    const arc = { pct, color: DONUT_COLORS[i % DONUT_COLORS.length], offset };
+    offset -= pct;
+    return arc;
+  });
   return (
     <Panel title="Time Automated" accent="#a78bfa">
       {timeSaved == null ? (
@@ -289,18 +354,50 @@ export function TimePanel({ timeSaved }) {
         </div>
       ) : (
         <>
-          <div className="text-2xl font-extrabold text-gray-50">
-            {Number(timeSaved.hoursSaved || 0).toLocaleString()} hrs
+          <div className="flex items-center gap-3">
+            <div className="relative h-20 w-20 shrink-0">
+              <svg viewBox="0 0 42 42" className="h-20 w-20 -rotate-90" aria-hidden="true">
+                <circle cx="21" cy="21" r={R} fill="none" stroke="#111a30" strokeWidth="4" />
+                {arcs.map((a, i) => (
+                  <circle
+                    key={i}
+                    cx="21"
+                    cy="21"
+                    r={R}
+                    fill="none"
+                    stroke={a.color}
+                    strokeWidth="4"
+                    strokeDasharray={`${a.pct} ${100 - a.pct}`}
+                    strokeDashoffset={a.offset}
+                    strokeLinecap="butt"
+                  />
+                ))}
+              </svg>
+              <div className="absolute inset-0 flex rotate-0 flex-col items-center justify-center">
+                <span className="text-[13px] font-extrabold leading-none text-gray-50">
+                  {Number(timeSaved.hoursSaved || 0).toLocaleString()}
+                </span>
+                <span className="text-[8px] uppercase text-gray-500">hrs</span>
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-lg font-extrabold leading-tight text-gray-50">
+                {Number(timeSaved.hoursSaved || 0).toLocaleString()} hrs
+              </div>
+              <div className="text-[10.5px] text-gray-500">
+                Saved this {timeSaved.period}
+                <span className="ml-1 rounded bg-gray-800 px-1 py-px text-[9px] uppercase tracking-wide text-gray-400">estimate</span>
+              </div>
+            </div>
           </div>
-          <div className="mt-0.5 text-[11px] text-gray-500">
-            Saved this {timeSaved.period}
-            <span className="ml-1 rounded bg-gray-800 px-1 py-px text-[9px] uppercase tracking-wide text-gray-400">estimate</span>
-          </div>
-          {Array.isArray(timeSaved.breakdown) && timeSaved.breakdown.length > 0 && (
+          {breakdown.length > 0 && (
             <ul className="mt-3 space-y-1.5">
-              {timeSaved.breakdown.slice(0, 3).map((b, i) => (
+              {breakdown.slice(0, 3).map((b, i) => (
                 <li key={i} className="flex items-center justify-between text-[11px]">
-                  <span className="truncate text-gray-400">{b.task}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                    <span className="truncate text-gray-400">{b.task}</span>
+                  </span>
                   <span className="ml-2 shrink-0 font-semibold text-gray-200">{b.hours} h</span>
                 </li>
               ))}
@@ -446,7 +543,7 @@ export function GeoPanel({ geoCoverage }) {
   );
 }
 
-export function StatusBar({ systemStatus }) {
+export function StatusBar({ systemStatus, now }) {
   const st = systemStatus || {};
   const healthy = st.health === "healthy";
   const label =
@@ -455,24 +552,51 @@ export function StatusBar({ systemStatus }) {
       : st.health === "unknown"
         ? "Awaiting first health check"
         : `Health: ${st.health}`;
+  const d = now || new Date();
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-950/70 bg-[#050b1d]/90 px-4 py-2.5 text-[11px] text-gray-400">
-      <span className="flex items-center gap-2">
-        <span
-          className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: healthy ? "#34d399" : st.health === "unknown" ? "#64748b" : "#f59e0b" }}
-        />
-        {label}
-        {st.lastHealthCheck ? <span className="text-gray-600">· checked {relTime(st.lastHealthCheck)}</span> : null}
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-cyan-950/60 bg-[#04070f] px-5 py-3 text-[11px] text-gray-400">
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="text-lg font-extrabold leading-none text-cyan-500/70" aria-hidden="true">
+          &ldquo;
+        </span>
+        <span className="truncate italic text-gray-500">
+          While you were away, your AI company never stopped building.
+        </span>
       </span>
-      <span className="flex items-center gap-2">
-        <svg className="h-3 w-3 text-cyan-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-        </svg>
-        Data Secure · AES-256 encryption
-      </span>
-      <span className="text-gray-500">
-        {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+      <span className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <span className="flex items-center gap-2">
+          <span
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{
+              backgroundColor: healthy ? "#34d399" : st.health === "unknown" ? "#64748b" : "#f59e0b",
+              boxShadow: healthy ? "0 0 6px #34d399" : "none",
+            }}
+          />
+          <span>
+            <span className="block font-semibold text-gray-300">System Status</span>
+            <span className="block text-[10px] text-gray-500">
+              {label}
+              {st.lastHealthCheck ? ` · checked ${relTime(st.lastHealthCheck)}` : ""}
+            </span>
+          </span>
+        </span>
+        <span className="flex items-center gap-2">
+          <svg className="h-3.5 w-3.5 text-cyan-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          <span>
+            <span className="block font-semibold text-gray-300">Data Secure</span>
+            <span className="block text-[10px] text-gray-500">AES-256 Encryption</span>
+          </span>
+        </span>
+        <span className="text-right">
+          <span className="block font-semibold text-gray-300">
+            {d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+          </span>
+          <span className="block text-[10px] text-gray-500">
+            {d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+          </span>
+        </span>
       </span>
     </div>
   );

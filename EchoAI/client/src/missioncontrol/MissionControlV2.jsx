@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "../api";
 import Spinner from "../components/Spinner.jsx";
 import CoreHero from "./CoreHero.jsx";
+import ExecutiveSidebar from "./ExecutiveSidebar.jsx";
 import {
   KpiTile,
   ZorechoScoreCard,
@@ -17,10 +18,11 @@ import {
   StatusBar,
 } from "./panels.jsx";
 
-// Mission Control V2 — the redesigned Headquarters screen, built from the
-// approved concept. Chassis stage: full layout with every panel wired to the
-// real /api/agents/mission-control/v2 aggregation. Everything shown is real
-// data — panels without data render honest reserved/empty states.
+// Mission Control V2 — the redesigned Headquarters screen, built to match the
+// approved concept image: a full-screen command center with its own AI
+// Executive Team sidebar, top bar, glowing Zorecho Core, right rail and quote
+// footer. Every number is real data from /api/agents/mission-control/v2 —
+// panels without data render honest reserved/empty states, never fabrications.
 
 const PART_LABEL = {
   morning: "Good Morning",
@@ -32,16 +34,24 @@ const PART_LABEL = {
 // Honest reserved state: when a KPI is absent from the payload (e.g. no
 // business yet), show "—", never a fabricated zero.
 function kpiValue(k) {
-  return k ? Number(k.today).toLocaleString() : "—";
+  const n = Number(k?.today);
+  return Number.isFinite(n) ? n.toLocaleString() : "—";
 }
 function kpiDeltaLabel(k) {
   return k ? undefined : "no data yet";
 }
 
-export default function MissionControlV2({ brandId, onNavigate, onOpenDepartment, onUpgrade }) {
+export default function MissionControlV2({
+  brandId,
+  onNavigate,
+  onOpenDepartment,
+  onUpgrade,
+  onExitPreview,
+}) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [now, setNow] = useState(() => new Date());
 
   const load = useCallback(async () => {
     setError("");
@@ -61,44 +71,173 @@ export default function MissionControlV2({ brandId, onNavigate, onOpenDepartment
   }, [load]);
 
   // Calm live refresh — one quiet re-pull per minute, no spinner (the screen
-  // never flashes; new numbers just settle in).
+  // never flashes; new numbers just settle in). The clock ticks alongside it.
   useEffect(() => {
     const t = setInterval(load, 60000);
-    return () => clearInterval(t);
+    const clock = setInterval(() => setNow(new Date()), 30000);
+    return () => {
+      clearInterval(t);
+      clearInterval(clock);
+    };
   }, [load]);
 
+  const attentionCount = data ? (data.attention || []).length : 0;
+  const talkToEcho = () => window.dispatchEvent(new CustomEvent("echoai:open-companion"));
+
+  let body;
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
+    body = (
+      <div className="flex flex-1 items-center justify-center py-24">
         <Spinner />
       </div>
     );
-  }
-  if (error) {
-    return (
-      <div className="rounded-2xl border border-rose-900/60 bg-rose-950/30 p-6 text-sm text-rose-200">
+  } else if (error) {
+    body = (
+      <div className="m-6 rounded-2xl border border-rose-900/60 bg-rose-950/30 p-6 text-sm text-rose-200">
         {error}
         <button onClick={() => { setLoading(true); load(); }} className="ml-3 font-semibold underline">
           Retry
         </button>
       </div>
     );
-  }
-  if (!data) return null;
+  } else if (data) {
+    const kpis = Object.fromEntries((data.kpis || []).map((k) => [k.key, k]));
+    const greeting = PART_LABEL[data.partOfDay] || "Hello";
+    const dateLine = now.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timeLine = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
-  const kpis = Object.fromEntries((data.kpis || []).map((k) => [k.key, k]));
-  const greeting = PART_LABEL[data.partOfDay] || "Hello";
-  const dateLine = new Date().toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-  const attentionCount = (data.attention || []).length;
-  const talkToEcho = () => window.dispatchEvent(new CustomEvent("echoai:open-companion"));
+    body = (
+      <div className="flex min-h-0 flex-1">
+        <div className="hidden lg:flex">
+          <ExecutiveSidebar
+            agents={data.agents}
+            onOpenDepartment={onOpenDepartment}
+            onNavigate={onNavigate}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1 overflow-y-auto">
+          <div className="space-y-4 p-4 sm:p-5">
+            {/* Greeting */}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="text-3xl font-extrabold tracking-tight text-gray-50">
+                  {greeting}
+                  {data.ownerName ? (
+                    <>
+                      , <span className="text-cyan-300">{data.ownerName}</span>.
+                    </>
+                  ) : (
+                    "."
+                  )}
+                </h1>
+                <div className="mt-1 text-[12px] text-gray-500">
+                  {dateLine} <span className="mx-1 text-gray-700">•</span> {timeLine}
+                </div>
+                <div className="mt-1.5 text-[13px] font-medium italic text-gray-300">
+                  Your AI Company Never Stopped Working.
+                </div>
+              </div>
+              {data.brandName && (
+                <div className="rounded-xl border border-cyan-950/70 bg-[#050b1d]/90 px-3 py-2 text-right">
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500">Business</div>
+                  <div className="text-sm font-semibold text-gray-200">{data.brandName}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Echo's briefing line */}
+            {data.briefing && (
+              <div className="rounded-2xl border border-cyan-950/70 bg-[#050b1d]/90 px-4 py-3 text-[13px] leading-relaxed text-gray-300">
+                <span className="mr-2 text-[10px] font-bold uppercase tracking-[0.18em] text-teal-300">Echo</span>
+                {data.briefing}
+              </div>
+            )}
+
+            {/* Main grid: center column + right rail */}
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="min-w-0 space-y-4">
+                {/* KPI strip */}
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
+                  <KpiTile icon="check" label="Tasks Completed" value={kpiValue(kpis.tasksCompleted)} deltaPct={kpis.tasksCompleted?.deltaPct} deltaLabel={kpiDeltaLabel(kpis.tasksCompleted)} />
+                  <KpiTile icon="calendar" label="Appointments Booked" value={kpiValue(kpis.appointmentsBooked)} deltaPct={kpis.appointmentsBooked?.deltaPct} deltaLabel={kpiDeltaLabel(kpis.appointmentsBooked)} accent="#f97316" />
+                  <KpiTile icon="phone" label="Calls Answered" value={kpiValue(kpis.callsAnswered)} deltaPct={kpis.callsAnswered?.deltaPct} deltaLabel={kpiDeltaLabel(kpis.callsAnswered)} accent="#a78bfa" />
+                  <KpiTile icon="users" label="Leads Followed Up" value={kpiValue(kpis.leadsFollowedUp)} deltaPct={kpis.leadsFollowedUp?.deltaPct} deltaLabel={kpiDeltaLabel(kpis.leadsFollowedUp)} accent="#0ea5e9" />
+                  <KpiTile
+                    icon="dollar"
+                    label="Revenue Impact"
+                    value={Number.isFinite(Number(data.revenueImpact?.totalValueGenerated)) ? `$${Number(data.revenueImpact.totalValueGenerated).toLocaleString()}` : "—"}
+                    deltaPct={null}
+                    deltaLabel={data.revenueImpact ? "estimated this month" : "builds with activity"}
+                    accent="#34d399"
+                  />
+                  <KpiTile
+                    icon="clock"
+                    label="Time Saved"
+                    value={Number.isFinite(Number(data.timeSaved?.hoursSaved)) ? `${Number(data.timeSaved.hoursSaved).toLocaleString()} hrs` : "—"}
+                    deltaPct={null}
+                    deltaLabel={data.timeSaved ? "estimated this month" : "builds with activity"}
+                    accent="#a78bfa"
+                  />
+                </div>
+
+                <CoreHero
+                  agents={data.agents}
+                  onOpenDepartment={onOpenDepartment}
+                  onTalkToEcho={talkToEcho}
+                  healthy={attentionCount === 0}
+                  statusLine={
+                    attentionCount === 0
+                      ? "AI Company Operating at Full Capacity"
+                      : `${attentionCount} item${attentionCount === 1 ? "" : "s"} need your attention`
+                  }
+                />
+
+                {/* Bottom row */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+                  <GlancePanel glance={data.todayAtAGlance} />
+                  <RevenuePanel revenueImpact={data.revenueImpact} revenueTrend={data.revenueTrend} />
+                  <TimePanel timeSaved={data.timeSaved} />
+                  <OpportunitiesPanel items={data.opportunities} onNavigate={onNavigate} />
+                </div>
+
+                {/* Legacy Mission Control data, reorganized in (nothing lost) */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="sm:col-span-2">
+                    <UpcomingPanel items={data.upcoming} />
+                  </div>
+                  <GeoPanel geoCoverage={data.geoCoverage} />
+                </div>
+              </div>
+
+              {/* Right rail */}
+              <div className="min-w-0 space-y-4">
+                <ZorechoScoreCard score={data.zorechoScore} />
+                <ActivityFeed items={data.activityFeed} onViewAll={onNavigate ? () => onNavigate("aiteam") : undefined} />
+                <AttentionPanel items={data.attention} onNavigate={onNavigate} />
+                <InsightsPanel insights={data.insights} onNavigate={onNavigate} onUpgrade={onUpgrade} />
+              </div>
+            </div>
+          </div>
+
+          <StatusBar systemStatus={data.systemStatus} now={now} />
+        </div>
+      </div>
+    );
+  } else {
+    body = null;
+  }
 
   return (
-    <div className="mcv2 -m-1 space-y-4 rounded-3xl bg-[#02040b] p-4 sm:p-5" data-testid="mission-control-v2">
+    <div
+      className="mcv2 fixed inset-0 z-[70] flex flex-col bg-[#02040b]"
+      data-testid="mission-control-v2"
+    >
       <style>{`
         .mcv2 .mcv2-core-bar { animation: mcv2bar 2.6s ease-in-out infinite; transform-origin: bottom; }
         .mcv2 .mcv2-core { animation: mcv2glow 4s ease-in-out infinite; }
@@ -112,107 +251,52 @@ export default function MissionControlV2({ brandId, onNavigate, onOpenDepartment
         }
       `}</style>
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* Top bar */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-950/60 bg-[#04070f] px-4 py-2.5 sm:px-5">
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400">Mission Control</div>
-          <div className="text-[11px] text-gray-500">Headquarters of Your AI Company</div>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-50">
-            {greeting}
-            {data.ownerName ? (
-              <>
-                , <span className="text-cyan-300">{data.ownerName}</span>.
-              </>
-            ) : (
-              "."
+          <div className="text-[13px] font-extrabold uppercase tracking-[0.3em] text-gray-100">
+            Mission <span className="text-cyan-400">Control</span>
+          </div>
+          <div className="text-[10px] text-gray-500">Headquarters of Your AI Company</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="hidden items-center gap-2 rounded-lg border border-cyan-900/50 bg-cyan-950/30 px-2.5 py-1 text-[10px] text-cyan-200 sm:flex">
+            Admin preview — customers still see the current Mission Control
+          </span>
+          <span className="relative" title={`${attentionCount} item${attentionCount === 1 ? "" : "s"} need attention`}>
+            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+            </svg>
+            {attentionCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
+                {attentionCount}
+              </span>
             )}
-          </h1>
-          <div className="mt-1 text-[12px] text-gray-500">{dateLine}</div>
-          <div className="mt-1.5 text-[13px] font-medium italic text-gray-300">
-            Your AI Company Never Stopped Working.
-          </div>
-        </div>
-        {data.brandName && (
-          <div className="rounded-xl border border-cyan-950/70 bg-[#050b1d]/90 px-3 py-2 text-right">
-            <div className="text-[10px] uppercase tracking-wider text-gray-500">Business</div>
-            <div className="text-sm font-semibold text-gray-200">{data.brandName}</div>
-          </div>
-        )}
-      </div>
-
-      {/* Echo's briefing line */}
-      {data.briefing && (
-        <div className="rounded-2xl border border-cyan-950/70 bg-[#050b1d]/90 px-4 py-3 text-[13px] leading-relaxed text-gray-300">
-          <span className="mr-2 text-[10px] font-bold uppercase tracking-[0.18em] text-teal-300">Echo</span>
-          {data.briefing}
-        </div>
-      )}
-
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <KpiTile label="Tasks Completed" value={kpiValue(kpis.tasksCompleted)} deltaPct={kpis.tasksCompleted?.deltaPct} deltaLabel={kpiDeltaLabel(kpis.tasksCompleted)} />
-        <KpiTile label="Appointments Booked" value={kpiValue(kpis.appointmentsBooked)} deltaPct={kpis.appointmentsBooked?.deltaPct} deltaLabel={kpiDeltaLabel(kpis.appointmentsBooked)} />
-        <KpiTile label="Calls Answered" value={kpiValue(kpis.callsAnswered)} deltaPct={kpis.callsAnswered?.deltaPct} deltaLabel={kpiDeltaLabel(kpis.callsAnswered)} />
-        <KpiTile label="Leads Followed Up" value={kpiValue(kpis.leadsFollowedUp)} deltaPct={kpis.leadsFollowedUp?.deltaPct} deltaLabel={kpiDeltaLabel(kpis.leadsFollowedUp)} />
-        <KpiTile
-          label="Revenue Impact"
-          value={data.revenueImpact ? `$${Number(data.revenueImpact.totalValueGenerated || 0).toLocaleString()}` : "—"}
-          deltaPct={null}
-          deltaLabel={data.revenueImpact ? "estimated this month" : "builds with activity"}
-          accent="#34d399"
-        />
-        <KpiTile
-          label="Time Saved"
-          value={data.timeSaved ? `${Number(data.timeSaved.hoursSaved || 0).toLocaleString()} hrs` : "—"}
-          deltaPct={null}
-          deltaLabel={data.timeSaved ? "estimated this month" : "builds with activity"}
-          accent="#a78bfa"
-        />
-      </div>
-
-      {/* Core + right column */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <CoreHero
-            agents={data.agents}
-            onOpenDepartment={onOpenDepartment}
-            onTalkToEcho={talkToEcho}
-            statusLine={
-              attentionCount === 0
-                ? "AI Company Operating at Full Capacity"
-                : `${attentionCount} item${attentionCount === 1 ? "" : "s"} need your attention`
-            }
-          />
-        </div>
-        <div className="space-y-4">
-          <ZorechoScoreCard score={data.zorechoScore} />
-          <ActivityFeed items={data.activityFeed} />
-          <AttentionPanel items={data.attention} onNavigate={onNavigate} />
+          </span>
+          {data && data.ownerName && (
+            <span className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-cyan-700/50 bg-cyan-900/40 text-[11px] font-bold text-cyan-200">
+                {data.ownerName[0]}
+              </span>
+              <span className="hidden text-left sm:block">
+                <span className="block text-[11px] font-semibold leading-tight text-gray-200">{data.ownerName}</span>
+                <span className="block text-[9px] leading-tight text-gray-500">Owner</span>
+              </span>
+            </span>
+          )}
+          {onExitPreview && (
+            <button
+              onClick={onExitPreview}
+              className="rounded-lg border border-gray-700 bg-gray-800/60 px-3 py-1.5 text-[11px] font-semibold text-gray-200 hover:bg-gray-700/60"
+              data-testid="exit-mcv2-preview"
+            >
+              Exit preview
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Bottom row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <GlancePanel glance={data.todayAtAGlance} />
-        <RevenuePanel revenueImpact={data.revenueImpact} revenueTrend={data.revenueTrend} />
-        <TimePanel timeSaved={data.timeSaved} />
-        <OpportunitiesPanel items={data.opportunities} onNavigate={onNavigate} />
-        <InsightsPanel
-          insights={data.insights}
-          onNavigate={onNavigate}
-          onUpgrade={onUpgrade}
-        />
-      </div>
-
-      {/* Legacy Mission Control data, reorganized in (nothing lost) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="sm:col-span-2">
-          <UpcomingPanel items={data.upcoming} />
-        </div>
-        <GeoPanel geoCoverage={data.geoCoverage} />
-      </div>
-
-      <StatusBar systemStatus={data.systemStatus} />
+      {body}
     </div>
   );
 }

@@ -1096,25 +1096,13 @@ export default function App() {
               )}
               {section === "missioncontrolv2" &&
                 (canOpenSection("missioncontrolv2") ? (
-                  <>
-                    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-2.5">
-                      <span className="text-xs text-gray-400">
-                        Admin preview — the current Mission Control is unchanged for customers.
-                      </span>
-                      <button
-                        onClick={() => handleSelectSection("missioncontrol")}
-                        className="shrink-0 rounded-lg border border-gray-700 bg-gray-800/60 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-gray-700/60"
-                      >
-                        Back to current Mission Control
-                      </button>
-                    </div>
-                    <MissionControlV2
-                      brandId={selectedBrandId}
-                      onNavigate={handleSelectSection}
-                      onOpenDepartment={openDepartment}
-                      onUpgrade={handleUpgrade}
-                    />
-                  </>
+                  <MissionControlV2
+                    brandId={selectedBrandId}
+                    onNavigate={handleSelectSection}
+                    onOpenDepartment={openDepartment}
+                    onUpgrade={handleUpgrade}
+                    onExitPreview={() => handleSelectSection("missioncontrol")}
+                  />
                 ) : null)}
               {section === "aiteam" && (
                 <AiTeam onOpenDepartment={openDepartment} />

@@ -192,3 +192,15 @@ id = "mDkikBm7AUoMpE5vWk4Y2"
 uri = "file://attached_assets/mcv2/04-mcv2-bottom.png"
 type = "image"
 title = "4. New Mission Control — bottom panels and status footer"
+
+[[outputs]]
+id = "Srg8KApNsFKL_r2ZHA6Dc"
+uri = "file://screenshots/mission-control-v2-top.png"
+type = "image"
+title = "Mission Control V2 — top half (live screenshot)"
+
+[[outputs]]
+id = "wlDd-B9ARndWUqPj3p_cX"
+uri = "file://screenshots/mission-control-v2-bottom.png"
+type = "image"
+title = "Mission Control V2 — bottom half (live screenshot)"
