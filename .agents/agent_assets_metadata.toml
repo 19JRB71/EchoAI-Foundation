@@ -216,3 +216,21 @@ id = "JaOyNKCtccQGfEFek0UA-"
 uri = "file://screenshots/zorecho-core-updated.png"
 type = "image"
 title = "Zorecho Core — final polish"
+
+[[outputs]]
+id = "smDNCoJryY103GXpkJ8nM"
+uri = "file://screenshots/zorecho-core-desktop.png"
+type = "image"
+title = "Mission Control — desktop"
+
+[[outputs]]
+id = "XDOTzMvjVPlAeYdJDZ5ps"
+uri = "file://screenshots/zorecho-core-laptop.png"
+type = "image"
+title = "Mission Control — laptop (1366px)"
+
+[[outputs]]
+id = "VLwwI6T6hD2Prwf_kEABn"
+uri = "file://screenshots/zorecho-core-tablet.png"
+type = "image"
+title = "Mission Control — tablet (1024px)"

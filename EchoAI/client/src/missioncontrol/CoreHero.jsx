@@ -123,7 +123,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
         aria-hidden="true"
       />
       <div className="relative">
-        <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
+        <div className="relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-4">
           <Connectors left={left} right={right} />
           <div className="relative z-10 flex flex-col justify-center gap-2.5">
             {left.map((a) => (
@@ -131,7 +131,7 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
             ))}
           </div>
 
-          <div className="relative z-10 flex flex-col items-center px-1 sm:px-8">
+          <div className="relative z-10 flex flex-col items-center px-1 sm:px-3 xl:px-8">
             <div className="relative flex h-[18.5rem] w-[18.5rem] items-center justify-center sm:h-[23rem] sm:w-[23rem]">
               <div className="mcv2-core-ring absolute inset-0 rounded-full border-2 border-cyan-500/40" style={{ boxShadow: "0 0 70px rgba(34,211,238,0.32), inset 0 0 45px rgba(34,211,238,0.1)" }} />
               <div className="mcv2-core-ring-slow absolute inset-4 rounded-full border border-cyan-400/25" />
