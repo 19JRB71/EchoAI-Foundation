@@ -1,0 +1,132 @@
+Zorecho Landing Page Hero — Interactive Echo Demo
+
+We want the landing page hero to use the same Zorecho Core visual language as the new Mission Control experience.
+
+The landing page should not merely explain the product. It should demonstrate what it feels like to have an AI company working for you.
+
+Hero structure
+Left side
+
+Headline:
+
+Meet Your AI Company.
+
+Supporting copy:
+
+Zorecho brings your marketing, sales, customer calls, follow-up, research, and business intelligence together in one connected AI workforce.
+
+Primary CTA:
+
+Start Your AI Company
+
+Secondary CTA:
+
+Watch Echo Work
+
+Right side
+
+Display the animated Zorecho Core.
+
+The Zorecho Core represents the central intelligence.
+
+Echo remains the user’s personal AI assistant and communicates through the Core.
+
+Interactive demo behavior
+
+On initial page load:
+
+The Core appears in a calm idle state.
+Do not autoplay audible speech.
+Show a prominent button labeled Meet Echo or Watch Echo Work.
+
+When the visitor starts the demo:
+
+The Core enters speaking mode.
+
+Echo says:
+
+“Hello. I’m Echo, your personal AI assistant.”
+
+Echo continues:
+
+“Good morning, sir. Here’s your example business briefing.”
+
+The demo presents an example briefing:
+Ten new leads arrived overnight.
+Seven customer emails need attention.
+Voice answered twelve calls.
+Three appointments were booked.
+Scout found two new competitor campaigns.
+Nova prepared today’s social content.
+As each department is mentioned:
+its permanent agent color illuminates
+its connection to the Core pulses
+a small report card appears beside the Core
+
+Echo closes with:
+
+“Your AI company is online and ready. Would you like to see Mission Control?”
+
+Display CTA:
+
+See Mission Control
+
+Honesty requirement
+
+This is a product demonstration, not real visitor data.
+
+Clearly label it:
+
+Example Zorecho Morning Briefing
+
+Do not imply the sample values are live.
+
+Core states
+
+Use the same shared Core component as Mission Control:
+
+Idle
+Listening
+Thinking
+Speaking
+Agent activity
+Attention
+
+Do not create a visually different landing-page Core.
+
+The landing page and backend must feel like one continuous product.
+
+Controls
+
+Include:
+
+Play
+Pause
+Replay
+Mute/unmute
+Skip demo
+Motion
+
+Keep the experience premium, calm, and purposeful.
+
+No excessive flashing.
+
+No loud autoplay.
+
+No animation that delays the visitor from using the page.
+
+Immediate request
+
+Before implementation, provide:
+
+Hero component breakdown
+Desktop layout plan
+Mobile adaptation
+Audio/demo sequence plan
+Confirmation that the Mission Control Core component will be reused
+
+Do not modify the rest of the landing page yet.
+
+Build only the hero behind a preview or development route and return desktop and mobile screenshots for approval.
+
+This gives the landing page a strong first impression while making the transition into Mission Control feel natural: visitors meet Echo outside, then enter the headquarters inside.

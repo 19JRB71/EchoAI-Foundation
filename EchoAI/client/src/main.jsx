@@ -5,6 +5,7 @@ import App from "./App.jsx";
 import LandingPage from "./landing/LandingPage.jsx";
 import VoiceLandingPage from "./voice/VoiceLandingPage.jsx";
 import DesignPreview from "./design/DesignPreview.jsx";
+import HeroPreviewPage from "./landing/HeroPreviewPage.jsx";
 import { BrandingProvider } from "./lib/BrandingContext.jsx";
 import { registerServiceWorker } from "./push.js";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
@@ -34,6 +35,8 @@ createRoot(document.getElementById("root")).render(
           <Route path="/dashboard" element={<App />} />
           {/* Internal, unlinked, admin-only design reference (Zorecho Phase 1). */}
           <Route path="/design-preview" element={<DesignPreview />} />
+          {/* Unlinked preview of the proposed landing hero (Echo demo). */}
+          <Route path="/hero-preview" element={<HeroPreviewPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

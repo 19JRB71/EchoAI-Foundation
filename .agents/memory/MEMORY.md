@@ -91,3 +91,4 @@
 - [EchoAI voice calibration profile](echoai-voice-calibration.md) — optional voiceProfile key must spread-if-set in BOTH settings normalizers; typeof-number stats gate; calibration-state mic-hold event pattern.
 - [EchoAI voice flight recorder](echoai-voice-flight-recorder.md) — live voice bugs: ask for the pasted Settings→Voice diagnostic report first; new voice decision branches must recordVoiceEvent.
 - [Pooled pg client monkeypatch trap](echoai-pooled-client-patch.md) — test stubs on pool.connect/client.query must pass through connect(cb) and un-patch on release, or later pool.query deadlocks silently.
+- [EchoAI SMIL reduced-motion gap](echoai-smil-reduced-motion.md) — SVG <animateMotion> ignores the .z-anim CSS reduced-motion kill switch; gate SMIL sparks in JS via matchMedia.

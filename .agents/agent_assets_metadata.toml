@@ -234,3 +234,33 @@ id = "VLwwI6T6hD2Prwf_kEABn"
 uri = "file://screenshots/zorecho-core-tablet.png"
 type = "image"
 title = "Mission Control — tablet (1024px)"
+
+[[outputs]]
+id = "ESGgWVYWwGcsJSZrAvxRU"
+uri = "file://screenshots/hero-desktop-idle.png"
+type = "image"
+title = "Desktop — before the demo starts (calm idle Core)"
+
+[[outputs]]
+id = "oW6ZzTIdSA8NIEeO8e24l"
+uri = "file://screenshots/hero-desktop-playing.png"
+type = "image"
+title = "Desktop — demo playing (Echo speaking, caption + controls)"
+
+[[outputs]]
+id = "cUsT4BaYLyXkwDA4Ow-W-"
+uri = "file://screenshots/hero-desktop-done.png"
+type = "image"
+title = "Desktop — briefing complete (all agents lit, report cards, See Mission Control)"
+
+[[outputs]]
+id = "-5zsMn1v5ODYFAsjHvH7Z"
+uri = "file://screenshots/hero-mobile-idle.png"
+type = "image"
+title = "Mobile — before the demo starts"
+
+[[outputs]]
+id = "nBaWEN5fqsYAOSSsixIwL"
+uri = "file://screenshots/hero-mobile-done.png"
+type = "image"
+title = "Mobile — briefing complete"
