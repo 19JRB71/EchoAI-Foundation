@@ -29,12 +29,12 @@ export const DEMO_STEPS = [
     pauseAfterMs: 750,
   },
   {
-    id: "away",
-    text: "While you were away, your AI team kept working. Here is your example briefing.",
-    audio: `${AUDIO_BASE}/03-away.mp3`,
+    id: "showyou",
+    text: "Let me show you what your AI company has already accomplished today.",
+    audio: `${AUDIO_BASE}/03-showyou.mp3`,
     agentId: null,
     rowId: null,
-    pauseAfterMs: 450,
+    pauseAfterMs: 500,
   },
   {
     id: "leads",

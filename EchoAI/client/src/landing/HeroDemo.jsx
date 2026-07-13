@@ -93,8 +93,8 @@ function EchoSpeech({ started, playing, text }) {
       className="relative mx-auto w-full max-w-lg rounded-2xl border border-cyan-400/20 bg-white/[0.03] px-5 py-3.5 backdrop-blur-sm transition-[box-shadow,border-color] duration-700"
       style={{
         boxShadow: playing
-          ? "0 0 46px rgba(34,211,238,0.20), inset 0 0 18px rgba(34,211,238,0.05)"
-          : "0 0 20px rgba(34,211,238,0.06)",
+          ? "0 0 46px rgba(34,211,238,0.24), inset 0 0 18px rgba(34,211,238,0.06)"
+          : "0 0 22px rgba(34,211,238,0.10)",
         borderColor: playing ? "rgba(34,211,238,0.45)" : undefined,
       }}
       role="status"
@@ -161,14 +161,14 @@ function AgentChip({ id, lit, active, align }) {
         align === "right" ? "flex-row-reverse text-right" : ""
       }`}
       style={{
-        borderColor: active ? `${color}CC` : lit ? `${color}88` : `${color}3D`,
-        background: `linear-gradient(${gradientDir}, ${color}${lit ? "1F" : "12"}, rgba(4,9,26,0.35) 65%)`,
+        borderColor: active ? `${color}E6` : lit ? `${color}A6` : `${color}4D`,
+        background: `linear-gradient(${gradientDir}, ${color}${lit ? "29" : "16"}, rgba(4,9,26,0.35) 65%)`,
         boxShadow: active
-          ? `0 0 30px ${color}66`
+          ? `0 0 34px ${color}80`
           : lit
-            ? `0 0 18px ${color}33`
-            : `0 0 10px ${color}14`,
-        opacity: lit ? 1 : 0.85,
+            ? `0 0 20px ${color}40`
+            : `0 0 12px ${color}1F`,
+        opacity: lit ? 1 : 0.92,
       }}
     >
       {/* Soft glow swell once the department is online (opacity-only) */}
@@ -246,8 +246,8 @@ function Connectors({ litAgents, activeAgent }) {
       aria-hidden="true"
     >
       {paths.map((p) => {
-        const lit = litAgents.has(p.id);
         const active = activeAgent === p.id;
+        const lit = litAgents.has(p.id) || active;
         return (
           <g key={p.id}>
             {/* Wide glow underlay — breathes slowly once lit (the Core
@@ -257,7 +257,7 @@ function Connectors({ litAgents, activeAgent }) {
               fill="none"
               stroke={p.color}
               strokeWidth="1.2"
-              opacity={lit ? 0.3 : 0.12}
+              opacity={lit ? 0.38 : 0.16}
               className={lit ? "z-anim" : undefined}
               style={{
                 transition: "opacity 0.6s",
@@ -271,7 +271,7 @@ function Connectors({ litAgents, activeAgent }) {
               fill="none"
               stroke={p.color}
               strokeWidth="0.4"
-              opacity={lit ? 0.95 : 0.45}
+              opacity={lit ? 1 : 0.6}
               style={{ transition: "opacity 0.6s" }}
             />
             {/* Energy pulse travels OUTWARD from the Core toward the active
@@ -327,7 +327,7 @@ function AmbientParticles() {
             marginTop: -p.s / 2,
             backgroundColor: "#67e8f9",
             boxShadow: "0 0 8px rgba(34,211,238,0.8)",
-            opacity: 0.5,
+            opacity: 0.65,
             "--z-orbit-r": p.r,
             animation: `z-orbit ${p.dur}s linear infinite`,
             animationDelay: `${p.delay}s`,
@@ -363,7 +363,7 @@ function HeroAtmosphere({ playing }) {
         className="z-anim pointer-events-none absolute left-1/4 top-24 h-[28rem] w-[44rem] rounded-full blur-3xl transition-opacity duration-1000"
         style={{
           background:
-            "radial-gradient(ellipse, rgba(34,211,238,0.05) 0%, rgba(59,130,246,0.035) 50%, transparent 78%)",
+            "radial-gradient(ellipse, rgba(34,211,238,0.07) 0%, rgba(59,130,246,0.05) 50%, transparent 78%)",
           opacity: playing ? 1 : 0.7,
           animation: "z-haze-drift 30s ease-in-out infinite",
         }}
@@ -394,7 +394,7 @@ function HeroAtmosphere({ playing }) {
 
 /* ————— Layered rings + bloom that make the Core the hero ————— */
 
-function CoreAura({ playing }) {
+function CoreAura({ playing, wakeKey }) {
   const reduceMotion = prefersReducedMotion();
   return (
     <>
@@ -406,9 +406,9 @@ function CoreAura({ playing }) {
           className="z-anim pointer-events-none absolute -inset-28 rounded-full transition-opacity duration-1000 sm:-inset-40"
           style={{
             background:
-              "conic-gradient(from 210deg, transparent 0deg, rgba(34,211,238,0.055) 14deg, transparent 30deg, transparent 116deg, rgba(59,130,246,0.05) 132deg, transparent 150deg, transparent 238deg, rgba(34,211,238,0.045) 252deg, transparent 268deg)",
+              "conic-gradient(from 210deg, transparent 0deg, rgba(34,211,238,0.085) 14deg, transparent 30deg, transparent 116deg, rgba(59,130,246,0.075) 132deg, transparent 150deg, transparent 238deg, rgba(34,211,238,0.07) 252deg, transparent 268deg)",
             filter: "blur(5px)",
-            opacity: playing ? 0.95 : 0.55,
+            opacity: playing ? 1 : 0.7,
             animation: "z-ring-rotate 120s linear infinite",
           }}
         />
@@ -420,18 +420,33 @@ function CoreAura({ playing }) {
         className="pointer-events-none absolute -inset-24 rounded-full transition-opacity duration-500 sm:-inset-32"
         style={{
           background:
-            "radial-gradient(circle, rgba(34,211,238,0.22) 0%, rgba(59,130,246,0.12) 40%, transparent 72%)",
-          opacity: playing ? "calc(0.6 + var(--z-level, 0.5) * 0.4)" : 0.65,
+            "radial-gradient(circle, rgba(34,211,238,0.30) 0%, rgba(59,130,246,0.17) 40%, transparent 72%)",
+          opacity: playing ? "calc(0.65 + var(--z-level, 0.5) * 0.35)" : 0.8,
         }}
       />
+      {/* One-shot wake flare — the "power on" moment when the demo starts. */}
+      {wakeKey > 0 && !reduceMotion && (
+        <span
+          key={wakeKey}
+          aria-hidden="true"
+          className="z-anim pointer-events-none absolute -inset-4 rounded-full"
+          style={{
+            border: "2px solid rgba(103,232,249,0.85)",
+            boxShadow:
+              "0 0 60px rgba(34,211,238,0.55), inset 0 0 40px rgba(34,211,238,0.30)",
+            animation: "z-wake 1.5s cubic-bezier(0.16,0.84,0.44,1) forwards",
+            opacity: 0,
+          }}
+        />
+      )}
       {/* Breathing inner halo */}
       <div
         aria-hidden="true"
         className="z-anim animate-z-breathe pointer-events-none absolute -inset-10 rounded-full"
         style={{
           background:
-            "radial-gradient(circle, rgba(34,211,238,0.25) 0%, transparent 68%)",
-          opacity: playing ? 1 : 0.6,
+            "radial-gradient(circle, rgba(34,211,238,0.32) 0%, transparent 68%)",
+          opacity: playing ? 1 : 0.75,
           transition: "opacity 0.8s",
         }}
       />
@@ -441,9 +456,11 @@ function CoreAura({ playing }) {
         className="pointer-events-none absolute -inset-5 rounded-full border transition-all duration-1000"
         style={{
           borderColor: playing
-            ? "rgba(34,211,238,0.45)"
-            : "rgba(34,211,238,0.28)",
-          boxShadow: playing ? "0 0 24px rgba(34,211,238,0.25)" : "none",
+            ? "rgba(34,211,238,0.60)"
+            : "rgba(34,211,238,0.38)",
+          boxShadow: playing
+            ? "0 0 30px rgba(34,211,238,0.35)"
+            : "0 0 14px rgba(34,211,238,0.12)",
         }}
       />
       {/* Almost-imperceptible shimmer travelling around the inner ring —
@@ -454,8 +471,8 @@ function CoreAura({ playing }) {
           className="z-anim pointer-events-none absolute -inset-5 rounded-full transition-opacity duration-1000"
           style={{
             background:
-              "conic-gradient(from 0deg, transparent 0deg, rgba(103,232,249,0.55) 26deg, transparent 70deg)",
-            opacity: playing ? 0.75 : 0.4,
+              "conic-gradient(from 0deg, transparent 0deg, rgba(103,232,249,0.70) 26deg, transparent 70deg)",
+            opacity: playing ? 0.9 : 0.55,
             animation: `z-ring-rotate ${playing ? 36 : 70}s linear infinite`,
             maskImage:
               "radial-gradient(circle closest-side, transparent 96%, black 97.5%, black 99%, transparent 100%)",
@@ -469,14 +486,14 @@ function CoreAura({ playing }) {
         className="pointer-events-none absolute -inset-12 rounded-full border transition-all duration-1000 sm:-inset-14"
         style={{
           borderColor: playing
-            ? "rgba(59,130,246,0.35)"
-            : "rgba(59,130,246,0.20)",
+            ? "rgba(59,130,246,0.50)"
+            : "rgba(59,130,246,0.28)",
         }}
       />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -inset-20 hidden rounded-full border sm:block sm:-inset-24"
-        style={{ borderColor: "rgba(34,211,238,0.10)" }}
+        style={{ borderColor: "rgba(34,211,238,0.16)" }}
       />
     </>
   );
@@ -723,6 +740,8 @@ export default function HeroDemo() {
   const [litAgents, setLitAgents] = useState(() => new Set());
   const [litRows, setLitRows] = useState(() => new Set());
   const [pulse, setPulse] = useState(null);
+  // Bumped when the demo starts — keys the one-shot Core "wake flare".
+  const [wakeKey, setWakeKey] = useState(0);
   const coreSize = useCoreSize();
 
   const audioRef = useRef(null);
@@ -787,6 +806,9 @@ export default function HeroDemo() {
     clearTimer();
     const next = from + 1;
     if (next >= DEMO_STEPS.length) {
+      // Demo complete — every department comes online together for the
+      // finished "AI company operational" tableau.
+      setLitAgents(new Set(AGENTS_META.map((a) => a.id)));
       setStatus("done");
       setStepIdx(DEMO_STEPS.length - 1);
       return;
@@ -814,11 +836,8 @@ export default function HeroDemo() {
       setStepIdx(idx);
       setStatus("playing");
       if (step.agentId) {
-        setLitAgents((prev) => {
-          const next = new Set(prev);
-          next.add(step.agentId);
-          return next;
-        });
+        // One department at a time: the active agent glows while it reports,
+        // then returns to idle (litAgents only fills at "done").
         const meta = agentMeta(step.agentId);
         setPulse({ color: meta ? meta.color : "#14B8A6", key: `${idx}-${Date.now()}` });
       }
@@ -866,6 +885,7 @@ export default function HeroDemo() {
     setLitAgents(new Set());
     setLitRows(new Set());
     setPulse(null);
+    setWakeKey(Date.now());
     playStep(0);
   }, [playStep]);
 
@@ -1001,12 +1021,12 @@ export default function HeroDemo() {
         className="pointer-events-none absolute left-1/2 top-16 h-[42rem] w-[72rem] -translate-x-1/2 rounded-full blur-3xl transition-opacity duration-1000"
         style={{
           background:
-            "radial-gradient(ellipse, rgba(34,211,238,0.10) 0%, rgba(59,130,246,0.07) 45%, transparent 75%)",
-          opacity: playing ? 1 : 0.75,
+            "radial-gradient(ellipse, rgba(34,211,238,0.16) 0%, rgba(59,130,246,0.11) 45%, transparent 75%)",
+          opacity: playing ? 1 : 0.85,
         }}
       />
-      <div className="pointer-events-none absolute -left-32 top-64 h-96 w-96 rounded-full bg-blue-600/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-24 top-40 h-96 w-96 rounded-full bg-purple-600/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-32 top-64 h-96 w-96 rounded-full bg-blue-600/15 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 top-40 h-96 w-96 rounded-full bg-purple-600/15 blur-3xl" />
 
       <div className="relative mx-auto grid max-w-[88rem] grid-cols-1 items-start gap-10 px-6 pb-20 pt-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.8fr)] lg:gap-8 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.8fr)_minmax(0,0.8fr)]">
         {/* ————— Left: copy + CTAs ————— */}
@@ -1073,7 +1093,7 @@ export default function HeroDemo() {
                   <AgentChip
                     key={id}
                     id={id}
-                    lit={litAgents.has(id)}
+                    lit={litAgents.has(id) || activeAgent === id}
                     active={activeAgent === id}
                   />
                 ))}
@@ -1082,7 +1102,7 @@ export default function HeroDemo() {
               {/* The Core — dominant focal point */}
               <div className="flex flex-col items-center px-4 py-6 sm:px-10 sm:py-10">
                 <div className="relative">
-                  <CoreAura playing={playing} />
+                  <CoreAura playing={playing} wakeKey={wakeKey} />
                   <AmbientParticles />
                   <ZorechoCore state={coreState} pulse={pulse} size={coreSize} />
                 </div>
@@ -1104,7 +1124,7 @@ export default function HeroDemo() {
                   <AgentChip
                     key={id}
                     id={id}
-                    lit={litAgents.has(id)}
+                    lit={litAgents.has(id) || activeAgent === id}
                     active={activeAgent === id}
                     align="right"
                   />
@@ -1115,7 +1135,7 @@ export default function HeroDemo() {
             {/* Mobile: compact agent dots under the Core */}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 sm:hidden">
               {AGENTS_META.map((a) => {
-                const lit = litAgents.has(a.id);
+                const lit = litAgents.has(a.id) || activeAgent === a.id;
                 return (
                   <span
                     key={a.id}
@@ -1182,12 +1202,12 @@ export default function HeroDemo() {
         className="pointer-events-none absolute inset-x-0 bottom-0 h-44"
         style={{
           background:
-            "radial-gradient(ellipse 80% 100% at 50% 100%, rgba(34,211,238,0.09) 0%, transparent 70%)",
+            "radial-gradient(ellipse 80% 100% at 50% 100%, rgba(34,211,238,0.14) 0%, transparent 70%)",
         }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-400/45 to-transparent"
       />
 
       <BenefitStrip />

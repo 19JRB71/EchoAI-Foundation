@@ -207,6 +207,19 @@
   }
 }
 
+/* One-shot Core "wake flare" when the demo starts — an expanding ring of
+   light that dissipates (played once, keyed by wakeKey). */
+@keyframes z-wake {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
 /* Lit agent nodes: soft glow swell (opacity only — never flashing) */
 @keyframes z-node-glow {
   0%,

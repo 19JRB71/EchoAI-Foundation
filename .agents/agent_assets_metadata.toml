@@ -354,3 +354,21 @@ id = "JtMoXDQ98ln6__LQgEaKo"
 uri = "file://screenshots/v4-mobile.png"
 type = "image"
 title = "Mobile view"
+
+[[outputs]]
+id = "fSv-Y9CVnLg7ZCBgMNglz"
+uri = "file://screenshots/v5-hero-demo.gif"
+type = "image"
+title = "V5 hero demo — full arc (idle → wake flare → intro → one-at-a-time activations → briefing builds → all online)"
+
+[[outputs]]
+id = "xdZpW3lDprGjvckC4gJP_"
+uri = "file://screenshots/v5-hero-idle.jpg"
+type = "image"
+title = "V5 desktop still — brighter idle state"
+
+[[outputs]]
+id = "CmpQ_VvVhSw39Um95EEaM"
+uri = "file://screenshots/v5-hero-active.jpg"
+type = "image"
+title = "V5 desktop still — during the briefing"

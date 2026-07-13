@@ -1,0 +1,244 @@
+ZORECHO LANDING PAGE — FREEZE THE DESIGN, PERFECT THE EXPERIENCE
+
+The current hero is very close, but we've reached the point where additional visual redesigns are making it worse instead of better.
+
+Freeze the current layout.
+
+Do not redesign the page again.
+
+Do not change the typography hierarchy.
+
+Do not move major sections.
+
+Do not darken the page further.
+
+From this point forward, the work is about making the existing design feel alive.
+
+Primary Goal
+
+The visitor should feel like they are stepping into the headquarters of their own AI company.
+
+This should not feel like a SaaS landing page.
+
+It should feel like the opening scene of a movie.
+
+1. Restore the brighter lighting
+
+The latest revision became too dark.
+
+Restore the brighter lighting from the previous version while keeping the improved layout.
+
+Increase:
+
+cyan illumination
+blue glow
+contrast
+Core brightness
+agent accent colors
+
+Do not add gray fog or reduce contrast.
+
+The Core should immediately attract the eye.
+
+2. Stop redesigning. Start polishing.
+
+No more layout experimentation.
+
+Everything from here should improve:
+
+animation
+timing
+lighting
+transitions
+hover effects
+responsiveness
+polish
+
+The structure is approved.
+
+The experience is not yet finished.
+
+3. The Core must become the heartbeat
+
+The Core should never feel static.
+
+Idle animation:
+
+slow breathing glow
+subtle rotating rings
+animated waveform
+floating particles
+soft ambient pulse
+
+Nothing exaggerated.
+
+Everything premium.
+
+4. Echo controls the interface
+
+When "Watch Echo Work" is pressed:
+
+Echo says:
+
+"Hello, I'm Echo."
+
+Pause.
+
+"Welcome to Zorecho."
+
+Pause.
+
+"Let me show you what your AI company has already accomplished today."
+
+As Echo speaks:
+
+waveform reacts
+Core brightens
+connection lines activate
+departments illuminate
+briefing builds itself
+
+The interface should respond naturally to Echo.
+
+5. Agent activation
+
+Do not light every department simultaneously.
+
+Activate them one at a time.
+
+Example:
+
+Scout glows
+
+↓
+
+Morning Briefing receives competitor update
+
+↓
+
+Scout returns to idle
+
+↓
+
+Nova glows
+
+↓
+
+Morning Briefing receives today's content
+
+↓
+
+Nova returns to idle
+
+↓
+
+Voice glows
+
+↓
+
+Call statistics appear
+
+The user should understand which department is working.
+
+6. Morning Briefing
+
+The briefing should build live.
+
+Do not display completed information immediately.
+
+Animate each item appearing naturally.
+
+Examples:
+
+✓ New Leads
+
+✓ Emails
+
+✓ Calls
+
+✓ Appointments
+
+✓ Research
+
+✓ Social Content
+
+Each animation should feel smooth and intentional.
+
+7. Create one memorable moment
+
+This is the most important request.
+
+Within the first 10 seconds, create one moment where the visitor thinks:
+
+"Wow."
+
+Suggestions:
+
+Core illumination expands smoothly
+Waveform wakes up
+Rings brighten
+Connection lines pulse outward
+Departments come online
+Echo begins speaking
+Morning Briefing assembles itself
+
+That emotional sequence is the product demonstration.
+
+8. Keep everything premium
+
+Avoid:
+
+flashing
+excessive movement
+gaming effects
+exaggerated animations
+unnecessary particles
+
+Aim for:
+
+Apple
+
+Tesla
+
+Iron Man's Jarvis
+
+NASA Mission Control
+
+Elegant.
+
+Confident.
+
+Purposeful.
+
+9. Performance
+
+Animations must remain lightweight.
+
+Respect reduced-motion settings.
+
+Keep the page smooth on desktop, tablet, and mobile.
+
+Deliverables
+
+Do not publish.
+
+Do not push live.
+
+Return:
+
+Updated desktop screenshot
+15–20 second screen recording (or GIF) of the hero experience
+Demonstration of:
+Idle Core
+Echo introduction
+Agent activations
+Morning Briefing building
+Return to idle
+
+Stop and wait for approval before deployment.
+
+One final creative note
+
+Don't build a website. Build the first scene of the Zorecho story.
+
+When someone visits the site, they shouldn't feel like they're evaluating software—they should feel like they've just met the AI workforce that's about to run their business. That feeling is what will make Zorecho memorable.
