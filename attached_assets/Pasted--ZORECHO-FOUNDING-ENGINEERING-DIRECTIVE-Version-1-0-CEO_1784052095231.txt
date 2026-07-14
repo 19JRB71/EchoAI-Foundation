@@ -1,0 +1,390 @@
+# ZORECHO FOUNDING ENGINEERING DIRECTIVE
+
+## Version 1.0
+
+### CEO Directive
+
+Before we continue building Zorecho, I want to establish the permanent philosophy that guides this company.
+
+This is not a coding request.
+
+This is not a feature request.
+
+This is the foundation that every future engineering decision should be measured against.
+
+I want Zorecho to be built like a world-class software company from the beginning—not like a collection of features.
+
+We are no longer thinking about launching an AI app.
+
+We are building an AI company that may someday serve hundreds of thousands or even millions of businesses.
+
+Because of that, every important decision should be evaluated as if we already have one million active users.
+
+That does NOT mean we prematurely optimize.
+
+It means we avoid architectural decisions that become impossible to scale later.
+
+---
+
+# OUR LONG-TERM VISION
+
+Zorecho is not a chatbot.
+
+Zorecho is an AI company inside software.
+
+Customers should experience one unified assistant called Echo.
+
+Behind Echo may be many different systems, agents, models, databases, automations, and providers—but the customer should never see that complexity.
+
+Echo should always feel like one intelligent employee.
+
+---
+
+# COMPANY ORGANIZATION
+
+## James
+
+CEO
+
+Responsible for:
+
+* Vision
+* Strategy
+* Customer relationships
+* Product approval
+* Business decisions
+* Final authority
+
+---
+
+## ChatGPT
+
+Chief Architect & Creative Director
+
+Responsible for:
+
+* Product architecture
+* Long-term planning
+* Brand identity
+* Marketing strategy
+* Customer experience
+* Creative direction
+* Advertising
+* Sales messaging
+* Product positioning
+* Creative prompt philosophy
+* Visual concepts
+* Launch campaigns
+
+ChatGPT defines WHAT we build and WHY.
+
+---
+
+## Replit / Claude
+
+Chief Engineering Officer
+
+Responsible for:
+
+* Software architecture implementation
+* Database
+* APIs
+* Security
+* Infrastructure
+* Deployment
+* Testing
+* Performance
+* Reliability
+* Voice implementation
+* AI integration
+* Production stability
+* Converting approved designs into working software
+
+Replit defines HOW we build it.
+
+---
+
+## Hermes
+
+Runtime Operations Manager
+
+Hermes exists inside the product.
+
+Responsibilities:
+
+* Workflow orchestration
+* Internal routing
+* Agent coordination
+* Runtime decisions
+* Conversation execution
+* Task delegation
+* Intelligent workflow management
+
+Hermes does NOT manage company decisions.
+
+Hermes manages Echo's internal operations.
+
+---
+
+# CORE ENGINEERING PRINCIPLES
+
+Every future feature should be measured against these principles.
+
+1. Customers interact with one assistant, not multiple AI providers.
+
+2. Provider-specific code must remain behind abstraction layers.
+
+3. Customer data is always isolated.
+
+4. No paid AI request without measurable value.
+
+5. Prefer deterministic software over LLMs whenever practical.
+
+6. Research once.
+   Reuse many times.
+
+7. Company knowledge and industry knowledge are different.
+
+8. Shared knowledge should benefit every appropriate customer.
+
+9. Background AI must justify its cost.
+
+10. Every AI request must be measurable.
+
+11. Every AI request must be attributable.
+
+12. Every AI request must have a reason.
+
+13. Every AI request must have a budget.
+
+14. Every AI request should be observable.
+
+15. Every feature should have rollback capability.
+
+16. Development should never spend production money.
+
+17. Production should never depend on development.
+
+18. Simplicity beats cleverness.
+
+19. Reliability beats features.
+
+20. Launch before perfection.
+
+21. Build systems that become MORE efficient as they scale.
+
+22. Technical debt should be intentionally accepted, never accidentally created.
+
+23. Reuse knowledge before buying new knowledge.
+
+24. Engineering should reduce future cost, not only solve today's problem.
+
+25. Every architectural decision should answer:
+
+"Will this still be the correct decision with one million users?"
+
+---
+
+# KNOWLEDGE STRATEGY
+
+One of Zorecho's greatest long-term assets will be knowledge.
+
+Eventually we will build a centralized Knowledge Hub.
+
+That system will contain:
+
+Industry Brains
+
+Company Brains
+
+Market Intelligence
+
+Shared Learning
+
+Versioned Knowledge
+
+Research History
+
+The Knowledge Hub should research an industry once and distribute relevant knowledge to all appropriate customers.
+
+It should not repeatedly purchase the same information independently for every customer.
+
+Knowledge should become more valuable over time.
+
+---
+
+# CREATIVE WORKFLOW
+
+Customer-facing content should follow this process.
+
+ChatGPT creates.
+
+James reviews.
+
+James approves.
+
+Replit implements.
+
+Approved copy should not be rewritten unless:
+
+* technically necessary
+
+* legally necessary
+
+* compliance requires it
+
+If changes are required:
+
+Explain first.
+
+Wait for approval.
+
+---
+
+# ENGINEERING WORKFLOW
+
+Every major feature should follow this order.
+
+Design
+
+Review
+
+Approval
+
+Implementation
+
+Testing
+
+Deployment
+
+Observation
+
+Measurement
+
+Improvement
+
+Never skip directly from idea to production.
+
+---
+
+# COST PHILOSOPHY
+
+Zorecho should become MORE profitable as it grows.
+
+Not less.
+
+Every AI call should answer:
+
+Can deterministic software do this?
+
+Can cached knowledge do this?
+
+Can existing memory do this?
+
+Can a cheaper model do this?
+
+Does this request justify spending money?
+
+If the answer is no...
+
+Do not call an LLM.
+
+---
+
+# OBSERVABILITY
+
+Nothing important should be invisible.
+
+We should know:
+
+Why AI was called.
+
+Who called it.
+
+What it cost.
+
+What feature used it.
+
+Whether it succeeded.
+
+Whether it failed.
+
+Whether it could have been avoided.
+
+Whether a cache was used.
+
+Whether deterministic software could replace it.
+
+Unknown behavior is unacceptable.
+
+---
+
+# PROVIDER PHILOSOPHY
+
+Zorecho should never become dependent upon one AI provider.
+
+Providers should be replaceable.
+
+Echo should always choose the best tool for the job.
+
+Customers should never know which provider completed the work.
+
+---
+
+# LONG-TERM GOAL
+
+I want Zorecho to become one of the best AI business platforms in the world.
+
+That requires discipline more than speed.
+
+Every major engineering decision should move us toward:
+
+Greater scalability.
+
+Greater reliability.
+
+Lower operating cost.
+
+Higher quality.
+
+Cleaner architecture.
+
+Better customer experience.
+
+---
+
+# REQUEST
+
+I do not want code changes.
+
+I do not want implementation.
+
+I want your engineering review.
+
+Please evaluate this document as if you were the Chief Engineering Officer of Zorecho.
+
+Tell me:
+
+1. Which principles you strongly agree with.
+
+2. Which principles you would modify.
+
+3. Which principles are missing.
+
+4. Which principles create engineering risk.
+
+5. Which principles improve scalability.
+
+6. Which principles improve reliability.
+
+7. Which principles improve long-term profitability.
+
+8. Which principles would become difficult to maintain.
+
+9. Whether this should become Zorecho's permanent Engineering Constitution.
+
+If you believe this document should evolve, propose Version 1.1 with your recommended improvements.
+
+Do not implement anything.
+
+I want us to establish the Constitution before we continue building the company.
