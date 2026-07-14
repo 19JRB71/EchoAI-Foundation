@@ -69,6 +69,8 @@ const echoVoiceRoutes = require("./routes/echoVoiceRoutes");
 const autonomousRoutes = require("./routes/autonomousRoutes");
 const echoAssistantRoutes = require("./routes/echoAssistantRoutes");
 const echoEmailRoutes = require("./routes/echoEmailRoutes");
+// Zorecho Conversational Core Lab (EXPERIMENTAL — flag-gated, off by default).
+const conversationalCoreRoutes = require("./routes/conversationalCoreRoutes");
 const agentRoutes = require("./routes/agentRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const salesAgentRoutes = require("./routes/salesAgentRoutes");
@@ -279,6 +281,7 @@ app.use("/api/echo-voice", echoVoiceRoutes);
 app.use("/api/autonomous", autonomousRoutes);
 app.use("/api/echo-assistant", echoAssistantRoutes);
 app.use("/api/echo-email", echoEmailRoutes);
+app.use("/api/core-lab", conversationalCoreRoutes);
 app.use("/api/agents", agentRoutes);
 app.use("/api/health-monitor", healthRoutes);
 app.use("/api/sales-agent", salesAgentRoutes);

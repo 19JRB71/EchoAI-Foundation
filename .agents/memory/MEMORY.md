@@ -85,6 +85,7 @@
 - [EchoAI multi-turn voice sessions](echoai-voice-content-session.md) — session state must be cleared+shelved on EVERY engine reset path (they're separate code paths); commit commands stay strict; apostrophes normalize to spaces.
 - [EchoAI three-tier demo](echoai-demo-tiers.md) — demo mode now seeds ONE is_demo brand per tier (demo_tier); never assume a single demo brand; active_tier drives script+FeatureGate, demo_brand_id NULL = selector mode.
 - [EchoAI SSRF IPv6-mapped bypass](echoai-ssrf-ipv6-mapped.md) — private-host blockers must reject IPv4-mapped/compat IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1); check the embedded IPv4 range.
+- [EchoAI Conversational Core prototype](echoai-conversational-core.md) — flag-off default, read-only v1 w/ approval previews; key in-memory sessions/recorder by userId, never raw sessionId.
 - [EchoAI grid 1fr min-content clipping](echoai-grid-1fr-clipping.md) — grid `1fr` won't shrink below min-content; with overflow-hidden the last column clips at laptop/tablet widths — use minmax(0,1fr) + screenshot at 1024/1366.
 - [EchoAI AI ledger meta spread](echoai-ai-ledger-meta-spread.md) — in paid-provider wrappers, spread resolved gate meta FIRST; its null fields clobber explicit ledger values if spread last.
 - [EchoAI presentation-mode queue hold](echoai-presentation-hold.md) — demo holds proactive items, purges stale demo lines per step, event-driven flags need a reload/resume path, freeze auto-advance while gesture-blocked.

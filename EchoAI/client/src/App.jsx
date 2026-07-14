@@ -44,6 +44,7 @@ import Settings from "./sections/Settings.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import SetupAgent from "./onboarding/SetupAgent.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
+import CoreLab from "./sections/CoreLab.jsx";
 import AgencyPortal from "./sections/AgencyPortal.jsx";
 import AffiliateProgram from "./sections/AffiliateProgram.jsx";
 import PaymentFailedBanner from "./components/PaymentFailedBanner.jsx";
@@ -213,6 +214,8 @@ export default function App() {
       // The Email Assistant reads the owner's personal inboxes (owner/admin only).
       if (s === "echoemail") return isAdmin || !isTeamMember;
       if (s === "admin") return isAdmin;
+      // Experimental Conversational Core Lab — private, admin-only.
+      if (s === "corelab") return isAdmin;
       // Retired preview id — the redesigned Mission Control now IS the
       // "missioncontrol" section for everyone. Old deep links to the preview
       // id are rejected so a stale ?section= link can't land on a blank pane.
@@ -1095,6 +1098,8 @@ export default function App() {
                 (canOpenSection("echoplanner") ? <EchoPlanner /> : null)}
               {section === "echoemail" &&
                 (canOpenSection("echoemail") ? <EchoEmail /> : null)}
+              {section === "corelab" &&
+                (canOpenSection("corelab") ? <CoreLab brandId={selectedBrandId} /> : null)}
               {section === "echogrowth" && (
                 <div className="mx-auto max-w-3xl">
                   <AutonomousTab readOnly={isTeamMember || workspaceRole !== "owner"} />

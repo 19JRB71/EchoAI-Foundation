@@ -147,6 +147,7 @@ export const SECTION_TITLES = {
   supporters: "Voter CRM",
   properties: "Property CRM",
   sage: "Sage · Industry Intelligence",
+  corelab: "Conversational Core Lab",
 };
 
 export function sectionTitle(section) {

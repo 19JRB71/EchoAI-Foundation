@@ -235,6 +235,22 @@ export default function Sidebar({
           </button>
         )}
 
+        {isAdmin && (
+          <button
+            onClick={() => onSelectSection("corelab")}
+            style={section === "corelab" ? { backgroundColor: `${brandTeal}22`, borderLeftColor: brandTeal, color: brandTeal } : { borderLeftColor: "transparent" }}
+            className={`mt-1 flex w-full items-center gap-3 rounded-r-lg border-l-[3px] px-3 py-2 text-sm transition ${
+              section === "corelab" ? "font-semibold" : "font-medium text-gray-300 hover:bg-gray-800 hover:text-white"
+            }`}
+          >
+            <MiniIcon name="admin" />
+            <span>Core Lab</span>
+            <span className="ml-auto rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-400">
+              Beta
+            </span>
+          </button>
+        )}
+
         <button
           onClick={() => onSelectSection("settings")}
           style={settingsActive ? { backgroundColor: `${brandTeal}22`, borderLeftColor: brandTeal, color: brandTeal } : { borderLeftColor: "transparent" }}

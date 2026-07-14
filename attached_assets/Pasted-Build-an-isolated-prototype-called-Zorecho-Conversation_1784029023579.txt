@@ -1,0 +1,180 @@
+Build an isolated prototype called **Zorecho Conversational Core** that allows me to speak naturally to Echo instead of using only exact voice commands.
+
+This is an experimental private prototype. Do not replace, rewrite, remove, or interfere with any existing Echo voice commands, Hermes routing, integrations, UI, authentication, or production workflows.
+
+## Primary goal
+
+Prove that I can speak naturally to Echo, have it understand my intent and conversational context, and then route the request to the appropriate existing Echo feature or tool.
+
+Example:
+
+User: “Did I get any important emails today?”
+
+Echo should understand that the user wants Gmail checked, call the existing Gmail capability, and respond conversationally.
+
+Follow-up:
+
+User: “Which one should I answer first?”
+
+Echo should understand that “one” refers to the emails from the previous response.
+
+## Isolation and safety requirements
+
+1. Build this on a separate development branch.
+
+2. Place the prototype behind a feature flag:
+   `ENABLE_CONVERSATIONAL_CORE=false`
+
+3. The feature must remain disabled by default.
+
+4. Add a private admin-only testing page or toggle labeled:
+   **Conversational Core Lab**
+
+5. Do not modify the normal Echo voice experience when the feature flag is off.
+
+6. Reuse existing services only through clearly defined interfaces. Do not rewrite the Gmail, Facebook, calendar, voice, Hermes, or command systems.
+
+7. For the first prototype, make all external actions read-only unless I explicitly approve them.
+
+8. Do not send emails, publish posts, launch ads, delete data, change appointments, or modify customer records during prototype testing.
+
+9. Any request that would create, send, publish, delete, purchase, launch, or modify something must return a preview and ask for confirmation.
+
+10. Add a one-click emergency disable switch so the prototype can be turned off immediately.
+
+## Architecture
+
+Use the following flow:
+
+User speech or text
+→ conversational reasoning layer
+→ intent and context detection
+→ Hermes routing
+→ existing Echo tool or feature
+→ natural-language response
+→ Echo voice output
+
+The conversational reasoning layer should not directly access databases or third-party services. It should request actions through Hermes and the existing approved tool interfaces.
+
+The existing command system should remain available as a fast and reliable fallback.
+
+Suggested routing logic:
+
+* If an exact existing command is confidently matched, use the existing command system.
+* If the request is natural language or requires context, use the Conversational Core.
+* If the intent is unclear, ask one brief clarification question.
+* If the action is sensitive or changes data, require explicit approval.
+* If the Conversational Core fails, fall back safely to the existing Echo experience.
+
+## Initial prototype capabilities
+
+Limit version one to these five test areas:
+
+1. Gmail summaries
+
+   * “Did I get any important emails today?”
+   * “Did Mike respond?”
+   * “Summarize the message from the roofing company.”
+
+2. Calendar questions
+
+   * “What do I have tomorrow?”
+   * “Do I have anything scheduled Friday afternoon?”
+
+3. Lead information
+
+   * “How many leads came in today?”
+   * “Which leads still need follow-up?”
+
+4. Facebook content drafting
+
+   * “Write a Facebook post for tomorrow.”
+   * “Make it sound more professional.”
+   * Draft only. Do not publish.
+
+5. General business conversation
+
+   * “What should I focus on today?”
+   * “Why might business be slower this week?”
+   * Clearly distinguish between answers based on actual connected data and general suggestions.
+
+## Conversation memory
+
+Add temporary session memory so Echo can understand follow-up statements such as:
+
+* “What about yesterday?”
+* “Which one is most important?”
+* “Rewrite that.”
+* “Make it shorter.”
+* “Draft a response.”
+* “Use the same tone as the last one.”
+
+For the prototype, session memory should expire when the test session ends. Do not create permanent long-term customer memory yet.
+
+## Testing interface
+
+Create a private testing screen containing:
+
+* Text input
+* Microphone input using the existing voice system
+* Echo’s response
+* Detected intent
+* Confidence score
+* Selected Hermes route
+* Tools called
+* Tool results
+* Response time
+* Whether approval was required
+* Any errors or fallback events
+
+Include a visible label:
+
+**Experimental Prototype — Not Production**
+
+## Logging
+
+Create a prototype flight recorder that logs each stage:
+
+1. User transcript
+2. Detected intent
+3. Relevant conversation context
+4. Chosen route
+5. Tool requested
+6. Tool result
+7. Final response
+8. Total response time
+9. Errors or fallback behavior
+
+Do not log passwords, OAuth tokens, private authentication data, or full sensitive email contents unnecessarily.
+
+## Performance goal
+
+The first spoken acknowledgment should happen quickly so the system feels responsive.
+
+For requests requiring tools, Echo may say something natural such as:
+
+* “Let me check that.”
+* “I’m reviewing today’s emails.”
+* “I’m pulling those numbers now.”
+
+Then provide the completed answer when the tool returns.
+
+## Deliverables
+
+Before changing code, provide:
+
+1. A short explanation of the proposed architecture.
+2. A list of files that will be created.
+3. A list of any existing files that must be modified.
+4. Confirmation that the normal Echo system will remain unchanged when the feature flag is disabled.
+
+Then build the isolated prototype.
+
+After completion, provide:
+
+1. Instructions for turning the prototype on and off.
+2. The private testing URL or navigation path.
+3. A list of supported test phrases.
+4. Known limitations.
+5. Confirmation that no production workflows were replaced.
+6. A rollback procedure.

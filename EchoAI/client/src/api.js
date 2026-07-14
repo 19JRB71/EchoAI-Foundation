@@ -266,6 +266,17 @@ export const api = {
       `/api/echo-email/messages${category ? `?category=${encodeURIComponent(category)}` : ""}`,
     ),
   listEmailDrafts: () => request("/api/echo-email/drafts"),
+  // Conversational Core Lab (EXPERIMENTAL prototype — admin/owner only,
+  // flag-gated server-side; disabled by default).
+  coreLabStatus: () => request("/api/core-lab/status"),
+  coreLabConverse: (text, sessionId, brandId) =>
+    request("/api/core-lab/converse", { method: "POST", body: { text, sessionId, brandId } }),
+  coreLabRecorder: () => request("/api/core-lab/recorder"),
+  coreLabEmergencyDisable: () =>
+    request("/api/core-lab/emergency-disable", { method: "POST" }),
+  coreLabReEnable: () => request("/api/core-lab/re-enable", { method: "POST" }),
+  coreLabEndSession: (sessionId) =>
+    request("/api/core-lab/session/end", { method: "POST", body: { sessionId } }),
   draftEmailMessage: (data) =>
     request("/api/echo-email/drafts", { method: "POST", body: data }),
   updateEmailDraft: (id, data) =>
