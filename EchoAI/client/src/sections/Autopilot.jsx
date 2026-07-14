@@ -2,6 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
+import { agentMeta } from "../lib/departments.js";
+
+// Who made what: Nova drafts the social posts, Atlas drafts the test ads.
+// Every card is stamped with its team member so the two are unmistakable.
+const ITEM_AGENT = {
+  post: { agentId: "nova", label: "Social post" },
+  ad: { agentId: "atlas", label: "Ad" },
+};
 
 const STATUS_STYLES = {
   pending: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -367,21 +375,31 @@ export default function Autopilot({ brandId }) {
           (batch.items || []).map((item) => {
             const busy = busyItemId === item.itemId;
             const isPending = item.status === "pending";
+            const kind = ITEM_AGENT[item.itemType] || ITEM_AGENT.post;
+            const agent = agentMeta(kind.agentId);
+            const agentColor = (agent && agent.color) || "#8B5CF6";
+            const agentName = (agent && agent.name) || "";
             return (
               <div
                 key={item.itemId}
-                className="rounded-xl border border-gray-700 bg-gray-800/60 p-4"
+                className="rounded-xl border border-gray-700 bg-gray-800/60 p-4 border-l-4"
+                style={{ borderLeftColor: agentColor }}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    className={
-                      item.itemType === "ad"
-                        ? "bg-sky-500/15 text-sky-300 border-sky-500/30"
-                        : "bg-violet-500/15 text-violet-300 border-violet-500/30"
-                    }
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+                    style={{
+                      color: agentColor,
+                      borderColor: `${agentColor}66`,
+                      backgroundColor: `${agentColor}1f`,
+                    }}
                   >
-                    {item.itemType === "ad" ? "Test ad" : "Post"}
-                  </Badge>
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: agentColor }}
+                    />
+                    {agentName} · {kind.label}
+                  </span>
                   {item.platform && (
                     <span className="text-xs uppercase tracking-wide text-gray-400">
                       {item.platform}
