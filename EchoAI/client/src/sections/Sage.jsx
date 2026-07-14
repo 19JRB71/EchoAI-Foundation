@@ -262,10 +262,13 @@ function FeedTab({ brandId }) {
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState(() => new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
+    setSelected(new Set());
     try {
       const { feed } = await api.getSageFeed(brandId);
       setFeed(Array.isArray(feed) ? feed : []);
@@ -280,6 +283,44 @@ function FeedTab({ brandId }) {
     load();
   }, [load]);
 
+  const toggleItem = (feedId) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(feedId)) next.delete(feedId);
+      else next.add(feedId);
+      return next;
+    });
+  };
+
+  const allChecked = feed.length > 0 && selected.size === feed.length;
+  const toggleAll = () => {
+    setSelected(allChecked ? new Set() : new Set(feed.map((i) => i.feed_id)));
+  };
+
+  const deleteItems = async ({ feedIds, all }) => {
+    setDeleting(true);
+    setError("");
+    try {
+      await api.dismissSageFeed(brandId, all ? { all: true } : { feedIds });
+      if (all) {
+        setFeed([]);
+        setSelected(new Set());
+      } else {
+        const gone = new Set(feedIds);
+        setFeed((prev) => prev.filter((i) => !gone.has(i.feed_id)));
+        setSelected((prev) => {
+          const next = new Set(prev);
+          gone.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+    } catch (err) {
+      setError(err.message || "Failed to delete feed items");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) return <Spinner />;
 
   return (
@@ -291,7 +332,40 @@ function FeedTab({ brandId }) {
           will populate this feed automatically.
         </div>
       ) : (
-        <ul className="space-y-3">
+        <>
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-800 bg-gray-900/40 px-4 py-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={allChecked}
+                onChange={toggleAll}
+                className="h-4 w-4 rounded border-gray-600 bg-gray-800 accent-emerald-500"
+              />
+              Select all
+            </label>
+            <span className="text-xs text-gray-500">
+              {selected.size > 0 ? `${selected.size} selected` : `${feed.length} items`}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                disabled={deleting || selected.size === 0}
+                onClick={() => deleteItems({ feedIds: [...selected] })}
+                className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deleting ? "Deleting…" : "Delete selected"}
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => deleteItems({ all: true })}
+                className="rounded-md border border-gray-700 bg-gray-800/60 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-700/60 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Delete all
+              </button>
+            </div>
+          </div>
+          <ul className="space-y-3">
           {feed.map((item) => (
             <li
               key={item.feed_id}
@@ -303,6 +377,13 @@ function FeedTab({ brandId }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(item.feed_id)}
+                    onChange={() => toggleItem(item.feed_id)}
+                    aria-label="Select this finding"
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-800 accent-emerald-500"
+                  />
                   {item.urgent && (
                     <Badge className="bg-rose-500/15 text-rose-300 border-rose-500/30">
                       Urgent
@@ -314,9 +395,21 @@ function FeedTab({ brandId }) {
                     </Badge>
                   )}
                 </div>
-                <span className="whitespace-nowrap text-xs text-gray-500">
-                  {fmtDateTime(item.created_at)}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="whitespace-nowrap text-xs text-gray-500">
+                    {fmtDateTime(item.created_at)}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    onClick={() => deleteItems({ feedIds: [item.feed_id] })}
+                    aria-label="Delete this finding"
+                    title="Delete"
+                    className="text-gray-500 transition hover:text-rose-400 disabled:opacity-40"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
               <p className="mt-2 text-sm text-gray-200">{item.summary}</p>
               {item.why_it_matters && (
@@ -337,7 +430,8 @@ function FeedTab({ brandId }) {
               )}
             </li>
           ))}
-        </ul>
+          </ul>
+        </>
       )}
     </div>
   );

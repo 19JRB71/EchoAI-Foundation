@@ -248,7 +248,7 @@ async function computeActivityFeed(userId, bid) {
       [bid],
     ).then((r) => r.map((i) => ({ agentId: "forge", text: "Forge generated a new creative asset", ts: i.ts }))),
     rows(
-      "SELECT summary, urgent, created_at AS ts FROM sage_intelligence_feed WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 4",
+      "SELECT summary, urgent, created_at AS ts FROM sage_intelligence_feed WHERE brand_id = $1 AND dismissed_at IS NULL ORDER BY created_at DESC LIMIT 4",
       [bid],
     ).then((r) => r.map((s) => ({ agentId: "sage", text: s.summary ? `Sage: ${String(s.summary).slice(0, 90)}` : "Sage logged an industry finding", ts: s.ts, urgent: s.urgent === true }))),
     rows(
@@ -463,7 +463,7 @@ async function getMissionControlV2(req, res) {
 
     const sageUrgent = bid
       ? await rows(
-          "SELECT feed_id, summary, created_at AS ts FROM sage_intelligence_feed WHERE brand_id = $1 AND urgent = true AND created_at > NOW() - INTERVAL '7 days' ORDER BY created_at DESC LIMIT 5",
+          "SELECT feed_id, summary, created_at AS ts FROM sage_intelligence_feed WHERE brand_id = $1 AND dismissed_at IS NULL AND urgent = true AND created_at > NOW() - INTERVAL '7 days' ORDER BY created_at DESC LIMIT 5",
           [bid],
         )
       : [];

@@ -316,6 +316,11 @@ export const api = {
     request("/api/sage/brief/refresh", { method: "POST", body: { brandId } }),
   getSageFeed: (brandId) =>
     request(`/api/sage/feed?brandId=${encodeURIComponent(brandId)}`),
+  dismissSageFeed: (brandId, { feedIds, all } = {}) =>
+    request("/api/sage/feed/dismiss", {
+      method: "POST",
+      body: all === true ? { brandId, all: true } : { brandId, feedIds },
+    }),
   getSageInsights: (brandId) =>
     request(`/api/sage/insights?brandId=${encodeURIComponent(brandId)}`),
   getSageCompetitors: (brandId) =>

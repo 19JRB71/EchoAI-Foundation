@@ -15,6 +15,7 @@
  *   - Express handlers for /api/sage/*.
  */
 
+const crypto = require("crypto");
 const db = require("../config/db");
 const { toJsonbParam } = require("../utils/jsonb");
 const { US_STATES } = require("../utils/geoTargeting");
@@ -83,32 +84,101 @@ async function saveProfile(brandId, brief) {
   );
 }
 
-/** Upsert one finding into the rolling feed (dedup on signal_key). */
+/**
+ * Content-level dedup key: md5 of the normalized summary. MUST stay in sync
+ * with the SQL backfill in models/101_sage_feed_dismiss.sql
+ * (lower → non-alphanumeric runs to a single space → trim).
+ */
+function contentKeyOf(summary) {
+  const normalized = String(summary || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return crypto.createHash("md5").update(normalized).digest("hex");
+}
+
+/**
+ * Upsert one finding into the rolling feed.
+ *
+ * Dedup happens on TWO keys: the AI-provided signal_key AND a content_key
+ * derived from the normalized summary — Sage's scans sometimes re-find the same
+ * story under a fresh signal_key, and without the content check the feed fills
+ * with the same finding two or three times.
+ *
+ * Dismissed rows are honored: if the owner deleted a finding, a matching
+ * re-find is a no-op (the row is never resurrected or re-surfaced).
+ */
 async function saveFeedItem(brandId, item) {
-  await db.query(
-    `INSERT INTO sage_intelligence_feed
-       (brand_id, source_type, summary, why_it_matters, url, source_title,
-        urgent, signal_key)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     ON CONFLICT (brand_id, signal_key) DO UPDATE SET
-       source_type = EXCLUDED.source_type,
-       summary = EXCLUDED.summary,
-       why_it_matters = EXCLUDED.why_it_matters,
-       url = EXCLUDED.url,
-       source_title = EXCLUDED.source_title,
-       urgent = EXCLUDED.urgent,
-       created_at = NOW()`,
-    [
-      brandId,
-      item.source_type,
-      item.summary,
-      item.why_it_matters,
-      item.url || null,
-      item.source_title || null,
-      Boolean(item.urgent),
-      item.signal_key,
-    ],
+  const contentKey = contentKeyOf(item.summary);
+  const existing = await db.query(
+    `SELECT feed_id, dismissed_at
+       FROM sage_intelligence_feed
+      WHERE brand_id = $1 AND (signal_key = $2 OR content_key = $3)
+      ORDER BY (dismissed_at IS NULL) DESC, created_at DESC
+      LIMIT 1`,
+    [brandId, item.signal_key, contentKey],
   );
+  const row = existing.rows[0];
+  if (row && row.dismissed_at) return; // owner deleted it — stay deleted
+  if (row) {
+    await db.query(
+      `UPDATE sage_intelligence_feed SET
+         source_type = $2,
+         summary = $3,
+         why_it_matters = $4,
+         url = $5,
+         source_title = $6,
+         urgent = $7,
+         content_key = $8,
+         created_at = NOW()
+       WHERE feed_id = $1 AND dismissed_at IS NULL`,
+      [
+        row.feed_id,
+        item.source_type,
+        item.summary,
+        item.why_it_matters,
+        item.url || null,
+        item.source_title || null,
+        Boolean(item.urgent),
+        contentKey,
+      ],
+    );
+    return;
+  }
+  try {
+    await db.query(
+      `INSERT INTO sage_intelligence_feed
+         (brand_id, source_type, summary, why_it_matters, url, source_title,
+          urgent, signal_key, content_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (brand_id, signal_key) DO UPDATE SET
+         source_type = EXCLUDED.source_type,
+         summary = EXCLUDED.summary,
+         why_it_matters = EXCLUDED.why_it_matters,
+         url = EXCLUDED.url,
+         source_title = EXCLUDED.source_title,
+         urgent = EXCLUDED.urgent,
+         content_key = EXCLUDED.content_key,
+         created_at = NOW()
+       WHERE sage_intelligence_feed.dismissed_at IS NULL`,
+      [
+        brandId,
+        item.source_type,
+        item.summary,
+        item.why_it_matters,
+        item.url || null,
+        item.source_title || null,
+        Boolean(item.urgent),
+        item.signal_key,
+        contentKey,
+      ],
+    );
+  } catch (err) {
+    // uq_sage_feed_content_visible: a concurrent writer already saved this
+    // finding under a different signal_key — the dedup did its job, no-op.
+    if (err && err.code === "23505") return;
+    throw err;
+  }
 }
 
 /**
@@ -347,7 +417,8 @@ async function sageSnapshotForBrand(brandId) {
       db.query(
         `SELECT summary, why_it_matters, urgent, created_at
            FROM sage_intelligence_feed
-          WHERE brand_id = $1 AND created_at > NOW() - INTERVAL '7 days'
+          WHERE brand_id = $1 AND dismissed_at IS NULL
+            AND created_at > NOW() - INTERVAL '7 days'
           ORDER BY created_at DESC LIMIT 5`,
         [brandId],
       ),
@@ -425,7 +496,8 @@ async function getFeed(req, res) {
       `SELECT feed_id, source_type, summary, why_it_matters, url, source_title,
               urgent, created_at
          FROM sage_intelligence_feed
-        WHERE brand_id = $1 AND created_at > NOW() - INTERVAL '30 days'
+        WHERE brand_id = $1 AND dismissed_at IS NULL
+          AND created_at > NOW() - INTERVAL '30 days'
         ORDER BY urgent DESC, created_at DESC
         LIMIT 100`,
       [brandId],
@@ -433,6 +505,44 @@ async function getFeed(req, res) {
     return res.json({ feed: r.rows });
   } catch (err) {
     return sendError(res, err, "Failed to load the intelligence feed");
+  }
+}
+
+/**
+ * POST /api/sage/feed/dismiss — delete (dismiss) feed items.
+ * Body: { brandId, feedIds: [uuid,...] } for selected items, or
+ *       { brandId, all: true } to clear the whole visible feed.
+ * Soft-dismiss so recurring scans can never re-insert a deleted finding.
+ */
+async function dismissFeedItems(req, res) {
+  try {
+    const { brandId, feedIds, all } = req.body || {};
+    const brand = await getOwnedBrand(req.user.userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+    let r;
+    if (all === true) {
+      r = await db.query(
+        `UPDATE sage_intelligence_feed SET dismissed_at = NOW()
+          WHERE brand_id = $1 AND dismissed_at IS NULL`,
+        [brandId],
+      );
+    } else {
+      const ids = Array.isArray(feedIds)
+        ? feedIds.filter((id) => typeof id === "string" && id.trim())
+        : [];
+      if (ids.length === 0) {
+        return res.status(400).json({ error: "Select at least one item to delete" });
+      }
+      r = await db.query(
+        `UPDATE sage_intelligence_feed SET dismissed_at = NOW()
+          WHERE brand_id = $1 AND dismissed_at IS NULL
+            AND feed_id = ANY($2::uuid[])`,
+        [brandId, ids],
+      );
+    }
+    return res.json({ dismissed: r.rowCount });
+  } catch (err) {
+    return sendError(res, err, "Failed to delete feed items");
   }
 }
 
@@ -714,6 +824,7 @@ module.exports = {
   getBrief,
   refreshBrief,
   getFeed,
+  dismissFeedItems,
   getInsights,
   listCompetitors,
   addCompetitor,
@@ -723,4 +834,7 @@ module.exports = {
   deleteCompetitor,
   submitIntelligence,
   listSubmissions,
+  // test seams
+  _contentKeyOfForTests: contentKeyOf,
+  _saveFeedItemForTests: saveFeedItem,
 };

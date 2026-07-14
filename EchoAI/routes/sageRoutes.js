@@ -25,6 +25,7 @@ router.post("/brief/refresh", controller.refreshBrief);
 
 // Latest Intelligence feed
 router.get("/feed", controller.getFeed);
+router.post("/feed/dismiss", controller.dismissFeedItems);
 
 // Marketing Insights
 router.get("/insights", controller.getInsights);

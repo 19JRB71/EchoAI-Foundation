@@ -25,7 +25,7 @@ async function sageContextForBrand(brandId) {
       db.query(
         `SELECT summary, why_it_matters, urgent
            FROM sage_intelligence_feed
-          WHERE brand_id = $1 AND created_at > NOW() - INTERVAL '30 days'
+          WHERE brand_id = $1 AND dismissed_at IS NULL AND created_at > NOW() - INTERVAL '30 days'
           ORDER BY urgent DESC, created_at DESC LIMIT 6`,
         [brandId],
       ),

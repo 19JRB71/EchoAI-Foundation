@@ -304,7 +304,7 @@ async function gatherBriefingData(userId, since, brandId = null) {
         ? safeRows(
             `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
                FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
-              WHERE f.brand_id = $1 AND f.created_at > $2
+              WHERE f.brand_id = $1 AND f.dismissed_at IS NULL AND f.created_at > $2
               ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
             [sageBrandId, sinceParam]
           )
@@ -684,7 +684,7 @@ async function gatherWeeklyData(userId, brandId = null) {
       ? safeRows(
           `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
              FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
-            WHERE f.brand_id = $1 AND f.created_at > $2
+            WHERE f.brand_id = $1 AND f.dismissed_at IS NULL AND f.created_at > $2
             ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
           [sageBrandId, weekAgo]
         )

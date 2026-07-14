@@ -192,8 +192,8 @@ async function computeAgents(userId, brand) {
   const fixesWeek = bid ? await n("SELECT COALESCE(SUM(issues_auto_fixed),0)::int AS n FROM health_checks WHERE brand_id = $1 AND check_time > NOW() - INTERVAL '7 days'", [bid]) : 0;
 
   // Sage — industry intelligence. Always active (researches around the clock).
-  const sageFindingsWeek = bid ? await n("SELECT COUNT(*)::int AS n FROM sage_intelligence_feed WHERE brand_id = $1 AND created_at > NOW() - INTERVAL '7 days'", [bid]) : 0;
-  const sageUrgent = bid ? await n("SELECT COUNT(*)::int AS n FROM sage_intelligence_feed WHERE brand_id = $1 AND urgent = true AND created_at > NOW() - INTERVAL '7 days'", [bid]) : 0;
+  const sageFindingsWeek = bid ? await n("SELECT COUNT(*)::int AS n FROM sage_intelligence_feed WHERE brand_id = $1 AND dismissed_at IS NULL AND created_at > NOW() - INTERVAL '7 days'", [bid]) : 0;
+  const sageUrgent = bid ? await n("SELECT COUNT(*)::int AS n FROM sage_intelligence_feed WHERE brand_id = $1 AND dismissed_at IS NULL AND urgent = true AND created_at > NOW() - INTERVAL '7 days'", [bid]) : 0;
   const sageCompetitors = bid ? await n("SELECT COUNT(*)::int AS n FROM sage_competitors WHERE brand_id = $1 AND status = 'confirmed'", [bid]) : 0;
 
   const byId = {
@@ -327,7 +327,7 @@ async function getAgentDetail(req, res) {
         forge: ["SELECT purpose AS title, status, created_at FROM images WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 10", (r) => ({ title: r.title || "Image", meta: r.status, ts: r.created_at })],
         scout: ["SELECT competitor_names, created_at FROM competitor_intelligence WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 10", (r) => ({ title: "Competitor report", meta: Array.isArray(r.competitor_names) ? r.competitor_names.join(", ") : "", ts: r.created_at })],
         sentinel: ["SELECT overall_status, issues_found, issues_auto_fixed, check_time FROM health_checks WHERE brand_id = $1 ORDER BY check_time DESC LIMIT 10", (r) => ({ title: `Health sweep — ${r.overall_status}`, meta: `${r.issues_found || 0} found · ${r.issues_auto_fixed || 0} fixed`, ts: r.check_time })],
-        sage: ["SELECT summary, why_it_matters, source_type, urgent, created_at FROM sage_intelligence_feed WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 10", (r) => ({ title: r.summary, meta: `${r.source_type || "industry"}${r.urgent ? " · urgent" : ""}`, detail: r.why_it_matters, ts: r.created_at })],
+        sage: ["SELECT summary, why_it_matters, source_type, urgent, created_at FROM sage_intelligence_feed WHERE brand_id = $1 AND dismissed_at IS NULL ORDER BY created_at DESC LIMIT 10", (r) => ({ title: r.summary, meta: `${r.source_type || "industry"}${r.urgent ? " · urgent" : ""}`, detail: r.why_it_matters, ts: r.created_at })],
       };
       if (agentId === "echo") {
         activity = (await rows("SELECT title, detail, event_type, occurred_at FROM echo_memory WHERE user_id = $1 ORDER BY occurred_at DESC LIMIT 10", [userId]))
