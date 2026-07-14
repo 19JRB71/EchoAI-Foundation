@@ -34,6 +34,7 @@ import {
   parseWakeWord,
   isQuestion,
   isSelfEcho,
+  selfEchoRemainder,
   matchAssistantIntent,
   matchLocalIntent,
   matchNavIntent,
@@ -133,12 +134,14 @@ const SPEAK_SAFETY_MS = 90000;
 // ignoring me". 800ms covers speaker tail-off without eating quick answers.
 const SPEAK_COOLDOWN_MS = 800;
 // Keep running the self-echo FILTER (not a deaf gate — real speech still
-// passes) on final transcripts for this long after Echo's audio ends. The
-// recognizer can finalize a capture of Echo's own voice several seconds after
-// playback stops, well past the short cooldown — without this window those
-// late transcripts were processed as the owner's speech and Echo answered
-// its own questions.
-const SELF_ECHO_WINDOW_MS = 7000;
+// passes) on final transcripts for this long after Echo's audio ends. Live
+// diagnostics (Jul 2026) show real leaks
+// ALWAYS finalize within ~1.5s of audio end, while the owner's genuine answers
+// arrive 2.5–5s after — a 7s window was eating real commands that reuse
+// Echo's words ("give me the rundown" answering "want me to give you the
+// rundown?"). 3s keeps every observed leak covered with margin while letting
+// real answers through.
+const SELF_ECHO_WINDOW_MS = 3000;
 // After Echo asks a question, ignore ALL speech for at least this long so Echo's
 // own voice trailing off can't answer its own question. Also kept short — the
 // owner usually answers a question right away.
@@ -2719,11 +2722,20 @@ export function EchoConversationProvider({ active, children }) {
             )
             .map((entry) => entry.text);
           if (echoWindow && isSelfEcho(chunk, leakCandidates)) {
+            // The recognizer often glues the owner's fast answer onto the end
+            // of Echo's leaked audio in ONE chunk ("…give you the rundown
+            // yes"). Salvage that trailing real speech instead of eating it.
+            const salvaged = selfEchoRemainder(chunk, leakCandidates);
             recordVoiceEvent("dropped-as-echo-of-self", {
               heard: chunk,
               gated,
+              salvaged: salvaged || undefined,
               msSinceEchoStopped: Date.now() - lastTtsEndAtRef.current,
             });
+            if (salvaged) {
+              finalRef.current = `${finalRef.current} ${salvaged}`.trim();
+              addedFinal = true;
+            }
             continue;
           }
           recordVoiceEvent("heard", {

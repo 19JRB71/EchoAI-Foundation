@@ -5,6 +5,7 @@ import {
   parseWakeWord,
   isQuestion,
   isSelfEcho,
+  selfEchoRemainder,
   matchLocalIntent,
   matchNavIntent,
   navConfirmation,
@@ -96,6 +97,53 @@ describe("isSelfEcho", () => {
     expect(
       isSelfEcho("schedule that post for tomorrow morning", [older, question]),
     ).toBe(true);
+  });
+});
+
+describe("selfEchoRemainder", () => {
+  const question = "I've opened Scout's department. Want me to give you the rundown?";
+
+  it("salvages a real answer glued onto the end of Echo's leaked audio", () => {
+    expect(
+      selfEchoRemainder(
+        "s department want me to give you the rundown yes",
+        [question],
+      ),
+    ).toBe("yes");
+    expect(
+      selfEchoRemainder(
+        "want me to give you the rundown yes please",
+        [question],
+      ),
+    ).toBe("yes please");
+  });
+
+  it("returns empty for a pure self-echo chunk", () => {
+    expect(selfEchoRemainder("want me to give you the rundown", [question])).toBe("");
+    expect(selfEchoRemainder("", [question])).toBe("");
+  });
+
+  it("treats an oversized (5+ word) remainder as noise, not speech", () => {
+    expect(
+      selfEchoRemainder(
+        "rundown please pull up every single hot new lead",
+        [question],
+      ),
+    ).toBe("");
+  });
+
+  it("fails closed on a misheard trailing token that is not a real answer", () => {
+    // A pure leak with one ASR-hallucinated trailing word must stay dropped —
+    // "blue" is not an unambiguous short answer.
+    expect(
+      selfEchoRemainder("want me to give you the rundown blue", [question]),
+    ).toBe("");
+  });
+
+  it("accepts 'sir'-suffixed short answers", () => {
+    expect(
+      selfEchoRemainder("want me to give you the rundown yes sir", [question]),
+    ).toBe("yes sir");
   });
 });
 

@@ -1,0 +1,62 @@
+=== Echo voice diagnostic report ===
+Generated: Tue Jul 14 2026 10:46:52 GMT-0400 (Eastern Daylight Time)
+Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36
+Platform: Win32
+Events: 54 (newest last, ring buffer of 400)
+
+10:44:04.068  heard  text="good morning Echo" mode=passive
+10:44:12.273  wake-word  (+8.2s)
+10:44:12.274  echo-speaks  text="Listening Sir."
+10:44:13.821  echo-audio-ended  (+1.5s)
+10:44:18.392  heard  text=" take me to scout" echoWindow mode=active  (+4.6s)
+10:44:18.860  command-processing  text="take me to scout"
+10:44:18.867  echo-speaks  text="I've opened Scout's department. Want me to give you the rundown?"
+10:44:22.701  echo-audio-ended  (+3.8s)
+10:44:24.179  dropped-as-echo-of-self  heard="s Department want me to give you the rundown yes" msSinceEchoStopped=1478
+10:44:27.378  dropped-as-echo-of-self  heard=" give me the rundown" msSinceEchoStopped=4677  (+3.2s)
+10:44:36.358  heard  text=" hey Echo" mode=active  (+9.0s)
+10:44:36.819  command-processing  text="hey Echo"
+10:44:36.819  echo-speaks  text="I'm here Sir — go ahead."
+10:44:38.673  echo-audio-ended  (+1.9s)
+10:44:39.478  dropped-as-echo-of-self  heard=" I'm here" gated msSinceEchoStopped=805
+10:44:42.878  heard  text=" go to customer intelligence" echoWindow mode=active  (+3.4s)
+10:44:43.333  command-processing  text="go to customer intelligence"
+10:44:43.335  echo-speaks  text="Here's customer intelligence. Shall I walk you through it?"
+10:44:46.632  echo-audio-ended  (+3.3s)
+10:44:47.382  dropped-as-echo-of-self  gated msSinceEchoStopped=750
+10:44:51.065  dropped-as-echo-of-self  msSinceEchoStopped=4433  (+3.7s)
+10:45:00.093  heard  text=" hey Echo walk me through it" mode=active  (+9.0s)
+10:45:00.558  command-processing  text="hey Echo walk me through it"
+10:45:04.448  echo-speaks  text="Here's where BLA COR HOMES stands right now, Sir:
+
+**Campaigns** — No active ad campaigns are running yet."  (+3.9s)
+10:45:11.598  echo-audio-ended  (+7.2s)
+10:45:11.599  echo-speaks  text="Everything is staged and ready for you to greenlight whenever you'd like to launch."
+10:45:16.198  echo-audio-ended  (+4.6s)
+10:45:16.199  echo-speaks  text="**SEO** — You flagged local search, keywords, and Google Business optimization as priorities."
+10:45:23.038  echo-audio-ended  (+6.8s)
+10:45:23.038  echo-speaks  text="I haven't launched anything there yet — I want your approval on direction before touching it."
+10:45:27.918  echo-audio-ended  (+4.9s)
+10:45:27.918  echo-speaks  text="**Social & Email** — No scheduled posts or email campaigns are live for BLA COR HOMES at this time."
+10:45:39.188  echo-audio-ended  (+11.3s)
+10:45:39.188  echo-speaks  text="**Bottom line:** The account is active but pre-launch — you're in a clean position to move fast."
+10:45:45.128  echo-audio-ended  (+5.9s)
+10:45:45.129  echo-speaks  text="Want me to start with the Google Business optimization, or would you rather I put together a first ad campaign for you to approve?"
+10:45:51.879  echo-audio-ended  (+6.8s)
+10:45:53.308  dropped-as-echo-of-self  heard=" want me to start with the Google Business optimization" msSinceEchoStopped=1429
+10:45:55.369  dropped-as-echo-of-self  msSinceEchoStopped=3490  (+2.1s)
+10:46:05.857  heard  text=" hey Echo" mode=active  (+10.5s)
+10:46:06.309  command-processing  text="hey Echo"
+10:46:06.309  echo-speaks  text="Listening Sir."
+10:46:07.456  echo-audio-ended
+10:46:10.477  heard  text=" let's go to the list of pre-approves" echoWindow mode=active  (+3.0s)
+10:46:10.930  command-processing  text="let's go to the list of pre-approves"
+10:46:13.832  echo-speaks  text="Taking you to your Pre-Approved Items for BLA COR HOMES now, Sir."  (+2.9s)
+10:46:18.457  echo-audio-ended  (+4.6s)
+10:46:19.167  dropped-as-echo-of-self  heard=" taking you to your pre-approved items for bla call homes now sir" gated msSinceEchoStopped=710
+10:46:28.891  heard  text=" take me to the Adams" mode=active  (+9.7s)
+10:46:29.348  command-processing  text="take me to the Adams"
+10:46:31.244  speaker-muted  (+1.9s)
+10:46:31.245  stop-all  queued=8
+10:46:32.866  speech-skipped  reason=speaker-muted text="Taking you there now, Sir."  (+1.6s)
+10:46:33.268  speech-skipped  reason=speaker-muted text="Once you're on the Adams, what would you like to do — review a lead, pull up con"

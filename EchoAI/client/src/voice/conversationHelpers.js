@@ -185,6 +185,49 @@ export function isSelfEcho(heard, recentTexts) {
   return false;
 }
 
+/**
+ * When a chunk WAS classified as self-echo, salvage any real speech glued on
+ * the end. The recognizer often finalizes Echo's trailing audio together with
+ * the owner's fast answer as ONE chunk ("…want me to give you the rundown
+ * yes") — dropping the whole chunk eats the "yes". Walk backwards from the
+ * end of the chunk collecting words that appear in NONE of the echoed lines;
+ * a short (1–4 word) trailing remainder is the owner's real speech.
+ * @param {string} heard raw transcript chunk already matched as self-echo.
+ * @param {string[]} recentTexts the lines the chunk was matched against.
+ * @returns {string} the salvaged trailing speech, or "" when the chunk is
+ *   purely Echo's own audio.
+ */
+// Only these short responses may be salvaged off the end of a self-echo
+// chunk. ASR routinely mishears a stray trailing token on a pure leak; an
+// open-ended salvage would promote that noise into a command. Restricting to
+// unambiguous yes/no/stop-style answers keeps salvage safe: a misheard word
+// almost never lands exactly on one of these, and these are precisely the
+// fast answers that get glued onto Echo's trailing audio.
+const SALVAGE_RE =
+  /^(yes|yeah|yep|yup|sure|ok|okay|no|nope|nah|no thanks|no thank you|not now|yes please|sure thing|go ahead|go for it|do it|please do|stop|cancel)( sir)?$/;
+
+export function selfEchoRemainder(heard, recentTexts) {
+  const norm = normalizeSpeech(heard);
+  if (!norm) return "";
+  const echoWords = new Set();
+  for (const spokenRaw of Array.isArray(recentTexts) ? recentTexts : []) {
+    for (const w of normalizeSpeech(spokenRaw).split(" ")) {
+      if (w) echoWords.add(w);
+    }
+  }
+  const words = norm.split(" ");
+  const rem = [];
+  for (let i = words.length - 1; i >= 0; i -= 1) {
+    if (echoWords.has(words[i])) break;
+    rem.unshift(words[i]);
+  }
+  if (rem.length === 0 || rem.length > 4) return "";
+  const salvaged = rem.join(" ");
+  // Fail closed: anything that isn't an unambiguous short answer stays
+  // classified as Echo's own audio and is dropped whole.
+  return SALVAGE_RE.test(salvaged) ? salvaged : "";
+}
+
 // Phrases Echo handles itself, without a round-trip to the server.
 const MUTE_RE = /\b(mute yourself|mute yourself now|go quiet|be quiet|stop listening|mute)\b/;
 const PATIENCE_RE =

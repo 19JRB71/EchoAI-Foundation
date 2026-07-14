@@ -23,6 +23,20 @@ echo checks: keep filtering (drop only matches), keep the post-TTS window on
 FINAL chunks only (interims stay gated), and keep heard/spoken text normalized
 through the same `normalizeSpeech` before word-set comparisons.
 
+**Window size (third incident):** live flight-recorder data showed TRUE leaks
+always finalize within ~1.5s of audio end, while the owner's genuine answers
+that reuse Echo's words ("give me the rundown" answering "want me to give you
+the rundown?") arrive 2.5–5s after. Window reduced 7s→3s. If tuning again,
+demand flight-recorder evidence — the two failure modes (Echo answers itself
+vs Echo eats real answers) pull the window in opposite directions.
+
+**Glued-answer salvage:** the recognizer often finalizes Echo's leak + the
+owner's fast answer as ONE chunk ("…give you the rundown yes"). Salvage the
+trailing words not present in any echoed line, but FAIL CLOSED: only accept an
+exact match against a short-answer whitelist (yes/no/stop/go ahead… optional
+"sir" suffix) — open-ended salvage promotes ASR-hallucinated trailing tokens
+into fake commands.
+
 **Recency rule (second production incident):** only match against lines whose
 audio is still playing or ended within the echo window. Echo verbally SUGGESTS
 commands ("say 'switch to another business' anytime"); when the owner obeyed
