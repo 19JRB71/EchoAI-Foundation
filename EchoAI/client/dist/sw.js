@@ -15,7 +15,7 @@
 // index.html + hashed JS/CSS. Without a bump, a returning PWA user keeps being
 // served the old precached shell (old bundle) forever, regardless of HTTP
 // Cache-Control headers — the service worker answers from its own cache first.
-const CACHE = "echoai-shell-v111";
+const CACHE = "echoai-shell-v112";
 
 // The app shell. Hashed Vite asset filenames are cached at runtime (see fetch
 // handler), so we only need the entry points here.

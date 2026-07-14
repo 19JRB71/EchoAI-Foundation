@@ -17,6 +17,23 @@ import { useDemoSuggestions } from "../demo/DemoSuggestionContext.jsx";
 const TEAL = "#14b8a6";
 const RED = "#ef4444";
 
+// When Echo's server reply carries a validated `navigateTo` target (the
+// [[NAVIGATE]] marker path — used when the local voice regex didn't catch a
+// navigation request), actually move the dashboard. App.jsx listens for this
+// event and applies its own tier gating (handleSelectSection/canOpenSection),
+// so an out-of-tier target safely shows the upgrade prompt instead.
+function performEchoNavigation(message) {
+  const target = message && typeof message.navigateTo === "string" ? message.navigateTo : "";
+  if (!target) return;
+  try {
+    // eslint-disable-next-line no-console
+    console.log(`[Echo nav] server reply requested navigation → "${target}"`);
+    window.dispatchEvent(new CustomEvent("echoai:navigate-section", { detail: target }));
+  } catch {
+    /* noop */
+  }
+}
+
 // Live AI marketing suggestion card (Sales Presentation Mode). Shows the
 // suggestion Echo just voiced, with Accept / Dismiss. Accepting runs a brief
 // "executing" animation then a success state; both are driven by `phase`.
@@ -424,6 +441,7 @@ export default function EchoCompanion({ brandId = "", onSelectBrand } = {}) {
           return next;
         });
         scrollToBottom();
+        performEchoNavigation(res.message);
       } catch (e) {
         setError(e.message || "Echo couldn't reply.");
       } finally {
@@ -472,6 +490,7 @@ export default function EchoCompanion({ brandId = "", onSelectBrand } = {}) {
           return next;
         });
         scrollToBottom();
+        performEchoNavigation(res.message);
         const reply = (res.message && res.message.text) || "";
         return { reply, isQuestion: isQuestion(reply) };
       } catch (e) {

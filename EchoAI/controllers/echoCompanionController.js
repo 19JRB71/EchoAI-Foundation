@@ -136,6 +136,87 @@ function pushMsg(messages, ...msgs) {
   return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
 }
 
+// Dashboard targets Echo may navigate to via the [[NAVIGATE: target]] marker.
+// Mirrors the client's NAV_TARGETS keys (client/src/voice/conversationHelpers.js)
+// — the client validates again (tier gates in App.jsx handleSelectSection), so a
+// key here is a candidate, never an override. Keep the two lists in sync.
+const NAV_TARGET_DESCRIPTIONS = {
+  missioncontrol: "Mission Control home",
+  leads: "leads",
+  campaigns: "Facebook ad campaigns",
+  social: "social media posts",
+  email: "email marketing",
+  echoemail: "the Email Assistant inbox",
+  sms: "SMS marketing",
+  reputation: "reputation & reviews",
+  phone: "the AI phone agent",
+  appointments: "appointments & calendar",
+  followups: "follow-up sequences",
+  chatbot: "the website chatbot",
+  image: "the Image Studio",
+  video: "video content",
+  googleseo: "Google & SEO",
+  roi: "the ROI dashboard",
+  contentcalendar: "the content calendar",
+  autopilot: "Autopilot",
+  adstudio: "the Ad Creative Studio",
+  sales: "sales scripts",
+  intelligence: "customer intelligence",
+  capitalfunding: "capital & funding",
+  feedback: "customer feedback",
+  affiliate: "the affiliate program",
+  agency: "the agency workspace",
+  zapier: "webhooks",
+  overview: "the overview",
+  portfolio: "the portfolio",
+  admin: "the admin panel",
+  settings: "settings",
+  voicesettings: "voice settings",
+  echomemory: "Echo's memory bank",
+  echoplanner: "reminders & tasks",
+  echogrowth: "autonomous growth",
+  aiteam: "the AI team overview",
+  sentinelhealth: "the health monitor",
+  callmonitor: "call monitoring",
+  queueoverview: "the sales queue",
+  "dept:echo": "Echo's department (marketing director)",
+  "dept:scout": "Scout's department (research & competitors)",
+  "dept:atlas": "Atlas's department (advertising)",
+  "dept:nova": "Nova's department (social media)",
+  "dept:pulse": "Pulse's department (CRM)",
+  "dept:voice": "Voice's department (receptionist)",
+  "dept:forge": "Forge's department (creative)",
+  "dept:sentinel": "Sentinel's department (oversight)",
+  "dept:sage": "Sage's department (industry intel)",
+  "action:facebook": "the Facebook connect wizard",
+};
+const NAV_TARGET_KEYS = new Set(Object.keys(NAV_TARGET_DESCRIPTIONS));
+const NAV_PROMPT_LIST = Object.entries(NAV_TARGET_DESCRIPTIONS)
+  .map(([k, d]) => `${k} (${d})`)
+  .join(", ");
+
+// Resolve the [[NAVIGATE: target]] marker in an AI reply. Returns the cleaned
+// reply plus the validated target (or null). Truthfulness rules:
+// - valid target → strip marker, keep the confirmation text, set navigateTo
+// - UNKNOWN target → strip marker AND replace the whole reply with an honest
+//   fallback: the reply's purpose was navigation, so leaving "taking you
+//   there" text behind would be a false claim (no navigation will happen).
+function resolveNavMarker(reply) {
+  const navMatch = reply.match(/\[\[NAVIGATE:\s*([\s\S]*?)\]\]/);
+  if (!navMatch) return { reply, navigateTo: null };
+  let cleaned = reply.replace(/\s*\[\[NAVIGATE:[\s\S]*?\]\]\s*/g, " ").trim();
+  const target = navMatch[1].trim().toLowerCase();
+  if (NAV_TARGET_KEYS.has(target)) {
+    return { reply: cleaned || "Taking you there now.", navigateTo: target };
+  }
+  console.error(`Echo NAVIGATE marker had unknown target "${target}" — navigation skipped.`);
+  return {
+    reply:
+      "I couldn't open that one — tell me which section you'd like (your leads, campaigns, social media, and so on) and I'll take you there.",
+    navigateTo: null,
+  };
+}
+
 // Voice execution: how the owner responded to a pending action, in natural
 // language. Order matters — a decline ("no, cancel") must win over an affirm,
 // and an explicit "confirm" is distinguished from a plain "yes" so high-stakes
@@ -788,7 +869,7 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
         ? 'There is an action awaiting their approval in the companion panel. They can approve it by clicking, or just tell you "yes" / "go ahead" — but if it is high-stakes (spends money or contacts customers) they must say "confirm".'
         : "There is nothing awaiting their approval right now.",
       "You run their marketing for them: you can launch Facebook ad campaigns, schedule social posts, send email campaigns, and report performance.",
-      'The app handles voice navigation for you: when the user says things like "go to Atlas", "show me my leads", or "open Facebook setup", the dashboard navigates instantly on its own. NEVER say you cannot navigate, open pages, or take them somewhere — if they ask to go somewhere, respond as if you are taking them there (e.g. "Taking you to Atlas now.").',
+      `NAVIGATION RULE: you CAN take the owner anywhere in the dashboard, but ONLY via the marker. When they ask to go somewhere, open a page, or see a section (e.g. "take me to Atlas", "show me my leads"), output as the literal last line of your reply the marker [[NAVIGATE: target]] — including the double square brackets exactly — with EXACTLY ONE target id from this list: ${NAV_PROMPT_LIST}. The marker is stripped before display and the dashboard performs the actual navigation. In your visible reply, briefly confirm the move ("Taking you to Atlas now."). NEVER claim you are taking them somewhere unless you include the marker in that same reply. If what they want isn't in the list, say where the closest thing lives instead — never pretend to navigate.`,
       "Every action you take requires their one-click approval (or a Facebook password) first — if they ask you to do something, tell them you'll prepare a preview for them to approve.",
       'EMAIL ASSISTANT RULE: you can draft emails for the owner (sent from their own connected email account, only after they approve the draft in the Email tab). When the user asks you to write, draft, reply to, or send an email, output as the literal last line of your reply the marker [[EMAIL_DRAFT: recipient || what the email should say]] — recipient is the email address (or the sender\'s name if they said "reply to John"), and after the double pipe put a clear instruction of what to write. Include the double square brackets exactly; the marker is stripped before display. In your visible reply, say you\'re preparing the draft for their approval — NEVER claim an email was sent. Only use this marker for actual email-writing requests.',
       'CRITICAL FEATURE-REQUEST RULE: if the user asks you to DO something the platform cannot do yet (any capability outside ads, social posts, email campaigns, reminders/tasks, reporting, and navigation — e.g. "post to TikTok", "sync with QuickBooks", "book me a flight"), NEVER dead-end with a flat "I cannot do that". Instead you MUST do BOTH of these: (1) acknowledge it warmly as a good idea, and (2) output, as the literal last line of your reply, the marker [[FEATURE_REQUEST: short description of what they asked for]] — including the double square brackets exactly. The marker is MANDATORY, not optional: the platform parses it to record the request for the development team, and omitting it silently discards the user\'s idea. The user never sees the marker (it is stripped before display), so always include it. Do NOT claim the suggestion has been noted or logged — the system appends that confirmation itself. Only use the marker when they asked you to perform an unsupported action; never for questions, chit-chat, or things you CAN do.',
@@ -906,6 +987,16 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
       if (!reply) reply = "I'll get that email drafted for your approval.";
     }
 
+    // Navigation capture: when a "take me to X" request reaches the AI (the
+    // client's local regex didn't catch it), the prompt has Echo tag the reply
+    // with [[NAVIGATE: target]]. Validate the target against the known keys and
+    // attach it to the returned message — the client performs the actual
+    // navigation (with its own tier gating). Echo never claims a move without
+    // a valid marker, so what he says and what the screen does stay in sync.
+    const navResolved = resolveNavMarker(reply);
+    reply = navResolved.reply;
+    const navigateTo = navResolved.navigateTo;
+
     // Streamed replies: speak whatever the final post-processed reply added
     // beyond the sentences already emitted (the un-flushed tail, plus any
     // marker confirmation text). Prefix-match against the raw emitted text so
@@ -920,7 +1011,7 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
     }
 
     const uMsg = userMsg(text);
-    const eMsg = echoMsg("text", reply);
+    const eMsg = echoMsg("text", reply, navigateTo ? { navigateTo } : {});
     await persist(userId, {
       messages: pushMsg(state.messages, uMsg, eMsg),
       pendingAction: state.pending_action || null,
@@ -1078,6 +1169,9 @@ module.exports = {
   // Test seams: inbox-awareness context for Echo's chat prompt.
   _buildInboxContextForTests: buildInboxContext,
   _emailQuestionReForTests: EMAIL_QUESTION_RE,
+  // Test seams: [[NAVIGATE]] marker resolution + the server-side target allowlist.
+  _resolveNavMarkerForTests: resolveNavMarker,
+  _navTargetKeysForTests: NAV_TARGET_KEYS,
   getState,
   advance,
   approve,
