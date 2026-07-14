@@ -181,7 +181,18 @@ async function createFixture() {
 }
 
 async function cleanup(userId) {
-  await db.query("DELETE FROM users WHERE user_id = $1", [userId]);
+  // The cascading delete touches many child tables; when suites run in
+  // parallel Postgres can pick this DELETE as a deadlock victim (40P01).
+  // A short retry keeps the flake from failing an otherwise-green test.
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await db.query("DELETE FROM users WHERE user_id = $1", [userId]);
+      return;
+    } catch (err) {
+      if (err.code !== "40P01" || attempt >= 2) throw err;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
 }
 
 test("approveDraft schedules exactly one post; a second approve conflicts", async () => {
