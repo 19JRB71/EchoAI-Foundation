@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
+import MediaUploader from "../components/MediaUploader.jsx";
 import { agentMeta } from "../lib/departments.js";
 
 // Who made what: Nova drafts the social posts, Atlas drafts the test ads.
@@ -506,7 +507,14 @@ export default function Autopilot({ brandId }) {
                 <p className="mt-2 whitespace-pre-wrap text-sm text-gray-200">
                   {item.postContent}
                 </p>
-                {item.imageUrl ? (
+                {item.videoUrl ? (
+                  <video
+                    src={item.videoUrl}
+                    controls
+                    playsInline
+                    className="mt-3 max-h-64 rounded-lg border border-gray-700"
+                  />
+                ) : item.imageUrl ? (
                   <img
                     src={item.imageUrl}
                     alt="Post graphic"
@@ -577,6 +585,39 @@ export default function Autopilot({ brandId }) {
                       Decline
                     </button>
                   </div>
+                )}
+
+                {isPending && item.itemType === "post" && (
+                  <MediaUploader
+                    platform={item.platform}
+                    uploadedMedia={
+                      item.videoUrl
+                        ? { url: item.videoUrl, mediaType: "video" }
+                        : item.imageUrl && item.imageUrl.startsWith("/uploads/media/")
+                          ? { url: item.imageUrl, mediaType: "image" }
+                          : null
+                    }
+                    onUploaded={(media) =>
+                      act(
+                        item,
+                        () =>
+                          api.autopilotItemMedia(
+                            item.itemId,
+                            media.mediaType === "video"
+                              ? { videoUrl: media.url }
+                              : { imageUrl: media.url }
+                          ),
+                        "Failed to attach your media."
+                      )
+                    }
+                    onCleared={() =>
+                      act(
+                        item,
+                        () => api.autopilotItemMedia(item.itemId, {}),
+                        "Failed to remove the media."
+                      )
+                    }
+                  />
                 )}
 
                 {isPending && reviseFor === item.itemId && (

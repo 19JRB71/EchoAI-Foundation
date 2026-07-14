@@ -22,6 +22,7 @@ router.post("/items/:itemId/approve", autopilot.approveItem);
 router.post("/items/:itemId/decline", autopilot.declineItem);
 router.post("/items/:itemId/revise", autopilot.reviseItem);
 router.post("/items/:itemId/image", autopilot.generateItemImage);
+router.put("/items/:itemId/media", autopilot.setItemMedia);
 router.post("/batches/:batchId/complete", autopilot.completeBatch);
 
 // Learning Engine: what Echo has learned from the owner's review decisions,

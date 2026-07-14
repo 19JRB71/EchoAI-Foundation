@@ -164,6 +164,7 @@ function itemView(i) {
     postContent: i.post_content,
     visualIdea: i.visual_idea,
     imageUrl: i.image_url,
+    videoUrl: i.video_url,
     scheduledTime: i.scheduled_time,
     rationale: i.rationale,
     adHeadline: i.ad_headline,
@@ -353,7 +354,7 @@ async function renderItemImage(brand, item) {
   const temporaryUrl = await renderFromPrompt(prompt, purpose);
   const permanentUrl = await persistImage(temporaryUrl);
   await db.query(
-    `UPDATE autopilot_batch_items SET image_prompt = $1, image_url = $2
+    `UPDATE autopilot_batch_items SET image_prompt = $1, image_url = $2, video_url = NULL
       WHERE item_id = $3 AND status = 'pending'`,
     [prompt, permanentUrl, item.item_id]
   );
@@ -716,10 +717,10 @@ async function approveItem(req, res) {
             ? row.scheduled_time
             : new Date(Date.now() + 10 * 60 * 1000);
         const inserted = await client.query(
-          `INSERT INTO social_posts (brand_id, platform, post_content, image_url, scheduled_time, status)
-           VALUES ($1, $2, $3, $4, $5, 'scheduled')
+          `INSERT INTO social_posts (brand_id, platform, post_content, image_url, video_url, scheduled_time, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'scheduled')
            RETURNING post_id, scheduled_time`,
-          [item.brand_id, row.platform, row.post_content, row.image_url, scheduledTime]
+          [item.brand_id, row.platform, row.post_content, row.image_url, row.video_url, scheduledTime]
         );
         await client.query(
           "UPDATE autopilot_batch_items SET posted_post_id = $1 WHERE item_id = $2",
@@ -964,6 +965,77 @@ async function generateItemImage(req, res) {
 }
 
 /**
+ * PUT /api/autopilot/items/:itemId/media
+ * Body: { imageUrl? , videoUrl? } — attach an owner-uploaded photo/video (from
+ * POST /api/social/media) to a pending batch item, or clear both (empty body).
+ * A photo and a video are mutually exclusive; videos publish on Facebook only.
+ */
+async function setItemMedia(req, res) {
+  const userId = req.user.userId;
+  const { itemId } = req.params;
+  const { imageUrl, videoUrl } = req.body || {};
+
+  function validLocalMediaPath(value, prefixes) {
+    return (
+      typeof value === "string" &&
+      !value.includes("..") &&
+      prefixes.some((p) => value.startsWith(p))
+    );
+  }
+
+  try {
+    const item = await getOwnedItem(userId, itemId);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+    if (item.item_type !== "post") {
+      return res.status(400).json({ error: "Only posts can carry media" });
+    }
+    if (item.status !== "pending") {
+      return res.status(409).json({ error: "This item is no longer editable" });
+    }
+    if (imageUrl && videoUrl) {
+      return res.status(400).json({ error: "Attach a photo or a video, not both" });
+    }
+    let nextImage = null;
+    let nextVideo = null;
+    if (imageUrl != null && imageUrl !== "") {
+      if (!validLocalMediaPath(imageUrl, ["/uploads/images/", "/uploads/media/"])) {
+        return res.status(400).json({
+          error:
+            "imageUrl must be a stored image path (/uploads/images/... or /uploads/media/...)",
+        });
+      }
+      nextImage = imageUrl;
+    }
+    if (videoUrl != null && videoUrl !== "") {
+      if (!validLocalMediaPath(videoUrl, ["/uploads/media/"])) {
+        return res.status(400).json({
+          error: "videoUrl must be an uploaded video path (/uploads/media/...)",
+        });
+      }
+      if (item.platform !== "facebook") {
+        return res.status(400).json({
+          error: "Video posts are currently supported on Facebook only.",
+        });
+      }
+      nextVideo = videoUrl;
+    }
+    const updated = await db.query(
+      `UPDATE autopilot_batch_items SET image_url = $1, video_url = $2
+        WHERE item_id = $3 AND status = 'pending'
+        RETURNING *`,
+      [nextImage, nextVideo, itemId]
+    );
+    if (updated.rows.length === 0) {
+      return res.status(409).json({ error: "This item is no longer editable" });
+    }
+    return res.json(itemView(updated.rows[0]));
+  } catch (err) {
+    console.error("Autopilot item media error:", err.message);
+    return res.status(500).json({ error: "Failed to attach media to this item" });
+  }
+}
+
+/**
  * POST /api/autopilot/batches/:batchId/complete
  * Body: { cancelled? } — close out a review session. Pending items stay
  * pending (they are drafts; nothing publishes without an approve).
@@ -1177,6 +1249,7 @@ module.exports = {
   declineItem,
   reviseItem,
   generateItemImage,
+  setItemMedia,
   completeBatch,
   listLearnings,
   forgetLearning,

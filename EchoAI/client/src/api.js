@@ -1656,6 +1656,11 @@ export const api = {
       method: "POST",
       body: { instruction },
     }),
+  autopilotItemMedia: (itemId, media) =>
+    request(`/api/autopilot/items/${itemId}/media`, {
+      method: "PUT",
+      body: media || {},
+    }),
   autopilotItemImage: (itemId) =>
     request(`/api/autopilot/items/${itemId}/image`, {
       method: "POST",
