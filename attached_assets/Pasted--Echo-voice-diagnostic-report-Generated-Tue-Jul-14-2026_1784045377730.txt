@@ -1,0 +1,29 @@
+=== Echo voice diagnostic report ===
+Generated: Tue Jul 14 2026 12:09:22 GMT-0400 (Eastern Daylight Time)
+Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36
+Platform: Win32
+Events: 15 (newest last, ring buffer of 400)
+
+12:05:11.865  stop-all  queued=0
+12:05:11.877  stop-all  queued=0
+12:05:40.161  speaker-unmuted  (+28.3s)
+12:05:51.779  speaker-muted  (+11.6s)
+12:05:51.779  stop-all  queued=0
+12:08:04.803  speaker-unmuted  (+133.0s)
+12:08:14.820  echo-speaks  text="Good to have you here, Sir. Here's where things stand for BLA COR HOMES right now.
+
+No leads, no appointments, and no campaigns running yet — which is exactly why we need to move. The grow goal is showing at risk, and with nothing in the pipeline, that's not going to fix itself. Facebook is connected, which gives us a solid foundation to work from.
+
+We've talked about Google Business optimization as the starting point — local search, the right keywords, getting BLA COR HOMES showing up where buyers are actually looking. I have a direction ready, but nothing goes out until you greenlight it.
+
+One general email came in overnight, nothing urgent.
+
+What would you like to tackle first — Google Business, or do you want to see the full launch plan before deciding?"  (+10.0s)
+12:08:57.432  echo-audio-ended  (+42.6s)
+12:08:58.053  dropped-as-echo-of-self  heard="the grow goal is showing at risk and with nothing in the pipeline that's not going to fix itself Facebook Google Business optimization" gated msSinceEchoStopped=621
+12:08:59.440  echo-speaks  text="Sir, you have 361 notifications for this business. Would you like me to go through them?"
+12:09:04.231  stop-all  queued=8  (+4.8s)
+12:09:04.232  echo-audio-ended
+12:09:04.232  speech-not-played  status=stopped text="Sir, you have 361 notifications for this business. Would you like me to go throu"
+12:09:05.245  heard  text=" hey give me the phone number" echoWindow mode=passive
+12:09:21.866  echo-speaks  text="Sir, you have 361 notifications for this business. Would you like me to go through them?"  (+16.6s)

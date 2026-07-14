@@ -32,6 +32,7 @@ import { preloadEffects, playEffect, stopEffect } from "./sfx.js";
 import { preloadAcks, playAckNow } from "./acks.js";
 import {
   parseWakeWord,
+  parseWakeGreetingOnly,
   isQuestion,
   isSelfEcho,
   selfEchoRemainder,
@@ -142,6 +143,12 @@ const SPEAK_COOLDOWN_MS = 800;
 // rundown?"). 3s keeps every observed leak covered with margin while letting
 // real answers through.
 const SELF_ECHO_WINDOW_MS = 3000;
+// Window after Echo's last audio end (natural OR stopped) in which a bare
+// greeting-led utterance ("hey give me the phone number" — recognizer dropped
+// the word "Echo") is still treated as addressing Echo. Outside this window
+// the full "Hey Echo" wake phrase stays required so ambient speech can't
+// trigger commands.
+const RECENT_ECHO_WAKE_MS = 10000;
 // After Echo asks a question, ignore ALL speech for at least this long so Echo's
 // own voice trailing off can't answer its own question. Also kept short — the
 // owner usually answers a question right away.
@@ -2787,6 +2794,22 @@ export function EchoConversationProvider({ active, children }) {
           finalRef.current = "";
           goActive(command);
           return;
+        }
+        // Fallback: right after Echo spoke (or was stopped), the recognizer
+        // sometimes eats the word "Echo" from the wake phrase entirely. A
+        // greeting-led command in that short window is clearly aimed at Echo
+        // — the owner just interacted with him seconds ago.
+        if (Date.now() - lastTtsEndAtRef.current < RECENT_ECHO_WAKE_MS) {
+          const fb = parseWakeGreetingOnly(combined);
+          if (fb.matched) {
+            recordVoiceEvent("wake-word", {
+              command: fb.command,
+              fallback: "greeting-after-echo",
+            });
+            finalRef.current = "";
+            goActive(fb.command);
+            return;
+          }
         }
         // No wake word yet: keep only a short tail of the transcript so hours
         // of ambient speech can't grow the buffer or bury a fresh "Hey Echo"

@@ -869,6 +869,26 @@ export function VoiceProvider({ active, children }) {
 
   const stopAll = useCallback(() => {
     recordVoiceEvent("stop-all", { queued: queueRef.current.length });
+    // An explicit stop is FINAL for everything queued, not just the item
+    // playing. Held alerts (e.g. a batch waiting behind the permission ask)
+    // still live in the queue with their notificationIds — if they're cleared
+    // without being marked dismissed, the 30s poll re-serves them and the
+    // whole handshake replays moments after the owner said stop.
+    let dismissedAny = false;
+    for (const q of queueRef.current) {
+      if (q.notificationId) {
+        deliveredIds.current.add(q.notificationId);
+        api.echoVoiceMarkNotification(q.notificationId, "dismissed").catch(() => {});
+        dismissedAny = true;
+      }
+    }
+    if (dismissedAny) {
+      try {
+        window.dispatchEvent(new CustomEvent("echoai:notifications-changed"));
+      } catch {
+        /* noop */
+      }
+    }
     queueRef.current = [];
     // Clearing the queue drops any held/deferred alert, so reset the
     // permission gate — otherwise a lingering 'deferred' state would hold the

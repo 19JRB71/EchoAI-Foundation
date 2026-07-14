@@ -71,7 +71,9 @@ export function normalizeSpeech(text) {
 //   echo:     echo / ecko / ekko / ecco / eco / eko / echoes / echos / gecko /
 //             echo ai / echoai / a co ("hey a co")
 // A missing space ("heyecho") is also tolerated.
-const WAKE_GREET = "(?:hey|hay|hi|hei|heya|hey there)";
+// Longest variants first — regex alternation is first-match, so "hey" before
+// "hey there" would leave a stray "there" as the start of the command.
+const WAKE_GREET = "(?:hey there|heya|hey|hay|hei|hi)";
 const WAKE_NAME =
   "(?:e(?:c|ck|cc|k|kk)?h?o(?:e?s)?|gecko|a co)(?:\\s?ai)?";
 const WAKE_RE = new RegExp(`\\b${WAKE_GREET}[ ]?,?[ ]?${WAKE_NAME}\\b`);
@@ -86,6 +88,25 @@ export function parseWakeWord(text) {
   const m = norm.match(WAKE_RE);
   if (!m) return { matched: false, command: "" };
   const command = norm.slice(m.index + m[0].length).trim();
+  return { matched: true, command };
+}
+
+// Fallback wake matcher for the moments right after Echo has spoken (or been
+// stopped): the recognizer sometimes drops the word "Echo" from the wake
+// phrase entirely (live report: "hey give me the phone number"). In that
+// narrow window, an utterance that STARTS with the greeting and carries a
+// command is clearly addressed at Echo. The caller is responsible for the
+// recency gate — this helper only does the shape match. It deliberately
+// requires the greeting at the very start (mid-sentence "hey" never matches)
+// and a non-empty command.
+const WAKE_GREET_START_RE = new RegExp(`^${WAKE_GREET}\\b[ ]?,?[ ]?`);
+
+export function parseWakeGreetingOnly(text) {
+  const norm = normalizeSpeech(text);
+  const m = norm.match(WAKE_GREET_START_RE);
+  if (!m) return { matched: false, command: "" };
+  const command = norm.slice(m[0].length).trim();
+  if (!command) return { matched: false, command: "" };
   return { matched: true, command };
 }
 

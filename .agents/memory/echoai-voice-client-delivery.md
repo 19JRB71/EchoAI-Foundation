@@ -25,6 +25,20 @@ poll after the owner said "stop" — the "Echo repeats himself in a loop" bug.
 Same for a permanently-failing TTS item retried forever.
 **How to apply:** In the drain loop, `stopped`/`skipped` → dismissed + terminal;
 `error` → count attempts per notificationId, dismiss after 2.
+AND in `stopAll()` itself: mark every QUEUED item with a notificationId
+dismissed before clearing the queue. Held alerts (a batch waiting behind the
+permission-to-speak ask) live only in the queue — clearing them without
+dismissing meant the poll re-served the batch and the same permission ask
+replayed ~17s after the owner pressed Stop.
+
+## Rule: greeting-only wake fallback within 10s of Echo's last audio
+**Why:** The recognizer sometimes drops the word "Echo" from "Hey Echo …"
+entirely (live: "hey give me the phone number" right after a stop) — the
+command was silently ignored in passive mode.
+**How to apply:** If the full wake phrase fails, accept greeting-at-START +
+non-empty command, but ONLY while `now - lastTtsEnd < 10s` (stamped on natural
+end AND stop). Keep WAKE_GREET alternation longest-first ("hey there" before
+"hey") or a bare "hey there" leaks "there" as a command.
 
 ## Rule: conversation speakAndWait must settle on EVERY terminal outcome
 **Why:** Resolving only on natural completion (`onPlayed`) left the always-on

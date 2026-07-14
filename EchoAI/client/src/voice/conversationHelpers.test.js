@@ -6,6 +6,7 @@ import {
   isQuestion,
   isSelfEcho,
   selfEchoRemainder,
+  parseWakeGreetingOnly,
   matchLocalIntent,
   matchNavIntent,
   navConfirmation,
@@ -144,6 +145,36 @@ describe("selfEchoRemainder", () => {
     expect(
       selfEchoRemainder("want me to give you the rundown yes sir", [question]),
     ).toBe("yes sir");
+  });
+});
+
+describe("parseWakeGreetingOnly", () => {
+  it("accepts a greeting-led command when the recognizer dropped 'Echo'", () => {
+    // Exact utterance from the live diagnostic report.
+    const r = parseWakeGreetingOnly("hey give me the phone number");
+    expect(r.matched).toBe(true);
+    expect(r.command).toBe("give me the phone number");
+  });
+
+  it("tolerates greeting mishearings and a comma", () => {
+    expect(parseWakeGreetingOnly("hay, open my leads").matched).toBe(true);
+    expect(parseWakeGreetingOnly("heya show the dashboard").command).toBe(
+      "show the dashboard",
+    );
+  });
+
+  it("rejects a bare greeting with no command", () => {
+    expect(parseWakeGreetingOnly("hey").matched).toBe(false);
+    expect(parseWakeGreetingOnly("hey there").matched).toBe(false);
+  });
+
+  it("rejects a mid-sentence 'hey' and non-greeting speech", () => {
+    expect(parseWakeGreetingOnly("I said hey to the contractor").matched).toBe(
+      false,
+    );
+    expect(parseWakeGreetingOnly("give me the phone number").matched).toBe(
+      false,
+    );
   });
 });
 
