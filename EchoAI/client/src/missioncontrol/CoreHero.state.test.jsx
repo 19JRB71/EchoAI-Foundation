@@ -5,11 +5,12 @@ import CoreHero from "./CoreHero.jsx";
 // The Core's alive-states must be driven by the REAL voice-engine state only.
 // We mock the conversation hook to control convState per test.
 const mockConv = vi.hoisted(() => ({ current: null }));
+const mockVoice = vi.hoisted(() => ({ current: null }));
 vi.mock("../voice/EchoConversationContext.jsx", () => ({
   useEchoConversation: () => mockConv.current,
 }));
 vi.mock("../voice/VoiceContext.jsx", () => ({
-  useVoice: () => null,
+  useVoice: () => mockVoice.current,
 }));
 
 function heroRoot() {
@@ -30,6 +31,7 @@ function renderHero() {
 afterEach(() => {
   cleanup();
   mockConv.current = null;
+  mockVoice.current = null;
 });
 
 describe("CoreHero voice-state mapping", () => {
@@ -76,5 +78,28 @@ describe("CoreHero voice-state mapping", () => {
     mockConv.current = { convState: "active" };
     const { container } = renderHero();
     expect(container.querySelector(".mcv2-core-emit")).toBeFalsy();
+  });
+
+  it("voice queue playing (briefings/alerts) → core pulses as speaking", () => {
+    mockConv.current = null;
+    mockVoice.current = { playing: true, muted: false };
+    const { container } = renderHero();
+    expect(heroRoot().className).toContain("mcv2-speaking");
+    expect(screen.getByText("Echo Speaking")).toBeTruthy();
+    expect(container.querySelector(".mcv2-core-emit")).toBeTruthy();
+  });
+
+  it("voice queue playing while muted → NOT speaking (Echo is silent)", () => {
+    mockConv.current = null;
+    mockVoice.current = { playing: true, muted: true };
+    renderHero();
+    expect(heroRoot().className).toContain("mcv2-idle");
+  });
+
+  it("voice queue idle → core stays idle", () => {
+    mockConv.current = null;
+    mockVoice.current = { playing: false, muted: false };
+    renderHero();
+    expect(heroRoot().className).toContain("mcv2-idle");
   });
 });

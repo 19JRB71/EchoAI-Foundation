@@ -99,13 +99,15 @@ function Connectors({ left, right }) {
   );
 }
 
-// Map the real voice-engine state onto the Core's visual state. No engine
-// (team member / provider inactive) → calm idle breathing.
-function coreStateOf(conv) {
-  if (!conv) return "idle";
-  if (conv.convState === "speaking") return "speaking";
-  if (conv.convState === "processing") return "thinking";
-  if (conv.convState === "active") return "listening";
+// Map the real voice-engine state onto the Core's visual state. Echo talks
+// through two real paths — the hands-free conversation engine (convState) and
+// the voice queue (voice.playing, e.g. briefings and alerts) — the core must
+// pulse for BOTH. No engine at all → calm idle breathing.
+function coreStateOf(conv, voice) {
+  if (conv?.convState === "speaking") return "speaking";
+  if (voice?.playing && !voice?.muted) return "speaking";
+  if (conv?.convState === "processing") return "thinking";
+  if (conv?.convState === "active") return "listening";
   return "idle";
 }
 
@@ -115,7 +117,7 @@ export default function CoreHero({ agents, onOpenDepartment, statusLine, healthy
   const right = roster.filter((a) => !["echo", "scout", "atlas", "nova"].includes(a.id));
   const conv = useEchoConversation();
   const voice = useVoice();
-  const coreState = coreStateOf(conv);
+  const coreState = coreStateOf(conv, voice);
 
   // The button under the Core is a single mute/unmute toggle: muting cuts any
   // speech that is playing (voice.toggleMute → stopAll) AND stops the
