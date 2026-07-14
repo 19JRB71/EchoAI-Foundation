@@ -1,5 +1,6 @@
 import { AGENTS_META } from "../lib/departments.js";
 import { useEchoConversation } from "../voice/EchoConversationContext.jsx";
+import { useVoice } from "../voice/VoiceContext.jsx";
 
 // Mission Control V2 — left "Executive Command Panel". The nine-agent roster
 // lives in the Zorecho Core visualization (the official view of the AI
@@ -85,6 +86,24 @@ export default function ExecutiveSidebar({
   // Live voice state — real engine state only (null for team members or when
   // the provider is inactive). Drives the mic indicator + "Listening…" text.
   const conv = useEchoConversation();
+  const voice = useVoice();
+
+  // The Echo card is a single mute/unmute toggle: muting cuts any speech that
+  // is playing (stopAll) AND stops the hands-free mic; unmuting restores both.
+  // Speaker mute is the source of truth for the muted look — if Echo won't
+  // talk, he's muted, whatever the mic engine is doing.
+  const echoMuted = voice ? Boolean(voice.muted) : Boolean(conv?.muted);
+  function toggleEchoMuted() {
+    if (echoMuted) {
+      if (voice?.muted) voice.toggleMute();
+      // Resume listening only for owners who already opted into hands-free —
+      // never surface the permission prompt from a simple unmute.
+      if (conv?.supported && conv?.micEnabled && conv?.muted) conv.toggleMic();
+    } else {
+      if (voice && !voice.muted) voice.toggleMute(); // also stops live audio
+      if (conv?.supported && conv?.micEnabled && !conv?.muted) conv.toggleMic();
+    }
+  }
   const voiceState =
     conv?.convState === "speaking"
       ? "speaking"
@@ -119,7 +138,10 @@ export default function ExecutiveSidebar({
         <SectionLabel>Echo Assistant</SectionLabel>
         <div className="px-2.5">
           <button
-            onClick={onTalkToEcho}
+            onClick={toggleEchoMuted}
+            title={echoMuted ? "Unmute Echo" : "Mute Echo (stops talking and listening)"}
+            aria-label={echoMuted ? "Unmute Echo" : "Mute Echo"}
+            aria-pressed={echoMuted}
             data-testid="sidebar-echo"
             className="group w-full rounded-xl border bg-[#081021]/95 px-3 py-3 text-left transition-colors hover:border-cyan-600/60"
             style={{
@@ -148,7 +170,7 @@ export default function ExecutiveSidebar({
                 <span className="flex items-center justify-between gap-1.5">
                   <span className="text-[13.5px] font-semibold text-gray-100">Echo</span>
                   <span className="relative flex shrink-0 items-center" data-testid="sidebar-echo-mic">
-                    {(micLive || voiceState) && (
+                    {!echoMuted && (micLive || voiceState) && (
                       <span
                         className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-40"
                         style={{ backgroundColor: echoColor }}
@@ -156,8 +178,14 @@ export default function ExecutiveSidebar({
                       />
                     )}
                     <svg
-                      className={`relative h-4 w-4 ${micLive || voiceState ? "text-cyan-300" : "text-cyan-400/70 group-hover:text-cyan-300"}`}
-                      style={micLive || voiceState ? { filter: "drop-shadow(0 0 5px rgba(103,232,249,0.9))" } : undefined}
+                      className={`relative h-4 w-4 ${
+                        echoMuted
+                          ? "text-gray-500 group-hover:text-gray-400"
+                          : micLive || voiceState
+                            ? "text-cyan-300"
+                            : "text-cyan-400/70 group-hover:text-cyan-300"
+                      }`}
+                      style={!echoMuted && (micLive || voiceState) ? { filter: "drop-shadow(0 0 5px rgba(103,232,249,0.9))" } : undefined}
                       fill="none"
                       viewBox="0 0 24 24"
                       strokeWidth={1.7}
@@ -165,15 +193,20 @@ export default function ExecutiveSidebar({
                       aria-hidden="true"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d={ACTION_ICONS.mic} />
+                      {echoMuted && (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4l16 16" data-testid="sidebar-echo-mic-slash" />
+                      )}
                     </svg>
                   </span>
                 </span>
                 <span
                   className="block text-[10.5px]"
-                  style={{ color: voiceLabel ? echoColor : "#6b7280" }}
+                  style={{ color: echoMuted ? "#9ca3af" : voiceLabel ? echoColor : "#6b7280" }}
                   data-testid="sidebar-echo-state"
                 >
-                  {voiceLabel || (echo ? STATUS_LABEL[echo.status] || "Working" : "Your assistant")}
+                  {echoMuted
+                    ? "Muted — tap to unmute"
+                    : voiceLabel || (echo ? STATUS_LABEL[echo.status] || "Working" : "Your assistant")}
                 </span>
                 {!voiceLabel && echo && echo.currentTask && (
                   <span className="mt-0.5 block truncate text-[10px] italic text-gray-600 group-hover:text-gray-500">
