@@ -758,11 +758,33 @@ export const api = {
       method: "POST",
       body: { brandId, topic, platform },
     }),
-  scheduleSocial: ({ brandId, platform, postContent, scheduledTime, imageUrl }) =>
+  scheduleSocial: ({ brandId, platform, postContent, scheduledTime, imageUrl, videoUrl }) =>
     request("/api/social/schedule", {
       method: "POST",
-      body: { brandId, platform, postContent, scheduledTime, imageUrl },
+      body: { brandId, platform, postContent, scheduledTime, imageUrl, videoUrl },
     }),
+  // Owner-uploaded post media (real photos/videos). Multipart, so it bypasses
+  // the JSON request() wrapper; Content-Type is left unset so the browser adds
+  // the multipart boundary.
+  uploadSocialMedia: async (file) => {
+    const form = new FormData();
+    form.append("file", file, file.name || "upload");
+    const headers = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}/api/social/media`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `Upload failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  },
   rescheduleSocialPost: (postId, scheduledTime) =>
     request(`/api/social/posts/${postId}/reschedule`, {
       method: "PUT",

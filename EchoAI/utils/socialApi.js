@@ -184,6 +184,21 @@ async function publishPost(platform, credentials, post) {
   switch (platform) {
     case "facebook": {
       requireFields(platform, credentials, ["accessToken", "pageId"]);
+      // With a video, publish via /videos (Facebook fetches the public
+      // file_url and creates a video post with the copy as its description).
+      if (post?.videoUrl) {
+        const params = new URLSearchParams({
+          file_url: post.videoUrl,
+          description: content,
+          access_token: credentials.accessToken,
+        });
+        const data = await httpJson(`${GRAPH_BASE}/${credentials.pageId}/videos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: params.toString(),
+        });
+        return { externalId: data.post_id || data.id, raw: data };
+      }
       // With an image, publish via /photos (Facebook fetches the public URL
       // and creates a photo post with the copy as its caption). Without one,
       // fall back to a plain text post on /feed.

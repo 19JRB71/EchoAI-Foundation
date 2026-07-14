@@ -1,3 +1,6 @@
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
 const db = require("../config/db");
 const { sageContextForBrand } = require("../utils/sageContext");
 const { encrypt, decrypt } = require("../utils/encryption");
@@ -47,6 +50,70 @@ async function enforceSocialPlatformLimit(userId, platform) {
 
 function isSupportedPlatform(platform) {
   return SUPPORTED_PLATFORMS.includes(String(platform || "").toLowerCase());
+}
+
+// ---------------------------------------------------------------------------
+// Owner-uploaded post media (real photos/videos, not AI-generated)
+// ---------------------------------------------------------------------------
+
+// Uploaded files live under uploads/media (served statically at /uploads).
+const MEDIA_DIR = path.join(__dirname, "..", "uploads", "media");
+// Only formats the social platforms actually accept; the extension is derived
+// from the verified mimetype, never from the client-supplied filename.
+const IMAGE_MIME_EXT = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+};
+const VIDEO_MIME_EXT = {
+  "video/mp4": ".mp4",
+  "video/quicktime": ".mov",
+  "video/webm": ".webm",
+};
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
+
+/**
+ * POST /api/social/media — stores an owner-uploaded photo or video and returns
+ * its permanent relative URL for attaching to a post at schedule time.
+ * The file arrives via multer memory storage (route enforces the overall size
+ * cap); type-specific caps are enforced here because images and videos have
+ * different limits.
+ */
+async function uploadPostMedia(req, res) {
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: "No file uploaded" });
+
+  const imageExt = IMAGE_MIME_EXT[file.mimetype];
+  const videoExt = VIDEO_MIME_EXT[file.mimetype];
+  if (!imageExt && !videoExt) {
+    return res.status(400).json({
+      error:
+        "Unsupported file type. Photos: JPG, PNG, WEBP, GIF. Videos: MP4, MOV, WEBM.",
+    });
+  }
+  const maxBytes = imageExt ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
+  if (file.size > maxBytes) {
+    return res.status(400).json({
+      error: imageExt
+        ? "Photo is too large (max 10 MB)."
+        : "Video is too large (max 200 MB).",
+    });
+  }
+
+  try {
+    await fs.promises.mkdir(MEDIA_DIR, { recursive: true });
+    const name = `${crypto.randomBytes(16).toString("hex")}${imageExt || videoExt}`;
+    await fs.promises.writeFile(path.join(MEDIA_DIR, name), file.buffer);
+    return res.status(201).json({
+      url: `/uploads/media/${name}`,
+      mediaType: imageExt ? "image" : "video",
+    });
+  } catch (err) {
+    console.error("Post media upload error:", err.message);
+    return res.status(500).json({ error: "Failed to store the uploaded file" });
+  }
 }
 
 /**
@@ -348,24 +415,48 @@ async function generateSocialContent(req, res) {
  */
 async function schedulePost(req, res) {
   const userId = req.user.userId;
-  const { brandId, platform, postContent, scheduledTime, imageUrl } = req.body;
+  const { brandId, platform, postContent, scheduledTime, imageUrl, videoUrl } =
+    req.body;
   const normalizedPlatform = String(platform || "").toLowerCase();
 
-  // Optional attached graphic: only our own saved-image paths are accepted
-  // (permanent copies under /uploads/images). Anything else is rejected so a
-  // client can never make the publisher fetch an arbitrary URL.
+  // Optional attached media: only our own stored paths are accepted (AI images
+  // under /uploads/images, owner uploads under /uploads/media). Anything else
+  // is rejected so a client can never make the publisher fetch an arbitrary URL.
+  function validLocalMediaPath(value, prefixes) {
+    return (
+      typeof value === "string" &&
+      !value.includes("..") &&
+      prefixes.some((p) => value.startsWith(p))
+    );
+  }
   let attachedImageUrl = null;
   if (imageUrl != null && imageUrl !== "") {
-    if (
-      typeof imageUrl !== "string" ||
-      !imageUrl.startsWith("/uploads/images/") ||
-      imageUrl.includes("..")
-    ) {
+    if (!validLocalMediaPath(imageUrl, ["/uploads/images/", "/uploads/media/"])) {
       return res.status(400).json({
-        error: "imageUrl must be a saved image path (/uploads/images/...)",
+        error:
+          "imageUrl must be a stored image path (/uploads/images/... or /uploads/media/...)",
       });
     }
     attachedImageUrl = imageUrl;
+  }
+  let attachedVideoUrl = null;
+  if (videoUrl != null && videoUrl !== "") {
+    if (!validLocalMediaPath(videoUrl, ["/uploads/media/"])) {
+      return res.status(400).json({
+        error: "videoUrl must be an uploaded video path (/uploads/media/...)",
+      });
+    }
+    attachedVideoUrl = videoUrl;
+  }
+  if (attachedImageUrl && attachedVideoUrl) {
+    return res
+      .status(400)
+      .json({ error: "A post can carry a photo or a video, not both" });
+  }
+  if (attachedVideoUrl && normalizedPlatform !== "facebook") {
+    return res.status(400).json({
+      error: "Video posts are currently supported on Facebook only",
+    });
   }
 
   if (!brandId || !platform || !postContent || !scheduledTime) {
@@ -414,10 +505,10 @@ async function schedulePost(req, res) {
     }
 
     const result = await db.query(
-      `INSERT INTO social_posts (brand_id, platform, post_content, image_url, scheduled_time, status)
-       VALUES ($1, $2, $3, $4, $5, 'scheduled')
-       RETURNING post_id, brand_id, platform, post_content, image_url, scheduled_time, status, created_at`,
-      [brandId, normalizedPlatform, postContent, attachedImageUrl, when.toISOString()]
+      `INSERT INTO social_posts (brand_id, platform, post_content, image_url, video_url, scheduled_time, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'scheduled')
+       RETURNING post_id, brand_id, platform, post_content, image_url, video_url, scheduled_time, status, created_at`,
+      [brandId, normalizedPlatform, postContent, attachedImageUrl, attachedVideoUrl, when.toISOString()]
     );
     return res.status(201).json({ post: result.rows[0] });
   } catch (err) {
@@ -472,6 +563,7 @@ async function reschedulePost(req, res) {
          AND b.user_id = $3
          AND sp.status = 'failed'
        RETURNING sp.post_id, sp.brand_id, sp.platform, sp.post_content,
+                 sp.image_url, sp.video_url,
                  sp.scheduled_time, sp.published_time, sp.status,
                  sp.engagement_metrics, sp.external_post_id, sp.created_at`,
       [when.toISOString(), postId, userId]
@@ -513,7 +605,7 @@ async function getSocialCalendar(req, res) {
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
     const result = await db.query(
-      `SELECT post_id, platform, post_content, image_url, scheduled_time, published_time,
+      `SELECT post_id, platform, post_content, image_url, video_url, scheduled_time, published_time,
               status, engagement_metrics, external_post_id, publish_attempts, created_at
        FROM social_posts
        WHERE brand_id = $1
@@ -669,9 +761,27 @@ async function publishStoredPost(post) {
       if (base) imageUrl = `${base}${post.image_url}`;
     }
   }
+  // Videos are the whole point of a video post — if we can't produce a public
+  // URL for the platform to fetch, fail honestly instead of silently posting
+  // text-only.
+  let videoUrl;
+  if (post.video_url) {
+    if (/^https:\/\//i.test(post.video_url)) {
+      videoUrl = post.video_url;
+    } else {
+      const base = getPublicBaseUrl();
+      if (!base) {
+        throw new Error(
+          "Cannot publish the video: the server's public URL is not configured"
+        );
+      }
+      videoUrl = `${base}${post.video_url}`;
+    }
+  }
   const result = await socialApi.publishPost(post.platform, account.credentials, {
     content: post.post_content,
     imageUrl,
+    videoUrl,
   });
   // A publish without a platform post id leaves an unreconcilable record, so
   // treat it as a failure rather than marking it published.
@@ -797,7 +907,7 @@ async function publishDuePosts() {
        LIMIT 50
        FOR UPDATE OF sp SKIP LOCKED
      )
-     RETURNING post_id, brand_id, platform, post_content, image_url, publish_attempts`
+     RETURNING post_id, brand_id, platform, post_content, image_url, video_url, publish_attempts`
   );
 
   let published = 0;
@@ -1006,6 +1116,7 @@ async function reverifySocialConnections() {
 module.exports = {
   connectSocialAccount,
   generateSocialContent,
+  uploadPostMedia,
   schedulePost,
   reschedulePost,
   getSocialCalendar,

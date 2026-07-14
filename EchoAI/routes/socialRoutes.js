@@ -1,4 +1,5 @@
 const express = require("express");
+const multer = require("multer");
 
 const router = express.Router();
 
@@ -14,6 +15,27 @@ router.use(auth, lockout, denyViewerMutations);
 router.post("/connect", socialController.connectSocialAccount);
 router.post("/facebook-page", socialController.setFacebookBrandPage);
 router.post("/generate", socialController.generateSocialContent);
+
+// Owner-uploaded post media (photos ≤10MB, videos ≤200MB — the controller
+// enforces the per-type caps; multer caps the overall body so an oversized
+// upload can't exhaust memory).
+const mediaUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 * 1024, files: 1 },
+});
+function uploadMediaFile(req, res, next) {
+  mediaUpload.single("file")(req, res, (err) => {
+    if (err) {
+      const msg =
+        err.code === "LIMIT_FILE_SIZE"
+          ? "File is too large (max 200 MB)."
+          : err.message;
+      return res.status(400).json({ error: msg });
+    }
+    next();
+  });
+}
+router.post("/media", uploadMediaFile, socialController.uploadPostMedia);
 router.post("/schedule", socialController.schedulePost);
 router.put("/posts/:postId/reschedule", socialController.reschedulePost);
 router.get("/calendar/:brandId", socialController.getSocialCalendar);

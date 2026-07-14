@@ -247,6 +247,14 @@ export default function ContentCalendar({ brandId, onReconnect }) {
                           className="h-10 w-10 flex-none rounded-md border border-gray-700 object-cover"
                         />
                       )}
+                      {post.video_url && (
+                        <video
+                          src={post.video_url}
+                          muted
+                          playsInline
+                          className="h-10 w-10 flex-none rounded-md border border-gray-700 object-cover"
+                        />
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-gray-300">
                           {post.post_content}
@@ -341,6 +349,14 @@ function PostDetailModal({ post, onClose, onRescheduled, onReconnect }) {
             src={post.image_url}
             alt="Post graphic"
             className="mt-3 max-h-64 rounded-lg border border-gray-700 object-cover"
+          />
+        )}
+        {post.video_url && (
+          <video
+            src={post.video_url}
+            controls
+            playsInline
+            className="mt-3 max-h-64 rounded-lg border border-gray-700"
           />
         )}
 

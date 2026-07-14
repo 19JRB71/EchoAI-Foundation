@@ -86,6 +86,7 @@
 - [EchoAI three-tier demo](echoai-demo-tiers.md) — demo mode now seeds ONE is_demo brand per tier (demo_tier); never assume a single demo brand; active_tier drives script+FeatureGate, demo_brand_id NULL = selector mode.
 - [EchoAI stale recognition closures](echoai-voice-stale-recognition-closures.md) — live SpeechRecognition sessions freeze closure state for minutes; read voiceRef/activeRef inside the mic chain, never `voice.<state>`.
 - [EchoAI SSRF IPv6-mapped bypass](echoai-ssrf-ipv6-mapped.md) — private-host blockers must reject IPv4-mapped/compat IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1); check the embedded IPv4 range.
+- [EchoAI owner-uploaded post media](echoai-post-media-upload.md) — /uploads path allowlists, FB-only video, and the publishDuePosts RETURNING-column trap for new social_posts media columns.
 - [EchoAI Conversational Core prototype](echoai-conversational-core.md) — flag-off default, read-only v1 w/ approval previews; key in-memory sessions/recorder by userId, never raw sessionId.
 - [EchoAI grid 1fr min-content clipping](echoai-grid-1fr-clipping.md) — grid `1fr` won't shrink below min-content; with overflow-hidden the last column clips at laptop/tablet widths — use minmax(0,1fr) + screenshot at 1024/1366.
 - [EchoAI AI ledger meta spread](echoai-ai-ledger-meta-spread.md) — in paid-provider wrappers, spread resolved gate meta FIRST; its null fields clobber explicit ledger values if spread last.
