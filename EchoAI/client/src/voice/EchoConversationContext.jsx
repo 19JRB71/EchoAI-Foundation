@@ -187,6 +187,17 @@ function writeBool(key, val) {
 
 export function EchoConversationProvider({ active, children }) {
   const voice = useVoice();
+  // ALWAYS-FRESH voice engine handle. A live SpeechRecognition session keeps
+  // running for minutes with the callback closures it was created with, so
+  // anything in the recognition → handleResult → processCommand → speakAndWait
+  // chain that reads `voice.<state>` directly sees a SNAPSHOT from when the
+  // session started. Real-world symptom: user unmutes the speaker, but Echo
+  // keeps skipping every reply as "speaker-muted" until the mic engine happens
+  // to restart. Read voiceRef.current inside those callbacks, never `voice`.
+  const voiceRef = useRef(voice);
+  useEffect(() => {
+    voiceRef.current = voice;
+  }, [voice]);
   const supported = useMemo(() => !!getSpeechRecognition(), []);
 
   const [micEnabled, setMicEnabled] = useState(() => readBool(MIC_OPTIN_KEY));
@@ -375,12 +386,16 @@ export function EchoConversationProvider({ active, children }) {
           resolve(false);
           return;
         }
-        if (voice.muted || !active) {
+        // Read the LIVE engine state via refs — this promise is created from
+        // long-lived recognition callbacks whose closures can hold a stale
+        // `voice`/`active` snapshot (see voiceRef note at the top).
+        const v = voiceRef.current;
+        if (v.muted || !activeRef.current) {
           // Diagnostic: the reply was silently swallowed before it was even
           // queued — record why, or the flight recorder shows a command being
           // processed with no trace of what happened to the answer.
           recordVoiceEvent("speech-skipped", {
-            reason: voice.muted ? "speaker-muted" : "voice-off",
+            reason: v.muted ? "speaker-muted" : "voice-off",
             text: String(text).slice(0, 80),
           });
           resolve(false);
@@ -407,7 +422,7 @@ export function EchoConversationProvider({ active, children }) {
         // fires this event — resolve IMMEDIATELY so the conversation flow
         // never hangs on the safety timeout after a manual stop.
         window.addEventListener("echoai:speech-stopped", onStopped);
-        voice.enqueue({
+        v.enqueue({
           type: "echo_conversation",
           title: "Echo",
           text,
@@ -1695,9 +1710,10 @@ export function EchoConversationProvider({ active, children }) {
         setConvState("processing");
         let cleared = 0;
         try {
+          const vNow = voiceRef.current;
           cleared =
-            voice && voice.clearNotifications
-              ? await voice.clearNotifications()
+            vNow && vNow.clearNotifications
+              ? await vNow.clearNotifications()
               : 0;
         } catch {
           cleared = 0;
