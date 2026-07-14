@@ -1167,6 +1167,7 @@ export default function App() {
                   onNavigate={handleSelectSection}
                   onOpenDepartment={openDepartment}
                   onUpgrade={handleUpgrade}
+                  onLogout={handleLogout}
                 />
               )}
               {section === "aiteam" && (
