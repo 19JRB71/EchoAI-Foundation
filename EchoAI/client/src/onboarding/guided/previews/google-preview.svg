@@ -15,7 +15,7 @@
     <tspan fill="#4285F4" font-weight="bold">G</tspan><tspan fill="#EA4335" font-weight="bold">o</tspan><tspan fill="#FBBC05" font-weight="bold">o</tspan><tspan fill="#4285F4" font-weight="bold">g</tspan><tspan fill="#34A853" font-weight="bold">l</tspan><tspan fill="#EA4335" font-weight="bold">e</tspan>
   </text>
   <text x="240" y="116" font-size="13" font-weight="bold" fill="#202124" text-anchor="middle">Choose an account</text>
-  <text x="240" y="134" font-size="11" fill="#5f6368" text-anchor="middle">to continue to EchoAI</text>
+  <text x="240" y="134" font-size="11" fill="#5f6368" text-anchor="middle">to continue to Zorecho</text>
   <!-- account row to click, highlighted -->
   <rect x="112" y="148" width="256" height="46" rx="8" fill="none" stroke="#f59e0b" stroke-width="3"/>
   <rect x="116" y="152" width="248" height="38" rx="6" fill="#f8f9fa" stroke="#dadce0"/>

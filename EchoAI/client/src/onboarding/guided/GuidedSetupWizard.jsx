@@ -214,7 +214,7 @@ export default function GuidedSetupWizard({ onComplete }) {
     <div className="flex min-h-screen flex-col bg-black">
       <header className="border-b border-gray-800 bg-gray-900/70 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-4">
-          <span className="text-lg font-extrabold tracking-tight text-amber-300">EchoAI</span>
+          <span className="text-lg font-extrabold tracking-tight text-amber-300">Zorecho</span>
           <span className="text-sm text-gray-400">Guided setup</span>
         </div>
         {step !== "welcome" && <Stepper current={step} />}
