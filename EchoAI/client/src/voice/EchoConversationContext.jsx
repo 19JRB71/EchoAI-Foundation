@@ -2694,8 +2694,19 @@ export function EchoConversationProvider({ active, children }) {
       if (suspendRef.current) return;
       // Echo's audio is ACTUALLY playing: only the barge-in interrupts handled
       // above are honored — anything else the mic hears right now is Echo's
-      // own voice coming back through the speakers.
-      if (audioPlayingRef.current) return;
+      // own voice coming back through the speakers. Record FINAL chunks so a
+      // command spoken over Echo shows up in the diagnostic report instead of
+      // vanishing without a trace ("I commanded it and nothing happened").
+      if (audioPlayingRef.current) {
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          if (event.results[i].isFinal) {
+            recordVoiceEvent("ignored-while-speaking", {
+              heard: String(event.results[i][0].transcript || "").slice(0, 120),
+            });
+          }
+        }
+        return;
+      }
       // Post-speech gates: the short cooldown after audio ends plus the
       // post-question grace period. They exist so Echo's trailing audio can't
       // answer its own question — but they used to drop ALL speech, silently
@@ -2808,6 +2819,28 @@ export function EchoConversationProvider({ active, children }) {
             });
             finalRef.current = "";
             goActive(fb.command);
+            return;
+          }
+        }
+        // Brand switching is honored WITHOUT the wake word — Echo's own
+        // greeting invites it ("say 'switch to another business' anytime"),
+        // so the promise must hold in passive mode too. The phrase shape is
+        // strict (switch/change + a real brand name or "another business"),
+        // so ambient speech can't trip it. Final chunks only.
+        if (addedFinal && finalRef.current.trim()) {
+          const ctx = activeBrandCtx();
+          const sw =
+            ctx.brands.length > 1
+              ? matchBrandSwitch(finalRef.current.trim(), ctx.brands)
+              : null;
+          if (sw) {
+            const cmd = finalRef.current.trim();
+            recordVoiceEvent("wake-word", {
+              command: cmd,
+              fallback: "brand-switch",
+            });
+            finalRef.current = "";
+            goActive(cmd);
             return;
           }
         }

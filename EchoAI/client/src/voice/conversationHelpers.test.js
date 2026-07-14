@@ -1115,6 +1115,23 @@ describe("matchBrandSwitch", () => {
     expect(matchBrandSwitch("switch businesses", [])).toBeNull();
   });
 
+  it("returns ask for generic targets like 'another business'", () => {
+    // Echo's own greeting suggests this exact phrasing.
+    expect(matchBrandSwitch("switch to another business", brands)).toEqual({
+      ask: true,
+    });
+    expect(matchBrandSwitch("hey echo switch to another business", brands)).toEqual({
+      ask: true,
+    });
+    expect(matchBrandSwitch("change to a different one", brands)).toEqual({
+      ask: true,
+    });
+    expect(matchBrandSwitch("switch to the other company", brands)).toEqual({
+      ask: true,
+    });
+    expect(matchBrandSwitch("switch to another business", [])).toBeNull();
+  });
+
   it("never trips on nav phrases or unrelated speech", () => {
     expect(matchBrandSwitch("switch to settings", brands)).toBeNull();
     expect(matchBrandSwitch("go to my leads", brands)).toBeNull();

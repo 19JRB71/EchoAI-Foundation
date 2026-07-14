@@ -31,6 +31,16 @@ permission-to-speak ask) live only in the queue — clearing them without
 dismissing meant the poll re-served the batch and the same permission ask
 replayed ~17s after the owner pressed Stop.
 
+## Rule: any command Echo verbally invites must work exactly as spoken, wake-free
+**Why:** The greeting says "say 'switch to another business' anytime" — but that
+literal phrase named no brand (fuzzy match on "another" → null) AND passive mode
+only honored the wake word, so obeying the suggestion failed twice, silently.
+**How to apply:** Generic switch targets ("another/a different/the other
+[business|one]") resolve to the ask flow; passive mode runs matchBrandSwitch on
+final chunks (>1 real brand only — strict phrase shape prevents ambient
+triggers). Also: speech ignored while Echo's audio plays MUST log an
+`ignored-while-speaking` event, or reports show nothing and it's undebuggable.
+
 ## Rule: greeting-only wake fallback within 10s of Echo's last audio
 **Why:** The recognizer sometimes drops the word "Echo" from "Hey Echo …"
 entirely (live: "hey give me the phone number" right after a stop) — the

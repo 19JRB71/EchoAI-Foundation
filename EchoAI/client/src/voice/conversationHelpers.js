@@ -1035,6 +1035,11 @@ const BRAND_SWITCH_RES = [
 // Bare "switch businesses" (no name) → Echo should ask which one.
 const BRAND_SWITCH_ASK_RE =
   /^(?:hey echo )?(?:switch|change|swap)(?: my)?(?: the)? (?:business(?:es)?|brand(?:s)?|compan(?:y|ies))$/;
+// Generic targets — "switch to ANOTHER business" (Echo's own greeting suggests
+// this exact phrasing) names no brand, so it must resolve to the ask flow,
+// not a failed fuzzy name match.
+const BRAND_SWITCH_GENERIC_RE =
+  /^(?:another|a different|the other|a new|different|other)(?: one)?$/;
 
 function normalizeBrandName(name) {
   return String(name || "")
@@ -1067,6 +1072,10 @@ export function matchBrandSwitch(text, brands) {
   // Strip trailing business-type words ("blacor homes business" → "blacor homes")
   spoken = spoken.replace(/\s+(business|company|brand|account)$/, "").trim();
   if (!spoken) return null;
+  // "switch to another business" / "change to a different one" → ask which.
+  if (BRAND_SWITCH_GENERIC_RE.test(spoken)) {
+    return list.length ? { ask: true } : null;
+  }
   // Exact-normalized match first, then containment either way (spoken name is
   // often a shortened form: "blacor" for "Blacor Homes").
   let best = null;
