@@ -41,7 +41,7 @@ import SetupGuide from "./components/SetupGuide.jsx";
 import Feedback from "./sections/Feedback.jsx";
 import ZapierIntegration from "./sections/ZapierIntegration.jsx";
 import Settings from "./sections/Settings.jsx";
-import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
+import GuidedSetupWizard from "./onboarding/guided/GuidedSetupWizard.jsx";
 import SetupAgent from "./onboarding/SetupAgent.jsx";
 import AdminPanel from "./admin/AdminPanel.jsx";
 import CoreLab from "./sections/CoreLab.jsx";
@@ -686,8 +686,9 @@ export default function App() {
   // Handle Facebook's post-OAuth redirect (?fb=connected|error). On success we
   // reopen the Setup Wizard at the verify/test step so the owner sees their
   // connection confirmed; either way we strip the query params from the URL.
+  // During onboarding the Guided Setup wizard owns these params instead.
   useEffect(() => {
-    if (!authed) return;
+    if (!authed || !onboardingCompleted) return;
     let fb;
     let fbMessage = "";
     try {
@@ -716,7 +717,7 @@ export default function App() {
     } catch {
       /* no-op */
     }
-  }, [authed]);
+  }, [authed, onboardingCompleted]);
 
   // Deep link from a push notification (e.g. "post failed to publish") straight
   // to a dashboard section: /dashboard?section=social. The param is stripped
@@ -956,7 +957,7 @@ export default function App() {
 
   // New users go through the setup wizard; it disappears for good once complete.
   if (!onboardingCompleted) {
-    return <OnboardingWizard onComplete={() => setOnboardingCompleted(true)} />;
+    return <GuidedSetupWizard onComplete={() => setOnboardingCompleted(true)} />;
   }
 
   // The AI Setup Agent takes over the screen while active (auto-launched for new

@@ -523,6 +523,24 @@ export const api = {
   updateOnboarding: (payload) =>
     request("/api/auth/profile/onboarding", { method: "PUT", body: payload }),
 
+  // Guided Setup wizard (new-customer front door)
+  getGuidedSetupState: () => request("/api/guided-setup/state"),
+  saveGuidedSetupProgress: (currentStep, connections) =>
+    request("/api/guided-setup/progress", {
+      method: "PUT",
+      body: { currentStep, connections },
+    }),
+  reportGuidedSetupConnectionError: (provider, raw) =>
+    request("/api/guided-setup/connection-error", {
+      method: "POST",
+      body: { provider, raw },
+    }),
+  guidedSetupHelp: ({ screenshot, context }) =>
+    request("/api/guided-setup/help", {
+      method: "POST",
+      body: { screenshot, context },
+    }),
+
   // Subscription
   getSubscriptionStatus: () => request("/api/subscriptions/status"),
   createSubscription: (paymentMethodId, tier) =>

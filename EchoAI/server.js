@@ -64,6 +64,7 @@ const smsRoutes = require("./routes/smsRoutes");
 const tourRoutes = require("./routes/tourRoutes");
 const setupAgentRoutes = require("./routes/setupAgentRoutes");
 const setupStatusRoutes = require("./routes/setupStatusRoutes");
+const guidedSetupRoutes = require("./routes/guidedSetupRoutes");
 const echoRoutes = require("./routes/echoRoutes");
 const echoVoiceRoutes = require("./routes/echoVoiceRoutes");
 const autonomousRoutes = require("./routes/autonomousRoutes");
@@ -185,6 +186,7 @@ app.use("/api", apiLimiter);
 const LARGE_BODY_SUPPORT_PATHS = new Set([
   "/api/health-monitor/support",
   "/api/public/support",
+  "/api/guided-setup/help",
 ]);
 app.use((req, res, next) => {
   if (req.method === "POST" && req.path === "/api/subscriptions/webhook") {
@@ -276,6 +278,7 @@ app.use("/api/sms", smsRoutes);
 app.use("/api/tour", tourRoutes);
 app.use("/api/setup-agent", setupAgentRoutes);
 app.use("/api/setup", setupStatusRoutes);
+app.use("/api/guided-setup", guidedSetupRoutes);
 app.use("/api/echo", echoRoutes);
 app.use("/api/echo-voice", echoVoiceRoutes);
 app.use("/api/autonomous", autonomousRoutes);

@@ -94,3 +94,4 @@
 - [EchoAI voice flight recorder](echoai-voice-flight-recorder.md) — live voice bugs: ask for the pasted Settings→Voice diagnostic report first; new voice decision branches must recordVoiceEvent.
 - [Pooled pg client monkeypatch trap](echoai-pooled-client-patch.md) — test stubs on pool.connect/client.query must pass through connect(cb) and un-patch on release, or later pool.query deadlocks silently.
 - [EchoAI SMIL reduced-motion gap](echoai-smil-reduced-motion.md) — SVG <animateMotion> ignores the .z-anim CSS reduced-motion kill switch; gate SMIL sparks in JS via matchMedia.
+- [EchoAI Guided Setup Wizard](echoai-guided-setup-wizard.md) — OAuth return params have one owner (global fb= handler gated on onboardingCompleted); card status from live probes only; persist connecting BEFORE redirect.

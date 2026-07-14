@@ -84,7 +84,7 @@ function connectKind(connect) {
   return null;
 }
 
-export default function SetupAgent({ onClose, onExitToSection }) {
+export default function SetupAgent({ onClose, onExitToSection, embedded = false, doneLabel }) {
   const [phase, setPhase] = useState("loading");
   const [error, setError] = useState("");
   const [session, setSession] = useState(null);
@@ -474,11 +474,22 @@ export default function SetupAgent({ onClose, onExitToSection }) {
 
   // ---- Render ----------------------------------------------------------------
 
-  const shell = (children) => (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black text-white">
-      <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-8 md:px-8">{children}</div>
-    </div>
-  );
+  // Embedded mode renders inside a host layout (the Guided Setup wizard's
+  // Business Profile step) instead of taking over the whole screen.
+  const shell = (children) =>
+    embedded ? (
+      <div className="overflow-y-auto rounded-2xl border border-gray-800 bg-black text-white">
+        <div className="mx-auto flex min-h-[60vh] max-w-5xl flex-col px-4 py-8 md:px-8">
+          {children}
+        </div>
+      </div>
+    ) : (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-black text-white">
+        <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-8 md:px-8">
+          {children}
+        </div>
+      </div>
+    );
 
   if (phase === "loading") {
     return shell(
@@ -894,7 +905,7 @@ export default function SetupAgent({ onClose, onExitToSection }) {
               onClick={onClose}
               className="mt-5 rounded-lg bg-teal-500 px-6 py-2.5 font-semibold text-black hover:bg-teal-400"
             >
-              Go to my dashboard
+              {doneLabel || "Go to my dashboard"}
             </button>
           </div>
         ) : null}
