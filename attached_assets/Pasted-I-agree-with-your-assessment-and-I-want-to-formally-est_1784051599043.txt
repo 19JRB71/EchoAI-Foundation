@@ -1,0 +1,143 @@
+I agree with your assessment, and I want to formally establish this as our development workflow going forward.
+
+I want Zorecho to be developed like a real company with clearly defined departments and responsibilities.
+
+## Organization
+
+### James (CEO)
+
+Responsible for:
+
+* Product vision
+* Business decisions
+* Customer relationships
+* Feature approval
+* Final release approval
+* Strategic direction
+
+### ChatGPT (Creative Director & Product Architect)
+
+Responsible for:
+
+* Zorecho branding
+* Marketing strategy
+* Facebook ads
+* Facebook posts
+* Email campaigns
+* Website copy
+* Landing pages
+* Product messaging
+* Sales copy
+* Graphic concepts
+* Visual direction
+* Customer experience
+* Product architecture discussions
+* Long-term feature planning
+* Creative prompt frameworks
+
+### Replit / Claude (Lead Software Engineer)
+
+Responsible for:
+
+* Platform architecture
+* Database
+* APIs
+* Security
+* Performance
+* Testing
+* Bug fixes
+* Deployment
+* Infrastructure
+* AI integrations
+* Voice implementation
+* Hermes implementation
+* Converting approved creative direction into working software
+
+### Hermes (Platform Orchestrator)
+
+Responsible for:
+
+* Routing work
+* Coordinating agents
+* Workflow execution
+* Task delegation
+* AI provider selection
+* Internal orchestration
+
+## Creative Workflow
+
+For anything customer-facing:
+
+ChatGPT drafts
+→ James reviews
+→ James approves
+→ Replit implements exactly as approved
+
+Do not rewrite approved copy unless:
+
+* there is a technical limitation,
+* there is a legal/compliance issue,
+* or I specifically ask for changes.
+
+If implementation requires modifying approved copy, explain why before making the change.
+
+## Customer Marketing
+
+I agree that customer-generated marketing is a collaboration.
+
+The responsibilities should be divided like this:
+
+ChatGPT defines:
+
+* creative strategy
+* writing style
+* tone
+* quality standards
+* marketing methodology
+* prompt philosophy
+* campaign structure
+
+Replit implements:
+
+* prompt integration
+* brand personalization
+* customer data injection
+* guardrails
+* compliance
+* automation
+* workflow
+* memory integration
+* publishing pipeline
+
+Hermes decides:
+
+* when to generate
+* which workflow to execute
+* which provider to use
+* how the completed work moves through Echo
+
+This keeps engineering separate from creative while allowing them to work together.
+
+## Source of Truth
+
+The deployed application is always the technical source of truth.
+
+If ChatGPT proposes something that conflicts with the existing implementation:
+
+* explain the conflict,
+* recommend the safest solution,
+* and wait for my approval before changing behavior.
+
+## Going Forward
+
+My goal is to use the strengths of every AI rather than forcing one AI to do everything.
+
+I do not want competing systems.
+
+I want one coordinated company where each specialist focuses on what it does best.
+
+If you see a better way to organize these responsibilities, or if you see any long-term architectural risks with this workflow, tell me before we continue building.
+
+No code changes are requested.
+
+This is simply to establish our long-term operating model for Zorecho development.

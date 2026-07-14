@@ -190,6 +190,19 @@ Three registered validation steps gate task completion (see the `validation` ski
 
 ## User preferences
 
+- **Operating model (established July 2026).** Zorecho runs like a company:
+  James = CEO (vision, approvals, final say); ChatGPT = Creative Director
+  (Zorecho branding, marketing, ads, website/sales/email copy, visual direction,
+  creative strategy for customer-marketing features); Replit/Claude = Lead
+  Software Engineer (all code, architecture, DB, security, testing, deployment,
+  AI/prompt integration, guardrails, pipelines); Hermes = in-product runtime
+  orchestrator only (not a company-level coordinator). Creative workflow for
+  anything customer-facing: ChatGPT drafts → James approves → Replit implements
+  **exactly as approved** — never rewrite approved copy unless there's a
+  technical limitation or legal/compliance issue, and explain before changing.
+  The deployed application is the technical source of truth; if creative
+  direction conflicts with the implementation, explain the conflict, recommend
+  the safest solution, and wait for James's approval before changing behavior.
 - **Always remind the user to hit "Push" in the Git panel** whenever a change
   needs to reach the live site. This project deploys to Railway from GitHub
   `main`; the user (non-technical, address as James/Sir) pushes manually via the
