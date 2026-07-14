@@ -277,6 +277,8 @@ export const api = {
   coreLabReEnable: () => request("/api/core-lab/re-enable", { method: "POST" }),
   coreLabEndSession: (sessionId) =>
     request("/api/core-lab/session/end", { method: "POST", body: { sessionId } }),
+  coreLabNavigationResult: (data) =>
+    request("/api/core-lab/navigation-result", { method: "POST", body: data }),
   draftEmailMessage: (data) =>
     request("/api/echo-email/drafts", { method: "POST", body: data }),
   updateEmailDraft: (id, data) =>

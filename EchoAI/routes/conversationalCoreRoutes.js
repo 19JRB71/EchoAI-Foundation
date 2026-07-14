@@ -81,6 +81,26 @@ router.post("/converse", async (req, res, next) => {
   }
 });
 
+// Navigation verification callback — the client reports the REAL outcome after
+// executing (and verifying) a navigation action. Returns the only truthful
+// completion/failure sentence Echo may speak for that navigation.
+router.post("/navigation-result", (req, res) => {
+  const { navId, success, finalSection, errorCode, errorMessage } = req.body || {};
+  if (!navId || typeof navId !== "string") {
+    return res.status(400).json({ error: "navId is required." });
+  }
+  const result = core.completeNavigation(req.user.userId, navId, {
+    success,
+    finalSection,
+    errorCode,
+    errorMessage,
+  });
+  if (!result) {
+    return res.status(404).json({ error: "Unknown or expired navigation. Nothing was confirmed." });
+  }
+  res.json(result);
+});
+
 // Flight recorder — recent sanitized traces (own traces only).
 router.get("/recorder", (req, res) => {
   res.json({ traces: core.recentTraces(req.user.userId, 20) });

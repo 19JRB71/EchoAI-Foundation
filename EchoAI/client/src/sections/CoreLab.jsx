@@ -15,6 +15,10 @@ import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 
 const TEST_PHRASES = [
+  "Take me to Facebook setup.",
+  "Open my calendar.",
+  "Go to the leads page.",
+  "Take me back to the dashboard.",
   "Did I get any important emails today?",
   "Which one should I answer first?",
   "What do I have tomorrow?",
@@ -30,7 +34,7 @@ function fmtMs(ms) {
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
 }
 
-export default function CoreLab({ brandId }) {
+export default function CoreLab({ brandId, onNavigate }) {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -97,6 +101,15 @@ export default function CoreLab({ brandId }) {
       try {
         const { trace } = await api.coreLabConverse(text, sessionIdRef.current, brandId);
         setTurns((t) => [...t, { me: text, trace }]);
+        if (trace && trace.action && trace.action.type === "navigate" && onNavigate) {
+          // Real navigation tool: the App executes and VERIFIES the section
+          // change, reports the structured result to the server, and only the
+          // verified result is spoken as completion. The reply here is only
+          // "Opening … now." — in-progress language, never a completion claim.
+          if (speakReplies && trace.reply) await playReply(trace.reply);
+          onNavigate(trace.action, speakReplies);
+          return;
+        }
         if (speakReplies && trace && trace.reply) {
           if (trace.ack) await playReply(trace.ack);
           playReply(trace.reply);
@@ -112,7 +125,7 @@ export default function CoreLab({ brandId }) {
         setBusy(false);
       }
     },
-    [input, busy, brandId, speakReplies, playReply, loadStatus],
+    [input, busy, brandId, speakReplies, playReply, loadStatus, onNavigate],
   );
 
   const startMic = useCallback(() => {

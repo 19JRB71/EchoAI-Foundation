@@ -1,0 +1,169 @@
+The Conversational Core is currently responding as though it completed actions without actually performing them.
+
+During testing, I asked Echo to take me to Facebook setup.
+
+Echo responded:
+
+“Opening Facebook setup.”
+
+However, the application did not navigate to the Facebook setup page.
+
+This is not primarily a weather or unsupported-question issue. The core problem is that the conversational AI is generating action-confirmation language without successfully calling and verifying the corresponding Echo function.
+
+## Required architectural correction
+
+The language model must never directly claim that an application action was completed.
+
+For any actionable request, use this sequence:
+
+User request
+→ detect intent
+→ select registered Echo tool
+→ execute tool
+→ receive structured success or failure result
+→ verify application state when possible
+→ generate spoken response based only on the verified result
+
+The model may say “I’m opening Facebook setup” while the action is processing, but it may only say “Facebook setup is open” after the navigation tool returns a verified success result.
+
+## Convert existing platform actions into registered tools
+
+Expose existing commands and navigation actions as callable tools with clear names, descriptions, parameters, and structured results.
+
+Examples:
+
+* `navigate_to_page`
+* `open_facebook_setup`
+* `open_gmail_setup`
+* `open_calendar`
+* `open_leads`
+* `open_settings`
+* `create_social_post_draft`
+* `get_email_summary`
+* `get_calendar_summary`
+
+Do not allow the model to imitate these actions through text alone.
+
+## Navigation tool contract
+
+Create or verify a centralized navigation tool such as:
+
+`navigate_to_page({ route, source })`
+
+It should return structured output similar to:
+
+Success:
+
+* `success: true`
+* `requestedRoute: "/settings/facebook"`
+* `finalRoute: "/settings/facebook"`
+* `pageName: "Facebook Setup"`
+* `verified: true`
+
+Failure:
+
+* `success: false`
+* `requestedRoute: "/settings/facebook"`
+* `errorCode`
+* `errorMessage`
+* `verified: false`
+
+Use the actual route already present in the application. Do not invent a duplicate Facebook setup page.
+
+## Verification requirement
+
+After requesting navigation, verify at least one of the following:
+
+* current application route matches the requested route,
+* expected page component is mounted,
+* expected page identifier is visible,
+* or the router confirms navigation completion.
+
+Do not treat merely calling a navigation function as proof that navigation succeeded.
+
+## Truthfulness rule
+
+Add a system-level instruction:
+
+“Never state or imply that a tool action was completed unless a successful tool result confirms completion. Never fabricate tool use, navigation, email access, data retrieval, publishing, sending, saving, or changes.”
+
+Examples:
+
+Bad:
+
+* “Facebook setup is open.” when no tool result exists.
+* “I checked your email.” when Gmail was not called.
+* “Your post has been created.” when no draft was saved.
+
+Correct:
+
+* “Opening Facebook setup now.” while waiting.
+* “Facebook setup is open.” only after verified success.
+* “I couldn’t open Facebook setup because the route failed.”
+* “Facebook isn’t connected yet. I can take you to setup.”
+
+## Intent distinction
+
+Differentiate between:
+
+1. General conversation or questions
+2. Navigation requests
+3. Read-only data requests
+4. Draft creation
+5. Actions that modify external systems
+6. Unsupported requests
+
+“Take me to Facebook setup” is a navigation request, not a conversational answer.
+
+“Is my Facebook connected?” is a connection-status request.
+
+“Help me connect Facebook” may require navigation plus step-by-step guidance.
+
+## Fix the current Facebook test
+
+Trace this exact request through the flight recorder:
+
+“Take me to Facebook setup.”
+
+Report:
+
+1. The speech transcript received.
+2. The detected intent.
+3. The tool selected, if any.
+4. Whether the tool was actually invoked.
+5. The route requested.
+6. The tool result.
+7. Why the spoken response claimed navigation occurred.
+8. Why the page did not change.
+
+Then repair the routing so the same request reliably opens the existing Facebook setup page.
+
+## Conversation recovery
+
+After every tool success or failure, Echo must remain responsive and return to listening mode.
+
+A failed navigation must not end or freeze the conversation.
+
+## Regression tests
+
+Test these natural phrases:
+
+* “Take me to Facebook setup.”
+* “Open the Facebook connection page.”
+* “I need to connect my Facebook.”
+* “Show me where I connect Facebook.”
+* “Go to Gmail setup.”
+* “Open my calendar.”
+* “Take me back to the dashboard.”
+* “Go to the leads page.”
+
+For each test, verify:
+
+* correct intent,
+* correct tool call,
+* correct route,
+* route completion,
+* truthful spoken response,
+* and continued listening afterward.
+
+Do not alter or remove the existing command system. Reuse its working navigation functions where possible and expose them safely to the Conversational Core.

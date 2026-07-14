@@ -291,6 +291,86 @@ export default function App() {
     setSection(allowed ? next : "missioncontrol");
   }
 
+  // ---- Conversational Core Lab: verified navigation tool -------------------
+  // The Core NEVER claims navigation happened. The Lab hands us a structured
+  // action; we execute the real section change, verify the committed route
+  // after render, report the structured result to the server, and only the
+  // verified result may be spoken as completion.
+  const coreNavRef = useRef(null);
+
+  const handleCoreNavigate = useCallback(
+    (action, speak) => {
+      if (!action || action.type !== "navigate" || !action.navId) return;
+      const target = action.sectionId;
+      if (!sectionTitle(target) || !canOpenSection(target)) {
+        // Fail honestly and immediately — do not pretend to navigate.
+        api
+          .coreLabNavigationResult({
+            navId: action.navId,
+            success: false,
+            finalSection: null,
+            errorCode: "section_not_available",
+            errorMessage: "That page is not available for this account.",
+          })
+          .catch(() => {});
+        return;
+      }
+      if (section === target) {
+        // Already on the requested page — the section effect won't fire, so
+        // report the (truthful) verified result right away.
+        api
+          .coreLabNavigationResult({ navId: action.navId, success: true, finalSection: target })
+          .then(async (result) => {
+            if (speak && result && result.spoken) {
+              try {
+                const blob = await api.echoVoiceSpeak(result.spoken);
+                new Audio(URL.createObjectURL(blob)).play().catch(() => {});
+              } catch {
+                /* voice is best-effort */
+              }
+            }
+          })
+          .catch(() => {});
+        return;
+      }
+      coreNavRef.current = { navId: action.navId, sectionId: target, speak: Boolean(speak) };
+      setBrandFallbackNotice("");
+      setDeptAgentId(null);
+      setActiveToolTab(null);
+      setSettingsFocusGoals(null);
+      setSection(target);
+    },
+    [canOpenSection, section],
+  );
+
+  useEffect(() => {
+    // Runs after the section state commit — this is the verification step:
+    // the app's authoritative route either matches the requested one or not.
+    const nav = coreNavRef.current;
+    if (!nav) return;
+    coreNavRef.current = null;
+    const success = section === nav.sectionId;
+    api
+      .coreLabNavigationResult({
+        navId: nav.navId,
+        success,
+        finalSection: section,
+        errorCode: success ? undefined : "route_mismatch",
+        errorMessage: success ? undefined : `Landed on "${section}" instead.`,
+      })
+      .then(async (result) => {
+        if (nav.speak && result && result.spoken) {
+          try {
+            const blob = await api.echoVoiceSpeak(result.spoken);
+            new Audio(URL.createObjectURL(blob)).play().catch(() => {});
+          } catch {
+            /* voice is best-effort */
+          }
+        }
+      })
+      .catch(() => {});
+  }, [section]);
+
   // Open a team member's Department View (the hub of clickable tool cards).
   function openDepartment(agentId) {
     if (!canOpenDepartment(agentId)) return;
@@ -1099,7 +1179,9 @@ export default function App() {
               {section === "echoemail" &&
                 (canOpenSection("echoemail") ? <EchoEmail /> : null)}
               {section === "corelab" &&
-                (canOpenSection("corelab") ? <CoreLab brandId={selectedBrandId} /> : null)}
+                (canOpenSection("corelab") ? (
+                  <CoreLab brandId={selectedBrandId} onNavigate={handleCoreNavigate} />
+                ) : null)}
               {section === "echogrowth" && (
                 <div className="mx-auto max-w-3xl">
                   <AutonomousTab readOnly={isTeamMember || workspaceRole !== "owner"} />

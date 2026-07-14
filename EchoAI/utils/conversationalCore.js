@@ -113,6 +113,7 @@ function record(trace) {
 // Traces are recorded with the owning userId and only ever returned to that
 // user — the recorder is process-global, so filtering here is mandatory.
 function recentTraces(userId, limit = 20) {
+  sweepNavs(); // reclaim stale pending navigations even without new nav traffic
   return recorder
     .filter((t) => String(t.userId) === String(userId))
     .slice(-limit)
@@ -120,10 +121,132 @@ function recentTraces(userId, limit = 20) {
 }
 
 // ---------------------------------------------------------------------------
+// Navigation tool registry — REAL app sections only (client App.jsx section
+// ids). The model never "navigates" through text: it selects a registered
+// target here, the client executes the navigation, verifies the committed
+// route, and reports the structured result back. Only that verified result may
+// produce completion language ("… is open").
+// ---------------------------------------------------------------------------
+
+const NAV_TARGETS = {
+  facebook_setup: {
+    sectionId: "settings",
+    pageName: "Facebook setup (in Settings)",
+    aliases: ["facebook setup", "facebook connection", "connect facebook", "connect my facebook", "facebook page", "link facebook", "facebook"],
+  },
+  gmail_setup: {
+    sectionId: "echoemail",
+    pageName: "Email & Communications setup",
+    aliases: ["gmail setup", "gmail", "email setup", "email settings", "connect my email", "email assistant"],
+  },
+  calendar: {
+    sectionId: "appointments",
+    pageName: "Appointments calendar",
+    aliases: ["calendar", "my calendar", "appointments", "schedule"],
+  },
+  leads: {
+    sectionId: "leads",
+    pageName: "Leads",
+    aliases: ["leads", "leads page", "my leads"],
+  },
+  settings: {
+    sectionId: "settings",
+    pageName: "Settings",
+    aliases: ["settings", "the settings page"],
+  },
+  dashboard: {
+    sectionId: "missioncontrol",
+    pageName: "Mission Control dashboard",
+    aliases: ["dashboard", "home", "mission control", "main page"],
+  },
+  social: {
+    sectionId: "social",
+    pageName: "Social Media",
+    aliases: ["social media", "social posts", "social page"],
+  },
+};
+
+function resolveNavTarget(raw) {
+  const t = String(raw || "").toLowerCase().trim();
+  if (!t) return null;
+  if (NAV_TARGETS[t]) return { key: t, ...NAV_TARGETS[t] };
+  for (const [key, def] of Object.entries(NAV_TARGETS)) {
+    if (def.aliases.some((a) => t === a || t.includes(a))) return { key, ...def };
+  }
+  return null;
+}
+
+// Deterministic navigation matcher — runs BEFORE the AI so clear navigation
+// phrases work even when Hermes is slow or down (reuses the same registry).
+const NAV_PHRASE_RE =
+  /^(?:please\s+)?(?:take me (?:to|back to)|go (?:to|back to)|open(?: up)?|show me(?: where i connect)?|navigate to|bring up|i need to connect(?: my)?|pull up)\s+(?:the\s+|my\s+)?(.+?)(?:\s+page|\s+screen|\s+section)?[.!?]?$/i;
+
+function matchNavigationPhrase(text) {
+  const m = String(text || "").trim().match(NAV_PHRASE_RE);
+  if (!m) return null;
+  return resolveNavTarget(m[1]);
+}
+
+// Pending navigations awaiting client-side verification. navId → record.
+const NAV_TTL_MS = 5 * 60 * 1000;
+const pendingNavs = new Map();
+let navCounter = 0;
+
+function sweepNavs() {
+  const now = Date.now();
+  for (const [id, n] of pendingNavs) {
+    if (now - n.createdAt > NAV_TTL_MS) pendingNavs.delete(id);
+  }
+}
+
+function registerNavigation({ userId, target, trace }) {
+  sweepNavs();
+  const navId = `nav-${Date.now()}-${++navCounter}`;
+  pendingNavs.set(navId, {
+    userId: String(userId),
+    sectionId: target.sectionId,
+    pageName: target.pageName,
+    trace,
+    createdAt: Date.now(),
+  });
+  return navId;
+}
+
+// Called by the client AFTER it executed and verified the navigation.
+// Returns the only truthful completion (or failure) sentence Echo may speak.
+function completeNavigation(userId, navId, { success, finalSection, errorCode, errorMessage } = {}) {
+  sweepNavs();
+  const nav = pendingNavs.get(navId);
+  if (!nav || nav.userId !== String(userId)) return null;
+  pendingNavs.delete(navId);
+  const ok = Boolean(success) && String(finalSection || "") === nav.sectionId;
+  const result = {
+    success: ok,
+    requestedRoute: nav.sectionId,
+    finalRoute: String(finalSection || "") || null,
+    pageName: nav.pageName,
+    verified: ok,
+    errorCode: ok ? null : String(errorCode || "navigation_failed").slice(0, 80),
+    errorMessage: ok ? null : String(errorMessage || "The page did not open.").slice(0, 200),
+  };
+  // Update the flight-recorder trace with the verified outcome.
+  if (nav.trace) {
+    nav.trace.toolResult = JSON.stringify(result);
+    nav.trace.verified = ok;
+    if (!ok) nav.trace.errors.push(`Navigation failed: ${result.errorCode}`);
+  }
+  const spoken = ok
+    ? `${nav.pageName} is open.`
+    : `I couldn't open ${nav.pageName} — the page didn't change (${result.errorCode}). You can open it from the sidebar, and I'm still here.`;
+  return { ...result, spoken };
+}
+
+// ---------------------------------------------------------------------------
 // Intent detection (Hermes)
 // ---------------------------------------------------------------------------
 
 const VALID_INTENTS = new Set([
+  "navigate", // "take me to…", "open…" — executes the registered navigation tool
   "email_summary", // summaries / "did X respond" / "summarize the message from Y"
   "calendar", // "what do I have tomorrow", "anything Friday afternoon"
   "leads", // lead counts / follow-up status
@@ -139,6 +262,7 @@ function buildIntentSystemPrompt() {
     "Decide, silently, what the owner wants and return STRICT JSON only (no prose, no markdown fences).",
     "",
     "Available intents (v1 is READ-ONLY):",
+    `- "navigate": the owner asks to GO TO / OPEN / SHOW a page of the app ("take me to Facebook setup", "open my calendar", "go to the leads page"). Args: {"target": <one of: ${Object.keys(NAV_TARGETS).join(", ")}>}. This runs a real navigation tool — pick the closest registered target. A question ABOUT something ("is my Facebook connected?") is NOT navigation.`,
     '- "email_summary": questions about their email inbox — new/important mail, whether someone replied, summarizing a message. Optional args: {"query": <sender or topic keywords, if the owner named one>}.',
     '- "calendar": questions about their schedule or appointments. Optional args: {"when": <short phrase like "tomorrow" or "friday afternoon">}.',
     '- "leads": questions about leads — counts, which came in today/yesterday, which need follow-up.',
@@ -228,6 +352,7 @@ function buildReplySystemPrompt({ brandName, intent, dataBased }) {
   const lines = [
     "You are Echo, a professional, friendly AI Marketing Director, speaking naturally to the business owner in an experimental conversation prototype.",
     "Reply conversationally in 1-4 short sentences (this may be spoken aloud). No markdown, no lists unless truly needed.",
+    "TRUTHFULNESS RULE (absolute): never state or imply that an action was completed unless a successful tool result confirms it. Never fabricate tool use, navigation, email access, data retrieval, publishing, sending, saving, or changes. If you did not run a tool, do not claim you did.",
     brandName ? `The active business is ${brandName}. Keep everything scoped to it.` : "",
   ];
   if (intent === "fb_draft") {
@@ -300,6 +425,8 @@ async function handleTurn({ userId, brandId, brandName, text, sessionId }) {
     toolResult: null,
     ack: null,
     reply: null,
+    action: null,
+    verified: null,
     requiresApproval: false,
     approvalPreview: null,
     fallback: false,
@@ -310,6 +437,15 @@ async function handleTurn({ userId, brandId, brandName, text, sessionId }) {
 
   const session = getSession(userId, trace.sessionId);
   trace.context = memorySummary(session);
+
+  // 0. Deterministic navigation matcher — clear "take me to / open / go to"
+  // phrases run the navigation tool directly (works even when the AI is down).
+  const directNav = matchNavigationPhrase(text);
+  if (directNav) {
+    applyNavigation(trace, { userId, target: directNav, source: "phrase-matcher" });
+    finishTrace(trace, session, text, startedAt);
+    return trace;
+  }
 
   // 1. Intent detection (Hermes). Null → safe fallback to the command system.
   const tIntent = Date.now();
@@ -338,6 +474,25 @@ async function handleTurn({ userId, brandId, brandName, text, sessionId }) {
     trace.route = "clarification";
     trace.reply =
       decision.clarification || "Just so I get this right — what would you like me to check or do?";
+    finishTrace(trace, session, text, startedAt);
+    return trace;
+  }
+
+  // 2b. Navigation intent — run the real navigation tool; the reply is only
+  // "opening…" language. Completion language comes exclusively from the
+  // verified /navigation-result callback.
+  if (decision.intent === "navigate") {
+    const target = resolveNavTarget(decision.args && decision.args.target);
+    if (!target) {
+      trace.route = "navigation";
+      trace.tool = "navigate_to_page";
+      trace.errors.push(`Unknown navigation target: ${JSON.stringify((decision.args || {}).target || null)}`);
+      trace.reply =
+        "I don't have a page registered for that yet, so I won't pretend to open it. You can reach it from the sidebar, and I'm still listening.";
+      finishTrace(trace, session, text, startedAt);
+      return trace;
+    }
+    applyNavigation(trace, { userId, target, source: "hermes-intent" });
     finishTrace(trace, session, text, startedAt);
     return trace;
   }
@@ -402,6 +557,24 @@ async function handleTurn({ userId, brandId, brandName, text, sessionId }) {
   return trace;
 }
 
+// Attach a pending navigation action to the turn. The reply deliberately uses
+// in-progress language only — completion is claimed solely by completeNavigation.
+function applyNavigation(trace, { userId, target, source }) {
+  trace.intent = trace.intent || "navigate";
+  trace.route = "navigation";
+  trace.tool = "navigate_to_page";
+  trace.verified = false;
+  const navId = registerNavigation({ userId, target, trace });
+  trace.action = {
+    type: "navigate",
+    navId,
+    sectionId: target.sectionId,
+    pageName: target.pageName,
+    source,
+  };
+  trace.reply = `Opening ${target.pageName} now.`;
+}
+
 function summarizeToolResult(intent, data) {
   // Keep the recorded tool result compact and free of sensitive bulk content.
   try {
@@ -427,9 +600,15 @@ module.exports = {
   handleTurn,
   endSession,
   recentTraces,
+  completeNavigation,
   // exported for tests
   parseIntentDecision,
   VALID_INTENTS,
   buildIntentSystemPrompt,
+  matchNavigationPhrase,
+  resolveNavTarget,
+  registerNavigation,
+  NAV_TARGETS,
   _sessions: sessions,
+  _pendingNavs: pendingNavs,
 };

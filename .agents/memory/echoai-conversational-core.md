@@ -18,6 +18,16 @@ session-memory Map) is process-global — an early review found cross-user leaks
 Sessions must be keyed `${userId}:${sessionId}` and recorder reads filtered by
 userId. A client-supplied sessionId alone is never a safe key.
 
+**Verified actions:** the Core must never speak completion language from intent
+alone. Any action (e.g. navigation) is a registered tool: server hands the
+client a one-shot, userId-bound, TTL'd action id; the reply uses in-progress
+wording only ("Opening X now."); the client executes, then reports the REAL
+committed outcome back, and only a verified match earns "X is open." Failures
+are spoken honestly with a recovery hint. Client-side: the post-commit
+verification effect keyed on route state won't fire when the target equals the
+current route — handle the same-route case explicitly or the pending action
+leaks until TTL.
+
 **How to apply:** when extending the Core (new tools, v2 write actions), keep
 every new tool in the adapter registry (never direct DB from the reasoning
 layer), scope any shared in-memory state by userId, and keep write actions
