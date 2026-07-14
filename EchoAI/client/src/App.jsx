@@ -1347,6 +1347,7 @@ export default function App() {
       {!isTeamMember ? (
         <ErrorBoundary silent>
           <GlobalStopButton />
+          <GlobalTapToSpeakBanner />
         </ErrorBoundary>
       ) : null}
       {!isTeamMember ? (
@@ -1559,6 +1560,29 @@ function GlobalStopButton() {
       />
       Stop
     </button>
+  );
+}
+
+// Shown when the browser blocked Echo's audio mid-session (e.g. after a hard
+// refresh with no click yet): his replies are queued waiting for a user
+// gesture, and without a visible cue the owner just thinks Echo is ignoring
+// them. Any click/tap anywhere resumes playback (VoiceContext attaches a
+// one-shot pointerdown listener), so this banner only needs to say so — it
+// doesn't need its own handler, though clicking it works like any other tap.
+function GlobalTapToSpeakBanner() {
+  const voice = useVoice();
+  if (!voice || !voice.active || !voice.needsGesture) return null;
+  return (
+    <div
+      className="fixed bottom-6 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-amber-400/40 bg-gray-950/95 px-6 py-3 text-sm font-semibold text-amber-300 shadow-xl shadow-amber-900/30"
+      role="status"
+    >
+      <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400" />
+      </span>
+      Echo has something to say — tap anywhere to hear it
+    </div>
   );
 }
 

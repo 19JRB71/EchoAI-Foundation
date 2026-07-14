@@ -30,8 +30,10 @@ gesture resumes` fallback is still required for persisted-session reloads.
 regardless (cross-origin iframe without `allow="autoplay"`). Test in a real tab.
 
 **Live-triage signature (July 2026):** owner reports Echo "not responding" to
-voice while the panel says "Listening" and typed chat works — after a hard
-refresh on a persisted session there was no gesture, so Echo could hear but
-couldn't SPEAK; replies were silently blocked. Any UI click (he happened to
-click Core Lab) restores everything. Triage order: typed chat first, then ask
-"did you click anything since the reload?" before suspecting the mic.
+voice while the panel says "Listening" and typed chat works — Echo could hear
+but couldn't SPEAK; replies were silently blocked and queued. Key nuance: the
+resume listener is a one-shot pointerdown attached only AFTER a block occurs
+(VoiceContext needsGesture), so clicks made BEFORE the block do nothing — it's
+the first click *after* speech got blocked that releases the queue, not the
+first click on the page. Owner's earlier clicks "didn't work"; a later random
+click (Core Lab) did. Triage: typed chat first, then one fresh click, then mic.
