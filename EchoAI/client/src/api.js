@@ -758,10 +758,10 @@ export const api = {
       method: "POST",
       body: { brandId, topic, platform },
     }),
-  scheduleSocial: ({ brandId, platform, postContent, scheduledTime }) =>
+  scheduleSocial: ({ brandId, platform, postContent, scheduledTime, imageUrl }) =>
     request("/api/social/schedule", {
       method: "POST",
-      body: { brandId, platform, postContent, scheduledTime },
+      body: { brandId, platform, postContent, scheduledTime, imageUrl },
     }),
   rescheduleSocialPost: (postId, scheduledTime) =>
     request(`/api/social/posts/${postId}/reschedule`, {

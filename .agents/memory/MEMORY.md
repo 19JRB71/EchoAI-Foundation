@@ -95,3 +95,4 @@
 - [Pooled pg client monkeypatch trap](echoai-pooled-client-patch.md) — test stubs on pool.connect/client.query must pass through connect(cb) and un-patch on release, or later pool.query deadlocks silently.
 - [EchoAI SMIL reduced-motion gap](echoai-smil-reduced-motion.md) — SVG <animateMotion> ignores the .z-anim CSS reduced-motion kill switch; gate SMIL sparks in JS via matchMedia.
 - [EchoAI Guided Setup Wizard](echoai-guided-setup-wizard.md) — OAuth return params have one owner (global fb= handler gated on onboardingCompleted); card status from live probes only; persist connecting BEFORE redirect.
+- [EchoAI post graphic attach](echoai-post-graphic-attach.md) — persist graphic before attach (/uploads/images path only); scheduled posts render via TWO endpoints — add new columns to both selects.

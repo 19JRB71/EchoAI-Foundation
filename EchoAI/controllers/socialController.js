@@ -348,8 +348,25 @@ async function generateSocialContent(req, res) {
  */
 async function schedulePost(req, res) {
   const userId = req.user.userId;
-  const { brandId, platform, postContent, scheduledTime } = req.body;
+  const { brandId, platform, postContent, scheduledTime, imageUrl } = req.body;
   const normalizedPlatform = String(platform || "").toLowerCase();
+
+  // Optional attached graphic: only our own saved-image paths are accepted
+  // (permanent copies under /uploads/images). Anything else is rejected so a
+  // client can never make the publisher fetch an arbitrary URL.
+  let attachedImageUrl = null;
+  if (imageUrl != null && imageUrl !== "") {
+    if (
+      typeof imageUrl !== "string" ||
+      !imageUrl.startsWith("/uploads/images/") ||
+      imageUrl.includes("..")
+    ) {
+      return res.status(400).json({
+        error: "imageUrl must be a saved image path (/uploads/images/...)",
+      });
+    }
+    attachedImageUrl = imageUrl;
+  }
 
   if (!brandId || !platform || !postContent || !scheduledTime) {
     return res.status(400).json({
@@ -397,10 +414,10 @@ async function schedulePost(req, res) {
     }
 
     const result = await db.query(
-      `INSERT INTO social_posts (brand_id, platform, post_content, scheduled_time, status)
-       VALUES ($1, $2, $3, $4, 'scheduled')
-       RETURNING post_id, brand_id, platform, post_content, scheduled_time, status, created_at`,
-      [brandId, normalizedPlatform, postContent, when.toISOString()]
+      `INSERT INTO social_posts (brand_id, platform, post_content, image_url, scheduled_time, status)
+       VALUES ($1, $2, $3, $4, $5, 'scheduled')
+       RETURNING post_id, brand_id, platform, post_content, image_url, scheduled_time, status, created_at`,
+      [brandId, normalizedPlatform, postContent, attachedImageUrl, when.toISOString()]
     );
     return res.status(201).json({ post: result.rows[0] });
   } catch (err) {
@@ -496,7 +513,7 @@ async function getSocialCalendar(req, res) {
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
     const result = await db.query(
-      `SELECT post_id, platform, post_content, scheduled_time, published_time,
+      `SELECT post_id, platform, post_content, image_url, scheduled_time, published_time,
               status, engagement_metrics, external_post_id, publish_attempts, created_at
        FROM social_posts
        WHERE brand_id = $1

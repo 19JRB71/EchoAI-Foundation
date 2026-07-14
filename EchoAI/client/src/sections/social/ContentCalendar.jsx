@@ -240,6 +240,13 @@ export default function ContentCalendar({ brandId, onReconnect }) {
                       className="flex w-full items-center gap-3 py-3 text-left hover:bg-gray-800"
                     >
                       <PlatformBadge platform={post.platform} />
+                      {post.image_url && (
+                        <img
+                          src={post.image_url}
+                          alt="Post graphic"
+                          className="h-10 w-10 flex-none rounded-md border border-gray-700 object-cover"
+                        />
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-gray-300">
                           {post.post_content}
@@ -329,6 +336,13 @@ function PostDetailModal({ post, onClose, onRescheduled, onReconnect }) {
         <p className="whitespace-pre-wrap text-sm text-gray-200">
           {post.post_content}
         </p>
+        {post.image_url && (
+          <img
+            src={post.image_url}
+            alt="Post graphic"
+            className="mt-3 max-h-64 rounded-lg border border-gray-700 object-cover"
+          />
+        )}
 
         <dl className="mt-4 space-y-1 border-t border-gray-800 pt-4 text-xs text-gray-400">
           <div className="flex justify-between">

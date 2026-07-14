@@ -17,9 +17,10 @@ export default function GeneratedImageCard({
   filenameBase,
   onSaved,
   onUseInSocial,
+  initialSaved,
 }) {
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(null);
+  const [saved, setSaved] = useState(initialSaved || null);
   const [error, setError] = useState("");
 
   async function ensureSaved() {
@@ -34,7 +35,7 @@ export default function GeneratedImageCard({
       styleNotes,
     });
     setSaved(data.image);
-    onSaved?.();
+    onSaved?.(data.image);
     return data.image;
   }
 

@@ -268,10 +268,11 @@ export default function ContentGenerator({
 
 // Generates one on-brand image for a social post from its copy, using the
 // platform's matching aspect ratio. Reuses the Image Studio image card.
-function SocialImageGenerator({ brandId, platform, postText, canGenerate }) {
+function SocialImageGenerator({ brandId, platform, postText, canGenerate, onAttached }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [image, setImage] = useState(null);
+  const [savedImage, setSavedImage] = useState(null);
   const purpose = PLATFORM_IMAGE_PURPOSE[platform] || "instagram_post";
 
   if (!canGenerate) {
@@ -294,6 +295,18 @@ function SocialImageGenerator({ brandId, platform, postText, canGenerate }) {
         prompt: postText,
       });
       setImage(data.image);
+      // Persist immediately so the graphic survives (DALL-E URLs expire) and
+      // can be attached to the post when it's scheduled.
+      const savedRes = await api.saveImage({
+        brandId,
+        purpose,
+        prompt: data.image.prompt,
+        imageUrl: data.image.imageUrl,
+        platform,
+        contentDescription: postText,
+      });
+      setSavedImage(savedRes.image);
+      onAttached?.(savedRes.image);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -309,15 +322,28 @@ function SocialImageGenerator({ brandId, platform, postText, canGenerate }) {
         </p>
       )}
       {image ? (
-        <GeneratedImageCard
-          brandId={brandId}
-          purpose={purpose}
-          platform={platform}
-          image={image}
-          contentDescription={postText}
-          label="Post image"
-          filenameBase={`${platform}-post`}
-        />
+        <>
+          <GeneratedImageCard
+            key={savedImage ? savedImage.image_id : "unsaved"}
+            brandId={brandId}
+            purpose={purpose}
+            platform={platform}
+            image={image}
+            initialSaved={savedImage}
+            contentDescription={postText}
+            label="Post graphic"
+            filenameBase={`${platform}-post`}
+            onSaved={(row) => {
+              setSavedImage(row);
+              onAttached?.(row);
+            }}
+          />
+          {savedImage && (
+            <p className="mt-2 text-xs text-green-400">
+              Graphic attached — it will publish with this post when you schedule it.
+            </p>
+          )}
+        </>
       ) : (
         <button
           onClick={generate}
@@ -338,6 +364,7 @@ function VariationCard({ brandId, platform, variation, canGenerateImage, onRegen
   const [regenerating, setRegenerating] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [attachedImage, setAttachedImage] = useState(null);
 
   async function handleRegenerate() {
     setRegenerating(true);
@@ -362,6 +389,7 @@ function VariationCard({ brandId, platform, variation, canGenerateImage, onRegen
         platform,
         postContent: composeContent(variation),
         scheduledTime: new Date(when).toISOString(),
+        imageUrl: attachedImage ? attachedImage.image_url : undefined,
       });
       setNotice("Scheduled.");
       setScheduling(false);
@@ -409,6 +437,7 @@ function VariationCard({ brandId, platform, variation, canGenerateImage, onRegen
         platform={platform}
         postText={variation.postText}
         canGenerate={canGenerateImage}
+        onAttached={setAttachedImage}
       />
 
       {notice && (

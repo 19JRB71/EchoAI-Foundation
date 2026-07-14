@@ -558,7 +558,7 @@ async function getCalendar(req, res) {
     const calendar = cal.rows[0];
 
     const posts = await db.query(
-      `SELECT post_id, platform, post_content, scheduled_time, published_time,
+      `SELECT post_id, platform, post_content, image_url, scheduled_time, published_time,
               status, engagement_metrics, external_post_id, publish_attempts, created_at
        FROM social_posts
        WHERE calendar_id = $1
