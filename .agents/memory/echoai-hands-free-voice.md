@@ -39,6 +39,12 @@ server prompt line forbidding "cannot navigate" replies. Bare agent names that a
 earlier-listed word collides (e.g. "industry intelligence" matched the
 Customer-Intelligence `intelligence` target; Sage uses "industry brief/report"
 instead). Verify by feeding every command through the real `matchNavIntent`.
+Also keep `NAV_VERB_RE` in sync with real phrasing: a real session used "send
+me to the ... inbox" — not a listed verb — AND "inbox" had no target, so the AI
+replied "Taking you to the inbox now" while nothing navigated (worst failure
+mode: a spoken promise with no action). When a nav bug report says Echo
+"said it but didn't do it", check BOTH the verb list and the target list; the
+recognizer may also split words ("in box").
 
 ## Best-effort sound endpoints (204, never error)
 `GET /api/echo-voice/sound/:name` (auth+lockout+requireOwner) returns **204** for

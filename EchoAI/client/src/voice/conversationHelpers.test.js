@@ -287,6 +287,22 @@ describe("matchNavIntent", () => {
     expect(matchNavIntent("show me scout")).toBe("dept:scout");
   });
 
+  it("routes inbox phrasings to the Email Assistant, not email marketing", () => {
+    expect(matchNavIntent("take me to my inbox")).toBe("echoemail");
+    // The recognizer sometimes splits the word ("in box").
+    expect(matchNavIntent("take me to my in box")).toBe("echoemail");
+    // "send me to" is a nav verb (the exact phrasing from a real session).
+    expect(matchNavIntent("send me to the south dixie inbox")).toBe("echoemail");
+    expect(matchNavIntent("open the email assistant")).toBe("echoemail");
+    expect(matchNavIntent("go to my emails")).toBe("echoemail");
+    // Email MARKETING still wins when the owner says email/email marketing.
+    expect(matchNavIntent("go to email marketing")).toBe("email");
+    expect(matchNavIntent("open email")).toBe("email");
+    // Questions about the inbox must NOT navigate.
+    expect(matchNavIntent("do i have any emails in the inbox")).toBe(null);
+    expect(matchNavIntent("is my inbox empty")).toBe(null);
+  });
+
   it("routes Facebook phrasings to the connect wizard action", () => {
     expect(matchNavIntent("facebook setup")).toBe("action:facebook");
     expect(matchNavIntent("set up facebook")).toBe("action:facebook");

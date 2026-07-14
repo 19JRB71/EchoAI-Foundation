@@ -275,7 +275,7 @@ export function matchLocalIntent(text) {
 // "go home", and the department names) because those read as direct commands —
 // but only when the utterance doesn't clearly begin like a question.
 const NAV_VERB_RE =
-  /\b(show|open|go to|take me to|navigate to|pull up|bring up|jump to|switch to)\b/;
+  /\b(show|open|go to|take me to|navigate to|pull up|bring up|jump to|switch to|send me to|bring me to|take me over to)\b/;
 // A leading question/informational stem — used to keep verb-less targets from
 // hijacking questions like "how is my social media doing".
 const NAV_QUESTION_RE =
@@ -398,6 +398,14 @@ const NAV_TARGETS = [
   // which is checked first, so "voice settings" still opens voice settings.
   { key: "dept:voice", re: /\bvoice\b/, standalone: false },
   // ── Group C: single-word / generic feature sections (verb required). ──
+  // The Email Assistant inbox — must sit before the generic "email" target
+  // below so "take me to my inbox" opens the inbox, not email marketing.
+  // "in box" covers the speech recognizer splitting the word.
+  {
+    key: "echoemail",
+    re: /\b(in ?box|email assistant|mailbox|my emails?)\b/,
+    standalone: false,
+  },
   { key: "leads", re: /\bleads?\b/, standalone: false },
   { key: "campaigns", re: /\b(ad campaigns?|campaigns?)\b/, standalone: false },
   { key: "social", re: /\b(social media|social)\b/, standalone: false },

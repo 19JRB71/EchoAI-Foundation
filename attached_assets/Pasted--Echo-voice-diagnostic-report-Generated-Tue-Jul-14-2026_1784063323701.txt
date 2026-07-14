@@ -1,0 +1,58 @@
+=== Echo voice diagnostic report ===
+Generated: Tue Jul 14 2026 17:08:35 GMT-0400 (Eastern Daylight Time)
+Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36
+Platform: Win32
+Events: 44 (newest last, ring buffer of 400)
+
+17:05:54.625  speaker-unmuted
+17:05:59.036  wake-word  (+4.4s)
+17:05:59.038  echo-speaks  text="Yes Sir?"
+17:06:00.370  echo-audio-ended
+17:06:01.200  dropped-as-echo-of-self  gated msSinceEchoStopped=831
+17:06:05.711  heard  text=" give me my daily briefing" mode=active  (+4.5s)
+17:06:06.171  command-processing  text="give me my daily briefing"
+17:06:06.173  echo-speaks  text="Of course Sir. Would you like a full briefing covering all your businesses, a quick summary of the most important things right now, or a specific update on one business or topic?"
+17:06:16.295  echo-audio-ended  (+10.1s)
+17:06:21.491  pause-extended-continuation  tail=e an update on one best one business and waitMs=1800  (+5.2s)
+17:06:23.514  heard  text=" business and let me know what's left to do" mode=active  (+2.0s)
+17:06:23.976  command-processing  text="business and let me know what's left to do"
+17:06:23.984  briefing-fetch  choice=specific brandId=a25ba9c4-6d34-4695-bd93-846b9f6bdbe3 brandName=South Dixie Storage
+17:06:28.933  echo-speaks  text="Here's where things stand for **South Dixie Storage**, Sir:
+
+Your first ad campaign is currently **in progress** — it's being built out and will be ready for your review and one-click approval before anything goes live.
+
+There are **no pending approvals** waiting on you right now, so the next step is simply **greenlighting that campaign** once the preview is ready.
+
+Want me to pull up the campaign builder so you can see where it stands?"  (+4.9s)
+17:06:56.181  echo-audio-ended  (+27.2s)
+17:06:56.882  dropped-as-echo-of-self  heard=" green lighting that campaign wants the preview is ready want me to pull up the campaign Builder so you can see where it stands" gated msSinceEchoStopped=701
+17:07:01.093  heard  text=" no" mode=active  (+4.2s)
+17:07:01.551  command-processing  text="no"
+17:07:04.988  echo-speaks  text="Understood, Sir — we'll leave that on the table for now."  (+3.4s)
+17:07:08.752  echo-audio-ended  (+3.8s)
+17:07:08.753  echo-speaks  text="Whenever you're ready to move forward with something for South Dixie Storage, just say the word."
+17:07:13.956  echo-audio-ended  (+5.2s)
+17:07:14.691  dropped-as-echo-of-self  heard=" whenever you're ready to move forward with something for South Dixie store" gated msSinceEchoStopped=735
+17:07:19.393  heard  text=" do I have any emails in the inbox" mode=active  (+4.7s)
+17:07:19.850  command-processing  text="do I have any emails in the inbox"
+17:07:27.416  echo-speaks  text="Here's what I'm seeing in your South Dixie Storage inbox right now, Sir — **no unread messages** at the moment."  (+7.6s)
+17:07:34.270  echo-audio-ended  (+6.9s)
+17:07:34.272  echo-speaks  text="Everything looks clear."
+17:07:36.370  echo-audio-ended  (+2.1s)
+17:07:36.371  echo-speaks  text="Would you like me to set up an email campaign or draft an outreach to any of your contacts?"
+17:07:42.196  echo-audio-ended  (+5.8s)
+17:07:46.885  heard  text=" send me to the South Dixie inbox" mode=active  (+4.7s)
+17:07:47.347  command-processing  text="send me to the South Dixie inbox"
+17:07:53.944  echo-speaks  text="Taking you to the South Dixie Storage inbox now, Sir."  (+6.6s)
+17:07:57.635  echo-audio-ended  (+3.7s)
+17:07:58.417  dropped-as-echo-of-self  heard=" taking you to the South Dixie storage inbox now sir" gated msSinceEchoStopped=782
+17:08:09.301  heard  text=" I'm waiting" mode=active  (+10.9s)
+17:08:09.751  command-processing  text="I'm waiting"
+17:08:13.056  echo-speaks  text="Here's where things stand for **South Dixie Storage**, Sir:
+
+Your first ad campaign is still in build — ready to preview and greenlight whenever you are."  (+3.3s)
+17:08:22.283  echo-audio-ended  (+9.2s)
+17:08:22.284  echo-speaks  text="No pending approvals are sitting on your end right now, and your account is active."
+17:08:27.563  echo-audio-ended  (+5.3s)
+17:08:27.564  echo-speaks  text="Want me to pull up the campaign preview so you can review and launch?"
+17:08:31.778  echo-audio-ended  (+4.2s)
