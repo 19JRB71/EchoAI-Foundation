@@ -141,7 +141,13 @@ export default function VoicePlayer() {
                     ? "Asking Echo…"
                     : "Echo"}
             </span>
-            {playing && <span className="text-[10px] text-gray-500">speaking…</span>}
+            {playing && (
+              <span className="text-[10px] text-gray-500">
+                {voice.chunkPos && voice.chunkPos.total > 1
+                  ? `section ${voice.chunkPos.index + 1} of ${voice.chunkPos.total}`
+                  : "speaking…"}
+              </span>
+            )}
           </div>
 
           {current || playing ? <Waveform active={playing} /> : null}
@@ -164,12 +170,34 @@ export default function VoicePlayer() {
 
           <div className="mt-2 flex items-center gap-2">
             <button
+              onClick={voice.skipBack}
+              disabled={!playing}
+              title="Back one section"
+              aria-label="Back one section"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800 disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5.5 4.5a.75.75 0 01.75.75v4.06l6.61-4.5a.75.75 0 011.14.63v9.12a.75.75 0 01-1.14.63l-6.61-4.5v4.06a.75.75 0 01-1.5 0v-9.5a.75.75 0 01.75-.75z" />
+              </svg>
+            </button>
+            <button
               onClick={voice.stopAll}
               disabled={!playing}
               className="flex items-center gap-1.5 rounded-lg bg-red-500/90 px-3.5 py-1.5 text-sm font-bold text-white shadow shadow-red-900/40 hover:bg-red-400 disabled:opacity-40"
             >
               <span className="inline-block h-2.5 w-2.5 rounded-[2px] bg-white" aria-hidden="true" />
               Stop
+            </button>
+            <button
+              onClick={voice.skipForward}
+              disabled={!playing}
+              title="Forward one section"
+              aria-label="Forward one section"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800 disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M14.5 4.5a.75.75 0 00-.75.75v4.06l-6.61-4.5a.75.75 0 00-1.14.63v9.12a.75.75 0 001.14.63l6.61-4.5v4.06a.75.75 0 001.5 0v-9.5a.75.75 0 00-.75-.75z" />
+              </svg>
             </button>
             <button
               onClick={voice.replay}

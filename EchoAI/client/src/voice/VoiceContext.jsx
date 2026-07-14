@@ -119,6 +119,9 @@ export function VoiceProvider({ active, children }) {
   const [notice, setNotice] = useState("");
   // True when the browser blocked autoplay; the next user gesture resumes playback.
   const [needsGesture, setNeedsGesture] = useState(false);
+  // Position within the current item's speech chunks ({ index, total } or
+  // null) so the player UI can show/enable the back/forward section buttons.
+  const [chunkPos, setChunkPos] = useState(null);
   // Proactive channel/tool suggestions returned with the weekly briefing. The
   // owner can act on them (navigate + accept) or dismiss (decline) from the
   // Echo popover; both decisions are recorded server-side for deduping.
@@ -138,6 +141,10 @@ export function VoiceProvider({ active, children }) {
   const resolveRef = useRef(null); // resolves the in-flight speakItem promise
   const busyRef = useRef(false); // guards the drain loop
   const lastPlayedRef = useRef(null); // for replay
+  // Set by speakItem while an item is being spoken: a function ("prev"|"next")
+  // that jumps one chunk back/forward within the CURRENT item (briefing
+  // section skip). Null when nothing is playing.
+  const chunkNavRef = useRef(null);
   // Server notification ids that reached a terminal state this session (spoken,
   // user-dismissed, user-stopped, or failed too many times). Only autoplay-
   // "blocked" items stay un-terminal so a later poll retries them — everything
@@ -289,6 +296,8 @@ export function VoiceProvider({ active, children }) {
           if (settled) return;
           settled = true;
           resolveRef.current = null;
+          chunkNavRef.current = null;
+          setChunkPos(null);
           if (chunkDone) {
             const done = chunkDone;
             chunkDone = null;
@@ -304,6 +313,24 @@ export function VoiceProvider({ active, children }) {
           resolve(status);
         };
         resolveRef.current = settle;
+        // Section navigation (back/forward buttons around Stop): requests a
+        // jump of one chunk within THIS item. Interrupts the chunk that's
+        // playing (or lets an in-flight synthesis finish, then jumps).
+        let navDir = null;
+        chunkNavRef.current = (dir) => {
+          if (settled) return;
+          navDir = dir;
+          if (chunkDone) {
+            const done = chunkDone;
+            chunkDone = null;
+            done("navigated");
+          }
+          try {
+            if (audioRef.current) audioRef.current.pause();
+          } catch {
+            /* noop */
+          }
+        };
         (async () => {
           // Duck any background music while Echo speaks (restored in settle()).
           // The spoken text rides along so the conversation engine can tell
@@ -380,12 +407,25 @@ export function VoiceProvider({ active, children }) {
           // it per-item so a broken ElevenLabs account shows text instead of a
           // different-sounding voice (task requirement for Sage spoken alerts).
           const strict = presentationRef.current || item.type === "sage_urgent";
-          let pending = api.echoVoiceSpeak(chunks[0], style, { presentation: strict });
-          for (let i = 0; i < chunks.length; i++) {
-            let blob;
-            try {
-              blob = await pending;
-            } catch (err) {
+          const synth = (idx) =>
+            api.echoVoiceSpeak(chunks[idx], style, { presentation: strict });
+          // Synthesized chunks are cached for the lifetime of this item so the
+          // back button can replay an earlier section instantly (no re-TTS).
+          const blobCache = new Map();
+          let pending = synth(0);
+          let pendingIdx = 0;
+          let i = 0;
+          while (i < chunks.length) {
+            setChunkPos({ index: i, total: chunks.length });
+            let blob = blobCache.get(i);
+            if (!blob) {
+              if (!pending || pendingIdx !== i) {
+                pending = synth(i);
+                pendingIdx = i;
+              }
+              try {
+                blob = await pending;
+              } catch (err) {
               // Presentation Mode + ElevenLabs unavailable: NEVER switch to a
               // different voice. Show the spoken text as a notification and treat
               // the item as delivered so the demo keeps moving.
@@ -400,17 +440,31 @@ export function VoiceProvider({ active, children }) {
               }
               // First chunk failed → surface the error. A later chunk failing
               // just ends the briefing gracefully after what was already spoken.
-              if (i === 0) {
-                setError(err.message || "Voice playback failed");
-                settle("error");
-              } else {
-                settle("played");
+                if (i === 0) {
+                  setError(err.message || "Voice playback failed");
+                  settle("error");
+                } else {
+                  settle("played");
+                }
+                return;
               }
-              return;
+              blobCache.set(i, blob);
             }
             pending = null;
             // Skipped/stopped/muted while synthesizing → bail without playing.
             if (settled) return;
+            // A back/forward press arrived while this chunk was synthesizing →
+            // jump without playing it (it stays cached for later).
+            if (navDir) {
+              const dir = navDir;
+              navDir = null;
+              i = dir === "prev" ? Math.max(0, i - 1) : i + 1;
+              if (i >= chunks.length) {
+                settle("played");
+                return;
+              }
+              continue;
+            }
             if (mutedRef.current || !activeRef.current) {
               settle("stopped");
               return;
@@ -439,10 +493,9 @@ export function VoiceProvider({ active, children }) {
                 .then(() => {
                   // Playback started → prefetch the next chunk now so it's ready
                   // the instant this one ends.
-                  if (i + 1 < chunks.length && !pending) {
-                    pending = api.echoVoiceSpeak(chunks[i + 1], style, {
-                      presentation: strict,
-                    });
+                  if (i + 1 < chunks.length && !pending && !blobCache.has(i + 1)) {
+                    pending = synth(i + 1);
+                    pendingIdx = i + 1;
                     // Neutralize an unhandled rejection if we bail before awaiting.
                     pending.catch(() => {});
                   }
@@ -461,6 +514,18 @@ export function VoiceProvider({ active, children }) {
             }
             if (audioRef.current === el) audioRef.current = null;
             if (settled) return;
+            // Back/forward pressed mid-playback (chunkDone resolved "navigated")
+            // or right as the chunk ended → jump one section.
+            if (status === "navigated" || navDir) {
+              const dir = navDir || "next";
+              navDir = null;
+              i = dir === "prev" ? Math.max(0, i - 1) : i + 1;
+              if (i >= chunks.length) {
+                settle("played");
+                return;
+              }
+              continue;
+            }
             if (status === "blocked") {
               // Autoplay gated before the first user gesture (morning briefing).
               // Halt; the drain loop re-queues the whole item for the next gesture.
@@ -469,11 +534,11 @@ export function VoiceProvider({ active, children }) {
             }
             // "error" → skip this chunk but keep going. Either way, make sure the
             // next chunk's synthesis is in flight before we loop.
-            if (i + 1 < chunks.length && !pending) {
-              pending = api.echoVoiceSpeak(chunks[i + 1], style, {
-                presentation: strict,
-              });
+            if (i + 1 < chunks.length && !pending && !blobCache.has(i + 1)) {
+              pending = synth(i + 1);
+              pendingIdx = i + 1;
             }
+            i += 1;
           }
           settle("played");
         })();
@@ -866,6 +931,16 @@ export function VoiceProvider({ active, children }) {
     if (!last) return;
     enqueue({ ...last, id: undefined, notificationId: undefined }, { front: true });
   }, [enqueue]);
+
+  // Jump one section back/forward WITHIN the item currently being spoken
+  // (briefing section skip — not the whole briefing). No-ops when idle.
+  const skipBack = useCallback(() => {
+    if (chunkNavRef.current) chunkNavRef.current("prev");
+  }, []);
+
+  const skipForward = useCallback(() => {
+    if (chunkNavRef.current) chunkNavRef.current("next");
+  }, []);
 
   const stopAll = useCallback(() => {
     recordVoiceEvent("stop-all", { queued: queueRef.current.length });
@@ -1411,6 +1486,9 @@ export function VoiceProvider({ active, children }) {
       weeklyBriefing,
       replay,
       skip,
+      skipBack,
+      skipForward,
+      chunkPos,
       stopAll,
       enqueue,
       clearDemoQueue,
@@ -1441,6 +1519,9 @@ export function VoiceProvider({ active, children }) {
       weeklyBriefing,
       replay,
       skip,
+      skipBack,
+      skipForward,
+      chunkPos,
       stopAll,
       enqueue,
       clearDemoQueue,
