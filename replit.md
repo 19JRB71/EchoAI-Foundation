@@ -190,6 +190,10 @@ Three registered validation steps gate task completion (see the `validation` ski
 
 ## User preferences
 
+- **Engineering Constitution.** `ENGINEERING_CONSTITUTION.md` (v1.1, CEO-approved
+  July 2026) is Zorecho's permanent engineering constitution. Evaluate major
+  architectural decisions against it. It changes only by deliberate CEO-approved
+  amendment — never implicitly through implementation.
 - **Operating model (established July 2026).** Zorecho runs like a company:
   James = CEO (vision, approvals, final say); ChatGPT = Creative Director
   (Zorecho branding, marketing, ads, website/sales/email copy, visual direction,
