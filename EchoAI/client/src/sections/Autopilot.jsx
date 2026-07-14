@@ -69,6 +69,8 @@ export default function Autopilot({ brandId }) {
   const [reviseFor, setReviseFor] = useState(""); // itemId with the revise box open
   const [reviseText, setReviseText] = useState("");
   const [form, setForm] = useState({
+    includePosts: true,
+    includeAds: true,
     postsPerWeek: 5,
     adsPerWeek: 1,
     daily: "",
@@ -100,8 +102,10 @@ export default function Autopilot({ brandId }) {
       if (!formSeeded.current) {
         formSeeded.current = true;
         setForm({
-          postsPerWeek: s.postsPerWeek,
-          adsPerWeek: s.adsPerWeek,
+          includePosts: s.postsPerWeek > 0,
+          includeAds: s.adsPerWeek > 0,
+          postsPerWeek: s.postsPerWeek > 0 ? s.postsPerWeek : 5,
+          adsPerWeek: s.adsPerWeek > 0 ? s.adsPerWeek : 1,
           daily: s.dailySpendCap != null ? String(s.dailySpendCap) : "",
           weekly: s.weeklySpendCap != null ? String(s.weeklySpendCap) : "",
           monthly: s.monthlySpendCap != null ? String(s.monthlySpendCap) : "",
@@ -128,8 +132,8 @@ export default function Autopilot({ brandId }) {
     try {
       const s = await api.autopilotSaveSettings({
         brandId,
-        postsPerWeek: Number(form.postsPerWeek),
-        adsPerWeek: Number(form.adsPerWeek),
+        postsPerWeek: form.includePosts ? Math.max(1, Number(form.postsPerWeek) || 0) : 0,
+        adsPerWeek: form.includeAds ? Math.max(1, Number(form.adsPerWeek) || 0) : 0,
         dailySpendCap: capInput(form.daily),
         weeklySpendCap: capInput(form.weekly),
         monthlySpendCap: capInput(form.monthly),
@@ -254,7 +258,12 @@ export default function Autopilot({ brandId }) {
             </div>
             <button
               onClick={() => saveSettings({ enabled: !settings.enabled })}
-              disabled={saving}
+              disabled={saving || (!settings.enabled && !form.includePosts && !form.includeAds)}
+              title={
+                !settings.enabled && !form.includePosts && !form.includeAds
+                  ? "Check posts, ads, or both first"
+                  : undefined
+              }
               className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
                 settings.enabled
                   ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
@@ -265,29 +274,72 @@ export default function Autopilot({ brandId }) {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="text-sm text-gray-300">
-              Posts per week
-              <input
-                type="number"
-                min="0"
-                max="21"
-                value={form.postsPerWeek}
-                onChange={(e) => setForm((f) => ({ ...f, postsPerWeek: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white"
-              />
-            </label>
-            <label className="text-sm text-gray-300">
-              Test ads per week
-              <input
-                type="number"
-                min="0"
-                max="7"
-                value={form.adsPerWeek}
-                onChange={(e) => setForm((f) => ({ ...f, adsPerWeek: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white"
-              />
-            </label>
+          <div>
+            <div className="text-sm font-semibold text-white">What should Echo draft each week?</div>
+            <div className="text-xs text-gray-500">
+              Check what you want in the weekly batch — posts only, ads only, or both.
+            </div>
+            {!form.includePosts && !form.includeAds && (
+              <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                Pick at least one — with both unchecked there's nothing for Echo to draft.
+              </div>
+            )}
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div
+                className={`rounded-lg border p-3 ${
+                  form.includePosts ? "border-pink-500/40 bg-pink-500/5" : "border-gray-700 bg-gray-900/40"
+                }`}
+              >
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-white">
+                  <input
+                    type="checkbox"
+                    checked={form.includePosts}
+                    onChange={(e) => setForm((f) => ({ ...f, includePosts: e.target.checked }))}
+                    className="h-4 w-4 accent-pink-500"
+                  />
+                  Social posts <span className="font-normal text-pink-300">(Nova)</span>
+                </label>
+                <label className={`mt-2 block text-sm ${form.includePosts ? "text-gray-300" : "text-gray-600"}`}>
+                  Posts per week
+                  <input
+                    type="number"
+                    min="1"
+                    max="21"
+                    value={form.postsPerWeek}
+                    disabled={!form.includePosts}
+                    onChange={(e) => setForm((f) => ({ ...f, postsPerWeek: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white disabled:opacity-40"
+                  />
+                </label>
+              </div>
+              <div
+                className={`rounded-lg border p-3 ${
+                  form.includeAds ? "border-indigo-500/40 bg-indigo-500/5" : "border-gray-700 bg-gray-900/40"
+                }`}
+              >
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-white">
+                  <input
+                    type="checkbox"
+                    checked={form.includeAds}
+                    onChange={(e) => setForm((f) => ({ ...f, includeAds: e.target.checked }))}
+                    className="h-4 w-4 accent-indigo-500"
+                  />
+                  Test ads <span className="font-normal text-indigo-300">(Atlas)</span>
+                </label>
+                <label className={`mt-2 block text-sm ${form.includeAds ? "text-gray-300" : "text-gray-600"}`}>
+                  Test ads per week
+                  <input
+                    type="number"
+                    min="1"
+                    max="7"
+                    value={form.adsPerWeek}
+                    disabled={!form.includeAds}
+                    onChange={(e) => setForm((f) => ({ ...f, adsPerWeek: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white disabled:opacity-40"
+                  />
+                </label>
+              </div>
+            </div>
           </div>
 
           <div>
