@@ -18,7 +18,10 @@ const {
   buildBrandStyleSummary,
 } = require("../prompts/imagePromptEngineerPrompt");
 
-const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "dall-e-3";
+// OpenAI retired the DALL-E models (mid-2026); gpt-image-1 is the current
+// image model. It returns inline b64 bytes (no hosted URL), which
+// imageUrlFromResponse persists to /uploads at generation time.
+const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
 
 // Saved images are persisted to disk because DALL-E hosted URLs expire after a
 // couple of hours. Files are written here and served statically at /uploads.
@@ -96,6 +99,35 @@ function sendAiError(res, err, fallbackMsg) {
   return res.status(500).json({ error: fallbackMsg });
 }
 
+/** Writes image bytes to the uploads dir and returns the public path. */
+async function saveImageBuffer(buffer) {
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    throw new Error("Image exceeds the maximum allowed size");
+  }
+  await fs.mkdir(UPLOADS_DIR, { recursive: true });
+  const filename = `${crypto.randomUUID()}.png`;
+  await fs.writeFile(path.join(UPLOADS_DIR, filename), buffer);
+  return `${PUBLIC_PREFIX}/${filename}`;
+}
+
+/**
+ * Extracts a usable image URL from an OpenAI images.generate response.
+ * OpenAI's API no longer accepts the `response_format` parameter — depending
+ * on the model it returns either a temporary hosted `url` (DALL-E) or inline
+ * `b64_json` bytes (gpt-image models). Inline bytes are persisted to disk
+ * immediately and the permanent /uploads path is returned.
+ */
+async function imageUrlFromResponse(response) {
+  const item = response?.data?.[0];
+  if (item?.url && typeof item.url === "string") return item.url;
+  if (item?.b64_json && typeof item.b64_json === "string") {
+    return saveImageBuffer(Buffer.from(item.b64_json, "base64"));
+  }
+  const err = new Error("Image generator returned no image");
+  err.aiInvalid = true;
+  throw err;
+}
+
 /**
  * Generates a single image with DALL-E and returns its (temporary) URL plus the
  * prompt used.
@@ -107,9 +139,8 @@ async function generateOne(brand, purpose, description, variantIndex) {
     prompt,
     n: 1,
     size: sizeFor(purpose),
-    response_format: "url",
   });
-  return { imageUrl: response.data[0].url, prompt };
+  return { imageUrl: await imageUrlFromResponse(response), prompt };
 }
 
 /**
@@ -253,15 +284,8 @@ async function renderFromPrompt(prompt, purpose) {
     prompt,
     n: 1,
     size: sizeFor(purpose),
-    response_format: "url",
   });
-  const url = response?.data?.[0]?.url;
-  if (!url || typeof url !== "string") {
-    const err = new Error("Image generator returned no image");
-    err.aiInvalid = true;
-    throw err;
-  }
-  return url;
+  return imageUrlFromResponse(response);
 }
 
 /**
@@ -373,7 +397,17 @@ async function getBrandStyleGuide(req, res) {
  * Downloads an image from a (temporary) URL and writes it to the uploads dir.
  * Returns the public-serving path. Throws if the download fails.
  */
+// A path our own generator already persisted (b64 responses are written to
+// disk at generation time). Strict UUID-filename match — never a generic
+// local-path passthrough.
+const PERSISTED_IMAGE_PATH =
+  /^\/uploads\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$/i;
+
 async function persistImage(sourceUrl) {
+  // Already persisted locally (inline-bytes models) — nothing to download.
+  if (typeof sourceUrl === "string" && PERSISTED_IMAGE_PATH.test(sourceUrl)) {
+    return sourceUrl;
+  }
   if (!isAllowedImageUrl(sourceUrl)) {
     throw new Error("Image URL is not from an allowed host");
   }
@@ -555,6 +589,8 @@ module.exports = {
   UPLOADS_DIR,
   renderFromPrompt,
   persistImage,
+  // Test seam: response-shape handling (hosted url vs inline b64).
+  _imageUrlFromResponseForTests: imageUrlFromResponse,
   generateImage,
   generateAdCreativeSet,
   generateImagePrompts,

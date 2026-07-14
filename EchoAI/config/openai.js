@@ -94,7 +94,7 @@ function wireCostControls(client) {
   });
   gated(client.images, "generate", {
     taskType: "image",
-    model: "dall-e-3",
+    model: "gpt-image-1",
     estimateCost: estimateImageCost,
   });
 }

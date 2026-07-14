@@ -10,10 +10,10 @@
  *   professional marketing prompt from the brand profile + requirements.
  */
 
-// DALL-E 3 only supports these three sizes.
+// gpt-image model sizes (DALL-E's 1792x1024 / 1024x1792 no longer exist).
 const SIZE_SQUARE = "1024x1024";
-const SIZE_LANDSCAPE = "1792x1024";
-const SIZE_PORTRAIT = "1024x1792";
+const SIZE_LANDSCAPE = "1536x1024";
+const SIZE_PORTRAIT = "1024x1536";
 
 const PURPOSES = {
   facebook_ad: {
