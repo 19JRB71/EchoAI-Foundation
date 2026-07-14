@@ -350,7 +350,14 @@ export default function MissionControlV2({
             <button
               onClick={onLogout}
               data-testid="mcv2-logout"
-              className="flex items-center gap-1.5 rounded-lg border border-cyan-950/70 bg-[#070d1c]/90 px-2.5 py-1.5 text-[11px] font-semibold text-gray-300 transition-colors hover:border-rose-700/50 hover:text-rose-200"
+              className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors"
+              style={{
+                borderColor: "#39ff14aa",
+                backgroundColor: "rgba(57,255,20,0.10)",
+                color: "#39ff14",
+                textShadow: "0 0 8px rgba(57,255,20,0.55)",
+                boxShadow: "0 0 12px rgba(57,255,20,0.35), inset 0 0 8px rgba(57,255,20,0.12)",
+              }}
               title="Log out"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
