@@ -1,0 +1,77 @@
+=== Echo voice diagnostic report ===
+Generated: Tue Jul 14 2026 10:12:26 GMT-0400 (Eastern Daylight Time)
+Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36
+Platform: Win32
+Events: 71 (newest last, ring buffer of 400)
+
+10:03:52.839  wake-word
+10:03:52.839  echo-speaks  text="Yes Sir, I'm listening."
+10:03:54.788  echo-audio-ended  (+1.9s)
+10:03:55.608  dropped-as-echo-of-self  heard=" I'm listening" gated msSinceEchoStopped=820
+10:04:00.399  heard  text=" why did the Instagram post fail" echoWindow mode=active  (+4.8s)
+10:04:00.850  command-processing  text="why did the Instagram post fail"
+10:04:06.387  echo-speaks  text="Here's what I found, Sir — the Instagram post for South Dixie Storage failed due to a **disconnected Instagram account**."  (+5.5s)
+10:04:13.907  echo-audio-ended  (+7.5s)
+10:04:13.908  echo-speaks  text="The account isn't currently linked to your Meta Business Suite, which blocked the post from publishing."
+10:04:19.665  echo-audio-ended  (+5.8s)
+10:04:19.665  echo-speaks  text="Quick fix: reconnect your Instagram account under the Social Accounts settings and I'll requeue the post for approval immediately."
+10:04:26.591  echo-audio-ended  (+6.9s)
+10:04:27.241  dropped-as-echo-of-self  heard=" Quick Fix reconnect your Instagram account" gated msSinceEchoStopped=650
+10:04:33.993  heard  text=" okay what business are we in" mode=active  (+6.8s)
+10:04:34.452  command-processing  text="okay what business are we in"
+10:04:38.100  echo-speaks  text="We're focused on **South Dixie Storage**, Sir."  (+3.6s)
+10:04:41.651  echo-audio-ended  (+3.6s)
+10:04:41.652  echo-speaks  text="Ready to keep building momentum for your first campaign whenever you are."
+10:04:45.874  echo-audio-ended  (+4.2s)
+10:04:46.508  dropped-as-echo-of-self  heard=" ready to keep building momentum for your first campaign whenever you are" gated msSinceEchoStopped=634
+10:04:54.199  heard  text=" you" mode=active  (+7.7s)
+10:04:54.654  command-processing  text="you"
+10:04:58.539  echo-speaks  text="Hey Sir!"  (+3.9s)
+10:04:59.792  echo-audio-ended
+10:04:59.792  echo-speaks  text="Ready to keep pushing forward on South Dixie Storage whenever you are."
+10:05:03.591  echo-audio-ended  (+3.8s)
+10:07:45.018  wake-word  (+161.4s)
+10:07:45.369  heard  text="hey Echo" gated echoWindow mode=active
+10:07:45.822  command-processing  text="hey Echo"
+10:07:57.069  heard  text=" go to email setup" mode=active  (+11.2s)
+10:07:57.523  command-processing  text="go to email setup"
+10:08:21.339  heard  text="hey Uncle go to scout" mode=active  (+23.8s)
+10:08:21.797  command-processing  text="hey Uncle go to scout"
+10:08:27.521  heard  text=" go to atlas" mode=active  (+5.7s)
+10:08:27.978  command-processing  text="go to atlas"
+10:08:32.130  heard  text=" go to Sage" mode=active  (+4.2s)
+10:08:32.586  command-processing  text="go to Sage"
+10:08:36.237  heard  text=" go to Sentinel" mode=active  (+3.7s)
+10:08:36.695  command-processing  text="go to Sentinel"
+10:08:39.837  heard  text=" go to forge" mode=active  (+3.1s)
+10:08:40.294  command-processing  text="go to forge"
+10:08:43.931  heard  text=" go to Voice" mode=active  (+3.6s)
+10:08:44.386  command-processing  text="go to Voice"
+10:08:47.540  heard  text=" go to pulse" mode=active  (+3.2s)
+10:08:47.998  command-processing  text="go to pulse"
+10:08:51.213  heard  text=" go to Nova" mode=active  (+3.2s)
+10:08:51.673  command-processing  text="go to Nova"
+10:08:55.423  heard  text=" go to Sage" mode=active  (+3.8s)
+10:08:55.880  command-processing  text="go to Sage"
+10:08:59.617  heard  text=" go to atlas" mode=active  (+3.7s)
+10:09:00.069  command-processing  text="go to atlas"
+10:09:22.711  heard  text=" go to ad campaigns" mode=active  (+22.6s)
+10:09:23.173  command-processing  text="go to ad campaigns"
+10:09:59.767  heard  text="South Dixie" mode=active  (+36.6s)
+10:10:00.221  command-processing  text="South Dixie"
+10:10:12.786  heard  text=" take me to Mission Control" mode=active  (+12.6s)
+10:10:13.241  command-processing  text="take me to Mission Control"
+10:10:21.766  heard  text=" take me to lacor homes" mode=active  (+8.5s)
+10:10:22.223  command-processing  text="take me to lacor homes"
+10:10:46.581  heard  text="hey Echo switch businesses to blackcore homes" mode=active  (+24.4s)
+10:10:47.034  command-processing  text="hey Echo switch businesses to blackcore homes"
+10:11:21.338  wake-word  (+34.3s)
+10:11:22.883  heard  text="hey Echo go to admin" mode=active  (+1.5s)
+10:11:23.337  command-processing  text="hey Echo go to admin"
+10:11:27.686  heard  text=" go to settings" mode=active  (+4.3s)
+10:11:28.145  command-processing  text="go to settings"
+10:11:36.079  heard  text=" play music" mode=active  (+7.9s)
+10:11:36.536  command-processing  text="play music"
+10:11:45.294  heard  text=" remix" mode=active  (+8.8s)
+10:11:45.751  command-processing  text="remix"
+10:12:22.156  mic-error  code=network  (+36.4s)

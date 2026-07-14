@@ -376,6 +376,13 @@ export function EchoConversationProvider({ active, children }) {
           return;
         }
         if (voice.muted || !active) {
+          // Diagnostic: the reply was silently swallowed before it was even
+          // queued — record why, or the flight recorder shows a command being
+          // processed with no trace of what happened to the answer.
+          recordVoiceEvent("speech-skipped", {
+            reason: voice.muted ? "speaker-muted" : "voice-off",
+            text: String(text).slice(0, 80),
+          });
           resolve(false);
           return;
         }
@@ -388,7 +395,14 @@ export function EchoConversationProvider({ active, children }) {
           window.removeEventListener("echoai:speech-stopped", onStopped);
           resolve(played);
         };
-        const safety = setTimeout(() => finish(false), SPEAK_SAFETY_MS);
+        const safety = setTimeout(() => {
+          // Diagnostic: the line was queued but never finished playing within
+          // the safety window (autoplay block, TTS outage, held queue…).
+          recordVoiceEvent("speech-timeout", {
+            text: String(text).slice(0, 80),
+          });
+          finish(false);
+        }, SPEAK_SAFETY_MS);
         // If the user hits the Stop button (or says "stop") the voice engine
         // fires this event — resolve IMMEDIATELY so the conversation flow
         // never hangs on the safety timeout after a manual stop.

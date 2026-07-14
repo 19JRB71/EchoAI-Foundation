@@ -33,6 +33,7 @@ import {
   chunkForSpeech,
 } from "../lib/voiceSettings.js";
 import { getWarmAudio, killWarmAudio, installAutoUnlock } from "./audioUnlock.js";
+import { recordVoiceEvent } from "./flightRecorder.js";
 import { standbyGreeting, musicReadyLine } from "./phraseVariety.js";
 import { isProactiveVoiceItem } from "./conversationHelpers.js";
 
@@ -483,11 +484,28 @@ export function VoiceProvider({ active, children }) {
   // Drain the queue one item at a time.
   const drain = useCallback(async () => {
     if (busyRef.current) return;
-    if (mutedRef.current || !activeRef.current) return;
+    if (mutedRef.current || !activeRef.current) {
+      // Diagnostic: queued speech is being silently dropped/held because the
+      // speaker is muted or voice is switched off — make that visible in the
+      // flight recorder, or "Echo ignores me" reports are undebuggable.
+      if (queueRef.current.length > 0) {
+        recordVoiceEvent("speech-held", {
+          reason: mutedRef.current ? "speaker-muted" : "voice-off",
+          queued: queueRef.current.length,
+        });
+      }
+      return;
+    }
     busyRef.current = true;
     try {
       while (queueRef.current.length > 0) {
-        if (mutedRef.current || !activeRef.current) break;
+        if (mutedRef.current || !activeRef.current) {
+          recordVoiceEvent("speech-held", {
+            reason: mutedRef.current ? "speaker-muted" : "voice-off",
+            queued: queueRef.current.length,
+          });
+          break;
+        }
         // CONVERSATION-PRIORITY RULE: while the conversation engine reports an
         // active interaction, proactive items (alerts/reminders/briefings) are
         // held in place — pick the first item that is allowed to play now.
@@ -588,6 +606,15 @@ export function VoiceProvider({ active, children }) {
         setError("");
         setNotice("");
         const status = await speakItem(item);
+        // Diagnostic: any outcome other than a clean playback is recorded so
+        // the voice report shows WHY a line never sounded (blocked / error /
+        // stopped / skipped) instead of just going silent.
+        if (status !== "played") {
+          recordVoiceEvent("speech-not-played", {
+            status,
+            text: String(item.text || "").slice(0, 80),
+          });
+        }
         setPlaying(false);
         currentRef.current = null;
         if (item.notificationId) {
@@ -841,6 +868,7 @@ export function VoiceProvider({ active, children }) {
   }, [enqueue]);
 
   const stopAll = useCallback(() => {
+    recordVoiceEvent("stop-all", { queued: queueRef.current.length });
     queueRef.current = [];
     // Clearing the queue drops any held/deferred alert, so reset the
     // permission gate — otherwise a lingering 'deferred' state would hold the
@@ -869,6 +897,7 @@ export function VoiceProvider({ active, children }) {
   const toggleMute = useCallback(() => {
     setMuted((m) => {
       const next = !m;
+      recordVoiceEvent(next ? "speaker-muted" : "speaker-unmuted");
       try {
         localStorage.setItem(MUTE_KEY, next ? "1" : "0");
       } catch {
