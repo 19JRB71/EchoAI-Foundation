@@ -1,0 +1,66 @@
+=== Echo voice diagnostic report ===
+Generated: Tue Jul 14 2026 12:45:56 GMT-0400 (Eastern Daylight Time)
+Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36
+Platform: Win32
+Events: 60 (newest last, ring buffer of 400)
+
+12:40:45.503  echo-speaks  text="Good afternoon Sir. Want a quick read on the day so far? Your full briefing will be ready tomorrow morning either way. You're set up on South Dixie Storage — say "switch to" another business anytime. Your morning playlist is ready whenever you want it Sir."
+12:40:59.623  echo-audio-ended  (+14.1s)
+12:41:00.354  dropped-as-echo-of-self  heard="good afternoon sir want a quick read on the day so far your full briefing will be ready tomorrow morning either way you're set up on South Dixie storage say switch to another business anytime your morning playlist is ready whenever you want it sir" gated msSinceEchoStopped=731
+12:41:14.531  heard  text=" please" mode=active  (+14.2s)
+12:41:14.983  command-processing  text="please"
+12:41:17.991  echo-speaks  text="Hey Sir, good to have you here!"  (+3.0s)
+12:41:20.475  echo-audio-ended  (+2.5s)
+12:41:20.476  echo-speaks  text="What can I do for South Dixie Storage today?"
+12:41:23.626  echo-audio-ended  (+3.1s)
+12:41:28.944  heard  text=" hey Echo play me some AC/DC" mode=active  (+5.3s)
+12:41:29.396  command-processing  text="hey Echo play me some AC/DC"
+12:41:29.400  echo-speaks  text="Playing some ac dc."
+12:41:31.390  echo-audio-ended  (+2.0s)
+12:41:32.271  dropped-as-echo-of-self  heard=" playing some AC/DC" msSinceEchoStopped=881
+12:41:36.228  heard  mode=active  (+4.0s)
+12:42:01.401  echo-speaks  text="Sir, you have 142 notifications for this business. Would you like me to go through them?"  (+25.2s)
+12:42:06.886  echo-audio-ended  (+5.5s)
+12:42:07.625  dropped-as-echo-of-self  heard="142 notifications for this business would you like me to go through them" gated msSinceEchoStopped=739
+12:42:20.167  heard  text=" yes go through the notifications" mode=active  (+12.5s)
+12:42:20.618  command-processing  text="yes go through the notifications"
+12:42:20.623  echo-speaks  text="Heads up there. Sage found something time-sensitive in your industry: Section 232 steel and aluminum tariffs were doubled from 25% to 50% effective June 4, 2025, and then expanded in August 2025 to cover derivative steel products including pipes, tubes, wires, and fasteners — core components in metal storage buildings and carports.. South Dixie Storage's core customer base — farmers, property owners, and small business owners in FL and GA — is actively shopping for metal storage buildings and carports. Industry sources are reporting 8–15% price increases on metal buildings already baked in, with fabricators signaling a second wave of hikes as the full tariff impact ripples through the supply chain. This is an active, urgent buying window: customers who lock in a quote now can avoid the next price increase. South Dixie should be communicating urgency in all current marketing, especially for customers already in consideration."
+12:43:12.346  stop-all  queued=7  (+51.7s)
+12:43:12.352  echo-audio-ended
+12:43:12.352  speech-not-played  status=stopped text="Heads up there. Sage found something time-sensitive in your industry: Section 23"
+12:43:15.183  wake-word  command=e fallback=greeting-after-echo  (+2.8s)
+12:43:16.420  heard  text=" hey Echo switch businesses" mode=active
+12:43:16.881  command-processing  text="e  hey Echo switch businesses"
+12:43:16.881  echo-speaks  text="Which business would you like, Sir? You have South Dixie Storage, BLA COR HOMES, Online Casino Sweepstakes Affiliate."
+12:43:24.441  echo-audio-ended  (+7.6s)
+12:43:25.115  dropped-as-echo-of-self  heard=" online casino sweepstakes affiliate" gated msSinceEchoStopped=674
+12:43:32.228  heard  text=" Which business am I in right now" mode=active  (+7.1s)
+12:43:32.680  command-processing  text="Which business am I in right now"
+12:43:35.408  echo-speaks  text="You're currently in **South Dixie Storage**, Sir."  (+2.7s)
+12:43:38.878  echo-audio-ended  (+3.5s)
+12:43:38.878  echo-speaks  text="Everything I surface — campaigns, leads, and updates — is scoped to that business."
+12:43:44.461  echo-audio-ended  (+5.6s)
+12:43:54.307  heard  text=" hey Echo" mode=active  (+9.8s)
+12:43:54.757  command-processing  text="hey Echo"
+12:43:54.758  echo-speaks  text="I'm here Sir — go ahead."
+12:43:56.696  echo-audio-ended  (+1.9s)
+12:43:59.796  heard  text=" switch to Blue" mode=active  (+3.1s)
+12:44:00.250  command-processing  text="switch to Blue"
+12:44:03.928  echo-speaks  text="Switching you over to BLA COR HOMES now, Sir."  (+3.7s)
+12:44:06.876  echo-audio-ended  (+2.9s)
+12:44:06.876  echo-speaks  text="You're currently in the early stages — Google Business optimization and your first ad campaign are on deck."
+12:44:13.436  echo-audio-ended  (+6.6s)
+12:44:13.437  echo-speaks  text="Ready to pick up where we left off?"
+12:44:15.658  echo-audio-ended  (+2.2s)
+12:44:17.047  dropped-as-echo-of-self  heard=" ready to pick up where we left off yes" salvaged=yes msSinceEchoStopped=1389
+12:44:17.503  command-processing  text="yes"
+12:44:19.196  echo-speaks  text="Good afternoon Sir. Here's where things stand right now. No more appointments on the calendar today. Everything looks calm — nothing urgent needs you right now."  (+1.7s)
+12:44:29.306  echo-audio-ended  (+10.1s)
+12:44:29.307  echo-speaks  text="That's South Dixie Storage. Want to hear how BLA COR HOMES is doing?"
+12:44:34.086  echo-audio-ended  (+4.8s)
+12:44:34.780  dropped-as-echo-of-self  heard=" that's South Dixie storage want to hear how bla core homes is doing" gated msSinceEchoStopped=694
+12:44:45.430  echo-speaks  text="Heads up there. Sage found something time-sensitive in your industry: The 2026 Florida Building Code (9th Edition) is currently in development, with enforcement beginning December 31, 2026. Expected tightening includes enhanced hurricane resistance standards and updated construction requirements. Projects permitted and built under the current 8th Edition code may avoid more stringent (and costly) compliance requirements if work begins soon.. Florida and Georgia customers — especially farmers and property owners building agricultural or storage structures — have a window to get their buildings permitted and erected under today's less restrictive code. Once the 2026 code takes effect, compliance costs could rise. South Dixie Storage can use this as a credible, locally relevant urgency driver, especially for customers who've been 'almost ready' to buy."  (+10.7s)
+12:44:47.033  speaker-muted  (+1.6s)
+12:44:47.033  stop-all  queued=7
+12:44:47.040  echo-audio-ended
+12:44:47.040  speech-not-played  status=stopped text="Heads up there. Sage found something time-sensitive in your industry: The 2026 F"

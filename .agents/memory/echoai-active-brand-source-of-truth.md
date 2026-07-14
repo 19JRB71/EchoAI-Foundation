@@ -29,3 +29,14 @@ Facebook-connection question using the wrong brand's data).
   the dashboard and panel stay in lockstep (bidirectional), never diverge.
 - Do not re-initialize the panel's brand from the server after mount — the prop is
   authoritative.
+
+## Rule: voice brand switch must update the snapshot synchronously (confirm-or-revert)
+**Why:** `window.__echoaiBrands` is republished by App.jsx only AFTER React
+re-renders — a briefing/status fetch fired right after a voice switch read the
+OLD brand and Echo briefed the wrong business. Also: any AI-fallback briefing
+prompt saying "across my businesses" defeats brand scoping — scope it to the
+active brand name.
+**How to apply:** switchToBrand writes the snapshot optimistically, then
+confirms via `echoai:active-brand-changed` (matching activeId) or reverts after
+2s if its write is still live. Briefing fetch sites record a `briefing-fetch`
+event (choice + brandId/brandName) for diagnostics.

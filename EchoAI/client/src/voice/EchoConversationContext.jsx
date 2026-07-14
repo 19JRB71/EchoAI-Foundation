@@ -701,6 +701,48 @@ export function EchoConversationProvider({ active, children }) {
         } catch {
           /* noop */
         }
+        // Optimistically point the voice engine's brand snapshot at the new
+        // business RIGHT NOW. App.jsx republishes window.__echoaiBrands only
+        // after React re-renders, so without this a briefing/status request
+        // fired immediately after the switch still reads the OLD brand and
+        // Echo briefs the wrong business. App.jsx stays authoritative: its
+        // "echoai:active-brand-changed" event confirms the switch; if no
+        // confirmation arrives (App rejected the id — stale list, demo brand)
+        // the optimistic snapshot is reverted so voice never drifts from the
+        // brand the dashboard actually shows.
+        try {
+          const prevSnapshot = window.__echoaiBrands || {};
+          window.__echoaiBrands = {
+            ...prevSnapshot,
+            activeId: brand.brand_id,
+            activeName: brand.brand_name,
+            activeIsDemo: false,
+          };
+          let settled = false;
+          const onConfirm = (e) => {
+            const d = (e && e.detail) || {};
+            if (String(d.activeId || "") === String(brand.brand_id)) {
+              settled = true;
+              window.removeEventListener("echoai:active-brand-changed", onConfirm);
+            }
+          };
+          window.addEventListener("echoai:active-brand-changed", onConfirm);
+          setTimeout(() => {
+            if (settled) return;
+            window.removeEventListener("echoai:active-brand-changed", onConfirm);
+            // Only revert if OUR optimistic write is still the live snapshot —
+            // never clobber a newer write from App.jsx or a later switch.
+            const cur = window.__echoaiBrands || {};
+            if (String(cur.activeId || "") === String(brand.brand_id)) {
+              window.__echoaiBrands = prevSnapshot;
+              recordVoiceEvent("brand-switch-unconfirmed", {
+                requestedBrandId: String(brand.brand_id),
+              });
+            }
+          }, 2000);
+        } catch {
+          /* noop */
+        }
         suspendRef.current = true;
         setConvState("speaking");
         await speakAndWait(
@@ -1794,12 +1836,18 @@ export function EchoConversationProvider({ active, children }) {
           setConvState("processing");
           playEffect("thinking", { volume: 0.35 });
           let brief = "";
+          const briefCtx = activeBrandCtx();
+          recordVoiceEvent("briefing-fetch", {
+            choice: choice || "specific",
+            brandId: briefCtx.id ? String(briefCtx.id) : null,
+            brandName: briefCtx.name || null,
+          });
           if (choice === "full") {
             // Full briefing → the server-built status update, scoped to the
             // business the dashboard is currently on.
             try {
               const data = await withTimeout(
-                api.echoVoiceGetStatus(activeBrandCtx().id || undefined),
+                api.echoVoiceGetStatus(briefCtx.id || undefined),
                 FETCH_TIMEOUT_MS,
               );
               brief = (data && data.text) || "";
@@ -1810,12 +1858,18 @@ export function EchoConversationProvider({ active, children }) {
           if (stale()) return;
           if (!brief) {
             // Quick summary or a specific business/topic → Echo's AI pipeline
-            // (also the fallback if the full-status fetch failed).
+            // (also the fallback if the full-status fetch failed). The dashboard
+            // is strictly single-brand, so when a business is active the prompt
+            // is scoped to IT — a briefing right after "switch to X" must never
+            // wander off to the other businesses.
+            const scope = briefCtx.name
+              ? `my business ${briefCtx.name} (the one the dashboard is on — do not cover my other businesses)`
+              : "my businesses";
             const prompt =
               choice === "quick"
-                ? "Give me a quick spoken summary of only the most important things across my businesses right now. Only mention real data you actually have — never invent numbers."
+                ? `Give me a quick spoken summary of only the most important things for ${scope} right now. Only mention real data you actually have — never invent numbers.`
                 : choice === "full"
-                  ? "Give me a full spoken briefing covering all of my businesses. Only mention real data you actually have — never invent numbers."
+                  ? `Give me a full spoken briefing covering ${scope}. Only mention real data you actually have — never invent numbers.`
                   : `The owner asked for a specific spoken update: "${text}". Answer using only real data you actually have — never invent numbers.`;
             try {
               const handler = commandHandlerRef.current;
@@ -1866,6 +1920,11 @@ export function EchoConversationProvider({ active, children }) {
         const otherBrands = brandCtx.brands.filter(
           (b) => String(b.brand_id) !== String(brandCtx.id),
         );
+        recordVoiceEvent("briefing-fetch", {
+          choice: "morning",
+          brandId: brandCtx.id ? String(brandCtx.id) : null,
+          brandName: brandCtx.name || null,
+        });
         let brief = "";
         try {
           const b = await withTimeout(
