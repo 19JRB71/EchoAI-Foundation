@@ -851,6 +851,23 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
     }
   }
 
+  async function postNow() {
+    setBusy(true);
+    setError("");
+    try {
+      const data = await api.publishSocialPostNow(post.post_id);
+      setActivePost(data.post);
+      await onChanged();
+    } catch (err) {
+      setError(err.message);
+      // The failed status (with the stored reason) is now on the row —
+      // refresh so the panel shows the Reschedule flow instead of stale state.
+      await onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function regenerate() {
     setBusy(true);
     setError("");
@@ -919,6 +936,22 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
                 again.
               </p>
             )}
+          </div>
+        )}
+
+        {post.status === "scheduled" && (
+          <div className="mb-4">
+            <button
+              onClick={postNow}
+              disabled={busy}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {busy ? "Publishing…" : "Post Now"}
+            </button>
+            <p className="mt-1 text-xs text-gray-500">
+              Publishes this post to {meta.label} immediately instead of
+              waiting for its scheduled time.
+            </p>
           </div>
         )}
 

@@ -785,6 +785,8 @@ export const api = {
     }
     return data;
   },
+  publishSocialPostNow: (postId) =>
+    request(`/api/social/posts/${postId}/publish-now`, { method: "POST" }),
   rescheduleSocialPost: (postId, scheduledTime) =>
     request(`/api/social/posts/${postId}/reschedule`, {
       method: "PUT",

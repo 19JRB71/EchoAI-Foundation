@@ -38,6 +38,7 @@ function uploadMediaFile(req, res, next) {
 router.post("/media", uploadMediaFile, socialController.uploadPostMedia);
 router.post("/schedule", socialController.schedulePost);
 router.put("/posts/:postId/reschedule", socialController.reschedulePost);
+router.post("/posts/:postId/publish-now", socialController.publishPostNow);
 router.get("/calendar/:brandId", socialController.getSocialCalendar);
 router.get("/accounts/:brandId", socialController.getSocialAccounts);
 router.delete("/accounts/:brandId/:platform", socialController.disconnectSocialAccount);

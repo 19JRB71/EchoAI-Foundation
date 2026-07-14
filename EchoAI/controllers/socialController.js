@@ -970,6 +970,100 @@ async function publishDuePosts() {
   return { due: due.rows.length, published };
 }
 
+/**
+ * POST /api/social/posts/:postId/publish-now
+ * Publishes a SCHEDULED post immediately instead of waiting for its
+ * scheduled time. The post is claimed atomically (scheduled -> 'publishing',
+ * ownership enforced via a join to brands on user_id, demo brands excluded)
+ * so the every-minute scheduler tick and a Post Now click can never
+ * double-publish the same post. Only 'scheduled' posts qualify: failed posts
+ * go through the Reschedule flow (interrupted publishes may already be live —
+ * re-posting could double-post), and published/in-flight posts are refused.
+ * On publish failure the row flips to 'failed' with the stored reason (same
+ * guarded transition the scheduler uses) but no push alert is sent — the
+ * owner is looking at the error in the UI right now.
+ */
+async function publishPostNow(req, res) {
+  const userId = req.user.userId;
+  const { postId } = req.params;
+
+  // post_id is a UUID; reject malformed ids up front so they surface as a
+  // clean 400 instead of a Postgres cast error.
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!postId || !UUID_RE.test(postId)) {
+    return res.status(400).json({ error: "Invalid post id" });
+  }
+
+  try {
+    const claimed = await db.query(
+      `UPDATE social_posts sp
+       SET status = 'publishing'
+       FROM brands b
+       WHERE sp.post_id = $1 AND sp.status = 'scheduled'
+         AND b.brand_id = sp.brand_id AND b.user_id = $2 AND b.is_demo = false
+       RETURNING sp.post_id, sp.brand_id, sp.platform, sp.post_content,
+                 sp.image_url, sp.video_url, sp.publish_attempts`,
+      [postId, userId]
+    );
+
+    if (claimed.rows.length === 0) {
+      // Distinguish "not yours / doesn't exist" from "exists but not
+      // publishable" so the owner gets an honest message.
+      const existing = await db.query(
+        `SELECT sp.status, b.is_demo FROM social_posts sp
+         JOIN brands b ON b.brand_id = sp.brand_id
+         WHERE sp.post_id = $1 AND b.user_id = $2`,
+        [postId, userId]
+      );
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+      if (existing.rows[0].is_demo) {
+        return res.status(409).json({
+          error: "Demo posts can't be published — they belong to a demo brand.",
+        });
+      }
+      const status = existing.rows[0].status;
+      const why =
+        status === "failed"
+          ? "This post failed earlier — use Reschedule to put it back on the calendar."
+          : status === "published"
+            ? "This post has already been published."
+            : "This post is being published right now.";
+      return res.status(409).json({ error: why });
+    }
+
+    const post = claimed.rows[0];
+    try {
+      await publishStoredPost(post);
+    } catch (err) {
+      console.error(`Post Now publish failed for post ${post.post_id}:`, err.message);
+      await db.query(
+        `UPDATE social_posts
+         SET status = 'failed', engagement_metrics = $1,
+             publish_attempts = publish_attempts + 1
+         WHERE post_id = $2 AND status = 'publishing'`,
+        [JSON.stringify({ error: err.message }), post.post_id]
+      );
+      return res.status(502).json({
+        error: `The post could not be published: ${err.message}`,
+      });
+    }
+
+    const updated = await db.query(
+      `SELECT post_id, brand_id, platform, post_content, image_url, video_url,
+              scheduled_time, published_time, status, external_post_id
+       FROM social_posts WHERE post_id = $1`,
+      [post.post_id]
+    );
+    return res.json({ post: updated.rows[0] || null });
+  } catch (err) {
+    console.error("Publish now error:", err.message);
+    return res.status(500).json({ error: "Failed to publish the post" });
+  }
+}
+
 // --- Connection re-verify sweep (scheduler) ---------------------------------
 
 /**
@@ -1119,6 +1213,7 @@ module.exports = {
   uploadPostMedia,
   schedulePost,
   reschedulePost,
+  publishPostNow,
   getSocialCalendar,
   getSocialAccounts,
   disconnectSocialAccount,

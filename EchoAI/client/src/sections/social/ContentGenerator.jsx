@@ -383,29 +383,61 @@ function VariationCard({ brandId, platform, variation, canGenerateImage, onRegen
     }
   }
 
+  function schedulePayload(scheduledTime) {
+    return {
+      brandId,
+      platform,
+      postContent: composeContent(variation),
+      scheduledTime,
+      imageUrl:
+        uploadedMedia && uploadedMedia.mediaType === "image"
+          ? uploadedMedia.url
+          : !uploadedMedia && attachedImage
+            ? attachedImage.image_url
+            : undefined,
+      videoUrl:
+        uploadedMedia && uploadedMedia.mediaType === "video"
+          ? uploadedMedia.url
+          : undefined,
+    };
+  }
+
   async function handleSchedule() {
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await api.scheduleSocial({
-        brandId,
-        platform,
-        postContent: composeContent(variation),
-        scheduledTime: new Date(when).toISOString(),
-        imageUrl:
-          uploadedMedia && uploadedMedia.mediaType === "image"
-            ? uploadedMedia.url
-            : !uploadedMedia && attachedImage
-              ? attachedImage.image_url
-              : undefined,
-        videoUrl:
-          uploadedMedia && uploadedMedia.mediaType === "video"
-            ? uploadedMedia.url
-            : undefined,
-      });
+      await api.scheduleSocial(schedulePayload(new Date(when).toISOString()));
       setNotice("Scheduled.");
       setScheduling(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Post Now = save the post (same validation path as scheduling) then
+  // publish it immediately. If the save works but the publish fails, the
+  // post lands in the calendar as 'failed' with the reason, so the owner
+  // can fix and reschedule it — nothing is lost.
+  async function handlePostNow() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const created = await api.scheduleSocial(
+        schedulePayload(new Date().toISOString())
+      );
+      try {
+        await api.publishSocialPostNow(created.post.post_id);
+        setNotice("Published! Your post is live.");
+        setScheduling(false);
+      } catch (err) {
+        setError(
+          `${err.message} — the post was saved to your calendar, where you can reschedule it.`
+        );
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -502,6 +534,13 @@ function VariationCard({ brandId, platform, variation, canGenerateImage, onRegen
         </div>
       ) : (
         <div className="mt-4 flex gap-2 border-t border-gray-800 pt-3">
+          <button
+            onClick={handlePostNow}
+            disabled={busy}
+            className="flex-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+          >
+            {busy ? "Publishing…" : "Post Now"}
+          </button>
           <button
             onClick={() => {
               setScheduling(true);
