@@ -78,6 +78,7 @@ export default function EchoEmail() {
 
   // Per-draft busy flag
   const [busyDraft, setBusyDraft] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null); // messageId Echo is drafting a reply for
   const [editDraft, setEditDraft] = useState(null); // { draftId, subject, body }
 
   const load = useCallback(
@@ -192,16 +193,19 @@ export default function EchoEmail() {
   }
 
   async function handleReply(message) {
-    const instruction = window.prompt(`What should the reply to ${message.fromName || message.fromAddress} say?`);
-    if (!instruction || !instruction.trim()) return;
+    // Echo drafts the reply himself from the original email's content — the
+    // owner reviews/edits in the approval queue before anything sends.
     setNotice("");
     setError("");
+    setReplyingTo(message.messageId);
     try {
-      await api.draftEmailMessage({ replyToMessageId: message.messageId, instruction: instruction.trim() });
-      setNotice("Reply drafted below — nothing sends until you approve it.");
+      await api.draftEmailMessage({ replyToMessageId: message.messageId });
+      setNotice("Echo drafted a reply below — nothing sends until you approve it.");
       await load();
     } catch (err) {
       setError(err.message || "Echo couldn't draft that reply.");
+    } finally {
+      setReplyingTo(null);
     }
   }
 
@@ -519,8 +523,12 @@ export default function EchoEmail() {
                         {m.leadId && (
                           <p className="text-xs text-emerald-400">Captured into your CRM as a lead.</p>
                         )}
-                        <button onClick={() => handleReply(m)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
-                          Have Echo draft a reply
+                        <button
+                          onClick={() => handleReply(m)}
+                          disabled={replyingTo === m.messageId}
+                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+                        >
+                          {replyingTo === m.messageId ? "Echo is drafting…" : "Have Echo draft a reply"}
                         </button>
                       </div>
                     )}

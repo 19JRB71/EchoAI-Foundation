@@ -224,7 +224,11 @@ async function draft(req, res, next) {
   try {
     const userId = req.user.userId;
     const { accountId, instruction, toAddress, toName, replyToMessageId } = req.body || {};
-    if (!instruction || typeof instruction !== "string" || !instruction.trim()) {
+    const hasInstruction =
+      typeof instruction === "string" && instruction.trim().length > 0;
+    // For a REPLY Echo can draft on his own from the original email's content;
+    // a brand-new email still needs the owner to say what it should cover.
+    if (!hasInstruction && !replyToMessageId) {
       return res.status(400).json({ error: "Tell Echo what the email should say." });
     }
 
@@ -258,7 +262,12 @@ async function draft(req, res, next) {
 
     let drafted;
     try {
-      drafted = await emailComposer.draftEmail(userId, { instruction: instruction.trim(), replyTo });
+      drafted = await emailComposer.draftEmail(userId, {
+        instruction: hasInstruction
+          ? instruction.trim()
+          : "Write an appropriate, professional reply on my behalf that directly addresses what the sender wrote. Answer their question or acknowledge their request, keep it warm and concise, and end with a clear next step.",
+        replyTo,
+      });
     } catch (err) {
       const e = new Error("Echo couldn't draft that email right now. Please try again in a moment.");
       e.statusCode = 502;
