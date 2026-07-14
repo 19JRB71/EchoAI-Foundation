@@ -1059,20 +1059,25 @@ export const api = {
       method: "POST",
       body: { brandId, campaignGoal, purpose },
     }),
-  generateImagePrompts: ({ brandId, purpose, description }) =>
+  uploadImageReference: ({ imageData }) =>
+    request("/api/images/reference", {
+      method: "POST",
+      body: { imageData },
+    }),
+  generateImagePrompts: ({ brandId, purpose, description, referencePath }) =>
     request("/api/images/prompts", {
       method: "POST",
-      body: { brandId, purpose, description },
+      body: { brandId, purpose, description, referencePath },
     }),
-  generateImageFromPrompt: ({ brandId, purpose, prompt }) =>
+  generateImageFromPrompt: ({ brandId, purpose, prompt, referencePath }) =>
     request("/api/images/from-prompt", {
       method: "POST",
-      body: { brandId, purpose, prompt },
+      body: { brandId, purpose, prompt, referencePath },
     }),
-  generateImageVariations: ({ brandId, purpose, prompt }) =>
+  generateImageVariations: ({ brandId, purpose, prompt, referencePath }) =>
     request("/api/images/variations", {
       method: "POST",
-      body: { brandId, purpose, prompt },
+      body: { brandId, purpose, prompt, referencePath },
     }),
   getBrandStyleGuide: (brandId) =>
     request(`/api/images/style-guide/${brandId}`),

@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const db = require("../config/db");
 const { sageContextForBrand } = require("../utils/sageContext");
 const { openai } = require("../config/openai");
+const { toFile } = require("openai");
 const {
   PURPOSES,
   isPurpose,
@@ -99,6 +100,114 @@ function sendAiError(res, err, fallbackMsg) {
   return res.status(500).json({ error: fallbackMsg });
 }
 
+// ---------------------------------------------------------------------------
+// Reference images. The owner can upload a real photo of their business (e.g.
+// the actual storage facility) so the image model generates visuals that look
+// like the real place instead of inventing one. The upload is a base64 data
+// URL (like support screenshots); the file is stored under uploads/images with
+// a strict `ref-<uuid>.<ext>` name, and downstream endpoints accept ONLY that
+// exact path shape — never an arbitrary client-supplied file path.
+// ---------------------------------------------------------------------------
+const REFERENCE_IMAGE_PATH =
+  /^\/uploads\/images\/ref-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpe?g|webp)$/i;
+const REFERENCE_MIME_EXT = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+const MAX_REFERENCE_BYTES = 8 * 1024 * 1024; // 8 MB decoded
+
+function referenceMimeFromPath(refPath) {
+  const ext = refPath.slice(refPath.lastIndexOf(".") + 1).toLowerCase();
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  return "image/jpeg";
+}
+
+/**
+ * Validates a client-supplied reference path and reads the file. Returns
+ * { buffer, mime, filename } or null when no reference was supplied. Throws a
+ * client-facing error (err.clientMessage) on a bad path or missing file.
+ */
+async function loadReferenceImage(referencePath) {
+  if (referencePath == null || referencePath === "") return null;
+  if (
+    typeof referencePath !== "string" ||
+    !REFERENCE_IMAGE_PATH.test(referencePath)
+  ) {
+    const err = new Error("Invalid reference image");
+    err.clientMessage =
+      "The reference image is invalid. Please upload it again.";
+    err.httpStatus = 400;
+    throw err;
+  }
+  const filename = path.basename(referencePath);
+  try {
+    const buffer = await fs.readFile(path.join(UPLOADS_DIR, filename));
+    return { buffer, mime: referenceMimeFromPath(referencePath), filename };
+  } catch {
+    const err = new Error("Reference image not found");
+    err.clientMessage =
+      "The reference photo could not be found (it may have been cleaned up). Please upload it again.";
+    err.httpStatus = 400;
+    throw err;
+  }
+}
+
+/**
+ * POST /api/images/reference
+ * Uploads a reference photo as a base64 data URL. Returns the stored path,
+ * which subsequent generate calls pass back as `referencePath`.
+ */
+async function uploadReferenceImage(req, res) {
+  const { imageData } = req.body || {};
+  if (typeof imageData !== "string") {
+    return res.status(400).json({ error: "imageData is required" });
+  }
+  const match = imageData.match(
+    /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/
+  );
+  if (!match) {
+    return res.status(400).json({
+      error: "The reference photo must be a PNG, JPEG, or WebP image.",
+    });
+  }
+  let buffer;
+  try {
+    buffer = Buffer.from(match[2], "base64");
+  } catch {
+    return res.status(400).json({ error: "The image data could not be read." });
+  }
+  if (!buffer.length) {
+    return res.status(400).json({ error: "The image data could not be read." });
+  }
+  if (buffer.length > MAX_REFERENCE_BYTES) {
+    return res
+      .status(400)
+      .json({ error: "The reference photo must be under 8 MB." });
+  }
+  try {
+    await fs.mkdir(UPLOADS_DIR, { recursive: true });
+    const filename = `ref-${crypto.randomUUID()}.${REFERENCE_MIME_EXT[match[1]]}`;
+    await fs.writeFile(path.join(UPLOADS_DIR, filename), buffer);
+    return res
+      .status(201)
+      .json({ referencePath: `${PUBLIC_PREFIX}/${filename}` });
+  } catch (err) {
+    console.error("Upload reference image error:", err.message);
+    return res.status(500).json({ error: "Failed to save the reference photo" });
+  }
+}
+
+/** Sends a loadReferenceImage validation failure, or falls through to null. */
+function sendReferenceError(res, err) {
+  if (err && err.clientMessage) {
+    res.status(err.httpStatus || 400).json({ error: err.clientMessage });
+    return true;
+  }
+  return false;
+}
+
 /** Writes image bytes to the uploads dir and returns the public path. */
 async function saveImageBuffer(buffer) {
   if (buffer.length > MAX_IMAGE_BYTES) {
@@ -132,15 +241,40 @@ async function imageUrlFromResponse(response) {
  * Generates a single image with DALL-E and returns its (temporary) URL plus the
  * prompt used.
  */
-async function generateOne(brand, purpose, description, variantIndex) {
+async function generateOne(brand, purpose, description, variantIndex, reference) {
   const prompt = buildImagePrompt(brand, purpose, description, { variantIndex });
-  const response = await openai.images.generate({
+  const response = await generateWithOptionalReference(
+    prompt,
+    purpose,
+    reference
+  );
+  return { imageUrl: await imageUrlFromResponse(response), prompt };
+}
+
+/**
+ * Calls the image model. With a reference photo, uses the images.edit endpoint
+ * so the model works FROM the real photo (the actual building/product) instead
+ * of inventing a scene; without one, plain text-to-image generation.
+ */
+async function generateWithOptionalReference(prompt, purpose, reference) {
+  if (reference) {
+    const image = await toFile(reference.buffer, reference.filename, {
+      type: reference.mime,
+    });
+    return openai.images.edit({
+      model: IMAGE_MODEL,
+      image,
+      prompt: `Use the attached photo as the visual reference: keep the real location, buildings, signage, colors, and overall look true to the photo. ${prompt}`,
+      n: 1,
+      size: sizeFor(purpose),
+    });
+  }
+  return openai.images.generate({
     model: IMAGE_MODEL,
     prompt,
     n: 1,
     size: sizeFor(purpose),
   });
-  return { imageUrl: await imageUrlFromResponse(response), prompt };
 }
 
 /**
@@ -167,11 +301,19 @@ async function generateImage(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    let reference;
+    try {
+      reference = await loadReferenceImage(req.body.referencePath);
+    } catch (err) {
+      if (sendReferenceError(res, err)) return;
+      throw err;
+    }
+
     brand._sageContext = await sageContextForBrand(brand.brand_id);
     const meta = purposeMeta(purpose);
     const results = await Promise.all(
       Array.from({ length: variations }, (_, i) =>
-        generateOne(brand, purpose, description.trim(), i)
+        generateOne(brand, purpose, description.trim(), i, reference)
       )
     );
 
@@ -252,12 +394,21 @@ async function generateImagePrompts(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    let reference;
+    try {
+      reference = await loadReferenceImage(req.body.referencePath);
+    } catch (err) {
+      if (sendReferenceError(res, err)) return;
+      throw err;
+    }
+
     const resolvedPurpose = isPurpose(purpose) ? purpose : "instagram_post";
     const meta = purposeMeta(resolvedPurpose);
     const prompts = await engineerImagePrompts(
       brand,
       resolvedPurpose,
-      description.trim()
+      description.trim(),
+      reference
     );
 
     return res.json({
@@ -278,13 +429,12 @@ async function generateImagePrompts(req, res) {
  * Renders a single DALL-E image from an explicit (prompt-engineer authored)
  * prompt. Returns the temporary URL — the caller saves it to persist.
  */
-async function renderFromPrompt(prompt, purpose) {
-  const response = await openai.images.generate({
-    model: IMAGE_MODEL,
+async function renderFromPrompt(prompt, purpose, reference) {
+  const response = await generateWithOptionalReference(
     prompt,
-    n: 1,
-    size: sizeFor(purpose),
-  });
+    purpose,
+    reference
+  );
   return imageUrlFromResponse(response);
 }
 
@@ -307,9 +457,21 @@ async function generateImageFromPrompt(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    let reference;
+    try {
+      reference = await loadReferenceImage(req.body.referencePath);
+    } catch (err) {
+      if (sendReferenceError(res, err)) return;
+      throw err;
+    }
+
     const resolvedPurpose = isPurpose(purpose) ? purpose : "instagram_post";
     const meta = purposeMeta(resolvedPurpose);
-    const imageUrl = await renderFromPrompt(prompt.trim(), resolvedPurpose);
+    const imageUrl = await renderFromPrompt(
+      prompt.trim(),
+      resolvedPurpose,
+      reference
+    );
 
     return res.json({
       brandId,
@@ -344,6 +506,14 @@ async function generateImageVariations(req, res) {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
+    let reference;
+    try {
+      reference = await loadReferenceImage(req.body.referencePath);
+    } catch (err) {
+      if (sendReferenceError(res, err)) return;
+      throw err;
+    }
+
     const resolvedPurpose = isPurpose(purpose) ? purpose : "instagram_post";
     const meta = purposeMeta(resolvedPurpose);
     const base = prompt.trim();
@@ -351,7 +521,11 @@ async function generateImageVariations(req, res) {
     const images = await Promise.all(
       VARIANT_STYLES.map(async (direction) => {
         const variantPrompt = `${base} Creative direction: ${direction}`;
-        const imageUrl = await renderFromPrompt(variantPrompt, resolvedPurpose);
+        const imageUrl = await renderFromPrompt(
+          variantPrompt,
+          resolvedPurpose,
+          reference
+        );
         return { imageUrl, prompt: variantPrompt };
       })
     );
@@ -591,6 +765,9 @@ module.exports = {
   persistImage,
   // Test seam: response-shape handling (hosted url vs inline b64).
   _imageUrlFromResponseForTests: imageUrlFromResponse,
+  // Test seam: reference-path validation + file loading.
+  _loadReferenceImageForTests: loadReferenceImage,
+  uploadReferenceImage,
   generateImage,
   generateAdCreativeSet,
   generateImagePrompts,

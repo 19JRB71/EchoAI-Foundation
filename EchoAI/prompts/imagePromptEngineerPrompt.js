@@ -98,7 +98,7 @@ function extractJsonArray(text) {
   return JSON.parse(candidate.slice(start, end + 1));
 }
 
-function buildSystemPrompt(brand, purpose, contentDescription) {
+function buildSystemPrompt(brand, purpose, contentDescription, hasReference) {
   const meta = purposeMeta(purpose);
   const name = brand.brand_name || "the brand";
   const personality = brand.brand_personality || "professional and trustworthy";
@@ -121,6 +121,13 @@ function buildSystemPrompt(brand, purpose, contentDescription) {
     "",
     `Image purpose: ${meta.label} (${meta.aspect}, optimized for ${meta.platform}).`,
     `Content brief: ${contentDescription}`,
+    hasReference
+      ? [
+          "",
+          "IMPORTANT — a REAL reference photo of the owner's actual business is attached.",
+          "Study it carefully. Every prompt MUST describe the real location as shown in the photo — the actual buildings, architecture, signage, colors, materials, and setting — so the generated images depict THIS business, not a generic or invented one. Never contradict what the photo shows.",
+        ].join("\n")
+      : "",
     sageBlock(brand._sageContext),
     "",
     `Design EXACTLY ${NUM_PROMPTS} distinct image-generation prompts. Each must be a complete, ready-to-use prompt that explicitly specifies:`,
@@ -156,19 +163,36 @@ function normalizePrompt(raw) {
  * Returns [{ style, prompt, styleNotes }]. Throws (err.aiInvalid) on malformed
  * output; the OpenAI/Anthropic SDK throws on upstream failures.
  */
-async function generateImagePrompts(brand, purpose, contentDescription) {
-  const systemPrompt = buildSystemPrompt(brand, purpose, contentDescription);
+async function generateImagePrompts(brand, purpose, contentDescription, reference) {
+  const systemPrompt = buildSystemPrompt(
+    brand,
+    purpose,
+    contentDescription,
+    Boolean(reference)
+  );
+
+  const instruction = `Design ${NUM_PROMPTS} on-brand image prompts for: ${contentDescription}. Respond with only the JSON array.`;
+  // With a reference photo, send it as a vision block so the prompts describe
+  // the REAL location instead of an invented one.
+  const userContent = reference
+    ? [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: reference.mime,
+            data: reference.buffer.toString("base64"),
+          },
+        },
+        { type: "text", text: instruction },
+      ]
+    : instruction;
 
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 2048,
     system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content: `Design ${NUM_PROMPTS} on-brand image prompts for: ${contentDescription}. Respond with only the JSON array.`,
-      },
-    ],
+    messages: [{ role: "user", content: userContent }],
   });
 
   const text = extractText(response);

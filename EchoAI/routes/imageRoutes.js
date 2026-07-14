@@ -12,6 +12,14 @@ const imageController = require("../controllers/imageController");
 // the Professional tier (admins bypass). Viewers may read but not mutate.
 router.use(auth, lockout, featureGate("image_studio"), denyViewerMutations);
 
+// Reference-photo upload (base64 data URL — needs a larger, scoped body limit;
+// server.js skips the global JSON parser for this exact path).
+router.post(
+  "/reference",
+  express.json({ limit: "12mb" }),
+  imageController.uploadReferenceImage
+);
+
 // AI Image Prompt Engineer + DALL-E generation.
 router.post("/prompts", imageController.generateImagePrompts);
 router.post("/from-prompt", imageController.generateImageFromPrompt);

@@ -12,6 +12,7 @@ export default function PromptCard({
   purpose,
   platform,
   contentDescription,
+  referencePath,
   prompt, // { style, prompt, styleNotes }
   onSaved,
   onUseInSocial,
@@ -31,6 +32,7 @@ export default function PromptCard({
         brandId,
         purpose,
         prompt: prompt.prompt,
+        referencePath,
       });
       setImage(data.image);
     } catch (err) {
@@ -48,6 +50,7 @@ export default function PromptCard({
         brandId,
         purpose,
         prompt: prompt.prompt,
+        referencePath,
       });
       setVariations(data.images || []);
     } catch (err) {

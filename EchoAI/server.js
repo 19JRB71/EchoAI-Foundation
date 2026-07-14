@@ -187,6 +187,7 @@ const LARGE_BODY_SUPPORT_PATHS = new Set([
   "/api/health-monitor/support",
   "/api/public/support",
   "/api/guided-setup/help",
+  "/api/images/reference",
 ]);
 app.use((req, res, next) => {
   if (req.method === "POST" && req.path === "/api/subscriptions/webhook") {
