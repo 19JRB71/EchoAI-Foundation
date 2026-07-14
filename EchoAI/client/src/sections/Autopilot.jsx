@@ -145,11 +145,26 @@ export default function Autopilot({ brandId }) {
           ? "Autopilot is ON. Echo drafts your week every Monday — nothing goes out until you approve it."
           : "Settings saved."
       );
+      return s;
     } catch (err) {
       setError(err.message || "Failed to save settings.");
+      return null;
     } finally {
       setSaving(false);
     }
+  }
+
+  // Turning autopilot ON mid-week drafts the first batch right away — no
+  // waiting until next Monday. Skipped when a batch is already generating or
+  // still has items awaiting review.
+  async function enableAndMaybeDraft() {
+    const s = await saveSettings({ enabled: true });
+    if (!s || !s.enabled) return;
+    const hasPending =
+      batch &&
+      (batch.status === "generating" ||
+        (batch.items || []).some((i) => i.status === "pending"));
+    if (!hasPending) await runNow();
   }
 
   async function runNow() {
@@ -160,9 +175,17 @@ export default function Autopilot({ brandId }) {
     try {
       const b = await api.autopilotRunNow(brandId, !settings?.enabled);
       setBatch(b);
-      setNotice("This week's batch is drafted and ready for your review.");
+      if (b && b.status === "failed") {
+        setError(
+          `Drafting failed${b.error ? `: ${b.error}` : ""}. Hit "Draft this week's batch now" to retry.`
+        );
+      } else {
+        setNotice(
+          "Your batch is drafted and ready for your review — approved posts start going out as soon as today."
+        );
+      }
     } catch (err) {
-      setError(err.message || "Failed to draft this week's batch.");
+      setError(err.message || "Failed to draft the batch.");
     } finally {
       setRunning(false);
     }
@@ -257,7 +280,9 @@ export default function Autopilot({ brandId }) {
               </div>
             </div>
             <button
-              onClick={() => saveSettings({ enabled: !settings.enabled })}
+              onClick={() =>
+                settings.enabled ? saveSettings({ enabled: false }) : enableAndMaybeDraft()
+              }
               disabled={saving || (!settings.enabled && !form.includePosts && !form.includeAds)}
               title={
                 !settings.enabled && !form.includePosts && !form.includeAds

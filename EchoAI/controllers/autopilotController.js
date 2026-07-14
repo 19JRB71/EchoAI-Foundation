@@ -497,8 +497,11 @@ async function generateBatchForBrand(batch, brand, settings) {
  * generates it. Returns the claimed batch row, or null when the week is
  * already claimed. Exported per-row so the sweep guard is testable.
  */
-async function processBrandWeeklyBatch(brandRow, settings, now = new Date()) {
-  const weekStart = weekStartOf(now);
+async function processBrandWeeklyBatch(brandRow, settings, now = new Date(), batchDate = null) {
+  // batchDate (YYYY-MM-DD) lets run-now draft an EXTRA mid-week batch dated
+  // today when this week's Monday batch already exists — owners shouldn't
+  // have to wait until next Monday to start posts or ads they want now.
+  const weekStart = batchDate || weekStartOf(now);
   const claimed = await db.query(
     `INSERT INTO autopilot_batches (brand_id, user_id, week_start, status)
      VALUES ($1, $2, $3, 'generating')
@@ -550,8 +553,10 @@ async function runWeeklyAutopilot() {
 
 /**
  * POST /api/autopilot/run
- * Body: { brandId } — draft THIS week's batch now (first-run / onboarding).
- * 409 when this week's batch already exists.
+ * Body: { brandId } — draft a batch right now, any day of the week.
+ * If this week's batch already exists: retries it when failed, or drafts an
+ * EXTRA batch dated today (409 only while generating, while items are still
+ * awaiting review, or when today's extra batch already exists).
  */
 async function runNow(req, res) {
   const userId = req.user.userId;
@@ -575,9 +580,72 @@ async function runNow(req, res) {
       });
     }
 
-    const batch = await processBrandWeeklyBatch({ ...brand, user_id: userId }, settings);
+    let batch = await processBrandWeeklyBatch({ ...brand, user_id: userId }, settings);
     if (!batch) {
-      return res.status(409).json({ error: "This week's batch already exists" });
+      // This week's batch already exists. Decide honestly what to do:
+      // generating → wait; failed → retry IT; ready + pending → finish review
+      // first (a newer batch would hide those items); otherwise draft an EXTRA
+      // batch dated today so mid-week posts/ads never wait until next Monday.
+      const { rows: existingRows } = await db.query(
+        `SELECT * FROM autopilot_batches
+          WHERE brand_id = $1
+          ORDER BY week_start DESC, created_at DESC
+          LIMIT 1`,
+        [brandId]
+      );
+      const existing = existingRows[0];
+      if (existing && existing.status === "generating") {
+        return res.status(409).json({
+          error: "Echo is already drafting a batch right now — give it a minute.",
+        });
+      }
+      if (existing && existing.status === "failed") {
+        // Retry the failed batch in place (atomic re-claim; items wiped first).
+        const reclaimed = await db.query(
+          `UPDATE autopilot_batches SET status = 'generating', error = NULL
+            WHERE batch_id = $1 AND status = 'failed'
+            RETURNING *`,
+          [existing.batch_id]
+        );
+        if (reclaimed.rows.length === 0) {
+          return res.status(409).json({ error: "This batch was already retried — reload." });
+        }
+        await db.query("DELETE FROM autopilot_batch_items WHERE batch_id = $1", [
+          existing.batch_id,
+        ]);
+        await module.exports.generateBatchForBrand(
+          reclaimed.rows[0],
+          { ...brand, user_id: userId },
+          settings
+        );
+        batch = reclaimed.rows[0];
+      } else {
+        if (existing) {
+          const pend = await db.query(
+            `SELECT COUNT(*)::int AS n FROM autopilot_batch_items
+              WHERE batch_id = $1 AND status = 'pending'`,
+            [existing.batch_id]
+          );
+          if (pend.rows[0].n > 0) {
+            return res.status(409).json({
+              error:
+                "You still have items awaiting your OK below. Approve or decline them first, then draft a fresh batch.",
+            });
+          }
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        batch = await processBrandWeeklyBatch(
+          { ...brand, user_id: userId },
+          settings,
+          new Date(),
+          today
+        );
+      }
+    }
+    if (!batch) {
+      return res.status(409).json({
+        error: "You've already drafted a batch today — review it below, or draft again tomorrow.",
+      });
     }
     const fresh = await db.query("SELECT * FROM autopilot_batches WHERE batch_id = $1", [
       batch.batch_id,
