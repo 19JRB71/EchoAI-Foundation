@@ -9,6 +9,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 vi.mock("../api.js", () => ({
   api: {
     listCompetitorSites: vi.fn(),
+    getCompetitorSiteDigest: vi.fn(),
     addCompetitorSite: vi.fn(),
     removeCompetitorSite: vi.fn(),
     recheckCompetitorSite: vi.fn(),

@@ -55,6 +55,7 @@ function hostOf(url) {
 
 export default function CompetitorSites({ brandId }) {
   const [sites, setSites] = useState([]);
+  const [digest, setDigest] = useState(null);
   const [loading, setLoading] = useState(false);
   const [firstLoaded, setFirstLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -70,8 +71,14 @@ export default function CompetitorSites({ brandId }) {
       if (spinner) setLoading(true);
       setError("");
       try {
-        const res = await api.listCompetitorSites(brandId);
-        setSites((res && res.sites) || []);
+        const [sitesRes, digestRes] = await Promise.all([
+          api.listCompetitorSites(brandId),
+          Promise.resolve()
+            .then(() => api.getCompetitorSiteDigest(brandId))
+            .catch(() => null),
+        ]);
+        setSites((sitesRes && sitesRes.sites) || []);
+        setDigest((digestRes && digestRes.digest) || null);
       } catch (err) {
         setError(err.message || "Failed to load competitor sites.");
       } finally {
@@ -204,6 +211,8 @@ export default function CompetitorSites({ brandId }) {
         </div>
       )}
 
+      {sites.length > 0 && <DigestCard digest={digest} />}
+
       {loading && !firstLoaded ? (
         <Spinner />
       ) : sites.length === 0 ? (
@@ -236,6 +245,52 @@ function Field({ label, value }) {
         {label}
       </h4>
       <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-200">{value}</p>
+    </div>
+  );
+}
+
+function DigestCard({ digest }) {
+  const d = digest || {};
+  const total = d.totalChanges || 0;
+  const byType = d.byType || [];
+
+  return (
+    <div className="rounded-xl border border-sky-500/25 bg-sky-500/[0.06] p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-sky-100">This week's change digest</h3>
+        <span className="text-[11px] uppercase tracking-wide text-sky-300/70">
+          Last 7 days
+        </span>
+      </div>
+
+      {total === 0 ? (
+        <p className="mt-1.5 text-sm text-gray-300">
+          No meaningful changes across your tracked competitor sites this week.
+          Scout checks each site daily and will summarize anything that changes —
+          nothing is ever made up.
+        </p>
+      ) : (
+        <>
+          <p className="mt-1.5 text-sm font-medium text-gray-100">
+            {d.headline ||
+              `${total} change${total === 1 ? "" : "s"} across ${
+                d.sitesChanged || 0
+              } competitor${d.sitesChanged === 1 ? "" : "s"} this week.`}
+          </p>
+          {byType.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {byType.map((b) => (
+                <Badge
+                  key={b.type}
+                  className="border-sky-500/30 bg-sky-500/10 text-sky-200"
+                >
+                  {(CHANGE_LABELS[b.type] || b.type)} · {b.competitors}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

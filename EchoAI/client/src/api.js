@@ -1174,6 +1174,8 @@ export const api = {
   // Competitor Website Analysis (Enterprise)
   listCompetitorSites: (brandId) =>
     request(`/api/competitor-sites/${brandId}/sites`),
+  getCompetitorSiteDigest: (brandId) =>
+    request(`/api/competitor-sites/${brandId}/digest`),
   addCompetitorSite: (brandId, url, label) =>
     request(`/api/competitor-sites/${brandId}/sites`, {
       method: "POST",

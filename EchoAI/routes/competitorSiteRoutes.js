@@ -18,6 +18,7 @@ const router = express.Router();
 router.use(auth, lockout, featureGate("competitor_sites"));
 
 router.get("/:brandId/sites", controller.listSites);
+router.get("/:brandId/digest", controller.getDigest);
 router.post("/:brandId/sites", controller.addSite);
 router.delete("/:brandId/sites/:siteId", controller.removeSite);
 router.post("/:brandId/sites/:siteId/recheck", controller.recheckSite);

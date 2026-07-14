@@ -41,6 +41,7 @@ const {
 } = require("../controllers/competitorAdSpyController");
 const {
   runSiteMonitorForBrand,
+  runWeeklyDigestForBrand,
 } = require("../controllers/competitorSiteController");
 const { runHourlyHealthSweep } = require("../controllers/healthMonitorController");
 const { runApiQuotaSweep } = require("./apiQuotaMonitor");
@@ -317,6 +318,35 @@ async function runCompetitorSiteMonitor() {
     }
   }
   console.log(`Competitor site monitor complete: ${ok}/${rows.length} brands checked.`);
+}
+
+/**
+ * Scout's weekly competitor-website change digest. Runs once a week for every
+ * real (non-demo) brand that tracks at least one competitor website: rolls up the
+ * meaningful changes recorded over the last week across all its sites into ONE
+ * summary and pages the owner once (voice + push). The controller enforces the
+ * Enterprise tier per brand (admin bypasses), skips weeks with no changes
+ * (honest — never buzzes to say nothing happened), and guards the summary
+ * at-most-once per ISO week. Per-brand failures are logged, never stopping the
+ * sweep. The digest shown in the section is recomputed live on load.
+ */
+async function runCompetitorSiteDigest() {
+  const { rows } = await db.query(
+    `SELECT DISTINCT b.*
+       FROM brands b
+       JOIN competitor_websites w ON w.brand_id = b.brand_id
+      WHERE b.is_demo = false`
+  );
+  let ok = 0;
+  for (const brand of rows) {
+    try {
+      await runWeeklyDigestForBrand(brand);
+      ok += 1;
+    } catch (err) {
+      console.error(`Competitor site digest failed for brand ${brand.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Competitor site digest complete: ${ok}/${rows.length} brands summarized.`);
 }
 
 /**
@@ -725,6 +755,18 @@ function startScheduler() {
     run: runCompetitorSiteMonitor,
   });
 
+  // Mondays 08:30 (non-AI: deterministic roll-up): Scout rolls up the week's
+  // meaningful competitor-website changes across each brand's tracked sites
+  // into one owner summary (voice + push). Enterprise gate + at-most-once-per-
+  // week guard are enforced inside the controller; weeks with no changes are
+  // skipped (never a "nothing happened" buzz). Offset from the 08:00 weekly
+  // analytics run so they don't collide.
+  scheduleJob({
+    name: "competitor-site-digest",
+    cronExpr: "30 8 * * 1",
+    run: runCompetitorSiteDigest,
+  });
+
   // Every 6 hours at :30 (non-AI): re-verify every stored social connection so
   // an expired/revoked login is flagged ('error') on the calendar views BEFORE
   // the next scheduled post fails.
@@ -829,4 +871,5 @@ module.exports = {
   runSellerLeadAdSweep,
   runOpenHouseSweep,
   runRealEstateContentRun,
+  runCompetitorSiteDigest,
 };

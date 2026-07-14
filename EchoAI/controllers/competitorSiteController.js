@@ -31,6 +31,19 @@ const SITE_TIER = "enterprise";
 // safety margin so overlapping scheduler ticks can't double-run one site).
 const RECHECK_INTERVAL = "20 hours";
 const MAX_SITES_PER_BRAND = 25;
+// The weekly change-digest window: roll up meaningful changes from the last week.
+const DIGEST_PERIOD_DAYS = 7;
+
+// Plain-English phrase per change type, used to build the roll-up headline
+// ("3 competitors changed pricing, 1 launched a new offer this week").
+const DIGEST_PHRASES = {
+  pricing: "changed pricing",
+  offer: "launched or changed an offer",
+  messaging: "shifted messaging",
+  products: "changed products or services",
+  cta: "changed a call to action",
+  redesign: "redesigned their site",
+};
 
 /** Loads a brand only if it belongs to the authenticated user. */
 async function getOwnedBrand(userId, brandId) {
@@ -220,6 +233,185 @@ async function alertOwnerOfChange(brand, site, changeId, change) {
   mobilePushController.sendToUser(brand.user_id, pushPayload).catch(() => {});
 }
 
+/* ------------------------------ weekly digest ----------------------------- */
+
+/** Monday (UTC) of the given date's ISO week, as YYYY-MM-DD (digest week key). */
+function weekDateFor(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getUTCDay();
+  const diff = (day + 6) % 7; // days since Monday
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Join phrase clauses naturally: "A", "A and B", "A, B and C". */
+function joinClauses(parts) {
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+/**
+ * One plain-English roll-up sentence from per-type distinct-competitor counts,
+ * ordered by how many competitors made that kind of change (most first). Returns
+ * "" when nothing changed — the caller decides how to phrase "no changes".
+ */
+function buildHeadline(byType) {
+  const parts = byType
+    .filter((b) => DIGEST_PHRASES[b.type])
+    .map(
+      (b) =>
+        `${b.competitors} ${b.competitors === 1 ? "competitor" : "competitors"} ${
+          DIGEST_PHRASES[b.type]
+        }`,
+    );
+  if (parts.length === 0) return "";
+  return `${joinClauses(parts)} this week.`;
+}
+
+/**
+ * Aggregate already-recorded change rows into a digest object. Deterministic (no
+ * AI): counts distinct competitors per change type, groups changes per site, and
+ * builds a headline. Honest by construction — it only ever reflects real recorded
+ * changes, never fabricates.
+ */
+function buildDigestFromRows(rows, days = DIGEST_PERIOD_DAYS) {
+  const bySite = new Map();
+  const typeSites = new Map(); // change_type -> Set(site_id)
+  for (const r of rows) {
+    if (!bySite.has(r.site_id)) {
+      bySite.set(r.site_id, {
+        siteId: r.site_id,
+        label: r.label || null,
+        url: r.url,
+        changes: [],
+      });
+    }
+    bySite.get(r.site_id).changes.push(mapChangeRow(r));
+    if (!typeSites.has(r.change_type)) typeSites.set(r.change_type, new Set());
+    typeSites.get(r.change_type).add(r.site_id);
+  }
+
+  const byType = Array.from(typeSites.entries())
+    .map(([type, set]) => ({ type, competitors: set.size }))
+    .sort((a, b) => b.competitors - a.competitors || a.type.localeCompare(b.type));
+
+  return {
+    periodDays: days,
+    totalChanges: rows.length,
+    sitesChanged: bySite.size,
+    byType,
+    headline: buildHeadline(byType),
+    sites: Array.from(bySite.values()),
+  };
+}
+
+/** Load this brand's meaningful changes from the last `days` (newest first). */
+async function recentChanges(brandId, days = DIGEST_PERIOD_DAYS) {
+  const { rows } = await db.query(
+    `SELECT c.change_id, c.change_type, c.summary, c.details, c.detected_at,
+            c.site_id, w.label, w.url
+       FROM competitor_website_changes c
+       JOIN competitor_websites w ON w.site_id = c.site_id
+      WHERE c.brand_id = $1
+        AND c.detected_at > NOW() - ($2::int * INTERVAL '1 day')
+      ORDER BY c.detected_at DESC`,
+    [brandId, days],
+  );
+  return rows;
+}
+
+/** Compute the live weekly digest for a brand (always fresh from the feed). */
+async function buildDigest(brandId, days = DIGEST_PERIOD_DAYS) {
+  const rows = await recentChanges(brandId, days);
+  return buildDigestFromRows(rows, days);
+}
+
+/** Voice + web/mobile push: one weekly roll-up, deep-linked to the section. */
+async function alertOwnerOfDigest(brand, digest) {
+  const weekDate = weekDateFor();
+  const buildText = (firstName) =>
+    `${firstName}, here's your weekly competitor website roundup. ${digest.headline} Open Competitor Sites in Scout for the details.`;
+
+  try {
+    await enqueueOwnerVoiceEvent(brand.user_id, "competitor_site_digest", buildText, {
+      brandId: brand.brand_id,
+      title: "Weekly competitor website digest",
+      payload: {
+        type: "competitor_site_digest",
+        section: "competitorsites",
+      },
+      dedupKey: `competitor-site-digest-${brand.brand_id}-${weekDate}`,
+      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+    });
+  } catch (err) {
+    console.error("Competitor site digest voice alert failed:", err.message);
+  }
+
+  const pushPayload = {
+    title: "Weekly competitor website digest",
+    body: digest.headline,
+    data: { type: "competitor_site_digest", brandId: brand.brand_id, section: "competitorsites" },
+  };
+  pushController.sendPushToUser(brand.user_id, pushPayload).catch(() => {});
+  mobilePushController.sendToUser(brand.user_id, pushPayload).catch(() => {});
+}
+
+/**
+ * Weekly digest for one brand. Enterprise-gated at the source (background path);
+ * admin bypasses. Persists this week's roll-up (one per brand per ISO week) and
+ * pages the owner exactly once via a CAS on owner_alerted_at. A week with NO
+ * changes is skipped entirely — nothing is persisted or spoken (honest: we never
+ * buzz the owner to say nothing happened). Best-effort: alerts never throw.
+ */
+async function runWeeklyDigestForBrand(brand) {
+  const { tier, role } = await getUserTier(brand.user_id);
+  if (role !== "admin" && !meetsTier(tier, SITE_TIER)) return { alerted: false };
+  const brandRow = await loadBrandRow(brand);
+  if (!brandRow) return { alerted: false };
+
+  const digest = await buildDigest(brandRow.brand_id, DIGEST_PERIOD_DAYS);
+  if (digest.totalChanges === 0) return { alerted: false, totalChanges: 0 };
+
+  const weekDate = weekDateFor();
+  const { rows } = await db.query(
+    `INSERT INTO competitor_website_digests
+       (brand_id, week_date, headline, total_changes, sites_changed, stats)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+     ON CONFLICT (brand_id, week_date)
+     DO UPDATE SET headline = EXCLUDED.headline,
+                   total_changes = EXCLUDED.total_changes,
+                   sites_changed = EXCLUDED.sites_changed,
+                   stats = EXCLUDED.stats,
+                   created_at = NOW()
+     RETURNING digest_id`,
+    [
+      brandRow.brand_id,
+      weekDate,
+      digest.headline,
+      digest.totalChanges,
+      digest.sitesChanged,
+      toJsonbParam({ byType: digest.byType }),
+    ],
+  );
+  const digestId = rows[0] && rows[0].digest_id;
+  if (!digestId) return { alerted: false };
+
+  if (brandRow.is_demo) return { alerted: false }; // demo brands never page the owner
+
+  // CAS: exactly one run summarizes the owner per (brand, week), even on overlap.
+  const claim = await db.query(
+    `UPDATE competitor_website_digests
+        SET owner_alerted_at = NOW()
+      WHERE digest_id = $1 AND owner_alerted_at IS NULL`,
+    [digestId],
+  );
+  if (claim.rowCount === 0) return { alerted: false };
+
+  await alertOwnerOfDigest(brandRow, digest);
+  return { alerted: true, totalChanges: digest.totalChanges };
+}
+
 /* --------------------------------- engine --------------------------------- */
 
 /**
@@ -359,6 +551,18 @@ async function listSites(req, res) {
   }
 }
 
+// GET /api/competitor-sites/:brandId/digest — live weekly change roll-up.
+async function getDigest(req, res) {
+  try {
+    const brand = await getOwnedBrand(req.user.userId, req.params.brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+    const digest = await buildDigest(brand.brand_id, DIGEST_PERIOD_DAYS);
+    return res.json({ digest });
+  } catch (err) {
+    return sendError(res, err, "Failed to build the competitor site digest.");
+  }
+}
+
 // POST /api/competitor-sites/:brandId/sites — add a URL + kick off initial analysis.
 async function addSite(req, res) {
   try {
@@ -459,14 +663,21 @@ async function recheckSite(req, res) {
 module.exports = {
   // routes
   listSites,
+  getDigest,
   addSite,
   removeSite,
   recheckSite,
   // engine (scheduler + tests)
   checkSite,
   runSiteMonitorForBrand,
+  runWeeklyDigestForBrand,
   recordAndAlertChange,
   dueSites,
   claimSiteCheck,
   getOwnedBrand,
+  // digest helpers (tests)
+  buildDigest,
+  buildDigestFromRows,
+  buildHeadline,
+  weekDateFor,
 };

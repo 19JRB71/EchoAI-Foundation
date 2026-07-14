@@ -26,6 +26,7 @@ export const EVENT_PRIORITY = {
   sentinel_fixed: "green",
   day_summary: "green",
   morning_briefing: "green",
+  competitor_site_digest: "green",
 };
 
 // Visual styling + human labels per priority, used by the badge and panel.

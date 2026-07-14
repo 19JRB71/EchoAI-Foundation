@@ -105,6 +105,11 @@ export const EVENT_META = [
     label: "Competitor ad threats",
     description: "Scout calls you when a confirmed competitor launches an aggressive new ad.",
   },
+  {
+    key: "competitor_site_digest",
+    label: "Competitor website digest",
+    description: "Scout's weekly roundup of meaningful changes across your tracked competitor websites.",
+  },
 ];
 
 const EVENT_KEYS = EVENT_META.map((e) => e.key);

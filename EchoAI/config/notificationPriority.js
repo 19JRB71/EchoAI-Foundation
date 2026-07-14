@@ -44,6 +44,7 @@ const EVENT_PRIORITY = {
   sentinel_fixed: PRIORITY_GREEN,
   day_summary: PRIORITY_GREEN,
   morning_briefing: PRIORITY_GREEN,
+  competitor_site_digest: PRIORITY_GREEN,
 };
 
 /**
