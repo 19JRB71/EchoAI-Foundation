@@ -23,6 +23,14 @@ echo checks: keep filtering (drop only matches), keep the post-TTS window on
 FINAL chunks only (interims stay gated), and keep heard/spoken text normalized
 through the same `normalizeSpeech` before word-set comparisons.
 
+**Recency rule (second production incident):** only match against lines whose
+audio is still playing or ended within the echo window. Echo verbally SUGGESTS
+commands ("say 'switch to another business' anytime"); when the owner obeyed
+minutes later, the command matched the stale greeting still in the recent-lines
+buffer and was dropped as self-echo. Buffer entries are `{text, endedAt}`
+(stamped at tts-end); the match site filters by recency before `isSelfEcho`.
+Old lines can't physically leak speaker→mic — never match them.
+
 Related honesty rule from the same incident: setup-status probes must
 distinguish "never connected" from "connected but broken" (any non-connected
 row = they DID connect once → say "reconnect", never "connect one"), and a

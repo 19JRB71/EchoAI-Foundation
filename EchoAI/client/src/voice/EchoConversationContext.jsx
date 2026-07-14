@@ -321,7 +321,12 @@ export function EchoConversationProvider({ active, children }) {
       // filter in handleResult). Keep only the last few lines.
       const spokenText = e && e.detail && e.detail.text;
       if (spokenText) {
-        recentEchoTextsRef.current.push(String(spokenText));
+        // endedAt is stamped when this line's audio finishes — the self-echo
+        // filter only matches against lines whose audio played RECENTLY.
+        // Without the timestamp, a command Echo itself suggested minutes ago
+        // ("say 'switch to another business'") gets eaten as self-echo when
+        // the owner obeys, because the old line still sits in the buffer.
+        recentEchoTextsRef.current.push({ text: String(spokenText), endedAt: null });
         if (recentEchoTextsRef.current.length > 4) {
           recentEchoTextsRef.current.shift();
         }
@@ -343,6 +348,11 @@ export function EchoConversationProvider({ active, children }) {
     const onSpeakEnd = () => {
       audioPlayingRef.current = false;
       lastTtsEndAtRef.current = Date.now();
+      // Stamp every still-open line: only lines whose audio ended recently
+      // can physically leak back through the mic as self-echo.
+      for (const entry of recentEchoTextsRef.current) {
+        if (entry.endedAt === null) entry.endedAt = Date.now();
+      }
       recordVoiceEvent("echo-audio-ended");
       if (speakingClearRef.current) clearTimeout(speakingClearRef.current);
       speakingClearRef.current = setTimeout(() => {
@@ -2696,7 +2706,19 @@ export function EchoConversationProvider({ active, children }) {
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const chunk = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          if (echoWindow && isSelfEcho(chunk, recentEchoTextsRef.current)) {
+          // Only lines whose audio is still playing or ended within the echo
+          // window can physically be leaking through the mic right now. Older
+          // lines must NOT be matched — Echo often SUGGESTS commands out loud
+          // ("say 'switch to another business'"), and matching stale lines
+          // drops the owner's real command the moment they obey.
+          const leakCandidates = recentEchoTextsRef.current
+            .filter(
+              (entry) =>
+                entry.endedAt === null ||
+                Date.now() - entry.endedAt < SELF_ECHO_WINDOW_MS,
+            )
+            .map((entry) => entry.text);
+          if (echoWindow && isSelfEcho(chunk, leakCandidates)) {
             recordVoiceEvent("dropped-as-echo-of-self", {
               heard: chunk,
               gated,
