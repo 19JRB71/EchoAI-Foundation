@@ -1,23 +1,9 @@
-import { AGENTS_META } from "../lib/departments.js";
-import { useEchoConversation } from "../voice/EchoConversationContext.jsx";
-import { useVoice } from "../voice/VoiceContext.jsx";
 
 // Mission Control V2 — left "Executive Command Panel". The nine-agent roster
 // lives in the Zorecho Core visualization (the official view of the AI
-// workforce), so the sidebar earns its space differently: Echo (the owner's
-// assistant), a live AI-workforce summary from REAL platform data, the
-// business switcher, quick actions, and the Zorecho brand card.
-
-const STATUS_COLOR = {
-  active: "#22c55e",
-  working: "#f59e0b",
-  attention: "#ef4444",
-};
-const STATUS_LABEL = {
-  active: "Active",
-  working: "Working",
-  attention: "Needs you",
-};
+// workforce), so the sidebar earns its space differently: a live AI-workforce
+// summary from REAL platform data, the business switcher, quick actions, and
+// the Zorecho brand card. Echo's mute toggle lives under the Zorecho Core.
 
 function SectionLabel({ children }) {
   return (
@@ -78,50 +64,6 @@ export default function ExecutiveSidebar({
   onTalkToEcho,
 }) {
   const roster = Array.isArray(data?.agents) ? data.agents : [];
-  const echo = roster.find((a) => a.id === "echo") || null;
-  const echoMeta = AGENTS_META.find((m) => m.id === "echo") || {};
-  const echoColor = echoMeta.color || "#14B8A6";
-  const echoStatus = echo ? STATUS_COLOR[echo.status] || "#f59e0b" : "#6b7280";
-
-  // Live voice state — real engine state only (null for team members or when
-  // the provider is inactive). Drives the mic indicator + "Listening…" text.
-  const conv = useEchoConversation();
-  const voice = useVoice();
-
-  // The Echo card is a single mute/unmute toggle: muting cuts any speech that
-  // is playing (stopAll) AND stops the hands-free mic; unmuting restores both.
-  // Speaker mute is the source of truth for the muted look — if Echo won't
-  // talk, he's muted, whatever the mic engine is doing.
-  const echoMuted = voice ? Boolean(voice.muted) : Boolean(conv?.muted);
-  function toggleEchoMuted() {
-    if (echoMuted) {
-      if (voice?.muted) voice.toggleMute();
-      // Resume listening only for owners who already opted into hands-free —
-      // never surface the permission prompt from a simple unmute.
-      if (conv?.supported && conv?.micEnabled && conv?.muted) conv.toggleMic();
-    } else {
-      if (voice && !voice.muted) voice.toggleMute(); // also stops live audio
-      if (conv?.supported && conv?.micEnabled && !conv?.muted) conv.toggleMic();
-    }
-  }
-  const voiceState =
-    conv?.convState === "speaking"
-      ? "speaking"
-      : conv?.convState === "processing"
-        ? "thinking"
-        : conv?.convState === "active"
-          ? "listening"
-          : null;
-  const micLive = Boolean(conv?.handsFreeOn);
-  const voiceLabel =
-    voiceState === "listening"
-      ? "Listening…"
-      : voiceState === "thinking"
-        ? "Thinking…"
-        : voiceState === "speaking"
-          ? "Speaking…"
-          : null;
-
   const activeAgents = roster.filter((a) => a.status === "active" || a.status === "working").length;
   const kpis = Object.fromEntries((Array.isArray(data?.kpis) ? data.kpis : []).map((k) => [k.key, k]));
   const health = data?.systemStatus?.health;
@@ -134,90 +76,6 @@ export default function ExecutiveSidebar({
   return (
     <aside className="flex w-[218px] shrink-0 flex-col border-r border-cyan-950/60 bg-[#04070f]">
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-        {/* Echo — the owner's assistant, always available */}
-        <SectionLabel>Echo Assistant</SectionLabel>
-        <div className="px-2.5">
-          <button
-            onClick={toggleEchoMuted}
-            title={echoMuted ? "Unmute Echo" : "Mute Echo (stops talking and listening)"}
-            aria-label={echoMuted ? "Unmute Echo" : "Mute Echo"}
-            aria-pressed={echoMuted}
-            data-testid="sidebar-echo"
-            className="group w-full rounded-xl border bg-[#081021]/95 px-3 py-3 text-left transition-colors hover:border-cyan-600/60"
-            style={{
-              borderColor: voiceState ? `${echoColor}88` : `${echoColor}44`,
-              boxShadow: voiceState
-                ? `0 0 22px ${echoColor}33, inset 0 0 14px ${echoColor}14`
-                : `0 0 14px ${echoColor}1a`,
-            }}
-          >
-            <span className="flex items-start gap-2.5">
-              <span
-                className="relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[15px] font-bold"
-                style={{ backgroundColor: `${echoColor}26`, color: echoColor, border: `1px solid ${echoColor}66`, boxShadow: `0 0 12px ${echoColor}2e` }}
-              >
-                E
-                <span
-                  className={`absolute -right-1 -top-1 h-2 w-2 rounded-full border border-[#04070f] ${voiceState ? "animate-pulse" : ""}`}
-                  style={{
-                    backgroundColor: echoStatus,
-                    boxShadow: voiceState ? `0 0 10px ${echoStatus}, 0 0 4px ${echoStatus}` : `0 0 6px ${echoStatus}`,
-                  }}
-                  data-testid="sidebar-echo-dot"
-                />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-1.5">
-                  <span className="text-[13.5px] font-semibold text-gray-100">Echo</span>
-                  <span className="relative flex shrink-0 items-center" data-testid="sidebar-echo-mic">
-                    {!echoMuted && (micLive || voiceState) && (
-                      <span
-                        className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-40"
-                        style={{ backgroundColor: echoColor }}
-                        aria-hidden="true"
-                      />
-                    )}
-                    <svg
-                      className={`relative h-4 w-4 ${
-                        echoMuted
-                          ? "text-gray-500 group-hover:text-gray-400"
-                          : micLive || voiceState
-                            ? "text-cyan-300"
-                            : "text-cyan-400/70 group-hover:text-cyan-300"
-                      }`}
-                      style={!echoMuted && (micLive || voiceState) ? { filter: "drop-shadow(0 0 5px rgba(103,232,249,0.9))" } : undefined}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.7}
-                      stroke="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d={ACTION_ICONS.mic} />
-                      {echoMuted && (
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4l16 16" data-testid="sidebar-echo-mic-slash" />
-                      )}
-                    </svg>
-                  </span>
-                </span>
-                <span
-                  className="block text-[10.5px]"
-                  style={{ color: echoMuted ? "#9ca3af" : voiceLabel ? echoColor : "#6b7280" }}
-                  data-testid="sidebar-echo-state"
-                >
-                  {echoMuted
-                    ? "Muted — tap to unmute"
-                    : voiceLabel || (echo ? STATUS_LABEL[echo.status] || "Working" : "Your assistant")}
-                </span>
-                {!voiceLabel && echo && echo.currentTask && (
-                  <span className="mt-0.5 block truncate text-[10px] italic text-gray-600 group-hover:text-gray-500">
-                    {echo.currentTask}
-                  </span>
-                )}
-              </span>
-            </span>
-          </button>
-        </div>
-
         {/* Live company summary — real platform data only */}
         <SectionLabel>AI Workforce</SectionLabel>
         <div className="mx-2.5 rounded-xl border border-cyan-950/70 bg-[#070d1c]/90 py-1" data-testid="workforce-summary">

@@ -1,10 +1,11 @@
 import { AGENTS_META } from "../lib/departments.js";
 import { useEchoConversation } from "../voice/EchoConversationContext.jsx";
+import { useVoice } from "../voice/VoiceContext.jsx";
 
 // Zorecho Core — the centerpiece of Mission Control V2, matching the approved
 // concept: a glowing waveform core with curved, agent-colored connector lines
 // running to each agent chip (4 left, up to 5 right), the ZORECHO CORE caption
-// with a real status line, and the Talk to Echo button beneath.
+// with a real status line, and the Echo mute/unmute button beneath.
 
 const STATUS = {
   active: { label: "Active", color: "#22c55e" },
@@ -108,12 +109,30 @@ function coreStateOf(conv) {
   return "idle";
 }
 
-export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statusLine, healthy = true }) {
+export default function CoreHero({ agents, onOpenDepartment, statusLine, healthy = true }) {
   const roster = Array.isArray(agents) ? agents : [];
   const left = roster.filter((a) => ["echo", "scout", "atlas", "nova"].includes(a.id));
   const right = roster.filter((a) => !["echo", "scout", "atlas", "nova"].includes(a.id));
   const conv = useEchoConversation();
+  const voice = useVoice();
   const coreState = coreStateOf(conv);
+
+  // The button under the Core is a single mute/unmute toggle: muting cuts any
+  // speech that is playing (voice.toggleMute → stopAll) AND stops the
+  // hands-free mic (conv.toggleMic); unmuting restores both. Speaker mute is
+  // the source of truth for the muted look — if Echo won't talk, he's muted.
+  const echoMuted = voice ? Boolean(voice.muted) : Boolean(conv?.muted);
+  function toggleEchoMuted() {
+    if (echoMuted) {
+      if (voice?.muted) voice.toggleMute();
+      // Resume listening only for owners who already opted into hands-free —
+      // never surface the permission prompt from a simple unmute.
+      if (conv?.supported && conv?.micEnabled && conv?.muted) conv.toggleMic();
+    } else {
+      if (voice && !voice.muted) voice.toggleMute(); // also stops live audio
+      if (conv?.supported && conv?.micEnabled && !conv?.muted) conv.toggleMic();
+    }
+  }
 
   return (
     <div className={`mcv2-hero mcv2-${coreState} relative overflow-hidden rounded-2xl border border-cyan-950/70 bg-gradient-to-b from-[#050b1d] to-[#03060f] p-4 sm:p-6`}>
@@ -213,23 +232,47 @@ export default function CoreHero({ agents, onOpenDepartment, onTalkToEcho, statu
 
         <div className="mt-9 flex justify-center">
           <button
-            onClick={onTalkToEcho}
-            className="flex items-center gap-3 rounded-2xl border border-cyan-400/60 bg-cyan-500/10 px-7 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-500/20"
-            style={{ boxShadow: "0 0 30px rgba(34,211,238,0.18), inset 0 0 20px rgba(34,211,238,0.06)" }}
+            onClick={toggleEchoMuted}
+            title={echoMuted ? "Unmute Echo" : "Mute Echo (stops talking and listening)"}
+            aria-label={echoMuted ? "Unmute Echo" : "Mute Echo"}
+            aria-pressed={echoMuted}
+            className={`flex items-center gap-3 rounded-2xl border px-7 py-3 text-sm font-semibold transition-colors ${
+              echoMuted
+                ? "border-gray-600/60 bg-gray-500/10 text-gray-300 hover:bg-gray-500/20"
+                : "border-cyan-400/60 bg-cyan-500/10 text-cyan-50 hover:bg-cyan-500/20"
+            }`}
+            style={
+              echoMuted
+                ? undefined
+                : { boxShadow: "0 0 30px rgba(34,211,238,0.18), inset 0 0 20px rgba(34,211,238,0.06)" }
+            }
             data-testid="talk-to-echo"
           >
-            <svg className="h-5 w-5 text-cyan-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+            <svg
+              className={`h-5 w-5 ${echoMuted ? "text-gray-400" : "text-cyan-300"}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.8}
+              stroke="currentColor"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+              {echoMuted && (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4l16 16" data-testid="core-echo-mic-slash" />
+              )}
             </svg>
             <span className="text-left">
-              Talk to Echo
-              <span className="block text-[10px] font-normal text-cyan-300/70">Click to speak with your AI</span>
+              {echoMuted ? "Echo Muted" : "Mute Echo"}
+              <span className={`block text-[10px] font-normal ${echoMuted ? "text-gray-400/80" : "text-cyan-300/70"}`}>
+                {echoMuted ? "Click to unmute — Echo will talk and listen again" : "Click to mute — stops talking and listening"}
+              </span>
             </span>
-            <span className="ml-1 flex items-end gap-0.5" aria-hidden="true">
-              {[6, 10, 14, 10, 6].map((h, i) => (
-                <span key={i} className="w-0.5 rounded-full bg-cyan-400/80" style={{ height: `${h}px` }} />
-              ))}
-            </span>
+            {!echoMuted && (
+              <span className="ml-1 flex items-end gap-0.5" aria-hidden="true">
+                {[6, 10, 14, 10, 6].map((h, i) => (
+                  <span key={i} className="w-0.5 rounded-full bg-cyan-400/80" style={{ height: `${h}px` }} />
+                ))}
+              </span>
+            )}
           </button>
         </div>
       </div>

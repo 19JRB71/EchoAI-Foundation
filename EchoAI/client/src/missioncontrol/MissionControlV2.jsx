@@ -214,7 +214,6 @@ export default function MissionControlV2({
                 <CoreHero
                   agents={data.agents}
                   onOpenDepartment={onOpenDepartment}
-                  onTalkToEcho={talkToEcho}
                   healthy={attentionCount === 0}
                   statusLine={
                     attentionCount === 0

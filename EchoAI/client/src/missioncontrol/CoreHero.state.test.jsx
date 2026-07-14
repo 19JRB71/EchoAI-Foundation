@@ -8,6 +8,9 @@ const mockConv = vi.hoisted(() => ({ current: null }));
 vi.mock("../voice/EchoConversationContext.jsx", () => ({
   useEchoConversation: () => mockConv.current,
 }));
+vi.mock("../voice/VoiceContext.jsx", () => ({
+  useVoice: () => null,
+}));
 
 function heroRoot() {
   return screen.getByText("ZORECHO CORE").closest(".mcv2-hero");
@@ -18,7 +21,6 @@ function renderHero() {
     <CoreHero
       agents={[]}
       onOpenDepartment={() => {}}
-      onTalkToEcho={() => {}}
       statusLine=""
       healthy
     />,
