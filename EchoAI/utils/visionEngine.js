@@ -24,8 +24,16 @@
  * SOURCE_REGISTRY without redesign: add { key, label, gather(brand) }.
  */
 
+const fs = require("fs");
+const path = require("path");
 const db = require("../config/db");
 const { createMessage, MODEL } = require("../config/anthropic");
+
+// Owner-uploaded reference photos live here (served at /uploads/vision/).
+const REFERENCE_DIR = path.join(__dirname, "..", "uploads", "vision");
+// How many reference photos Claude actually looks at per study run (newest
+// first). Anthropic accepts up to ~100 images / 5 MB each; we stay well under.
+const MAX_REFERENCE_PHOTOS_PER_STUDY = 10;
 
 // Heavy distillation call — same budget class as other long generations.
 const STUDY_TIMEOUT_MS = 5 * 60 * 1000;
@@ -89,6 +97,52 @@ const SOURCE_REGISTRY = [
       };
     },
   },
+  {
+    key: "brand_reference_photos",
+    label: "Owner-uploaded reference photos (real products / completed work)",
+    async gather(brand) {
+      const r = await db.query(
+        `SELECT file_path, original_name, mime_type, caption, created_at
+         FROM vision_reference_images
+         WHERE brand_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [brand.brand_id, MAX_REFERENCE_PHOTOS_PER_STUDY]
+      );
+      const items = [];
+      const imageBlocks = [];
+      let unreadable = 0;
+      for (const row of r.rows) {
+        // file_path is a relative URL like /uploads/vision/<name>; resolve the
+        // basename inside REFERENCE_DIR only (never trust the stored path as a
+        // filesystem path).
+        const absolute = path.join(REFERENCE_DIR, path.basename(row.file_path));
+        try {
+          const data = await fs.promises.readFile(absolute);
+          imageBlocks.push({
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: row.mime_type,
+              data: data.toString("base64"),
+            },
+          });
+          items.push(
+            `Reference photo ${imageBlocks.length} ("${row.original_name}"${row.caption ? `, owner's note: ${String(row.caption).slice(0, 200)}` : ""}) — attached as image ${imageBlocks.length} for you to study.`
+          );
+        } catch {
+          unreadable += 1;
+        }
+      }
+      if (unreadable) {
+        items.push(
+          `${unreadable} uploaded photo(s) could not be read from storage this run and were NOT studied.`
+        );
+      }
+      // count = photos Claude actually saw this run (honest, not rows in DB).
+      return { count: imageBlocks.length, items, imageBlocks };
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -110,6 +164,7 @@ function buildStudyPrompt({ industry, brand, prior, sources }) {
     "Rules:",
     "- Base observational claims ONLY on the real observations below; never invent data from sources you were not given.",
     "- Your deep built-in expertise about this industry's visual standards (correct structural proportions, materials, typical settings, composition, lighting, seasonal looks, customer emotions) IS a legitimate input — use it fully, it is labeled as expert knowledge, not observation.",
+    "- If reference photos are attached to this message, they are REAL photos of this brand's own products / completed work, uploaded by the owner. Study them closely: actual materials, proportions, colors, finish quality, settings. What you see in them outranks generic industry assumptions. If a photo is too blurry, dark, or irrelevant to learn from, say so honestly in the summary instead of pretending to learn from it.",
     "- Never describe copying any company's artwork, logo, or watermark. Output is conceptual guidance only.",
     prior
       ? `\nYour PRIOR knowledge base (version ${prior.version}, refine and grow it — keep what is still true, improve weak areas):\n${JSON.stringify(prior.knowledge).slice(0, 6000)}`
@@ -202,11 +257,13 @@ async function studyBrand(brand, { trigger = "scheduled" } = {}) {
 
   const sources = [];
   const sourceCounts = {};
+  const imageBlocks = [];
   for (const src of SOURCE_REGISTRY) {
     try {
       const got = await src.gather(brand);
       sources.push({ key: src.key, label: src.label, count: got.count, items: got.items });
       sourceCounts[src.key] = got.count;
+      if (Array.isArray(got.imageBlocks)) imageBlocks.push(...got.imageBlocks);
     } catch (err) {
       // Honest: record the source as unavailable, never fabricate.
       sources.push({ key: src.key, label: src.label, count: 0, items: [], error: err.message });
@@ -226,7 +283,19 @@ async function studyBrand(brand, { trigger = "scheduled" } = {}) {
         model: MODEL,
         max_tokens: 4096,
         messages: [
-          { role: "user", content: buildStudyPrompt({ industry, brand, prior, sources }) },
+          {
+            role: "user",
+            // Owner-uploaded reference photos are attached as real image
+            // blocks so Claude genuinely looks at them; the prompt text
+            // references them by number.
+            content: [
+              ...imageBlocks,
+              {
+                type: "text",
+                text: buildStudyPrompt({ industry, brand, prior, sources }),
+              },
+            ],
+          },
         ],
       },
       { timeout: STUDY_TIMEOUT_MS, label: "Vision study", feature: "vision-study" }

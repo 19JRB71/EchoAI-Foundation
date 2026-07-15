@@ -285,3 +285,98 @@ test("studyBrand records a failed run and writes no knowledge when the AI call f
     await cleanup(userId);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Reference photos source — honest counts, images actually attached
+// ---------------------------------------------------------------------------
+test("brand_reference_photos source counts only readable files and attaches real image blocks", async () => {
+  const fs = require("fs");
+  const path = require("path");
+  const { userId, brandId } = await createUserAndBrand();
+  const dir = path.join(__dirname, "..", "uploads", "vision");
+  const name = `test-ref-${Date.now()}.png`;
+  try {
+    await fs.promises.mkdir(dir, { recursive: true });
+    // Tiny valid PNG header bytes — content doesn't matter, readability does.
+    await fs.promises.writeFile(path.join(dir, name), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+
+    await db.query(
+      `INSERT INTO vision_reference_images
+         (brand_id, file_path, original_name, mime_type, size_bytes, caption)
+       VALUES
+         ($1, $2, 'real.png', 'image/png', 4, 'finished barn'),
+         ($1, '/uploads/vision/does-not-exist.png', 'gone.png', 'image/png', 4, NULL)`,
+      [brandId, `/uploads/vision/${name}`]
+    );
+
+    const src = visionEngine.SOURCE_REGISTRY.find((s) => s.key === "brand_reference_photos");
+    assert.ok(src, "reference photos source registered");
+    const got = await src.gather({ brand_id: brandId });
+
+    // Honest count: only the photo actually read from disk.
+    assert.strictEqual(got.count, 1);
+    assert.strictEqual(got.imageBlocks.length, 1);
+    assert.strictEqual(got.imageBlocks[0].type, "image");
+    assert.strictEqual(got.imageBlocks[0].source.media_type, "image/png");
+    assert.ok(got.imageBlocks[0].source.data.length > 0, "real base64 data attached");
+    // The unreadable file is disclosed honestly, never silently dropped.
+    assert.ok(
+      got.items.some((i) => i.includes("could not be read")),
+      "unreadable photo disclosed"
+    );
+    assert.ok(got.items.some((i) => i.includes("finished barn")), "caption passed to the prompt");
+  } finally {
+    await fs.promises.unlink(path.join(dir, name)).catch(() => {});
+    await cleanup(userId);
+  }
+});
+
+test("studyBrand attaches reference image blocks to the Anthropic request", async (t) => {
+  const fs = require("fs");
+  const path = require("path");
+  const { userId, brandId } = await createUserAndBrand();
+  const dir = path.join(__dirname, "..", "uploads", "vision");
+  const name = `test-ref-payload-${Date.now()}.png`;
+  try {
+    await fs.promises.mkdir(dir, { recursive: true });
+    await fs.promises.writeFile(path.join(dir, name), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    await db.query(
+      `INSERT INTO vision_reference_images
+         (brand_id, file_path, original_name, mime_type, size_bytes)
+       VALUES ($1, $2, 'payload.png', 'image/png', 4)`,
+      [brandId, `/uploads/vision/${name}`]
+    );
+
+    // Capture the exact request payload sent to the AI.
+    let captured = null;
+    const anthropicConfig = require("../config/anthropic");
+    const original = anthropicConfig.createMessage;
+    anthropicConfig.createMessage = async (params) => {
+      captured = params;
+      throw new Error("forced test failure after capture");
+    };
+    t.after(() => {
+      anthropicConfig.createMessage = original;
+      delete require.cache[require.resolve("../utils/visionEngine")];
+      require("../utils/visionEngine");
+    });
+    delete require.cache[require.resolve("../utils/visionEngine")];
+    const freshEngine = require("../utils/visionEngine");
+
+    await freshEngine.studyBrand(
+      { brand_id: brandId, brand_name: "Vision Test Brand", industry: "roofing" },
+      { trigger: "manual" }
+    );
+
+    assert.ok(captured, "AI request was made");
+    const content = captured.messages[0].content;
+    assert.ok(Array.isArray(content), "content is a multimodal array");
+    const images = content.filter((b) => b.type === "image");
+    assert.strictEqual(images.length, 1, "reference photo attached as image block");
+    assert.strictEqual(images[0].source.media_type, "image/png");
+    assert.strictEqual(content[content.length - 1].type, "text", "prompt text last");
+  } finally {
+    await fs.promises.unlink(path.join(dir, name)).catch(() => {});
+    await cleanup(userId);
+  }
+});

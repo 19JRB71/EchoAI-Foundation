@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
@@ -41,7 +41,9 @@ function sourceCountLine(sources) {
         ? "competitor ads"
         : key === "brand_image_library"
           ? "your images"
-          : key.replace(/_/g, " ");
+          : key === "brand_reference_photos"
+            ? "your reference photos"
+            : key.replace(/_/g, " ");
     return count === null ? `${label}: unavailable` : `${label}: ${count}`;
   });
   return parts.length ? parts.join(" · ") : null;
@@ -58,6 +60,149 @@ function ConfidenceBar({ value }) {
         />
       </div>
       <span className="text-sm font-semibold text-sky-300">{v}%</span>
+    </div>
+  );
+}
+
+function ReferenceLibrary({ brandId }) {
+  const [photos, setPhotos] = useState([]);
+  const [limit, setLimit] = useState(30);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [caption, setCaption] = useState("");
+  const fileRef = useRef(null);
+
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      const d = await api.getVisionReferencePhotos(brandId);
+      setPhotos(d.photos || []);
+      if (d.limit) setLimit(d.limit);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [brandId]);
+
+  useEffect(() => {
+    setLoading(true);
+    load();
+  }, [load]);
+
+  const onUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      await api.uploadVisionReferencePhoto(brandId, file, caption.trim());
+      setCaption("");
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onDelete = async (imageId) => {
+    setError("");
+    try {
+      await api.deleteVisionReferencePhoto(brandId, imageId);
+      setPhotos((p) => p.filter((x) => x.image_id !== imageId));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-white">Reference Library</h3>
+          <p className="mt-1 text-sm text-gray-400">
+            Upload real photos of your products or completed work. Vision
+            actually looks at them during every study, so Forge&apos;s images
+            match your real business — materials, proportions, colors, quality.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={onUpload}
+          />
+          <button
+            onClick={() => fileRef.current && fileRef.current.click()}
+            disabled={uploading || photos.length >= limit}
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
+          >
+            {uploading ? "Uploading…" : "Upload photo"}
+          </button>
+        </div>
+      </div>
+      <input
+        type="text"
+        value={caption}
+        onChange={(e) => setCaption(e.target.value)}
+        maxLength={300}
+        placeholder="Optional note for the next photo (e.g. “finished 40×60 barn, spring 2026”)"
+        className="mt-3 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-sky-500 focus:outline-none"
+      />
+      <p className="mt-1 text-xs text-gray-500">
+        JPG, PNG, or WEBP · up to 5 MB each · {photos.length}/{limit} photos.
+        Vision studies your 10 newest photos each run.
+      </p>
+
+      {error && (
+        <div className="mt-3">
+          <ErrorBanner message={error} />
+        </div>
+      )}
+
+      {loading ? (
+        <div className="mt-4">
+          <Spinner />
+        </div>
+      ) : photos.length === 0 ? (
+        <p className="mt-4 text-sm text-gray-500">
+          No reference photos yet. Real photos of your own work are the most
+          powerful thing you can give Vision.
+        </p>
+      ) : (
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {photos.map((p) => (
+            <div
+              key={p.image_id}
+              className="group relative overflow-hidden rounded-lg border border-gray-800 bg-gray-950"
+            >
+              <img
+                src={p.file_path}
+                alt={p.caption || p.original_name}
+                className="h-32 w-full object-cover"
+                loading="lazy"
+              />
+              <button
+                onClick={() => onDelete(p.image_id)}
+                title="Delete photo"
+                className="absolute right-1.5 top-1.5 rounded-md bg-black/70 px-2 py-0.5 text-xs font-semibold text-red-300 opacity-0 transition group-hover:opacity-100"
+              >
+                Delete
+              </button>
+              {(p.caption || p.original_name) && (
+                <p className="truncate px-2 py-1.5 text-xs text-gray-400">
+                  {p.caption || p.original_name}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -152,6 +297,8 @@ function KnowledgeTab({ brandId }) {
           </p>
         )}
       </div>
+
+      <ReferenceLibrary brandId={brandId} />
 
       {/* Honest source disclosure */}
       <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-4">

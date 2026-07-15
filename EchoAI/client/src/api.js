@@ -315,6 +315,35 @@ export const api = {
     request("/api/vision/study", { method: "POST", body: { brandId } }),
   getVisionActivity: (brandId) =>
     request(`/api/vision/activity?brandId=${encodeURIComponent(brandId)}`),
+  getVisionReferencePhotos: (brandId) =>
+    request(`/api/vision/reference?brandId=${encodeURIComponent(brandId)}`),
+  // Reference photo upload is multipart, so it bypasses the JSON wrapper.
+  uploadVisionReferencePhoto: async (brandId, file, caption) => {
+    const form = new FormData();
+    form.append("file", file, file.name || "photo");
+    form.append("brandId", brandId);
+    if (caption) form.append("caption", caption);
+    const headers = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}/api/vision/reference`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `Upload failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  },
+  deleteVisionReferencePhoto: (brandId, imageId) =>
+    request(
+      `/api/vision/reference/${encodeURIComponent(imageId)}?brandId=${encodeURIComponent(brandId)}`,
+      { method: "DELETE" }
+    ),
 
   // Sage — Industry Intelligence Agent (ungated / all-tier; access is
   // brand-owner-scoped like other brand resources).

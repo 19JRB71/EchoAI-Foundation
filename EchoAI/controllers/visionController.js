@@ -10,8 +10,22 @@
  * Empty states stay empty; nothing is fabricated.
  */
 
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
 const db = require("../config/db");
 const visionEngine = require("../utils/visionEngine");
+
+// Reference Library storage — owner-uploaded real photos, served statically at
+// /uploads/vision/ and studied (as actual images) during each study run.
+const REFERENCE_DIR = path.join(__dirname, "..", "uploads", "vision");
+const IMAGE_MIME_EXT = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+};
+const MAX_REFERENCE_BYTES = 5 * 1024 * 1024; // 5 MB per photo (Anthropic per-image limit)
+const MAX_REFERENCE_PHOTOS = 30; // per brand
 
 /** Loads a brand (with owner industry) only if it belongs to the user. */
 async function getOwnedBrand(userId, brandId) {
@@ -155,4 +169,121 @@ async function getActivity(req, res) {
   }
 }
 
-module.exports = { getOverview, studyNow, getActivity };
+/**
+ * GET /api/vision/reference?brandId=...
+ * The brand's uploaded reference photos, newest first.
+ */
+async function listReferencePhotos(req, res) {
+  try {
+    const brandId = requireBrandId(req, res);
+    if (!brandId) return;
+    const brand = await getOwnedBrand(req.user.userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const r = await db.query(
+      `SELECT image_id, file_path, original_name, caption, size_bytes, created_at
+       FROM vision_reference_images
+       WHERE brand_id = $1
+       ORDER BY created_at DESC`,
+      [brandId]
+    );
+    return res.json({ photos: r.rows, limit: MAX_REFERENCE_PHOTOS });
+  } catch (err) {
+    console.error("Vision reference list error:", err.message);
+    return res.status(500).json({ error: "Failed to load reference photos" });
+  }
+}
+
+/**
+ * POST /api/vision/reference (multipart: file, brandId, caption?)
+ * Uploads one real photo of the brand's own products / completed work.
+ */
+async function uploadReferencePhoto(req, res) {
+  try {
+    const brandId = requireBrandId(req, res);
+    if (!brandId) return;
+    const brand = await getOwnedBrand(req.user.userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: "No photo uploaded" });
+    const ext = IMAGE_MIME_EXT[file.mimetype];
+    if (!ext) {
+      return res.status(400).json({ error: "Unsupported file type. Photos: JPG, PNG, WEBP." });
+    }
+    if (file.size > MAX_REFERENCE_BYTES) {
+      return res.status(400).json({ error: "Photo is too large (max 5 MB)." });
+    }
+
+    const countRes = await db.query(
+      `SELECT COUNT(*)::int AS n FROM vision_reference_images WHERE brand_id = $1`,
+      [brandId]
+    );
+    if (countRes.rows[0].n >= MAX_REFERENCE_PHOTOS) {
+      return res.status(400).json({
+        error: `Reference library is full (${MAX_REFERENCE_PHOTOS} photos). Delete a photo to make room.`,
+      });
+    }
+
+    await fs.promises.mkdir(REFERENCE_DIR, { recursive: true });
+    const name = `${crypto.randomBytes(16).toString("hex")}${ext}`;
+    await fs.promises.writeFile(path.join(REFERENCE_DIR, name), file.buffer);
+
+    const caption = String(req.body.caption || "").trim().slice(0, 300) || null;
+    const ins = await db.query(
+      `INSERT INTO vision_reference_images
+         (brand_id, file_path, original_name, mime_type, size_bytes, caption)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING image_id, file_path, original_name, caption, size_bytes, created_at`,
+      [
+        brandId,
+        `/uploads/vision/${name}`,
+        String(file.originalname || "photo").slice(0, 200),
+        file.mimetype,
+        file.size,
+        caption,
+      ]
+    );
+    return res.status(201).json({ photo: ins.rows[0] });
+  } catch (err) {
+    console.error("Vision reference upload error:", err.message);
+    return res.status(500).json({ error: "Failed to save the photo" });
+  }
+}
+
+/**
+ * DELETE /api/vision/reference/:imageId?brandId=...
+ * Removes a photo (DB row + best-effort file cleanup).
+ */
+async function deleteReferencePhoto(req, res) {
+  try {
+    const brandId = requireBrandId(req, res);
+    if (!brandId) return;
+    const brand = await getOwnedBrand(req.user.userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    const del = await db.query(
+      `DELETE FROM vision_reference_images
+       WHERE image_id = $1 AND brand_id = $2
+       RETURNING file_path`,
+      [req.params.imageId, brandId]
+    );
+    if (!del.rows.length) return res.status(404).json({ error: "Photo not found" });
+
+    const filePath = path.join(REFERENCE_DIR, path.basename(del.rows[0].file_path));
+    fs.promises.unlink(filePath).catch(() => {});
+    return res.json({ deleted: true });
+  } catch (err) {
+    console.error("Vision reference delete error:", err.message);
+    return res.status(500).json({ error: "Failed to delete the photo" });
+  }
+}
+
+module.exports = {
+  getOverview,
+  studyNow,
+  getActivity,
+  listReferencePhotos,
+  uploadReferencePhoto,
+  deleteReferencePhoto,
+};
