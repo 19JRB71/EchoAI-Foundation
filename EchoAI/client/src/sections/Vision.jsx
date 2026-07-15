@@ -91,21 +91,82 @@ function ReferenceLibrary({ brandId }) {
     load();
   }, [load]);
 
-  const onUpload = async (e) => {
-    const file = e.target.files && e.target.files[0];
+  const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
+
+  const uploadFiles = useCallback(
+    async (files) => {
+      const images = Array.from(files || []).filter((f) =>
+        ACCEPTED.includes(f.type)
+      );
+      if (!images.length) return;
+      setUploading(true);
+      setError("");
+      try {
+        for (const file of images) {
+          await api.uploadVisionReferencePhoto(
+            brandId,
+            file,
+            captionRef.current.trim()
+          );
+        }
+        setCaption("");
+        await load();
+      } catch (err) {
+        setError(err.message);
+        await load();
+      } finally {
+        setUploading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [brandId, load]
+  );
+
+  // Keep the latest caption available to the paste listener without
+  // re-registering it on every keystroke.
+  const captionRef = useRef("");
+  captionRef.current = caption;
+
+  const onUpload = (e) => {
+    const files = e.target.files;
+    uploadFiles(files);
     e.target.value = "";
-    if (!file) return;
-    setUploading(true);
-    setError("");
-    try {
-      await api.uploadVisionReferencePhoto(brandId, file, caption.trim());
-      setCaption("");
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setUploading(false);
-    }
+  };
+
+  // Paste support: copy an image anywhere (web page, screenshot, Photos) and
+  // Ctrl/Cmd+V while on this page — it uploads straight into the library.
+  useEffect(() => {
+    const onPaste = (e) => {
+      // Don't hijack pastes into text inputs (e.g. the caption field).
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
+        return;
+      }
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      const files = [];
+      for (const item of items) {
+        if (item.kind === "file" && ACCEPTED.includes(item.type)) {
+          const f = item.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length) {
+        e.preventDefault();
+        uploadFiles(files);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadFiles]);
+
+  // Drag-and-drop support: drop photos anywhere on the card.
+  const [dragOver, setDragOver] = useState(false);
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    uploadFiles(e.dataTransfer && e.dataTransfer.files);
   };
 
   const onDelete = async (imageId) => {
@@ -119,12 +180,22 @@ function ReferenceLibrary({ brandId }) {
   };
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-5">
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+      className={`rounded-xl border bg-gray-900/60 p-5 transition ${
+        dragOver ? "border-sky-500 bg-sky-500/10" : "border-gray-800"
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-white">Reference Library</h3>
           <p className="mt-1 text-sm text-gray-400">
-            Upload real photos of your products or completed work. Vision
+            Add real photos of your products or completed work. Vision
             actually looks at them during every study, so Forge&apos;s images
             match your real business — materials, proportions, colors, quality.
           </p>
@@ -134,6 +205,7 @@ function ReferenceLibrary({ brandId }) {
             ref={fileRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
+            multiple
             className="hidden"
             onChange={onUpload}
           />
@@ -142,7 +214,7 @@ function ReferenceLibrary({ brandId }) {
             disabled={uploading || photos.length >= limit}
             className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
           >
-            {uploading ? "Uploading…" : "Upload photo"}
+            {uploading ? "Uploading…" : "Upload photos"}
           </button>
         </div>
       </div>
@@ -155,8 +227,11 @@ function ReferenceLibrary({ brandId }) {
         className="mt-3 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-sky-500 focus:outline-none"
       />
       <p className="mt-1 text-xs text-gray-500">
-        JPG, PNG, or WEBP · up to 5 MB each · {photos.length}/{limit} photos.
-        Vision studies your 10 newest photos each run.
+        Quickest way: copy any image, then press{" "}
+        <span className="font-semibold text-gray-400">Ctrl+V</span> (or Cmd+V)
+        right here — or drag photos onto this card. JPG, PNG, or WEBP · up to 5
+        MB each · {photos.length}/{limit} photos. Vision studies your 10 newest
+        photos each run.
       </p>
 
       {error && (
