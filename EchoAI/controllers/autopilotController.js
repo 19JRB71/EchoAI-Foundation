@@ -35,6 +35,7 @@ const {
   getBrandTimezone,
 } = require("./voiceContentController");
 const { launchFacebookCampaign } = require("./campaignController");
+const { publishStoredPost } = require("./socialController");
 const { evaluateAdSpend, suggestDailyBudget, getBrandSpend } = require("../utils/spendLimits");
 const { recordSignal, learningContextForBrand } = require("../utils/learningEngine");
 const { computeSetupStatus } = require("../utils/setupStatus");
@@ -759,6 +760,8 @@ async function approveItem(req, res) {
     }
 
     // --- ad approval: hard spend limits first, always, with fresh numbers ---
+    // (postItemNow handles the instant-publish path for posts; ads never
+    // publish instantly — they always go through the spend-limit launch below.)
     const settings = await loadSettings(item.brand_id);
     const dailyBudget =
       req.body?.dailyBudget != null ? Number(req.body.dailyBudget) : Number(item.ad_daily_budget);
@@ -843,6 +846,140 @@ async function approveItem(req, res) {
     console.error("Autopilot approve error:", err.message);
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     return res.status(500).json({ error: "Failed to approve this item" });
+  }
+}
+
+/**
+ * POST /api/autopilot/items/:itemId/post-now
+ * Approves a pending POST item and publishes it to the platform right now
+ * instead of waiting for its scheduled slot. The approval claim is the same
+ * atomic pending→approved flip as approveItem; the publish uses the
+ * scheduler's own claim pattern (scheduled→publishing, status-guarded) so an
+ * overlapping cron tick can never double-post. Ads are excluded — they always
+ * go through the spend-limit launch path.
+ */
+async function postItemNow(req, res) {
+  const userId = req.user.userId;
+  const { itemId } = req.params;
+  try {
+    const item = await getOwnedItem(userId, itemId);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+    if (item.item_type !== "post") {
+      return res
+        .status(400)
+        .json({ error: "Only social posts can be posted instantly" });
+    }
+    const brand = await getOwnedBrand(userId, item.brand_id);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+    if (brand.is_demo) {
+      return res
+        .status(400)
+        .json({ error: "Demo businesses can't publish to real platforms" });
+    }
+
+    let row;
+    let postId;
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const claimed = await client.query(
+        `UPDATE autopilot_batch_items SET status = 'approved'
+          WHERE item_id = $1 AND status = 'pending'
+          RETURNING *`,
+        [itemId]
+      );
+      if (claimed.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "This item was already handled" });
+      }
+      row = claimed.rows[0];
+      const inserted = await client.query(
+        `INSERT INTO social_posts (brand_id, platform, post_content, image_url, video_url, scheduled_time, status)
+         VALUES ($1, $2, $3, $4, $5, NOW(), 'scheduled')
+         RETURNING post_id`,
+        [item.brand_id, row.platform, row.post_content, row.image_url, row.video_url]
+      );
+      postId = inserted.rows[0].post_id;
+      await client.query(
+        "UPDATE autopilot_batch_items SET posted_post_id = $1 WHERE item_id = $2",
+        [postId, itemId]
+      );
+      await client.query("COMMIT");
+    } catch (e) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    recordSignal({
+      brandId: item.brand_id,
+      userId,
+      source: "autopilot",
+      itemType: "post",
+      platform: row.platform,
+      action: "approve",
+      instruction: "posted instantly",
+      content: row.post_content,
+    });
+
+    // Publish right now: claim the freshly created row exactly like the
+    // every-minute sweep does, so whichever side wins the claim publishes and
+    // the other side sees zero rows (no double-post possible).
+    const claim = await db.query(
+      `UPDATE social_posts SET status = 'publishing'
+        WHERE post_id = $1 AND status = 'scheduled'
+        RETURNING post_id, brand_id, platform, post_content, image_url, video_url, publish_attempts`,
+      [postId]
+    );
+    if (claim.rows.length === 0) {
+      // The every-minute sweep beat us to the claim. Zero rows does NOT mean
+      // success — the sweep may have already published OR failed the post.
+      // Re-read the row and report its real status, never a fabricated one.
+      const check = await db.query(
+        "SELECT status, engagement_metrics FROM social_posts WHERE post_id = $1",
+        [postId]
+      );
+      const status = check.rows[0]?.status;
+      if (status === "failed") {
+        const reason =
+          check.rows[0]?.engagement_metrics?.error || "The platform rejected the post.";
+        return res.status(502).json({
+          error: `The post was approved but publishing failed: ${reason} You can retry it from the Social Media calendar.`,
+        });
+      }
+      return res.json({
+        ...itemView({ ...row, status: "approved", posted_post_id: postId }),
+        postedNow: status === "published",
+        publishing: status === "publishing",
+      });
+    }
+    try {
+      await publishStoredPost(claim.rows[0]);
+    } catch (err) {
+      // Honest failure: mark the post failed (status-guarded) and tell the
+      // owner exactly what happened. The item stays approved; the post can be
+      // rescheduled from the Social Media calendar.
+      await db.query(
+        `UPDATE social_posts
+         SET status = 'failed', engagement_metrics = $1,
+             publish_attempts = publish_attempts + 1
+         WHERE post_id = $2 AND status = 'publishing'`,
+        [JSON.stringify({ error: err.message }), postId]
+      );
+      return res.status(502).json({
+        error: `The post was approved but publishing failed: ${err.message} You can retry it from the Social Media calendar.`,
+      });
+    }
+    return res.json({
+      ...itemView({ ...row, status: "approved", posted_post_id: postId }),
+      postedNow: true,
+    });
+  } catch (err) {
+    console.error("Autopilot post-now error:", err.message);
+    return res.status(500).json({ error: "Failed to post this item" });
   }
 }
 
@@ -1314,6 +1451,7 @@ module.exports = {
   runNow,
   getCurrentBatch,
   approveItem,
+  postItemNow,
   declineItem,
   reviseItem,
   generateItemImage,

@@ -1700,6 +1700,11 @@ export const api = {
       method: "POST",
       body: dailyBudget != null ? { dailyBudget } : {},
     }),
+  autopilotPostItemNow: (itemId) =>
+    request(`/api/autopilot/items/${itemId}/post-now`, {
+      method: "POST",
+      body: {},
+    }),
   autopilotDeclineItem: (itemId) =>
     request(`/api/autopilot/items/${itemId}/decline`, {
       method: "POST",

@@ -33,6 +33,30 @@ function Badge({ children, className }) {
   );
 }
 
+// Renders the post graphic; if the image file is missing on the server (e.g.
+// it was lost in a redeploy), shows an honest note instead of a broken icon.
+function PostGraphic({ src }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  if (broken) {
+    return (
+      <div className="mt-3 rounded-lg border border-amber-700/50 bg-amber-900/20 p-3 text-xs text-amber-300">
+        The graphic file for this post is missing from the server (this can
+        happen after a redeploy). Use &ldquo;Redo the graphic&rdquo; to create a
+        fresh one before approving.
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt="Post graphic"
+      onError={() => setBroken(true)}
+      className="mt-3 max-h-64 rounded-lg border border-gray-700 object-cover"
+    />
+  );
+}
+
 function fmtWhen(d) {
   if (!d) return "";
   try {
@@ -231,6 +255,10 @@ export default function Autopilot({ brandId }) {
         );
       } else if (updated.replacementError) {
         setNotice(updated.replacementError);
+      } else if (updated.postedNow) {
+        setNotice("Posted — it's live on the platform now.");
+      } else if (updated.publishing) {
+        setNotice("Approved — the post is publishing right now.");
       }
     } catch (err) {
       setError(err.message || failMsg);
@@ -508,11 +536,7 @@ export default function Autopilot({ brandId }) {
                     className="mt-3 max-h-64 rounded-lg border border-gray-700"
                   />
                 ) : item.imageUrl ? (
-                  <img
-                    src={item.imageUrl}
-                    alt="Post graphic"
-                    className="mt-3 max-h-64 rounded-lg border border-gray-700 object-cover"
-                  />
+                  <PostGraphic src={item.imageUrl} />
                 ) : (
                   item.visualIdea && (
                     <div className="mt-2 text-xs text-gray-500">
@@ -539,6 +563,21 @@ export default function Autopilot({ brandId }) {
                     >
                       {busy ? "Working…" : item.itemType === "ad" ? "Approve & launch" : "Approve & schedule"}
                     </button>
+                    {item.itemType === "post" && (
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          act(
+                            item,
+                            () => api.autopilotPostItemNow(item.itemId),
+                            "Failed to post this item."
+                          )
+                        }
+                        className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
+                      >
+                        {busy ? "Working…" : "Post instantly"}
+                      </button>
+                    )}
                     <button
                       disabled={busy}
                       onClick={() => {
