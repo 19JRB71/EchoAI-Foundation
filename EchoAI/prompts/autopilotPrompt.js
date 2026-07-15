@@ -97,10 +97,14 @@ function buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek }) {
 async function generateWeeklyBatch(brand, intel, { postsPerWeek, adsPerWeek }) {
   const systemPrompt = buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek });
 
+  // 8192 tokens is too tight for a full 21-post week — the model runs out of
+  // room and returns a short batch. Scale the budget with the requested
+  // cadence (~1k tokens per post covers copy + visual brief + rationale).
+  const maxTokens = Math.min(32000, Math.max(8192, 4096 + postsPerWeek * 1000 + adsPerWeek * 800));
   const response = await createMessage(
     {
       model: MODEL,
-      max_tokens: 8192,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: [
         {

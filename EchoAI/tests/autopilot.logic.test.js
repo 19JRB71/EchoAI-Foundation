@@ -226,3 +226,17 @@ test("autopilotSlotTimes: DST fall-back week stays on 6am/12pm/6pm wall clock", 
   );
   assert.deepStrictEqual([...wallTimes].sort(), ["06:00", "12:00", "18:00"]);
 });
+
+test("autopilotSlotTimes: requested cadence drives slots/day even when AI under-delivers", () => {
+  const now = new Date("2026-07-15T12:00:00Z"); // 8:00 AM Eastern
+  // Owner asked for 21/week (3 a day) but the AI returned only 14 posts:
+  // still 3 slots per day — batch finishes early, never stretches thinner.
+  const t = autopilotSlotTimes(14, "America/New_York", now, 21);
+  assert.strictEqual(t.length, 14);
+  assert.strictEqual(t[0].toISOString(), "2026-07-15T16:00:00.000Z"); // noon ET
+  assert.strictEqual(t[1].toISOString(), "2026-07-15T22:00:00.000Z"); // 6pm ET
+  assert.strictEqual(t[2].toISOString(), "2026-07-16T10:00:00.000Z"); // 6am ET next day
+  // 2 slots today + 3/day after → 14 posts done inside 5 days.
+  const lastDay = t[t.length - 1].toISOString().slice(0, 10);
+  assert.ok(lastDay <= "2026-07-19", `batch stretched to ${lastDay}`);
+});

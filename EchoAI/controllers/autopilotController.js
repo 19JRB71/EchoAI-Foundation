@@ -103,10 +103,15 @@ function localDateParts(date, timeZone) {
   return { y: parts[0], m: parts[1], d: parts[2] };
 }
 
-function autopilotSlotTimes(count, timezone, now = new Date()) {
+function autopilotSlotTimes(count, timezone, now = new Date(), cadence = count) {
   const times = [];
   if (!Number.isInteger(count) || count <= 0) return times;
-  const perDay = Math.min(AUTOPILOT_SLOTS.length, Math.max(1, Math.ceil(count / 7)));
+  // Slots per day come from the owner's REQUESTED weekly cadence (e.g. 21/wk
+  // = 3 a day), not from how many posts the AI actually returned — a short
+  // batch must still post 3x/day and finish early, never stretch into a
+  // second week at a thinner cadence.
+  const cadenceBase = Number.isInteger(cadence) && cadence > 0 ? cadence : count;
+  const perDay = Math.min(AUTOPILOT_SLOTS.length, Math.max(1, Math.ceil(cadenceBase / 7)));
   const minLead = 30 * 60 * 1000;
   // Day iteration is anchored on the BRAND-LOCAL calendar date of `now` (not
   // the UTC date) so near-midnight-UTC moments in western timezones still see
@@ -470,7 +475,12 @@ async function generateBatchForBrand(batch, brand, settings) {
       let position = 0;
       // Fixed posting slots (owner's rule): 6 AM, 12 PM, 6 PM brand-local —
       // never two posts an hour apart. Slots are allocated chronologically.
-      const slotTimes = autopilotSlotTimes(result.posts.length, timezone);
+      const slotTimes = autopilotSlotTimes(
+        result.posts.length,
+        timezone,
+        new Date(),
+        settings.postsPerWeek
+      );
       for (let i = 0; i < result.posts.length; i += 1) {
         const p = result.posts[i];
         position += 1;
@@ -534,7 +544,7 @@ async function generateBatchForBrand(batch, brand, settings) {
       pushController
         .sendPushToUser(userId, {
           title: "Your week is drafted and ready",
-          body: `Echo drafted ${result.posts.length} post(s)${result.ads.length ? ` and ${result.ads.length} test ad(s)` : ""} for ${brand.brand_name}. Review and approve when you're ready.`,
+          body: `Echo drafted ${result.posts.length}${result.posts.length < settings.postsPerWeek ? ` of the ${settings.postsPerWeek}` : ""} post(s)${result.ads.length ? ` and ${result.ads.length} test ad(s)` : ""} for ${brand.brand_name}. Review and approve when you're ready.`,
           url: "/dashboard?section=autopilot",
           tag: `autopilot-${batchId}`,
         })
