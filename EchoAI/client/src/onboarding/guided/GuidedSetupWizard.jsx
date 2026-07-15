@@ -59,8 +59,9 @@ const STEP_VOICE_LINES = {
     "Almost done, Sir. If you'd like your team on board, I can send the invitations — or we can skip this for now.",
   ],
   done: [
-    "It's official, Sir — your AI company is now online. Everyone's at their desk and ready to work.",
-    "Congratulations, Sir. Your AI company is now online — the whole team is in place and ready for orders.",
+    // CEO-approved final copy (July 2026) — spoken as written, then the tour
+    // offer follows once Echo finishes.
+    "Congratulations, Sir. Your AI company is now online. Echo, Scout, Atlas, Nova, Pulse, Voice, Forge, Sentinel, and Sage are standing by. While you focus on running your business, we'll focus on growing it. Welcome to Zorecho. Welcome to your AI company. … Would you like a two-minute guided tour of your headquarters?",
   ],
 };
 
@@ -70,11 +71,13 @@ function pickLine(pool) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// Which of the eight agents "runs" each connected account — used to make the
-// OAuth welcome-back message feel like a team member reporting for duty.
-const CONNECTION_AGENT = {
-  facebook: "Nova",
-  google: "Atlas",
+// CEO-approved warm success lines, spoken and shown when an OAuth connection
+// lands — Echo reports it like an executive assistant, not system software.
+const CONNECTION_SUCCESS_LINE = {
+  facebook:
+    "Excellent, Sir. Facebook is connected. Nova now has everything she needs to begin working for you.",
+  google:
+    "Beautiful. Google is online. Your calendar, Gmail, and scheduling tools are now available to your AI team.",
 };
 
 export default function GuidedSetupWizard({ onComplete }) {
@@ -149,10 +152,9 @@ export default function GuidedSetupWizard({ onComplete }) {
         if (oauth.status === "connected") {
           delete entry.errorKey;
           entry.skipped = false;
-          const agent = CONNECTION_AGENT[oauth.key];
-          const text = agent
-            ? `Welcome back, Sir — ${oauth.name} is connected. ${agent} now has everything needed to get to work.`
-            : `Welcome back, Sir — ${oauth.name} is connected.`;
+          const text =
+            CONNECTION_SUCCESS_LINE[oauth.key] ||
+            `Welcome back, Sir — ${oauth.name} is connected.`;
           setOauthNotice({ tone: "success", text });
         } else {
           const translated = translateConnectionError(oauth.key, oauth.message);
@@ -175,7 +177,12 @@ export default function GuidedSetupWizard({ onComplete }) {
       if (oauth) {
         setOauthNotice(
           oauth.status === "connected"
-            ? { tone: "success", text: `Welcome back, Sir — ${oauth.name} is connected.` }
+            ? {
+                tone: "success",
+                text:
+                  CONNECTION_SUCCESS_LINE[oauth.key] ||
+                  `Welcome back, Sir — ${oauth.name} is connected.`,
+              }
             : {
                 tone: "reassure",
                 text: `Welcome back, Sir. The ${oauth.name} connection didn't go through this time — no harm done. We can try again whenever you're ready.`,
@@ -449,12 +456,24 @@ function DoneScreen({ statuses, finishing, onEnter, onEnterWithTour }) {
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/15 text-4xl">
         🎉
       </div>
-      <h1 className="mt-6 text-3xl font-extrabold text-gray-100">
+      <p className="mt-6 text-sm font-semibold uppercase tracking-[0.2em] text-amber-300">
+        Congratulations, Sir.
+      </p>
+      <h1 className="mt-2 text-3xl font-extrabold text-gray-100">
         Your AI company is now online.
       </h1>
       <p className="mt-4 text-base leading-relaxed text-gray-300">
-        Congratulations, Sir — your whole team is at their desks: Echo, Scout, Atlas, Nova,
-        Pulse, Voice, Forge, and Sentinel. Here&apos;s where things stand:
+        Echo, Scout, Atlas, Nova, Pulse, Voice, Forge, Sentinel, and Sage are standing by.
+      </p>
+      <p className="mt-3 text-base leading-relaxed text-gray-300">
+        While you focus on running your business,
+        <br />
+        we&apos;ll focus on growing it.
+      </p>
+      <p className="mt-3 text-base font-semibold leading-relaxed text-gray-200">
+        Welcome to Zorecho.
+        <br />
+        Welcome to your AI company.
       </p>
 
       <div className="mt-6 space-y-2 text-left">
@@ -482,7 +501,7 @@ function DoneScreen({ statuses, finishing, onEnter, onEnterWithTour }) {
       </div>
 
       <p className="mt-8 text-base font-semibold text-gray-200">
-        Would you like a quick two-minute tour of your new headquarters?
+        Would you like a two-minute guided tour of your headquarters?
       </p>
       <div className="mt-4 flex flex-col items-center gap-3">
         <button

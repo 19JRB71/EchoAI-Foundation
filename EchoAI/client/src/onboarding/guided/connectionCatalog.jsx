@@ -40,7 +40,8 @@ export const CONNECTION_CATALOG = [
     paramKey: "fb",
     messageKey: "fb_message",
     Logo: FacebookLogo,
-    benefit: "One login lets Echo run your ads and post to your Page for you.",
+    benefit:
+      "Connect Facebook so Nova can publish posts, create ads, and manage your social media automatically.",
     previewImage: facebookPreview,
     previewInstruction:
       "Facebook will open next. Sign in if it asks, then press the blue button — I'll be right here when you get back.",
@@ -52,7 +53,8 @@ export const CONNECTION_CATALOG = [
     paramKey: "google",
     messageKey: "google_message",
     Logo: GoogleLogo,
-    benefit: "Lets Echo book appointments on your calendar and boost how you show up on Google.",
+    benefit:
+      "Connect Google so Echo can monitor Gmail, manage your calendar, schedule appointments, and organize important emails.",
     previewImage: googlePreview,
     previewInstruction:
       "Google will open next. Pick the account your business uses, then press Allow — I'll be right here when you get back.",

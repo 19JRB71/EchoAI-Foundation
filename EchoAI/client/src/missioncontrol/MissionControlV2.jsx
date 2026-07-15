@@ -107,6 +107,23 @@ export default function MissionControlV2({
   const attentionCount = data ? (data.attention || []).length : 0;
   const talkToEcho = () => window.dispatchEvent(new CustomEvent("echoai:open-companion"));
 
+  // One-time "powering on" moment — when AI Company Activation first reaches
+  // 100%, Mission Control quietly comes alive: the Core brightens, connection
+  // lines pulse, and the dashboard settles in. Subtle by design (NASA, not a
+  // video game), guarded by localStorage so it plays exactly once per browser.
+  const [poweringOn, setPoweringOn] = useState(false);
+  const handleChecklistStatus = useCallback((checklist) => {
+    if (!checklist?.allDone) return;
+    try {
+      if (localStorage.getItem("echoai_activation_poweron") === "1") return;
+      localStorage.setItem("echoai_activation_poweron", "1");
+    } catch {
+      return;
+    }
+    setPoweringOn(true);
+    setTimeout(() => setPoweringOn(false), 6000);
+  }, []);
+
   let body;
   if (loading) {
     body = (
@@ -242,7 +259,7 @@ export default function MissionControlV2({
 
               {/* Right rail */}
               <div className="min-w-0 space-y-4">
-                <SetupChecklistCard onNavigate={onNavigate} />
+                <SetupChecklistCard onNavigate={onNavigate} onStatus={handleChecklistStatus} />
                 <ZorechoScoreCard score={data.zorechoScore} />
                 <ActivityFeed items={data.activityFeed} onViewAll={onNavigate ? () => onNavigate("aiteam") : undefined} />
                 <AttentionPanel items={data.attention} onNavigate={onNavigate} />
@@ -261,7 +278,7 @@ export default function MissionControlV2({
 
   return (
     <div
-      className="mcv2 fixed inset-0 z-[70] flex flex-col bg-[#02040b]"
+      className={`mcv2 fixed inset-0 z-[70] flex flex-col bg-[#02040b]${poweringOn ? " mcv2-poweron" : ""}`}
       data-testid="mission-control-v2"
     >
       <style>{`
@@ -285,6 +302,13 @@ export default function MissionControlV2({
         .mcv2 .mcv2-speaking .mcv2-core-ring-slow { animation: mcv2ringspeak 1.6s ease-in-out .4s infinite; }
         .mcv2 .mcv2-speaking .mcv2-line { animation: mcv2linespeak 1.6s ease-in-out infinite; }
         .mcv2 .mcv2-core-emit { animation: mcv2emit 1.8s ease-out infinite; opacity: 0; }
+        /* Power-on — one-shot when activation first hits 100%. Everything fades
+           in smoothly, the Core illuminates with a soft glow, and the
+           connection lines animate a little brighter. Subtle, then settles. */
+        .mcv2.mcv2-poweron { animation: mcv2poweronfade 1.6s ease-out; }
+        .mcv2.mcv2-poweron .mcv2-core { animation: mcv2poweroncore 3.2s ease-in-out; }
+        .mcv2.mcv2-poweron .mcv2-core-ring { animation: mcv2poweronring 3.2s ease-in-out; }
+        .mcv2.mcv2-poweron .mcv2-line { animation: mcv2linespeak 1.6s ease-in-out 2; }
         @keyframes mcv2bar { 0%,100% { transform: scaleY(0.55); opacity:.7 } 50% { transform: scaleY(1); opacity:1 } }
         @keyframes mcv2ring { 0%,100% { opacity:.5 } 50% { opacity:.9 } }
         @keyframes mcv2ringlisten { 0%,100% { opacity:.75; transform: scale(1.05) } 50% { opacity:1; transform: scale(1.09) } }
@@ -296,11 +320,15 @@ export default function MissionControlV2({
         @keyframes mcv2linespeak { 0%,100% { opacity:.55; stroke-width:.35 } 50% { opacity:1; stroke-width:.55 } }
         @keyframes mcv2emit { 0% { opacity:.55; transform: scale(.92) } 100% { opacity:0; transform: scale(1.25) } }
         @keyframes mcv2orbit { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes mcv2poweronfade { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes mcv2poweroncore { 0% { filter: brightness(.7) } 40% { filter: brightness(1.45) } 100% { filter: brightness(1) } }
+        @keyframes mcv2poweronring { 0% { opacity:.3 } 40% { opacity:1 } 100% { opacity:.6 } }
         @media (prefers-reduced-motion: reduce) {
           .mcv2 .mcv2-core-bar, .mcv2 .mcv2-core, .mcv2 .mcv2-core-ring, .mcv2 .mcv2-core-ring-slow, .mcv2 .mcv2-orbit,
           .mcv2 .mcv2-speaking .mcv2-core-bar, .mcv2 .mcv2-speaking .mcv2-core, .mcv2 .mcv2-speaking .mcv2-core-ring, .mcv2 .mcv2-speaking .mcv2-core-ring-slow,
           .mcv2 .mcv2-speaking .mcv2-line, .mcv2 .mcv2-core-emit,
           .mcv2 .mcv2-listening .mcv2-core-ring, .mcv2 .mcv2-listening .mcv2-core-bar { animation: none; }
+          .mcv2.mcv2-poweron, .mcv2.mcv2-poweron .mcv2-core, .mcv2.mcv2-poweron .mcv2-core-ring, .mcv2.mcv2-poweron .mcv2-line { animation: none; }
           .mcv2 .mcv2-line-pulse, .mcv2 .mcv2-core-emit { display: none; }
         }
       `}</style>

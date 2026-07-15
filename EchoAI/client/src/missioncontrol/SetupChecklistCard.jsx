@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
-export default function SetupChecklistCard({ onNavigate }) {
+export default function SetupChecklistCard({ onNavigate, onStatus }) {
   const [checklist, setChecklist] = useState(null);
 
   useEffect(() => {
@@ -16,7 +16,9 @@ export default function SetupChecklistCard({ onNavigate }) {
     api
       .getSetupChecklist()
       .then((data) => {
-        if (active) setChecklist(data);
+        if (!active) return;
+        setChecklist(data);
+        if (onStatus) onStatus(data);
       })
       .catch(() => {
         /* owner-only + non-critical — hide on any failure */
@@ -24,11 +26,13 @@ export default function SetupChecklistCard({ onNavigate }) {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!checklist || checklist.allDone || !Array.isArray(checklist.items)) return null;
 
   const { items, completedCount, probedTotal } = checklist;
+  const percent = probedTotal > 0 ? Math.round((completedCount / probedTotal) * 100) : 0;
 
   return (
     <div
@@ -37,11 +41,22 @@ export default function SetupChecklistCard({ onNavigate }) {
     >
       <div className="flex items-center justify-between">
         <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">
-          Company Setup
+          AI Company Activation
         </div>
-        <div className="text-[11px] font-semibold text-gray-400">
-          {completedCount}/{probedTotal}
-        </div>
+        <div className="text-[11px] font-semibold text-gray-400">{percent}% Complete</div>
+      </div>
+      <div
+        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-800"
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="AI Company Activation progress"
+      >
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-700"
+          style={{ width: `${percent}%` }}
+        />
       </div>
 
       <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-amber-200">
