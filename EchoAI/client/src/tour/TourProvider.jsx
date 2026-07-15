@@ -29,9 +29,18 @@ export default function TourProvider({ tier, isAdmin, businessName, onNavigate }
   const tierKnown = isAdmin || Boolean(tier);
 
   // Load saved progress once the tier is known. Brand-new users (no saved row)
-  // get the welcome modal automatically.
+  // get the welcome modal automatically — unless they just said "yes" to the
+  // tour on the setup wizard's celebration screen, in which case the one-shot
+  // autostart flag starts the tour directly (no double offer).
   useEffect(() => {
     if (!tierKnown) return;
+    let autostart = false;
+    try {
+      autostart = localStorage.getItem("echoai_tour_autostart") === "1";
+      if (autostart) localStorage.removeItem("echoai_tour_autostart");
+    } catch {
+      /* private mode — fall back to the welcome modal */
+    }
     let active = true;
     (async () => {
       try {
@@ -39,7 +48,20 @@ export default function TourProvider({ tier, isAdmin, businessName, onNavigate }
         if (!active) return;
         const saved = (res.tours && res.tours[tourType]) || null;
         setStatus(saved);
-        if (!saved) setShowWelcome(true);
+        if (autostart) {
+          setShowWelcome(false);
+          setStartIndex(0);
+          setRunning(true);
+          // Record a row so the welcome modal never re-offers on the next visit.
+          if (!saved) {
+            api
+              .saveTourProgress({ tourType, currentStep: 0, completed: false })
+              .then((row) => setStatus(row))
+              .catch(() => {});
+          }
+        } else if (!saved) {
+          setShowWelcome(true);
+        }
       } catch {
         /* tour status is non-critical — fail silently */
       }

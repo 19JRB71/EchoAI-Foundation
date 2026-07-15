@@ -16,6 +16,7 @@ const emailMarketingController = require("../controllers/emailMarketingControlle
 const feedbackController = require("../controllers/feedbackController");
 const { generateKeywordSuggestions } = require("../prompts/seoContentPrompt");
 const voiceController = require("../controllers/voiceController");
+const echoContext = require("../utils/echoContext");
 
 // ---------------------------------------------------------------------------
 // AI helpers (real Anthropic; malformed output → 502, never guessed)
@@ -131,6 +132,40 @@ function firstAnswer(answers, keySubstrings) {
     if (keySubstrings.some((s) => k.toLowerCase().includes(s))) return v.trim();
   }
   return "";
+}
+
+// PURE — extract the onboarding personalization answers (working style) from
+// the interview answers. Unrecognized answers are omitted — never guessed.
+function extractWorkingStyle(answers) {
+  const style = {};
+
+  const involvement = echoContext.normalizeInvolvement(
+    firstAnswer(answers, ["echo_involvement", "involvement", "involved"]),
+  );
+  if (involvement) style.involvement = involvement;
+
+  const briefing = (firstAnswer(answers, ["echo_daily_briefing", "daily_briefing"]) || "").toLowerCase();
+  if (/\b(yes|yeah|yep|sure|please|absolutely|definitely|of course|ok)\b/.test(briefing)) {
+    style.daily_briefing = true;
+  } else if (/\b(no|nope|nah|skip|don'?t)\b/.test(briefing)) {
+    style.daily_briefing = false;
+  }
+
+  const alerts = (firstAnswer(answers, ["echo_instant_alerts", "instant_alert", "alert"]) || "").toLowerCase();
+  if (/right away|immediat|instant|as (it|they) happen|yes|alert me/.test(alerts)) {
+    style.instant_alerts = true;
+  } else if (/briefing|save|wait|later|no\b/.test(alerts)) {
+    style.instant_alerts = false;
+  }
+
+  const detail = (firstAnswer(answers, ["echo_detail_level", "detail_level", "detail"]) || "").toLowerCase();
+  if (/short|brief|concise|to the point|quick|summary/.test(detail)) {
+    style.detail_level = "concise";
+  } else if (/full|detail|everything|thorough|complete|in.?depth/.test(detail)) {
+    style.detail_level = "detailed";
+  }
+
+  return style;
 }
 
 function pickPlatforms(answers) {
@@ -1045,6 +1080,13 @@ async function submitAnswer(req, res) {
     const decision = await askInterview(messages);
     messages.push({ role: "assistant", content: JSON.stringify(decision) });
 
+    if (decision.complete) {
+      // Interview finished — persist the owner's working-style preferences
+      // (involvement mode, briefing, alerts, detail level) so every Echo
+      // surface can honor them. Best-effort: a save failure never blocks setup.
+      await echoContext.saveWorkingStyle(userId, extractWorkingStyle(answers)).catch(() => {});
+    }
+
     const updated = await db.query(
       `UPDATE setup_sessions
          SET messages = $1::jsonb, answers = $2::jsonb, current_field = $3,
@@ -1482,6 +1524,7 @@ module.exports = {
   isActionAllowed,
   pickAdBudget,
   pickMonthlyAdBudget,
+  extractWorkingStyle,
   wantsGoogleAds,
   claimExecution,
   heartbeatExecution,

@@ -390,3 +390,21 @@ id = "C3vN9g15KkqWPeae0O3GG"
 uri = "file://attached_assets/screenshots/ai-workforce-capacity.png"
 type = "image"
 title = "AI Workforce Capacity — tasks, breakdown, tooltip, color bands"
+
+[[outputs]]
+id = "ZuRdiHvziao4vu444kCuq"
+uri = "file://screenshots/celebration.jpg"
+type = "image"
+title = "Celebration screen — Your AI company is now online"
+
+[[outputs]]
+id = "a36MWXeWHSl63l6hoXilD"
+uri = "file://screenshots/checklist-card.jpg"
+type = "image"
+title = "Mission Control — Company Setup checklist card"
+
+[[outputs]]
+id = "VK1iTETAhdTgH10ICJI1Z"
+uri = "file://screenshots/oauth-banner.jpg"
+type = "image"
+title = "Connect accounts — OAuth return banner"

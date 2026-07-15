@@ -86,6 +86,7 @@
 - [EchoAI three-tier demo](echoai-demo-tiers.md) — demo mode now seeds ONE is_demo brand per tier (demo_tier); never assume a single demo brand; active_tier drives script+FeatureGate, demo_brand_id NULL = selector mode.
 - [EchoAI stale recognition closures](echoai-voice-stale-recognition-closures.md) — live SpeechRecognition sessions freeze closure state for minutes; read voiceRef/activeRef inside the mic chain, never `voice.<state>`.
 - [EchoAI SSRF IPv6-mapped bypass](echoai-ssrf-ipv6-mapped.md) — private-host blockers must reject IPv4-mapped/compat IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1); check the embedded IPv4 range.
+- [EchoAI headless screenshots](echoai-headless-screenshots.md) — app at /dashboard not /; test JWTs need {userId} claim; puppeteer-core intercept recipe to stage wizard/OAuth states.
 - [EchoAI NAVIGATE marker](echoai-navigate-marker.md) — Echo claims a move only with a valid [[NAVIGATE]] marker; unknown target replaces the whole reply, never leaves the claim.
 - [OpenAI image API mid-2026 change](echoai-openai-image-api.md) — dall-e-3 retired + response_format rejected; use gpt-image-1, handle url OR b64_json, persist b64 at generation time.
 - [EchoAI owner-uploaded post media](echoai-post-media-upload.md) — /uploads path allowlists, FB-only video, and the publishDuePosts RETURNING-column trap for new social_posts media columns.

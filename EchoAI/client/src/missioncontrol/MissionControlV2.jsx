@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "../api";
 import Spinner from "../components/Spinner.jsx";
 import CoreHero from "./CoreHero.jsx";
+import SetupChecklistCard from "./SetupChecklistCard.jsx";
 import ExecutiveSidebar from "./ExecutiveSidebar.jsx";
 import {
   KpiTile,
@@ -241,6 +242,7 @@ export default function MissionControlV2({
 
               {/* Right rail */}
               <div className="min-w-0 space-y-4">
+                <SetupChecklistCard onNavigate={onNavigate} />
                 <ZorechoScoreCard score={data.zorechoScore} />
                 <ActivityFeed items={data.activityFeed} onViewAll={onNavigate ? () => onNavigate("aiteam") : undefined} />
                 <AttentionPanel items={data.attention} onNavigate={onNavigate} />

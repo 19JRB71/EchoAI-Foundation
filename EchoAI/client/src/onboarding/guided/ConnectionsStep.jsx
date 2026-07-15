@@ -15,6 +15,8 @@ export default function ConnectionsStep({
   flags,
   updateFlags,
   speak,
+  notice,
+  onDismissNotice,
   onNext,
   onBack,
 }) {
@@ -61,6 +63,34 @@ export default function ConnectionsStep({
 
   return (
     <div>
+      {notice && (
+        <div
+          className={[
+            "mb-5 flex items-start justify-between gap-3 rounded-2xl border p-4",
+            notice.tone === "success"
+              ? "border-emerald-500/25 bg-emerald-500/10"
+              : "border-amber-500/25 bg-amber-500/10",
+          ].join(" ")}
+        >
+          <p
+            className={[
+              "text-sm leading-relaxed",
+              notice.tone === "success" ? "text-emerald-100" : "text-amber-100",
+            ].join(" ")}
+          >
+            {notice.text}
+          </p>
+          <button
+            type="button"
+            onClick={onDismissNotice}
+            aria-label="Dismiss"
+            className="shrink-0 text-sm font-semibold text-gray-400 hover:text-gray-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <h2 className="text-2xl font-extrabold text-gray-100">Connect your accounts</h2>
       <p className="mt-2 text-sm leading-relaxed text-gray-400">
         Each one you connect lets Echo do more for you automatically. All of them are optional —

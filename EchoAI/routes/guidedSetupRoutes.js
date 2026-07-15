@@ -27,6 +27,7 @@ router.post(
 router.use(auth, lockout, requireOwner);
 
 router.get("/state", guidedSetupController.getState);
+router.get("/checklist", guidedSetupController.getChecklist);
 router.put("/progress", guidedSetupController.saveProgress);
 router.post("/connection-error", guidedSetupController.reportConnectionError);
 

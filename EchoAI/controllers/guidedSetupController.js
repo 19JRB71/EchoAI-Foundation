@@ -212,9 +212,91 @@ async function helpAnalyze(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Setup Checklist — powers the Mission Control "Company Setup" card. Every
+// status is a LIVE probe (probe failure → "unknown", never guessed). Items the
+// platform can't probe (CRM, Google Business Profile) are plain links.
+// ---------------------------------------------------------------------------
+
+async function probeExists(sql, params) {
+  try {
+    const { rows } = await db.query(sql, params);
+    return rows.length > 0 ? "connected" : "not_connected";
+  } catch {
+    return "unknown";
+  }
+}
+
+/** GET /api/guided-setup/checklist */
+async function getChecklist(req, res) {
+  try {
+    const userId = req.user.userId;
+
+    const [profile, facebook, google, phone, chatbot, email] = await Promise.all([
+      probeExists(
+        `SELECT 1 FROM brands
+          WHERE user_id = $1 AND COALESCE(TRIM(brand_name), '') <> '' LIMIT 1`,
+        [userId],
+      ),
+      probeFacebook(userId),
+      probeGoogle(userId),
+      probeExists(
+        `SELECT 1 FROM twilio_config t JOIN brands b ON b.brand_id = t.brand_id
+          WHERE b.user_id = $1 LIMIT 1`,
+        [userId],
+      ),
+      probeExists(
+        `SELECT 1 FROM chatbot_config c JOIN brands b ON b.brand_id = c.brand_id
+          WHERE b.user_id = $1 LIMIT 1`,
+        [userId],
+      ),
+      probeExists(`SELECT 1 FROM email_accounts WHERE user_id = $1 LIMIT 1`, [userId]),
+    ]);
+
+    const items = [
+      { key: "profile", label: "Business profile", status: profile, section: "campaigns" },
+      { key: "facebook", label: "Facebook", status: facebook, section: "settings" },
+      {
+        key: "instagram",
+        label: "Instagram",
+        status: facebook,
+        section: "settings",
+        note: "Included with your Facebook login",
+      },
+      { key: "google", label: "Google", status: google, section: "settings" },
+      {
+        key: "calendar",
+        label: "Calendar",
+        status: google,
+        section: "appointments",
+        note: "Comes with your Google connection",
+      },
+      { key: "phone", label: "Phone agent", status: phone, section: "phone" },
+      { key: "chatbot", label: "Website chatbot", status: chatbot, section: "chatbot" },
+      { key: "email", label: "Email assistant", status: email, section: "echoemail" },
+      { key: "crm", label: "CRM & leads", status: "link", section: "leads" },
+      { key: "gbp", label: "Google Business Profile", status: "link", section: "googleseo" },
+    ];
+
+    const probed = items.filter((i) => i.status !== "link");
+    const completedCount = probed.filter((i) => i.status === "connected").length;
+
+    return res.json({
+      items,
+      completedCount,
+      probedTotal: probed.length,
+      allDone: probed.every((i) => i.status === "connected"),
+    });
+  } catch (err) {
+    console.error("guidedSetup getChecklist error:", err);
+    return res.status(500).json({ error: "Failed to load your setup checklist" });
+  }
+}
+
 module.exports = {
   getState,
   saveProgress,
+  getChecklist,
   reportConnectionError,
   helpAnalyze,
   // exported for tests

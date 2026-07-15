@@ -530,6 +530,7 @@ export const api = {
 
   // Guided Setup wizard (new-customer front door)
   getGuidedSetupState: () => request("/api/guided-setup/state"),
+  getSetupChecklist: () => request("/api/guided-setup/checklist"),
   saveGuidedSetupProgress: (currentStep, connections) =>
     request("/api/guided-setup/progress", {
       method: "PUT",

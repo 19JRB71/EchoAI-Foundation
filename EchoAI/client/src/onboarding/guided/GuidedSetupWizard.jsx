@@ -38,14 +38,43 @@ const STEP_LABELS = {
   done: "finishing up",
 };
 
-// What Echo says when each step appears (spoken if voice is available;
-// the on-screen copy always carries the same message).
+// What Echo says when each step appears (spoken if voice is available; the
+// on-screen copy always carries the same message). Each step has a small pool
+// of executive-assistant variants so repeat visits don't sound canned.
 const STEP_VOICE_LINES = {
-  plan: "First, pick the plan that fits. You can change it any time.",
-  profile: "Now tell me about your business. Just answer naturally — I'll do the heavy lifting.",
-  connections: "Let's link your accounts. Before each one, I'll show you exactly what you'll see.",
-  team: "Want to bring in teammates? Totally optional.",
-  done: "That's everything. Echo is ready to work for you.",
+  plan: [
+    "First things first, Sir — pick the plan that fits. You can change it any time.",
+    "Let's start with your plan, Sir. Nothing here is set in stone — you can change it whenever you like.",
+  ],
+  profile: [
+    "Excellent. Now tell me about your business, Sir — just answer naturally, and I'll do the heavy lifting.",
+    "Wonderful choice, Sir. Now, tell me about your business — a few easy questions, and I'll handle everything from there.",
+  ],
+  connections: [
+    "Very good, Sir. Let's link your accounts — before each one, I'll show you exactly what you'll see.",
+    "Excellent, Sir. Next, your accounts. Each one you connect lets me do more for you — and I'll walk you through every screen.",
+  ],
+  team: [
+    "Nearly there, Sir. Would you like to bring in teammates? Entirely optional.",
+    "Almost done, Sir. If you'd like your team on board, I can send the invitations — or we can skip this for now.",
+  ],
+  done: [
+    "It's official, Sir — your AI company is now online. Everyone's at their desk and ready to work.",
+    "Congratulations, Sir. Your AI company is now online — the whole team is in place and ready for orders.",
+  ],
+};
+
+function pickLine(pool) {
+  if (!pool) return "";
+  if (typeof pool === "string") return pool;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Which of the eight agents "runs" each connected account — used to make the
+// OAuth welcome-back message feel like a team member reporting for duty.
+const CONNECTION_AGENT = {
+  facebook: "Nova",
+  google: "Atlas",
 };
 
 export default function GuidedSetupWizard({ onComplete }) {
@@ -54,6 +83,7 @@ export default function GuidedSetupWizard({ onComplete }) {
   const [flags, setFlags] = useState({});
   const [statuses, setStatuses] = useState({});
   const [resume, setResume] = useState(null); // saved step to offer "continue"
+  const [oauthNotice, setOauthNotice] = useState(null); // { tone, text } after an OAuth return
   const [error, setError] = useState("");
   const [finishing, setFinishing] = useState(false);
   const { speak, stop } = useEchoSpeak();
@@ -112,14 +142,25 @@ export default function GuidedSetupWizard({ onComplete }) {
 
       if (oauth && savedStep === "connections") {
         // We just came back from a provider while on the connections step.
+        // Echo greets the result out loud AND in text — the browser usually
+        // blocks autoplay right after a redirect, so the text carries it.
         const entry = { ...(nextFlags[oauth.key] || {}) };
         delete entry.connecting;
         if (oauth.status === "connected") {
           delete entry.errorKey;
           entry.skipped = false;
+          const agent = CONNECTION_AGENT[oauth.key];
+          const text = agent
+            ? `Welcome back, Sir — ${oauth.name} is connected. ${agent} now has everything needed to get to work.`
+            : `Welcome back, Sir — ${oauth.name} is connected.`;
+          setOauthNotice({ tone: "success", text });
         } else {
           const translated = translateConnectionError(oauth.key, oauth.message);
           entry.errorKey = translated.key;
+          setOauthNotice({
+            tone: "reassure",
+            text: `Welcome back, Sir. The ${oauth.name} connection didn't go through this time — no harm done. The card below explains what happened, and we can try again whenever you're ready.`,
+          });
           // Raw provider detail goes to the server log only — never on screen.
           api.reportGuidedSetupConnectionError(oauth.key, oauth.message).catch(() => {});
         }
@@ -129,6 +170,17 @@ export default function GuidedSetupWizard({ onComplete }) {
         persist("connections", nextFlags);
         setLoading(false);
         return;
+      }
+      // OAuth return but the saved step drifted — still surface the outcome.
+      if (oauth) {
+        setOauthNotice(
+          oauth.status === "connected"
+            ? { tone: "success", text: `Welcome back, Sir — ${oauth.name} is connected.` }
+            : {
+                tone: "reassure",
+                text: `Welcome back, Sir. The ${oauth.name} connection didn't go through this time — no harm done. We can try again whenever you're ready.`,
+              },
+        );
       }
 
       setFlags(nextFlags);
@@ -149,7 +201,7 @@ export default function GuidedSetupWizard({ onComplete }) {
     (next) => {
       setStep(next);
       persist(next, flagsRef.current);
-      const line = STEP_VOICE_LINES[next];
+      const line = pickLine(STEP_VOICE_LINES[next]);
       if (line) speak(line);
     },
     [persist, speak],
@@ -171,6 +223,17 @@ export default function GuidedSetupWizard({ onComplete }) {
     },
     [],
   );
+
+  // Best-effort spoken version of the OAuth-return greeting. Autoplay is
+  // usually blocked right after a full-page redirect, so the on-screen banner
+  // is the reliable channel — this only adds voice when the browser allows it.
+  const spokeNoticeRef = useRef(false);
+  useEffect(() => {
+    if (!oauthNotice || spokeNoticeRef.current) return;
+    spokeNoticeRef.current = true;
+    speak(oauthNotice.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oauthNotice]);
 
   // Refresh live probes when the connections step (or the summary) appears.
   useEffect(() => {
@@ -275,6 +338,8 @@ export default function GuidedSetupWizard({ onComplete }) {
               flags={flags}
               updateFlags={updateFlags}
               speak={speak}
+              notice={oauthNotice}
+              onDismissNotice={() => setOauthNotice(null)}
               onNext={() => gotoStep("team")}
               onBack={() => gotoStep("profile")}
             />
@@ -285,7 +350,22 @@ export default function GuidedSetupWizard({ onComplete }) {
           )}
 
           {step === "done" && (
-            <DoneScreen statuses={statuses} finishing={finishing} onEnter={finish} />
+            <DoneScreen
+              statuses={statuses}
+              finishing={finishing}
+              onEnter={finish}
+              onEnterWithTour={() => {
+                // The dashboard's TourProvider consumes this flag once and
+                // auto-starts the two-minute tour (suppressing the welcome
+                // modal so the tour isn't offered twice).
+                try {
+                  localStorage.setItem("echoai_tour_autostart", "1");
+                } catch {
+                  /* private mode — the tour offer simply falls back to the modal */
+                }
+                finish();
+              }}
+            />
           )}
         </div>
       </main>
@@ -360,7 +440,7 @@ function WelcomeScreen({ resume, finishing, onStart, onResume, onLater, speak })
   );
 }
 
-function DoneScreen({ statuses, finishing, onEnter }) {
+function DoneScreen({ statuses, finishing, onEnter, onEnterWithTour }) {
   const connected = CONNECTION_CATALOG.filter((c) => statuses?.[c.key] === "connected");
   const notConnected = CONNECTION_CATALOG.filter((c) => statuses?.[c.key] !== "connected");
 
@@ -369,9 +449,12 @@ function DoneScreen({ statuses, finishing, onEnter }) {
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/15 text-4xl">
         🎉
       </div>
-      <h1 className="mt-6 text-3xl font-extrabold text-gray-100">You&apos;re all set!</h1>
+      <h1 className="mt-6 text-3xl font-extrabold text-gray-100">
+        Your AI company is now online.
+      </h1>
       <p className="mt-4 text-base leading-relaxed text-gray-300">
-        That&apos;s everything — Echo is ready to work for you. Here&apos;s where things stand:
+        Congratulations, Sir — your whole team is at their desks: Echo, Scout, Atlas, Nova,
+        Pulse, Voice, Forge, and Sentinel. Here&apos;s where things stand:
       </p>
 
       <div className="mt-6 space-y-2 text-left">
@@ -398,14 +481,27 @@ function DoneScreen({ statuses, finishing, onEnter }) {
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={onEnter}
-        disabled={finishing}
-        className="mt-8 w-full max-w-xs rounded-xl bg-amber-500 px-6 py-3 text-base font-bold text-gray-900 hover:bg-amber-600 disabled:opacity-50"
-      >
-        {finishing ? "Opening your dashboard…" : "Take me to my dashboard"}
-      </button>
+      <p className="mt-8 text-base font-semibold text-gray-200">
+        Would you like a quick two-minute tour of your new headquarters?
+      </p>
+      <div className="mt-4 flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={onEnterWithTour}
+          disabled={finishing}
+          className="w-full max-w-xs rounded-xl bg-amber-500 px-6 py-3 text-base font-bold text-gray-900 hover:bg-amber-600 disabled:opacity-50"
+        >
+          {finishing ? "Opening your dashboard…" : "Yes — show me around"}
+        </button>
+        <button
+          type="button"
+          onClick={onEnter}
+          disabled={finishing}
+          className="w-full max-w-xs rounded-xl border border-gray-700 px-6 py-3 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+        >
+          {finishing ? "One moment…" : "No thanks — take me straight to my dashboard"}
+        </button>
+      </div>
     </div>
   );
 }

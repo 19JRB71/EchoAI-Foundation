@@ -130,12 +130,58 @@ function mergeOwnerProfile(existing, updates) {
 }
 
 // ---------------------------------------------------------------------------
+// PURE — working style (set during onboarding personalization; owner-editable
+// later). Lives in echo_owner_profile.data.working_style.
+// ---------------------------------------------------------------------------
+const INVOLVEMENT_MODES = new Set(["hands_off", "guided", "executive"]);
+const INVOLVEMENT_GUIDANCE = {
+  hands_off:
+    "The owner chose HANDS-OFF mode: handle things independently, keep updates brief, and only bring them items that genuinely need their decision. Don't ask permission for routine work.",
+  guided:
+    "The owner chose GUIDED mode: check in before taking meaningful actions, explain what you're doing and why in plain words, and confirm direction at each significant step.",
+  executive:
+    "The owner chose EXECUTIVE mode: they stay closely involved. Present options, trade-offs, and your analysis, then let them make the call. Bring them detail and reasoning, not just conclusions.",
+};
+
+// Normalize a free-text involvement answer to one of the three modes ("" if
+// unrecognized — never guess).
+function normalizeInvolvement(text) {
+  const t = String(text || "").toLowerCase();
+  if (!t.trim()) return "";
+  if (/hands?[\s-]?off|handle it|you (take care|handle)|don'?t bother me|minimal/.test(t)) return "hands_off";
+  if (/executive|closely involved|every de|options|full control|i('| a)m the (ceo|boss)|present/.test(t)) return "executive";
+  if (/guided|check in|middle|between|balance|some involvement|keep me in the loop/.test(t)) return "guided";
+  return "";
+}
+
+// Render the stored working style into prompt guidance lines.
+function workingStyleLines(op) {
+  const ws =
+    op && op.data && typeof op.data === "object" && op.data.working_style && typeof op.data.working_style === "object"
+      ? op.data.working_style
+      : null;
+  if (!ws) return [];
+  const lines = [];
+  if (INVOLVEMENT_MODES.has(ws.involvement)) lines.push(INVOLVEMENT_GUIDANCE[ws.involvement]);
+  const prefs = [];
+  if (ws.daily_briefing === true) prefs.push("they want a short daily morning briefing");
+  if (ws.daily_briefing === false) prefs.push("they'd rather skip the daily briefing");
+  if (ws.instant_alerts === true) prefs.push("alert them the moment something important happens");
+  if (ws.instant_alerts === false) prefs.push("save non-urgent news for the briefing instead of interrupting them");
+  if (ws.detail_level === "concise") prefs.push("keep updates short and to the point");
+  if (ws.detail_level === "detailed") prefs.push("they prefer full detail in updates");
+  if (prefs.length) lines.push("Owner's working preferences — " + prefs.join("; ") + ".");
+  return lines;
+}
+
+// ---------------------------------------------------------------------------
 // PURE — render what Echo knows into a compact prompt block. `mode` controls the
 // framing so spoken briefings treat it as guidance (never new spoken facts).
 // ---------------------------------------------------------------------------
 function formatKnowledge({ ownerProfile, profiles = [], memories = [], focusProfile = null, mode = "chat" } = {}) {
   const lines = [];
   const op = ownerProfile || {};
+  lines.push(...workingStyleLines(op));
   const ownerParts = [];
   if (op.goals) ownerParts.push(`Goals: ${op.goals}`);
   if (op.core_values) ownerParts.push(`Values: ${op.core_values}`);
@@ -282,6 +328,36 @@ async function setOwnerProfileRow(userId, updates) {
     row[col] = v || null;
   }
   return writeOwnerProfileRow(userId, row);
+}
+
+// Persist the owner's working style into echo_owner_profile.data.working_style
+// (merge — only provided keys are written; other data keys are preserved).
+async function saveWorkingStyle(userId, style) {
+  const clean = {};
+  if (style && INVOLVEMENT_MODES.has(style.involvement)) clean.involvement = style.involvement;
+  if (style && typeof style.daily_briefing === "boolean") clean.daily_briefing = style.daily_briefing;
+  if (style && typeof style.instant_alerts === "boolean") clean.instant_alerts = style.instant_alerts;
+  if (style && (style.detail_level === "concise" || style.detail_level === "detailed")) {
+    clean.detail_level = style.detail_level;
+  }
+  if (!Object.keys(clean).length) return null;
+  try {
+    await db.query(
+      `INSERT INTO echo_owner_profile (user_id, data, updated_at)
+       VALUES ($1, jsonb_build_object('working_style', $2::jsonb), NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         data = echo_owner_profile.data
+                || jsonb_build_object(
+                     'working_style',
+                     COALESCE(echo_owner_profile.data->'working_style', '{}'::jsonb) || $2::jsonb
+                   ),
+         updated_at = NOW()`,
+      [userId, JSON.stringify(clean)],
+    );
+  } catch (e) {
+    console.error("echo saveWorkingStyle failed:", e.message);
+  }
+  return clean;
 }
 
 async function upsertRelationship(userId, brandId, rel) {
@@ -456,6 +532,8 @@ module.exports = {
   mergeOwnerProfile,
   formatKnowledge,
   valuesGuardrail,
+  normalizeInvolvement,
+  workingStyleLines,
   OWNER_FIELD_MAP,
   RELATIONSHIP_TYPES,
   MEMORY_CATEGORIES,
@@ -464,6 +542,7 @@ module.exports = {
   getOwnerProfileRow,
   mergeOwnerProfileRow,
   setOwnerProfileRow,
+  saveWorkingStyle,
   upsertRelationship,
   buildKnowledgeContext,
   captureFromConversation,
