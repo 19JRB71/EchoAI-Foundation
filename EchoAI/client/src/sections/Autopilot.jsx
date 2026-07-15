@@ -92,6 +92,7 @@ export default function Autopilot({ brandId }) {
   const [running, setRunning] = useState(false);
   const [busyItemId, setBusyItemId] = useState("");
   const [creatingInstant, setCreatingInstant] = useState(false);
+  const [instantTopic, setInstantTopic] = useState("");
   const [reviseFor, setReviseFor] = useState(""); // itemId with the revise box open
   const [reviseText, setReviseText] = useState("");
   const [form, setForm] = useState({
@@ -273,7 +274,11 @@ export default function Autopilot({ brandId }) {
     setError("");
     setNotice("");
     try {
-      const result = await api.autopilotCreateInstantPost(brandId);
+      const result = await api.autopilotCreateInstantPost(
+        brandId,
+        instantTopic.trim() || undefined
+      );
+      setInstantTopic("");
       if (result.item) {
         setBatch((prev) =>
           prev
@@ -415,29 +420,28 @@ export default function Autopilot({ brandId }) {
           </div>
 
           <div>
-            <div className="text-sm font-semibold text-white">Hard spending limits</div>
+            <div className="text-sm font-semibold text-white">Instant post</div>
             <div className="text-xs text-gray-500">
-              Ad approvals are blocked the moment a limit would be crossed. Leave blank
-              for no limit.
+              Need something out right now? Echo drafts one extra post on the spot —
+              it never touches this week's scheduled posts. Review it in the batch
+              below, then hit Post instantly.
             </div>
-            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                ["daily", "Daily limit ($)"],
-                ["weekly", "Weekly limit ($)"],
-                ["monthly", "Monthly limit ($)"],
-              ].map(([key, label]) => (
-                <label key={key} className="text-sm text-gray-300">
-                  {label}
-                  <input
-                    type="number"
-                    min="0"
-                    value={form[key]}
-                    onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                    placeholder="No limit"
-                    className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white"
-                  />
-                </label>
-              ))}
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={instantTopic}
+                onChange={(e) => setInstantTopic(e.target.value)}
+                placeholder="Topic (optional) — e.g. holiday hours, new arrival, quick tip"
+                className="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white sm:flex-1"
+              />
+              <button
+                onClick={createInstantPost}
+                disabled={creatingInstant}
+                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
+                title="Draft an extra post to publish right now — doesn't touch this week's scheduled posts"
+              >
+                {creatingInstant ? "Drafting…" : "Create instant post"}
+              </button>
             </div>
           </div>
 
@@ -469,21 +473,11 @@ export default function Autopilot({ brandId }) {
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-semibold text-white">This week's batch</h3>
-          <div className="flex items-center gap-2">
-            {batch && pendingCount > 0 && (
-              <Badge className={STATUS_STYLES.pending}>
-                {pendingCount} awaiting approval
-              </Badge>
-            )}
-            <button
-              onClick={createInstantPost}
-              disabled={creatingInstant}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
-              title="Draft an extra post to publish right now — doesn't touch this week's scheduled posts"
-            >
-              {creatingInstant ? "Drafting…" : "Create instant post"}
-            </button>
-          </div>
+          {batch && pendingCount > 0 && (
+            <Badge className={STATUS_STYLES.pending}>
+              {pendingCount} awaiting approval
+            </Badge>
+          )}
         </div>
 
         {!batch && (
