@@ -99,8 +99,6 @@ export const DEPARTMENTS = {
   vision: [
     { label: "Visual Knowledge Base", desc: "What Vision has learned about your industry's winning visuals — growing with every study.", section: "vision", tab: "knowledge" },
     { label: "Study Activity", desc: "Every study run and its real sources, plus each time Forge consulted Vision.", section: "vision", tab: "activity" },
-    { label: "Image Studio", desc: "Forge's image generator — now guided by Vision's visual intelligence.", section: "image" },
-    { label: "Ad Creative Studio", desc: "Forge's ad packages — visual direction sharpened by Vision.", section: "adstudio" },
   ],
 };
 
