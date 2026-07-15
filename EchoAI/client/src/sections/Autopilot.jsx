@@ -93,6 +93,7 @@ export default function Autopilot({ brandId }) {
   const [busyItemId, setBusyItemId] = useState("");
   const [creatingInstant, setCreatingInstant] = useState(false);
   const [instantTopic, setInstantTopic] = useState("");
+  const [highlightItemId, setHighlightItemId] = useState("");
   const [reviseFor, setReviseFor] = useState(""); // itemId with the revise box open
   const [reviseText, setReviseText] = useState("");
   const [form, setForm] = useState({
@@ -285,6 +286,14 @@ export default function Autopilot({ brandId }) {
             ? { ...prev, items: [...(prev.items || []), result.item] }
             : { status: "ready", items: [result.item] }
         );
+        // The new post lands at the END of the batch list — scroll it into
+        // view and glow it briefly so it's impossible to miss.
+        setHighlightItemId(result.item.itemId);
+        setTimeout(() => {
+          const el = document.getElementById(`autopilot-item-${result.item.itemId}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
+        setTimeout(() => setHighlightItemId(""), 6000);
       }
       setNotice(
         result.notice ||
@@ -510,7 +519,12 @@ export default function Autopilot({ brandId }) {
             return (
               <div
                 key={item.itemId}
-                className="rounded-xl border border-gray-700 bg-gray-800/60 p-4 border-l-4"
+                id={`autopilot-item-${item.itemId}`}
+                className={`rounded-xl border bg-gray-800/60 p-4 border-l-4 transition-all duration-700 ${
+                  highlightItemId === item.itemId
+                    ? "border-emerald-400 ring-2 ring-emerald-400/60"
+                    : "border-gray-700"
+                }`}
                 style={{ borderLeftColor: agentColor }}
               >
                 <div className="flex flex-wrap items-center gap-2">
