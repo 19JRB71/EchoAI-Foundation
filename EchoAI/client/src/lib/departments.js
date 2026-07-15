@@ -57,7 +57,7 @@ export const DEPARTMENTS = {
     { label: "Connect Facebook", desc: "Link Facebook so Atlas can run ads.", action: "facebook" },
   ],
   nova: [
-    { label: "Autopilot Mode", desc: "Echo drafts your whole week — posts, graphics and test ads — for your approval.", section: "autopilot" },
+    { label: "Autopilot Mode", desc: "Echo drafts your whole week of posts and graphics for your approval.", section: "autopilot" },
     { label: "Content Calendar", desc: "Your full monthly posting schedule.", section: "contentcalendar" },
     { label: "Social Media", desc: "Scheduled and published posts across platforms.", section: "social" },
   ],

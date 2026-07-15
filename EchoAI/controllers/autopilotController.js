@@ -89,7 +89,7 @@ async function loadSettings(brandId) {
     return {
       enabled: false,
       postsPerWeek: 5,
-      adsPerWeek: 1,
+      adsPerWeek: 0,
       dailySpendCap: null,
       weeklySpendCap: null,
       monthlySpendCap: null,
@@ -254,17 +254,16 @@ async function updateSettings(req, res) {
     const enabled = req.body.enabled != null ? req.body.enabled === true : current.enabled;
     const postsPerWeek =
       req.body.postsPerWeek != null ? Number(req.body.postsPerWeek) : current.postsPerWeek;
-    const adsPerWeek =
-      req.body.adsPerWeek != null ? Number(req.body.adsPerWeek) : current.adsPerWeek;
+    // Autopilot is posts-only (product decision, July 2026): ads are Atlas's
+    // job in Ad Campaigns. Any adsPerWeek from a client is coerced to 0 so no
+    // path — UI, API, or cron reading stored settings — drafts test ads again.
+    const adsPerWeek = 0;
 
     if (!Number.isInteger(postsPerWeek) || postsPerWeek < 0 || postsPerWeek > 21) {
       return res.status(400).json({ error: "postsPerWeek must be a whole number from 0 to 21" });
     }
-    if (!Number.isInteger(adsPerWeek) || adsPerWeek < 0 || adsPerWeek > 7) {
-      return res.status(400).json({ error: "adsPerWeek must be a whole number from 0 to 7" });
-    }
-    if (enabled && postsPerWeek === 0 && adsPerWeek === 0) {
-      return res.status(400).json({ error: "Autopilot needs at least one post or ad per week" });
+    if (enabled && postsPerWeek === 0) {
+      return res.status(400).json({ error: "Autopilot needs at least one post per week" });
     }
 
     let dailySpendCap;
@@ -847,7 +846,13 @@ async function approveItem(req, res) {
   }
 }
 
-/** POST /api/autopilot/items/:itemId/decline */
+/**
+ * POST /api/autopilot/items/:itemId/decline
+ * Declining a POST doesn't leave the time slot empty: Echo immediately drafts
+ * a completely different replacement post for the same slot (pending, so the
+ * owner still reviews it). Replacement is best-effort — the decline itself
+ * always succeeds, and a failed redraft is reported honestly, never faked.
+ */
 async function declineItem(req, res) {
   const userId = req.user.userId;
   const { itemId } = req.params;
@@ -872,7 +877,61 @@ async function declineItem(req, res) {
       action: "decline",
       content: item.post_content,
     });
-    return res.json(itemView(updated.rows[0]));
+
+    let replacement = null;
+    let replacementError = null;
+    if (item.item_type === "post") {
+      try {
+        const brand = await getOwnedBrand(userId, item.brand_id);
+        if (brand) {
+          const redraft = await reviseVoiceDraft(
+            brand,
+            item,
+            "The owner DECLINED this draft entirely. Write a COMPLETELY DIFFERENT post — new angle, new topic, same brand voice — to fill the same time slot. Do not reuse the declined post's hook, wording, or theme."
+          );
+          // Position allocation locks the batch row so two simultaneous
+          // declines can't both claim MAX(position)+1.
+          const client = await db.pool.connect();
+          try {
+            await client.query("BEGIN");
+            await client.query("SELECT 1 FROM autopilot_batches WHERE batch_id = $1 FOR UPDATE", [
+              item.batch_id,
+            ]);
+            const inserted = await client.query(
+              `INSERT INTO autopilot_batch_items
+                 (batch_id, position, item_type, platform, post_content, visual_idea,
+                  scheduled_time, rationale)
+               SELECT $1, COALESCE(MAX(position), 0) + 1, 'post', $2, $3, $4, $5, $6
+                 FROM autopilot_batch_items WHERE batch_id = $1
+               RETURNING *`,
+              [
+                item.batch_id,
+                item.platform,
+                composePostContent(redraft),
+                item.visual_idea,
+                item.scheduled_time,
+                "Fresh replacement for the post you declined — same time slot, different angle.",
+              ]
+            );
+            await client.query("COMMIT");
+            replacement = itemView(inserted.rows[0]);
+          } catch (e) {
+            try {
+              await client.query("ROLLBACK");
+            } catch {}
+            throw e;
+          } finally {
+            client.release();
+          }
+        }
+      } catch (e) {
+        console.error("Autopilot replacement draft failed:", e.message);
+        replacementError =
+          "Declined. Echo couldn't draft a replacement post right now — hit Draft now later or add one from Social Media.";
+      }
+    }
+
+    return res.json({ ...itemView(updated.rows[0]), replacement, replacementError });
   } catch (err) {
     console.error("Autopilot decline error:", err.message);
     return res.status(500).json({ error: "Failed to decline this item" });

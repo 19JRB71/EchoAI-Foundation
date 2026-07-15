@@ -71,9 +71,7 @@ export default function Autopilot({ brandId }) {
   const [reviseText, setReviseText] = useState("");
   const [form, setForm] = useState({
     includePosts: true,
-    includeAds: true,
     postsPerWeek: 5,
-    adsPerWeek: 1,
     daily: "",
     weekly: "",
     monthly: "",
@@ -104,9 +102,7 @@ export default function Autopilot({ brandId }) {
         formSeeded.current = true;
         setForm({
           includePosts: s.postsPerWeek > 0,
-          includeAds: s.adsPerWeek > 0,
           postsPerWeek: s.postsPerWeek > 0 ? s.postsPerWeek : 5,
-          adsPerWeek: s.adsPerWeek > 0 ? s.adsPerWeek : 1,
           daily: s.dailySpendCap != null ? String(s.dailySpendCap) : "",
           weekly: s.weeklySpendCap != null ? String(s.weeklySpendCap) : "",
           monthly: s.monthlySpendCap != null ? String(s.monthlySpendCap) : "",
@@ -134,7 +130,8 @@ export default function Autopilot({ brandId }) {
       const s = await api.autopilotSaveSettings({
         brandId,
         postsPerWeek: form.includePosts ? Math.max(1, Number(form.postsPerWeek) || 0) : 0,
-        adsPerWeek: form.includeAds ? Math.max(1, Number(form.adsPerWeek) || 0) : 0,
+        // Autopilot is Nova's content desk — posts only. Ads live with Atlas.
+        adsPerWeek: 0,
         dailySpendCap: capInput(form.daily),
         weeklySpendCap: capInput(form.weekly),
         monthlySpendCap: capInput(form.monthly),
@@ -162,9 +159,8 @@ export default function Autopilot({ brandId }) {
     const next = { ...form, [key]: checked };
     setForm(next);
     const postsPerWeek = next.includePosts ? Math.max(1, Number(next.postsPerWeek) || 0) : 0;
-    const adsPerWeek = next.includeAds ? Math.max(1, Number(next.adsPerWeek) || 0) : 0;
-    const extra = { postsPerWeek, adsPerWeek };
-    if (settings?.enabled && postsPerWeek === 0 && adsPerWeek === 0) extra.enabled = false;
+    const extra = { postsPerWeek, adsPerWeek: 0 };
+    if (settings?.enabled && postsPerWeek === 0) extra.enabled = false;
     saveSettings(extra);
   }
 
@@ -225,6 +221,17 @@ export default function Autopilot({ brandId }) {
     try {
       const updated = await fn();
       patchItem(updated);
+      // Declining a post drafts a fresh replacement for the same time slot.
+      if (updated.replacement) {
+        setBatch((prev) =>
+          prev ? { ...prev, items: [...prev.items, updated.replacement] } : prev
+        );
+        setNotice(
+          "Declined — Echo drafted a fresh post for the same time slot. It's at the bottom of the list, waiting for your OK."
+        );
+      } else if (updated.replacementError) {
+        setNotice(updated.replacementError);
+      }
     } catch (err) {
       setError(err.message || failMsg);
     } finally {
@@ -248,9 +255,8 @@ export default function Autopilot({ brandId }) {
       <div>
         <h2 className="text-xl font-bold text-white">Autopilot Mode</h2>
         <p className="mt-1 text-sm text-gray-400">
-          Every Monday, Echo drafts your week — social posts with graphics plus small
-          test ads — and holds everything for your approval. Nothing is published and
-          not a dollar is spent without your OK.
+          Every Monday, Echo drafts your week of social posts with graphics and holds
+          everything for your approval. Nothing is published without your OK.
         </p>
       </div>
 
@@ -297,10 +303,10 @@ export default function Autopilot({ brandId }) {
               onClick={() =>
                 settings.enabled ? saveSettings({ enabled: false }) : enableAndMaybeDraft()
               }
-              disabled={saving || (!settings.enabled && !form.includePosts && !form.includeAds)}
+              disabled={saving || (!settings.enabled && !form.includePosts)}
               title={
-                !settings.enabled && !form.includePosts && !form.includeAds
-                  ? "Check posts, ads, or both first"
+                !settings.enabled && !form.includePosts
+                  ? "Turn social posts on first"
                   : undefined
               }
               className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
@@ -316,11 +322,12 @@ export default function Autopilot({ brandId }) {
           <div>
             <div className="text-sm font-semibold text-white">What should Echo draft each week?</div>
             <div className="text-xs text-gray-500">
-              Check what you want in the weekly batch — posts only, ads only, or both.
+              Autopilot is Nova's content desk — social posts and graphics only. Ads
+              are Atlas's job, over in Ad Campaigns.
             </div>
-            {!form.includePosts && !form.includeAds && (
+            {!form.includePosts && (
               <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                Pick at least one — with both unchecked there's nothing for Echo to draft.
+                Turn social posts on — with it off there's nothing for Echo to draft.
               </div>
             )}
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -347,38 +354,6 @@ export default function Autopilot({ brandId }) {
                     value={form.postsPerWeek}
                     disabled={!form.includePosts}
                     onChange={(e) => setForm((f) => ({ ...f, postsPerWeek: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white disabled:opacity-40"
-                  />
-                </label>
-              </div>
-              <div
-                className={`rounded-lg border p-3 ${
-                  form.includeAds ? "border-indigo-500/40 bg-indigo-500/5" : "border-gray-700 bg-gray-900/40"
-                }`}
-              >
-                <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-white">
-                  <input
-                    type="checkbox"
-                    checked={form.includeAds}
-                    onChange={(e) => toggleInclude("includeAds", e.target.checked)}
-                    className="h-4 w-4 accent-indigo-500"
-                  />
-                  Test ads <span className="font-normal text-indigo-300">(Atlas)</span>
-                </label>
-                <div className={`mt-1 text-xs ${form.includeAds ? "text-gray-500" : "text-gray-600"}`}>
-                  Each ad you approve launches as one Facebook campaign that runs
-                  continuously at its daily budget — ads aren't posted throughout
-                  the day like posts. 1 a week is plenty for most businesses.
-                </div>
-                <label className={`mt-2 block text-sm ${form.includeAds ? "text-gray-300" : "text-gray-600"}`}>
-                  Test ads per week
-                  <input
-                    type="number"
-                    min="1"
-                    max="7"
-                    value={form.adsPerWeek}
-                    disabled={!form.includeAds}
-                    onChange={(e) => setForm((f) => ({ ...f, adsPerWeek: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white disabled:opacity-40"
                   />
                 </label>
