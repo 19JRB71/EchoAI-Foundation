@@ -157,3 +157,72 @@ test("buildWeeklyBatchPrompt: zero ads omits the ad instructions", () => {
   assert.match(prompt, /no ads this week/);
   assert.ok(!prompt.includes("Do NOT set ad budgets"));
 });
+
+const { autopilotSlotTimes } = require("../controllers/autopilotController");
+
+test("autopilotSlotTimes: fixed 6am/12pm/6pm slots, never an hour apart", () => {
+  const now = new Date("2026-07-15T12:00:00Z"); // 8:00 AM Eastern (EDT)
+  const t = autopilotSlotTimes(15, "America/New_York", now);
+  assert.strictEqual(t.length, 15);
+  // First same-day slots: 12pm and 6pm Eastern (6am already past)
+  assert.strictEqual(t[0].toISOString(), "2026-07-15T16:00:00.000Z");
+  assert.strictEqual(t[1].toISOString(), "2026-07-15T22:00:00.000Z");
+  // Next day starts at 6am Eastern
+  assert.strictEqual(t[2].toISOString(), "2026-07-16T10:00:00.000Z");
+  for (let i = 1; i < t.length; i += 1) {
+    const gap = t[i].getTime() - t[i - 1].getTime();
+    assert.ok(gap >= 6 * 60 * 60 * 1000, `slots ${i - 1}/${i} only ${gap / 3600000}h apart`);
+  }
+});
+
+test("autopilotSlotTimes: <=7 posts land one per day at 6am local", () => {
+  const now = new Date("2026-07-15T12:00:00Z");
+  const t = autopilotSlotTimes(5, "America/New_York", now);
+  assert.strictEqual(t.length, 5);
+  for (const d of t) {
+    assert.strictEqual(d.toISOString().slice(11), "10:00:00.000Z"); // 6am EDT
+  }
+});
+
+test("autopilotSlotTimes: slots less than 30 minutes out are skipped", () => {
+  const now = new Date("2026-07-15T09:45:00Z"); // 5:45 AM Eastern
+  // One-per-day cadence: today's 6:00 AM slot is only 15 min away, so the
+  // first post rolls to TOMORROW 6:00 AM (never fires before review).
+  const t = autopilotSlotTimes(3, "America/New_York", now);
+  assert.strictEqual(t[0].toISOString(), "2026-07-16T10:00:00.000Z");
+  // Three-per-day cadence: same moment, the noon slot today is still usable.
+  const t2 = autopilotSlotTimes(15, "America/New_York", now);
+  assert.strictEqual(t2[0].toISOString(), "2026-07-15T16:00:00.000Z");
+});
+
+test("autopilotSlotTimes: zero or invalid count returns no slots", () => {
+  assert.deepStrictEqual(autopilotSlotTimes(0, "America/New_York"), []);
+  assert.deepStrictEqual(autopilotSlotTimes(-2, "America/New_York"), []);
+});
+
+test("autopilotSlotTimes: western timezone near UTC midnight keeps today's local slots", () => {
+  // 00:30 UTC = 5:30 PM previous local day in Los Angeles — the 6 PM local
+  // slot (01:00 UTC, 30 min away) must still be offered, not skipped to
+  // the next local day.
+  const now = new Date("2026-07-15T00:30:00Z");
+  const t = autopilotSlotTimes(15, "America/Los_Angeles", now);
+  assert.strictEqual(t[0].toISOString(), "2026-07-15T01:00:00.000Z");
+});
+
+test("autopilotSlotTimes: DST fall-back week stays on 6am/12pm/6pm wall clock", () => {
+  // US DST ends Sun Nov 1 2026. Slots before the change are EDT (UTC-4),
+  // after are EST (UTC-5) — wall-clock time stays fixed.
+  const now = new Date("2026-10-30T00:00:00Z");
+  const t = autopilotSlotTimes(15, "America/New_York", now);
+  const wallTimes = new Set(
+    t.map((d) =>
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(d)
+    )
+  );
+  assert.deepStrictEqual([...wallTimes].sort(), ["06:00", "12:00", "18:00"]);
+});

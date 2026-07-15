@@ -22,14 +22,14 @@
  */
 
 const db = require("../config/db");
-const { generateWeeklyBatch, reviseAdDraft } = require("../prompts/autopilotPrompt");
+const { generateWeeklyBatch, reviseAdDraft, draftInstantPost } = require("../prompts/autopilotPrompt");
+const { zonedWallTimeToUtc } = require("../utils/timezone");
 const { reviseVoiceDraft } = require("../prompts/voiceContentPrompt");
 const { composePostContent } = require("../prompts/contentCalendarPrompt");
 const { buildImagePrompt } = require("../prompts/imagePromptBuilder");
 const { renderFromPrompt, persistImage } = require("./imageController");
 const {
   PLATFORM_IMAGE_PURPOSE,
-  proposeScheduledTime,
   getUsablePlatforms,
   gatherIntelligence,
   getBrandTimezone,
@@ -77,6 +77,63 @@ function weekStartOf(now = new Date()) {
   const diff = dow === 0 ? 6 : dow - 1;
   d.setUTCDate(d.getUTCDate() - diff);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Fixed Autopilot posting slots (owner's rule, July 2026): 6 AM, 12 PM, and
+ * 6 PM in the brand's timezone — never two posts an hour apart. Slots are
+ * allocated chronologically across the week; posts per day = ceil(count / 7)
+ * capped at 3 slots. Slots less than 30 minutes in the future are skipped so
+ * the first post never fires before the owner can review the batch.
+ */
+const AUTOPILOT_SLOTS = ["06:00", "12:00", "18:00"];
+
+/** Calendar date (Y/M/D) that `date` falls on in the given timezone. */
+function localDateParts(date, timeZone) {
+  // en-CA formats as YYYY-MM-DD.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(date)
+    .split("-")
+    .map(Number);
+  return { y: parts[0], m: parts[1], d: parts[2] };
+}
+
+function autopilotSlotTimes(count, timezone, now = new Date()) {
+  const times = [];
+  if (!Number.isInteger(count) || count <= 0) return times;
+  const perDay = Math.min(AUTOPILOT_SLOTS.length, Math.max(1, Math.ceil(count / 7)));
+  const minLead = 30 * 60 * 1000;
+  // Day iteration is anchored on the BRAND-LOCAL calendar date of `now` (not
+  // the UTC date) so near-midnight-UTC moments in western timezones still see
+  // today's remaining local slots. Calendar day arithmetic runs on the local
+  // Y-M-D via Date.UTC, which is DST-safe (zonedWallTimeToUtc does the
+  // offset conversion per day).
+  const local = localDateParts(now, timezone);
+  const baseUtcMidnight = Date.UTC(local.y, local.m - 1, local.d);
+  // Backstop bound: even if every early slot is in the past we always find
+  // `count` future slots within count/perDay + a few extra days.
+  const maxDays = Math.ceil(count / perDay) + 8;
+  for (let dayOffset = 0; dayOffset < maxDays && times.length < count; dayOffset += 1) {
+    const day = new Date(baseUtcMidnight + dayOffset * 24 * 60 * 60 * 1000);
+    for (let s = 0; s < perDay && times.length < count; s += 1) {
+      const [hh, mm] = AUTOPILOT_SLOTS[s].split(":").map(Number);
+      const utc = zonedWallTimeToUtc(
+        day.getUTCFullYear(),
+        day.getUTCMonth() + 1,
+        day.getUTCDate(),
+        hh,
+        mm,
+        timezone
+      );
+      if (utc.getTime() - now.getTime() >= minLead) times.push(utc);
+    }
+  }
+  return times;
 }
 
 /** Serialized autopilot settings for a brand (defaults when no row yet). */
@@ -411,18 +468,13 @@ async function generateBatchForBrand(batch, brand, settings) {
     try {
       await client.query("BEGIN");
       let position = 0;
-      // Fit the whole batch inside the week (>7 posts/week share days) while
-      // keeping every post at least 4 hours from the previous one.
-      const perDay = Math.max(1, Math.ceil(result.posts.length / 7));
-      let lastPostTime = null;
+      // Fixed posting slots (owner's rule): 6 AM, 12 PM, 6 PM brand-local —
+      // never two posts an hour apart. Slots are allocated chronologically.
+      const slotTimes = autopilotSlotTimes(result.posts.length, timezone);
       for (let i = 0; i < result.posts.length; i += 1) {
         const p = result.posts[i];
         position += 1;
-        const scheduledTime = proposeScheduledTime(i, p.bestPostingTime, p.platform, timezone, new Date(), {
-          notBefore: lastPostTime,
-          perDay,
-        });
-        lastPostTime = scheduledTime;
+        const scheduledTime = slotTimes[i];
         await client.query(
           `INSERT INTO autopilot_batch_items
              (batch_id, position, item_type, platform, post_content, visual_idea,
@@ -984,6 +1036,144 @@ async function postItemNow(req, res) {
 }
 
 /**
+ * POST /api/autopilot/instant-post
+ * Body: { brandId, platform?, topic? }
+ * Drafts ONE brand-new post and adds it to the latest batch as a pending item
+ * scheduled for right now — an EXTRA post on top of the week's fixed slots, so
+ * a spur-of-the-moment post never consumes a scheduled one. The owner still
+ * reviews it (pending) and fires it with "Post instantly".
+ */
+async function createInstantPost(req, res) {
+  const userId = req.user.userId;
+  const { brandId, platform: requestedPlatform, topic } = req.body || {};
+  if (!brandId) return res.status(400).json({ error: "brandId is required" });
+  try {
+    const brand = await getOwnedBrand(userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+    if (brand.is_demo) {
+      return res
+        .status(400)
+        .json({ error: "Demo businesses can't publish to real platforms" });
+    }
+
+    const usable = await getUsablePlatforms(brandId);
+    if (usable.length === 0) {
+      return res.status(409).json({
+        error:
+          "No connected social account to post to — connect one under Social Media first.",
+      });
+    }
+    let platform = usable[0];
+    if (requestedPlatform) {
+      if (!usable.includes(requestedPlatform)) {
+        return res
+          .status(400)
+          .json({ error: `No connected ${requestedPlatform} account for this business` });
+      }
+      platform = requestedPlatform;
+    }
+
+    // Latest batch = where the item lives so it shows in the review queue.
+    // No batch yet (brand-new autopilot) → create today's, empty and ready.
+    let batchRow;
+    const latest = await db.query(
+      `SELECT * FROM autopilot_batches
+        WHERE brand_id = $1
+        ORDER BY week_start DESC, created_at DESC
+        LIMIT 1`,
+      [brandId]
+    );
+    if (latest.rows.length > 0 && latest.rows[0].status === "ready") {
+      batchRow = latest.rows[0];
+    } else {
+      const weekStart = weekStartOf(new Date());
+      const created = await db.query(
+        `INSERT INTO autopilot_batches (brand_id, user_id, week_start, status)
+         VALUES ($1, $2, $3, 'ready')
+         ON CONFLICT (brand_id, week_start)
+         DO UPDATE SET status = autopilot_batches.status
+         RETURNING *`,
+        [brandId, userId, weekStart]
+      );
+      batchRow = created.rows[0];
+      if (batchRow.status !== "ready") {
+        return res.status(409).json({
+          error:
+            "This week's batch is still being drafted — try again in a minute.",
+        });
+      }
+    }
+
+    // Context so the new post doesn't repeat what's already queued this week.
+    const recent = await db.query(
+      `SELECT post_content FROM autopilot_batch_items
+        WHERE batch_id = $1 AND item_type = 'post' AND status <> 'declined'
+        ORDER BY position DESC
+        LIMIT 10`,
+      [batchRow.batch_id]
+    );
+    const draft = await draftInstantPost(
+      brand,
+      platform,
+      recent.rows.map((r) => r.post_content),
+      typeof topic === "string" ? topic.trim().slice(0, 300) : ""
+    );
+
+    // Position allocation locks the batch row (same as decline replacements)
+    // so two simultaneous instant posts can't both claim MAX(position)+1.
+    let inserted;
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const locked = await client.query(
+        "SELECT status FROM autopilot_batches WHERE batch_id = $1 FOR UPDATE",
+        [batchRow.batch_id]
+      );
+      // Re-check under the lock: a concurrent flip (regenerating, failed)
+      // must not sneak a new pending item into a non-ready batch.
+      if (locked.rows[0]?.status !== "ready") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error:
+            "This week's batch is busy right now — try again in a minute.",
+        });
+      }
+      inserted = await client.query(
+        `INSERT INTO autopilot_batch_items
+           (batch_id, position, item_type, platform, post_content,
+            scheduled_time, rationale)
+         SELECT $1, COALESCE(MAX(position), 0) + 1, 'post', $2, $3, NOW(), $4
+           FROM autopilot_batch_items WHERE batch_id = $1
+         RETURNING *`,
+        [
+          batchRow.batch_id,
+          platform,
+          composePostContent(draft),
+          "Instant post you asked Echo to draft — extra, on top of this week's scheduled slots.",
+        ]
+      );
+      await client.query("COMMIT");
+    } catch (e) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    return res.status(201).json({
+      item: itemView(inserted.rows[0]),
+      notice:
+        "Instant post drafted — review it below, then hit Post instantly to publish.",
+    });
+  } catch (err) {
+    console.error("Autopilot instant post error:", err.message);
+    return sendAiError(res, err, "Failed to draft an instant post");
+  }
+}
+
+/**
  * POST /api/autopilot/items/:itemId/decline
  * Declining a POST doesn't leave the time slot empty: Echo immediately drafts
  * a completely different replacement post for the same slot (pending, so the
@@ -1452,6 +1642,8 @@ module.exports = {
   getCurrentBatch,
   approveItem,
   postItemNow,
+  createInstantPost,
+  autopilotSlotTimes,
   declineItem,
   reviseItem,
   generateItemImage,

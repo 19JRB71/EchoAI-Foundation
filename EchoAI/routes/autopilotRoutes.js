@@ -20,6 +20,7 @@ router.get("/batch", autopilot.getCurrentBatch);
 router.post("/run", autopilot.runNow);
 router.post("/items/:itemId/approve", autopilot.approveItem);
 router.post("/items/:itemId/post-now", autopilot.postItemNow);
+router.post("/instant-post", autopilot.createInstantPost);
 router.post("/items/:itemId/decline", autopilot.declineItem);
 router.post("/items/:itemId/revise", autopilot.reviseItem);
 router.post("/items/:itemId/image", autopilot.generateItemImage);

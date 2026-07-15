@@ -91,6 +91,7 @@ export default function Autopilot({ brandId }) {
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [busyItemId, setBusyItemId] = useState("");
+  const [creatingInstant, setCreatingInstant] = useState(false);
   const [reviseFor, setReviseFor] = useState(""); // itemId with the revise box open
   const [reviseText, setReviseText] = useState("");
   const [form, setForm] = useState({
@@ -264,6 +265,30 @@ export default function Autopilot({ brandId }) {
       setError(err.message || failMsg);
     } finally {
       setBusyItemId("");
+    }
+  }
+
+  async function createInstantPost() {
+    setCreatingInstant(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await api.autopilotCreateInstantPost(brandId);
+      if (result.item) {
+        setBatch((prev) =>
+          prev
+            ? { ...prev, items: [...(prev.items || []), result.item] }
+            : { status: "ready", items: [result.item] }
+        );
+      }
+      setNotice(
+        result.notice ||
+          "Instant post drafted — review it below, then hit Post instantly to publish."
+      );
+    } catch (err) {
+      setError(err.message || "Echo couldn't draft an instant post right now.");
+    } finally {
+      setCreatingInstant(false);
     }
   }
 
@@ -442,13 +467,23 @@ export default function Autopilot({ brandId }) {
 
       {/* Current batch */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-semibold text-white">This week's batch</h3>
-          {batch && pendingCount > 0 && (
-            <Badge className={STATUS_STYLES.pending}>
-              {pendingCount} awaiting approval
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {batch && pendingCount > 0 && (
+              <Badge className={STATUS_STYLES.pending}>
+                {pendingCount} awaiting approval
+              </Badge>
+            )}
+            <button
+              onClick={createInstantPost}
+              disabled={creatingInstant}
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
+              title="Draft an extra post to publish right now — doesn't touch this week's scheduled posts"
+            >
+              {creatingInstant ? "Drafting…" : "Create instant post"}
+            </button>
+          </div>
         </div>
 
         {!batch && (

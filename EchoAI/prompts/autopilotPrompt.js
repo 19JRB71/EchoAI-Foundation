@@ -206,4 +206,67 @@ async function reviseAdDraft(brand, item, instruction) {
   return { headline: headline.slice(0, 60), primaryText };
 }
 
-module.exports = { buildWeeklyBatchPrompt, generateWeeklyBatch, reviseAdDraft };
+/**
+ * Drafts ONE brand-new post for immediate publishing — used by the Autopilot
+ * "Create instant post" button so a spur-of-the-moment post never consumes one
+ * of the week's scheduled slots. `recentPosts` (real content only) is passed so
+ * the new post doesn't repeat what's already queued this week.
+ * Returns a validated { postText, hashtags, callToAction }.
+ */
+async function draftInstantPost(brand, platform, recentPosts = [], topic = "") {
+  const systemPrompt = [
+    "You are Echo, Zorecho's autopilot marketing strategist. The business owner",
+    "wants ONE brand-new social post to publish RIGHT NOW, on top of this",
+    "week's scheduled content.",
+    "",
+    `Brand: ${brand.brand_name || "the brand"} — voice: ${brand.voice_description || "clear, friendly, benefit-focused"}`,
+    brand.target_audience ? `Audience: ${brand.target_audience}` : "",
+    `Platform: ${platform} (${PLATFORM_GUIDELINES[platform] || "clear on-brand post"})`,
+    "",
+    topic ? `The owner wants it about: "${topic}"` : "",
+    recentPosts.length
+      ? [
+          "Posts already queued or published this week (do NOT repeat these",
+          "angles, hooks, or topics):",
+          ...recentPosts.slice(0, 10).map((p, i) => `  ${i + 1}. ${String(p).slice(0, 200)}`),
+        ].join("\n")
+      : "",
+    "",
+    "Write a fresh, timely-feeling post in the brand's voice. Never invent",
+    "statistics, testimonials, discounts, or events the owner did not mention.",
+    "",
+    "Return ONLY one JSON object (no prose, no markdown fences):",
+    '{"postText": "...", "hashtags": ["..."], "callToAction": "..."}',
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+
+  const response = await createMessage({
+    model: MODEL,
+    max_tokens: 1536,
+    system: systemPrompt,
+    messages: [
+      { role: "user", content: "Write the post now. Respond with only the JSON object." },
+    ],
+  });
+
+  const text = response.content?.[0]?.text || "";
+  const parsed = extractJsonObject(text);
+  const postText = String(parsed.postText || "").trim();
+  if (!postText) throw invalid("The AI instant post did not contain post copy");
+  const hashtags = Array.isArray(parsed.hashtags)
+    ? parsed.hashtags.map((h) => String(h).trim()).filter(Boolean)
+    : [];
+  return {
+    postText,
+    hashtags,
+    callToAction: String(parsed.callToAction || "").trim(),
+  };
+}
+
+module.exports = {
+  buildWeeklyBatchPrompt,
+  generateWeeklyBatch,
+  reviseAdDraft,
+  draftInstantPost,
+};

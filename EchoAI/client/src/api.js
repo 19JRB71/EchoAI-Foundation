@@ -1705,6 +1705,11 @@ export const api = {
       method: "POST",
       body: {},
     }),
+  autopilotCreateInstantPost: (brandId, topic) =>
+    request("/api/autopilot/instant-post", {
+      method: "POST",
+      body: topic ? { brandId, topic } : { brandId },
+    }),
   autopilotDeclineItem: (itemId) =>
     request(`/api/autopilot/items/${itemId}/decline`, {
       method: "POST",
