@@ -372,3 +372,9 @@ id = "CmpQ_VvVhSw39Um95EEaM"
 uri = "file://screenshots/v5-hero-active.jpg"
 type = "image"
 title = "V5 desktop still — during the briefing"
+
+[[outputs]]
+id = "fISIQfEiRwdb-aWdOsdnC"
+uri = "file://EchoAI/docs/AI_COST_AUDIT.md"
+type = "text"
+title = "Zorecho AI Cost & Margin Audit (Phase 1)"
