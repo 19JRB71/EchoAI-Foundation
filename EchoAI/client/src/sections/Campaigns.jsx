@@ -3,7 +3,7 @@ import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 
-export default function Campaigns() {
+export default function Campaigns({ brandId }) {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -14,14 +14,14 @@ export default function Campaigns() {
     setLoading(true);
     setError("");
     try {
-      const data = await api.getCampaigns();
+      const data = await api.getCampaigns(brandId);
       setCampaigns(data.campaigns || []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [brandId]);
 
   useEffect(() => {
     load();

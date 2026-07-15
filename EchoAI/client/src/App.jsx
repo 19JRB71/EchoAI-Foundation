@@ -1207,7 +1207,7 @@ export default function App() {
                 (canOpenSection("supporters") ? <Supporters brandId={selectedBrandId} /> : null)}
               {section === "properties" &&
                 (canOpenSection("properties") ? <Properties brandId={selectedBrandId} /> : null)}
-              {section === "campaigns" && <Campaigns />}
+              {section === "campaigns" && <Campaigns brandId={selectedBrandId} />}
               {section === "adstudio" && gate("adstudio", <AdStudio brandId={selectedBrandId} />)}
               {section === "social" && (
                 <SocialMedia

@@ -684,7 +684,12 @@ export const api = {
   getLead: (leadId) => request(`/api/leads/${leadId}`),
 
   // Campaigns
-  getCampaigns: () => request("/api/campaigns/performance"),
+  getCampaigns: (brandId) =>
+    request(
+      brandId
+        ? `/api/campaigns/performance?brandId=${encodeURIComponent(brandId)}`
+        : "/api/campaigns/performance"
+    ),
   optimizeCampaigns: () =>
     request("/api/campaigns/optimize", { method: "POST" }),
   connectFacebook: (adAccountId) =>

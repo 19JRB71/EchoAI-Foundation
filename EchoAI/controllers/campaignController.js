@@ -378,16 +378,38 @@ async function optimizeCampaign(req, res) {
  */
 async function getCampaignPerformance(req, res) {
   const userId = req.user.userId;
+  const { brandId } = req.query;
+  if (brandId && !/^[0-9a-f-]{36}$/i.test(String(brandId))) {
+    return res.status(400).json({ error: "Invalid brandId" });
+  }
 
   try {
-    const result = await db.query(
-      `SELECT campaign_id, campaign_name, budget, cost_per_lead, conversion_rate,
-              launch_date, facebook_campaign_id, status
-       FROM campaigns
-       WHERE user_id = $1 AND status = 'active'
-       ORDER BY launch_date DESC`,
-      [userId]
-    );
+    let result;
+    if (brandId) {
+      // Brand-scoped: only the selected brand's campaigns, and only if the
+      // brand belongs to this user (foreign brandId returns nothing).
+      result = await db.query(
+        `SELECT c.campaign_id, c.campaign_name, c.budget, c.cost_per_lead,
+                c.conversion_rate, c.launch_date, c.facebook_campaign_id, c.status
+         FROM campaigns c
+         JOIN brands b ON b.brand_id = c.brand_id AND b.user_id = $1
+         WHERE c.brand_id = $2 AND c.status = 'active'
+         ORDER BY c.launch_date DESC`,
+        [userId, brandId]
+      );
+    } else {
+      // Legacy all-brands view: never let demo-brand campaigns spill into it.
+      result = await db.query(
+        `SELECT c.campaign_id, c.campaign_name, c.budget, c.cost_per_lead,
+                c.conversion_rate, c.launch_date, c.facebook_campaign_id, c.status
+         FROM campaigns c
+         LEFT JOIN brands b ON b.brand_id = c.brand_id
+         WHERE c.user_id = $1 AND c.status = 'active'
+           AND COALESCE(b.is_demo, false) = false
+         ORDER BY c.launch_date DESC`,
+        [userId]
+      );
+    }
 
     const campaigns = result.rows.map((c) => ({
       campaignId: c.campaign_id,
