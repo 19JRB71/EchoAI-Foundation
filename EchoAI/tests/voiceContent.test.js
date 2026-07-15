@@ -60,6 +60,44 @@ test("proposeScheduledTime spreads consecutive drafts across later days", () => 
   assert.ok(third.getTime() - first.getTime() >= 24 * 60 * 60 * 1000);
 });
 
+test("proposeScheduledTime keeps a 4-hour minimum gap when two drafts land on the same day", () => {
+  // James's report: batch generated in the evening — post 0's 09:00 has passed
+  // so it slides to tomorrow, and post 1's 08:30 also lands tomorrow. Without
+  // the gap they end up 30 minutes apart.
+  const now = new Date("2026-07-13T23:00:00Z"); // Monday 7pm Eastern
+  const first = proposeScheduledTime(0, "09:00", "facebook", "America/New_York", now);
+  const second = proposeScheduledTime(1, "08:30", "facebook", "America/New_York", now, {
+    notBefore: first,
+  });
+  assert.ok(
+    second.getTime() - first.getTime() >= 4 * 60 * 60 * 1000,
+    `gap was only ${(second - first) / 3600000}h`
+  );
+});
+
+test("proposeScheduledTime with perDay fits 21 posts in a week, all ≥4h apart", () => {
+  const now = new Date("2026-07-13T23:00:00Z");
+  const perDay = Math.ceil(21 / 7);
+  let last = null;
+  const times = [];
+  for (let i = 0; i < 21; i += 1) {
+    const t = proposeScheduledTime(i, "09:00", "facebook", "America/New_York", now, {
+      notBefore: last,
+      perDay,
+    });
+    times.push(t);
+    last = t;
+  }
+  for (let i = 1; i < times.length; i += 1) {
+    assert.ok(
+      times[i].getTime() - times[i - 1].getTime() >= 4 * 60 * 60 * 1000,
+      `gap under 4h at draft ${i}`
+    );
+  }
+  const spanDays = (times[20].getTime() - times[0].getTime()) / (24 * 60 * 60 * 1000);
+  assert.ok(spanDays <= 7.5, `21 posts spilled across ${spanDays.toFixed(1)} days`);
+});
+
 test("proposeScheduledTime falls back to the platform default on bad input", () => {
   const now = new Date();
   const t = proposeScheduledTime(0, "nonsense", "twitter", "America/New_York", now);

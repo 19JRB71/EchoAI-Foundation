@@ -111,14 +111,28 @@ function normalizeTime(value, platform) {
 
 /**
  * Proposes a UTC scheduled time for draft #position: the AI's suggested
- * wall-clock time in the brand's timezone, on the earliest day (starting today,
- * spread one post per day) that still lands at least 30 minutes in the future.
+ * wall-clock time in the brand's timezone, on the earliest day that still
+ * lands at least 30 minutes in the future.
+ *
+ * Options (both optional, callers scheduling a whole batch should pass them):
+ * - notBefore: Date of the PREVIOUS scheduled post. The returned time is
+ *   always at least MIN_POST_GAP (4h) after it — never two posts 30 minutes
+ *   apart, even when a past suggested time pushes two drafts onto the same
+ *   day. If honoring the gap would shove the post more than 8h past its
+ *   suggested wall-clock time, it slides to the next day instead.
+ * - perDay: how many posts share a day (default 1). Lets >7 posts/week fit
+ *   inside the week instead of spilling into the next one.
  */
-function proposeScheduledTime(position, bestPostingTime, platform, timezone, now = new Date()) {
+const MIN_POST_GAP = 4 * 60 * 60 * 1000;
+
+function proposeScheduledTime(position, bestPostingTime, platform, timezone, now = new Date(), opts = {}) {
   const time = normalizeTime(bestPostingTime, platform);
   const [hh, mm] = time.split(":").map(Number);
   const minLead = 30 * 60 * 1000;
-  for (let dayOffset = position; dayOffset < position + 8; dayOffset += 1) {
+  const perDay = Math.max(1, Math.floor(opts.perDay || 1));
+  const floor = opts.notBefore ? new Date(opts.notBefore).getTime() + MIN_POST_GAP : 0;
+  const startDay = Math.floor(position / perDay);
+  for (let dayOffset = startDay; dayOffset < startDay + 8; dayOffset += 1) {
     const day = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
     const utc = zonedWallTimeToUtc(
       day.getUTCFullYear(),
@@ -128,10 +142,16 @@ function proposeScheduledTime(position, bestPostingTime, platform, timezone, now
       mm,
       timezone
     );
-    if (utc.getTime() - now.getTime() >= minLead) return utc;
+    // Push later the same day if needed to keep the 4h spacing…
+    const candidate = Math.max(utc.getTime(), floor);
+    // …but never more than 8h past the suggested time (no 2am posts) — try
+    // the next day instead.
+    if (candidate - utc.getTime() > 8 * 60 * 60 * 1000) continue;
+    if (candidate - now.getTime() >= minLead) return new Date(candidate);
   }
-  // Unreachable in practice; backstop keeps the invariant "always future".
-  return new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  // Unreachable in practice; backstop keeps the invariants "always future"
+  // and "always ≥4h after the previous post".
+  return new Date(Math.max(now.getTime() + 24 * 60 * 60 * 1000, floor));
 }
 
 /** Connected + publishable platforms for a brand (real connections only). */
@@ -232,14 +252,19 @@ async function storeDrafts(sessionId, brandId, posts) {
   const client = await db.pool.connect();
   try {
     await client.query("BEGIN");
+    const perDay = Math.max(1, Math.ceil(posts.length / 7));
+    let lastPostTime = null;
     for (let i = 0; i < posts.length; i += 1) {
       const p = posts[i];
       const scheduledTime = proposeScheduledTime(
         i,
         p.bestPostingTime,
         p.platform,
-        timezone
+        timezone,
+        new Date(),
+        { notBefore: lastPostTime, perDay }
       );
+      lastPostTime = scheduledTime;
       await client.query(
         `INSERT INTO voice_content_drafts
            (session_id, position, platform, post_content, visual_idea, rationale, scheduled_time)

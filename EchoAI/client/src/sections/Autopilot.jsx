@@ -155,6 +155,19 @@ export default function Autopilot({ brandId }) {
     }
   }
 
+  // Checkbox toggles save immediately — leaving the page and coming back must
+  // never silently re-check a box the owner unchecked. If both end up off
+  // while autopilot is on, autopilot turns off too (nothing left to draft).
+  function toggleInclude(key, checked) {
+    const next = { ...form, [key]: checked };
+    setForm(next);
+    const postsPerWeek = next.includePosts ? Math.max(1, Number(next.postsPerWeek) || 0) : 0;
+    const adsPerWeek = next.includeAds ? Math.max(1, Number(next.adsPerWeek) || 0) : 0;
+    const extra = { postsPerWeek, adsPerWeek };
+    if (settings?.enabled && postsPerWeek === 0 && adsPerWeek === 0) extra.enabled = false;
+    saveSettings(extra);
+  }
+
   // Turning autopilot ON mid-week drafts the first batch right away — no
   // waiting until next Monday. Skipped when a batch is already generating or
   // still has items awaiting review.
@@ -320,13 +333,13 @@ export default function Autopilot({ brandId }) {
                   <input
                     type="checkbox"
                     checked={form.includePosts}
-                    onChange={(e) => setForm((f) => ({ ...f, includePosts: e.target.checked }))}
+                    onChange={(e) => toggleInclude("includePosts", e.target.checked)}
                     className="h-4 w-4 accent-pink-500"
                   />
                   Social posts <span className="font-normal text-pink-300">(Nova)</span>
                 </label>
                 <label className={`mt-2 block text-sm ${form.includePosts ? "text-gray-300" : "text-gray-600"}`}>
-                  Posts per week
+                  Posts per week (7 = 1 a day, 21 = 3 a day)
                   <input
                     type="number"
                     min="1"
@@ -347,11 +360,16 @@ export default function Autopilot({ brandId }) {
                   <input
                     type="checkbox"
                     checked={form.includeAds}
-                    onChange={(e) => setForm((f) => ({ ...f, includeAds: e.target.checked }))}
+                    onChange={(e) => toggleInclude("includeAds", e.target.checked)}
                     className="h-4 w-4 accent-indigo-500"
                   />
                   Test ads <span className="font-normal text-indigo-300">(Atlas)</span>
                 </label>
+                <div className={`mt-1 text-xs ${form.includeAds ? "text-gray-500" : "text-gray-600"}`}>
+                  Each ad you approve launches as one Facebook campaign that runs
+                  continuously at its daily budget — ads aren't posted throughout
+                  the day like posts. 1 a week is plenty for most businesses.
+                </div>
                 <label className={`mt-2 block text-sm ${form.includeAds ? "text-gray-300" : "text-gray-600"}`}>
                   Test ads per week
                   <input

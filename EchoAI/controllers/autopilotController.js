@@ -411,9 +411,18 @@ async function generateBatchForBrand(batch, brand, settings) {
     try {
       await client.query("BEGIN");
       let position = 0;
+      // Fit the whole batch inside the week (>7 posts/week share days) while
+      // keeping every post at least 4 hours from the previous one.
+      const perDay = Math.max(1, Math.ceil(result.posts.length / 7));
+      let lastPostTime = null;
       for (let i = 0; i < result.posts.length; i += 1) {
         const p = result.posts[i];
         position += 1;
+        const scheduledTime = proposeScheduledTime(i, p.bestPostingTime, p.platform, timezone, new Date(), {
+          notBefore: lastPostTime,
+          perDay,
+        });
+        lastPostTime = scheduledTime;
         await client.query(
           `INSERT INTO autopilot_batch_items
              (batch_id, position, item_type, platform, post_content, visual_idea,
@@ -425,7 +434,7 @@ async function generateBatchForBrand(batch, brand, settings) {
             p.platform,
             composePostContent(p),
             p.visualIdea,
-            proposeScheduledTime(i, p.bestPostingTime, p.platform, timezone),
+            scheduledTime,
             p.rationale || null,
           ]
         );
