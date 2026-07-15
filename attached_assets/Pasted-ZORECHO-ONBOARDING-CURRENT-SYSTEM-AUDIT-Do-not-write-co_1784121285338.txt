@@ -1,0 +1,148 @@
+ZORECHO ONBOARDING — CURRENT SYSTEM AUDIT
+
+Do not write code yet.
+
+Before we make any changes to onboarding, I need a complete plain-English summary of the onboarding experience that already exists in Zorecho.
+
+The purpose of this audit is to understand what has already been built, what Echo currently does, what the customer sees, and what is still missing.
+
+Review the complete onboarding flow
+
+Please inspect every onboarding-related page, component, route, API, voice interaction, setup wizard, tour, calibration step, and integration flow.
+
+Include:
+
+First-time login experience
+Business information setup
+Facebook connection
+Instagram connection
+Google account connection
+Gmail
+Calendar
+Google Business Profile
+Website connection or website analysis
+Phone and Twilio setup
+SMS setup
+CRM setup
+Email marketing setup
+Push notifications
+Voice calibration
+Echo setup agent
+Guided tour
+Skip or “do later” behavior
+Setup progress tracking
+Completion screen
+Transition into Mission Control
+Any onboarding reminders shown later
+Mobile onboarding behavior
+Echo’s current role
+
+Explain exactly what Echo currently does during onboarding.
+
+I need to know:
+
+Does Echo speak automatically?
+Which steps include voice narration?
+Does Echo explain why each connection matters?
+Does Echo respond to the user conversationally?
+Can the user interrupt or ask questions?
+Does Echo detect when a step succeeds or fails?
+Does Echo confirm successful connections?
+Does Echo navigate the user to the next step?
+Does Echo remember where the customer stopped?
+Does Echo personalize onboarding based on the business?
+Does Echo give the Mission Control tour?
+Can the tour be replayed later?
+Customer journey
+
+Write the current onboarding journey in order, step by step, from:
+
+New customer creates an account
+First login
+Setup begins
+Integrations are connected
+Setup is skipped or interrupted
+Setup is completed
+Customer enters Mission Control
+Customer receives the tour
+
+For every step, include:
+
+What the customer sees
+What the customer hears
+What they must click or enter
+Whether the step is required or optional
+What happens when it succeeds
+What happens when it fails
+Where the customer is sent next
+Existing files and components
+
+List the exact files, components, routes, endpoints, database fields, and background jobs involved in onboarding.
+
+Group them by:
+
+Frontend
+Backend
+Database
+Voice
+Integrations
+Tour
+Progress tracking
+Tests
+Current strengths
+
+Identify what is already working well and should be preserved.
+
+Current gaps
+
+Identify what is missing or incomplete, especially:
+
+Places where Echo does not speak
+Places where Echo sounds scripted rather than conversational
+Places where the customer must figure out what to do alone
+Steps that are confusing
+Duplicate setup flows
+Broken or incomplete integrations
+Missing success/failure confirmations
+Weak transitions
+Tour gaps
+Mobile problems
+Accessibility problems
+Anything that could overwhelm a nontechnical business owner
+Skip behavior
+
+Explain the current “Skip,” “Do Later,” or incomplete-setup behavior.
+
+Include:
+
+Which steps can be skipped
+Whether the customer can enter Mission Control with incomplete setup
+How incomplete integrations appear afterward
+Whether Echo reminds them to finish
+Whether agents appear offline or limited
+How they return to setup
+Whether progress is saved
+Recommendation
+
+After the audit, recommend the smallest set of changes needed to make onboarding feel like Echo is personally walking the customer through the entire experience.
+
+Do not recommend rebuilding the onboarding from scratch unless the current architecture truly requires it.
+
+Required response format
+
+Return:
+
+Executive summary
+Step-by-step customer journey
+Echo’s current behavior
+Files and system architecture
+What is already complete
+What is missing
+Risks and dependencies
+Recommended improvements in priority order
+Estimated effort
+Questions that require my decision
+
+Do not modify any code.
+
+Stop after delivering the audit and wait for approval.
