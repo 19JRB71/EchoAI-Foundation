@@ -137,11 +137,6 @@ function ReferenceLibrary({ brandId }) {
   // Ctrl/Cmd+V while on this page — it uploads straight into the library.
   useEffect(() => {
     const onPaste = (e) => {
-      // Don't hijack pastes into text inputs (e.g. the caption field).
-      const t = e.target;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
-        return;
-      }
       const items = e.clipboardData && e.clipboardData.items;
       if (!items) return;
       const files = [];
@@ -151,6 +146,9 @@ function ReferenceLibrary({ brandId }) {
           if (f) files.push(f);
         }
       }
+      // Only hijack the paste when it actually contains an image. Plain text
+      // pastes (e.g. into the caption field) are left alone — so pasting a
+      // picture works no matter where the cursor is on this page.
       if (files.length) {
         e.preventDefault();
         uploadFiles(files);
