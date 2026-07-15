@@ -1,0 +1,167 @@
+Onboarding Audit Approved — Refine, Don't Rebuild
+
+Excellent work on the audit.
+
+After reviewing the current onboarding architecture, I do not want to rebuild the onboarding experience.
+
+The existing architecture is approved.
+
+Our objective is now to transform it from a setup wizard into an experience where customers genuinely feel that Echo is personally helping them build their AI company.
+
+Priority 1 — Echo Should Feel Alive
+
+Keep the current onboarding flow exactly as it is.
+
+Instead, improve Echo's interaction throughout the process.
+
+Echo should:
+
+Speak naturally instead of sounding scripted.
+Explain why each step matters.
+Congratulate the customer when a connection succeeds.
+Reassure the customer if a connection fails.
+Smoothly transition to the next step.
+
+Example:
+
+"Excellent. Your Facebook account is connected."
+
+"Nova can now begin preparing your social media."
+
+"Let's move on to Google."
+
+The customer should feel like Echo is working beside them.
+
+Priority 2 — Connection Confirmations
+
+Whenever an integration succeeds, Echo should immediately acknowledge it.
+
+Examples:
+
+Facebook connected
+
+Google connected
+
+Calendar connected
+
+Phone connected
+
+Website analyzed
+
+CRM connected
+
+The customer should never wonder whether something worked.
+
+Priority 3 — Finish the Thin Sections
+
+The audit identified that Team and Completion have minimal narration.
+
+Expand these.
+
+Completion should become a celebration.
+
+Example:
+
+"Congratulations."
+
+"Your AI company is now online."
+
+"While you enjoy your coffee, my team is already getting to work."
+
+"Would you like a quick tour of Mission Control?"
+
+Priority 4 — Automatic Mission Control Tour
+
+When onboarding completes:
+
+Automatically ask:
+
+"Would you like me to give you a two-minute tour?"
+
+If yes:
+
+Launch the guided Mission Control walkthrough.
+
+If no:
+
+Allow the tour to be started later.
+
+Priority 5 — Setup Checklist
+
+The audit mentioned additional integrations that are not represented yet.
+
+Instead of redesigning onboarding, create a visible Setup Checklist.
+
+Examples:
+
+Facebook
+
+Instagram
+
+Google
+
+Calendar
+
+Phone
+
+Website
+
+CRM
+
+Business Profile
+
+Email
+
+Google Business Profile
+
+Completed items receive a green check.
+
+Missing items remain available later.
+
+Priority 6 — Skip Behavior
+
+Keep "Do Later" during private beta.
+
+However:
+
+When a customer skips onboarding,
+
+Mission Control should clearly indicate:
+
+"Your AI company is operating with limited capabilities until setup is completed."
+
+Echo should occasionally remind the customer about missing connections without becoming annoying.
+
+Priority 7 — Personalization
+
+Before onboarding finishes,
+
+Echo should ask several personalization questions such as:
+
+How involved would you like me to be?
+Do you prefer daily briefings?
+Should I notify you immediately about important issues?
+Do you prefer concise or detailed explanations?
+
+These preferences should become part of Echo's personality for that customer.
+
+Priority 8 — Do Not Rebuild
+
+The onboarding architecture is approved.
+
+Do not redesign the wizard.
+
+Do not rewrite working components.
+
+Focus only on making the experience feel more conversational, more personal, and more polished.
+
+Deliverables
+
+Before implementing, provide:
+
+The specific onboarding screens that will change.
+The new Echo dialogue for each screen.
+Screenshots of any visual changes.
+The updated onboarding flow.
+
+After approval, implement the changes.
