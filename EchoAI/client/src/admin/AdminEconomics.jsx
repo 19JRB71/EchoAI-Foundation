@@ -97,26 +97,40 @@ export default function AdminEconomics() {
     <div className="space-y-6">
       <p className="text-xs text-gray-500">{data.basis}</p>
 
+      {/* Headline four (CEO-approved order): revenue, cost, profit, margin. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Monthly revenue (run-rate)"
+          label="Monthly revenue"
           value={money(r.totalMonthly)}
-          hint={`${r.payingCustomers ?? 0} paying customers`}
+          hint={`${r.payingCustomers ?? 0} paying customers (run-rate)`}
         />
         <MetricCard
-          label="AI cost month-to-date"
+          label="Total AI cost"
           value={money(c.totalMonthToDate)}
-          hint={`${(c.callsMonthToDate ?? 0).toLocaleString()} operations`}
+          hint={`Month-to-date — ${(c.callsMonthToDate ?? 0).toLocaleString()} operations`}
         />
         <MetricCard
           label="Gross profit"
           value={money(m.grossProfit)}
-          hint={`Margin ${pct(m.grossMarginPct)}`}
+          hint="Revenue minus AI cost, month-to-date"
         />
         <MetricCard
-          label="Projected AI bill"
+          label="Gross margin %"
+          value={pct(m.grossMarginPct)}
+          hint="Month-to-date"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Projected month-end AI cost"
           value={money(p.projectedMonthlyAiBill)}
-          hint={`Projected margin ${pct(p.projectedGrossMarginPct)}`}
+          hint="Straight-line projection from month-to-date"
+        />
+        <MetricCard
+          label="Projected month-end gross margin"
+          value={pct(p.projectedGrossMarginPct)}
+          hint={`Projected profit ${money(p.projectedGrossProfit)}`}
         />
         <MetricCard
           label="AI cost / customer"

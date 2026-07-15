@@ -27,6 +27,25 @@ function capacityBudgetFor(tier) {
   }
 }
 
+// Customer-friendly usage categories. Feature keys are free-form internally,
+// so we bucket by pattern; order matters (first match wins). Anything that
+// doesn't match falls into "Other tasks".
+const USAGE_CATEGORIES = [
+  { key: "voice_calls", label: "Voice Calls", re: /voice|phone|call|tts|sound|elevenlabs|receptionist/i },
+  { key: "content_creation", label: "Content Creation", re: /content|image|ad_studio|ad[-_ ]creative|social|video|email_marketing|email_send|calendar|seo|script|creative|post/i },
+  { key: "research", label: "Research", re: /research|intelligence|scout|competitor|discovery|market|self[-_ ]review/i },
+  { key: "lead_automation", label: "Lead Automation", re: /lead|autonomous|crm|sms|capture|appointment|sales|chatbot|drip|feedback|webhook/i },
+  { key: "echo_conversations", label: "Echo Conversations", re: /echo|conversational|chat|briefing|orchestrator|memory|assistant|hermes|intent|reply/i },
+];
+
+function categorizeFeature(feature) {
+  const f = String(feature || "");
+  for (const c of USAGE_CATEGORIES) {
+    if (c.re.test(f)) return c.key;
+  }
+  return "other";
+}
+
 function capacityStatus(pct) {
   if (pct >= 100) return "at_capacity";
   if (pct >= 85) return "high";
@@ -41,7 +60,7 @@ function capacityStatus(pct) {
 async function getCapacity(req, res) {
   try {
     const userId = req.user.userId;
-    const [subRow, usage] = await Promise.all([
+    const [subRow, usage, byFeature] = await Promise.all([
       db.query(
         "SELECT subscription_tier FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
         [userId],
@@ -53,6 +72,14 @@ async function getCapacity(req, res) {
            FROM ai_usage_log
           WHERE user_id::text = $1::text
             AND at >= date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,
+        [String(userId)],
+      ),
+      db.query(
+        `SELECT feature, COUNT(*) AS operations
+           FROM ai_usage_log
+          WHERE user_id::text = $1::text
+            AND at >= date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+          GROUP BY feature`,
         [String(userId)],
       ),
     ]);
@@ -70,9 +97,26 @@ async function getCapacity(req, res) {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0),
     ).getUTCDate();
 
+    // "What's using my AI Workforce?" — task counts per customer-friendly
+    // category. Counts only, never dollars.
+    const catCounts = {};
+    for (const row of byFeature.rows) {
+      const key = categorizeFeature(row.feature);
+      catCounts[key] = (catCounts[key] || 0) + (Number(row.operations) || 0);
+    }
+    const usageBreakdown = [
+      ...USAGE_CATEGORIES.map((c) => ({
+        key: c.key,
+        label: c.label,
+        tasks: catCounts[c.key] || 0,
+      })),
+      ...(catCounts.other ? [{ key: "other", label: "Other tasks", tasks: catCounts.other }] : []),
+    ].sort((a, b) => b.tasks - a.tasks);
+
     res.json({
       tier,
       percentUsed,
+      usageBreakdown,
       status: capacityStatus(rawPct),
       operationsThisMonth: Number(usage.rows[0].operations) || 0,
       backgroundOperationsThisMonth:
@@ -91,4 +135,4 @@ async function getCapacity(req, res) {
   }
 }
 
-module.exports = { getCapacity, capacityBudgetFor };
+module.exports = { getCapacity, capacityBudgetFor, categorizeFeature };
