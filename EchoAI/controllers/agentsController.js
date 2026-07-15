@@ -87,6 +87,14 @@ const AGENTS = [
     blurb: "Studying your industry around the clock so your team always has the smartest possible strategy.",
     section: "sage",
   },
+  {
+    id: "vision",
+    name: "Vision",
+    title: "Visual Intelligence Agent",
+    color: "#0EA5E9",
+    blurb: "Studying your industry's visual landscape so every image Forge creates looks real, professional, and on-trend.",
+    section: "vision",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -196,6 +204,10 @@ async function computeAgents(userId, brand) {
   const sageUrgent = bid ? await n("SELECT COUNT(*)::int AS n FROM sage_intelligence_feed WHERE brand_id = $1 AND dismissed_at IS NULL AND urgent = true AND created_at > NOW() - INTERVAL '7 days'", [bid]) : 0;
   const sageCompetitors = bid ? await n("SELECT COUNT(*)::int AS n FROM sage_competitors WHERE brand_id = $1 AND status = 'confirmed'", [bid]) : 0;
 
+  const visionRow = bid ? (await rows("SELECT confidence, version, last_studied_at FROM vision_knowledge WHERE brand_id = $1", [bid]))[0] || null : null;
+  const visionStudiesWeek = bid ? await n("SELECT COUNT(*)::int AS n FROM vision_study_runs WHERE brand_id = $1 AND status = 'completed' AND started_at > NOW() - INTERVAL '7 days'", [bid]) : 0;
+  const visionConsultsWeek = bid ? await n("SELECT COUNT(*)::int AS n FROM vision_guidance_log WHERE brand_id = $1 AND created_at > NOW() - INTERVAL '7 days'", [bid]) : 0;
+
   const byId = {
     echo: {
       status: proposals > 0 || (echoRow && echoRow.pending_action) ? "working" : "active",
@@ -279,6 +291,17 @@ async function computeAgents(userId, brand) {
         { label: "Competitors watched", value: sageCompetitors },
       ],
     },
+    vision: {
+      status: "active",
+      currentTask: visionRow
+        ? `Visual knowledge v${visionRow.version} — ${visionRow.confidence}% confidence`
+        : "Preparing to study your industry's visual landscape",
+      weekly: [
+        { label: "Studies (7d)", value: visionStudiesWeek },
+        { label: "Forge consults (7d)", value: visionConsultsWeek },
+        { label: "Confidence", value: visionRow ? visionRow.confidence : 0 },
+      ],
+    },
   };
 
   return AGENTS.map((a) => ({ ...a, ...byId[a.id] }));
@@ -328,6 +351,7 @@ async function getAgentDetail(req, res) {
         scout: ["SELECT competitor_names, created_at FROM competitor_intelligence WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 10", (r) => ({ title: "Competitor report", meta: Array.isArray(r.competitor_names) ? r.competitor_names.join(", ") : "", ts: r.created_at })],
         sentinel: ["SELECT overall_status, issues_found, issues_auto_fixed, check_time FROM health_checks WHERE brand_id = $1 ORDER BY check_time DESC LIMIT 10", (r) => ({ title: `Health sweep — ${r.overall_status}`, meta: `${r.issues_found || 0} found · ${r.issues_auto_fixed || 0} fixed`, ts: r.check_time })],
         sage: ["SELECT summary, why_it_matters, source_type, urgent, created_at FROM sage_intelligence_feed WHERE brand_id = $1 AND dismissed_at IS NULL ORDER BY created_at DESC LIMIT 10", (r) => ({ title: r.summary, meta: `${r.source_type || "industry"}${r.urgent ? " · urgent" : ""}`, detail: r.why_it_matters, ts: r.created_at })],
+        vision: ["SELECT status, trigger, summary, error, started_at FROM vision_study_runs WHERE brand_id = $1 ORDER BY started_at DESC LIMIT 10", (r) => ({ title: r.status === "completed" ? "Visual study completed" : r.status === "failed" ? "Visual study failed" : "Visual study running", meta: r.trigger, detail: r.summary || r.error || "", ts: r.started_at })],
       };
       if (agentId === "echo") {
         activity = (await rows("SELECT title, detail, event_type, occurred_at FROM echo_memory WHERE user_id = $1 ORDER BY occurred_at DESC LIMIT 10", [userId]))

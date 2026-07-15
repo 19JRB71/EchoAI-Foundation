@@ -113,8 +113,8 @@ function coreStateOf(conv, voice) {
 
 export default function CoreHero({ agents, onOpenDepartment, statusLine, healthy = true }) {
   const roster = Array.isArray(agents) ? agents : [];
-  const left = roster.filter((a) => ["echo", "scout", "atlas", "nova"].includes(a.id));
-  const right = roster.filter((a) => !["echo", "scout", "atlas", "nova"].includes(a.id));
+  const left = roster.filter((a) => ["echo", "scout", "atlas", "nova", "vision"].includes(a.id));
+  const right = roster.filter((a) => !["echo", "scout", "atlas", "nova", "vision"].includes(a.id));
   const conv = useEchoConversation();
   const voice = useVoice();
   const coreState = coreStateOf(conv, voice);

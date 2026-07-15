@@ -22,6 +22,7 @@ export const AGENTS_META = [
   { id: "forge", name: "Forge", title: "Creative Director", color: "#EAB308" },
   { id: "sentinel", name: "Sentinel", title: "Oversight Agent", color: "#EF4444" },
   { id: "sage", name: "Sage", title: "Industry Intelligence Agent", color: "#059669" },
+  { id: "vision", name: "Vision", title: "Visual Intelligence Agent", color: "#0EA5E9" },
 ];
 
 export const AGENT_IDS = AGENTS_META.map((a) => a.id);
@@ -95,6 +96,12 @@ export const DEPARTMENTS = {
     { label: "Marketing Insights", desc: "Actionable recommendations drawn from live industry intelligence.", section: "sage", tab: "insights" },
     { label: "Intelligence Input", desc: "Feed Sage links, competitor pages, images or documents to analyze.", section: "sage", tab: "input" },
   ],
+  vision: [
+    { label: "Visual Knowledge Base", desc: "What Vision has learned about your industry's winning visuals — growing with every study.", section: "vision", tab: "knowledge" },
+    { label: "Study Activity", desc: "Every study run and its real sources, plus each time Forge consulted Vision.", section: "vision", tab: "activity" },
+    { label: "Image Studio", desc: "Forge's image generator — now guided by Vision's visual intelligence.", section: "image" },
+    { label: "Ad Creative Studio", desc: "Forge's ad packages — visual direction sharpened by Vision.", section: "adstudio" },
+  ],
 };
 
 export function departmentTools(agentId) {
@@ -147,6 +154,7 @@ export const SECTION_TITLES = {
   supporters: "Voter CRM",
   properties: "Property CRM",
   sage: "Sage · Industry Intelligence",
+  vision: "Vision · Visual Intelligence",
   corelab: "Conversational Core Lab",
 };
 

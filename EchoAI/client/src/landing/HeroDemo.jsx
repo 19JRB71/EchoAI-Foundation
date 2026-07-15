@@ -6,12 +6,12 @@ import { DEMO_STEPS, BRIEFING_ROWS, stepDurationMs } from "./heroDemoScript.js";
 
 // Zorecho landing hero — "entrance to Zorecho Headquarters". The Core is the
 // unmistakable focal point: enlarged, wrapped in layered rings, bloom, and
-// ambient particles, with the nine agents connected around it. The example
+// ambient particles, with the ten agents connected around it. The example
 // briefing builds dynamically as Echo speaks. Reuses the SAME ZorechoCore
 // component as Mission Control (no visual fork). Nothing autoplays: the demo
 // starts only on click, using pre-generated static audio files.
 
-const LEFT_AGENTS = ["echo", "scout", "atlas", "nova"];
+const LEFT_AGENTS = ["echo", "scout", "atlas", "nova", "vision"];
 const RIGHT_AGENTS = ["pulse", "voice", "forge", "sentinel", "sage"];
 
 // Middle nav items link to the live marketing site — dedicated pages don't

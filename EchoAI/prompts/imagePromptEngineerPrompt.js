@@ -129,6 +129,9 @@ function buildSystemPrompt(brand, purpose, contentDescription, hasReference) {
         ].join("\n")
       : "",
     sageBlock(brand._sageContext),
+    // Vision's visual knowledge base for this brand's industry (fail-open:
+    // empty string when Vision has nothing yet — never blocks generation).
+    brand._visionGuidance ? `\n${brand._visionGuidance}\n` : "",
     "",
     `Design EXACTLY ${NUM_PROMPTS} distinct image-generation prompts. Each must be a complete, ready-to-use prompt that explicitly specifies:`,
     "- the visual style,",

@@ -4,6 +4,7 @@ const crypto = require("crypto");
 
 const db = require("../config/db");
 const { sageContextForBrand } = require("../utils/sageContext");
+const { getGuidanceForImageRequest } = require("../utils/visionEngine");
 const { openai } = require("../config/openai");
 const { toFile } = require("openai");
 const {
@@ -310,6 +311,14 @@ async function generateImage(req, res) {
     }
 
     brand._sageContext = await sageContextForBrand(brand.brand_id);
+    // Consult Vision's visual knowledge base (fail-open — null when Vision
+    // hasn't studied this brand yet; generation is never blocked).
+    const visionGuidance = await getGuidanceForImageRequest({
+      brandId: brand.brand_id,
+      requester: "forge_image_studio",
+      requestSummary: `${purpose}: ${description.trim().slice(0, 200)}`,
+    });
+    brand._visionGuidance = visionGuidance ? visionGuidance.text : null;
     const meta = purposeMeta(purpose);
     const results = await Promise.all(
       Array.from({ length: variations }, (_, i) =>
@@ -404,6 +413,13 @@ async function generateImagePrompts(req, res) {
 
     const resolvedPurpose = isPurpose(purpose) ? purpose : "instagram_post";
     const meta = purposeMeta(resolvedPurpose);
+    // Consult Vision before engineering prompts (fail-open, never blocks).
+    const visionGuidance = await getGuidanceForImageRequest({
+      brandId: brand.brand_id,
+      requester: "forge_image_studio",
+      requestSummary: `${resolvedPurpose}: ${description.trim().slice(0, 200)}`,
+    });
+    brand._visionGuidance = visionGuidance ? visionGuidance.text : null;
     const prompts = await engineerImagePrompts(
       brand,
       resolvedPurpose,

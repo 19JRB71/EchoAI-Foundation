@@ -9,6 +9,7 @@ const {
   validateCreativePackages,
 } = require("../prompts/adCreativeStudioPrompt");
 const { isPolitical, ensureDisclaimer } = require("../utils/politicalContext");
+const { getGuidanceForImageRequest } = require("../utils/visionEngine");
 const { fbGeoLocations } = require("../utils/geoTargeting");
 
 // Maps an Zorecho campaign goal to a Facebook campaign objective.
@@ -139,6 +140,14 @@ async function generateCreativePackagesForBrand(brand, opts = {}) {
     ? intelResult.rows[0].intelligence_report
     : null;
 
+  // Consult Vision's visual knowledge base for the visual-direction sections
+  // (fail-open — null when Vision hasn't studied this brand; never blocks).
+  const visionGuidance = await getGuidanceForImageRequest({
+    brandId: brand.brand_id,
+    requester: "forge_ad_studio",
+    requestSummary: `ad creative: ${String(campaignGoal || "").slice(0, 120)} ${String(productFocus || "").slice(0, 80)}`.trim(),
+  });
+
   const prompt = buildAdCreativeStudioPrompt({
     brand,
     campaignGoal,
@@ -147,6 +156,7 @@ async function generateCreativePackagesForBrand(brand, opts = {}) {
     businessType,
     discoveryProfile,
     competitorIntel,
+    visionGuidance: visionGuidance ? visionGuidance.text : null,
   });
 
   let response;

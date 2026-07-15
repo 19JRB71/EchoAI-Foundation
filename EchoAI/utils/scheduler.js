@@ -757,6 +757,20 @@ function startScheduler() {
     run: runCompetitorSiteMonitor,
   });
 
+  // 04:30 daily: Vision studies each real brand's visual landscape — Scout's
+  // competitor ad observations + the brand's own image library, distilled with
+  // Claude's industry expertise into the growing visual knowledge base Forge
+  // consults before every image. Honest sources only; per-brand guard inside.
+  scheduleJob({
+    name: "vision-daily-study",
+    cronExpr: "30 4 * * *",
+    ai: true,
+    run: () => {
+      const { runDailyVisionStudy } = require("./visionEngine");
+      return runDailyVisionStudy();
+    },
+  });
+
   // Mondays 08:30 (non-AI: deterministic roll-up): Scout rolls up the week's
   // meaningful competitor-website changes across each brand's tracked sites
   // into one owner summary (voice + push). Enterprise gate + at-most-once-per-

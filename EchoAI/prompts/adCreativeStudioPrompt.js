@@ -92,6 +92,7 @@ function buildAdCreativeStudioPrompt({
   businessType,
   discoveryProfile,
   competitorIntel,
+  visionGuidance,
 } = {}) {
   const name = brand.brand_name || "the brand";
   const personality = brand.brand_personality || "professional and approachable";
@@ -136,6 +137,14 @@ function buildAdCreativeStudioPrompt({
   }
   if (competitorIntel) {
     lines.push("", "COMPETITIVE POSITIONING", compact(competitorIntel));
+  }
+  if (visionGuidance) {
+    lines.push(
+      "",
+      "VISUAL INTELLIGENCE (from Vision, Zorecho's visual-intelligence agent)",
+      visionGuidance,
+      "Apply this guidance to every imageDescription and videoScript scene so visuals are structurally accurate, realistic, and on-trend — always completely original, never copying any company's artwork."
+    );
   }
 
   lines.push(

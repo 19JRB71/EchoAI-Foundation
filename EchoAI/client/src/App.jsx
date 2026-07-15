@@ -30,6 +30,7 @@ import CompetitorAds from "./sections/CompetitorAds.jsx";
 import Autopilot from "./sections/Autopilot.jsx";
 import CompetitorSites from "./sections/CompetitorSites.jsx";
 import Sage from "./sections/Sage.jsx";
+import Vision from "./sections/Vision.jsx";
 import Portfolio from "./sections/Portfolio.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
@@ -1274,6 +1275,12 @@ export default function App() {
                 <Sage
                   brandId={selectedBrandId}
                   initialTab={activeToolTab || "brief"}
+                />
+              )}
+              {section === "vision" && (
+                <Vision
+                  brandId={selectedBrandId}
+                  initialTab={activeToolTab || "knowledge"}
                 />
               )}
               {section === "reputation" &&

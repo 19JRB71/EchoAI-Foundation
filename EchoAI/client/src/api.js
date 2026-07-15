@@ -308,6 +308,14 @@ export const api = {
     return data;
   },
 
+  // Vision — Visual Intelligence Agent (ungated / all-tier, like Sage).
+  getVisionOverview: (brandId) =>
+    request(`/api/vision/overview?brandId=${encodeURIComponent(brandId)}`),
+  runVisionStudy: (brandId) =>
+    request("/api/vision/study", { method: "POST", body: { brandId } }),
+  getVisionActivity: (brandId) =>
+    request(`/api/vision/activity?brandId=${encodeURIComponent(brandId)}`),
+
   // Sage — Industry Intelligence Agent (ungated / all-tier; access is
   // brand-owner-scoped like other brand resources).
   getSageBrief: (brandId) =>

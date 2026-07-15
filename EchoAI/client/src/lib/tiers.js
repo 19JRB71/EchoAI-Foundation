@@ -115,6 +115,8 @@ export const SECTION_TIERS = {
   properties: "starter",
   echoplanner: "starter",
   echoemail: "starter",
+  sage: "starter",
+  vision: "starter",
   settings: "starter",
   // Professional
   adstudio: "pro",
