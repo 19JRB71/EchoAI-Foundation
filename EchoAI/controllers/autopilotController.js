@@ -439,22 +439,14 @@ async function generateBatchForBrand(batch, brand, settings) {
       );
     }
 
-    // Ads need a connected Facebook ad account; without one this week's batch
-    // honestly contains no ads rather than drafts doomed to fail at launch.
-    let adsPerWeek = settings.adsPerWeek;
-    if (adsPerWeek > 0) {
-      const fb = await db.query(
-        `SELECT 1 FROM api_integrations
-          WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected'`,
-        [userId]
-      );
-      if (fb.rows.length === 0) adsPerWeek = 0;
-    }
+    // Autopilot is posts-only (product decision, July 2026): ads are Atlas's
+    // job in Ad Campaigns. Hard-zero here too — saveSettings coerces new saves
+    // to 0, but legacy settings rows written before that decision can still
+    // carry ads_per_week > 0, and this generation path must never honor them.
+    const adsPerWeek = 0;
 
-    if (settings.postsPerWeek === 0 && adsPerWeek === 0) {
-      throw new Error(
-        "Nothing can be drafted this week: no posts are configured and no Facebook ad account is connected."
-      );
+    if (settings.postsPerWeek === 0) {
+      throw new Error("Nothing can be drafted this week: no posts are configured.");
     }
 
     const intel = await gatherIntelligence(brand, platforms);
