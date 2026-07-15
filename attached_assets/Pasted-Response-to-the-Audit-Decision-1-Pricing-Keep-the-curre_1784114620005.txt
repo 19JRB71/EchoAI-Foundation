@@ -1,0 +1,167 @@
+Response to the Audit
+Decision 1 — Pricing
+
+Keep the current pricing:
+
+Starter: $197/month
+Professional: $497/month
+Enterprise: $997/month
+
+Do not lower pricing during private testing.
+
+We can always adjust pricing later after gathering customer feedback and understanding actual operating costs.
+
+Decision 2 — Included Capacity
+
+I strongly recommend using internal dollar-cost accounting, not tokens or arbitrary units.
+
+Customers should only ever see:
+
+AI Workforce Capacity
+
+For example:
+
+AI Workforce Capacity
+
+██████████░░░░░
+
+62% Used
+
+Internally, we track dollars.
+
+Customers never see tokens or internal costs.
+
+This gives us the flexibility to change providers, models, or pricing without redesigning the customer experience.
+
+Decision 3 — Overage Behavior
+
+During private testing:
+
+Notify only.
+
+No automatic billing.
+
+No feature lockouts.
+
+No forced upgrades.
+
+The purpose of private testing is to learn how customers actually use the system.
+
+Once we understand real-world usage patterns, we can finalize overage policies before the public launch.
+
+Decision 4 — Background Scan Frequency
+
+Absolutely.
+
+Background intelligence should scale with the customer's plan.
+
+Example:
+
+Starter
+Scout research once daily
+Sage industry intelligence once daily
+Minimal background monitoring
+Professional
+Research several times throughout the day
+More proactive monitoring
+More frequent optimization
+Enterprise
+Near real-time monitoring where it provides meaningful value
+Highest level of automation and intelligence
+
+This protects margins while giving higher-tier customers more value.
+
+Decision 5 — Voice Tiers
+
+Do not make Voice a separate product.
+
+Voice should be one of the reasons people upgrade plans.
+
+Suggested mapping:
+
+Starter
+
+Echo Standard
+
+Short conversations
+Business questions
+Platform guidance
+Appointment handling
+Lower-cost reasoning
+Professional
+
+Echo Professional
+
+Longer conversations
+Better reasoning
+Sales conversations
+Marketing discussions
+Better follow-up
+Enterprise
+
+Echo Executive
+
+Executive-level reasoning
+Strategic planning
+Long-form consulting
+Deep business analysis
+Full "Jarvis" experience
+
+This makes each subscription level feel more valuable instead of creating another add-on to explain.
+
+Decision 6 — Provider Reconciliation
+
+For now:
+
+Use estimated internal costs.
+
+When provider billing APIs or organization-level reconciliation credentials become available, add automated reconciliation as a later phase.
+
+Private testing does not require perfect financial reconciliation.
+
+The architecture should support it, but we should not delay beta because of it.
+
+One Additional Request
+
+Please add a Private Owner AI Economics Dashboard.
+
+This dashboard should never be visible to customers.
+
+It should display:
+
+Total Monthly Revenue
+Total AI Cost
+Gross Margin
+Gross Profit
+AI Cost Per Customer
+AI Cost Per Business
+Most Expensive Customer
+Most Profitable Customer
+Most Expensive Agent
+Most Expensive Feature
+Echo Orchestrator Cost
+Background Automation Cost
+Projected Monthly AI Bill
+Projected Gross Margin
+
+This dashboard will become one of the most important internal tools for managing Zorecho as it grows.
+
+Implementation Approval
+
+The audit is approved.
+
+Proceed with:
+
+Phase 1 — Extend the usage ledger
+Phase 2 — Add workflow trace IDs
+Phase 3 — Integrate the Echo Orchestrator into the centralized tracking
+
+After completing those phases:
+
+Stop.
+Return screenshots.
+Return the database architecture.
+Return the owner dashboard preview.
+Return sample customer AI Workforce Capacity screens.
+
+Do not begin customer billing, automatic overage charging, or plan enforcement until I explicitly approve those features after private testing.

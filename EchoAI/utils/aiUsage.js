@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const db = require("../config/db");
 const { ENVIRONMENT, DEPLOY_VERSION } = require("../config/environment");
+const { getAiContext } = require("./aiContext");
 
 /**
  * Central AI usage ledger. Every paid provider call (Anthropic, Hermes, OpenAI)
@@ -46,6 +47,16 @@ const UNIT_PRICES = {
   "elevenlabs:tts_per_1k_chars": num("AI_PRICE_ELEVENLABS_TTS_PER_1K_CHARS", 0.15),
 };
 
+// Per-unit prices for communications providers. Estimates, env-overridable;
+// real reconciliation against provider billing APIs is a later approved phase.
+const COMM_UNIT_PRICES = {
+  "twilio:sms_segment": num("COST_TWILIO_SMS_SEGMENT", 0.0079),
+  "twilio:voice_minute": num("COST_TWILIO_VOICE_MINUTE", 0.014),
+  "email:send": num("COST_EMAIL_SEND", 0.0004),
+  "google_search:search": num("COST_GOOGLE_SEARCH", 0.005),
+  "elevenlabs:sound_generation": num("COST_ELEVENLABS_SOUND", 0.08),
+};
+
 function estimateTokenCost(provider, { inputTokens = 0, outputTokens = 0, cachedInputTokens = 0, webSearches = 0 }) {
   const p = PRICING[provider];
   if (!p) return 0;
@@ -69,6 +80,7 @@ function newRequestId() {
  * caller may ignore (tests await it).
  */
 function recordUsage(entry) {
+  const ctx = getAiContext();
   const cost =
     entry.estimatedCostUsd != null
       ? entry.estimatedCostUsd
@@ -85,23 +97,25 @@ function recordUsage(entry) {
           feature, task_type, job_name, request_id, conversation_id, triggered_by,
           input_tokens, output_tokens, cached_input_tokens, web_searches,
           retry_count, duration_ms, success, error_category, estimated_cost_usd,
-          cache_checked, cache_hit, cache_miss_reason, fallback_used)
+          cache_checked, cache_hit, cache_miss_reason, fallback_used,
+          workflow_id, parent_request_id, unit_type, unit_quantity, provider_ref,
+          key_label, provider_charged_on_failure)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-               $19,$20,$21,$22,$23,$24,$25,$26)`,
+               $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)`,
       [
         entry.environment || ENVIRONMENT,
         entry.deployVersion || DEPLOY_VERSION,
         entry.provider,
         entry.model || null,
-        entry.brandId || null,
-        entry.userId || null,
-        entry.agent || null,
-        entry.feature || "unlabeled",
+        entry.brandId || ctx.brandId || null,
+        entry.userId || ctx.userId || null,
+        entry.agent || ctx.agent || null,
+        entry.feature || ctx.feature || "unlabeled",
         entry.taskType || null,
-        entry.jobName || null,
+        entry.jobName || ctx.jobName || null,
         entry.requestId || null,
-        entry.conversationId || null,
-        entry.triggeredBy || "user",
+        entry.conversationId || ctx.conversationId || null,
+        entry.triggeredBy || ctx.triggeredBy || "user",
         entry.inputTokens ?? null,
         entry.outputTokens ?? null,
         entry.cachedInputTokens ?? null,
@@ -115,6 +129,13 @@ function recordUsage(entry) {
         entry.cacheHit === true,
         entry.cacheMissReason || null,
         entry.fallbackUsed === true,
+        entry.workflowId || ctx.workflowId || null,
+        entry.parentRequestId || ctx.parentRequestId || null,
+        entry.unitType || null,
+        entry.unitQuantity ?? null,
+        entry.providerRef || null,
+        entry.keyLabel || null,
+        entry.providerChargedOnFailure ?? null,
       ],
     )
     .catch((err) => {
@@ -122,6 +143,30 @@ function recordUsage(entry) {
         console.error("aiUsage: failed to record usage:", err.message);
       }
     });
+}
+
+/**
+ * Ledger write for a non-LLM billable unit (SMS segment, voice minute, email
+ * send, TTS characters, search). Computes the estimated cost from
+ * COMM_UNIT_PRICES unless the caller supplies one. Same fire-and-forget
+ * safety contract as recordUsage: never throws, never blocks the send.
+ */
+function recordCommsUsage({ provider, unitType, unitQuantity = 1, ...rest }) {
+  const rate = COMM_UNIT_PRICES[`${provider}:${unitType}`];
+  const estimatedCostUsd =
+    rest.estimatedCostUsd != null
+      ? rest.estimatedCostUsd
+      : rate != null
+        ? rate * Math.max(0, Number(unitQuantity) || 0)
+        : 0;
+  return recordUsage({
+    ...rest,
+    provider,
+    unitType,
+    unitQuantity,
+    estimatedCostUsd,
+    requestId: rest.requestId || newRequestId(),
+  });
 }
 
 /** Classify an error for the ledger. */
@@ -267,9 +312,11 @@ function _resetSpendCacheForTests() {
 module.exports = {
   PRICING,
   UNIT_PRICES,
+  COMM_UNIT_PRICES,
   estimateTokenCost,
   newRequestId,
   recordUsage,
+  recordCommsUsage,
   categorizeAiError,
   getGlobalSpend,
   getBrandSpend,

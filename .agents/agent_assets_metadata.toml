@@ -378,3 +378,15 @@ id = "fISIQfEiRwdb-aWdOsdnC"
 uri = "file://EchoAI/docs/AI_COST_AUDIT.md"
 type = "text"
 title = "Zorecho AI Cost & Margin Audit (Phase 1)"
+
+[[outputs]]
+id = "MOXJ7YQ4RS0ot7iI678O9"
+uri = "file://attached_assets/screenshots/ai-economics-dashboard.png"
+type = "image"
+title = "AI Economics Dashboard (admin-only)"
+
+[[outputs]]
+id = "C3vN9g15KkqWPeae0O3GG"
+uri = "file://attached_assets/screenshots/ai-workforce-capacity.png"
+type = "image"
+title = "AI Workforce Capacity card (customer view)"

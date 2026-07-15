@@ -100,3 +100,4 @@
 - [EchoAI Guided Setup Wizard](echoai-guided-setup-wizard.md) — OAuth return params have one owner (global fb= handler gated on onboardingCompleted); card status from live probes only; persist connecting BEFORE redirect.
 - [EchoAI post graphic attach](echoai-post-graphic-attach.md) — persist graphic before attach (/uploads/images path only); scheduled posts render via TWO endpoints — add new columns to both selects.
 - [EchoAI Sage feed dismiss](echoai-sage-feed-dismiss.md) — soft-dismiss only (scans resurrect hard deletes); dual-key dedup w/ partial unique index on visible rows + 23505 no-op; all feed readers filter dismissed.
+- [EchoAI authed screenshots](echoai-authed-screenshots.md) — testing subagent lacks env secrets + returns empty screenshotPaths; mint JWT via utils/token + puppeteer-core/nix chromium, dismiss Echo overlays per page.

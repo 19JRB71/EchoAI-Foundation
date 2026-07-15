@@ -681,6 +681,10 @@ export const api = {
 
   // Admin
   adminGetStats: () => request("/api/admin/stats"),
+  adminGetEconomics: () => request("/api/admin/economics"),
+  adminGetEconomicsWorkflow: (workflowId) =>
+    request(`/api/admin/economics/workflow/${encodeURIComponent(workflowId)}`),
+  getAiCapacity: () => request("/api/usage/capacity"),
   adminGetHealth: () => request("/api/admin/health"),
   adminGetUsers: ({ page = 1, limit = 50 } = {}) =>
     request(`/api/admin/users?page=${page}&limit=${limit}`),

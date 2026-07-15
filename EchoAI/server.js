@@ -44,6 +44,7 @@ const facebookOAuthRoutes = require("./routes/facebookOAuthRoutes");
 const googleRoutes = require("./routes/googleRoutes");
 const seoRoutes = require("./routes/seoRoutes");
 const roiRoutes = require("./routes/roiRoutes");
+const usageRoutes = require("./routes/usageRoutes");
 const customerIntelligenceRoutes = require("./routes/customerIntelligenceRoutes");
 const portfolioRoutes = require("./routes/portfolioRoutes");
 const capitalFundingRoutes = require("./routes/capitalFundingRoutes");
@@ -175,6 +176,12 @@ const apiLimiter = rateLimit({
 });
 app.use("/api", apiLimiter);
 
+// Every API request runs inside its own AI workflow context: one workflow id
+// groups all paid provider calls (LLM, voice, SMS, email) made while serving
+// the request, so the usage ledger can show the true cost of each chain.
+const { runWithWorkflow } = require("./utils/aiContext");
+app.use("/api", (req, res, next) => runWithWorkflow({ triggeredBy: "user" }, () => next()));
+
 // The Stripe webhook needs the raw request body for signature verification, so
 // skip JSON parsing for that specific route. Match on req.path + method (not
 // originalUrl) so query params / trailing slashes can't accidentally let the
@@ -259,6 +266,7 @@ app.use("/api/facebook", facebookOAuthRoutes);
 app.use("/api/google", googleRoutes);
 app.use("/api/seo", seoRoutes);
 app.use("/api/roi", roiRoutes);
+app.use("/api/usage", usageRoutes);
 app.use("/api/intelligence", customerIntelligenceRoutes);
 app.use("/api/portfolio", portfolioRoutes);
 app.use("/api/capital", capitalFundingRoutes);

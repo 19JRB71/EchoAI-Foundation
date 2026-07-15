@@ -9,6 +9,7 @@ const demoController = require("../controllers/demoController");
 const diagnosticsController = require("../controllers/diagnosticsController");
 const selfReviewAdminController = require("../controllers/selfReviewAdminController");
 const aiControlAdminController = require("../controllers/aiControlAdminController");
+const economicsAdminController = require("../controllers/economicsAdminController");
 
 const router = express.Router();
 
@@ -58,6 +59,11 @@ router.put("/ai/settings", aiControlAdminController.updateAiSetting);
 router.delete("/ai/settings/:key", aiControlAdminController.resetAiSetting);
 router.post("/ai/emergency-stop", aiControlAdminController.emergencyStop);
 router.post("/ai/resume", aiControlAdminController.resumeAi);
+
+// Private owner AI Economics dashboard (never customer-visible): revenue vs.
+// AI cost, margins, per-customer/business breakdowns, workflow drill-down.
+router.get("/economics", economicsAdminController.getEconomics);
+router.get("/economics/workflow/:workflowId", economicsAdminController.getWorkflow);
 
 // Demo Account & Sales Presentation Mode.
 router.get("/demo/status", demoController.getStatus);

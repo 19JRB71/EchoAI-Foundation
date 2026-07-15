@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const nodemailer = require("nodemailer");
+const { recordCommsUsage } = require("./aiUsage");
 
 const FROM = process.env.EMAIL_FROM || "Zorecho <no-reply@echoai.com>";
 const MAX_RETRIES = Number(process.env.EMAIL_MAX_RETRIES || 3);
@@ -49,6 +50,17 @@ async function sendEmail({ to, subject, html, from }) {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
     try {
       const info = await getTransporter().sendMail(message);
+      // Ledger write (fire-and-forget): one row per delivered email so the
+      // economics dashboard sees comms cost, not just LLM cost.
+      recordCommsUsage({
+        provider: "email",
+        unitType: "send",
+        unitQuantity: 1,
+        feature: "email_send",
+        providerRef: info.messageId || null,
+        retryCount: attempt - 1,
+        success: true,
+      });
       return { success: true, messageId: info.messageId, to };
     } catch (err) {
       lastError = err;
@@ -60,6 +72,16 @@ async function sendEmail({ to, subject, html, from }) {
     }
   }
 
+  recordCommsUsage({
+    provider: "email",
+    unitType: "send",
+    unitQuantity: 1,
+    feature: "email_send",
+    estimatedCostUsd: 0,
+    retryCount: MAX_RETRIES - 1,
+    success: false,
+    errorCategory: "provider_error",
+  });
   throw lastError;
 }
 

@@ -11,10 +11,12 @@ import AdminDiagnostics from "./AdminDiagnostics.jsx";
 import AdminBeta from "./AdminBeta.jsx";
 import AdminFeatureSuggestions from "./AdminFeatureSuggestions.jsx";
 import AdminSelfReview from "./AdminSelfReview.jsx";
+import AdminEconomics from "./AdminEconomics.jsx";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "customers", label: "Customers" },
+  { key: "economics", label: "AI Economics" },
   { key: "beta", label: "Beta Program" },
   { key: "suggestions", label: "Feature Suggestions" },
   { key: "selfreview", label: "Self-Review" },
@@ -72,6 +74,7 @@ export default function AdminPanel() {
           onBack={() => setTab("customers")}
         />
       )}
+      {tab === "economics" && <AdminEconomics />}
       {tab === "beta" && <AdminBeta />}
       {tab === "suggestions" && <AdminFeatureSuggestions />}
       {tab === "selfreview" && <AdminSelfReview />}

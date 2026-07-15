@@ -26,6 +26,8 @@ const {
   soundConfigured,
 } = require("../config/elevenlabs");
 
+const { recordCommsUsage, UNIT_PRICES } = require("./aiUsage");
+
 // Balanced voice settings: stable but still expressive/energetic.
 const VOICE_SETTINGS = {
   stability: 0.4,
@@ -69,24 +71,53 @@ async function synthesize(text, { voiceId: overrideVoice } = {}) {
     `${API_BASE}/text-to-speech/${encodeURIComponent(useVoice)}/stream` +
     `?output_format=${encodeURIComponent(OUTPUT_FORMAT)}&optimize_streaming_latency=4`;
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "xi-api-key": apiKey(),
-      "Content-Type": "application/json",
-      Accept: "audio/mpeg",
-    },
-    body: JSON.stringify({
-      text: String(text).slice(0, 5000),
-      model_id: TTS_MODEL,
-      voice_settings: VOICE_SETTINGS,
-    }),
-  });
+  const chars = Math.min(String(text).length, 5000);
+  const startedAt = Date.now();
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey(),
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text: String(text).slice(0, 5000),
+        model_id: TTS_MODEL,
+        voice_settings: VOICE_SETTINGS,
+      }),
+    });
+  } catch (err) {
+    recordTts(chars, startedAt, false, "network");
+    throw err;
+  }
 
-  if (!resp.ok) throw await makeHttpError(resp);
+  if (!resp.ok) {
+    recordTts(chars, startedAt, false, resp.status >= 500 ? "provider_error" : "auth");
+    throw await makeHttpError(resp);
+  }
   const buf = Buffer.from(await resp.arrayBuffer());
   if (!buf.length) throw new Error("ElevenLabs TTS returned empty audio");
+  recordTts(chars, startedAt, true, null);
   return buf;
+}
+
+// Ledger write for one TTS synthesis. Fire-and-forget; never blocks audio.
+function recordTts(chars, startedAt, success, errorCategory) {
+  recordCommsUsage({
+    provider: "elevenlabs",
+    unitType: "tts_chars",
+    unitQuantity: chars,
+    estimatedCostUsd: (chars / 1000) * UNIT_PRICES["elevenlabs:tts_per_1k_chars"],
+    model: TTS_MODEL,
+    feature: "voice_tts",
+    durationMs: Date.now() - startedAt,
+    success,
+    errorCategory,
+    // ElevenLabs bills per character even on some failures; unknown → null.
+    providerChargedOnFailure: success ? null : false,
+  });
 }
 
 /**
@@ -116,6 +147,13 @@ async function generateSound(prompt, { durationSeconds = 4, promptInfluence = 0.
   if (!resp.ok) throw new Error(await readError(resp));
   const buf = Buffer.from(await resp.arrayBuffer());
   if (!buf.length) throw new Error("ElevenLabs sound generation returned empty audio");
+  recordCommsUsage({
+    provider: "elevenlabs",
+    unitType: "sound_generation",
+    unitQuantity: 1,
+    feature: "voice_sound",
+    success: true,
+  });
   return buf;
 }
 

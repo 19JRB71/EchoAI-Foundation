@@ -8,6 +8,7 @@ import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import PlanSelectorModal from "./PlanSelectorModal.jsx";
 import UpdatePaymentMethodModal from "./UpdatePaymentMethodModal.jsx";
+import AiCapacityCard from "./AiCapacityCard.jsx";
 import { tierName } from "../../lib/tiers.js";
 
 const primaryBtn =
@@ -274,6 +275,9 @@ export default function Billing({ openPaymentModal = false }) {
           <p className="text-sm text-gray-400">No active subscription.</p>
         )}
       </Card>
+
+      {/* AI Workforce Capacity — percent-only meter, no dollar figures. */}
+      <AiCapacityCard />
 
       {/* Team seats */}
       {status && (

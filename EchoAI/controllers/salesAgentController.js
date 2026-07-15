@@ -28,6 +28,7 @@ const {
   getPublicBaseUrl,
   buildClient,
   validateTwilioRequest,
+  finalizeCallCost,
 } = require("../config/twilio");
 const { normalizeE164 } = require("../utils/phone");
 
@@ -428,6 +429,11 @@ async function handleSalesCallStatus(req, res) {
     );
     const call = rows[0];
     if (!call) return res.status(200).send("");
+
+    // Ledger: real billed minutes for Zorecho's own demo line (validated above).
+    if (callStatus === "completed" && duration > 0) {
+      finalizeCallCost(callSid, duration, { feature: "sales_agent_call" });
+    }
 
     if (callStatus === "completed") {
       await finalizeSalesCall(call, duration);

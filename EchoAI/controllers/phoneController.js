@@ -18,6 +18,7 @@ const {
   getPublicBaseUrl,
   buildClient,
   validateTwilioRequest,
+  finalizeCallCost,
 } = require("../config/twilio");
 const emailController = require("./emailController");
 const pushController = require("./pushController");
@@ -659,6 +660,17 @@ async function handleCallStatus(req, res) {
       if (!validateTwilioRequest(req, authToken, `${baseUrl}/api/phone/status`)) {
         return res.status(403).send("");
       }
+    }
+
+    // Ledger: replace the placeholder call-cost estimate (outbound) or insert
+    // the inbound-call minutes, keyed by Call SID. Fire-and-forget, and only
+    // after signature validation so forged webhooks can't touch the ledger.
+    if (callStatus === "completed" && duration > 0) {
+      finalizeCallCost(callSid, duration, {
+        brandId: call.brand_id,
+        userId: call.owner_user_id,
+        feature: "phone_agent_call",
+      });
     }
 
     const transcript = Array.isArray(call.transcript) ? call.transcript : [];

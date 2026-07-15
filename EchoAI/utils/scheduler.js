@@ -2,7 +2,7 @@ const cron = require("node-cron");
 const db = require("../config/db");
 const { ENVIRONMENT, ENVIRONMENT_BASIS } = require("../config/environment");
 const { getSwitch, backgroundAiAllowedHere } = require("../config/aiControls");
-const { runWithAiContext } = require("./aiContext");
+const { runWithWorkflow } = require("./aiContext");
 const {
   recordWeeklyAnalyticsForBrand,
   generateWeeklyReport,
@@ -498,7 +498,9 @@ async function executeJob({ name, ai, control, run }) {
   }
   const job = JOBS.find((j) => j.name === name);
   if (job) job.lastRanAt = new Date().toISOString();
-  await runWithAiContext({ triggeredBy: "background", jobName: name }, run);
+  // Every job tick gets its own workflow id so all paid calls made during the
+  // tick roll up into one traceable chain in the usage ledger.
+  await runWithWorkflow({ triggeredBy: "background", jobName: name }, run);
   return { ran: true };
 }
 

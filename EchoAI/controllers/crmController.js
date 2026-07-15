@@ -6,6 +6,7 @@ const {
   getPublicBaseUrl,
   buildClient,
   validateTwilioRequest,
+  finalizeCallCost,
 } = require("../config/twilio");
 const twilioLib = require("twilio");
 const { enqueueOwnerVoiceEvent } = require("../utils/echoVoiceNotifications");
@@ -899,6 +900,13 @@ async function callStatusCallback(req, res) {
     }
     const callStatus = req.body.CallStatus;
     const duration = parseInt(req.body.CallDuration, 10) || 0;
+    // Ledger: real billed minutes for the rep leg (validated above).
+    if (callStatus === "completed" && duration > 0 && req.body.CallSid) {
+      finalizeCallCost(req.body.CallSid, duration, {
+        brandId: call.brand_id,
+        feature: "crm_call",
+      });
+    }
     const finalStatus = callStatus === "completed" ? "completed" : "failed";
     const outcome =
       callStatus === "completed" ? "contacted" : callStatus || "failed";
