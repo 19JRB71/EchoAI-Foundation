@@ -2,7 +2,7 @@
 
 **Customer-facing brand name: "Zorecho"** (rebranded July 2026 — all user-visible
 strings, PWA manifest, emails, prompts, and wordmarks say Zorecho; the assistant
-persona "Echo", the 8 agent names, and ALL internal identifiers stay unchanged:
+persona "Echo", the agent names, and ALL internal identifiers stay unchanged:
 `EchoAI/` directory, routes, env vars, lowercase keys like `echoai_chat_session_`,
 `echoai-shell-v*` cache names, and the `echoai.com` email domain).
 
@@ -139,8 +139,8 @@ client wiring). Open that file when working inside a specific subsystem.
 | Competitor Ad Spy | `/api/competitor-ads` | Enterprise (Scout); every 6h scans each CONFIRMED competitor's live Facebook ads, Hermes classifies threat, aggressive new ad → owner voice+SMS alert, weekly Claude ad-intelligence report + counter-campaign drafts. No FB token → no-op/empty (nothing fabricated); snapshot is a link |
 | Guided Setup Wizard | `/api/guided-setup` | all tiers, owner-only; new-customer front door (Welcome → Plan → Business Profile via embedded Setup Agent → Connect Accounts → Team → Done); server-side save/resume, live connection probes (unknown on failure, never fabricated), static SVG OAuth previews, plain-English OAuth error translation, "Help Me" screenshot rescue (Anthropic vision, honest low-confidence → support escalation). Client: `client/src/onboarding/guided/` |
 
-The dashboard nav is team-member-centric: the sidebar lists the 8 AI agents
-(Echo/Scout/Atlas/Nova/Pulse/Voice/Forge/Sentinel) + Mission Control; clicking an
+The dashboard nav is team-member-centric: the sidebar lists the 10 AI agents
+(Echo/Scout/Atlas/Nova/Pulse/Voice/Forge/Sentinel/Sage/Vision) + Mission Control; clicking an
 agent opens a Department View whose tool cards open these existing sections
 unchanged. See `client/src/lib/departments.js` for the agent→section mapping.
 
