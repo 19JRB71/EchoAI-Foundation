@@ -239,14 +239,16 @@ function itemView(i) {
 }
 
 async function batchState(batch) {
-  // Items whose linked social post has already gone out are hidden from the
-  // batch review list (owner's rule) — a published post lives in the Social
-  // Media calendar; the batch list is only for work still needing attention.
+  // Items that already have a linked social post are hidden from the batch
+  // review list (owner's rule) — the moment a post is approved it lives in
+  // the Social Media calendar (scheduled, publishing, published, or failed
+  // with a retry there); the batch list is only for work still needing a
+  // decision (pending / declined drafts).
   const items = await db.query(
     `SELECT i.* FROM autopilot_batch_items i
       LEFT JOIN social_posts sp ON sp.post_id = i.posted_post_id
       WHERE i.batch_id = $1
-        AND (sp.post_id IS NULL OR sp.status <> 'published')
+        AND sp.post_id IS NULL
       ORDER BY i.position`,
     [batch.batch_id]
   );

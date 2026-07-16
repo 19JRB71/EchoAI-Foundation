@@ -264,6 +264,26 @@ export default function Autopilot({ brandId }) {
     setNotice("");
     try {
       const updated = await fn();
+      // Approved items leave the batch list immediately (owner's rule) —
+      // once a post has a linked calendar entry it lives in the Social
+      // Media calendar, not here.
+      if (updated.postedPostId) {
+        setBatch((prev) =>
+          prev
+            ? { ...prev, items: prev.items.filter((i) => i.itemId !== updated.itemId) }
+            : prev
+        );
+        if (updated.error) {
+          setError(updated.error);
+        } else if (updated.postedNow) {
+          setNotice("Posted — it's live on the platform now. You'll find it in your Social Media calendar.");
+        } else if (updated.publishing) {
+          setNotice("Approved — the post is publishing right now. You'll find it in your Social Media calendar.");
+        } else {
+          setNotice("Approved — it's scheduled and now lives in your Social Media calendar.");
+        }
+        return;
+      }
       patchItem(updated);
       // Declining a post drafts a fresh replacement for the same time slot.
       if (updated.replacement) {
