@@ -29,10 +29,15 @@ const EDIT_PERMISSIONS = {
   quality: "enhance sharpness and overall image quality",
   remove_distractions:
     "remove distracting clutter (cords, trash cans, stray objects)",
-  replace_background: "replace or clean up the background or sky",
+  replace_background:
+    "replace the background, sky, or setting (e.g. an open field, behind a farmhouse, a rural road)",
   seasonal: "change the season shown (e.g. summer to autumn)",
   day_night: "convert between day and night lighting",
   landscaping: "improve or add tasteful landscaping around the subject",
+  recolor:
+    "show the structure with a different realistic roof or trim color (keep structural poles/posts their natural material in most renditions)",
+  staging:
+    "stage realistic props around or under the structure (farm equipment, tractors, vehicles, boats, stored goods)",
   branding: "add tasteful brand elements (logo placement, brand colors)",
   layouts: "compose the photo into a marketing layout with text space",
 };
@@ -193,6 +198,72 @@ function editDirectives(mode, permissions) {
   return lines.join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// Variation engine — when the SAME real photo is reused across many posts,
+// each rendition must look deliberately different (different roof color,
+// setting, staged props, season, time of day...), never the same scene twice.
+// Deterministic: the seed (item id / sequence) picks which permitted edits
+// this rendition focuses on, rotating through combinations.
+
+// Non-enhancement keys that can serve as a rendition's "variation focus".
+// branding/layouts are presentation edits, not scene variety, so excluded.
+const VARIATION_KEYS = [
+  "replace_background",
+  "recolor",
+  "staging",
+  "seasonal",
+  "day_night",
+  "landscaping",
+];
+
+// Small deterministic hash so a UUID item id maps to a stable sequence slot.
+function variationSeed(seed) {
+  if (Number.isInteger(seed) && seed >= 0) return seed;
+  const text = String(seed == null ? "" : seed);
+  let h = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+/**
+ * Builds the variety block appended to an 'assisted' edit prompt. Picks a
+ * rotating pair of permitted variation edits as THIS rendition's focus so
+ * repeated reuses of one photo come out visibly different, and always
+ * instructs the model to avoid producing a repeat look.
+ * Returns "" when the mode/permissions leave no room for scene variety.
+ */
+function variationDirective(mode, permissions, seed) {
+  if (mode !== "assisted") return "";
+  const perms = normalizePermissions(permissions);
+  const available = VARIATION_KEYS.filter((k) => perms[k]);
+  if (!available.length) return "";
+
+  const n = variationSeed(seed);
+  const primary = available[n % available.length];
+  const lines = [
+    "VARIETY REQUIREMENT: this photo is reused across many posts \u2014 this rendition must look clearly DIFFERENT from other renditions of the same photo, never a repeat of the same scene.",
+  ];
+  const focus = [EDIT_PERMISSIONS[primary]];
+  if (available.length > 1) {
+    const secondary =
+      available[(n + 1 + Math.floor(n / available.length)) % available.length];
+    if (secondary !== primary) focus.push(EDIT_PERMISSIONS[secondary]);
+  }
+  lines.push(
+    "For THIS rendition, make the variation obvious by leaning on: " +
+      focus.join("; and ") +
+      "."
+  );
+  if (perms.recolor) {
+    lines.push(
+      "When recoloring, change roof or trim colors only \u2014 leave structural poles/posts their natural material in most renditions (a painted-pole look is the rare exception, not the rule)."
+    );
+  }
+  return lines.join("\n");
+}
+
 // Appended to every pure-AI image prompt so original concepts stay honest.
 const AI_ORIGINALITY_LINE =
   "This is an ORIGINAL brand concept image: do NOT depict or imply a specific real project, property, vehicle, or product of this business \u2014 keep it clearly conceptual/illustrative while reinforcing the brand.";
@@ -210,4 +281,6 @@ module.exports = {
   allowsAssistedEdits,
   decideModes,
   editDirectives,
+  VARIATION_KEYS,
+  variationDirective,
 };

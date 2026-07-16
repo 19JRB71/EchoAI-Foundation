@@ -14,6 +14,8 @@ const {
   allowsAssistedEdits,
   decideModes,
   editDirectives,
+  VARIATION_KEYS,
+  variationDirective,
 } = require("../utils/creativeModes");
 
 test("preference validation accepts the catalog and rejects junk", () => {
@@ -128,6 +130,8 @@ test("assisted mode only appears when non-enhancement edits are permitted", () =
     seasonal: false,
     day_night: false,
     landscaping: false,
+    recolor: false,
+    staging: false,
     branding: false,
     layouts: false,
   });
@@ -167,4 +171,65 @@ test("editDirectives with nothing permitted forbids everything", () => {
 
 test("AI originality line never claims a real product", () => {
   assert.match(AI_ORIGINALITY_LINE, /do NOT depict/i);
+});
+
+test("variationDirective: assisted mode gets a variety block with a rotating focus", () => {
+  const text = variationDirective("assisted", DEFAULT_PERMISSIONS, 0);
+  assert.match(text, /VARIETY REQUIREMENT/);
+  assert.match(text, /clearly DIFFERENT/);
+  assert.match(text, /leaning on: /);
+});
+
+test("variationDirective: consecutive seeds rotate to different focus combos", () => {
+  const seen = new Set();
+  for (let i = 0; i < VARIATION_KEYS.length; i += 1) {
+    seen.add(variationDirective("assisted", DEFAULT_PERMISSIONS, i));
+  }
+  assert.ok(seen.size >= 3, `expected rotation, got ${seen.size} unique blocks`);
+});
+
+test("variationDirective: string seeds (item UUIDs) are deterministic", () => {
+  const a = variationDirective("assisted", DEFAULT_PERMISSIONS, "item-abc-123");
+  const b = variationDirective("assisted", DEFAULT_PERMISSIONS, "item-abc-123");
+  assert.strictEqual(a, b);
+  assert.match(a, /VARIETY REQUIREMENT/);
+});
+
+test("variationDirective: only draws from PERMITTED variation edits", () => {
+  const perms = normalizePermissions({
+    replace_background: false,
+    seasonal: false,
+    day_night: false,
+    landscaping: false,
+    staging: false,
+    recolor: true,
+  });
+  for (let i = 0; i < 5; i += 1) {
+    const text = variationDirective("assisted", perms, i);
+    assert.match(text, /roof or trim color/);
+    assert.doesNotMatch(text, /leaning on: .*(field|season|night|landscap|props)/);
+  }
+});
+
+test("variationDirective: recolor permission always carries the natural-poles rule", () => {
+  const text = variationDirective("assisted", DEFAULT_PERMISSIONS, 1);
+  assert.match(text, /poles\/posts their natural material/);
+  const noRecolor = normalizePermissions({ recolor: false });
+  const text2 = variationDirective("assisted", noRecolor, 1);
+  assert.doesNotMatch(text2, /natural material/);
+});
+
+test("variationDirective: asset mode and no-variety permissions return empty", () => {
+  assert.strictEqual(variationDirective("asset", DEFAULT_PERMISSIONS, 0), "");
+  const none = {};
+  for (const k of Object.keys(EDIT_PERMISSIONS)) none[k] = false;
+  assert.strictEqual(variationDirective("assisted", none, 0), "");
+});
+
+test("new recolor/staging keys are real permissions and default to allowed", () => {
+  assert.ok(EDIT_PERMISSIONS.recolor && EDIT_PERMISSIONS.staging);
+  const norm = normalizePermissions({});
+  assert.strictEqual(norm.recolor, true);
+  assert.strictEqual(norm.staging, true);
+  assert.ok(allowsAssistedEdits(normalizePermissions({})));
 });

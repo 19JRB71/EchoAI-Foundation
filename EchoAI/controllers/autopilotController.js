@@ -555,10 +555,16 @@ async function renderItemImageFromPhoto(brand, item, purpose, settings) {
   const description =
     (item.visual_idea && item.visual_idea.trim()) ||
     `A marketing visual for: ${String(item.post_content).slice(0, 200)}`;
-  const prompt =
+  const perms = settings ? settings.editingPermissions : null;
+  let prompt =
     `Turn this real photo into a polished social media marketing image for ${brand.brand_name}. ` +
     `Post context: ${description.slice(0, 300)}\n\n` +
-    creativeModes.editDirectives(mode, settings ? settings.editingPermissions : null);
+    creativeModes.editDirectives(mode, perms);
+  // Variety: reused photos rotate a different permitted-edit focus per item
+  // (deterministic on the item id) so a week of posts from one photo never
+  // renders as the same scene twice.
+  const variety = creativeModes.variationDirective(mode, perms, item.item_id);
+  if (variety) prompt += `\n\n${variety}`;
 
   const temporaryUrl = await renderFromPrompt(prompt, purpose, reference);
   const permanentUrl = await persistImage(temporaryUrl);

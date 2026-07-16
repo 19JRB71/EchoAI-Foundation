@@ -61,6 +61,8 @@ const EDIT_PERMISSION_OPTIONS = [
   { key: "seasonal", label: "Seasonal changes" },
   { key: "day_night", label: "Day / night conversion" },
   { key: "landscaping", label: "Add landscaping" },
+  { key: "recolor", label: "Change roof / trim colors" },
+  { key: "staging", label: "Stage props (equipment, vehicles)" },
   { key: "branding", label: "Add branding" },
   { key: "layouts", label: "Create marketing layouts" },
 ];
