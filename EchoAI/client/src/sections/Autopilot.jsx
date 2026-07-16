@@ -90,6 +90,7 @@ export default function Autopilot({ brandId }) {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
+  const [draftWeeks, setDraftWeeks] = useState(1); // date range: 1-4 weeks per draft
   const [busyItemId, setBusyItemId] = useState("");
   const [creatingInstant, setCreatingInstant] = useState(false);
   const [instantTopic, setInstantTopic] = useState("");
@@ -210,7 +211,7 @@ export default function Autopilot({ brandId }) {
     setError("");
     setNotice("");
     try {
-      const b = await api.autopilotRunNow(brandId, !settings?.enabled);
+      const b = await api.autopilotRunNow(brandId, !settings?.enabled, draftWeeks);
       setBatch(b);
       if (b && b.status === "failed") {
         setError(
@@ -218,7 +219,9 @@ export default function Autopilot({ brandId }) {
         );
       } else {
         setNotice(
-          "Your batch is drafted and ready for your review — approved posts start going out as soon as today."
+          draftWeeks > 1
+            ? `Your ${draftWeeks}-week batch is drafted and ready for your review — approved posts start going out as soon as today.`
+            : "Your batch is drafted and ready for your review — approved posts start going out as soon as today."
         );
       }
     } catch (err) {
@@ -499,18 +502,44 @@ export default function Autopilot({ brandId }) {
             >
               {saving ? "Saving…" : "Save settings"}
             </button>
-            <button
-              onClick={runNow}
-              disabled={running || (readiness && !readiness.ready)}
-              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-500 disabled:opacity-50"
-              title={
-                readiness && !readiness.ready
-                  ? "Connect the accounts above first"
-                  : "Draft this week's batch now"
-              }
-            >
-              {running ? "Drafting your week…" : "Draft this week's batch now"}
-            </button>
+            <div className="flex items-center gap-2">
+              <label htmlFor="autopilot-draft-weeks" className="text-xs text-gray-400">
+                Range
+              </label>
+              <select
+                id="autopilot-draft-weeks"
+                data-testid="autopilot-draft-weeks"
+                value={draftWeeks}
+                onChange={(e) => setDraftWeeks(Number(e.target.value))}
+                disabled={running}
+                className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-2 text-sm text-gray-200"
+              >
+                <option value={1}>1 week</option>
+                <option value={2}>2 weeks</option>
+                <option value={3}>3 weeks</option>
+                <option value={4}>4 weeks</option>
+              </select>
+              <button
+                onClick={runNow}
+                disabled={running || (readiness && !readiness.ready)}
+                className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-500 disabled:opacity-50"
+                title={
+                  readiness && !readiness.ready
+                    ? "Connect the accounts above first"
+                    : draftWeeks > 1
+                      ? `Draft the next ${draftWeeks} weeks now`
+                      : "Draft this week's batch now"
+                }
+              >
+                {running
+                  ? draftWeeks > 1
+                    ? `Drafting ${draftWeeks} weeks…`
+                    : "Drafting your week…"
+                  : draftWeeks > 1
+                    ? `Draft the next ${draftWeeks} weeks now`
+                    : "Draft this week's batch now"}
+              </button>
+            </div>
           </div>
         </div>
       )}

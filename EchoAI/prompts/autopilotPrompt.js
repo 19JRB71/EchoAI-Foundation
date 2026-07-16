@@ -94,8 +94,18 @@ function buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek }) {
  * Drafts one week's batch: exactly `postsPerWeek` posts + `adsPerWeek` ads,
  * fully validated. Throws `err.aiInvalid` on bad shape (mapped upstream).
  */
-async function generateWeeklyBatch(brand, intel, { postsPerWeek, adsPerWeek }) {
-  const systemPrompt = buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek });
+async function generateWeeklyBatch(brand, intel, { postsPerWeek, adsPerWeek, avoidPosts }) {
+  let systemPrompt = buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek });
+  // Multi-week ranges draft week-by-week; feed earlier weeks' copy back in so
+  // the next week covers fresh angles instead of repeating itself.
+  if (Array.isArray(avoidPosts) && avoidPosts.length > 0) {
+    systemPrompt +=
+      "\n\nPosts already drafted for earlier weeks of this range (do NOT repeat these topics or angles — cover fresh ground):\n" +
+      avoidPosts
+        .slice(-40)
+        .map((p, i) => `${i + 1}. ${String(p).slice(0, 160)}`)
+        .join("\n");
+  }
 
   // 8192 tokens is too tight for a full 21-post week — the model runs out of
   // room and returns a short batch. Scale the budget with the requested

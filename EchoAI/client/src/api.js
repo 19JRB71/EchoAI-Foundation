@@ -1695,10 +1695,10 @@ export const api = {
     request(`/api/autopilot/readiness?brandId=${encodeURIComponent(brandId)}`),
   autopilotGetBatch: (brandId) =>
     request(`/api/autopilot/batch?brandId=${encodeURIComponent(brandId)}`),
-  autopilotRunNow: (brandId, firstRun) =>
+  autopilotRunNow: (brandId, firstRun, weeks) =>
     request("/api/autopilot/run", {
       method: "POST",
-      body: { brandId, firstRun: firstRun === true },
+      body: { brandId, firstRun: firstRun === true, weeks: weeks || 1 },
     }),
   autopilotApproveItem: (itemId, dailyBudget) =>
     request(`/api/autopilot/items/${itemId}/approve`, {

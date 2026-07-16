@@ -458,12 +458,30 @@ async function generateBatchForBrand(batch, brand, settings) {
       throw new Error("Nothing can be drafted this week: no posts are configured.");
     }
 
+    // Date range: the owner can draft 1 week (default) or several weeks in
+    // one go. Total posts scale with the range; the per-DAY cadence stays
+    // the requested weekly cadence, so the slots simply extend across the
+    // extra weeks (never a denser day).
+    const weeks =
+      Number.isInteger(settings.weeks) && settings.weeks >= 1 && settings.weeks <= 4
+        ? settings.weeks
+        : 1;
+    const targetPosts = settings.postsPerWeek * weeks;
+
     const intel = await gatherIntelligence(brand, platforms);
     brand._learningContext = await learningContextForBrand(brandId);
-    const result = await generateWeeklyBatch(brand, intel, {
-      postsPerWeek: settings.postsPerWeek,
-      adsPerWeek,
-    });
+    // Generate week-by-week so a multi-week range never asks the AI for one
+    // giant response (output limits would silently truncate the batch).
+    const result = { posts: [], ads: [] };
+    for (let w = 0; w < weeks; w += 1) {
+      const chunk = await generateWeeklyBatch(brand, intel, {
+        postsPerWeek: settings.postsPerWeek,
+        adsPerWeek,
+        avoidPosts: result.posts.map((p) => p.postText),
+      });
+      result.posts.push(...chunk.posts);
+      result.ads.push(...chunk.ads);
+    }
 
     // Suggested ad budget from CURRENT spend + the owner's hard limits.
     const spend = await getBrandSpend(brandId);
@@ -545,7 +563,7 @@ async function generateBatchForBrand(batch, brand, settings) {
       pushController
         .sendPushToUser(userId, {
           title: "Your week is drafted and ready",
-          body: `Echo drafted ${result.posts.length}${result.posts.length < settings.postsPerWeek ? ` of the ${settings.postsPerWeek}` : ""} post(s)${result.ads.length ? ` and ${result.ads.length} test ad(s)` : ""} for ${brand.brand_name}. Review and approve when you're ready.`,
+          body: `Echo drafted ${result.posts.length}${result.posts.length < targetPosts ? ` of the ${targetPosts}` : ""} post(s)${weeks > 1 ? ` covering the next ${weeks} weeks` : ""}${result.ads.length ? ` and ${result.ads.length} test ad(s)` : ""} for ${brand.brand_name}. Review and approve when you're ready.`,
           url: "/dashboard?section=autopilot",
           tag: `autopilot-${batchId}`,
         })
@@ -635,12 +653,15 @@ async function runNow(req, res) {
   const userId = req.user.userId;
   const { brandId } = req.body;
   if (!brandId) return res.status(400).json({ error: "brandId is required" });
+  // Optional date range: draft 1 (default) to 4 weeks of posts in one batch.
+  const weeksRaw = Number(req.body.weeks);
+  const weeks = Number.isInteger(weeksRaw) && weeksRaw >= 1 && weeksRaw <= 4 ? weeksRaw : 1;
 
   try {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
-    const settings = await loadSettings(brandId);
+    const settings = { ...(await loadSettings(brandId)), weeks };
     if (!settings.exists || (!settings.enabled && !req.body.firstRun)) {
       return res.status(409).json({ error: "Turn autopilot on first" });
     }
