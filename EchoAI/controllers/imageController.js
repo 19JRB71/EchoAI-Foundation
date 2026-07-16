@@ -29,6 +29,7 @@ const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
 // couple of hours. Files are written here and served statically at /uploads.
 const UPLOADS_DIR = path.join(__dirname, "..", "uploads", "images");
 const PUBLIC_PREFIX = "/uploads/images";
+const storedFiles = require("../utils/storedFiles");
 
 // Download guardrails. The image URL comes from the client (the temp DALL-E
 // URL), so persistImage must never be a generic fetch of arbitrary URLs — that
@@ -191,6 +192,8 @@ async function uploadReferenceImage(req, res) {
     await fs.mkdir(UPLOADS_DIR, { recursive: true });
     const filename = `ref-${crypto.randomUUID()}.${REFERENCE_MIME_EXT[match[1]]}`;
     await fs.writeFile(path.join(UPLOADS_DIR, filename), buffer);
+    // Durable DB copy — production disk is wiped on every deploy.
+    await storedFiles.saveStoredFile(`${PUBLIC_PREFIX}/${filename}`, match[1], buffer);
     return res
       .status(201)
       .json({ referencePath: `${PUBLIC_PREFIX}/${filename}` });
@@ -217,6 +220,8 @@ async function saveImageBuffer(buffer) {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
   const filename = `${crypto.randomUUID()}.png`;
   await fs.writeFile(path.join(UPLOADS_DIR, filename), buffer);
+  // Durable DB copy — production disk is wiped on every deploy.
+  await storedFiles.saveStoredFile(`${PUBLIC_PREFIX}/${filename}`, "image/png", buffer);
   return `${PUBLIC_PREFIX}/${filename}`;
 }
 
@@ -631,6 +636,12 @@ async function persistImage(sourceUrl) {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
   const filename = `${crypto.randomUUID()}.png`;
   await fs.writeFile(path.join(UPLOADS_DIR, filename), buffer);
+  // Durable DB copy — production disk is wiped on every deploy.
+  await storedFiles.saveStoredFile(
+    `${PUBLIC_PREFIX}/${filename}`,
+    contentType.split(";")[0] || "image/png",
+    buffer
+  );
   return `${PUBLIC_PREFIX}/${filename}`;
 }
 

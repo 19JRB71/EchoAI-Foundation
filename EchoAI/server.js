@@ -319,6 +319,25 @@ app.use("/api/v2", mobileRoutes);
 // download and serve them locally). Mounted before the SPA fallback.
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// AI-generated images + owner-uploaded post media: production disk is
+// ephemeral (wiped every deploy), so when express.static misses a file we
+// restore it from the durable stored_files DB copy and serve it. Without
+// this, Facebook fetched a 404 at publish time and posted text-only.
+// (Express 5 no longer supports regex params, so the subdirectory allowlist
+// lives in readStoredFile — unmanaged dirs fall through to the next route.)
+app.get("/uploads/:dir/:name", async (req, res, next) => {
+  if (!["images", "media"].includes(req.params.dir)) return next();
+  try {
+    const storedFiles = require("./utils/storedFiles");
+    const file = await storedFiles.readStoredFile(req.params.dir, req.params.name);
+    if (!file) return res.status(404).json({ error: "Not found" });
+    res.type(file.mime).send(file.buffer);
+  } catch (err) {
+    console.error("Stored file restore error:", err.message);
+    res.status(404).json({ error: "Not found" });
+  }
+});
+
 // Vision reference photos: production disk is ephemeral (wiped every deploy),
 // so when express.static misses a /uploads/vision/ file, restore it from the
 // durable database copy (vision_reference_images.image_data) and serve it.
@@ -428,6 +447,9 @@ app.listen(PORT, "0.0.0.0", () => {
   require("./utils/visionFiles")
     .backfillFromDisk()
     .catch((err) => console.error("Vision photo backfill failed:", err.message));
+  require("./utils/storedFiles")
+    .backfillFromDisk()
+    .catch((err) => console.error("Stored file backfill failed:", err.message));
 });
 
 module.exports = app;

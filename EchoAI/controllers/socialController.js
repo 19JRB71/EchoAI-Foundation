@@ -106,6 +106,12 @@ async function uploadPostMedia(req, res) {
     await fs.promises.mkdir(MEDIA_DIR, { recursive: true });
     const name = `${crypto.randomBytes(16).toString("hex")}${imageExt || videoExt}`;
     await fs.promises.writeFile(path.join(MEDIA_DIR, name), file.buffer);
+    // Durable DB copy — production disk is wiped on every deploy.
+    await require("../utils/storedFiles").saveStoredFile(
+      `/uploads/media/${name}`,
+      file.mimetype,
+      file.buffer
+    );
     return res.status(201).json({
       url: `/uploads/media/${name}`,
       mediaType: imageExt ? "image" : "video",
