@@ -37,6 +37,7 @@ const {
 const { launchFacebookCampaign } = require("./campaignController");
 const { publishStoredPost } = require("./socialController");
 const { evaluateAdSpend, suggestDailyBudget, getBrandSpend } = require("../utils/spendLimits");
+const { getGuidanceForImageRequest } = require("../utils/visionEngine");
 const { recordSignal, learningContextForBrand } = require("../utils/learningEngine");
 const { computeSetupStatus } = require("../utils/setupStatus");
 const pushController = require("./pushController");
@@ -415,13 +416,69 @@ async function getReadiness(req, res) {
 
 // --- weekly batch generation ---------------------------------------------------
 
+/**
+ * Recent image prompts for this brand across Autopilot batches, so the next
+ * graphic can be steered AWAY from scenes the owner has already seen. Fail-open
+ * (empty list) — variety guidance must never block image generation.
+ */
+async function recentImageScenes(brandId) {
+  try {
+    const r = await db.query(
+      `SELECT image_prompt FROM autopilot_batch_items abi
+        JOIN autopilot_batches ab ON ab.batch_id = abi.batch_id
+       WHERE ab.brand_id = $1 AND abi.image_prompt IS NOT NULL
+       ORDER BY abi.created_at DESC
+       LIMIT 8`,
+      [brandId]
+    );
+    const scenes = r.rows
+      .map((row) => {
+        // The subject line ("Subject: ....") is the scene; the rest is boilerplate.
+        const m = String(row.image_prompt).match(/Subject:\s*([^.]+(?:\.[^.]*)?)/);
+        return (m ? m[1] : String(row.image_prompt)).slice(0, 160).trim();
+      })
+      .filter(Boolean);
+    return [...new Set(scenes)];
+  } catch (err) {
+    console.error("Autopilot recent-scene lookup failed:", err.message);
+    return [];
+  }
+}
+
 /** Best-effort on-brand image for one batch item; failures leave it null. */
 async function renderItemImage(brand, item) {
   const purpose = PLATFORM_IMAGE_PURPOSE[item.platform] || "facebook_ad";
   const description =
     (item.visual_idea && item.visual_idea.trim()) ||
     `An eye-catching marketing visual for: ${String(item.post_content).slice(0, 200)}`;
-  const prompt = buildImagePrompt(brand, purpose, description);
+
+  // Rotate the creative direction per image (clean/bold/editorial) so a week
+  // of posts doesn't render as near-identical scenes.
+  let prompt = buildImagePrompt(brand, purpose, description, {
+    variantIndex: Math.floor(Math.random() * 3),
+  });
+
+  // Consult Vision's visual knowledge base — distilled from the owner's real
+  // uploaded reference photos + studied industry standards. Fail-open: image
+  // generation is never blocked when Vision hasn't studied this brand yet.
+  const guidance = await getGuidanceForImageRequest({
+    brandId: brand.brand_id,
+    requester: "nova_autopilot",
+    requestSummary: `${purpose}: ${description.slice(0, 200)}`,
+  });
+  // Cap the guidance block so an unusually large knowledge base can't balloon
+  // the image prompt past what the image model handles reliably.
+  if (guidance && guidance.text) prompt += `\n\n${String(guidance.text).slice(0, 2500)}`;
+
+  // Anti-repetition: tell the model what this brand's recent graphics already
+  // showed so it composes a genuinely NEW scene (different setting, angle,
+  // season, subject treatment) instead of the same hero shot every week.
+  const recent = await recentImageScenes(brand.brand_id);
+  if (recent.length) {
+    prompt +=
+      "\n\nThis brand's recent images already showed the scenes below. Compose a CLEARLY DIFFERENT scene — change the setting, camera angle, time of day, season, or featured subject. Do not repeat these:\n" +
+      recent.map((s, i) => `${i + 1}. ${s}`).join("\n");
+  }
   const temporaryUrl = await renderFromPrompt(prompt, purpose);
   const permanentUrl = await persistImage(temporaryUrl);
   await db.query(
