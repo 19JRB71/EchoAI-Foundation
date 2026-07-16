@@ -25,7 +25,7 @@ const {
   competitorLines,
   extractJsonObject,
 } = require("./voiceContentPrompt");
-const { briefPromptLines, TIME_SLOT_THEMES } = require("../utils/forgeDirector");
+const { briefPromptLines, sageGuidanceLines, TIME_SLOT_THEMES } = require("../utils/forgeDirector");
 
 function invalid(message) {
   const err = new Error(message);
@@ -252,6 +252,7 @@ async function draftInstantPost(brand, platform, recentPosts = [], topic = "", b
             : "",
           "Would this make someone stop scrolling, look, and remember this business?",
           "If not, sharpen the concept before writing it.",
+          ...sageGuidanceLines(brief._sage),
         ]
           .filter(Boolean)
           .join("\n")

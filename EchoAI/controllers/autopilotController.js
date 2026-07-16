@@ -463,7 +463,12 @@ async function renderItemImage(brand, item) {
   // camera composition BEFORE generation. Fail-open: items without a brief
   // (legacy batches, planning failures) render exactly as before.
   const brief = await forgeDirector.getBriefForItem(item.item_id);
-  if (brief) prompt += `\n\n${forgeDirector.visualDirective(brief)}`;
+  if (brief) {
+    // Sage's Pattern Intelligence can add an industry-informed color
+    // direction to the art direction (fail-open null when Sage hasn't run).
+    const sage = await forgeDirector.getPatternRecommendation(brand.brand_id);
+    prompt += `\n\n${forgeDirector.visualDirective(brief, sage)}`;
+  }
 
   // Consult Vision's visual knowledge base — distilled from the owner's real
   // uploaded reference photos + studied industry standards. Fail-open: image

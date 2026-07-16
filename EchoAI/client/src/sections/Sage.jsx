@@ -8,6 +8,7 @@ const TABS = [
   { key: "feed", label: "Latest Intelligence" },
   { key: "competitors", label: "Competitor Watch" },
   { key: "insights", label: "Marketing Insights" },
+  { key: "patterns", label: "Pattern Intelligence" },
   { key: "input", label: "Intelligence Input" },
 ];
 
@@ -111,6 +112,7 @@ export default function Sage({ brandId, initialTab }) {
       {tab === "feed" && <FeedTab brandId={brandId} />}
       {tab === "competitors" && <CompetitorsTab brandId={brandId} />}
       {tab === "insights" && <InsightsTab brandId={brandId} />}
+      {tab === "patterns" && <PatternsTab brandId={brandId} />}
       {tab === "input" && <InputTab brandId={brandId} />}
     </div>
   );
@@ -778,6 +780,178 @@ function InsightsTab({ brandId }) {
             );
           })}
         </ul>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------- Pattern Intelligence --------------------------- */
+
+function PatternsTab({ brandId }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [running, setRunning] = useState(false);
+
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      const res = await api.getSagePatterns(brandId);
+      setData(res);
+    } catch (err) {
+      setError(err.message || "Failed to load pattern intelligence");
+    } finally {
+      setLoading(false);
+    }
+  }, [brandId]);
+
+  useEffect(() => {
+    setLoading(true);
+    load();
+  }, [load]);
+
+  async function runStudy() {
+    setRunning(true);
+    setError("");
+    try {
+      const res = await api.refreshSagePatterns(brandId);
+      setData((prev) => ({ ...(prev || {}), insights: res.insights }));
+    } catch (err) {
+      setError(err.message || "Failed to run the pattern study");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  if (loading) return <Spinner />;
+
+  const insights = data && data.insights;
+  const report = insights && Array.isArray(insights.report) ? insights.report : [];
+  const brief = insights && insights.forge_brief;
+  const sources = insights && Array.isArray(insights.sources) ? insights.sources : [];
+
+  return (
+    <div className="space-y-4">
+      {error && <ErrorBanner message={error} />}
+
+      <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4 text-sm text-gray-400">
+        Sage studies <span className="text-gray-200">publicly available marketing</span>{" "}
+        across your whole industry — public ad libraries and live web research —
+        to learn <span className="text-gray-200">why</span> campaigns work, then
+        hands Forge a creative brief so your content uses proven patterns while
+        staying <span className="text-emerald-300">completely original</span>.
+        Zorecho never copies another company&apos;s branding, copy, or imagery.
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">
+          {insights && insights.last_run_at
+            ? `Last studied ${fmtDateTime(insights.last_run_at)} · ${insights.sample_size} public campaign${insights.sample_size === 1 ? "" : "s"} analyzed`
+            : "No pattern study yet"}
+        </p>
+        <button
+          type="button"
+          onClick={runStudy}
+          disabled={running}
+          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+        >
+          {running ? "Studying…" : "Run pattern study"}
+        </button>
+      </div>
+
+      {data && !data.adLibraryConfigured && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+          Facebook access isn&apos;t configured, so Sage can&apos;t pull public
+          Ad Library campaigns — pattern studies will rest on live web research
+          only.
+        </div>
+      )}
+
+      {!insights ? (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-6 text-center text-sm text-gray-400">
+          Sage hasn&apos;t studied your industry&apos;s patterns yet. Click{" "}
+          <span className="text-emerald-300">Run pattern study</span> or wait
+          for the weekly cycle (Tuesdays).
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {brief && (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <h3 className="mb-2 text-sm font-semibold text-emerald-300">
+                Creative Brief → Forge
+              </h3>
+              <p className="mb-3 text-xs text-gray-500">
+                These recommendations now steer Forge&apos;s creative choices
+                for your weekly content (your own real engagement data still
+                has the final say).
+              </p>
+              <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                {[
+                  ["Objective", brief.objective],
+                  ["Tone", brief.tone],
+                  ["Visual style", brief.visual_style],
+                  ["Camera", brief.camera],
+                  ["Copy style", brief.copy_style],
+                  ["Hook approach", brief.recommended_hook],
+                  ["Call to action", brief.recommended_cta],
+                  ["Story angle", brief.recommended_story],
+                  ["Color direction", brief.color_palette],
+                ]
+                  .filter(([, v]) => v)
+                  .map(([k, v]) => (
+                    <div key={k}>
+                      <dt className="text-xs uppercase tracking-wide text-gray-500">{k}</dt>
+                      <dd className="text-gray-200">{v}</dd>
+                    </div>
+                  ))}
+              </dl>
+            </div>
+          )}
+
+          {report.map((item, i) => (
+            <div key={i} className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+              <h3 className="text-sm font-semibold text-gray-200">{item.pattern}</h3>
+              {item.evidence && (
+                <p className="mt-1 text-xs text-gray-500">Evidence: {item.evidence}</p>
+              )}
+              {item.why_it_works && (
+                <p className="mt-2 text-sm text-gray-300">{item.why_it_works}</p>
+              )}
+            </div>
+          ))}
+
+          {insights.sample_size > 0 && (
+            <p className="text-xs text-gray-500">
+              Patterns measure prevalence among currently active public ads
+              (the Ad Library publishes no engagement numbers for commercial
+              ads) plus cited live web research.
+            </p>
+          )}
+
+          {sources.length > 0 && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+              <h3 className="mb-2 text-sm font-semibold text-gray-200">Web sources</h3>
+              <ul className="space-y-1 text-sm">
+                {sources.map((src, i) => {
+                  const url = typeof src === "string" ? src : src.url;
+                  const title = typeof src === "string" ? src : src.title || src.url;
+                  return (
+                    <li key={i}>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-emerald-300 hover:underline"
+                      >
+                        {title}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

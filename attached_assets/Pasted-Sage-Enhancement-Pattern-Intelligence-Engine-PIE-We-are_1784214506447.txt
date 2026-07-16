@@ -1,0 +1,299 @@
+Sage Enhancement: Pattern Intelligence Engine (PIE)
+
+We are adding a new core capability to Sage called the Pattern Intelligence Engine.
+
+The purpose of this engine is NOT to copy competitors.
+
+Its purpose is to discover patterns in successful public marketing campaigns, understand why they are effective, and provide strategic guidance that helps Forge create original, higher-performing marketing.
+
+Mission
+
+Sage must continuously study publicly available marketing within each client's industry and answer one question:
+
+"What patterns consistently make people stop, engage, and convert?"
+
+The goal is to understand why campaigns work—not duplicate them.
+
+Public Sources
+
+Analyze only publicly available information, such as:
+
+Meta Ad Library
+Public Facebook business pages
+Public Instagram business accounts
+Company websites
+Landing pages
+Public YouTube videos
+Google Business Profiles
+Public reviews
+Public blog posts
+Public promotions
+Public press releases
+
+Never access private information or attempt to bypass platform restrictions.
+
+Pattern Analysis
+
+For every campaign analyzed, Sage should score and categorize the following.
+
+Hook Analysis
+
+Identify the opening hook.
+
+Classify it as:
+
+Question
+Story
+Customer Problem
+Curiosity
+Bold Statement
+Statistic
+Demonstration
+Humor
+Emotional
+Before & After
+Testimonial
+Fear of Missing Out
+Urgency
+Local Connection
+Educational
+
+Determine:
+
+Why would someone stop scrolling?
+What emotion is being triggered?
+How quickly is value communicated?
+Visual Analysis
+
+Break the creative into measurable components.
+
+Analyze:
+
+Lighting
+Color palette
+Time of day
+Weather
+Camera angle
+Camera movement
+Composition
+Subject placement
+Background
+Image complexity
+Human vs Product focus
+Lifestyle vs Product
+Luxury vs Practical
+Brand visibility
+Typography
+Overall visual style
+
+Classify styles such as:
+
+Cinematic
+Lifestyle
+Documentary
+Editorial
+Luxury
+Construction
+Minimalist
+Seasonal
+Family
+High Energy
+Calm
+Premium
+Video Analysis
+
+For video campaigns analyze:
+
+First three seconds
+Scene changes
+Editing pace
+Camera movement
+Voice style
+Music style
+Text overlays
+Caption timing
+CTA placement
+Story progression
+
+Determine:
+
+What keeps viewers watching?
+
+Copywriting Analysis
+
+Study:
+
+Reading level
+Headline
+CTA
+Sentence length
+Emotional words
+Storytelling
+Humor
+Educational content
+Scarcity
+Trust signals
+Customer focus
+Psychological Analysis
+
+Determine which emotions the campaign targets.
+
+Examples:
+
+Trust
+
+Curiosity
+
+Excitement
+
+Security
+
+Family
+
+Humor
+
+Pride
+
+Relief
+
+Urgency
+
+Luxury
+
+Confidence
+
+Community
+
+Belonging
+
+Achievement
+
+Engagement Analysis
+
+Where public engagement is available, evaluate:
+
+Likes
+
+Comments
+
+Shares
+
+Views
+
+Reactions
+
+Comment sentiment
+
+Discussion quality
+
+Identify patterns instead of relying on one successful post.
+
+Pattern Recognition
+
+Never evaluate one advertisement in isolation.
+
+Analyze hundreds or thousands of public campaigns over time.
+
+Identify recurring patterns such as:
+
+High-performing hooks
+
+Winning visual styles
+
+Common emotional triggers
+
+Successful offers
+
+Best-performing video pacing
+
+High-performing CTA styles
+
+Seasonal trends
+
+Emerging trends
+
+Industry shifts
+
+Intelligence Report
+
+Instead of saying:
+
+"Competitor ABC used this ad."
+
+Sage should say:
+
+"Across 1,200 publicly available campaigns in this industry, educational videos with customer testimonials and bright natural lighting consistently receive higher engagement than promotional graphics."
+
+Focus on industry-wide insights, not individual competitors.
+
+Collaboration with Forge
+
+After analysis, Sage automatically generates a Creative Brief for Forge.
+
+Example:
+
+Creative Brief
+
+Objective:
+Increase engagement.
+
+Recommended Hook:
+Customer Problem.
+
+Recommended Emotion:
+Trust.
+
+Recommended Visual Style:
+Cinematic documentary.
+
+Recommended Camera:
+Drone opening followed by close-up craftsmanship.
+
+Recommended CTA:
+Soft educational invitation.
+
+Recommended Color Palette:
+Warm natural tones.
+
+Recommended Story:
+Show transformation instead of simply showing the finished product.
+
+Forge must create completely original marketing inspired by these insights.
+
+Never imitate another company's branding, copy, imagery, or distinctive creative assets.
+
+Continuous Learning
+
+Sage should continuously update its understanding of each industry.
+
+Track:
+
+Seasonal changes
+
+Creative trends
+
+Platform algorithm shifts
+
+Consumer behavior
+
+Offer performance
+
+Visual trends
+
+Marketing styles
+
+Emerging opportunities
+
+The longer Sage studies an industry, the more intelligent its recommendations become.
+
+Core Principle
+
+Sage is not a competitor monitoring tool.
+
+Sage is an AI Marketing Intelligence Analyst.
+
+Its responsibility is to understand why marketing works and provide strategic intelligence that enables Forge to create original, higher-performing campaigns.
+
+Every recommendation should answer one question:
+
+"What can we learn from successful public marketing that helps our client create something even better?"

@@ -38,6 +38,10 @@ router.post("/competitors/:id/refresh", controller.refreshCompetitorHandler);
 router.patch("/competitors/:id", controller.updateCompetitor);
 router.delete("/competitors/:id", controller.deleteCompetitor);
 
+// Pattern Intelligence Engine (industry-wide public-campaign patterns)
+router.get("/patterns", controller.getPatterns);
+router.post("/patterns/refresh", controller.refreshPatterns);
+
 // Intelligence Input (link / facebook JSON, or image / PDF multipart)
 router.post("/input", uploadDocument, controller.submitIntelligence);
 router.get("/submissions", controller.listSubmissions);

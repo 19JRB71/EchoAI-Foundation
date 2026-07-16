@@ -196,7 +196,7 @@ async function creativeHistory(brandId) {
  * engagement each value has earned (+1 smoothing so unproven values still
  * get chosen).
  */
-function pickValue(pool, key, history, rand = Math.random) {
+function pickValue(pool, key, history, rand = Math.random, recommended = null) {
   const blockCount = Math.min(RECENCY_BLOCK[key] || 3, pool.length - 1);
   const blocked = new Set(
     history
@@ -222,7 +222,13 @@ function pickValue(pool, key, history, rand = Math.random) {
   }
   const weights = candidates.map((v) => {
     const s = stats.get(v);
-    return 1 + (s ? s.total / s.n : 0);
+    let w = 1 + (s ? s.total / s.n : 0);
+    // Sage's Pattern Intelligence recommendation (learned from public
+    // industry-wide campaign patterns) gets a strong nudge — but never a
+    // lock-in: recency blocking and exploration still apply, and the brand's
+    // own real engagement data keeps its full weight.
+    if (recommended && v === recommended) w *= 3;
+    return w;
   });
   const sum = weights.reduce((a, b) => a + b, 0);
   let roll = rand() * sum;
@@ -233,16 +239,35 @@ function pickValue(pool, key, history, rand = Math.random) {
   return candidates[candidates.length - 1];
 }
 
-/** Builds one brief in memory (no DB write). */
-function composeBrief(history, timeSlot, rand = Math.random) {
+/** Builds one brief in memory (no DB write). `sage` = Sage's PIE recommendation. */
+function composeBrief(history, timeSlot, rand = Math.random, sage = null) {
+  const rec = sage && typeof sage === "object" ? sage : {};
   return {
-    objective: pickValue(OBJECTIVES, "objective", history, rand),
-    tone: pickValue(TONES, "tone", history, rand),
-    visual_style: pickValue(VISUAL_STYLES, "visual_style", history, rand),
-    camera: pickValue(CAMERAS, "camera", history, rand),
-    copy_style: pickValue(COPY_STYLES, "copy_style", history, rand),
+    objective: pickValue(OBJECTIVES, "objective", history, rand, rec.objective),
+    tone: pickValue(TONES, "tone", history, rand, rec.tone),
+    visual_style: pickValue(VISUAL_STYLES, "visual_style", history, rand, rec.visual_style),
+    camera: pickValue(CAMERAS, "camera", history, rand, rec.camera),
+    copy_style: pickValue(COPY_STYLES, "copy_style", history, rand, rec.copy_style),
     time_slot: TIME_SLOT_THEMES[timeSlot] ? timeSlot : null,
   };
+}
+
+/**
+ * Sage's latest Pattern Intelligence Creative Brief for this brand (learned
+ * from publicly available industry-wide campaigns), or null. Fail-open: the
+ * director never blocks on Sage.
+ */
+async function getPatternRecommendation(brandId) {
+  try {
+    const r = await db.query(
+      "SELECT forge_brief FROM sage_pattern_insights WHERE brand_id = $1",
+      [brandId]
+    );
+    const fb = r.rows[0] && r.rows[0].forge_brief;
+    return fb && typeof fb === "object" ? fb : null;
+  } catch (_err) {
+    return null;
+  }
 }
 
 /**
@@ -263,9 +288,11 @@ async function planBriefs(brandId, slotLabels, seedBriefs = []) {
       ...seedBriefs.map((b) => ({ ...b, score: null })).reverse(),
       ...(await creativeHistory(brandId)),
     ];
+    const sage = await getPatternRecommendation(brandId);
     const briefs = [];
     for (const label of slotLabels) {
-      const brief = composeBrief(history, label);
+      const brief = composeBrief(history, label, Math.random, sage);
+      if (sage) brief._sage = sage; // prompt-only guidance, never persisted
       const ins = await db.query(
         `INSERT INTO forge_creative_briefs
            (brand_id, objective, tone, visual_style, camera, copy_style, time_slot)
@@ -342,16 +369,45 @@ function briefPromptLines(briefs) {
     ),
     "Do NOT reuse the same opening hook, subject focus, or call-to-action phrasing across posts.",
     "Ask of every post: would this make someone stop scrolling, look, and remember this business? If not, sharpen the concept before writing it.",
+    ...sageGuidanceLines(briefs.find((b) => b && b._sage) ? briefs.find((b) => b._sage)._sage : null),
+  ];
+}
+
+/**
+ * Sage's Pattern Intelligence guidance block for content prompts. The
+ * guidance is strategic ("what works in this industry"), never imitative.
+ */
+function sageGuidanceLines(sage) {
+  if (!sage || typeof sage !== "object") return [];
+  const recs = [
+    sage.recommended_hook ? `- Opening hook approach that performs in this industry: ${sage.recommended_hook}` : null,
+    sage.recommended_cta ? `- Call-to-action style: ${sage.recommended_cta}` : null,
+    sage.recommended_story ? `- Story angle: ${sage.recommended_story}` : null,
+    sage.color_palette ? `- Visual color direction: ${sage.color_palette}` : null,
+  ].filter(Boolean);
+  if (!recs.length) return [];
+  return [
+    "",
+    "SAGE'S PATTERN INTELLIGENCE — learned from studying publicly available",
+    "campaigns across this industry (patterns, not any single company):",
+    ...recs,
+    "Use these insights to create COMPLETELY ORIGINAL marketing. Never imitate",
+    "another company's branding, copy, imagery, or distinctive creative assets.",
   ];
 }
 
 /** Art-direction text appended to an item's image prompt. */
-function visualDirective(brief) {
+function visualDirective(brief, sage = null) {
   if (!brief) return "";
+  const palette =
+    sage && typeof sage === "object" && sage.color_palette
+      ? ` Color direction informed by current industry patterns: ${sage.color_palette}.`
+      : "";
   return (
     `Art direction (from Forge, the Creative Director): render this in a "${brief.visual_style}" visual style, ` +
-    `composed from a "${brief.camera}" viewpoint, with a ${String(brief.tone).toLowerCase()} emotional feel. ` +
-    "The result must look professionally art-directed, never like generic AI imagery."
+    `composed from a "${brief.camera}" viewpoint, with a ${String(brief.tone).toLowerCase()} emotional feel.` +
+    palette +
+    " The result must look professionally art-directed, never like generic AI imagery."
   );
 }
 
@@ -384,6 +440,8 @@ module.exports = {
   creativeHistory,
   pickValue,
   composeBrief,
+  getPatternRecommendation,
+  sageGuidanceLines,
   planBriefs,
   linkBriefToItem,
   getBriefForItem,

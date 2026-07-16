@@ -349,6 +349,10 @@ export const api = {
   // brand-owner-scoped like other brand resources).
   getSageBrief: (brandId) =>
     request(`/api/sage/brief?brandId=${encodeURIComponent(brandId)}`),
+  getSagePatterns: (brandId) =>
+    request(`/api/sage/patterns?brandId=${encodeURIComponent(brandId)}`),
+  refreshSagePatterns: (brandId) =>
+    request("/api/sage/patterns/refresh", { method: "POST", body: { brandId } }),
   refreshSageBrief: (brandId) =>
     request("/api/sage/brief/refresh", { method: "POST", body: { brandId } }),
   getSageFeed: (brandId) =>

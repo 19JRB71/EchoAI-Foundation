@@ -27,6 +27,7 @@ const {
   analyzeSubmission,
 } = require("../prompts/sagePrompt");
 const { enqueueOwnerVoiceEvent } = require("../utils/echoVoiceNotifications");
+const patternIntelligence = require("../utils/patternIntelligence");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
 
@@ -811,6 +812,55 @@ async function listSubmissions(req, res) {
   }
 }
 
+// --- Pattern Intelligence Engine (PIE) --------------------------------------
+
+/** GET /api/sage/patterns?brandId= — industry-wide pattern report + brief. */
+async function getPatterns(req, res) {
+  try {
+    const brandId = brandIdOf(req);
+    const brand = await getOwnedBrand(req.user.userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+    const insights = await patternIntelligence.getInsightsForBrand(brandId);
+    return res.json({
+      insights,
+      adLibraryConfigured: patternIntelligence.isConfigured(),
+    });
+  } catch (err) {
+    return sendError(res, err, "Failed to load pattern intelligence");
+  }
+}
+
+/** POST /api/sage/patterns/refresh {brandId} — run a PIE cycle now. */
+async function refreshPatterns(req, res) {
+  const brandId = brandIdOf(req);
+  // Manual-scoped run key at MINUTE granularity: concurrent manual refreshes
+  // for the same brand collide on the unique (brand, cycle_type, run_key)
+  // index, so exactly one wins the claim and the rest get a clean 409 —
+  // never a duplicate study. Also keeps manual runs out of the weekly bucket.
+  const runKey = `manual:${new Date().toISOString().slice(0, 16)}`;
+  let claimed = false;
+  try {
+    const brand = await getOwnedBrand(req.user.userId, brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+    claimed = await claimRun(brandId, "patterns", runKey);
+    if (!claimed) {
+      return res.status(409).json({
+        error:
+          "A pattern study for this brand is already running or just finished. Please wait a minute and try again.",
+      });
+    }
+    const summary = await patternIntelligence.runPatternCycleForBrand(brand);
+    await finishRun(brandId, "patterns", runKey, "done");
+    const insights = await patternIntelligence.getInsightsForBrand(brandId);
+    return res.json({ summary, insights });
+  } catch (err) {
+    if (claimed) {
+      await finishRun(brandId, "patterns", runKey, "failed").catch(() => {});
+    }
+    return sendError(res, err, "Failed to run the pattern study");
+  }
+}
+
 module.exports = {
   // engine
   activeBrandsForSage,
@@ -834,6 +884,8 @@ module.exports = {
   deleteCompetitor,
   submitIntelligence,
   listSubmissions,
+  getPatterns,
+  refreshPatterns,
   // test seams
   _contentKeyOfForTests: contentKeyOf,
   _saveFeedItemForTests: saveFeedItem,

@@ -61,6 +61,7 @@ const {
   claimRun,
   finishRun,
 } = require("../controllers/sageController");
+const { runPatternCycleForBrand } = require("./patternIntelligence");
 const { warmMorningBriefings } = require("../controllers/echoVoiceController");
 const {
   sweepDueReminders,
@@ -402,6 +403,44 @@ async function runSageUrgentScan() {
     }
   }
   console.log(`Sage urgent scan complete: ${ok}/${brands.length} brands scanned.`);
+}
+
+/** ISO-week key (e.g. "2026-W29") — one pattern study per brand per week. */
+function isoWeekKey(d = new Date()) {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+/**
+ * Sage's weekly Pattern Intelligence study. For every real brand: gathers
+ * publicly available industry campaigns (Meta Ad Library — nothing gathered
+ * without a token, never fabricated), analyzes the craft, aggregates real
+ * prevalence patterns, and refreshes the industry report + Forge Creative
+ * Brief. Claimed atomically per ISO week; per-brand failures are logged and
+ * never stop the sweep.
+ */
+async function runSagePatternStudy() {
+  const brands = await activeBrandsForSage();
+  const runKey = `weekly:${isoWeekKey()}`;
+  let ok = 0;
+  for (const brand of brands) {
+    let claimed = false;
+    try {
+      claimed = await claimRun(brand.brand_id, "patterns", runKey);
+      if (!claimed) continue;
+      await runPatternCycleForBrand(brand);
+      await finishRun(brand.brand_id, "patterns", runKey, "done");
+      ok += 1;
+    } catch (err) {
+      if (claimed) await finishRun(brand.brand_id, "patterns", runKey, "failed");
+      console.error(`Sage pattern study failed for brand ${brand.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Sage pattern study complete: ${ok}/${brands.length} brands studied.`);
 }
 
 /**
@@ -812,6 +851,17 @@ function startScheduler() {
     ai: true,
     control: "SAGE_URGENT_ENABLED",
     run: runSageUrgentScan,
+  });
+
+  // Tuesday 05:45 — Sage's weekly Pattern Intelligence study: learns WHY
+  // public industry campaigns work and refreshes the Creative Brief that
+  // steers Forge (claimed per ISO week, so a restart never double-runs).
+  scheduleJob({
+    name: "sage-pattern-study",
+    cronExpr: "45 5 * * 2",
+    ai: true,
+    control: "SAGE_RESEARCH_ENABLED",
+    run: runSagePatternStudy,
   });
 
   // Real-estate automations (real_estate brands only, demo brands excluded):
