@@ -25,6 +25,7 @@ const {
   competitorLines,
   extractJsonObject,
 } = require("./voiceContentPrompt");
+const { briefPromptLines, TIME_SLOT_THEMES } = require("../utils/forgeDirector");
 
 function invalid(message) {
   const err = new Error(message);
@@ -32,7 +33,7 @@ function invalid(message) {
   return err;
 }
 
-function buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek }) {
+function buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek, briefs }) {
   const name = brand.brand_name || "the brand";
   const personality = brand.brand_personality || "professional and approachable";
   const voice = brand.voice_description || "clear, friendly, and benefit-focused";
@@ -69,6 +70,8 @@ function buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek }) {
         ? ` and ${adsPerWeek} Facebook test ad(s) for this week.`
         : " for this week (no ads this week)."),
     "",
+    ...briefPromptLines(briefs),
+    "",
     "Rules:",
     "- Never invent statistics, testimonials, discounts, events, or competitor claims.",
     "- No clarifying questions — you are on autopilot. When specifics are missing, write evergreen brand-grounded content.",
@@ -94,8 +97,8 @@ function buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek }) {
  * Drafts one week's batch: exactly `postsPerWeek` posts + `adsPerWeek` ads,
  * fully validated. Throws `err.aiInvalid` on bad shape (mapped upstream).
  */
-async function generateWeeklyBatch(brand, intel, { postsPerWeek, adsPerWeek, avoidPosts }) {
-  let systemPrompt = buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek });
+async function generateWeeklyBatch(brand, intel, { postsPerWeek, adsPerWeek, avoidPosts, briefs }) {
+  let systemPrompt = buildWeeklyBatchPrompt(brand, intel, { postsPerWeek, adsPerWeek, briefs });
   // Multi-week ranges draft week-by-week; feed earlier weeks' copy back in so
   // the next week covers fresh angles instead of repeating itself.
   if (Array.isArray(avoidPosts) && avoidPosts.length > 0) {
@@ -227,7 +230,7 @@ async function reviseAdDraft(brand, item, instruction) {
  * the new post doesn't repeat what's already queued this week.
  * Returns a validated { postText, hashtags, callToAction }.
  */
-async function draftInstantPost(brand, platform, recentPosts = [], topic = "") {
+async function draftInstantPost(brand, platform, recentPosts = [], topic = "", brief = null) {
   const systemPrompt = [
     "You are Echo, Zorecho's autopilot marketing strategist. The business owner",
     "wants ONE brand-new social post to publish RIGHT NOW, on top of this",
@@ -238,6 +241,21 @@ async function draftInstantPost(brand, platform, recentPosts = [], topic = "") {
     `Platform: ${platform} (${PLATFORM_GUIDELINES[platform] || "clear on-brand post"})`,
     "",
     topic ? `The owner wants it about: "${topic}"` : "",
+    brief
+      ? [
+          "",
+          "Forge (the Creative Director) has assigned this post a strategy brief.",
+          `Follow it exactly: objective = ${brief.objective}; emotional tone = ${brief.tone};`,
+          `copywriting style = ${brief.copy_style}.`,
+          brief.time_slot && TIME_SLOT_THEMES[brief.time_slot]
+            ? `Time-of-day theme: ${TIME_SLOT_THEMES[brief.time_slot]}`
+            : "",
+          "Would this make someone stop scrolling, look, and remember this business?",
+          "If not, sharpen the concept before writing it.",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "",
     recentPosts.length
       ? [
           "Posts already queued or published this week (do NOT repeat these",

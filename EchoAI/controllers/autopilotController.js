@@ -23,6 +23,7 @@
 
 const db = require("../config/db");
 const { generateWeeklyBatch, reviseAdDraft, draftInstantPost } = require("../prompts/autopilotPrompt");
+const forgeDirector = require("../utils/forgeDirector");
 const { zonedWallTimeToUtc } = require("../utils/timezone");
 const { reviseVoiceDraft } = require("../prompts/voiceContentPrompt");
 const { composePostContent } = require("../prompts/contentCalendarPrompt");
@@ -458,6 +459,12 @@ async function renderItemImage(brand, item) {
     variantIndex: Math.floor(Math.random() * 3),
   });
 
+  // Forge's art direction: the item's creative brief fixed a visual style +
+  // camera composition BEFORE generation. Fail-open: items without a brief
+  // (legacy batches, planning failures) render exactly as before.
+  const brief = await forgeDirector.getBriefForItem(item.item_id);
+  if (brief) prompt += `\n\n${forgeDirector.visualDirective(brief)}`;
+
   // Consult Vision's visual knowledge base — distilled from the owner's real
   // uploaded reference photos + studied industry standards. Fail-open: image
   // generation is never blocked when Vision hasn't studied this brand yet.
@@ -529,12 +536,39 @@ async function generateBatchForBrand(batch, brand, settings) {
     brand._learningContext = await learningContextForBrand(brandId);
     // Generate week-by-week so a multi-week range never asks the AI for one
     // giant response (output limits would silently truncate the batch).
+    // Forge Creative Director: BEFORE each week is drafted, plan one strategy
+    // brief per post (objective/tone/visual style/camera/copy style + the
+    // time-of-day theme of its posting slot). Briefs steer the copy prompt
+    // now and the image prompt at render time. Fail-open: an empty plan
+    // drafts exactly as before.
+    const perDay = Math.min(
+      AUTOPILOT_SLOTS.length,
+      Math.max(1, Math.ceil(settings.postsPerWeek / 7))
+    );
+    const SLOT_LABELS = ["morning", "afternoon", "evening"];
     const result = { posts: [], ads: [] };
+    const plannedSoFar = [];
     for (let w = 0; w < weeks; w += 1) {
+      const labels = Array.from(
+        { length: settings.postsPerWeek },
+        (_, i) => SLOT_LABELS[i % perDay]
+      );
+      // Earlier weeks' briefs are seeded in so consecutive weeks of the same
+      // batch never repeat each other (they aren't linked to items yet, so
+      // creative memory alone can't see them).
+      const briefs = await forgeDirector.planBriefs(brandId, labels, plannedSoFar);
+      plannedSoFar.push(...briefs);
       const chunk = await generateWeeklyBatch(brand, intel, {
         postsPerWeek: settings.postsPerWeek,
         adsPerWeek,
         avoidPosts: result.posts.map((p) => p.postText),
+        briefs,
+      });
+      // Brief N belongs to post N of this week's chunk; carried through so the
+      // inserted item can be linked back to its brief (creative memory +
+      // performance learning + art direction at image-render time).
+      chunk.posts.forEach((p, i) => {
+        p._forgeBrief = briefs[i] || null;
       });
       result.posts.push(...chunk.posts);
       result.ads.push(...chunk.ads);
@@ -561,11 +595,12 @@ async function generateBatchForBrand(batch, brand, settings) {
         const p = result.posts[i];
         position += 1;
         const scheduledTime = slotTimes[i];
-        await client.query(
+        const insertedItem = await client.query(
           `INSERT INTO autopilot_batch_items
              (batch_id, position, item_type, platform, post_content, visual_idea,
               scheduled_time, rationale)
-           VALUES ($1, $2, 'post', $3, $4, $5, $6, $7)`,
+           VALUES ($1, $2, 'post', $3, $4, $5, $6, $7)
+           RETURNING item_id`,
           [
             batchId,
             position,
@@ -576,6 +611,15 @@ async function generateBatchForBrand(batch, brand, settings) {
             p.rationale || null,
           ]
         );
+        // Link the item to its Forge brief inside the same transaction so the
+        // image renderer and performance learning can find it. Best-effort by
+        // design: a missing brief never blocks the batch.
+        if (p._forgeBrief && p._forgeBrief.brief_id) {
+          await client.query(
+            "UPDATE forge_creative_briefs SET item_id = $2 WHERE brief_id = $1",
+            [p._forgeBrief.brief_id, insertedItem.rows[0].item_id]
+          );
+        }
       }
       for (const ad of result.ads) {
         position += 1;
@@ -1201,11 +1245,19 @@ async function createInstantPost(req, res) {
         LIMIT 10`,
       [batchRow.batch_id]
     );
+    // Forge Creative Director: instant posts get a strategy brief too, themed
+    // to the brand-local time of day right now. Fail-open ([] → null brief).
+    const tzForBrief = await getBrandTimezone(brandId);
+    const instantBriefs = await forgeDirector.planBriefs(brandId, [
+      forgeDirector.currentSlotLabel(tzForBrief),
+    ]);
+    const forgeBrief = instantBriefs[0] || null;
     const draft = await draftInstantPost(
       brand,
       platform,
       recent.rows.map((r) => r.post_content),
-      typeof topic === "string" ? topic.trim().slice(0, 300) : ""
+      typeof topic === "string" ? topic.trim().slice(0, 300) : "",
+      forgeBrief
     );
 
     // Position allocation locks the batch row (same as decline replacements)
@@ -1249,6 +1301,13 @@ async function createInstantPost(req, res) {
       throw e;
     } finally {
       client.release();
+    }
+
+    // Best-effort: tie the instant post to its Forge brief so its image (if
+    // rendered later) gets the same art direction and its engagement feeds
+    // performance learning.
+    if (forgeBrief && forgeBrief.brief_id) {
+      await forgeDirector.linkBriefToItem(forgeBrief.brief_id, inserted.rows[0].item_id);
     }
 
     return res.status(201).json({
