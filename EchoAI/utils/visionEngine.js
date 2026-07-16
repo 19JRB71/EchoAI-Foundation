@@ -28,6 +28,7 @@ const fs = require("fs");
 const path = require("path");
 const db = require("../config/db");
 const { createMessage, MODEL } = require("../config/anthropic");
+const visionFiles = require("./visionFiles");
 
 // Owner-uploaded reference photos live here (served at /uploads/vision/).
 const REFERENCE_DIR = path.join(__dirname, "..", "uploads", "vision");
@@ -116,15 +117,15 @@ const SOURCE_REGISTRY = [
         // file_path is a relative URL like /uploads/vision/<name>; resolve the
         // basename inside REFERENCE_DIR only (never trust the stored path as a
         // filesystem path).
-        const absolute = path.join(REFERENCE_DIR, path.basename(row.file_path));
         try {
-          const data = await fs.promises.readFile(absolute);
+          const photo = await visionFiles.readReferencePhoto(row.file_path, row.mime_type);
+          if (!photo) throw new Error("no disk file and no stored bytes");
           imageBlocks.push({
             type: "image",
             source: {
               type: "base64",
-              media_type: row.mime_type,
-              data: data.toString("base64"),
+              media_type: photo.mime,
+              data: photo.buffer.toString("base64"),
             },
           });
           items.push(

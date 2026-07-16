@@ -41,6 +41,7 @@ const { evaluateAdSpend, suggestDailyBudget, getBrandSpend } = require("../utils
 const fs = require("fs");
 const path = require("path");
 const creativeModes = require("../utils/creativeModes");
+const visionFiles = require("../utils/visionFiles");
 const { toJsonbParam } = require("../utils/jsonb");
 const { getGuidanceForImageRequest } = require("../utils/visionEngine");
 const { recordSignal, learningContextForBrand } = require("../utils/learningEngine");
@@ -532,9 +533,14 @@ async function loadVisionReference(imageId, brandId) {
       [imageId, brandId]
     );
     if (!rows.length) return null;
-    const filename = path.basename(rows[0].file_path);
-    const buffer = await fs.promises.readFile(path.join(VISION_UPLOAD_DIR, filename));
-    return { buffer, mime: rows[0].mime_type || "image/jpeg", filename };
+    // Disk is only a cache in production (ephemeral filesystem) — this
+    // helper restores the file from the DB copy when it has vanished.
+    const photo = await visionFiles.readReferencePhoto(rows[0].file_path, rows[0].mime_type);
+    if (!photo) {
+      console.error(`Vision reference ${imageId} unreadable: no disk file and no stored bytes`);
+      return null;
+    }
+    return photo;
   } catch (e) {
     console.error(`Vision reference ${imageId} unreadable:`, e.message);
     return null;

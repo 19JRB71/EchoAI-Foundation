@@ -230,10 +230,12 @@ async function uploadReferencePhoto(req, res) {
     await fs.promises.writeFile(path.join(REFERENCE_DIR, name), file.buffer);
 
     const caption = String(req.body.caption || "").trim().slice(0, 300) || null;
+    // image_data (DB) is the durable copy — production disk is ephemeral and
+    // is wiped on every deploy; the file above is only a cache.
     const ins = await db.query(
       `INSERT INTO vision_reference_images
-         (brand_id, file_path, original_name, mime_type, size_bytes, caption)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (brand_id, file_path, original_name, mime_type, size_bytes, caption, image_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING image_id, file_path, original_name, caption, size_bytes, created_at`,
       [
         brandId,
@@ -242,6 +244,7 @@ async function uploadReferencePhoto(req, res) {
         file.mimetype,
         file.size,
         caption,
+        file.buffer,
       ]
     );
     return res.status(201).json({ photo: ins.rows[0] });

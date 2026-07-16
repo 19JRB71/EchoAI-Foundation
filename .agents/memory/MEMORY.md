@@ -87,6 +87,7 @@
 - [EchoAI stale recognition closures](echoai-voice-stale-recognition-closures.md) — live SpeechRecognition sessions freeze closure state for minutes; read voiceRef/activeRef inside the mic chain, never `voice.<state>`.
 - [EchoAI Company Truth](echoai-company-truth.md) — versioned Sage report; partial-index lifecycle (one generating/pending/approved per brand); Layer 2 reads ONLY getApprovedCompanyTruth (null until owner approves).
 - [EchoAI SSRF IPv6-mapped bypass](echoai-ssrf-ipv6-mapped.md) — private-host blockers must reject IPv4-mapped/compat IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1); check the embedded IPv4 range.
+- [EchoAI ephemeral uploads](echoai-ephemeral-uploads.md) — Railway wipes uploads/ every deploy; uploaded files must live in a Postgres BYTEA column with disk as a self-restoring cache.
 - [EchoAI Hybrid Creative Engine](echoai-hybrid-creative.md) — asset/assisted/ai modes via one pure engine; AI mode never depicts real work; missing photo downgrades to ai AND persists the flip.
 - [EchoAI Sage Pattern Intelligence](echoai-pattern-intelligence.md) — prevalence not engagement, industry-wide not per-competitor, claim gate = run-key granularity, brand.industry lives on users.
 - [EchoAI Forge Creative Director](echoai-forge-creative-director.md) — brief history counts only item-linked briefs (orphans excluded); seed same-run briefs across weeks; re-run setupTestDb after new migrations.

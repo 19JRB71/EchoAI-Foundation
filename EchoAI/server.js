@@ -319,6 +319,21 @@ app.use("/api/v2", mobileRoutes);
 // download and serve them locally). Mounted before the SPA fallback.
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Vision reference photos: production disk is ephemeral (wiped every deploy),
+// so when express.static misses a /uploads/vision/ file, restore it from the
+// durable database copy (vision_reference_images.image_data) and serve it.
+app.get("/uploads/vision/:name", async (req, res) => {
+  try {
+    const visionFiles = require("./utils/visionFiles");
+    const photo = await visionFiles.readReferencePhoto(req.params.name, null);
+    if (!photo) return res.status(404).json({ error: "Not found" });
+    res.type(photo.mime).send(photo.buffer);
+  } catch (err) {
+    console.error("Vision photo restore error:", err.message);
+    res.status(404).json({ error: "Not found" });
+  }
+});
+
 // Public legal pages (linked from the Facebook app settings — Privacy Policy
 // URL + User Data Deletion URL). Static HTML, no auth, mounted before the SPA
 // fallback so /privacy and /data-deletion never return the dashboard shell.
@@ -408,6 +423,11 @@ app.listen(PORT, "0.0.0.0", () => {
   seedAdmin().catch((err) => {
     console.error("Admin seeder failed:", err.message);
   });
+  // Repair legacy Vision photos (pre-image_data rows) whose disk files still
+  // exist by copying their bytes into the database. Best-effort, non-blocking.
+  require("./utils/visionFiles")
+    .backfillFromDisk()
+    .catch((err) => console.error("Vision photo backfill failed:", err.message));
 });
 
 module.exports = app;
