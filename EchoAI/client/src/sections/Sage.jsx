@@ -4,6 +4,7 @@ import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 
 const TABS = [
+  { key: "truth", label: "Company Truth" },
   { key: "brief", label: "Industry Brief" },
   { key: "feed", label: "Latest Intelligence" },
   { key: "competitors", label: "Competitor Watch" },
@@ -108,6 +109,7 @@ export default function Sage({ brandId, initialTab }) {
         ))}
       </div>
 
+      {tab === "truth" && <CompanyTruthTab brandId={brandId} />}
       {tab === "brief" && <BriefTab brandId={brandId} />}
       {tab === "feed" && <FeedTab brandId={brandId} />}
       {tab === "competitors" && <CompetitorsTab brandId={brandId} />}
@@ -1134,6 +1136,377 @@ function InputTab({ brandId }) {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------ Company Truth ------------------------------ */
+
+const TRUTH_SECTIONS = [
+  ["identity", "Company identity & contact"],
+  ["onlinePresence", "Website & connected accounts"],
+  ["classification", "Industry & exact business classification"],
+  ["productsServices", "Products & services"],
+  ["serviceArea", "Service area"],
+  ["targetCustomers", "Target customers"],
+  ["businessModel", "Business model"],
+  ["pricing", "Pricing / offer structure"],
+  ["valuesPromises", "Company values & promises"],
+  ["strengths", "Strengths & differentiators"],
+  ["competitors", "Approved competitors"],
+  ["terminology", "Industry terminology"],
+  ["excludedCategories", "Excluded / commonly confused categories"],
+  ["reputation", "Public reputation & review themes"],
+  ["assets", "Uploaded & authorized assets"],
+  ["currentMarketing", "Current marketing activity"],
+  ["opportunitiesThreats", "Opportunities & threats"],
+  ["missingInformation", "Missing information"],
+];
+
+function sectionText(v) {
+  if (Array.isArray(v)) return v.join("\n");
+  return typeof v === "string" ? v : "";
+}
+
+function TruthSection({ sectionKey, label, value, editable, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const isList = Array.isArray(value);
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      const content = isList
+        ? draft.split("\n").map((l) => l.trim()).filter(Boolean)
+        : draft.trim();
+      await onSave(sectionKey, content);
+      setEditing(false);
+    } catch (err) {
+      setError(err.message || "Failed to save your edit");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold text-gray-200">{label}</h4>
+        {editable && !editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(sectionText(value));
+              setEditing(true);
+            }}
+            className="text-xs text-emerald-400 hover:underline"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {editing ? (
+        <div className="mt-2 space-y-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={isList ? 6 : 4}
+            className="w-full rounded-md border border-gray-700 bg-gray-950 p-2 text-sm text-gray-200"
+          />
+          {isList && (
+            <p className="text-[11px] text-gray-500">One item per line.</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="rounded-md border border-gray-700 px-3 py-1 text-xs text-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : isList ? (
+        value.length ? (
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-300">
+            {value.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-gray-500">Nothing listed.</p>
+        )
+      ) : (
+        <p className="mt-2 whitespace-pre-line text-sm text-gray-300">{value}</p>
+      )}
+    </div>
+  );
+}
+
+function TruthReport({ report, editable, onSave }) {
+  if (!report || !report.report) return null;
+  return (
+    <div className="space-y-3">
+      {TRUTH_SECTIONS.map(([key, label]) => (
+        <TruthSection
+          key={key}
+          sectionKey={key}
+          label={label}
+          value={report.report[key]}
+          editable={editable}
+          onSave={onSave}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CompanyTruthTab({ brandId }) {
+  const [state, setState] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [working, setWorking] = useState("");
+  const [researchNote, setResearchNote] = useState("");
+  const [showResearch, setShowResearch] = useState(false);
+  const [notice, setNotice] = useState("");
+  const firstLoad = useRef(true);
+
+  const load = useCallback(async () => {
+    if (firstLoad.current) setLoading(true);
+    setError("");
+    try {
+      const data = await api.getCompanyTruth(brandId);
+      setState(data);
+    } catch (err) {
+      setError(err.message || "Failed to load the Company Truth");
+    } finally {
+      firstLoad.current = false;
+      setLoading(false);
+    }
+  }, [brandId]);
+
+  useEffect(() => {
+    firstLoad.current = true;
+    load();
+  }, [load]);
+
+  async function run(label, fn) {
+    setWorking(label);
+    setError("");
+    setNotice("");
+    try {
+      await fn();
+      await load();
+    } catch (err) {
+      setError(err.message || "Something went wrong");
+    } finally {
+      setWorking("");
+    }
+  }
+
+  const generate = () =>
+    run("generate", async () => {
+      await api.generateCompanyTruth(brandId);
+      setNotice("Sage finished the report. Review it below.");
+    });
+
+  const approve = () =>
+    run("approve", async () => {
+      await api.approveCompanyTruth(brandId);
+      setNotice("Approved. This is now the official Company Truth.");
+    });
+
+  const submitResearch = () =>
+    run("research", async () => {
+      await api.requestCompanyTruthResearch(brandId, researchNote);
+      await api.generateCompanyTruth(brandId);
+      setResearchNote("");
+      setShowResearch(false);
+      setNotice("Sage re-researched the report with your notes. Review the new draft below.");
+    });
+
+  const saveSection = async (section, content) => {
+    await api.editCompanyTruthSection(brandId, section, content);
+    await load();
+  };
+
+  if (loading) return <Spinner />;
+
+  const pending = state?.pending || null;
+  const approved = state?.approved || null;
+
+  return (
+    <div className="space-y-5">
+      {error && <ErrorBanner message={error} />}
+      {notice && (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">
+          {notice}
+        </div>
+      )}
+
+      <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+        <h3 className="text-sm font-semibold text-gray-200">
+          The Company Truth
+        </h3>
+        <p className="mt-1 text-sm text-gray-400">
+          Sage studies your real data and builds a Company Intelligence Report —
+          who you are, exactly what you sell, and what you are NOT. Nothing is
+          shared with the other departments until you approve it. Approve it,
+          edit any section, or send Sage back to research more.
+        </p>
+      </div>
+
+      {!pending && !approved && (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-6 text-center">
+          <p className="text-sm text-gray-400">
+            Sage hasn&apos;t built your Company Intelligence Report yet.
+          </p>
+          <button
+            type="button"
+            onClick={generate}
+            disabled={!!working}
+            className="mt-3 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {working === "generate" ? "Sage is researching…" : "Build my report"}
+          </button>
+        </div>
+      )}
+
+      {pending && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30">
+                Awaiting your approval
+              </Badge>
+              <span className="text-xs text-gray-500">
+                Version {pending.version} · generated {fmtDateTime(pending.generatedAt)}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={approve}
+                disabled={!!working}
+                className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {working === "approve" ? "Approving…" : "Approve report"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowResearch((v) => !v)}
+                disabled={!!working}
+                className="rounded-md border border-gray-700 px-4 py-1.5 text-sm text-gray-300 hover:text-gray-100 disabled:opacity-50"
+              >
+                Request more research
+              </button>
+            </div>
+          </div>
+
+          {showResearch && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+              <p className="text-sm text-gray-300">
+                Tell Sage what it got wrong or what to dig into, and it will
+                rebuild the report.
+              </p>
+              <textarea
+                value={researchNote}
+                onChange={(e) => setResearchNote(e.target.value)}
+                rows={3}
+                placeholder='e.g. "We build pole barns — we are not a storage facility. Research the post-frame construction market."'
+                className="mt-2 w-full rounded-md border border-gray-700 bg-gray-950 p-2 text-sm text-gray-200"
+              />
+              <button
+                type="button"
+                onClick={submitResearch}
+                disabled={!!working || !researchNote.trim()}
+                className="mt-2 rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {working === "research" ? "Sage is re-researching…" : "Send to Sage"}
+              </button>
+            </div>
+          )}
+
+          {pending.plainSummary && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+              <h4 className="text-sm font-semibold text-gray-200">
+                Sage&apos;s summary
+              </h4>
+              <p className="mt-2 whitespace-pre-line text-sm text-gray-300">
+                {pending.plainSummary}
+              </p>
+            </div>
+          )}
+
+          <TruthReport report={pending} editable onSave={saveSection} />
+        </div>
+      )}
+
+      {approved && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
+                Approved Company Truth
+              </Badge>
+              <span className="text-xs text-gray-500">
+                Version {approved.version} · approved {fmtDateTime(approved.approvedAt)}
+              </span>
+            </div>
+            {!pending && (
+              <button
+                type="button"
+                onClick={generate}
+                disabled={!!working}
+                className="rounded-md border border-gray-700 px-4 py-1.5 text-sm text-gray-300 hover:text-gray-100 disabled:opacity-50"
+              >
+                {working === "generate"
+                  ? "Sage is researching…"
+                  : "Refresh with new research"}
+              </button>
+            )}
+          </div>
+          {!pending && approved.plainSummary && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+              <h4 className="text-sm font-semibold text-gray-200">
+                Sage&apos;s summary
+              </h4>
+              <p className="mt-2 whitespace-pre-line text-sm text-gray-300">
+                {approved.plainSummary}
+              </p>
+            </div>
+          )}
+          {!pending && <TruthReport report={approved} editable={false} />}
+          {pending && (
+            <p className="text-xs text-gray-500">
+              Version {approved.version} stays in force until you approve the
+              new draft above.
+            </p>
+          )}
+        </div>
+      )}
+
+      {state?.history?.length > 0 && (
+        <p className="text-xs text-gray-500">
+          Previous versions:{" "}
+          {state.history
+            .map((h) => `v${h.version} (approved ${fmtDate(h.approvedAt)})`)
+            .join(", ")}
+        </p>
+      )}
     </div>
   );
 }

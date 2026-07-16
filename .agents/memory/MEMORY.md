@@ -85,6 +85,7 @@
 - [EchoAI multi-turn voice sessions](echoai-voice-content-session.md) — session state must be cleared+shelved on EVERY engine reset path (they're separate code paths); commit commands stay strict; apostrophes normalize to spaces.
 - [EchoAI three-tier demo](echoai-demo-tiers.md) — demo mode now seeds ONE is_demo brand per tier (demo_tier); never assume a single demo brand; active_tier drives script+FeatureGate, demo_brand_id NULL = selector mode.
 - [EchoAI stale recognition closures](echoai-voice-stale-recognition-closures.md) — live SpeechRecognition sessions freeze closure state for minutes; read voiceRef/activeRef inside the mic chain, never `voice.<state>`.
+- [EchoAI Company Truth](echoai-company-truth.md) — versioned Sage report; partial-index lifecycle (one generating/pending/approved per brand); Layer 2 reads ONLY getApprovedCompanyTruth (null until owner approves).
 - [EchoAI SSRF IPv6-mapped bypass](echoai-ssrf-ipv6-mapped.md) — private-host blockers must reject IPv4-mapped/compat IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1); check the embedded IPv4 range.
 - [EchoAI Hybrid Creative Engine](echoai-hybrid-creative.md) — asset/assisted/ai modes via one pure engine; AI mode never depicts real work; missing photo downgrades to ai AND persists the flip.
 - [EchoAI Sage Pattern Intelligence](echoai-pattern-intelligence.md) — prevalence not engagement, industry-wide not per-competitor, claim gate = run-key granularity, brand.industry lives on users.

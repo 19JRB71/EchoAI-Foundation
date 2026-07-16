@@ -90,6 +90,7 @@ export const DEPARTMENTS = {
     { label: "Platform Status", desc: "Status of each connected system.", section: "sentinelhealth", tab: "platform" },
   ],
   sage: [
+    { label: "Company Truth", desc: "Sage's report on exactly who your company is — reviewed and approved by you before any department uses it.", section: "sage", tab: "truth" },
     { label: "Industry Brief", desc: "The living read on your industry — trends, competition, opportunities and threats.", section: "sage", tab: "brief" },
     { label: "Latest Intelligence", desc: "A rolling feed of what Sage has discovered, urgent signals first.", section: "sage", tab: "feed" },
     { label: "Competitor Watch", desc: "The competitors Sage tracks for you, with their latest moves.", section: "sage", tab: "competitors" },

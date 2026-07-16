@@ -345,6 +345,21 @@ export const api = {
       { method: "DELETE" }
     ),
 
+  // Company Truth — Sage's approved Company Intelligence Report (all tiers).
+  getCompanyTruth: (brandId) =>
+    request(`/api/company-truth?brandId=${encodeURIComponent(brandId)}`),
+  generateCompanyTruth: (brandId) =>
+    request("/api/company-truth/generate", { method: "POST", body: { brandId } }),
+  approveCompanyTruth: (brandId) =>
+    request("/api/company-truth/approve", { method: "POST", body: { brandId } }),
+  editCompanyTruthSection: (brandId, section, content) =>
+    request("/api/company-truth/report", {
+      method: "PATCH",
+      body: { brandId, section, content },
+    }),
+  requestCompanyTruthResearch: (brandId, note) =>
+    request("/api/company-truth/research", { method: "POST", body: { brandId, note } }),
+
   // Sage — Industry Intelligence Agent (ungated / all-tier; access is
   // brand-owner-scoped like other brand resources).
   getSageBrief: (brandId) =>

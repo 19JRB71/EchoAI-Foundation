@@ -82,6 +82,7 @@ const propertyRoutes = require("./routes/propertyRoutes");
 const geoRoutes = require("./routes/geoRoutes");
 const musicRoutes = require("./routes/musicRoutes");
 const sageRoutes = require("./routes/sageRoutes");
+const companyTruthRoutes = require("./routes/companyTruthRoutes");
 const visionRoutes = require("./routes/visionRoutes");
 
 // Mobile API (v2) — lean payloads, cursor pagination, standard envelopes.
@@ -304,6 +305,7 @@ app.use("/api/properties", propertyRoutes);
 app.use("/api/geo", geoRoutes);
 app.use("/api/music", musicRoutes);
 app.use("/api/sage", sageRoutes);
+app.use("/api/company-truth", companyTruthRoutes);
 app.use("/api/vision", visionRoutes);
 
 // Mobile API (v2). Mounted under /api so the rate limiter covers it, and before
