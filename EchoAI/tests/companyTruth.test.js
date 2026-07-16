@@ -241,6 +241,62 @@ test("generate: concurrent claim blocked by the one-generating index → 409", a
   }
 });
 
+test("generate: a stale (dead) generating claim is rescued, not a permanent 409", async () => {
+  const { userId, brandId } = await createUserBrand();
+  try {
+    // A claim whose process died mid-run (deploy/crash): old created_at,
+    // cleanup never ran. Without the rescue every generate would 409 forever.
+    await db.query(
+      `INSERT INTO company_truth_reports (brand_id, version, status, created_at)
+       VALUES ($1, 1, 'generating', NOW() - INTERVAL '11 minutes')`,
+      [brandId],
+    );
+    stubAi(aiReport);
+    const res = mockRes();
+    await controller.generate({ user: { userId }, body: { brandId } }, res);
+    assert.strictEqual(res.statusCode, 201);
+    assert.ok(res.body.pending);
+    // The dead claim is gone; only the fresh pending report remains.
+    const { rows } = await db.query(
+      "SELECT status FROM company_truth_reports WHERE brand_id = $1",
+      [brandId],
+    );
+    assert.deepStrictEqual(
+      rows.map((r) => r.status),
+      ["pending_approval"],
+    );
+  } finally {
+    restoreAi();
+    await cleanup(brandId);
+  }
+});
+
+test("getState: a stale generating claim does not report generating=true", async () => {
+  const { userId, brandId } = await createUserBrand();
+  try {
+    await db.query(
+      `INSERT INTO company_truth_reports (brand_id, version, status, created_at)
+       VALUES ($1, 1, 'generating', NOW() - INTERVAL '11 minutes')`,
+      [brandId],
+    );
+    const res = mockRes();
+    await controller.getState({ user: { userId }, query: { brandId } }, res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.body.generating, false);
+
+    // A fresh claim (in-flight run) still reports generating=true.
+    await db.query(
+      `UPDATE company_truth_reports SET created_at = NOW() WHERE brand_id = $1`,
+      [brandId],
+    );
+    const res2 = mockRes();
+    await controller.getState({ user: { userId }, query: { brandId } }, res2);
+    assert.strictEqual(res2.body.generating, true);
+  } finally {
+    await cleanup(brandId);
+  }
+});
+
 test("generate: replaces a prior pending draft and consumes its research request", async () => {
   const { userId, brandId } = await createUserBrand();
   try {

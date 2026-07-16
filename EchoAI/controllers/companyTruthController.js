@@ -40,6 +40,21 @@ function sendError(res, err, fallbackMsg) {
   return res.status(500).json({ error: fallbackMsg });
 }
 
+/**
+ * A 'generating' claim older than this is dead: generation runs in-request
+ * with a hard AI timeout well under this, so a fresh claim can't be this old.
+ * It means the process was killed mid-run (deploy/crash) and the catch-block
+ * cleanup never executed — without a rescue the 409 lock is permanent.
+ */
+const STALE_CLAIM_MINUTES = 10;
+
+function isFreshClaim(row) {
+  return (
+    row.status === "generating" &&
+    Date.now() - new Date(row.created_at).getTime() < STALE_CLAIM_MINUTES * 60 * 1000
+  );
+}
+
 function reportView(row) {
   if (!row) return null;
   return {
@@ -69,7 +84,7 @@ async function getState(req, res) {
     return res.json({
       approved: reportView(rows.find((r) => r.status === "approved") || null),
       pending: reportView(rows.find((r) => r.status === "pending_approval") || null),
-      generating: rows.some((r) => r.status === "generating"),
+      generating: rows.some(isFreshClaim),
       history: rows
         .filter((r) => r.status === "superseded")
         .map((r) => ({ version: r.version, approvedAt: r.approved_at })),
@@ -90,6 +105,20 @@ async function generate(req, res) {
   try {
     const brand = await getOwnedBrand(req.user.userId, req.body.brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    // Rescue: a claim left behind by a killed process (deploy/crash) would
+    // otherwise block this brand's research forever with a 409.
+    const rescued = await db.query(
+      `DELETE FROM company_truth_reports
+        WHERE brand_id = $1 AND status = 'generating'
+          AND created_at < NOW() - INTERVAL '${STALE_CLAIM_MINUTES} minutes'`,
+      [brand.brand_id],
+    );
+    if (rescued.rowCount > 0) {
+      console.warn(
+        `Company Truth: rescued ${rescued.rowCount} stale generating claim(s) for brand ${brand.brand_id} (process died mid-run).`,
+      );
+    }
 
     // Claim the single in-flight generation slot (partial unique index).
     let claim;
