@@ -239,8 +239,15 @@ function itemView(i) {
 }
 
 async function batchState(batch) {
+  // Items whose linked social post has already gone out are hidden from the
+  // batch review list (owner's rule) — a published post lives in the Social
+  // Media calendar; the batch list is only for work still needing attention.
   const items = await db.query(
-    "SELECT * FROM autopilot_batch_items WHERE batch_id = $1 ORDER BY position",
+    `SELECT i.* FROM autopilot_batch_items i
+      LEFT JOIN social_posts sp ON sp.post_id = i.posted_post_id
+      WHERE i.batch_id = $1
+        AND (sp.post_id IS NULL OR sp.status <> 'published')
+      ORDER BY i.position`,
     [batch.batch_id]
   );
   return {
@@ -1268,6 +1275,37 @@ async function declineItem(req, res) {
 }
 
 /**
+ * DELETE /api/autopilot/items/:itemId
+ * Removes a draft from the batch entirely (owner's tidy-up). Only drafts that
+ * never went anywhere are deletable: pending or declined. Approved items are
+ * scheduled/launched work — those must be handled through their own flows.
+ * Unlike decline, deleting never drafts a replacement.
+ */
+async function deleteItem(req, res) {
+  const userId = req.user.userId;
+  const { itemId } = req.params;
+  try {
+    const item = await getOwnedItem(userId, itemId);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+    const deleted = await db.query(
+      `DELETE FROM autopilot_batch_items
+        WHERE item_id = $1 AND status IN ('pending', 'declined')
+        RETURNING item_id`,
+      [itemId]
+    );
+    if (deleted.rows.length === 0) {
+      return res.status(409).json({
+        error: "Only pending or declined drafts can be deleted.",
+      });
+    }
+    return res.json({ deleted: true, itemId });
+  } catch (err) {
+    console.error("Autopilot delete item error:", err.message);
+    return res.status(500).json({ error: "Failed to delete this item" });
+  }
+}
+
+/**
  * POST /api/autopilot/items/:itemId/revise
  * Body: { instruction } — the owner's spoken change request.
  */
@@ -1647,6 +1685,7 @@ module.exports = {
   createInstantPost,
   autopilotSlotTimes,
   declineItem,
+  deleteItem,
   reviseItem,
   generateItemImage,
   setItemMedia,

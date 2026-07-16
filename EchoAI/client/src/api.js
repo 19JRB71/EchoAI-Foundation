@@ -1715,6 +1715,8 @@ export const api = {
       method: "POST",
       body: topic ? { brandId, topic } : { brandId },
     }),
+  autopilotDeleteItem: (itemId) =>
+    request(`/api/autopilot/items/${itemId}`, { method: "DELETE" }),
   autopilotDeclineItem: (itemId) =>
     request(`/api/autopilot/items/${itemId}/decline`, {
       method: "POST",

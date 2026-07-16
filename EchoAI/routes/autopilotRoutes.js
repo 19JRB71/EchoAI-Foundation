@@ -22,6 +22,7 @@ router.post("/items/:itemId/approve", autopilot.approveItem);
 router.post("/items/:itemId/post-now", autopilot.postItemNow);
 router.post("/instant-post", autopilot.createInstantPost);
 router.post("/items/:itemId/decline", autopilot.declineItem);
+router.delete("/items/:itemId", autopilot.deleteItem);
 router.post("/items/:itemId/revise", autopilot.reviseItem);
 router.post("/items/:itemId/image", autopilot.generateItemImage);
 router.put("/items/:itemId/media", autopilot.setItemMedia);

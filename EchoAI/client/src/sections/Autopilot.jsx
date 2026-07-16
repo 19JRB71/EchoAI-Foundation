@@ -241,6 +241,23 @@ export default function Autopilot({ brandId }) {
     );
   }
 
+  async function deleteItem(item) {
+    setBusyItemId(item.itemId);
+    setError("");
+    setNotice("");
+    try {
+      await api.autopilotDeleteItem(item.itemId);
+      setBatch((prev) =>
+        prev ? { ...prev, items: prev.items.filter((i) => i.itemId !== item.itemId) } : prev
+      );
+      setNotice("Deleted — the draft is gone from this week's batch.");
+    } catch (err) {
+      setError(err.message || "Failed to delete this draft.");
+    } finally {
+      setBusyItemId("");
+    }
+  }
+
   async function act(item, fn, failMsg) {
     setBusyItemId(item.itemId);
     setError("");
@@ -658,6 +675,25 @@ export default function Autopilot({ brandId }) {
                       className="rounded-lg bg-gray-700 px-3 py-1.5 text-sm font-semibold text-rose-300 hover:bg-gray-600 disabled:opacity-50"
                     >
                       Decline
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => deleteItem(item)}
+                      className="rounded-lg border border-rose-500/40 px-3 py-1.5 text-sm font-semibold text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+
+                {item.status === "declined" && (
+                  <div className="mt-3">
+                    <button
+                      disabled={busy}
+                      onClick={() => deleteItem(item)}
+                      className="rounded-lg border border-rose-500/40 px-3 py-1.5 text-sm font-semibold text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+                    >
+                      {busy ? "Working…" : "Delete"}
                     </button>
                   </div>
                 )}
