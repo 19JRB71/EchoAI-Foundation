@@ -86,10 +86,21 @@ async function createMessage(params, opts = {}) {
     ...meta,
   };
 
+  // The SDK refuses non-streaming requests that could run longer than 10
+  // minutes (large max_tokens, e.g. a multi-week autopilot batch): "Streaming
+  // is required for operations that may take longer than 10 minutes." For
+  // those, stream under the hood and return the same final-message shape —
+  // callers never see the difference. Threshold mirrors the SDK's own
+  // heuristic (~128 output tokens/minute × 10 minutes ≈ 21,333 tokens); 16k
+  // is a safe, conservative cut-over.
+  const mustStream = Number(params.max_tokens) >= 16000;
+
   let lastErr;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      const response = await anthropic.messages.create(params, { timeout, maxRetries: 0 });
+      const response = mustStream
+        ? await anthropic.messages.stream(params, { timeout, maxRetries: 0 }).finalMessage()
+        : await anthropic.messages.create(params, { timeout, maxRetries: 0 });
       const usage = response.usage || {};
       recordUsage({
         ...ledgerBase,
