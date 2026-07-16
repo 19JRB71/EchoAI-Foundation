@@ -1,0 +1,144 @@
+Phase 1: Sage Company Intelligence
+
+Sage performs the initial company discovery process and creates a comprehensive Company Intelligence Report containing:
+
+Company identity and contact information
+Website and connected social accounts
+Industry and exact business classification
+Products and services
+Service area
+Target customers
+Business model
+Pricing or offer structure where available
+Company values and promises
+Strengths and differentiators
+Approved competitors
+Industry terminology
+Excluded or commonly confused business categories
+Public reputation and review themes
+Uploaded documents, photos, videos, and other authorized assets
+Current marketing activity
+Opportunities, threats, and missing information
+
+Sage must present the completed report to the customer in plain language.
+
+The customer must choose:
+
+Approve
+Edit
+Request additional research
+
+The report may not be distributed to other departments until the customer explicitly approves it.
+
+Phase 2: Approved Company Truth
+
+Once approved, the Company Intelligence Report becomes the authoritative Company Truth for that customer.
+
+Echo distributes this approved report to every department head.
+
+No department head or subordinate agent may redefine the company’s industry, products, audience, competitors, terminology, or business model independently.
+
+Any conflict must be escalated to Sage and the customer for correction.
+
+Phase 3: Department-Specific Understanding
+
+Each department head must interpret the approved Company Truth according to its own responsibilities and build a Department Understanding Profile.
+
+Each profile must define:
+
+Department mission
+Department goals
+Applicable company information
+Required tools and connected accounts
+Approved workflows
+Automatic actions
+Actions requiring customer approval
+Prohibited actions
+Escalation rules
+Quality standards
+Success metrics
+Missing information
+Relationship with other departments
+
+The department head must guide the customer to the correct screen, account connection, or upload area when information is missing.
+
+Phase 4: Department Approval
+
+Each department head presents a short Department Understanding Report to the customer.
+
+The report must clearly explain:
+
+What the department understands
+What it plans to do
+What it may do automatically
+What requires approval
+What it will never do without permission
+What information or connections are still missing
+
+The customer must approve or correct the department profile before autonomous work begins.
+
+Phase 5: Chain-of-Command Execution
+
+All work follows this cycle:
+
+Understand → Plan → Delegate → Execute → Review → Approve → Report
+
+Sub-agents and tools receive assignments from their department head.
+
+Their outputs return to that department head for review.
+
+No subordinate result may move directly to another department or to the customer.
+
+The department head must validate that the work matches:
+
+The approved Company Truth
+The department profile
+The customer’s goals
+Brand and compliance rules
+Current task instructions
+
+The department head may reject the work, correct the assignment, and send it back for revision.
+
+Cross-Department Communication
+
+Cross-department work must move department head to department head.
+
+Example:
+
+Sage identifies a proven marketing pattern.
+
+Sage validates it against the approved Company Truth.
+
+Sage sends an intelligence brief to Forge.
+
+Forge interprets it through the approved Creative Department Profile.
+
+Forge delegates production.
+
+Forge reviews the result.
+
+Atlas receives the approved campaign only after Forge approves it.
+
+Sentinel may audit any stage.
+
+Echo coordinates priorities, resolves conflicts, and reports outcomes to the customer.
+
+Version Control
+
+Whenever the business changes, Sage creates a proposed update to the Company Truth.
+
+Changes must not silently overwrite approved information.
+
+The customer reviews and approves the new version.
+
+Approved updates are then distributed to every department head, and each affected department updates its profile accordingly.
+
+Core Rule
+
+The named AI agents are executives of their departments.
+
+They do not merely perform tasks.
+
+They understand, direct, validate, reject, correct, and report.
+
+Sage establishes the approved company-wide truth. Each department head then develops an approved specialized understanding of how its department should serve that company.
