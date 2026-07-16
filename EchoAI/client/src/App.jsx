@@ -1069,6 +1069,26 @@ export default function App() {
                 Back
               </button>
               <Breadcrumbs crumbs={buildCrumbs()} />
+              {/* Log out lives at the top right on EVERY page, matching the
+                  Mission Control header button (owner's consistency rule). */}
+              <button
+                onClick={handleLogout}
+                data-testid="page-logout"
+                className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors"
+                style={{
+                  borderColor: "#39ff14aa",
+                  backgroundColor: "rgba(57,255,20,0.10)",
+                  color: "#39ff14",
+                  textShadow: "0 0 8px rgba(57,255,20,0.55)",
+                  boxShadow: "0 0 12px rgba(57,255,20,0.35), inset 0 0 8px rgba(57,255,20,0.12)",
+                }}
+                title="Log out"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                </svg>
+                <span className="hidden sm:inline">Log out</span>
+              </button>
             </div>
           )}
           <div
