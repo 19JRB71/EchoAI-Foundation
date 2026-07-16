@@ -86,6 +86,29 @@ const CATALOG = [
       );
     },
   },
+  {
+    key: "brandphotos",
+    channel: "Fresh project photos",
+    section: "vision",
+    reason:
+      "we're running low on fresh photos of your real work — uploading around 10 recent project photos lets your next month's marketing feature your actual results instead of AI-only visuals",
+    // "In use" = the brand has a reasonably fresh photo library: at least 3
+    // photos with at least one uploaded in the last 90 days. Fewer or staler
+    // than that and Echo may nudge for an upload.
+    async detect(brandIds) {
+      const { rows } = await db.query(
+        `SELECT 1
+           FROM vision_reference_images
+          WHERE brand_id = ANY($1)
+          GROUP BY brand_id
+         HAVING COUNT(*) >= 3
+            AND MAX(created_at) > NOW() - INTERVAL '90 days'
+          LIMIT 1`,
+        [brandIds],
+      );
+      return rows.length > 0;
+    },
+  },
 ];
 
 // Existence check: true if the query returns any row. Deliberately does NOT

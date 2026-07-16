@@ -23,6 +23,48 @@ const STATUS_LABELS = {
   declined: "Declined",
 };
 
+// Hybrid Creative Engine: how each graphic is built. Mirrors the backend's
+// creative modes (utils/creativeModes.js).
+const CREATIVE_MODE_META = {
+  asset: {
+    label: "Your photo, enhanced",
+    className: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+  },
+  assisted: {
+    label: "Your photo + AI",
+    className: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  },
+  ai: {
+    label: "AI original",
+    className: "bg-teal-500/15 text-teal-300 border-teal-500/30",
+  },
+};
+
+const CONTENT_PREFERENCE_OPTIONS = [
+  { value: "only_my_media", label: "Only use my uploaded media" },
+  { value: "prefer_my_media", label: "Use my media whenever possible" },
+  {
+    value: "balanced_auto",
+    label: "Let Echo decide automatically",
+    recommended: true,
+  },
+  { value: "mostly_ai", label: "Generate mostly AI content" },
+  { value: "ai_only", label: "Generate only AI content" },
+];
+
+const EDIT_PERMISSION_OPTIONS = [
+  { key: "lighting", label: "Improve lighting" },
+  { key: "colors", label: "Improve colors" },
+  { key: "quality", label: "Enhance image quality" },
+  { key: "remove_distractions", label: "Remove distractions" },
+  { key: "replace_background", label: "Replace backgrounds / sky" },
+  { key: "seasonal", label: "Seasonal changes" },
+  { key: "day_night", label: "Day / night conversion" },
+  { key: "landscaping", label: "Add landscaping" },
+  { key: "branding", label: "Add branding" },
+  { key: "layouts", label: "Create marketing layouts" },
+];
+
 function Badge({ children, className }) {
   return (
     <span
@@ -468,6 +510,78 @@ export default function Autopilot({ brandId }) {
             </div>
           </div>
 
+          {/* Hybrid Creative Engine: how Forge builds the graphics */}
+          <div>
+            <div className="text-sm font-semibold text-white">Creative style</div>
+            <div className="text-xs text-gray-500">
+              How should Forge build your graphics? Real photos come from your
+              Vision reference library; AI originals never pretend to show your
+              actual work.
+            </div>
+            <div className="mt-2 space-y-1.5">
+              {CONTENT_PREFERENCE_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                    settings.contentPreference === opt.value
+                      ? "border-teal-500/40 bg-teal-500/5 text-white"
+                      : "border-gray-700 bg-gray-900/40 text-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="contentPreference"
+                    checked={settings.contentPreference === opt.value}
+                    onChange={() => saveSettings({ contentPreference: opt.value })}
+                    disabled={saving}
+                    className="h-4 w-4 accent-teal-500"
+                  />
+                  {opt.label}
+                  {opt.recommended && (
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-teal-400">
+                      Recommended
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+            <div className="mt-3 text-sm font-semibold text-white">
+              What may AI do to your photos?
+            </div>
+            <div className="text-xs text-gray-500">
+              Applies whenever a graphic starts from one of your real photos.
+              Your actual work always stays the centerpiece.
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {EDIT_PERMISSION_OPTIONS.map((opt) => {
+                const perms = settings.editingPermissions || {};
+                const checked = perms[opt.key] !== false;
+                return (
+                  <label
+                    key={opt.key}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-700 bg-gray-900/40 px-3 py-1.5 text-sm text-gray-300"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={saving}
+                      onChange={(e) =>
+                        saveSettings({
+                          editingPermissions: {
+                            ...perms,
+                            [opt.key]: e.target.checked,
+                          },
+                        })
+                      }
+                      className="h-4 w-4 accent-teal-500"
+                    />
+                    {opt.label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <div className="text-sm font-semibold text-white">Instant post</div>
             <div className="text-xs text-gray-500">
@@ -616,6 +730,11 @@ export default function Autopilot({ brandId }) {
                   <Badge className={STATUS_STYLES[item.status] || STATUS_STYLES.declined}>
                     {STATUS_LABELS[item.status] || item.status}
                   </Badge>
+                  {item.creativeMode && CREATIVE_MODE_META[item.creativeMode] && (
+                    <Badge className={CREATIVE_MODE_META[item.creativeMode].className}>
+                      {CREATIVE_MODE_META[item.creativeMode].label}
+                    </Badge>
+                  )}
                   {item.itemType === "post" && item.scheduledTime && (
                     <span className="text-xs text-gray-500">
                       {item.status === "approved" ? "Scheduled" : "Planned"} for{" "}

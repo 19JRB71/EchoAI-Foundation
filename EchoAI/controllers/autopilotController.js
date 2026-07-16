@@ -38,6 +38,10 @@ const {
 const { launchFacebookCampaign } = require("./campaignController");
 const { publishStoredPost } = require("./socialController");
 const { evaluateAdSpend, suggestDailyBudget, getBrandSpend } = require("../utils/spendLimits");
+const fs = require("fs");
+const path = require("path");
+const creativeModes = require("../utils/creativeModes");
+const { toJsonbParam } = require("../utils/jsonb");
 const { getGuidanceForImageRequest } = require("../utils/visionEngine");
 const { recordSignal, learningContextForBrand } = require("../utils/learningEngine");
 const { computeSetupStatus } = require("../utils/setupStatus");
@@ -158,6 +162,8 @@ async function loadSettings(brandId) {
       dailySpendCap: null,
       weeklySpendCap: null,
       monthlySpendCap: null,
+      contentPreference: "balanced_auto",
+      editingPermissions: creativeModes.normalizePermissions(null),
       exists: false,
     };
   }
@@ -168,6 +174,10 @@ async function loadSettings(brandId) {
     dailySpendCap: r.daily_spend_cap != null ? Number(r.daily_spend_cap) : null,
     weeklySpendCap: r.weekly_spend_cap != null ? Number(r.weekly_spend_cap) : null,
     monthlySpendCap: r.monthly_spend_cap != null ? Number(r.monthly_spend_cap) : null,
+    contentPreference: creativeModes.isValidPreference(r.content_preference)
+      ? r.content_preference
+      : "balanced_auto",
+    editingPermissions: creativeModes.normalizePermissions(r.editing_permissions),
     exists: true,
   };
 }
@@ -237,6 +247,11 @@ function itemView(i) {
     status: i.status,
     postedPostId: i.posted_post_id,
     campaignId: i.campaign_id,
+    // Hybrid Creative Engine: how this item's graphic was (or will be) built —
+    // 'asset' (your photo enhanced), 'assisted' (your photo + AI edits), 'ai'
+    // (original AI concept). Null on legacy items.
+    creativeMode: i.creative_mode || null,
+    sourceImageId: i.source_image_id || null,
   };
 }
 
@@ -357,6 +372,27 @@ async function updateSettings(req, res) {
       throw e;
     }
 
+    // Hybrid Creative Engine settings: how Forge mixes the owner's real
+    // photos with AI creativity, and which photo edits AI is allowed to make.
+    let contentPreference = current.contentPreference;
+    if ("contentPreference" in req.body) {
+      if (!creativeModes.isValidPreference(req.body.contentPreference)) {
+        return res.status(400).json({ error: "Unknown content preference" });
+      }
+      contentPreference = req.body.contentPreference;
+    }
+    let editingPermissions = current.editingPermissions;
+    if ("editingPermissions" in req.body) {
+      if (
+        req.body.editingPermissions == null ||
+        typeof req.body.editingPermissions !== "object" ||
+        Array.isArray(req.body.editingPermissions)
+      ) {
+        return res.status(400).json({ error: "editingPermissions must be an object" });
+      }
+      editingPermissions = creativeModes.normalizePermissions(req.body.editingPermissions);
+    }
+
     const readiness = await computeReadiness(userId, brandId, { postsPerWeek, adsPerWeek });
     if (enabled && !readiness.ready) {
       return res.status(409).json({
@@ -371,16 +407,29 @@ async function updateSettings(req, res) {
     await db.query(
       `INSERT INTO autopilot_settings
          (brand_id, enabled, posts_per_week, ads_per_week,
-          daily_spend_cap, weekly_spend_cap, monthly_spend_cap)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+          daily_spend_cap, weekly_spend_cap, monthly_spend_cap,
+          content_preference, editing_permissions)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
        ON CONFLICT (brand_id) DO UPDATE SET
          enabled = EXCLUDED.enabled,
          posts_per_week = EXCLUDED.posts_per_week,
          ads_per_week = EXCLUDED.ads_per_week,
          daily_spend_cap = EXCLUDED.daily_spend_cap,
          weekly_spend_cap = EXCLUDED.weekly_spend_cap,
-         monthly_spend_cap = EXCLUDED.monthly_spend_cap`,
-      [brandId, enabled, postsPerWeek, adsPerWeek, dailySpendCap, weeklySpendCap, monthlySpendCap]
+         monthly_spend_cap = EXCLUDED.monthly_spend_cap,
+         content_preference = EXCLUDED.content_preference,
+         editing_permissions = EXCLUDED.editing_permissions`,
+      [
+        brandId,
+        enabled,
+        postsPerWeek,
+        adsPerWeek,
+        dailySpendCap,
+        weeklySpendCap,
+        monthlySpendCap,
+        contentPreference,
+        toJsonbParam(editingPermissions),
+      ]
     );
 
     const settings = await loadSettings(brandId);
@@ -446,9 +495,102 @@ async function recentImageScenes(brandId) {
   }
 }
 
+// --- Hybrid Creative Engine: real-photo sourcing --------------------------------
+
+const VISION_UPLOAD_DIR = path.join(__dirname, "..", "uploads", "vision");
+
+/**
+ * The brand's Vision reference photos ordered least-used-first (how many
+ * autopilot items have already been built from each), so real photos rotate
+ * instead of the same hero shot repeating every week.
+ */
+async function leastUsedReferences(brandId, limit = 60) {
+  const { rows } = await db.query(
+    `SELECT v.image_id, v.file_path, v.mime_type, v.caption,
+            COUNT(i.item_id) AS uses
+       FROM vision_reference_images v
+       LEFT JOIN autopilot_batch_items i ON i.source_image_id = v.image_id
+      WHERE v.brand_id = $1
+      GROUP BY v.image_id
+      ORDER BY uses ASC, v.created_at DESC
+      LIMIT $2`,
+    [brandId, limit]
+  );
+  return rows;
+}
+
+/**
+ * Loads a Vision reference photo (ownership-scoped to the brand) as the
+ * {buffer, mime, filename} shape imageController's edit path expects.
+ * Returns null when the row or file is gone — callers fall back to AI mode
+ * honestly instead of failing the whole render.
+ */
+async function loadVisionReference(imageId, brandId) {
+  try {
+    const { rows } = await db.query(
+      "SELECT file_path, mime_type FROM vision_reference_images WHERE image_id = $1 AND brand_id = $2",
+      [imageId, brandId]
+    );
+    if (!rows.length) return null;
+    const filename = path.basename(rows[0].file_path);
+    const buffer = await fs.promises.readFile(path.join(VISION_UPLOAD_DIR, filename));
+    return { buffer, mime: rows[0].mime_type || "image/jpeg", filename };
+  } catch (e) {
+    console.error(`Vision reference ${imageId} unreadable:`, e.message);
+    return null;
+  }
+}
+
+/**
+ * Renders a photo-based item ('asset' or 'assisted' mode): the owner's real
+ * photo goes to the image model's EDIT endpoint with an instruction block
+ * built strictly from the owner's editing permissions. Returns true when the
+ * photo path succeeded; false → caller falls back to pure AI mode.
+ */
+async function renderItemImageFromPhoto(brand, item, purpose, settings) {
+  const mode = item.creative_mode;
+  const reference = await loadVisionReference(item.source_image_id, brand.brand_id);
+  if (!reference) return false;
+
+  const description =
+    (item.visual_idea && item.visual_idea.trim()) ||
+    `A marketing visual for: ${String(item.post_content).slice(0, 200)}`;
+  const prompt =
+    `Turn this real photo into a polished social media marketing image for ${brand.brand_name}. ` +
+    `Post context: ${description.slice(0, 300)}\n\n` +
+    creativeModes.editDirectives(mode, settings ? settings.editingPermissions : null);
+
+  const temporaryUrl = await renderFromPrompt(prompt, purpose, reference);
+  const permanentUrl = await persistImage(temporaryUrl);
+  await db.query(
+    `UPDATE autopilot_batch_items SET image_prompt = $1, image_url = $2, video_url = NULL
+      WHERE item_id = $3 AND status = 'pending'`,
+    [prompt, permanentUrl, item.item_id]
+  );
+  return true;
+}
+
 /** Best-effort on-brand image for one batch item; failures leave it null. */
 async function renderItemImage(brand, item) {
   const purpose = PLATFORM_IMAGE_PURPOSE[item.platform] || "facebook_ad";
+
+  // Hybrid Creative Engine: photo-based modes work FROM the owner's real
+  // photo. If the photo has vanished (deleted from the library), the item
+  // honestly downgrades to an original AI concept and records that.
+  if (
+    (item.creative_mode === "asset" || item.creative_mode === "assisted") &&
+    item.source_image_id
+  ) {
+    const settings = await loadSettings(brand.brand_id);
+    const ok = await renderItemImageFromPhoto(brand, item, purpose, settings);
+    if (ok) return;
+    await db.query(
+      "UPDATE autopilot_batch_items SET creative_mode = 'ai', source_image_id = NULL WHERE item_id = $1",
+      [item.item_id]
+    );
+    item.creative_mode = "ai";
+    item.source_image_id = null;
+  }
   const description =
     (item.visual_idea && item.visual_idea.trim()) ||
     `An eye-catching marketing visual for: ${String(item.post_content).slice(0, 200)}`;
@@ -458,6 +600,12 @@ async function renderItemImage(brand, item) {
   let prompt = buildImagePrompt(brand, purpose, description, {
     variantIndex: Math.floor(Math.random() * 3),
   });
+
+  // Honesty rule for pure-AI items: original brand concepts never pretend to
+  // depict a specific real project/product of this business.
+  if (item.creative_mode === "ai") {
+    prompt += `\n\n${creativeModes.AI_ORIGINALITY_LINE}`;
+  }
 
   // Forge's art direction: the item's creative brief fixed a visual style +
   // camera composition BEFORE generation. Fail-open: items without a brief
@@ -536,6 +684,19 @@ async function generateBatchForBrand(batch, brand, settings) {
         ? settings.weeks
         : 1;
     const targetPosts = settings.postsPerWeek * weeks;
+
+    // Hybrid Creative Engine: know the real-photo pool up front. When the
+    // owner insists on "only my media" and the library is empty, fail the
+    // batch honestly BEFORE any expensive AI drafting.
+    const referencePhotos = await leastUsedReferences(brandId);
+    if (settings.contentPreference === "only_my_media" && referencePhotos.length === 0) {
+      creativeModes.decideModes({
+        preference: "only_my_media",
+        industry: brand.industry,
+        assetCount: 0,
+        itemCount: 1,
+      }); // throws the honest no-assets error
+    }
 
     const intel = await gatherIntelligence(brand, platforms);
     brand._learningContext = await learningContextForBrand(brandId);
@@ -650,6 +811,41 @@ async function generateBatchForBrand(batch, brand, settings) {
       "SELECT * FROM autopilot_batch_items WHERE batch_id = $1 ORDER BY position",
       [batchId]
     );
+
+    // Hybrid Creative Engine: decide each post's creative mode (real photo
+    // enhanced / real photo + AI edits / original AI concept) from the
+    // owner's preference, the industry's default mix, and the actual photo
+    // pool. Real photos rotate least-used-first. Ads stay pure AI concepts.
+    const postItems = items.filter((i) => i.item_type === "post");
+    const modes = creativeModes.decideModes({
+      preference: settings.contentPreference,
+      industry: brand.industry,
+      assetCount: referencePhotos.length,
+      itemCount: postItems.length,
+      permissions: settings.editingPermissions,
+    });
+    let refCursor = 0;
+    for (let i = 0; i < postItems.length; i += 1) {
+      const mode = modes[i] || "ai";
+      const ref =
+        mode === "ai" ? null : referencePhotos[refCursor++ % referencePhotos.length];
+      await db.query(
+        "UPDATE autopilot_batch_items SET creative_mode = $1, source_image_id = $2 WHERE item_id = $3",
+        [mode, ref ? ref.image_id : null, postItems[i].item_id]
+      );
+      postItems[i].creative_mode = mode;
+      postItems[i].source_image_id = ref ? ref.image_id : null;
+    }
+    for (const item of items) {
+      if (item.item_type !== "post" && !item.creative_mode) {
+        item.creative_mode = "ai";
+        await db.query(
+          "UPDATE autopilot_batch_items SET creative_mode = 'ai' WHERE item_id = $1",
+          [item.item_id]
+        );
+      }
+    }
+
     for (const item of items) {
       try {
         await renderItemImage(brand, item);
@@ -720,7 +916,8 @@ async function runWeeklyAutopilot() {
   try {
     const { rows } = await db.query(
       `SELECT b.*, u.industry, s.posts_per_week, s.ads_per_week,
-              s.daily_spend_cap, s.weekly_spend_cap, s.monthly_spend_cap
+              s.daily_spend_cap, s.weekly_spend_cap, s.monthly_spend_cap,
+              s.content_preference, s.editing_permissions
          FROM autopilot_settings s
          JOIN brands b ON b.brand_id = s.brand_id AND b.is_demo = false
          JOIN users u ON u.user_id = b.user_id
@@ -740,6 +937,10 @@ async function runWeeklyAutopilot() {
         dailySpendCap: row.daily_spend_cap != null ? Number(row.daily_spend_cap) : null,
         weeklySpendCap: row.weekly_spend_cap != null ? Number(row.weekly_spend_cap) : null,
         monthlySpendCap: row.monthly_spend_cap != null ? Number(row.monthly_spend_cap) : null,
+        contentPreference: creativeModes.isValidPreference(row.content_preference)
+          ? row.content_preference
+          : "balanced_auto",
+        editingPermissions: creativeModes.normalizePermissions(row.editing_permissions),
       };
       await module.exports.processBrandWeeklyBatch(row, settings);
     } catch (err) {
@@ -1315,6 +1516,49 @@ async function createInstantPost(req, res) {
       await forgeDirector.linkBriefToItem(forgeBrief.brief_id, inserted.rows[0].item_id);
     }
 
+    // Hybrid Creative Engine: give the instant post a creative mode too, so
+    // an on-demand render uses the owner's real photo when the settings and
+    // photo library call for it. Best-effort — a failure here just leaves the
+    // item as a pure AI concept.
+    try {
+      const cSettings = await loadSettings(brandId);
+      const refs = await leastUsedReferences(brandId, 5);
+      const [mode] = creativeModes.decideModes({
+        preference: cSettings.contentPreference,
+        industry: brand.industry,
+        assetCount: refs.length,
+        itemCount: 1,
+        permissions: cSettings.editingPermissions,
+      });
+      const ref = mode === "ai" ? null : refs[0];
+      const updated = await db.query(
+        "UPDATE autopilot_batch_items SET creative_mode = $1, source_image_id = $2 WHERE item_id = $3 RETURNING *",
+        [mode || "ai", ref ? ref.image_id : null, inserted.rows[0].item_id]
+      );
+      if (updated.rows.length) inserted = updated;
+    } catch (e) {
+      // "Only my media" with an empty photo library must not quietly fake an
+      // AI image — the drafted copy stays for review, but the owner is told.
+      if (e.noAssets) {
+        await db.query(
+          "UPDATE autopilot_batch_items SET creative_mode = 'ai' WHERE item_id = $1",
+          [inserted.rows[0].item_id]
+        );
+        inserted.rows[0].creative_mode = "ai";
+        return res.status(201).json({
+          item: itemView(inserted.rows[0]),
+          notice:
+            "Instant post drafted — but your creative setting is \u201cOnly use my uploaded media\u201d and this brand has no photos in the Vision reference library, so any graphic would have to be AI-made. Upload real photos in Vision \u2192 Reference Library.",
+        });
+      }
+      console.error("Instant post creative mode failed:", e.message);
+      await db.query(
+        "UPDATE autopilot_batch_items SET creative_mode = 'ai' WHERE item_id = $1",
+        [inserted.rows[0].item_id]
+      );
+      inserted.rows[0].creative_mode = "ai";
+    }
+
     return res.status(201).json({
       item: itemView(inserted.rows[0]),
       notice:
@@ -1842,4 +2086,7 @@ module.exports = {
   generateBatchForBrand,
   processBrandWeeklyBatch,
   runWeeklyAutopilot,
+  // Hybrid Creative Engine test seams.
+  _leastUsedReferencesForTests: leastUsedReferences,
+  _loadVisionReferenceForTests: loadVisionReference,
 };

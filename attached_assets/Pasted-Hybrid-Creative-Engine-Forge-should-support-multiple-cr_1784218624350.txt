@@ -1,0 +1,215 @@
+Hybrid Creative Engine
+
+Forge should support multiple creative workflows rather than assuming every customer wants AI-generated content or only customer media.
+
+Before every campaign, determine the best creation method based on available assets, customer preferences, campaign goals, and subscription level.
+
+Creative Modes
+Mode 1 — Brand Asset Mode (Preferred)
+
+Use customer-owned photos and videos.
+
+Enhance, clean, edit, recompose, relight, and optimize them for marketing.
+
+Ideal for:
+
+Pole barns
+Roofing
+HVAC
+Construction
+Landscaping
+Auto dealerships
+Real estate
+Manufacturing
+Mode 2 — AI Assisted Mode
+
+Combine customer assets with AI.
+
+Examples:
+
+Replace the sky
+Change the season
+Improve landscaping
+Add lighting
+Remove distractions
+Add tasteful environmental elements
+Create new marketing compositions
+
+The customer's actual product remains the centerpiece.
+
+Mode 3 — AI Creative Mode
+
+When no suitable assets exist, Forge creates original marketing using AI.
+
+Examples:
+
+Brand awareness campaigns
+Holiday promotions
+Educational graphics
+Industry tips
+Concept art
+Lifestyle imagery
+Team recruitment
+Service illustrations
+Community engagement posts
+
+These campaigns should reinforce the customer's brand without pretending to depict a specific real product unless based on customer-authorized assets.
+
+Mode 4 — Hybrid Campaign Mode (Recommended)
+
+Mix all three approaches.
+
+Example weekly schedule:
+
+Monday
+Customer photo enhanced.
+
+Tuesday
+AI educational infographic.
+
+Wednesday
+Customer video edited.
+
+Thursday
+AI lifestyle image.
+
+Friday
+Customer testimonial.
+
+Saturday
+AI seasonal campaign.
+
+Sunday
+Behind-the-scenes photo.
+
+Feeds stay fresh while reducing costs.
+
+Campaign Creation Decision Tree
+
+Before creating content, Forge asks:
+
+Does the customer have suitable media?
+
+If YES:
+
+Use Asset Mode.
+
+Would AI enhancement improve the result?
+
+If YES:
+
+Use AI Assisted Mode.
+
+Does this campaign benefit from an original AI concept?
+
+If YES:
+
+Use AI Creative Mode.
+
+Would combining approaches create a stronger campaign?
+
+If YES:
+
+Use Hybrid Campaign Mode.
+
+Customer Preference Settings
+
+Allow every customer to choose how creative generation behaves.
+
+Examples:
+
+Content Preference
+
+☐ Use my media whenever possible
+
+☐ Mix my media with AI creativity (Recommended)
+
+☐ Let AI decide automatically (Recommended)
+
+☐ Generate mostly AI content
+
+☐ Generate only AI content
+
+☐ Only use my uploaded media
+
+Image Editing Permission
+
+Allow AI to:
+
+☑ Improve lighting
+
+☑ Improve colors
+
+☑ Remove distractions
+
+☑ Replace backgrounds
+
+☑ Seasonal changes
+
+☑ Day/Night conversion
+
+☑ Add landscaping
+
+☑ Add branding
+
+☑ Enhance image quality
+
+☑ Create marketing layouts
+
+Industry Intelligence
+
+Different industries should automatically favor different modes.
+
+Example:
+
+Realtor
+
+70% customer media
+
+30% AI generated
+
+Dealership
+
+80% inventory photos
+
+20% AI branding
+
+Pole Barn Builder
+
+60% customer installs
+
+40% AI educational and lifestyle content
+
+Restaurant
+
+70% real food
+
+30% AI promotions
+
+Law Firm
+
+Mostly original photography with AI-created educational graphics and branded visuals.
+
+Echo Interaction
+
+Echo can occasionally ask:
+
+"I noticed we're running low on fresh project photos. Uploading 10 new images will improve your next month's marketing."
+
+Or:
+
+"Would you like this week's campaign to focus more on your real projects, or would you like me to create a few original AI concepts to add variety?"
+
+Core Principle
+
+The customer should never have to think about how the content is created.
+
+They should simply feel that every campaign is fresh, authentic, and tailored to their business.
+
+One more idea
+
+I actually wouldn't make this a one-time setting buried in a menu.
+
+I'd let Echo ask naturally when it makes sense:
+
+"For this campaign, would you like me to showcase one of your actual projects, create something entirely new, or surprise you with what I think will perform best?"
