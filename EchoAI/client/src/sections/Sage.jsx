@@ -1406,6 +1406,13 @@ function CompanyTruthTab({ brandId }) {
 
   useEffect(() => {
     firstLoad.current = true;
+    // Switching brands: wipe messages from the previous brand so a stale
+    // "finished" notice can't sit next to the new brand's "researching" banner,
+    // and reset the transition tracker so Brand A's in-progress run can't make
+    // Brand B falsely announce "finished".
+    wasGenerating.current = false;
+    setNotice("");
+    setError("");
     load();
   }, [load]);
 
@@ -1421,6 +1428,12 @@ function CompanyTruthTab({ brandId }) {
         else setNotice("Sage finished the report. Review it below.");
       }
       return undefined;
+    }
+    if (!wasGenerating.current) {
+      // A research run just started (or was already running when we arrived):
+      // the amber banner announces it, so drop any leftover green notice —
+      // "finished" and "researching" must never show together.
+      setNotice("");
     }
     wasGenerating.current = true;
     const t = setInterval(load, 5000);
