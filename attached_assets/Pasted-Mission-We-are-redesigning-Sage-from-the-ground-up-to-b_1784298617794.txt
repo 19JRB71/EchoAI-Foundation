@@ -1,0 +1,706 @@
+Mission
+
+We are redesigning Sage from the ground up to become the Chief Strategy Officer and Chief Marketing Intelligence Officer for every Zorecho customer.
+
+This is not a feature update.
+
+This is not a UI redesign.
+
+This is a complete architectural redesign of Sage's intelligence, reasoning, learning, and strategic decision-making systems.
+
+The objective is simple:
+
+When Sage is complete, there should be no major strategic marketing responsibility that a world-class Chief Marketing Officer performs that Sage cannot either perform with evidence or clearly explain why additional information is required.
+
+Do not build placeholders.
+
+Do not fake intelligence.
+
+Do not generate reports simply to look impressive.
+
+Every subsystem must have measurable business value.
+
+If something cannot realistically be built with today's architecture or APIs, stop and explain why before proposing alternatives.
+
+Phase 1 — Architecture Only
+
+Do NOT begin coding.
+
+Your first responsibility is to produce a complete technical architecture.
+
+Include:
+
+System architecture
+Database design
+API changes
+Event flow
+AI workflow
+Prompt architecture
+Shared memory architecture
+Cross-department communication
+Cost analysis
+Scalability analysis
+Failure analysis
+Security analysis
+Rollback strategy
+Feature flags
+Migration plan
+Testing strategy
+
+I will approve the architecture before implementation begins.
+
+Sage's Mission
+
+Sage is responsible for one thing:
+
+Making the business smarter every single day.
+
+Sage is responsible for understanding:
+
+The company
+The market
+The customer
+The competitors
+The economy
+The marketing
+The sales process
+The brand
+The opportunities
+The risks
+The long-term strategy
+
+Sage does NOT create ads.
+
+Sage does NOT publish content.
+
+Sage does NOT answer customer calls.
+
+Sage directs the departments that do.
+
+Core Principle
+
+Sage exists to answer five questions continuously:
+
+What is happening?
+Why is it happening?
+What does it mean for THIS business?
+What should we do next?
+Did our decision actually work?
+
+If Sage cannot complete that cycle, the system is incomplete.
+
+Company Truth
+
+Before Sage can make a single recommendation, she must fully understand the customer's business.
+
+Company Truth should include:
+
+Website
+Facebook
+Instagram
+LinkedIn
+YouTube
+TikTok
+Google Business Profile
+Business address
+Service area
+Products
+Services
+Pricing
+Financing
+Promotions
+Brand voice
+Brand colors
+Mission
+Values
+Sales process
+Customer journey
+Customer personas
+Frequently asked questions
+Customer objections
+Reviews
+Uploaded documents
+Uploaded photos
+Uploaded videos
+CRM history
+Call history
+Email history
+Appointment history
+Revenue data (when available)
+Goals
+Capacity
+Owner preferences
+
+Every department must consume approved Company Truth before acting.
+
+Intelligence Systems
+
+Sage must contain dedicated intelligence systems.
+
+Company Intelligence
+
+Understand the business.
+
+Market Intelligence
+
+Understand the industry.
+
+Competitor Intelligence
+
+Understand competitors.
+
+Customer Intelligence
+
+Understand buyers.
+
+Channel Intelligence
+
+Understand every marketing channel.
+
+Offer Intelligence
+
+Understand offers.
+
+Brand Intelligence
+
+Protect the brand.
+
+Reputation Intelligence
+
+Monitor public perception.
+
+Geographic Intelligence
+
+Understand regional performance.
+
+Sales Intelligence
+
+Understand the sales pipeline.
+
+Financial Intelligence
+
+Understand profitability.
+
+Operational Intelligence
+
+Understand business capacity.
+
+Pattern Intelligence
+
+Pattern Intelligence becomes Sage's analytical brain.
+
+It should analyze:
+
+Company Truth
+
+Competitor Watch
+
+Customer Intelligence
+
+Market Intelligence
+
+Nova
+
+Atlas
+
+Forge
+
+Pulse
+
+Voice
+
+Vision
+
+Sentinel
+
+Campaign history
+
+Revenue
+
+Lead history
+
+Appointments
+
+Seasonality
+
+Offers
+
+Geography
+
+Advertising
+
+Search trends
+
+CRM activity
+
+Pattern Intelligence should determine:
+
+What works
+
+What fails
+
+What is changing
+
+What should change
+
+What should stop
+
+Never confuse correlation with causation.
+
+When uncertain, recommend testing.
+
+Opportunity Engine
+
+Every opportunity becomes structured work.
+
+Every opportunity must contain:
+
+Evidence
+
+Confidence
+
+Business relevance
+
+Expected revenue impact
+
+Expected profit impact
+
+Estimated cost
+
+Estimated effort
+
+Risk
+
+Priority
+
+Recommended department
+
+Dependencies
+
+Success metric
+
+Failure metric
+
+Expiration
+
+Owner approval
+
+Execution status
+
+Measured result
+
+Lessons learned
+
+No opportunity should disappear into a report.
+
+Strategy Engine
+
+Sage maintains:
+
+Annual strategy
+
+Quarterly strategy
+
+Monthly campaigns
+
+Weekly priorities
+
+Marketing roadmap
+
+Growth roadmap
+
+Budget allocation
+
+Channel mix
+
+Customer priorities
+
+Offer strategy
+
+Risk register
+
+Competitive positioning
+
+Every recommendation requires evidence.
+
+Business Constraints
+
+Every recommendation must consider:
+
+Budget
+
+Staff
+
+Capacity
+
+Inventory
+
+Scheduling
+
+Production
+
+Sales team availability
+
+Service area
+
+Legal limitations
+
+Owner preferences
+
+Cash flow
+
+Never recommend marketing that the business cannot fulfill.
+
+Experiment Engine
+
+Sage must create controlled experiments.
+
+Each experiment contains:
+
+Hypothesis
+
+Reason
+
+Variable
+
+Control
+
+Audience
+
+Budget
+
+Duration
+
+Success threshold
+
+Failure threshold
+
+Owner
+
+Result
+
+Decision
+
+Learning
+
+Experiments improve future decisions.
+
+Performance Intelligence
+
+Measure:
+
+Revenue
+
+Gross profit
+
+Marketing ROI
+
+ROAS
+
+CAC
+
+LTV
+
+Lead quality
+
+Close rate
+
+Quote rate
+
+Show rate
+
+Appointment rate
+
+Response speed
+
+Creative performance
+
+Channel performance
+
+Salesperson performance
+
+Customer profitability
+
+Department performance
+
+Ignore vanity metrics.
+
+Optimize profit.
+
+Forecasting
+
+Forecast:
+
+Leads
+
+Revenue
+
+Marketing spend
+
+AI cost
+
+Demand
+
+Seasonality
+
+Capacity
+
+Customer growth
+
+Business risks
+
+Every forecast must display confidence and assumptions.
+
+Decision Review
+
+Every Sage recommendation enters a permanent learning cycle.
+
+Recommendation
+
+↓
+
+Owner Decision
+
+↓
+
+Execution
+
+↓
+
+Measured Result
+
+↓
+
+Business Outcome
+
+↓
+
+Lessons Learned
+
+↓
+
+Future Recommendations Improve
+
+Sage must never forget what happened.
+
+Cross-Department Communication
+
+Sage communicates with:
+
+Echo
+
+Nova
+
+Atlas
+
+Forge
+
+Pulse
+
+Voice
+
+Scout
+
+Vision
+
+Sentinel
+
+Every department reports results back to Sage.
+
+No isolated intelligence.
+
+One shared company brain.
+
+Data Quality
+
+Every important fact contains:
+
+Source
+
+Evidence
+
+Date
+
+Freshness
+
+Confidence
+
+Approval status
+
+Conflict status
+
+Expiration
+
+Owner verification
+
+Unknown facts remain unknown.
+
+Never fabricate.
+
+Cost Control
+
+Every workflow must include:
+
+Caching
+
+Duplicate prevention
+
+Frequency limits
+
+AI budget
+
+Plan restrictions
+
+Cost tracking
+
+Value tracking
+
+Automatic optimization
+
+No unnecessary AI calls.
+
+Safety
+
+Every autonomous recommendation must include:
+
+Rollback
+
+Stop-loss
+
+Pause conditions
+
+Escalation
+
+Owner override
+
+Audit trail
+
+Industry Playbooks
+
+Sage must support industry-specific reasoning.
+
+Not generic marketing advice.
+
+Each industry receives:
+
+Benchmarks
+
+Seasonality
+
+Buying cycle
+
+Customer psychology
+
+Competitor patterns
+
+Legal considerations
+
+Best channels
+
+Typical objections
+
+Typical offers
+
+Winning messaging
+
+Industry-specific KPIs
+
+Self-Evaluation
+
+Sage continuously scores herself on:
+
+Accuracy
+
+Evidence quality
+
+Business relevance
+
+Recommendation quality
+
+Decision quality
+
+Prediction accuracy
+
+Learning rate
+
+Customer value
+
+Profit impact
+
+If performance declines, Sage must explain why.
+
+Success Definition
+
+Sage is complete only when she can:
+
+Understand the business.
+
+Understand the market.
+
+Understand the customer.
+
+Understand competitors.
+
+Recommend evidence-based strategy.
+
+Direct the appropriate department.
+
+Measure execution.
+
+Measure outcomes.
+
+Learn from results.
+
+Continuously improve.
+
+If Sage cannot answer a question with evidence, she must clearly state:
+
+"I don't have enough verified information to answer this confidently."
+
+Then identify exactly what information is missing.
+
+Final Deliverable
+
+Do NOT write code.
+
+Return a complete architectural blueprint that includes:
+
+Every subsystem
+Every workflow
+Every database table
+Every API
+Every event
+Every prompt
+Every dependency
+Every communication path
+Every approval point
+Every AI model used
+Every cost consideration
+Every security concern
+Every risk
+Every testing requirement
+Every implementation phase
+
+Finally, include one additional section titled:
+
+"What James hasn't asked for yet"
+
+In this section, identify every capability, architectural pattern, workflow, intelligence system, marketing function, or strategic responsibility that a world-class AI Chief Marketing Officer should possess but is still missing from this design.
+
+Do not assume I already know what to ask.
+
+Challenge the design.
+
+Identify blind spots.
+
+Recommend improvements.
+
+Do not protect my feelings.
+
+Do not agree simply because I proposed an idea.
+
+Your responsibility is to build the best marketing intelligence system possible—not to validate my assumptions.
+
+If something in my vision is weak, incomplete, or likely to fail, explain why and propose a better solution.
+
+The final architecture should be judged as if it will become the world's best AI Chief Marketing Officer, not simply a better version of the current Sage.

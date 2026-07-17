@@ -414,3 +414,9 @@ id = "Boe-3YNSYlPquniAtCQGN"
 uri = "file://SAGE_DEPARTMENT_AUDIT.md"
 type = "text"
 title = "Zorecho Sage Department — Full Capability Audit"
+
+[[outputs]]
+id = "ggPrqTQFoBGWXrXnn8Fxw"
+uri = "file://SAGE_V2_ARCHITECTURE.md"
+type = "text"
+title = "Zorecho Sage V2 — Master Architecture Blueprint"
