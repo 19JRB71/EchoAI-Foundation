@@ -30,6 +30,7 @@ const { enqueueOwnerVoiceEvent } = require("../utils/echoVoiceNotifications");
 const patternIntelligence = require("../utils/patternIntelligence");
 const pushController = require("./pushController");
 const mobilePushController = require("./mobilePushController");
+const intelStore = require("../utils/intelStore");
 
 // --- ownership + error helpers ---------------------------------------------
 
@@ -110,6 +111,13 @@ function contentKeyOf(summary) {
  * re-find is a no-op (the row is never resurrected or re-surfaced).
  */
 async function saveFeedItem(brandId, item) {
+  // Sage V2 P2 cutover: with the canonical store on, ALL new intelligence is
+  // written through the single redacting chokepoint (W2: one write path). The
+  // legacy feed table is frozen; the catch-up backfill has already copied it.
+  if (await intelStore.enabled()) {
+    await intelStore.backfillFromFeed();
+    return intelStore.saveIntelItem(brandId, item);
+  }
   const contentKey = contentKeyOf(item.summary);
   const existing = await db.query(
     `SELECT feed_id, dismissed_at
@@ -415,13 +423,15 @@ async function sageSnapshotForBrand(brandId) {
            FROM sage_intelligence_profiles WHERE brand_id = $1`,
         [brandId],
       ),
-      db.query(
-        `SELECT summary, why_it_matters, urgent, created_at
-           FROM sage_intelligence_feed
-          WHERE brand_id = $1 AND dismissed_at IS NULL
-            AND created_at > NOW() - INTERVAL '7 days'
-          ORDER BY created_at DESC LIMIT 5`,
-        [brandId],
+      intelStore.feedTarget().then((t) =>
+        db.query(
+          `SELECT summary, why_it_matters, urgent, created_at
+             FROM ${t.table}
+            WHERE brand_id = $1 AND dismissed_at IS NULL
+              AND created_at > NOW() - INTERVAL '7 days'
+            ORDER BY created_at DESC LIMIT 5`,
+          [brandId],
+        ),
       ),
     ]);
     const p = profile.rows[0];
@@ -493,10 +503,11 @@ async function getFeed(req, res) {
     const brandId = brandIdOf(req);
     const brand = await getOwnedBrand(req.user.userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
+    const t = await intelStore.feedTarget();
     const r = await db.query(
-      `SELECT feed_id, source_type, summary, why_it_matters, url, source_title,
-              urgent, created_at
-         FROM sage_intelligence_feed
+      `SELECT ${t.idCol} AS feed_id, source_type, summary, why_it_matters, url,
+              source_title, urgent, created_at
+         FROM ${t.table}
         WHERE brand_id = $1 AND dismissed_at IS NULL
           AND created_at > NOW() - INTERVAL '30 days'
         ORDER BY urgent DESC, created_at DESC
@@ -520,13 +531,26 @@ async function dismissFeedItems(req, res) {
     const { brandId, feedIds, all } = req.body || {};
     const brand = await getOwnedBrand(req.user.userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
+    const t = await intelStore.feedTarget();
+    const canonical = t.table === intelStore.CANONICAL.table;
     let r;
     if (all === true) {
       r = await db.query(
-        `UPDATE sage_intelligence_feed SET dismissed_at = NOW()
+        `UPDATE ${t.table} SET dismissed_at = NOW()
           WHERE brand_id = $1 AND dismissed_at IS NULL`,
         [brandId],
       );
+      if (canonical) {
+        // Mirror onto the frozen legacy rows (owner intent, idempotent) so a
+        // flag rollback can never resurrect items deleted while V2 was on.
+        await db
+          .query(
+            `UPDATE sage_intelligence_feed SET dismissed_at = NOW()
+              WHERE brand_id = $1 AND dismissed_at IS NULL`,
+            [brandId],
+          )
+          .catch(() => {});
+      }
     } else {
       const ids = Array.isArray(feedIds)
         ? feedIds.filter((id) => typeof id === "string" && id.trim())
@@ -535,11 +559,21 @@ async function dismissFeedItems(req, res) {
         return res.status(400).json({ error: "Select at least one item to delete" });
       }
       r = await db.query(
-        `UPDATE sage_intelligence_feed SET dismissed_at = NOW()
+        `UPDATE ${t.table} SET dismissed_at = NOW()
           WHERE brand_id = $1 AND dismissed_at IS NULL
-            AND feed_id = ANY($2::uuid[])`,
+            AND ${t.idCol} = ANY($2::uuid[])`,
         [brandId, ids],
       );
+      if (canonical) {
+        await db
+          .query(
+            `UPDATE sage_intelligence_feed SET dismissed_at = NOW()
+              WHERE brand_id = $1 AND dismissed_at IS NULL
+                AND feed_id = ANY($2::uuid[])`,
+            [brandId, ids],
+          )
+          .catch(() => {});
+      }
     }
     return res.json({ dismissed: r.rowCount });
   } catch (err) {

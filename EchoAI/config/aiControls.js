@@ -31,6 +31,10 @@ const SWITCH_DEFAULTS = {
   SAGE_V2_CONTEXT: false, // Sage V2 P1: inject approved Company Truth into every department's AI context (dark until enabled)
   SAGE_V2_WEEKLY_BRIEFING: false, // Sage V2 P1: consolidated weekly Sage briefing (copy pending ChatGPT; dark until enabled)
   SAGE_V2_ROI_LABELS: false, // Sage V2 P1: "estimated" badges on modeled ROI figures (dark until enabled)
+  SAGE_V2_INTEL_STORE: false, // Sage V2 P2: canonical sage_intel_items store (writes+reads cut over; dark until enabled)
+  SAGE_V2_JOB_QUEUE: false, // Sage V2 P2: scheduler enqueues per-brand AI work into sage_job_queue (dark until enabled)
+  SAGE_V2_SKIP_GATES: false, // Sage V2 P2: input-hash skip gates — unchanged inputs make zero AI calls (dark until enabled)
+  SAGE_V2_DQ_SENTRY: false, // Sage V2 P2: nightly deterministic data-quality sentry (dark until enabled)
   ANTHROPIC_CONTENT_ENABLED: true, // Anthropic (Claude) calls
 };
 

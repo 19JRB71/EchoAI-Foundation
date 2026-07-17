@@ -110,5 +110,6 @@
 - [EchoAI Sage feed dismiss](echoai-sage-feed-dismiss.md) — soft-dismiss only (scans resurrect hard deletes); dual-key dedup w/ partial unique index on visible rows + 23505 no-op; all feed readers filter dismissed.
 - [EchoAI authed screenshots](echoai-authed-screenshots.md) — testing subagent lacks env secrets + returns empty screenshotPaths; mint JWT via utils/token + puppeteer-core/nix chromium, dismiss Echo overlays per page.
 - [Sage V2 approved target](echoai-sage-v2-target.md) — SAGE_V2_CHALLENGE_REVIEW.md revised plan is the locked architecture; no Sage feature expansion, quality/reliability/UX only.
+- [EchoAI skip gates scope](echoai-skip-gates.md) — input-hash skip gates suppress only AI/aggregation cost; owner-facing deliverables (weekly report etc.) must still fire from the stored result.
 - [EchoAI clipboard image paste](echoai-clipboard-paste.md) — paste-to-upload listeners must branch on clipboard CONTENT (image files → hijack anywhere), never skip by focused-element type, or pasting with a text box focused silently no-ops.
 - [EchoAI Sage V2 Phase 1](echoai-sage-v2-phase1.md) — flag-dark endpoints answer {enabled:false}; weekly aggregators must week-bound EVERY source query, never latest-ever rows.

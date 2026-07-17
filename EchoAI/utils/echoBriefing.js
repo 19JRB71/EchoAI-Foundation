@@ -19,6 +19,7 @@ const { computeSuggestions } = require("./echoSuggestions");
 const { getMetric } = require("../config/goals");
 const { computeBrandGoals, monthWindow } = require("./goalMetrics");
 const { greetingFor } = require("./timeOfDay");
+const intelStore = require("./intelStore");
 
 /**
  * Owner's REAL brand ids + names (the demo brand is excluded from briefings).
@@ -306,12 +307,14 @@ async function gatherBriefingData(userId, since, brandId = null) {
       // first). Sage never mixes intelligence between brands: without a known
       // active brand the briefing simply skips the Sage note.
       sageBrandId
-        ? safeRows(
-            `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
-               FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
-              WHERE f.brand_id = $1 AND f.dismissed_at IS NULL AND f.created_at > $2
-              ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
-            [sageBrandId, sinceParam]
+        ? intelStore.feedTarget().then((t) =>
+            safeRows(
+              `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
+                 FROM ${t.table} f JOIN brands b ON b.brand_id = f.brand_id
+                WHERE f.brand_id = $1 AND f.dismissed_at IS NULL AND f.created_at > $2
+                ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
+              [sageBrandId, sinceParam]
+            )
           )
         : Promise.resolve([]),
       // Political campaigns: new supporters since the last briefing.
@@ -710,12 +713,14 @@ async function gatherWeeklyData(userId, brandId = null) {
       [brandIds]
     ),
     sageBrandId
-      ? safeRows(
-          `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
-             FROM sage_intelligence_feed f JOIN brands b ON b.brand_id = f.brand_id
-            WHERE f.brand_id = $1 AND f.dismissed_at IS NULL AND f.created_at > $2
-            ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
-          [sageBrandId, weekAgo]
+      ? intelStore.feedTarget().then((t) =>
+          safeRows(
+            `SELECT f.summary, f.why_it_matters, f.urgent, b.brand_name
+               FROM ${t.table} f JOIN brands b ON b.brand_id = f.brand_id
+              WHERE f.brand_id = $1 AND f.dismissed_at IS NULL AND f.created_at > $2
+              ORDER BY f.urgent DESC, f.created_at DESC LIMIT 5`,
+            [sageBrandId, weekAgo]
+          )
         )
       : Promise.resolve([]),
   ]);

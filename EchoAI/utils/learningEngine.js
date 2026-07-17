@@ -242,9 +242,19 @@ async function runWeeklyLearningStudy() {
     console.error("Learning study brand scan failed:", err.message);
     return;
   }
+  const { gateJob } = require("./skipGates");
   for (const brand of brands) {
     try {
+      // Input-hash skip gate (SAGE_V2_SKIP_GATES, default OFF). The undistilled-
+      // signals EXISTS filter above is already a natural change gate; this adds
+      // the honest 'skipped_unchanged' record when the flag is on.
+      const gate = await gateJob("autopilot-study", brand.brand_id);
+      if (!gate.run) {
+        await gate.skip();
+        continue;
+      }
       const result = await module.exports.studyBrand(brand);
+      await gate.done();
       if (result.studied) {
         console.log(
           `Learning study for ${brand.brand_name}: ${result.learnings} learning(s), ${result.questions} question(s)`

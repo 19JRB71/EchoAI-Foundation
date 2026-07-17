@@ -85,6 +85,60 @@ const {
 const {
   generateCrossBusinessIntelligence,
 } = require("../prompts/crossBusinessPrompt");
+const jobQueue = require("./jobQueue");
+const { gateJob } = require("./skipGates");
+
+/**
+ * Sage V2 job-queue path (behind SAGE_V2_JOB_QUEUE, default OFF). When ON, a
+ * Sage sweep ENQUEUES one row per brand (unique per job_type+brand+run_key,
+ * so overlapping ticks are no-ops) and immediately DRAINS them serially via
+ * FOR UPDATE SKIP LOCKED claims — behavior identical at current scale, but
+ * the claim table gives horizontal headroom and stuck-claim visibility.
+ * Returns true when the queue handled the sweep (caller skips its legacy loop).
+ */
+async function runSageSweepViaQueue(jobType, brands, runKey, worker) {
+  if (!(await jobQueue.enabled().catch(() => false))) return false;
+  const rescued = await jobQueue.rescueStaleClaims().catch(() => []);
+  if (rescued.length) {
+    console.error(`Job queue: rescued ${rescued.length} stale ${jobType} claim(s) → marked failed.`);
+  }
+  for (const brand of brands) {
+    await jobQueue.enqueue(jobType, brand.brand_id, runKey).catch((err) => {
+      console.error(`Job queue enqueue failed (${jobType}, ${brand.brand_id}):`, err.message);
+    });
+  }
+  const byId = new Map(brands.map((b) => [b.brand_id, b]));
+  const processed = await jobQueue.drain(jobType, async (job) => {
+    let brand = byId.get(job.brand_id);
+    if (!brand) {
+      const r = await db.query("SELECT * FROM brands WHERE brand_id = $1", [job.brand_id]);
+      brand = r.rows[0];
+    }
+    if (!brand) throw new Error("Brand no longer exists");
+    return worker(brand);
+  });
+  console.log(`${jobType} (queue mode): ${processed} job(s) processed for run ${runKey}.`);
+  return true;
+}
+
+/**
+ * The most recent stored weekly analytics row for a brand. Used when the
+ * skip gate says the inputs are unchanged: the expensive re-aggregation is
+ * skipped, but the owner-facing weekly report must still go out, built from
+ * this stored (still-accurate) snapshot. Returns null only when the brand
+ * has never had an analytics row — the same case the legacy path had nothing
+ * to report on.
+ */
+async function latestStoredAnalytics(brandId) {
+  const latest = await db.query(
+    `SELECT * FROM analytics
+     WHERE brand_id = $1
+     ORDER BY week_date DESC
+     LIMIT 1`,
+    [brandId]
+  );
+  return latest.rows[0] || null;
+}
 
 /**
  * Records weekly analytics for every active brand (a brand with at least one
@@ -107,8 +161,18 @@ async function runWeeklyAnalytics() {
   for (const brand of brands.rows) {
     let analytics = null;
     try {
-      analytics = await recordWeeklyAnalyticsForBrand(brand);
-      succeeded += 1;
+      const gate = await gateJob("weekly-analytics", brand.brand_id);
+      if (gate.run) {
+        analytics = await recordWeeklyAnalyticsForBrand(brand);
+        await gate.done();
+        succeeded += 1;
+      } else {
+        await gate.skip();
+        // Skip gate suppresses only the COST (re-fetching Facebook insights +
+        // re-aggregating), never the owner-facing weekly report. Reuse the most
+        // recent stored analytics row so the report/email/push still go out.
+        analytics = await latestStoredAnalytics(brand.brand_id);
+      }
     } catch (err) {
       console.error(`Weekly analytics failed for brand ${brand.brand_id}:`, err.message);
     }
@@ -269,7 +333,13 @@ async function runCompetitorScan() {
   let ok = 0;
   for (const brand of rows) {
     try {
+      const gate = await gateJob("competitor-scan", brand.brand_id);
+      if (!gate.run) {
+        await gate.skip();
+        continue;
+      }
       await runCompetitorAnalysisForBrand(brand, [], null);
+      await gate.done();
       ok += 1;
     } catch (err) {
       console.error(`Competitor scan failed for brand ${brand.brand_id}:`, err.message);
@@ -295,7 +365,13 @@ async function runCompetitorAdScan() {
   let ok = 0;
   for (const brand of rows) {
     try {
+      const gate = await gateJob("competitor-ad-scan", brand.brand_id);
+      if (!gate.run) {
+        await gate.skip();
+        continue;
+      }
       await runCompetitorAdScanForBrand(brand);
+      await gate.done();
       ok += 1;
     } catch (err) {
       console.error(`Competitor ad scan failed for brand ${brand.brand_id}:`, err.message);
@@ -351,7 +427,13 @@ async function runCompetitorSiteDigest() {
   let ok = 0;
   for (const brand of rows) {
     try {
+      const gate = await gateJob("competitor-site-digest", brand.brand_id);
+      if (!gate.run) {
+        await gate.skip();
+        continue;
+      }
       await runWeeklyDigestForBrand(brand);
+      await gate.done();
       ok += 1;
     } catch (err) {
       console.error(`Competitor site digest failed for brand ${brand.brand_id}:`, err.message);
@@ -367,16 +449,28 @@ async function runCompetitorSiteDigest() {
  * for the hour bucket so overlapping ticks can't double-run, and a per-brand
  * failure (AI down, no industry) is logged and never stops the sweep.
  */
+async function sageDeepWorker(brand) {
+  const gate = await gateJob("sage-deep-research", brand.brand_id);
+  if (!gate.run) {
+    await gate.skip();
+    return { skipped: true, inputHash: gate.hash };
+  }
+  await runDeepCycleForBrand(brand);
+  await gate.done();
+  return { inputHash: gate.hash };
+}
+
 async function runSageDeepCycle() {
   const brands = await activeBrandsForSage();
   const runKey = `deep:${new Date().toISOString().slice(0, 13)}`;
+  if (await runSageSweepViaQueue("sage-deep-research", brands, runKey, sageDeepWorker)) return;
   let ok = 0;
   for (const brand of brands) {
     let claimed = false;
     try {
       claimed = await claimRun(brand.brand_id, "deep", runKey);
       if (!claimed) continue;
-      await runDeepCycleForBrand(brand);
+      await sageDeepWorker(brand);
       await finishRun(brand.brand_id, "deep", runKey, "done");
       ok += 1;
     } catch (err) {
@@ -393,18 +487,30 @@ async function runSageDeepCycle() {
  * per day). Claimed atomically per 30-minute bucket; per-brand failures are
  * logged and never stop the sweep. An empty result is normal, not an error.
  */
+async function sageUrgentWorker(brand) {
+  const gate = await gateJob("sage-urgent-scan", brand.brand_id);
+  if (!gate.run) {
+    await gate.skip();
+    return { skipped: true, inputHash: gate.hash };
+  }
+  await runUrgentScanForBrand(brand);
+  await gate.done();
+  return { inputHash: gate.hash };
+}
+
 async function runSageUrgentScan() {
   const brands = await activeBrandsForSage();
   const now = new Date();
   const half = now.getUTCMinutes() < 30 ? "00" : "30";
   const runKey = `urgent:${now.toISOString().slice(0, 13)}:${half}`;
+  if (await runSageSweepViaQueue("sage-urgent-scan", brands, runKey, sageUrgentWorker)) return;
   let ok = 0;
   for (const brand of brands) {
     let claimed = false;
     try {
       claimed = await claimRun(brand.brand_id, "urgent", runKey);
       if (!claimed) continue;
-      await runUrgentScanForBrand(brand);
+      await sageUrgentWorker(brand);
       await finishRun(brand.brand_id, "urgent", runKey, "done");
       ok += 1;
     } catch (err) {
@@ -433,16 +539,28 @@ function isoWeekKey(d = new Date()) {
  * Brief. Claimed atomically per ISO week; per-brand failures are logged and
  * never stop the sweep.
  */
+async function sagePatternWorker(brand) {
+  const gate = await gateJob("sage-pattern-study", brand.brand_id);
+  if (!gate.run) {
+    await gate.skip();
+    return { skipped: true, inputHash: gate.hash };
+  }
+  await runPatternCycleForBrand(brand);
+  await gate.done();
+  return { inputHash: gate.hash };
+}
+
 async function runSagePatternStudy() {
   const brands = await activeBrandsForSage();
   const runKey = `weekly:${isoWeekKey()}`;
+  if (await runSageSweepViaQueue("sage-pattern-study", brands, runKey, sagePatternWorker)) return;
   let ok = 0;
   for (const brand of brands) {
     let claimed = false;
     try {
       claimed = await claimRun(brand.brand_id, "patterns", runKey);
       if (!claimed) continue;
-      await runPatternCycleForBrand(brand);
+      await sagePatternWorker(brand);
       await finishRun(brand.brand_id, "patterns", runKey, "done");
       ok += 1;
     } catch (err) {
@@ -615,6 +733,18 @@ function startScheduler() {
     name: "api-quota-sweep",
     cronExpr: "0 * * * *",
     run: () => runApiQuotaSweep({ notify: true }),
+  });
+
+  // Nightly 03:30: Sage V2 data-quality sentry — deterministic SQL rules only
+  // (zero AI): conflicting active intel items, stale approved Company Truth,
+  // analytics coverage gaps. No-ops entirely with SAGE_V2_DQ_SENTRY off.
+  scheduleJob({
+    name: "data-quality-sentry",
+    cronExpr: "30 3 * * *",
+    run: () => {
+      const { runNightlySentry } = require("./dataQualitySentry");
+      return runNightlySentry();
+    },
   });
 
   // Every 15 minutes: close any autonomous lead conversation whose lead has
@@ -935,6 +1065,7 @@ module.exports = {
   listScheduledJobs,
   executeJob,
   runWeeklyAnalytics,
+  latestStoredAnalytics,
   runDailyHealthSnapshots,
   runWeeklyCrossBusinessIntelligence,
   runCompetitorScan,

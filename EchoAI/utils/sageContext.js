@@ -12,6 +12,7 @@
 // a DB hiccup simply means "no extra context", never a broken agent.
 
 const db = require("../config/db");
+const intelStore = require("./intelStore");
 
 async function sageContextForBrand(brandId) {
   if (!brandId) return null;
@@ -22,12 +23,14 @@ async function sageContextForBrand(brandId) {
            FROM sage_intelligence_profiles WHERE brand_id = $1`,
         [brandId],
       ),
-      db.query(
-        `SELECT summary, why_it_matters, urgent
-           FROM sage_intelligence_feed
-          WHERE brand_id = $1 AND dismissed_at IS NULL AND created_at > NOW() - INTERVAL '30 days'
-          ORDER BY urgent DESC, created_at DESC LIMIT 6`,
-        [brandId],
+      intelStore.feedTarget().then((t) =>
+        db.query(
+          `SELECT summary, why_it_matters, urgent
+             FROM ${t.table}
+            WHERE brand_id = $1 AND dismissed_at IS NULL AND created_at > NOW() - INTERVAL '30 days'
+            ORDER BY urgent DESC, created_at DESC LIMIT 6`,
+          [brandId],
+        ),
       ),
     ]);
     const p = profile.rows[0];
