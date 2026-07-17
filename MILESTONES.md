@@ -6,7 +6,10 @@ Completion report → CEO approval before proceeding.
 
 Standing rules: backward compatible, all new functionality behind feature
 flags until approved for release; if an architectural conflict is discovered,
-stop and document it before making changes. Blueprint of record:
+stop and document it before making changes. **Every milestone is a release
+candidate:** each completed milestone must leave the repository safely
+deployable — migrations idempotent, all tests green, new functionality dark
+behind flags — so main stays stable and any milestone is a rollback point. Blueprint of record:
 `SAGE_V2_CHALLENGE_REVIEW.md` (revised phase plan, Part 4).
 
 | Milestone | Scope | Status |
