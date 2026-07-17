@@ -88,6 +88,7 @@
 - [EchoAI Company Truth](echoai-company-truth.md) — versioned Sage report; partial-index lifecycle (one generating/pending/approved per brand); Layer 2 reads ONLY getApprovedCompanyTruth (null until owner approves).
 - [EchoAI SSRF IPv6-mapped bypass](echoai-ssrf-ipv6-mapped.md) — private-host blockers must reject IPv4-mapped/compat IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1); check the embedded IPv4 range.
 - [EchoAI instant vs batch parity](echoai-instant-vs-batch-parity.md) — instant/one-off inserts must fill the same AI-brief columns as the batch path; re-renders must exclude the previous creative variant.
+- [EchoAI Anthropic pause_turn](echoai-anthropic-pause-turn.md) — web_search-tool responses can pause (stop_reason pause_turn) and must be continued in createMessage, or JSON parsing fails as aiInvalid.
 - [EchoAI ephemeral uploads](echoai-ephemeral-uploads.md) — Railway wipes uploads/ every deploy; uploaded files must live in a Postgres BYTEA column with disk as a self-restoring cache.
 - [EchoAI Hybrid Creative Engine](echoai-hybrid-creative.md) — asset/assisted/ai modes via one pure engine; AI mode never depicts real work; missing photo downgrades to ai AND persists the flip.
 - [EchoAI Sage Pattern Intelligence](echoai-pattern-intelligence.md) — prevalence not engagement, industry-wide not per-competitor, claim gate = run-key granularity, brand.industry lives on users.

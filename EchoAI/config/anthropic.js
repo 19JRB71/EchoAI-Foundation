@@ -98,19 +98,46 @@ async function createMessage(params, opts = {}) {
   let lastErr;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      const response = mustStream
-        ? await anthropic.messages.stream(params, { timeout, maxRetries: 0 }).finalMessage()
-        : await anthropic.messages.create(params, { timeout, maxRetries: 0 });
-      const usage = response.usage || {};
+      const callOnce = (p) =>
+        mustStream
+          ? anthropic.messages.stream(p, { timeout, maxRetries: 0 }).finalMessage()
+          : anthropic.messages.create(p, { timeout, maxRetries: 0 });
+
+      let response = await callOnce(params);
+
+      // Server-tool turns (web search) can end with stop_reason "pause_turn":
+      // the API paused a long-running turn and expects the caller to send the
+      // partial content back as an assistant message so the model can finish.
+      // Without this loop the partial response reaches callers, whose JSON
+      // extraction then fails ("returned no JSON report"). Bounded so a
+      // pathological ping-pong can't spin forever.
+      const totals = { in: 0, out: 0, cached: 0, searches: 0 };
+      const tally = (u) => {
+        if (!u) return;
+        totals.in += u.input_tokens || 0;
+        totals.out += u.output_tokens || 0;
+        totals.cached += u.cache_read_input_tokens || 0;
+        totals.searches +=
+          (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
+      };
+      tally(response.usage);
+      let continuationMessages = params.messages;
+      for (let round = 0; response.stop_reason === "pause_turn" && round < 5; round++) {
+        console.warn(`${label}: turn paused by API (round ${round + 1}); continuing`);
+        continuationMessages = [
+          ...continuationMessages,
+          { role: "assistant", content: response.content },
+        ];
+        response = await callOnce({ ...params, messages: continuationMessages });
+        tally(response.usage);
+      }
+
       recordUsage({
         ...ledgerBase,
-        inputTokens: usage.input_tokens,
-        outputTokens: usage.output_tokens,
-        cachedInputTokens: usage.cache_read_input_tokens,
-        webSearches:
-          usage.server_tool_use && usage.server_tool_use.web_search_requests
-            ? usage.server_tool_use.web_search_requests
-            : 0,
+        inputTokens: totals.in,
+        outputTokens: totals.out,
+        cachedInputTokens: totals.cached,
+        webSearches: totals.searches,
         retryCount: attempt - 1,
         durationMs: Date.now() - startedAt,
         success: true,

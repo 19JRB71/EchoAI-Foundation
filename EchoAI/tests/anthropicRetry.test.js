@@ -90,3 +90,44 @@ test("does NOT retry a deterministic (non-transient) error", async () => {
   );
   assert.equal(calls.length, 1);
 });
+
+test("pause_turn responses are continued until the turn completes", async () => {
+  stub((n) => {
+    if (n === 1) {
+      return {
+        stop_reason: "pause_turn",
+        content: [{ type: "server_tool_use", id: "t1", name: "web_search", input: { query: "x" } }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      };
+    }
+    return {
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: '{"ok":true}' }],
+      usage: { input_tokens: 20, output_tokens: 15 },
+    };
+  });
+  const resp = await createMessage(
+    { model: "m", max_tokens: 100, messages: [{ role: "user", content: "hi" }] },
+    { attempts: 1, label: "pause test" }
+  );
+  assert.equal(calls.length, 2);
+  assert.equal(resp.stop_reason, "end_turn");
+  // The continuation call must carry the paused assistant content back.
+  const msgs = calls[1].params.messages;
+  assert.equal(msgs.length, 2);
+  assert.equal(msgs[1].role, "assistant");
+});
+
+test("pause_turn continuation is bounded (never loops forever)", async () => {
+  stub(() => ({
+    stop_reason: "pause_turn",
+    content: [{ type: "server_tool_use", id: "t", name: "web_search", input: {} }],
+    usage: { input_tokens: 1, output_tokens: 1 },
+  }));
+  const resp = await createMessage(
+    { model: "m", max_tokens: 100, messages: [{ role: "user", content: "hi" }] },
+    { attempts: 1, label: "pause bound test" }
+  );
+  assert.equal(calls.length, 6); // initial + 5 bounded continuations
+  assert.equal(resp.stop_reason, "pause_turn");
+});

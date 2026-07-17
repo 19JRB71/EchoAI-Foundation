@@ -66,7 +66,7 @@ async function generateCompanyReport(brand, gathered, researchRequest) {
   const resp = await createMessage(
     {
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: SYSTEM,
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
       messages: [{ role: "user", content: buildPrompt(brand, gathered, researchRequest) }],
@@ -81,7 +81,9 @@ async function generateCompanyReport(brand, gathered, researchRequest) {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end <= start) {
-    const err = new Error("Sage returned no JSON report");
+    const err = new Error(
+      `Sage returned no JSON report (stop_reason=${resp.stop_reason || "unknown"})`,
+    );
     err.aiInvalid = true;
     throw err;
   }
@@ -89,7 +91,9 @@ async function generateCompanyReport(brand, gathered, researchRequest) {
   try {
     parsed = JSON.parse(text.slice(start, end + 1));
   } catch {
-    const err = new Error("Sage returned malformed JSON");
+    const err = new Error(
+      `Sage returned malformed JSON (stop_reason=${resp.stop_reason || "unknown"})`,
+    );
     err.aiInvalid = true;
     throw err;
   }
