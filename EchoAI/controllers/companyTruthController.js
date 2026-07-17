@@ -85,6 +85,7 @@ async function getState(req, res) {
       approved: reportView(rows.find((r) => r.status === "approved") || null),
       pending: reportView(rows.find((r) => r.status === "pending_approval") || null),
       generating: rows.some(isFreshClaim),
+      lastError: rows.find((r) => r.status === "failed")?.error_message || null,
       history: rows
         .filter((r) => r.status === "superseded")
         .map((r) => ({ version: r.version, approvedAt: r.approved_at })),
@@ -95,55 +96,21 @@ async function getState(req, res) {
 }
 
 /**
- * POST /api/company-truth/generate { brandId }
- * Claims the one-generating slot, gathers real data, runs Sage, and replaces
- * any existing pending draft with the fresh one (carrying the owner's
- * outstanding research request into the prompt, then consuming it).
+ * Background worker: gathers real data, runs Sage, and atomically promotes the
+ * claim to pending_approval (retiring any prior pending draft). On ANY failure
+ * the claim flips to status='failed' with an owner-readable error_message —
+ * status-guarded so an out-of-band delete/supersede can't be resurrected.
+ * Runs OUTSIDE the request so proxy timeouts and page navigation can't kill it.
  */
-async function generate(req, res) {
-  let claimId = null;
+async function runGeneration(brand, claimId, researchNote) {
   try {
-    const brand = await getOwnedBrand(req.user.userId, req.body.brandId);
-    if (!brand) return res.status(404).json({ error: "Brand not found" });
-
-    // Rescue: a claim left behind by a killed process (deploy/crash) would
-    // otherwise block this brand's research forever with a 409.
-    const rescued = await db.query(
-      `DELETE FROM company_truth_reports
-        WHERE brand_id = $1 AND status = 'generating'
-          AND created_at < NOW() - INTERVAL '${STALE_CLAIM_MINUTES} minutes'`,
-      [brand.brand_id],
-    );
-    if (rescued.rowCount > 0) {
-      console.warn(
-        `Company Truth: rescued ${rescued.rowCount} stale generating claim(s) for brand ${brand.brand_id} (process died mid-run).`,
-      );
-    }
-
-    // Claim the single in-flight generation slot (partial unique index).
-    let claim;
-    try {
-      claim = await db.query(
-        `INSERT INTO company_truth_reports (brand_id, version, status)
-         VALUES ($1, (SELECT COALESCE(MAX(version), 0) + 1 FROM company_truth_reports WHERE brand_id = $1), 'generating')
-         RETURNING report_id, version`,
-        [brand.brand_id],
-      );
-    } catch (e) {
-      if (e.code === "23505") {
-        return res.status(409).json({ error: "Sage is already researching this company. Give it a moment." });
-      }
-      throw e;
-    }
-    claimId = claim.rows[0].report_id;
-
     // Outstanding research request from the current pending draft (if any).
     const pendingQ = await db.query(
       `SELECT report_id, research_request FROM company_truth_reports
         WHERE brand_id = $1 AND status = 'pending_approval'`,
       [brand.brand_id],
     );
-    const researchRequest = pendingQ.rows[0]?.research_request || req.body.researchNote || null;
+    const researchRequest = pendingQ.rows[0]?.research_request || researchNote || null;
 
     const gathered = await gatherCompanyData(brand);
     const report = await generateCompanyReport(brand, gathered, researchRequest);
@@ -162,7 +129,7 @@ async function generate(req, res) {
             SET status = 'pending_approval', report = $1::jsonb, plain_summary = $2,
                 sources = $3::jsonb, research_request = NULL, generated_at = NOW()
           WHERE report_id = $4 AND status = 'generating'
-          RETURNING *`,
+          RETURNING report_id`,
         [
           toJsonbParam(report.sections),
           report.plainSummary,
@@ -178,11 +145,9 @@ async function generate(req, res) {
       );
       await client.query("COMMIT");
       if (!updated.rows.length) {
-        // Claim vanished out-of-band — never present a report we didn't persist.
-        return res.status(409).json({ error: "This research run was superseded. Reload and try again." });
+        // Claim vanished out-of-band (superseded/deleted) — nothing to present.
+        console.warn(`Company Truth: run for claim ${claimId} was superseded out-of-band; result discarded.`);
       }
-      claimId = null;
-      return res.status(201).json({ pending: reportView(updated.rows[0]) });
     } catch (e) {
       await client.query("ROLLBACK").catch(() => {});
       throw e;
@@ -190,12 +155,73 @@ async function generate(req, res) {
       client.release();
     }
   } catch (err) {
-    if (claimId) {
-      await db
-        .query("DELETE FROM company_truth_reports WHERE report_id = $1 AND status = 'generating'", [claimId])
-        .catch(() => {});
+    const friendly =
+      err && (err.aiInvalid || (typeof err.status === "number" && err.status >= 400))
+        ? "Sage could not complete the company research right now. Please try again shortly."
+        : "Something went wrong while building the report. Please try again.";
+    console.error("Company Truth generation failed:", err.message);
+    // Status-guarded flip: never resurrect a claim removed out-of-band.
+    await db
+      .query(
+        `UPDATE company_truth_reports SET status = 'failed', error_message = $1
+          WHERE report_id = $2 AND status = 'generating'`,
+        [friendly, claimId],
+      )
+      .catch(() => {});
+  }
+}
+
+// Last background run — awaited by tests; never blocks requests.
+let lastRunPromise = Promise.resolve();
+
+/**
+ * POST /api/company-truth/generate { brandId }
+ * Claims the one-generating slot and responds 202 immediately; the actual
+ * research runs in the background (see runGeneration). The client polls
+ * GET /api/company-truth until generating flips false.
+ */
+async function generate(req, res) {
+  try {
+    const brand = await getOwnedBrand(req.user.userId, req.body.brandId);
+    if (!brand) return res.status(404).json({ error: "Brand not found" });
+
+    // Sweep prior failed runs (their error was already shown) and rescue any
+    // claim left behind by a killed process (deploy/crash) — without this the
+    // brand's research would be blocked forever with a 409.
+    const rescued = await db.query(
+      `DELETE FROM company_truth_reports
+        WHERE brand_id = $1
+          AND (status = 'failed'
+               OR (status = 'generating'
+                   AND created_at < NOW() - INTERVAL '${STALE_CLAIM_MINUTES} minutes'))`,
+      [brand.brand_id],
+    );
+    if (rescued.rowCount > 0) {
+      console.warn(
+        `Company Truth: swept ${rescued.rowCount} failed/stale claim row(s) for brand ${brand.brand_id}.`,
+      );
     }
-    return sendError(res, err, "Failed to generate the Company Intelligence Report.");
+
+    // Claim the single in-flight generation slot (partial unique index).
+    let claim;
+    try {
+      claim = await db.query(
+        `INSERT INTO company_truth_reports (brand_id, version, status)
+         VALUES ($1, (SELECT COALESCE(MAX(version), 0) + 1 FROM company_truth_reports WHERE brand_id = $1), 'generating')
+         RETURNING report_id, version`,
+        [brand.brand_id],
+      );
+    } catch (e) {
+      if (e.code === "23505") {
+        return res.status(409).json({ error: "Sage is already researching this company. Give it a moment." });
+      }
+      throw e;
+    }
+
+    lastRunPromise = runGeneration(brand, claim.rows[0].report_id, req.body.researchNote || null);
+    return res.status(202).json({ generating: true });
+  } catch (err) {
+    return sendError(res, err, "Failed to start the company research.");
   }
 }
 
@@ -311,9 +337,15 @@ async function getApprovedCompanyTruth(brandId) {
   return reportView(rows[0] || null);
 }
 
+/** Test hook: await the most recent background generation run. */
+function waitForLastRun() {
+  return lastRunPromise;
+}
+
 module.exports = {
   getState,
   generate,
+  waitForLastRun,
   approve,
   editSection,
   requestResearch,

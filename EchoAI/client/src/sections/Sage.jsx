@@ -1303,6 +1303,24 @@ function CompanyTruthTab({ brandId }) {
     load();
   }, [load]);
 
+  // While Sage is researching on the server, poll every 5s — the run lives on
+  // the server, so it survives leaving this page and coming back.
+  const generating = !!state?.generating;
+  const wasGenerating = useRef(false);
+  useEffect(() => {
+    if (!generating) {
+      if (wasGenerating.current) {
+        wasGenerating.current = false;
+        if (state?.lastError) setError(state.lastError);
+        else setNotice("Sage finished the report. Review it below.");
+      }
+      return undefined;
+    }
+    wasGenerating.current = true;
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, [generating, load, state?.lastError]);
+
   async function run(label, fn) {
     setWorking(label);
     setError("");
@@ -1320,7 +1338,7 @@ function CompanyTruthTab({ brandId }) {
   const generate = () =>
     run("generate", async () => {
       await api.generateCompanyTruth(brandId);
-      setNotice("Sage finished the report. Review it below.");
+      setNotice("Sage is researching your company. This takes a few minutes — you can leave this page and come back.");
     });
 
   const approve = () =>
@@ -1335,7 +1353,7 @@ function CompanyTruthTab({ brandId }) {
       await api.generateCompanyTruth(brandId);
       setResearchNote("");
       setShowResearch(false);
-      setNotice("Sage re-researched the report with your notes. Review the new draft below.");
+      setNotice("Sage is re-researching with your notes. This takes a few minutes — you can leave this page and come back.");
     });
 
   const saveSection = async (section, content) => {
@@ -1351,6 +1369,14 @@ function CompanyTruthTab({ brandId }) {
   return (
     <div className="space-y-5">
       {error && <ErrorBanner message={error} />}
+      {!error && !generating && state?.lastError && <ErrorBanner message={state.lastError} />}
+      {generating && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
+          Sage is researching your company right now. This takes a few minutes —
+          it keeps working even if you leave this page. The report will appear
+          here when it&apos;s ready.
+        </div>
+      )}
       {notice && (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">
           {notice}
@@ -1377,10 +1403,10 @@ function CompanyTruthTab({ brandId }) {
           <button
             type="button"
             onClick={generate}
-            disabled={!!working}
+            disabled={!!working || generating}
             className="mt-3 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
           >
-            {working === "generate" ? "Sage is researching…" : "Build my report"}
+            {working === "generate" || generating ? "Sage is researching…" : "Build my report"}
           </button>
         </div>
       )}

@@ -7,9 +7,11 @@
  * - gatherCompanyData: fail-honest — a broken probe records the source as
  *   unavailable with the reason, never fabricated, never throws.
  * - Lifecycle: generate claims the one-generating slot (double-generate →
- *   409), success promotes the claim to pending_approval and replaces a
- *   prior pending draft; AI failure deletes the claim (no half-built rows)
- *   and maps to 502.
+ *   409) and responds 202 — the research runs in the BACKGROUND (survives
+ *   page navigation & proxy timeouts). Success promotes the claim to
+ *   pending_approval and replaces a prior pending draft; failure flips the
+ *   claim to status='failed' with an owner-readable error (surfaced by
+ *   getState.lastError, swept on the next generate).
  * - Approve: atomic row-count flip; nothing pending → 409; a new approval
  *   supersedes the old Truth in the same transaction (one approved per brand).
  * - Edits: only valid sections, only on the pending draft; edit_log grows.
@@ -154,10 +156,16 @@ test("lifecycle: generate → pending; approve atomic; new approval supersedes",
   try {
     stubAi(aiReport);
 
-    // Generate v1.
+    // Generate v1 — 202 immediately, work completes in the background.
     let res = mockRes();
     await controller.generate({ user: { userId }, body: { brandId } }, res);
-    assert.strictEqual(res.statusCode, 201);
+    assert.strictEqual(res.statusCode, 202);
+    assert.strictEqual(res.body.generating, true);
+    await controller.waitForLastRun();
+
+    res = mockRes();
+    await controller.getState({ user: { userId }, query: { brandId } }, res);
+    assert.strictEqual(res.body.generating, false);
     assert.strictEqual(res.body.pending.status, "pending_approval");
     assert.strictEqual(res.body.pending.version, 1);
     assert.ok(Array.isArray(res.body.pending.sources));
@@ -182,7 +190,10 @@ test("lifecycle: generate → pending; approve atomic; new approval supersedes",
     // Generate v2 and approve → v1 superseded, only one approved row.
     res = mockRes();
     await controller.generate({ user: { userId }, body: { brandId } }, res);
-    assert.strictEqual(res.statusCode, 201);
+    assert.strictEqual(res.statusCode, 202);
+    await controller.waitForLastRun();
+    res = mockRes();
+    await controller.getState({ user: { userId }, query: { brandId } }, res);
     assert.strictEqual(res.body.pending.version, 2);
     res = mockRes();
     await controller.approve({ user: { userId }, body: { brandId } }, res);
@@ -201,7 +212,7 @@ test("lifecycle: generate → pending; approve atomic; new approval supersedes",
   }
 });
 
-test("generate: AI failure deletes the claim row and maps to 502", async () => {
+test("generate: AI failure flips the claim to failed; getState surfaces lastError; next generate sweeps it", async () => {
   const { userId, brandId } = await createUserBrand();
   try {
     stubAi(() => {
@@ -209,14 +220,38 @@ test("generate: AI failure deletes the claim row and maps to 502", async () => {
       err.status = 500;
       throw err;
     });
-    const res = mockRes();
+    let res = mockRes();
     await controller.generate({ user: { userId }, body: { brandId } }, res);
-    assert.strictEqual(res.statusCode, 502);
+    assert.strictEqual(res.statusCode, 202);
+    await controller.waitForLastRun();
+
     const rows = await db.query(
-      "SELECT 1 FROM company_truth_reports WHERE brand_id = $1",
+      "SELECT status, error_message FROM company_truth_reports WHERE brand_id = $1",
       [brandId],
     );
-    assert.strictEqual(rows.rows.length, 0);
+    assert.strictEqual(rows.rows.length, 1);
+    assert.strictEqual(rows.rows[0].status, "failed");
+    assert.match(rows.rows[0].error_message, /could not complete/);
+
+    res = mockRes();
+    await controller.getState({ user: { userId }, query: { brandId } }, res);
+    assert.strictEqual(res.body.generating, false);
+    assert.match(res.body.lastError, /could not complete/);
+
+    // Next generate sweeps the failed row and succeeds.
+    stubAi(aiReport);
+    res = mockRes();
+    await controller.generate({ user: { userId }, body: { brandId } }, res);
+    assert.strictEqual(res.statusCode, 202);
+    await controller.waitForLastRun();
+    const after = await db.query(
+      "SELECT status FROM company_truth_reports WHERE brand_id = $1",
+      [brandId],
+    );
+    assert.deepStrictEqual(
+      after.rows.map((r) => r.status),
+      ["pending_approval"],
+    );
   } finally {
     restoreAi();
     await cleanup(brandId);
@@ -254,8 +289,8 @@ test("generate: a stale (dead) generating claim is rescued, not a permanent 409"
     stubAi(aiReport);
     const res = mockRes();
     await controller.generate({ user: { userId }, body: { brandId } }, res);
-    assert.strictEqual(res.statusCode, 201);
-    assert.ok(res.body.pending);
+    assert.strictEqual(res.statusCode, 202);
+    await controller.waitForLastRun();
     // The dead claim is gone; only the fresh pending report remains.
     const { rows } = await db.query(
       "SELECT status FROM company_truth_reports WHERE brand_id = $1",
@@ -303,7 +338,8 @@ test("generate: replaces a prior pending draft and consumes its research request
     stubAi(aiReport);
     let res = mockRes();
     await controller.generate({ user: { userId }, body: { brandId } }, res);
-    assert.strictEqual(res.statusCode, 201);
+    assert.strictEqual(res.statusCode, 202);
+    await controller.waitForLastRun();
 
     // Owner requests more research on the pending draft.
     res = mockRes();
@@ -322,8 +358,11 @@ test("generate: replaces a prior pending draft and consumes its research request
     });
     res = mockRes();
     await controller.generate({ user: { userId }, body: { brandId } }, res);
-    assert.strictEqual(res.statusCode, 201);
+    assert.strictEqual(res.statusCode, 202);
+    await controller.waitForLastRun();
     assert.strictEqual(sawNote, true);
+    res = mockRes();
+    await controller.getState({ user: { userId }, query: { brandId } }, res);
     assert.strictEqual(res.body.pending.researchRequest, null);
 
     const rows = await db.query(
@@ -346,7 +385,8 @@ test("editSection: valid section on pending draft only; edit_log grows", async (
     stubAi(aiReport);
     let res = mockRes();
     await controller.generate({ user: { userId }, body: { brandId } }, res);
-    assert.strictEqual(res.statusCode, 201);
+    assert.strictEqual(res.statusCode, 202);
+    await controller.waitForLastRun();
 
     // Unknown section → 400.
     res = mockRes();
