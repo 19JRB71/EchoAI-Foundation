@@ -15,7 +15,7 @@ behind flags — so main stays stable and any milestone is a rollback point. Blu
 | Milestone | Scope | Status |
 |---|---|---|
 | **Milestone 1: Sage V2 – Phase 1** | Company Truth consumption everywhere + flying-blind nudge + ROI "Estimated" labels + one-weekly-output briefing consolidation. Flags: `SAGE_V2_CONTEXT`, `SAGE_V2_WEEKLY_BRIEFING`, `SAGE_V2_ROI_LABELS` (all OFF). Report: `SAGE_V2_PHASE1_COMPLETION_REPORT.md`. | ✅ Approved July 17, 2026 |
-| **Milestone 2: Sage V2 – Phase 2** | Canonical `sage_intel_items` store (feed becomes a view; junction tables; ingestion redaction + sensitive flag; data-quality sentry) + job-queue claim table + input-hash skip gates on ALL AI jobs including the existing deep cycle. | ⏳ Next |
+| **Milestone 2: Sage V2 – Phase 2** | Canonical `sage_intel_items` store (feed becomes a view; junction tables; ingestion redaction + sensitive flag; data-quality sentry) + job-queue claim table + input-hash skip gates on ALL AI jobs including the existing deep cycle. Flags: `SAGE_V2_INTEL_STORE`, `SAGE_V2_JOB_QUEUE`, `SAGE_V2_SKIP_GATES`, `SAGE_V2_DQ_SENTRY` (all OFF). Authoritative record: the Phase 2 Completion Report (July 17, 2026) + `SAGE_V2_PHASE2_ARCHITECTURE.md` as-built notes. | ✅ Approved July 17, 2026 |
 | **Milestone 3: Sage V2 – Phase 3** | Outcome capture + attribution fields + coverage displays (may run parallel to Phase 2). | Pending |
 | **Milestone 4: Sage V2 – Phase 4** | Offers + constraints + Company Truth v2 inputs + Executive Memory. Gate: Phase 2. | Pending |
 | **Milestone 5: Sage V2 – Phase 5** | Opportunity queue (bucket-ranked, 3 decisions weekly) + Directive Bus + decisions table + Change Diagnostics + "What Sage knows" page. Gate: Phases 2–4. | Pending |
