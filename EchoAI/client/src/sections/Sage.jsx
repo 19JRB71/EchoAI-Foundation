@@ -1274,6 +1274,112 @@ function TruthReport({ report, editable, onSave }) {
   );
 }
 
+// The business's own website + Facebook page — Sage researches these directly
+// when building the Company Intelligence Report, so we ask for them right here.
+function BusinessLinksCard({ brandId }) {
+  const [website, setWebsite] = useState("");
+  const [facebookPage, setFacebookPage] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
+    setLoadError("");
+    api
+      .getBrand(brandId)
+      .then((brand) => {
+        if (cancelled) return;
+        setWebsite(brand.website_url || "");
+        setFacebookPage(brand.facebook_page_url || "");
+        setLoaded(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Don't show editable (empty) inputs we couldn't prefill — saving
+        // them would silently clear real stored links.
+        setLoadError(err.message || "Couldn't load your saved business links.");
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [brandId]);
+
+  const save = async () => {
+    setSaving(true);
+    setSaveError("");
+    setSaved(false);
+    try {
+      const updated = await api.updateBrand(brandId, {
+        websiteUrl: website,
+        facebookPageUrl: facebookPage,
+      });
+      setWebsite(updated.website_url || "");
+      setFacebookPage(updated.facebook_page_url || "");
+      setSaved(true);
+    } catch (err) {
+      setSaveError(err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+      <h3 className="text-sm font-semibold text-gray-200">Your business online</h3>
+      <p className="mt-1 text-sm text-gray-400">
+        Sage researches your real website and Facebook page when building this
+        report. Add them here so the research is grounded in your actual
+        business.
+      </p>
+      {loadError ? (
+        <p className="mt-2 text-sm text-red-400">{loadError}</p>
+      ) : (
+        <>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm">
+          <span className="text-gray-400">Website address</span>
+          <input
+            value={website}
+            onChange={(e) => { setWebsite(e.target.value); setSaved(false); }}
+            placeholder="e.g. https://yourbusiness.com"
+            className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-emerald-500 focus:outline-none"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="text-gray-400">Facebook page</span>
+          <input
+            value={facebookPage}
+            onChange={(e) => { setFacebookPage(e.target.value); setSaved(false); }}
+            placeholder="e.g. facebook.com/yourbusiness"
+            className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-emerald-500 focus:outline-none"
+          />
+        </label>
+      </div>
+      {saveError && <p className="mt-2 text-sm text-red-400">{saveError}</p>}
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="rounded-md border border-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:border-emerald-500 hover:text-emerald-300 disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save business links"}
+        </button>
+        {saved && <span className="text-sm text-emerald-400">Saved.</span>}
+      </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CompanyTruthTab({ brandId }) {
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1394,6 +1500,8 @@ function CompanyTruthTab({ brandId }) {
           edit any section, or send Sage back to research more.
         </p>
       </div>
+
+      <BusinessLinksCard brandId={brandId} />
 
       {!pending && !approved && (
         <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-6 text-center">

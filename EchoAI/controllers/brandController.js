@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { toJsonbParam } = require("../utils/jsonb");
 const { isValidBrandType } = require("../config/goals");
+const { normalizeWebsiteUrl, normalizeFacebookPageUrl } = require("../utils/onlinePresence");
 
 /**
  * POST /api/brands
@@ -40,7 +41,7 @@ async function getBrands(req, res) {
     const result = await db.query(
       `SELECT brand_id, brand_name, brand_personality, voice_description,
               visual_style_preferences, target_audience, brand_type, is_demo,
-              demo_tier, created_at, updated_at
+              demo_tier, website_url, facebook_page_url, created_at, updated_at
        FROM brands
        WHERE user_id = $1
        ORDER BY created_at DESC`,
@@ -66,7 +67,7 @@ async function getBrandProfile(req, res) {
     const result = await db.query(
       `SELECT brand_id, user_id, brand_name, brand_personality, voice_description,
               visual_style_preferences, target_audience, brand_type,
-              created_at, updated_at
+              website_url, facebook_page_url, created_at, updated_at
        FROM brands
        WHERE brand_id = $1 AND user_id = $2`,
       [brandId, userId]
@@ -126,6 +127,27 @@ async function updateBrand(req, res) {
     fields.push(`target_audience = $${idx++}::jsonb`);
     values.push(toJsonbParam(targetAudience));
   }
+  // Online presence: manual owner edit is authoritative — a blank value clears
+  // the field on purpose; a malformed value is a 400, never silently dropped.
+  const websiteUrl = req.body.websiteUrl !== undefined ? req.body.websiteUrl : req.body.website_url;
+  if (websiteUrl !== undefined) {
+    const norm = normalizeWebsiteUrl(websiteUrl);
+    if (!norm.ok) {
+      return res.status(400).json({ error: "websiteUrl must be a valid web address (e.g. https://yourbusiness.com)" });
+    }
+    fields.push(`website_url = $${idx++}`);
+    values.push(norm.value);
+  }
+  const facebookPageUrl =
+    req.body.facebookPageUrl !== undefined ? req.body.facebookPageUrl : req.body.facebook_page_url;
+  if (facebookPageUrl !== undefined) {
+    const norm = normalizeFacebookPageUrl(facebookPageUrl);
+    if (!norm.ok) {
+      return res.status(400).json({ error: "facebookPageUrl must be a Facebook page link or page name" });
+    }
+    fields.push(`facebook_page_url = $${idx++}`);
+    values.push(norm.value);
+  }
 
   if (fields.length === 0) {
     return res.status(400).json({ error: "No fields provided to update" });
@@ -139,7 +161,8 @@ async function updateBrand(req, res) {
          SET ${fields.join(", ")}
        WHERE brand_id = $${idx++} AND user_id = $${idx}
        RETURNING brand_id, brand_name, brand_personality, voice_description,
-                 visual_style_preferences, target_audience, brand_type, updated_at`,
+                 visual_style_preferences, target_audience, brand_type,
+                 website_url, facebook_page_url, updated_at`,
       values
     );
 

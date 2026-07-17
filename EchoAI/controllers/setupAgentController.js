@@ -6,6 +6,11 @@ const { SETUP_AGENT_SYSTEM_PROMPT } = require("../prompts/setupAgentPrompt");
 const { getUserTier } = require("../middleware/featureGate");
 const { FEATURES, meetsTier } = require("../config/tiers");
 const { geoSummaryText } = require("../utils/geoTargeting");
+const {
+  normalizeWebsiteUrl,
+  normalizeFacebookPageUrl,
+  isRefusalAnswer,
+} = require("../utils/onlinePresence");
 
 const brandDiscoveryController = require("../controllers/brandDiscoveryController");
 const campaignController = require("../controllers/campaignController");
@@ -281,6 +286,40 @@ function realEstateProfileFromAnswers(answers) {
   return profile;
 }
 
+// Persist the business's own website and Facebook page from the interview
+// answers. AI-capture semantics (non-empty merge): only real, normalizable
+// answers are written; "no"/"none"/unusable answers never blank anything.
+async function applyOnlinePresence(userId, brandId, answers) {
+  const sets = [];
+  const values = [];
+  let idx = 1;
+
+  const rawSite = firstAnswer(answers, ["business_website", "website", "web_address", "site"]);
+  if (rawSite && !isRefusalAnswer(rawSite)) {
+    const norm = normalizeWebsiteUrl(rawSite);
+    if (norm.ok && norm.value) {
+      sets.push(`website_url = $${idx++}`);
+      values.push(norm.value);
+    }
+  }
+  const rawPage = firstAnswer(answers, ["facebook_page", "facebook"]);
+  if (rawPage && !isRefusalAnswer(rawPage)) {
+    const norm = normalizeFacebookPageUrl(rawPage);
+    if (norm.ok && norm.value) {
+      sets.push(`facebook_page_url = $${idx++}`);
+      values.push(norm.value);
+    }
+  }
+  if (sets.length === 0) return false;
+  values.push(brandId, userId);
+  await db.query(
+    `UPDATE brands SET ${sets.join(", ")}, updated_at = NOW()
+      WHERE brand_id = $${idx++} AND user_id = $${idx}`,
+    values,
+  );
+  return true;
+}
+
 // When the interview identified a real-estate agent, mark the brand as the
 // 'real_estate' brand type and persist the profile. Idempotent — re-runs
 // simply rewrite the same values. Returns true when the brand was marked.
@@ -437,6 +476,7 @@ const ACTIONS = [
           if (!politicalRecovered) {
             await applyRealEstateProfile(userId, recoveredBrandId, answers);
           }
+          await applyOnlinePresence(userId, recoveredBrandId, answers);
           return { status: "done", detail: "Your brand profile is already set up." };
         }
       } else {
@@ -476,6 +516,7 @@ const ACTIONS = [
       const realEstate = political
         ? false
         : await applyRealEstateProfile(userId, brand.brand_id, answers);
+      await applyOnlinePresence(userId, brand.brand_id, answers);
       return {
         status: "done",
         detail: political

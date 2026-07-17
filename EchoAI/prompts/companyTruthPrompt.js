@@ -36,6 +36,16 @@ function buildPrompt(brand, gathered, researchRequest) {
       ? `\nTHE OWNER REVIEWED A PRIOR DRAFT AND REQUESTED ADDITIONAL RESEARCH:\n"${researchRequest}"\nAddress this request directly — it is the owner correcting or expanding your understanding.\n`
       : "",
     "Use web research to sharpen the industry classification, terminology, and commonly-confused-categories sections for this exact type of business.",
+    brand.website_url || brand.facebook_page_url
+      ? [
+          "THE OWNER'S OWN ONLINE PRESENCE — research these directly; they are the business's real website and Facebook page and the single best source for what the company actually sells, its service area, and how it describes itself:",
+          brand.website_url ? `- Website: ${brand.website_url}` : null,
+          brand.facebook_page_url ? `- Facebook page: ${brand.facebook_page_url}` : null,
+          "Ground the identity, onlinePresence, classification, productsServices, and serviceArea sections in what these pages actually say. If a page cannot be reached, say so in missingInformation — never guess its contents.",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : 'The owner has not provided their website address or Facebook page. List both in missingInformation — knowing the business\'s own site and page would materially improve this report.',
     "",
     "Respond with ONLY a JSON object (no markdown fences, no prose outside it):",
     "{",

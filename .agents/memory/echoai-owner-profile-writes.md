@@ -24,3 +24,8 @@ needed.
 `writeOwnerProfileRow` writes exactly-as-given (column keys, empties→NULL);
 `setOwnerProfileRow` maps app keys→columns for authoritative edits;
 `mergeOwnerProfileRow` for learned augmentation only.
+
+**AI-capture refusal filters:** when skipping "no/none" interview answers, the
+refusal regex must be word-bounded (`\bno\b`-style), or real answers like
+"northsideplumbing.com" starting with "no" are silently dropped. Use
+`utils/onlinePresence.js isRefusalAnswer` rather than inlining a new regex.

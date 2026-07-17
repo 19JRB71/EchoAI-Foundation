@@ -64,6 +64,8 @@ async function gatherCompanyData(brand) {
     probe("brand_profile", async () => ({
       brandName: brand.brand_name,
       brandType: brand.brand_type || null,
+      websiteUrl: brand.website_url || null,
+      facebookPageUrl: brand.facebook_page_url || null,
       personality: brand.brand_personality || null,
       voice: brand.voice_description || null,
       targetAudience: brand.target_audience || null,

@@ -1,0 +1,69 @@
+/**
+ * Online-presence normalizers: the business's own website URL and Facebook
+ * page. Shared by the brand update endpoint (manual owner edits) and the
+ * Setup Agent (interview answers), so both paths store the same shape.
+ *
+ * Contract: each normalizer returns
+ *   { ok: true, value: <string|null> }  — value null means "cleared"
+ *   { ok: false }                       — input was provided but unusable
+ * Empty/blank input is a deliberate clear (ok:true, value:null); callers that
+ * must NOT clear (AI capture / non-empty merge) skip null values themselves.
+ */
+
+function normalizeWebsiteUrl(input) {
+  if (input === null || input === undefined) return { ok: true, value: null };
+  if (typeof input !== "string") return { ok: false };
+  const raw = input.trim();
+  if (!raw) return { ok: true, value: null };
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  let url;
+  try {
+    url = new URL(candidate);
+  } catch {
+    return { ok: false };
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return { ok: false };
+  // A real site needs a dot in the hostname (rejects "localhost", bare words).
+  if (!url.hostname.includes(".")) return { ok: false };
+  return { ok: true, value: url.href };
+}
+
+// Accepts a full facebook.com/fb.com URL or a bare page handle ("myshop",
+// "@myshop") and normalizes to a canonical https://www.facebook.com/<path>.
+function normalizeFacebookPageUrl(input) {
+  if (input === null || input === undefined) return { ok: true, value: null };
+  if (typeof input !== "string") return { ok: false };
+  const raw = input.trim().replace(/^@/, "");
+  if (!raw) return { ok: true, value: null };
+
+  if (/^(https?:\/\/)?(www\.|m\.|web\.)?(facebook\.com|fb\.com)\//i.test(raw)) {
+    const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    let url;
+    try {
+      url = new URL(candidate);
+    } catch {
+      return { ok: false };
+    }
+    const path = url.pathname.replace(/\/+$/, "");
+    if (!path || path === "/") return { ok: false };
+    return { ok: true, value: `https://www.facebook.com${path}${url.search}` };
+  }
+
+  // Not a facebook URL. If it looks like some other URL/domain, reject —
+  // don't silently turn "mysite.com" into a facebook page.
+  if (/[/.]/.test(raw)) return { ok: false };
+  if (!/^[A-Za-z0-9.\-_]+$/.test(raw)) return { ok: false };
+  return { ok: true, value: `https://www.facebook.com/${raw}` };
+}
+
+// True when an interview answer is a refusal ("no", "we don't have one") —
+// word-bounded so real inputs like "northsideplumbing.com" are never treated
+// as a "no". Used by AI-capture paths, which must skip (never store) refusals.
+function isRefusalAnswer(input) {
+  if (typeof input !== "string") return false;
+  return /^\s*(?:no|none|nope|nah|n\/a|not yet|nothing|we don'?t|i don'?t|don'?t have)\b/i.test(
+    input,
+  );
+}
+
+module.exports = { normalizeWebsiteUrl, normalizeFacebookPageUrl, isRefusalAnswer };
