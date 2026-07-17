@@ -1,0 +1,803 @@
+ZORECHO SAGE DEPARTMENT — FULL CAPABILITY AUDIT
+
+We are beginning a complete rebuild review of Sage and every function under Sage.
+
+This is not a marketing summary.
+
+This is not a description of what Sage is supposed to do.
+
+I need a code-grounded report showing what Sage and each Sage sub-department actually know, actually access, actually do, and actually produce today.
+
+Do not modify any code.
+
+Core objective
+
+Sage should become the intelligence, strategy, reasoning, and performance-review brain for the entire marketing operation.
+
+Sage should not execute every marketing task.
+
+Sage should:
+
+Gather trustworthy evidence
+Understand the business
+Understand the market
+Understand competitors
+Understand customers
+Find patterns
+Identify opportunities
+Recommend strategy
+Direct work to the correct department
+Measure whether the work succeeded
+Update the company’s shared intelligence
+
+The execution departments remain separate:
+
+Nova — social media operations
+Forge — creative production
+Atlas — paid advertising
+Pulse — CRM and lead follow-up
+Voice — calls and conversations
+Scout — research gathering
+Sentinel — oversight and technical health
+Echo — executive interface and orchestration
+
+Sage is the reasoning and judgment layer across those departments.
+
+Scope
+
+Inspect every file, prompt, route, endpoint, database table, scheduled job, workflow, model call, API, UI component, helper service, and sub-agent connected to Sage.
+
+The current Sage page appears to include:
+
+Company Truth
+Industry Brief
+Latest Intelligence
+Competitor Watch
+Marketing Insights
+Intelligence Input
+Pattern Intelligence, if implemented elsewhere
+Vision, if Vision feeds Sage
+Any hidden or backend-only Sage jobs
+
+Do not assume those names represent working capabilities.
+
+Verify each one in the code.
+
+Required report
+1. Sage’s claimed role
+
+List every claim currently made about Sage in:
+
+UI text
+onboarding
+agent descriptions
+landing pages
+documentation
+system prompts
+sales copy
+internal comments
+
+Separate promises from implementation.
+
+2. Current Sage architecture
+
+Provide a complete map of Sage today.
+
+For every Sage department, sub-agent, workflow, or job, include:
+
+Name
+Purpose
+Inputs
+Outputs
+Data sources
+Model/provider used
+Trigger
+Frequency
+Storage location
+Customer-facing destination
+Cost
+Approval requirement
+Current status
+
+Classify each one as:
+
+Fully working
+Partially working
+Placeholder
+UI-only
+Planned but unimplemented
+Broken or unreliable
+Duplicative
+Unverified
+3. Company Truth audit
+
+Explain exactly how Sage currently learns the customer’s business.
+
+Verify whether it receives:
+
+Website URL and website content
+Facebook Page
+Instagram
+LinkedIn
+YouTube
+TikTok
+Google Business Profile
+Business address
+Service area
+Products and services
+Pricing
+Target customer
+Brand voice
+Brand colors and assets
+Current offers
+Customer reviews
+FAQs
+Business hours
+Sales process
+Competitors
+Past campaigns
+Customer objections
+Uploaded files
+CRM and conversation history
+Goals
+Capacity constraints
+Owner approval
+
+For every source, state:
+
+Whether it exists
+How it is gathered
+Whether it is verified
+How current it is
+Whether it is business-specific
+What happens when it is missing
+Whether Sage can distinguish facts from assumptions
+
+Explain whether Company Truth is structured and versioned or merely stored as prose.
+
+4. Source and evidence standards
+
+List every external and internal source Sage currently uses.
+
+Examples:
+
+Website
+Social media
+Competitor pages
+Public ads
+Reviews
+Government sources
+Industry publications
+Search engines
+CRM
+Calls
+Emails
+Campaign data
+Uploaded documents
+Customer conversations
+
+For every finding, verify whether Sage stores:
+
+Source
+URL or source identifier
+Discovery date
+Freshness
+Geographic relevance
+Confidence
+Business relevance
+Evidence excerpt
+Verification status
+
+Identify any areas where Sage can produce uncited or fabricated-sounding intelligence.
+
+5. Competitor Watch
+
+Explain what Competitor Watch actually does today.
+
+Verify whether it gathers:
+
+Competitor websites
+Offers
+Pricing signals
+Promotions
+Ad creative
+Hooks
+Landing pages
+Social activity
+Review sentiment
+Review growth
+Posting frequency
+Content formats
+Guarantees
+Financing
+Service expansion
+Geographic expansion
+Hiring activity
+Customer complaints
+Response speed
+New market entrants
+
+Explain how competitors are chosen.
+
+Separate:
+
+Direct competitors
+Indirect competitors
+Aspirational competitors
+Agencies serving those competitors
+New entrants
+
+State whether Competitor Watch gathers evidence only or also makes strategy decisions.
+
+6. Market Watch / Industry Brief
+
+Explain whether the current Industry Brief is a real market-intelligence system or a generic report generator.
+
+Verify whether it monitors:
+
+Industry trends
+Regulation
+Local laws
+Platform changes
+Search behavior
+Consumer behavior
+Seasonality
+Weather impact
+Interest rates
+Economic conditions
+Labor shortages
+Supply constraints
+Technology changes
+Regional growth
+Local development
+Emerging customer segments
+
+Identify random, low-value, or irrelevant research.
+
+7. Customer Intelligence
+
+Verify whether Sage currently receives and analyzes:
+
+Common questions
+Objections
+Reasons customers buy
+Reasons customers do not buy
+Lead sources
+Drop-off points
+Call transcripts
+Email questions
+Review themes
+Price sensitivity
+Buying timeline
+Repeat purchase
+Referral behavior
+Best-customer profile
+Least-profitable customer profile
+Geographic patterns
+Salesperson feedback
+Lost-deal reasons
+No-show reasons
+
+Identify what is missing.
+
+8. Channel Intelligence
+
+Verify whether Sage evaluates every meaningful marketing channel, including:
+
+Facebook organic
+Facebook ads
+Instagram
+Google Search
+Google Local Services
+Google Business Profile
+YouTube
+TikTok
+LinkedIn
+Email
+SMS
+Website SEO
+Local SEO
+Marketplace
+Direct mail
+Referrals
+Partnerships
+Events
+Community groups
+Retargeting
+Influencers
+Public relations
+Sponsorships
+Offline signage
+Radio or local media
+
+For each supported channel, show:
+
+Data available
+Performance metrics
+Recommendations generated
+Execution department
+Success criteria
+9. Pattern Intelligence
+
+This is a critical section.
+
+Explain whether Pattern Intelligence exists today.
+
+If it exists, show exactly what it consumes.
+
+It should ideally analyze:
+
+Company Truth
+Competitor Watch
+Market Watch
+Customer Intelligence
+Nova results
+Atlas performance
+Pulse lead movement
+Voice call outcomes
+Forge creative performance
+Website analytics
+Historical campaigns
+Offers
+Geographic results
+
+Verify whether it currently looks for:
+
+Winning hooks
+Losing hooks
+Creative fatigue
+Audience response
+Seasonal patterns
+Offer performance
+Channel combinations
+Funnel drop-offs
+Response-time effects
+Geographic differences
+Competitor gaps
+Pricing sensitivity
+Conversion patterns
+Capacity problems
+
+Identify whether it incorrectly claims causation from weak correlation.
+
+Pattern Intelligence should primarily analyze gathered evidence, not conduct random searches.
+
+10. Opportunity Engine
+
+Verify whether Sage has a real opportunity-ranking system.
+
+Every opportunity should ideally include:
+
+Evidence
+Business relevance
+Estimated impact
+Confidence
+Cost
+Effort
+Time to result
+Dependencies
+Risks
+Responsible agent
+Success metric
+Stop condition
+Approval requirement
+
+Explain what exists today and what is missing.
+
+11. Strategy Engine
+
+Explain how Sage turns intelligence into strategy.
+
+Verify whether Sage maintains:
+
+Annual goals
+Quarterly priorities
+Monthly campaigns
+Weekly experiments
+Budget allocation
+Channel mix
+Offer strategy
+Customer-segment priority
+Content themes
+Growth constraints
+Risk register
+
+Verify whether Sage distinguishes:
+
+Recommendation
+Approved strategy
+Active test
+Completed test
+Failed test
+Scaled winner
+Retired tactic
+12. Experiment system
+
+Verify whether Sage can design and track controlled marketing tests.
+
+Each experiment should ideally include:
+
+Hypothesis
+Variable
+Control
+Audience
+Budget
+Duration
+Success threshold
+Failure threshold
+Owner
+Sample-size expectation
+Confounding factors
+Result
+Decision
+
+Identify whether Sage is learning from tests or merely generating new ideas repeatedly.
+
+13. Performance intelligence
+
+Verify whether Sage measures the full funnel:
+
+Reach
+Engagement
+Click-through rate
+Cost per click
+Lead conversion
+Lead quality
+Speed to lead
+Appointment rate
+Show rate
+Quote rate
+Close rate
+Revenue
+Gross profit
+Customer acquisition cost
+Lifetime value
+Return on ad spend
+Retention
+Referral rate
+Unsubscribe rate
+Complaint rate
+Review growth
+
+Identify where Sage currently celebrates vanity metrics without connecting them to revenue.
+
+14. Attribution
+
+Explain how Sage determines:
+
+Lead source
+Campaign source
+Ad source
+Touchpoints
+Agent involvement
+Follow-up that converted the lead
+Campaign profit
+Attribution confidence
+
+Identify where attribution is missing or misleading.
+
+15. Forecasting
+
+Verify whether Sage can forecast:
+
+Lead volume
+Campaign spend
+Appointment volume
+Pipeline
+Revenue
+Seasonal demand
+Capacity strain
+Creative fatigue
+Budget exhaustion
+Customer churn risk
+AI usage cost
+
+Explain whether forecasts include assumptions and confidence or merely output confident numbers.
+
+16. Brand and reputation intelligence
+
+Verify whether Sage monitors:
+
+Tone consistency
+Visual consistency
+Message consistency
+Claim accuracy
+Offer consistency
+Brand dilution
+Reputation risk
+Review sentiment
+Review velocity
+Unanswered reviews
+Competitor review movement
+Repeated complaints
+
+Explain how findings are passed to Nova, Forge, Voice, or Echo.
+
+17. Geographic intelligence
+
+Verify whether Sage understands:
+
+Service area
+County and city performance
+Competitor density
+Lead quality by region
+Travel cost
+Local demand
+Local development
+Seasonal weather
+Expansion opportunities
+Unprofitable service areas
+18. Offer intelligence
+
+Verify whether Sage tracks:
+
+Current offers
+Previous offers
+Competitor offers
+Offer performance
+Discounts
+Financing
+Guarantees
+Bonuses
+Bundles
+Lead magnets
+Urgency
+Risk reversal
+Margin impact
+19. Creative intelligence
+
+Verify how Sage, Vision, and Forge currently interact.
+
+Sage should ideally evaluate:
+
+Image style
+Copy style
+Video length
+Hooks
+Lighting
+Emotional angle
+Testimonial type
+CTA
+Creative fatigue
+Creative performance
+Which creative should receive more budget
+Which should be retired
+
+Explain whether Vision is a source, an analyst, an executor, or a duplicate of Sage.
+
+20. Sales and operational intelligence
+
+Verify whether Sage receives from Pulse and Voice:
+
+Response time
+Qualification rate
+Appointment rate
+Objections
+No-show reasons
+Lost-deal reasons
+Follow-up quality
+Quote delay
+Salesperson performance
+Inventory limitations
+Capacity limitations
+
+Verify whether Sage detects:
+
+Leads not assigned
+Delayed follow-up
+Failed campaigns
+Missing assets
+Broken tracking
+Disconnected integrations
+Expired tokens
+Unanswered messages
+Stale offers
+Duplicate campaigns
+Budget overspend
+21. Interdepartmental communication
+
+Explain exactly how Sage communicates with:
+
+Echo
+Scout
+Nova
+Atlas
+Forge
+Pulse
+Voice
+Sentinel
+Vision
+
+For every connection, show:
+
+Data shared
+Format
+Trigger
+Storage
+Approval requirements
+Feedback returned
+Whether the communication is structured or merely prose
+Whether results are written back into the shared company brain
+22. Shared intelligence schema
+
+Verify whether all Sage-related intelligence uses a common structured schema.
+
+Every intelligence item should ideally contain:
+
+Business ID
+Source
+Date
+Freshness
+Category
+Evidence
+Confidence
+Relevance
+Potential impact
+Recommended action
+Assigned agent
+Status
+Result
+Learning
+
+Identify incompatible reports or isolated prose that cannot be reused by other agents.
+
+23. Decision review and learning loop
+
+For every Sage recommendation, verify whether the platform records:
+
+Was it approved?
+Was it executed?
+Did it work?
+Did it fail?
+Why?
+Should it be repeated?
+Should it be modified?
+Should the underlying rule change?
+
+Explain whether Sage genuinely improves or starts from scratch repeatedly.
+
+24. Sage’s authority
+
+Explain what Sage may currently decide autonomously.
+
+Separate:
+
+Research
+Recommendation
+Task delegation
+Experiment creation
+Budget allocation
+Campaign changes
+Pricing changes
+Public claims
+Brand changes
+Financial commitments
+
+Identify actions that require owner approval.
+
+25. Cost and efficiency
+
+Show:
+
+Models used
+Frequency of scheduled jobs
+Calls per workflow
+Cost by Sage function
+Background research cost
+Duplicate research
+Research that produces no useful result
+Cache opportunities
+Lower-cost routing opportunities
+Cost per useful insight
+Cost per approved recommendation
+Cost per successful experiment
+26. Failure risks
+
+Identify risks including:
+
+Generic fluff
+Random research
+Stale data
+Fabricated intelligence
+Wrong competitors
+Wrong business context
+Uncited claims
+Duplicate findings
+Unactionable recommendations
+Conflicting strategies
+No feedback loop
+Vanity-metric optimization
+Excessive AI cost
+Too many “urgent” signals
+Claiming success without measurable results
+27. Readiness scores
+
+Rate Sage honestly from 1–10 in:
+
+Company understanding
+Market intelligence
+Competitor intelligence
+Customer intelligence
+Pattern recognition
+Strategic reasoning
+Experiment design
+Performance measurement
+Attribution
+Forecasting
+Interdepartmental communication
+Learning
+Reliability
+Cost efficiency
+Customer trust
+Public-launch readiness
+
+Explain every score.
+
+28. Gap analysis against an ideal Sage department
+
+Compare current implementation against this operating chain:
+
+Company Truth
+→ Source Intelligence
+→ Competitor + Market + Customer + Channel Intelligence
+→ Pattern Intelligence
+→ Opportunity Engine
+→ Strategy Engine
+→ Owner Approval
+→ Execution by specialist departments
+→ Performance Measurement
+→ Sage success/failure review
+→ Company Brain update
+
+For every missing link, explain:
+
+Why it matters
+What must be built
+Dependency
+Difficulty
+Cost impact
+Launch priority
+29. Recommended rebuild plan
+
+Provide:
+
+Critical fixes before public launch
+High-value fixes after launch
+Functions to preserve
+Functions to merge
+Functions to rename
+Functions to remove if misleading
+Recommended department structure
+Recommended implementation sequence
+Effort estimate
+Risks
+Decisions requiring owner approval
+Evidence requirement
+
+Every claim must reference the actual supporting:
+
+File
+Function
+Prompt
+Endpoint
+Table
+Job
+API
+UI component
+Test
+
+Do not infer functionality from names.
+
+If something cannot be proven, label it:
+
+Not verified.
+
+Final instruction
+
+Do not write code.
+
+Do not redesign Sage.
+
+Do not add new features.
+
+Return the complete Sage Department audit and stop for review.

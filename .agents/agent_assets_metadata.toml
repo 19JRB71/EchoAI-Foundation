@@ -408,3 +408,9 @@ id = "VK1iTETAhdTgH10ICJI1Z"
 uri = "file://screenshots/oauth-banner.jpg"
 type = "image"
 title = "Connect accounts — OAuth return banner"
+
+[[outputs]]
+id = "Boe-3YNSYlPquniAtCQGN"
+uri = "file://SAGE_DEPARTMENT_AUDIT.md"
+type = "text"
+title = "Zorecho Sage Department — Full Capability Audit"
