@@ -426,3 +426,21 @@ id = "fKhq-NE34UAL6WK69MEjV"
 uri = "file://SAGE_V2_CHALLENGE_REVIEW.md"
 type = "text"
 title = "Sage V2 — Final Adversarial Architect Review"
+
+[[outputs]]
+id = "7nvPBvkzJxnw46HUyqf9L"
+uri = "file://SAGE_V2_PHASE1_COMPLETION_REPORT.md"
+type = "text"
+title = "Sage V2 — Phase 1 Completion Report"
+
+[[outputs]]
+id = "ACHFaEroQYRGVNdAj2vw1"
+uri = "file://screenshots/sage-v2-briefing-banner.png"
+type = "image"
+title = "Sage page: flying-blind banner + weekly briefing (flags on)"
+
+[[outputs]]
+id = "bkgkAkObkBo5szTAsUGtd"
+uri = "file://screenshots/roi-estimated-labels.png"
+type = "image"
+title = "Advanced ROI: ESTIMATED badges on modeled figures"
