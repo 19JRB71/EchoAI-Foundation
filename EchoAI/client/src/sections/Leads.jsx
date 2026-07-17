@@ -18,6 +18,25 @@ export default function Leads({ brandId }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeLeadId, setActiveLeadId] = useState(null);
+  const [coverage, setCoverage] = useState(null);
+
+  // Sage V2 P3 coverage display (flag-gated server-side; {enabled:false} when
+  // dark → renders nothing). Best-effort — never blocks the lead list.
+  useEffect(() => {
+    let active = true;
+    if (!brandId) return undefined;
+    (async () => {
+      try {
+        const data = await api.getOutcomeCoverage(brandId);
+        if (active) setCoverage(data && data.enabled ? data.coverage : null);
+      } catch {
+        if (active) setCoverage(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [brandId]);
 
   const load = useCallback(async () => {
     if (!brandId) return;
@@ -66,6 +85,31 @@ export default function Leads({ brandId }) {
       </div>
 
       <ErrorBanner message={error} />
+
+      {coverage && coverage.totalLeads > 0 && (
+        <div
+          className={`rounded-xl border p-3 text-sm ${
+            coverage.sufficient
+              ? "border-gray-800 bg-gray-900/60 text-gray-300"
+              : "border-amber-800/60 bg-amber-950/30 text-amber-200"
+          }`}
+        >
+          <span className="font-semibold">
+            Outcome coverage: {coverage.coveragePct}%
+          </span>{" "}
+          ({coverage.withOutcome} of {coverage.totalLeads} leads have a recorded
+          outcome{coverage.wonValueMissing > 0
+            ? `; ${coverage.wonValueMissing} won ${coverage.wonValueMissing === 1 ? "deal is" : "deals are"} missing a value`
+            : ""}
+          ).
+          {!coverage.sufficient && (
+            <span className="ml-1">
+              Below 30%, financial reports show this prompt instead of numbers —
+              record outcomes on your leads to unlock real figures.
+            </span>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <Spinner label="Loading leads…" />

@@ -72,6 +72,10 @@ async function startLeadConversation(req, res) {
     );
     const lead = leadResult.rows[0];
 
+    // Sage V2 P3 attribution (flag-gated no-op when dark): this lead started
+    // on the public voice page — first touch is genuinely known.
+    require("../utils/leadOutcome").setFirstTouch(lead.lead_id, "voice").catch(() => {});
+
     try {
       const greeting = await chatbotController.startConversation(lead, brand);
       return res.status(201).json({ leadId: lead.lead_id, greeting });

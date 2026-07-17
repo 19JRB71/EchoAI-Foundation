@@ -2029,7 +2029,7 @@ async function answerOpenQuestion(req, res) {
          FROM brands b
         WHERE q.question_id = $1 AND q.status IN ('pending', 'asked')
           AND b.brand_id = q.brand_id AND b.user_id = $2
-        RETURNING q.brand_id, q.user_id, q.question`,
+        RETURNING q.brand_id, q.user_id, q.question, q.context`,
       [questionId, userId, answer]
     );
     if (claimed.rows.length === 0) {
@@ -2047,7 +2047,23 @@ async function answerOpenQuestion(req, res) {
       [q.brand_id, q.user_id, insight]
     );
     await client.query("COMMIT");
-    return res.json({ ok: true });
+
+    // Sage V2 P3 (flag-gated no-op when dark): if this was an outcome ask
+    // ("did the Hendersons move forward?"), parse the answer with Hermes and
+    // record the lead outcome. Fail closed — a bad parse writes nothing and
+    // the lead-card chips remain the fallback. The response tells the client
+    // whether the outcome landed so Echo can say so (or ask for a tap).
+    let outcomeRecorded = false;
+    try {
+      const leadOutcome = require("../utils/leadOutcome");
+      if (leadOutcome.outcomeAskLeadId(q.context)) {
+        outcomeRecorded = await leadOutcome.applyOutcomeAnswer(q.context, answer);
+      }
+    } catch (err) {
+      console.error("Outcome-ask answer handling failed:", err.message);
+    }
+
+    return res.json({ ok: true, outcomeRecorded });
   } catch (err) {
     try {
       await client.query("ROLLBACK");

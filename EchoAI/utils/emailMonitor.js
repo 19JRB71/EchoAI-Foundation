@@ -365,6 +365,9 @@ async function captureLeadFromEmail(account, messageId, m, triage) {
       ],
     );
     leadId = created[0].lead_id;
+    // Sage V2 P3 attribution (flag-gated no-op when dark): an inbound email
+    // created this lead — first touch is genuinely known.
+    require("./leadOutcome").setFirstTouch(leadId, "email").catch(() => {});
   }
   await db.query(`UPDATE email_messages SET lead_id = $2 WHERE message_id = $1`, [messageId, leadId]);
 

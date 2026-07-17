@@ -9,6 +9,7 @@ export default function LeadDetail({ leadId, onClose }) {
   const [interactions, setInteractions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [outcomeCapture, setOutcomeCapture] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -20,6 +21,7 @@ export default function LeadDetail({ leadId, onClose }) {
         if (!active) return;
         setLead(data.lead || null);
         setInteractions(data.interactions || []);
+        setOutcomeCapture(data.outcomeCapture === true);
       } catch (err) {
         if (active) setError(err.message);
       } finally {
@@ -77,6 +79,10 @@ export default function LeadDetail({ leadId, onClose }) {
               <Field label="Phone" value={lead.phone} />
             </dl>
 
+            {outcomeCapture && (
+              <OutcomeSection lead={lead} onRecorded={(updated) => setLead((prev) => ({ ...prev, ...updated }))} />
+            )}
+
             <div>
               <h4 className="mb-2 text-sm font-semibold text-gray-300">
                 Conversation history
@@ -127,6 +133,153 @@ export default function LeadDetail({ leadId, onClose }) {
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+const OUTCOME_LABELS = {
+  won: "Won",
+  lost: "Lost",
+  no_show: "No-show",
+  unqualified: "Not a fit",
+};
+
+/**
+ * Sage V2 P3 outcome chips — rendered only when the server says outcome
+ * capture is enabled. Two taps: pick the outcome, then (for Won) the deal
+ * value or (for Lost) an optional reason. Deal value is never guessed — an
+ * empty value saves as "won, value pending".
+ */
+function OutcomeSection({ lead, onRecorded }) {
+  const [picking, setPicking] = useState(null); // outcome awaiting details
+  const [valueDollars, setValueDollars] = useState("");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  const recorded = lead.outcome || null;
+
+  async function save(outcome) {
+    setSaving(true);
+    setSaveError("");
+    try {
+      let dealValueCents;
+      if (outcome === "won" && valueDollars.trim() !== "") {
+        const dollars = Number(valueDollars);
+        if (!Number.isFinite(dollars) || dollars < 0) {
+          setSaveError("Deal value must be a number (or leave it blank for now).");
+          setSaving(false);
+          return;
+        }
+        dealValueCents = Math.round(dollars * 100);
+      }
+      const data = await api.recordLeadOutcome(lead.lead_id, {
+        outcome,
+        reason: reason.trim() || undefined,
+        dealValueCents,
+      });
+      if (data && data.enabled === false) {
+        setSaveError("Outcome capture is currently turned off.");
+        return;
+      }
+      if (data && data.lead) onRecorded(data.lead);
+      setPicking(null);
+      setValueDollars("");
+      setReason("");
+    } catch (err) {
+      setSaveError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+      <h4 className="mb-2 text-sm font-semibold text-gray-300">Outcome</h4>
+      {recorded ? (
+        <div className="space-y-1 text-sm">
+          <p className="text-gray-200">
+            <span
+              className={`mr-2 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                recorded === "won"
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "bg-gray-800 text-gray-300"
+              }`}
+            >
+              {OUTCOME_LABELS[recorded] || recorded}
+            </span>
+            {recorded === "won" &&
+              (lead.deal_value_cents != null
+                ? `$${(Number(lead.deal_value_cents) / 100).toLocaleString()}`
+                : "value pending")}
+          </p>
+          {lead.outcome_reason && (
+            <p className="text-xs text-gray-400">{lead.outcome_reason}</p>
+          )}
+          <button
+            onClick={() => setPicking("won")}
+            className="text-xs text-amber-400 hover:text-amber-300"
+          >
+            Change
+          </button>
+        </div>
+      ) : null}
+
+      {(!recorded || picking) && (
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(OUTCOME_LABELS).map(([value, label]) => (
+              <button
+                key={value}
+                disabled={saving}
+                onClick={() => {
+                  setPicking(value);
+                  setSaveError("");
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  picking === value
+                    ? "bg-amber-500 text-gray-900"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {picking && (
+            <div className="flex flex-wrap items-center gap-2">
+              {picking === "won" && (
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={valueDollars}
+                  onChange={(e) => setValueDollars(e.target.value)}
+                  placeholder="Deal value $ (optional)"
+                  className="w-40 rounded-lg border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200"
+                />
+              )}
+              {picking !== "won" && (
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Why? (optional)"
+                  className="w-48 rounded-lg border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200"
+                />
+              )}
+              <button
+                disabled={saving}
+                onClick={() => save(picking)}
+                className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-amber-400 disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          )}
+          {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+        </div>
+      )}
     </div>
   );
 }

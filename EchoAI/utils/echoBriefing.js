@@ -382,6 +382,12 @@ async function gatherBriefingData(userId, since, brandId = null) {
   // same one isn't repeated every morning (re-asked only after 3 quiet days).
   let learningNote = null;
   let openQuestion = null;
+  // Sage V2 P3 (flag-gated no-op when dark): queue outcome asks for stale hot
+  // leads with past appointments so the existing open-question pick below can
+  // surface one. Best-effort — never breaks the briefing.
+  try {
+    await require("./leadOutcome").queueOutcomeQuestions(brandIds);
+  } catch (_) {}
   try {
     const learnedRows = await db.query(
       `SELECT COUNT(*)::int AS n FROM echo_learnings

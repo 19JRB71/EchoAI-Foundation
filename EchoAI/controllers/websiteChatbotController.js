@@ -225,6 +225,9 @@ async function upsertLeadForSession({ brandId, session, contact }) {
         [brandId, name, email, phone],
       );
       leadId = inserted.rows[0].lead_id;
+      // Sage V2 P3 attribution (flag-gated no-op when dark): widget-captured
+      // lead — first touch is genuinely known.
+      require("../utils/leadOutcome").setFirstTouch(leadId, "chatbot").catch(() => {});
     }
 
     await client.query("COMMIT");

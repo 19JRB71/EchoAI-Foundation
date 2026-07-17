@@ -22,8 +22,11 @@ router.use(auth, lockout, denySalesRep, denyReadOnlyMutations);
 
 router.post("/", leadController.createLead);
 router.get("/", leadController.getLeads);
+// Static path must be registered before "/:leadId" or it would be captured.
+router.get("/outcome-coverage", leadController.getOutcomeCoverage);
 router.get("/:leadId", leadController.getLeadProfile);
 router.put("/:leadId", leadController.updateLead);
 router.post("/:leadId/convert", leadController.convertLead);
+router.post("/:leadId/outcome", leadController.recordLeadOutcome);
 
 module.exports = router;

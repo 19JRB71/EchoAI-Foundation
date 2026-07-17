@@ -35,6 +35,8 @@ const SWITCH_DEFAULTS = {
   SAGE_V2_JOB_QUEUE: false, // Sage V2 P2: scheduler enqueues per-brand AI work into sage_job_queue (dark until enabled)
   SAGE_V2_SKIP_GATES: false, // Sage V2 P2: input-hash skip gates — unchanged inputs make zero AI calls (dark until enabled)
   SAGE_V2_DQ_SENTRY: false, // Sage V2 P2: nightly deterministic data-quality sentry (dark until enabled)
+  SAGE_V2_OUTCOME_CAPTURE: false, // Sage V2 P3: lead outcome capture (chips/voice/convert paths write outcome + attribution fields; dark until enabled)
+  SAGE_V2_COVERAGE_DISPLAYS: false, // Sage V2 P3: outcome-coverage labels + <30% financial-view gate (dark until enabled)
   ANTHROPIC_CONTENT_ENABLED: true, // Anthropic (Claude) calls
 };
 

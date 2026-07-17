@@ -3,6 +3,7 @@ const chatbotController = require("./chatbotController");
 const zapierController = require("./zapierController");
 const followUpController = require("./followUpController");
 const { applyLeadGeo } = require("../utils/leadGeoFlag");
+const leadOutcome = require("../utils/leadOutcome");
 
 /**
  * Verifies that a brand belongs to the authenticated user.
@@ -60,6 +61,10 @@ async function createLead(req, res) {
       [brandId, name || null, email || null, phone || null]
     );
     const lead = inserted.rows[0];
+
+    // Attribution (Sage V2 P3, flag-gated no-op when dark): a lead created by
+    // hand in the dashboard has a known first touch.
+    leadOutcome.setFirstTouch(lead.lead_id, "manual").catch(() => {});
 
     // Geo flag (best-effort): classify any provided location against the
     // brand's service area; alerts the owner if outside/excluded.
@@ -159,6 +164,12 @@ async function getLeadProfile(req, res) {
       [leadId]
     );
 
+    // Sage V2 P3: tell the client to render the outcome chips ONLY when the
+    // flag is on. Flag off → response identical to before (no new field).
+    if (await leadOutcome.captureEnabled()) {
+      return res.json({ lead, interactions: interactions.rows, outcomeCapture: true });
+    }
+
     return res.json({ lead, interactions: interactions.rows });
   } catch (err) {
     console.error("Get lead profile error:", err.message);
@@ -211,6 +222,9 @@ async function updateLead(req, res) {
       followUpController
         .cancelActiveSequencesForLead(leadId, "converted")
         .catch((err) => console.error("Follow-up stop (convert) failed:", err.message));
+      // Sage V2 P3 one-way sync (flag-gated no-op when dark): an operational
+      // convert also records the measurement outcome, value pending.
+      leadOutcome.markWonFromConvert(leadId, "crm", null).catch(() => {});
     }
 
     if (fields.length === 0) {
@@ -268,10 +282,81 @@ async function convertLead(req, res) {
       .cancelActiveSequencesForLead(leadId, "converted")
       .catch((err) => console.error("Follow-up stop (convert) failed:", err.message));
 
+    // Sage V2 P3 one-way sync (flag-gated no-op when dark).
+    leadOutcome.markWonFromConvert(leadId, "crm", null).catch(() => {});
+
     return res.json({ message: "Lead converted", lead: updated.rows[0] });
   } catch (err) {
     console.error("Convert lead error:", err.message);
     return res.status(500).json({ error: "Failed to convert lead" });
+  }
+}
+
+/**
+ * POST /api/leads/:leadId/outcome  (Sage V2 P3, flag-gated)
+ * Records the measurement outcome from the lead card chips ("Won — $X",
+ * "Lost — why?"). Never touches conversion_status. Flag off → {enabled:false}.
+ */
+async function recordLeadOutcome(req, res) {
+  const userId = req.user.userId;
+  const { leadId } = req.params;
+  const { outcome, reason, dealValueCents } = req.body || {};
+
+  try {
+    if (!(await leadOutcome.captureEnabled())) {
+      return res.json({ enabled: false });
+    }
+    const lead = await getOwnedLead(leadId, userId);
+    if (!lead) {
+      return res.status(404).json({ error: "Lead not found" });
+    }
+    if (!leadOutcome.OUTCOMES.includes(outcome)) {
+      return res.status(400).json({ error: `outcome must be one of: ${leadOutcome.OUTCOMES.join(", ")}` });
+    }
+    if (dealValueCents !== undefined && dealValueCents !== null && dealValueCents !== "") {
+      const n = Number(dealValueCents);
+      if (!Number.isInteger(n) || n < 0) {
+        return res.status(400).json({ error: "dealValueCents must be a non-negative whole number" });
+      }
+    }
+    const updated = await leadOutcome.recordOutcome(leadId, {
+      outcome,
+      reason,
+      dealValueCents,
+      source: "owner",
+    });
+    return res.json({ enabled: true, lead: updated });
+  } catch (err) {
+    console.error("Record lead outcome error:", err.message);
+    return res.status(500).json({ error: "Failed to record outcome" });
+  }
+}
+
+/**
+ * GET /api/leads/outcome-coverage?brandId=...  (Sage V2 P3, flag-gated)
+ * Deterministic outcome-coverage stats for the honesty displays.
+ */
+async function getOutcomeCoverage(req, res) {
+  const userId = req.user.userId;
+  const { brandId } = req.query;
+
+  if (!brandId) {
+    return res.status(400).json({ error: "brandId query parameter is required" });
+  }
+  try {
+    const { getSwitch } = require("../config/aiControls");
+    if (!(await getSwitch("SAGE_V2_COVERAGE_DISPLAYS"))) {
+      return res.json({ enabled: false });
+    }
+    const brand = await getOwnedBrand(brandId, userId);
+    if (!brand) {
+      return res.status(404).json({ error: "Brand not found" });
+    }
+    const coverage = await leadOutcome.coverageForBrand(brandId);
+    return res.json({ enabled: true, coverage });
+  } catch (err) {
+    console.error("Outcome coverage error:", err.message);
+    return res.status(500).json({ error: "Failed to compute outcome coverage" });
   }
 }
 
@@ -281,4 +366,6 @@ module.exports = {
   getLeadProfile,
   updateLead,
   convertLead,
+  recordLeadOutcome,
+  getOutcomeCoverage,
 };

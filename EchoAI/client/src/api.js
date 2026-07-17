@@ -706,6 +706,10 @@ export const api = {
     return request(`/api/leads?${params.toString()}`);
   },
   getLead: (leadId) => request(`/api/leads/${leadId}`),
+  recordLeadOutcome: (leadId, payload) =>
+    request(`/api/leads/${leadId}/outcome`, { method: "POST", body: payload }),
+  getOutcomeCoverage: (brandId) =>
+    request(`/api/leads/outcome-coverage?brandId=${encodeURIComponent(brandId)}`),
 
   // Campaigns
   getCampaigns: (brandId) =>

@@ -32,6 +32,7 @@ const { buildClient } = require("../config/twilio");
 const { decrypt } = require("../utils/encryption");
 const { toJsonbParam } = require("../utils/jsonb");
 const { normalizeE164 } = require("../utils/phone");
+const leadOutcome = require("../utils/leadOutcome");
 
 const VALID_TEMPERATURES = ["tire_kicker", "warm", "hot"];
 const OPEN_STATUSES = ["active", "awaiting_owner"];
@@ -304,6 +305,13 @@ async function handleInboundReply(args) {
     );
   } catch (err) {
     console.error("Autonomous CRM history update failed:", err.message);
+  }
+
+  // Sage V2 P3 (flag-gated no-op when dark): a machine-detected convert also
+  // records the measurement outcome — won, value pending (NEVER estimated) —
+  // and the converting touch (this conversation's channel).
+  if (closeReason === "converted") {
+    leadOutcome.markWonFromConvert(lead.lead_id, "autonomous", channel).catch(() => {});
   }
 
   // 4) Escalate on a strong buying signal (best-effort). Fire at most once per

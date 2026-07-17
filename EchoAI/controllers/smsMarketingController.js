@@ -855,6 +855,9 @@ async function handleInbound(req, res) {
           [cfg.brand_id, fromNorm],
         )
       ).rows[0];
+      // Sage V2 P3 attribution (flag-gated no-op when dark): inbound SMS
+      // created this lead — first touch is genuinely known.
+      require("../utils/leadOutcome").setFirstTouch(lead.lead_id, "sms").catch(() => {});
       // Geo flag from Twilio's caller location headers (best-effort).
       const fromCity = req.body.FromCity || null;
       const fromState = req.body.FromState || null;
