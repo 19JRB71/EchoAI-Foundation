@@ -1,0 +1,24 @@
+# Zorecho — Sage V2 Milestones
+
+Approved development lifecycle for every phase (no stage skipped):
+Architecture review → Implementation → Testing → Architect self-review →
+Completion report → CEO approval before proceeding.
+
+Standing rules: backward compatible, all new functionality behind feature
+flags until approved for release; if an architectural conflict is discovered,
+stop and document it before making changes. Blueprint of record:
+`SAGE_V2_CHALLENGE_REVIEW.md` (revised phase plan, Part 4).
+
+| Milestone | Scope | Status |
+|---|---|---|
+| **Milestone 1: Sage V2 – Phase 1** | Company Truth consumption everywhere + flying-blind nudge + ROI "Estimated" labels + one-weekly-output briefing consolidation. Flags: `SAGE_V2_CONTEXT`, `SAGE_V2_WEEKLY_BRIEFING`, `SAGE_V2_ROI_LABELS` (all OFF). Report: `SAGE_V2_PHASE1_COMPLETION_REPORT.md`. | ✅ Approved July 17, 2026 |
+| **Milestone 2: Sage V2 – Phase 2** | Canonical `sage_intel_items` store (feed becomes a view; junction tables; ingestion redaction + sensitive flag; data-quality sentry) + job-queue claim table + input-hash skip gates on ALL AI jobs including the existing deep cycle. | ⏳ Next |
+| **Milestone 3: Sage V2 – Phase 3** | Outcome capture + attribution fields + coverage displays (may run parallel to Phase 2). | Pending |
+| **Milestone 4: Sage V2 – Phase 4** | Offers + constraints + Company Truth v2 inputs + Executive Memory. Gate: Phase 2. | Pending |
+| **Milestone 5: Sage V2 – Phase 5** | Opportunity queue (bucket-ranked, 3 decisions weekly) + Directive Bus + decisions table + Change Diagnostics + "What Sage knows" page. Gate: Phases 2–4. | Pending |
+| **Milestone 6: Sage V2 – Phase 6** | Deterministic channel scorecards + honest forecasts + Executive Debate + Top-3-bets strategy object + self-eval scorecard. Gate: Phases 3, 5. | Pending |
+| **Milestone 7: Sage V2 Complete** | Phase 7 (gated): Experiment Engine + Playbooks from real aggregates — only when outcome coverage >50%, 6 months history, and Phase 6 adoption evidence. Then copy finalization (with ChatGPT) and staged flag enablement for public release. | Pending |
+
+Program-level success metric: **outcome-capture adoption**. If coverage <30%
+after two months of Phase 3, everything below Phase 5 pauses and the capture
+UX is rebuilt first.
