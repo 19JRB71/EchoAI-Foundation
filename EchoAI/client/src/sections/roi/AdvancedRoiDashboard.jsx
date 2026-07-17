@@ -46,15 +46,30 @@ const TABS = [
   { key: "history", label: "History" },
 ];
 
-function BigStat({ label, value, sub, accent }) {
+function BigStat({ label, value, sub, accent, estimated }) {
   return (
     <div className="rounded-2xl border border-gray-800 bg-gradient-to-b from-gray-900 to-gray-900/40 p-6 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+        {label}
+        {estimated && <EstBadge />}
+      </p>
       <p className={`mt-2 text-4xl font-extrabold tracking-tight ${accent || "text-amber-400"}`}>
         {value}
       </p>
       {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
     </div>
+  );
+}
+
+// Sage V2 P1 (server flag SAGE_V2_ROI_LABELS): honesty badge on modeled figures.
+function EstBadge() {
+  return (
+    <span
+      className="ml-1.5 inline-block rounded border border-gray-700 bg-gray-800 px-1 py-px align-middle text-[9px] font-semibold uppercase tracking-wide text-gray-400"
+      title="This figure uses modeled per-unit estimates, not measured revenue."
+    >
+      Estimated
+    </span>
   );
 }
 
@@ -314,12 +329,14 @@ export default function AdvancedRoiDashboard({ brandId }) {
               value={money(totals.revenue)}
               sub={`${num(totals.conversions)} conversions`}
               accent="text-green-400"
+              estimated={summary.estimatedLabels && summary.estimated?.revenue}
             />
             <BigStat
               label="Overall ROI"
               value={pct(totals.roiPercent)}
               sub="Return on marketing spend"
               accent={`text-5xl ${roiColor(totals.roiPercent)}`}
+              estimated={summary.estimatedLabels && summary.estimated?.roiPercent}
             />
             <BigStat label="Conversions" value={num(totals.conversions)} sub={`${num(totals.leads)} leads`} />
           </div>
@@ -358,8 +375,12 @@ export default function AdvancedRoiDashboard({ brandId }) {
                   <th className="px-4 py-3 text-right">Conv.</th>
                   <th className="px-4 py-3 text-right">Cost / Lead</th>
                   <th className="px-4 py-3 text-right">Cost / Conv.</th>
-                  <th className="px-4 py-3 text-right">Revenue</th>
-                  <th className="px-4 py-3 text-right">ROI</th>
+                  <th className="px-4 py-3 text-right">
+                    Revenue{summary.estimatedLabels && summary.estimated?.revenue && <EstBadge />}
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    ROI{summary.estimatedLabels && summary.estimated?.roiPercent && <EstBadge />}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -377,7 +398,12 @@ export default function AdvancedRoiDashboard({ brandId }) {
                     }}
                   >
                     <td className="px-4 py-3 font-medium text-gray-200">{c.label}</td>
-                    <td className="px-4 py-3 text-right text-gray-300">{money(c.spend)}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">
+                      {money(c.spend)}
+                      {summary.estimatedLabels && summary.estimated?.channelSpend?.[c.key] && (
+                        <EstBadge />
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-300">{num(c.leads)}</td>
                     <td className="px-4 py-3 text-right text-gray-300">{num(c.appointments)}</td>
                     <td className="px-4 py-3 text-right text-gray-300">{num(c.conversions)}</td>

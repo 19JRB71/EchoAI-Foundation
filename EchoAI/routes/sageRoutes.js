@@ -14,6 +14,7 @@ const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
 const { uploadDocument } = require("../middleware/documentUpload");
 const controller = require("../controllers/sageController");
+const briefingController = require("../controllers/sageBriefingController");
 
 const router = express.Router();
 
@@ -41,6 +42,11 @@ router.delete("/competitors/:id", controller.deleteCompetitor);
 // Pattern Intelligence Engine (industry-wide public-campaign patterns)
 router.get("/patterns", controller.getPatterns);
 router.post("/patterns/refresh", controller.refreshPatterns);
+
+// Sage V2 P1 (flag-gated, default off): consolidated weekly briefing +
+// flying-blind context stats. Endpoints answer {enabled:false} when dark.
+router.get("/briefing/weekly", briefingController.getWeeklyBriefing);
+router.get("/context-stats", briefingController.getContextStats);
 
 // Intelligence Input (link / facebook JSON, or image / PDF multipart)
 router.post("/input", uploadDocument, controller.submitIntelligence);

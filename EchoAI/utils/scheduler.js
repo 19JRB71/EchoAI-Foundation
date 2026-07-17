@@ -48,6 +48,7 @@ const { runApiQuotaSweep } = require("./apiQuotaMonitor");
 const { runDailyGoalTracking } = require("./goalAlerts");
 const { runBetaProgramSweep } = require("./betaProgram");
 const { runWeeklyAutopilot } = require("../controllers/autopilotController");
+const { buildWeeklyBriefingForBrand } = require("../controllers/sageBriefingController");
 const {
   runListingPromotionSweep,
   runSellerLeadAdSweep,
@@ -233,6 +234,15 @@ async function runWeeklyAnalytics() {
       await runWeeklyCompetitorAdReportForBrand(brand);
     } catch (err) {
       console.error(`Weekly competitor ad report failed for brand ${brand.brand_id}:`, err.message);
+    }
+
+    // Sage V2 P1 (SAGE_V2_WEEKLY_BRIEFING flag, default off): consolidate this
+    // week's reports into ONE briefing. Runs LAST so it aggregates everything
+    // above. No-op while the flag is off. Best-effort — never stops the run.
+    try {
+      await buildWeeklyBriefingForBrand(brand);
+    } catch (err) {
+      console.error(`Weekly Sage briefing failed for brand ${brand.brand_id}:`, err.message);
     }
   }
 

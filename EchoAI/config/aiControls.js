@@ -28,6 +28,9 @@ const SWITCH_DEFAULTS = {
   AUTONOMOUS_GROWTH_ENABLED: false, // daily autonomous growth review (launch default OFF)
   DEVELOPMENT_AI_ENABLED: false, // allow paid calls outside production
   OPENAI_CONTENT_ENABLED: false, // OpenAI as a content provider (future pilot)
+  SAGE_V2_CONTEXT: false, // Sage V2 P1: inject approved Company Truth into every department's AI context (dark until enabled)
+  SAGE_V2_WEEKLY_BRIEFING: false, // Sage V2 P1: consolidated weekly Sage briefing (copy pending ChatGPT; dark until enabled)
+  SAGE_V2_ROI_LABELS: false, // Sage V2 P1: "estimated" badges on modeled ROI figures (dark until enabled)
   ANTHROPIC_CONTENT_ENABLED: true, // Anthropic (Claude) calls
 };
 

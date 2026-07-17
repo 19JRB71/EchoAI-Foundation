@@ -183,6 +183,11 @@ async function gatherBriefingData(userId, since, brandId = null) {
   // remind the owner. topIncompleteSetup never throws (returns null on error).
   const { topIncompleteSetup } = require("./setupStatus");
   const setupReminder = await topIncompleteSetup(userId);
+  // Sage V2 P1 flying-blind nudge (SAGE_V2_CONTEXT flag, default off). One nag
+  // at a time: only offered when there is no setup reminder. Never throws.
+  const flyingBlindNudge = setupReminder
+    ? null
+    : await companyTruthNudge(brandId || brandIds[0] || null);
   const empty = {
     brands,
     sinceISO: since ? new Date(since).toISOString() : null,
@@ -432,7 +437,31 @@ async function gatherBriefingData(userId, since, brandId = null) {
     openTasks: agenda.openTasks,
     emailCounts,
     setupReminder,
+    flyingBlindNudge,
   };
+}
+
+/**
+ * Sage V2 P1 (SAGE_V2_CONTEXT flag, default off): Echo's one-line nudge when
+ * the active brand has no approved Company Truth, so the AI team is working
+ * without vetted business facts. DRAFT copy from config/briefingCopy.js.
+ * Fail-soft: any error means no nudge — never breaks the briefing.
+ */
+async function companyTruthNudge(brandId) {
+  try {
+    if (!brandId) return null;
+    const { getSwitch } = require("../config/aiControls");
+    if (!(await getSwitch("SAGE_V2_CONTEXT"))) return null;
+    const { rows } = await db.query(
+      "SELECT 1 FROM company_truth_reports WHERE brand_id = $1 AND status = 'approved' LIMIT 1",
+      [brandId]
+    );
+    if (rows.length) return null;
+    const { FLYING_BLIND_COPY } = require("../config/briefingCopy");
+    return FLYING_BLIND_COPY.echoNudge;
+  } catch (_e) {
+    return null;
+  }
 }
 
 /**
@@ -837,6 +866,7 @@ function templateMorning(firstName, data, part = "morning") {
       );
     }
     appendSetupReminder(parts, data);
+    appendFlyingBlindNudge(parts, data);
     parts.push("Your team is here and ready to work for you.");
     return parts.join(" ");
   }
@@ -955,6 +985,7 @@ function templateMorning(firstName, data, part = "morning") {
   }
   appendAgenda(parts, data);
   appendSetupReminder(parts, data);
+  appendFlyingBlindNudge(parts, data);
   if (data.openTasks && data.openTasks.length) {
     parts.push("Is there anything on your task list you've already taken care of that I should mark off?");
   } else {
@@ -978,6 +1009,15 @@ function appendSetupReminder(parts, data) {
   parts.push(
     `One more thing: your ${r.label.toLowerCase()} setup${forBrand} isn't finished yet${next}. The setup guide in that section will walk you through it.`
   );
+}
+
+/**
+ * Sage V2 P1: speak the flying-blind nudge (already gated on flag + no approved
+ * truth + no setup reminder in gatherBriefingData — one nag at a time).
+ */
+function appendFlyingBlindNudge(parts, data) {
+  if (!data.flyingBlindNudge) return;
+  parts.push(data.flyingBlindNudge);
 }
 
 /** Speak today's personal reminders + open tasks (shared by morning/closing). */

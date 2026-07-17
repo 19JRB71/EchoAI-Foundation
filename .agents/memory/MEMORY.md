@@ -111,3 +111,4 @@
 - [EchoAI authed screenshots](echoai-authed-screenshots.md) — testing subagent lacks env secrets + returns empty screenshotPaths; mint JWT via utils/token + puppeteer-core/nix chromium, dismiss Echo overlays per page.
 - [Sage V2 approved target](echoai-sage-v2-target.md) — SAGE_V2_CHALLENGE_REVIEW.md revised plan is the locked architecture; no Sage feature expansion, quality/reliability/UX only.
 - [EchoAI clipboard image paste](echoai-clipboard-paste.md) — paste-to-upload listeners must branch on clipboard CONTENT (image files → hijack anywhere), never skip by focused-element type, or pasting with a text box focused silently no-ops.
+- [EchoAI Sage V2 Phase 1](echoai-sage-v2-phase1.md) — flag-dark endpoints answer {enabled:false}; weekly aggregators must week-bound EVERY source query, never latest-ever rows.

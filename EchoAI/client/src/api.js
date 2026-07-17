@@ -372,6 +372,11 @@ export const api = {
     request("/api/sage/brief/refresh", { method: "POST", body: { brandId } }),
   getSageFeed: (brandId) =>
     request(`/api/sage/feed?brandId=${encodeURIComponent(brandId)}`),
+  // Sage V2 P1 (flag-gated server-side; both answer { enabled:false } when dark)
+  getSageWeeklyBriefing: (brandId) =>
+    request(`/api/sage/briefing/weekly?brandId=${encodeURIComponent(brandId)}`),
+  getSageContextStats: (brandId) =>
+    request(`/api/sage/context-stats?brandId=${encodeURIComponent(brandId)}`),
   dismissSageFeed: (brandId, { feedIds, all } = {}) =>
     request("/api/sage/feed/dismiss", {
       method: "POST",

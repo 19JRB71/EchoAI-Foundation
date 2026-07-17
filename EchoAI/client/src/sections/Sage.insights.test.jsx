@@ -16,6 +16,9 @@ vi.mock("../api.js", () => ({
     getSageInsights: vi.fn(),
     getSageCompetitors: vi.fn(),
     getSageSubmissions: vi.fn(),
+    // Sage V2 P1 extras (flag-gated server-side; dark in these tests)
+    getSageContextStats: vi.fn().mockResolvedValue({ enabled: false }),
+    getSageWeeklyBriefing: vi.fn().mockResolvedValue({ enabled: false, briefing: null }),
   },
 }));
 

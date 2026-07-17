@@ -92,6 +92,8 @@ export default function Sage({ brandId, initialTab }) {
         </p>
       </div>
 
+      <SageV2Extras brandId={brandId} />
+
       <div className="flex flex-wrap gap-1 border-b border-gray-800">
         {TABS.map((t) => (
           <button
@@ -1653,6 +1655,80 @@ function CompanyTruthTab({ brandId }) {
             .map((h) => `v${h.version} (approved ${fmtDate(h.approvedAt)})`)
             .join(", ")}
         </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Sage V2 P1 extras — both flag-gated SERVER-side (SAGE_V2_CONTEXT /
+ * SAGE_V2_WEEKLY_BRIEFING, default off): the endpoints answer
+ * { enabled: false } while dark, so nothing renders for users until the CEO
+ * approves the final copy and the flags are switched on. All wording comes
+ * from config/briefingCopy.js DRAFT placeholders via the API.
+ */
+function SageV2Extras({ brandId }) {
+  const [stats, setStats] = useState(null);
+  const [weekly, setWeekly] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    setStats(null);
+    setWeekly(null);
+    api
+      .getSageContextStats(brandId)
+      .then((d) => alive && setStats(d))
+      .catch(() => {});
+    api
+      .getSageWeeklyBriefing(brandId)
+      .then((d) => alive && setWeekly(d))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [brandId]);
+
+  const showBanner = stats?.enabled && !stats.hasApprovedTruth;
+  const briefing = weekly?.enabled ? weekly.briefing : null;
+  if (!showBanner && !briefing) return null;
+
+  return (
+    <div className="space-y-4">
+      {showBanner && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
+          {stats.copy?.banner}
+        </div>
+      )}
+      {briefing && (
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
+          <h3 className="text-sm font-semibold text-gray-100">
+            {weekly.copy?.title}{" "}
+            <span className="ml-2 text-xs font-normal text-gray-500">{briefing.iso_week}</span>
+          </h3>
+          <p className="mt-1 text-xs text-gray-400">{weekly.copy?.intro}</p>
+          <div className="mt-4 space-y-4">
+            {(briefing.sections || []).map((s) => (
+              <div key={s.key}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">
+                  {s.title}
+                </p>
+                {s.body ? (
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-300">{s.body}</p>
+                ) : s.available ? (
+                  <p className="mt-1 text-sm text-gray-300">
+                    {Object.entries(s.data || {})
+                      .filter(([, v]) => v != null && typeof v !== "object")
+                      .map(([k, v]) => `${k}: ${v}`)
+                      .join(" · ") || "Available."}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          {(briefing.sections || []).some((s) => !s.available) && (
+            <p className="mt-4 text-xs text-gray-600">{weekly.copy?.unavailableNote}</p>
+          )}
+        </div>
       )}
     </div>
   );

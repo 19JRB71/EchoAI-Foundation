@@ -21,6 +21,7 @@
 
 const db = require("../config/db");
 const { ROI_MODEL } = require("../config/roiModel");
+const { getSwitch } = require("../config/aiControls");
 const { generateRoiAnalysis } = require("../prompts/roiAnalystPrompt");
 
 /** Loads a brand only if it belongs to the authenticated user. */
@@ -350,6 +351,15 @@ async function computeAdvancedSummary(brandId, start, end) {
       phoneCostPerMinute: m.phoneCostPerMinute,
       emailCostPerSend: m.emailCostPerSend,
     },
+    // Sage V2 P1 honesty metadata: which figures are modeled estimates (from
+    // the per-unit ROI model) vs. real platform data. Revenue and ROI% derive
+    // from revenuePerConversion; phone/sms/email spends are modeled costs.
+    // Facebook spend, lead/appointment/conversion counts are real.
+    estimated: {
+      revenue: true,
+      roiPercent: true,
+      channelSpend: { facebook: false, phone: true, sms: true, email: true, website: false },
+    },
   };
 }
 
@@ -421,6 +431,10 @@ async function getAdvancedSummary(req, res) {
       [brandId, summary.period.start, summary.period.end],
     );
     summary.analysis = stored.rows[0]?.ai_analysis || null;
+
+    // Sage V2 P1 (SAGE_V2_ROI_LABELS flag, default off): tells the client to
+    // render "estimated" badges on modeled figures (per summary.estimated).
+    summary.estimatedLabels = await getSwitch("SAGE_V2_ROI_LABELS");
 
     return res.json({ summary });
   } catch (err) {

@@ -4,6 +4,27 @@ const Anthropic = require("@anthropic-ai/sdk");
 const { makeUnconfiguredClient } = require("../utils/optionalClient");
 const { assertAiAllowed } = require("../utils/aiGate");
 const { recordUsage, categorizeAiError, newRequestId } = require("../utils/aiUsage");
+const { companyContextForBrand } = require("../utils/companyContext");
+
+/**
+ * Sage V2 P1 (SAGE_V2_CONTEXT flag, default OFF): when the call is brand-scoped
+ * (meta.brandId from opts or ambient AI context), append the approved Company
+ * Truth digest to the system prompt so EVERY department consumes vetted facts.
+ * No brand, no approved truth, flag off, or lookup failure → params unchanged.
+ */
+async function withTruthSystem(params, brandId) {
+  if (!brandId) return params;
+  const context = await companyContextForBrand(brandId); // "" when dark
+  if (!context) return params;
+  if (typeof params.system === "string" && params.system) {
+    return { ...params, system: `${params.system}\n\n${context}` };
+  }
+  if (Array.isArray(params.system)) {
+    return { ...params, system: [...params.system, { type: "text", text: context }] };
+  }
+  if (params.system == null) return { ...params, system: context };
+  return params;
+}
 
 // The Anthropic SDK throws at construction when no key is available (arg
 // undefined AND no ANTHROPIC_API_KEY in env), which would crash the whole server
@@ -85,6 +106,8 @@ async function createMessage(params, opts = {}) {
     requestId,
     ...meta,
   };
+
+  params = await withTruthSystem(params, meta.brandId);
 
   // The SDK refuses non-streaming requests that could run longer than 10
   // minutes (large max_tokens, e.g. a multi-week autopilot batch): "Streaming
@@ -190,6 +213,8 @@ async function streamMessage(params, opts = {}, onDelta) {
     requestId,
     ...meta,
   };
+
+  params = await withTruthSystem(params, meta.brandId);
 
   let lastErr;
   for (let attempt = 1; attempt <= attempts; attempt++) {
