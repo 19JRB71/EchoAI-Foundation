@@ -230,7 +230,14 @@ async function reviseAdDraft(brand, item, instruction) {
  * the new post doesn't repeat what's already queued this week.
  * Returns a validated { postText, hashtags, callToAction }.
  */
-async function draftInstantPost(brand, platform, recentPosts = [], topic = "", brief = null) {
+async function draftInstantPost(
+  brand,
+  platform,
+  recentPosts = [],
+  topic = "",
+  brief = null,
+  recentScenes = [],
+) {
   const systemPrompt = [
     "You are Echo, Zorecho's autopilot marketing strategist. The business owner",
     "wants ONE brand-new social post to publish RIGHT NOW, on top of this",
@@ -264,12 +271,24 @@ async function draftInstantPost(brand, platform, recentPosts = [], topic = "", b
           ...recentPosts.slice(0, 10).map((p, i) => `  ${i + 1}. ${String(p).slice(0, 200)}`),
         ].join("\n")
       : "",
+    recentScenes.length
+      ? [
+          "",
+          "This brand's recent post GRAPHICS already showed the scenes below.",
+          "Your visualIdea must describe a CLEARLY DIFFERENT scene — different",
+          "setting, camera angle, time of day, season, or featured subject:",
+          ...recentScenes.slice(0, 8).map((s, i) => `  ${i + 1}. ${String(s).slice(0, 160)}`),
+        ].join("\n")
+      : "",
     "",
     "Write a fresh, timely-feeling post in the brand's voice. Never invent",
     "statistics, testimonials, discounts, or events the owner did not mention.",
+    'Also write "visualIdea": one concrete sentence describing the image that',
+    "should accompany this post (the specific scene, subject, and mood — not",
+    "generic words like 'an eye-catching graphic').",
     "",
     "Return ONLY one JSON object (no prose, no markdown fences):",
-    '{"postText": "...", "hashtags": ["..."], "callToAction": "..."}',
+    '{"postText": "...", "hashtags": ["..."], "callToAction": "...", "visualIdea": "..."}',
   ]
     .filter((line) => line !== "")
     .join("\n");
@@ -294,6 +313,7 @@ async function draftInstantPost(brand, platform, recentPosts = [], topic = "", b
     postText,
     hashtags,
     callToAction: String(parsed.callToAction || "").trim(),
+    visualIdea: String(parsed.visualIdea || "").trim(),
   };
 }
 

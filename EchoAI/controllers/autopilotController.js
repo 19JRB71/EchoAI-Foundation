@@ -27,7 +27,7 @@ const forgeDirector = require("../utils/forgeDirector");
 const { zonedWallTimeToUtc } = require("../utils/timezone");
 const { reviseVoiceDraft } = require("../prompts/voiceContentPrompt");
 const { composePostContent } = require("../prompts/contentCalendarPrompt");
-const { buildImagePrompt } = require("../prompts/imagePromptBuilder");
+const { buildImagePrompt, VARIANT_STYLES } = require("../prompts/imagePromptBuilder");
 const { renderFromPrompt, persistImage } = require("./imageController");
 const {
   PLATFORM_IMAGE_PURPOSE,
@@ -608,10 +608,20 @@ async function renderItemImage(brand, item) {
     `An eye-catching marketing visual for: ${String(item.post_content).slice(0, 200)}`;
 
   // Rotate the creative direction per image (clean/bold/editorial) so a week
-  // of posts doesn't render as near-identical scenes.
-  let prompt = buildImagePrompt(brand, purpose, description, {
-    variantIndex: Math.floor(Math.random() * 3),
-  });
+  // of posts doesn't render as near-identical scenes. On a RE-render (the
+  // owner asking for a different image) never repeat the direction the last
+  // render used — a 1-in-3 random pick kept landing on the same look.
+  let variantIndex = Math.floor(Math.random() * VARIANT_STYLES.length);
+  if (item.image_prompt) {
+    const previous = VARIANT_STYLES.findIndex((style) =>
+      String(item.image_prompt).includes(style)
+    );
+    if (previous !== -1) {
+      const others = VARIANT_STYLES.map((_, i) => i).filter((i) => i !== previous);
+      variantIndex = others[Math.floor(Math.random() * others.length)];
+    }
+  }
+  let prompt = buildImagePrompt(brand, purpose, description, { variantIndex });
 
   // Honesty rule for pure-AI items: original brand concepts never pretend to
   // depict a specific real project/product of this business.
@@ -1470,12 +1480,16 @@ async function createInstantPost(req, res) {
       forgeDirector.currentSlotLabel(tzForBrief),
     ]);
     const forgeBrief = instantBriefs[0] || null;
+    // Recent graphic scenes too, so the new post's visualIdea is a genuinely
+    // NEW scene instead of the same generic hero shot every time.
+    const recentScenes = await recentImageScenes(brandId);
     const draft = await draftInstantPost(
       brand,
       platform,
       recent.rows.map((r) => r.post_content),
       typeof topic === "string" ? topic.trim().slice(0, 300) : "",
-      forgeBrief
+      forgeBrief,
+      recentScenes
     );
 
     // Position allocation locks the batch row (same as decline replacements)
@@ -1499,15 +1513,16 @@ async function createInstantPost(req, res) {
       }
       inserted = await client.query(
         `INSERT INTO autopilot_batch_items
-           (batch_id, position, item_type, platform, post_content,
+           (batch_id, position, item_type, platform, post_content, visual_idea,
             scheduled_time, rationale)
-         SELECT $1, COALESCE(MAX(position), 0) + 1, 'post', $2, $3, NOW(), $4
+         SELECT $1, COALESCE(MAX(position), 0) + 1, 'post', $2, $3, $4, NOW(), $5
            FROM autopilot_batch_items WHERE batch_id = $1
          RETURNING *`,
         [
           batchRow.batch_id,
           platform,
           composePostContent(draft),
+          draft.visualIdea || null,
           "Instant post you asked Echo to draft — extra, on top of this week's scheduled slots.",
         ]
       );
