@@ -1,7 +1,7 @@
 const db = require("../config/db");
 const { toJsonbParam } = require("../utils/jsonb");
 const { isValidBrandType } = require("../config/goals");
-const { normalizeWebsiteUrl, normalizeFacebookPageUrl } = require("../utils/onlinePresence");
+const { normalizeWebsiteUrl, normalizeFacebookPageUrl, normalizeSocialUrl } = require("../utils/onlinePresence");
 
 /**
  * POST /api/brands
@@ -41,7 +41,8 @@ async function getBrands(req, res) {
     const result = await db.query(
       `SELECT brand_id, brand_name, brand_personality, voice_description,
               visual_style_preferences, target_audience, brand_type, is_demo,
-              demo_tier, website_url, facebook_page_url, created_at, updated_at
+              demo_tier, website_url, facebook_page_url, instagram_url, linkedin_url,
+              youtube_url, tiktok_url, google_business_url, created_at, updated_at
        FROM brands
        WHERE user_id = $1
        ORDER BY created_at DESC`,
@@ -67,7 +68,8 @@ async function getBrandProfile(req, res) {
     const result = await db.query(
       `SELECT brand_id, user_id, brand_name, brand_personality, voice_description,
               visual_style_preferences, target_audience, brand_type,
-              website_url, facebook_page_url, created_at, updated_at
+              website_url, facebook_page_url, instagram_url, linkedin_url,
+              youtube_url, tiktok_url, google_business_url, created_at, updated_at
        FROM brands
        WHERE brand_id = $1 AND user_id = $2`,
       [brandId, userId]
@@ -148,6 +150,25 @@ async function updateBrand(req, res) {
     fields.push(`facebook_page_url = $${idx++}`);
     values.push(norm.value);
   }
+  // Sage V2 P4: other online-presence URLs (same authoritative-edit semantics:
+  // blank clears, malformed is a 400). Columns from migration 119.
+  const SOCIAL_URL_FIELDS = [
+    ["instagramUrl", "instagram_url", "instagram"],
+    ["linkedinUrl", "linkedin_url", "linkedin"],
+    ["youtubeUrl", "youtube_url", "youtube"],
+    ["tiktokUrl", "tiktok_url", "tiktok"],
+    ["googleBusinessUrl", "google_business_url", "google_business"],
+  ];
+  for (const [bodyKey, col, platform] of SOCIAL_URL_FIELDS) {
+    const value = req.body[bodyKey] !== undefined ? req.body[bodyKey] : req.body[col];
+    if (value === undefined) continue;
+    const norm = normalizeSocialUrl(platform, value);
+    if (!norm.ok) {
+      return res.status(400).json({ error: `${bodyKey} must be a valid ${platform.replace("_", " ")} link` });
+    }
+    fields.push(`${col} = $${idx++}`);
+    values.push(norm.value);
+  }
 
   if (fields.length === 0) {
     return res.status(400).json({ error: "No fields provided to update" });
@@ -162,7 +183,8 @@ async function updateBrand(req, res) {
        WHERE brand_id = $${idx++} AND user_id = $${idx}
        RETURNING brand_id, brand_name, brand_personality, voice_description,
                  visual_style_preferences, target_audience, brand_type,
-                 website_url, facebook_page_url, updated_at`,
+                 website_url, facebook_page_url, instagram_url, linkedin_url,
+                 youtube_url, tiktok_url, google_business_url, updated_at`,
       values
     );
 

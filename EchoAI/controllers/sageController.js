@@ -904,6 +904,7 @@ module.exports = {
   claimRun,
   finishRun,
   getOwnedBrand,
+  saveFeedItem,
   // handlers
   getBrief,
   refreshBrief,

@@ -16,6 +16,7 @@ import SetupAgent from "../SetupAgent.jsx";
 import StepSubscription from "../steps/StepSubscription.jsx";
 import StepTeam from "../steps/StepTeam.jsx";
 import ConnectionsStep from "./ConnectionsStep.jsx";
+import OnlineLinksPanel from "./OnlineLinksPanel.jsx";
 import { CONNECTION_CATALOG } from "./connectionCatalog.jsx";
 import { translateConnectionError } from "./connectionErrors.js";
 import { useEchoSpeak } from "./useEchoSpeak.js";
@@ -336,6 +337,7 @@ export default function GuidedSetupWizard({ onComplete }) {
                   onExitToSection={() => gotoStep("connections")}
                 />
               </div>
+              <OnlineLinksPanel />
             </div>
           )}
 

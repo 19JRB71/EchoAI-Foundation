@@ -12,9 +12,11 @@
 const express = require("express");
 const auth = require("../middleware/auth");
 const lockout = require("../middleware/lockout");
+const { requireOwner } = require("../middleware/rolePermissions");
 const { uploadDocument } = require("../middleware/documentUpload");
 const controller = require("../controllers/sageController");
 const briefingController = require("../controllers/sageBriefingController");
+const phase4 = require("../controllers/sagePhase4Controller");
 
 const router = express.Router();
 
@@ -47,6 +49,19 @@ router.post("/patterns/refresh", controller.refreshPatterns);
 // flying-blind context stats. Endpoints answer {enabled:false} when dark.
 router.get("/briefing/weekly", briefingController.getWeeklyBriefing);
 router.get("/context-stats", briefingController.getContextStats);
+
+// Sage V2 P4 (flag-gated, default off): Offers registry, Business
+// Constraints, Executive Memory. Endpoints answer {enabled:false} when dark.
+// Owner-only: offers carry margin notes; constraints carry legal/cash-flow
+// notes — team members never see or edit them.
+router.get("/offers", requireOwner, phase4.listOffers);
+router.post("/offers", requireOwner, phase4.createOffer);
+router.patch("/offers/:id", requireOwner, phase4.updateOffer);
+router.get("/constraints", requireOwner, phase4.getConstraints);
+router.put("/constraints", requireOwner, phase4.saveConstraints);
+router.get("/memory", requireOwner, phase4.listMemories);
+router.post("/memory", requireOwner, phase4.createMemory);
+router.patch("/memory/:id/archive", requireOwner, phase4.archiveMemory);
 
 // Intelligence Input (link / facebook JSON, or image / PDF multipart)
 router.post("/input", uploadDocument, controller.submitIntelligence);

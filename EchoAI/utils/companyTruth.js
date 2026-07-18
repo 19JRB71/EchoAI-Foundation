@@ -12,6 +12,7 @@
  */
 
 const db = require("../config/db");
+const { getSwitch } = require("../config/aiControls");
 
 // The spec's report sections, in presentation order. Every report must carry
 // every key — "we don't know" belongs in missingInformation, not in a hole.
@@ -52,7 +53,72 @@ async function probe(name, fn) {
  * { sources: [{name, available, data|error}], summary: {...per-source data} }.
  */
 async function gatherCompanyData(brand) {
+  // Sage V2 P4 (SAGE_V2_TRUTH_INPUTS): expanded real sources. Flag off →
+  // exactly the original probe set (zero behavior change while dark).
+  const p4 = await getSwitch("SAGE_V2_TRUTH_INPUTS").catch(() => false);
+  const phase4Probes = !p4
+    ? []
+    : [
+        probe("current_offers", async () => {
+          const { rows } = await db.query(
+            `SELECT name, offer_type, terms, starts_at, ends_at
+               FROM sage_offers
+              WHERE brand_id = $1 AND status = 'active'
+              ORDER BY created_at DESC LIMIT 12`,
+            [brand.brand_id],
+          );
+          return rows;
+        }),
+        probe("business_constraints", async () => {
+          const { rows } = await db.query(
+            `SELECT monthly_budget_cents, staff_count, weekly_capacity, blackout_dates
+               FROM brand_constraints WHERE brand_id = $1`,
+            [brand.brand_id],
+          );
+          return rows[0] || null;
+        }),
+        probe("executive_memory", async () => {
+          const { rows } = await db.query(
+            `SELECT kind, content FROM sage_memory
+              WHERE brand_id = $1 AND status = 'active'
+              ORDER BY created_at DESC LIMIT 15`,
+            [brand.brand_id],
+          );
+          return rows;
+        }),
+        probe("customer_objections", async () => {
+          const { rows } = await db.query(
+            `SELECT summary, created_at FROM sage_intel_items
+              WHERE brand_id = $1 AND source = 'objections_mining'
+                AND dismissed_at IS NULL
+              ORDER BY created_at DESC LIMIT 3`,
+            [brand.brand_id],
+          );
+          return rows;
+        }),
+        probe("crm_outcomes", async () => {
+          const [leads, appts] = await Promise.all([
+            db.query(
+              `SELECT COUNT(*)::int AS total,
+                      COUNT(*) FILTER (WHERE outcome = 'won')::int AS won,
+                      COUNT(*) FILTER (WHERE outcome = 'lost')::int AS lost,
+                      COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '90 days')::int AS last_90d
+                 FROM leads WHERE brand_id = $1`,
+              [brand.brand_id],
+            ),
+            db.query(
+              `SELECT COUNT(*)::int AS total,
+                      COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '90 days')::int AS last_90d
+                 FROM appointments WHERE brand_id = $1`,
+              [brand.brand_id],
+            ),
+          ]);
+          return { leads: leads.rows[0], appointments: appts.rows[0] };
+        }),
+      ];
+
   const sources = await Promise.all([
+    ...phase4Probes,
     probe("owner_profile", async () => {
       const { rows } = await db.query(
         `SELECT email, business_name, industry, phone, first_name
@@ -66,6 +132,11 @@ async function gatherCompanyData(brand) {
       brandType: brand.brand_type || null,
       websiteUrl: brand.website_url || null,
       facebookPageUrl: brand.facebook_page_url || null,
+      instagramUrl: brand.instagram_url || null,
+      linkedinUrl: brand.linkedin_url || null,
+      youtubeUrl: brand.youtube_url || null,
+      tiktokUrl: brand.tiktok_url || null,
+      googleBusinessUrl: brand.google_business_url || null,
       personality: brand.brand_personality || null,
       voice: brand.voice_description || null,
       targetAudience: brand.target_audience || null,

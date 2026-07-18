@@ -22,6 +22,8 @@ const voiceController = require("./voiceController");
 const echoContext = require("../utils/echoContext");
 const echoOrchestrator = require("../utils/echoOrchestrator");
 const featureSuggestions = require("../utils/featureSuggestions");
+const sagePhase4Controller = require("./sagePhase4Controller");
+const { getSwitch } = require("../config/aiControls");
 const emailComposer = require("../utils/emailComposer");
 const emailAccounts = require("../utils/emailAccounts");
 
@@ -832,6 +834,16 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
     const ownerProfile = await echoContext.getOwnerProfileRow(userId);
     const guardrail = echoContext.valuesGuardrail(ownerProfile);
 
+    // Sage V2 P4 executive memory: when the flag is on and a brand is active,
+    // Echo may capture owner-shared business lessons via the confirmation-
+    // gated [[REMEMBER]] marker. Flag off (default) → rule absent, zero change.
+    let execMemoryEnabled = false;
+    try {
+      execMemoryEnabled = Boolean(brand) && (await getSwitch("SAGE_V2_EXEC_MEMORY"));
+    } catch {
+      execMemoryEnabled = false;
+    }
+
     // Hermes 4 is Echo's reasoning brain: it decides the intent, which teammate
     // owns the request, and how to keep the reply on-topic and brand-locked.
     // Claude still writes the actual reply — the decision just steers it. This
@@ -873,6 +885,9 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
       "Every action you take requires their one-click approval (or a Facebook password) first — if they ask you to do something, tell them you'll prepare a preview for them to approve.",
       'EMAIL ASSISTANT RULE: you can draft emails for the owner (sent from their own connected email account, only after they approve the draft in the Email tab). When the user asks you to write, draft, reply to, or send an email, output as the literal last line of your reply the marker [[EMAIL_DRAFT: recipient || what the email should say]] — recipient is the email address (or the sender\'s name if they said "reply to John"), and after the double pipe put a clear instruction of what to write. Include the double square brackets exactly; the marker is stripped before display. In your visible reply, say you\'re preparing the draft for their approval — NEVER claim an email was sent. Only use this marker for actual email-writing requests.',
       'CRITICAL FEATURE-REQUEST RULE: if the user asks you to DO something the platform cannot do yet (any capability outside ads, social posts, email campaigns, reminders/tasks, reporting, and navigation — e.g. "post to TikTok", "sync with QuickBooks", "book me a flight"), NEVER dead-end with a flat "I cannot do that". Instead you MUST do BOTH of these: (1) acknowledge it warmly as a good idea, and (2) output, as the literal last line of your reply, the marker [[FEATURE_REQUEST: short description of what they asked for]] — including the double square brackets exactly. The marker is MANDATORY, not optional: the platform parses it to record the request for the development team, and omitting it silently discards the user\'s idea. The user never sees the marker (it is stripped before display), so always include it. Do NOT claim the suggestion has been noted or logged — the system appends that confirmation itself. Only use the marker when they asked you to perform an unsupported action; never for questions, chit-chat, or things you CAN do.',
+      execMemoryEnabled
+        ? 'CRITICAL REMEMBER RULE: when the owner shares a durable BUSINESS lesson, fact, or rule worth keeping — a seasonal pattern ("winter is our slow season"), a vendor relationship, a local insight, an unwritten rule of their trade, or an explicit "remember this" — you MUST do BOTH of these: (1) briefly restate what you understood so they can correct you, and (2) output, as the literal last line of your reply, the marker [[REMEMBER: kind || what to remember]] — including the double square brackets exactly. kind is EXACTLY ONE of: operational_lesson, seasonal_lesson, vendor, local_insight, unwritten_rule, owner_context. The marker is MANDATORY when a durable lesson was shared — the platform parses it to store the memory, and omitting it silently discards what the owner told you. The marker is stripped before display. Do NOT claim it has been saved — the system appends that confirmation itself, and ONLY when the save really succeeded. Never use the marker for small talk, one-off tasks, questions, or anything that is not a durable business fact.'
+        : null,
       ownerName
         ? `The owner likes to be addressed as "${ownerName}". Use their name naturally and sparingly — at key moments like delivering important news, asking a question, or celebrating a win — never in every sentence.`
         : null,
@@ -963,6 +978,36 @@ async function runEchoChat(userId, state, text, requestedBrandId, onSentence) {
       if (!reply) {
         reply = "That's not something I can do just yet — but I think it's a great idea.";
       }
+    }
+
+    // Executive-memory capture (Sage V2 P4): the prompt has Echo tag durable
+    // owner lessons with [[REMEMBER: kind || content]]. Strip the marker,
+    // write via the flag-gated capture path, and append the "saved"
+    // confirmation ONLY when the write really succeeded — Echo never falsely
+    // claims a memory was stored. Marker without the flag on → strip only.
+    const rememberMatch = reply.match(/\[\[REMEMBER:\s*([\s\S]*?)\]\]/);
+    if (rememberMatch) {
+      reply = reply.replace(/\s*\[\[REMEMBER:[\s\S]*?\]\]\s*/g, " ").trim();
+      if (execMemoryEnabled && brand) {
+        const raw = rememberMatch[1];
+        const sep = raw.indexOf("||");
+        const kind = (sep >= 0 ? raw.slice(0, sep) : "owner_context").trim();
+        const content = (sep >= 0 ? raw.slice(sep + 2) : raw).trim();
+        try {
+          await sagePhase4Controller.captureMemoryFromEcho(
+            userId,
+            brand.brand_id,
+            kind,
+            content,
+            onSentence ? "owner_voice" : "owner_chat",
+          );
+          reply = `${reply} I've saved that to your business memory — Sage and I will factor it into future recommendations.`.trim();
+        } catch (memErr) {
+          // Honest failure: keep the restatement, skip the "saved" claim.
+          console.error("Echo memory capture failed:", memErr.message);
+        }
+      }
+      if (!reply) reply = "Got it — thanks for telling me.";
     }
 
     // Email-draft capture: the prompt has Echo tag email-writing requests with

@@ -56,6 +56,47 @@ function normalizeFacebookPageUrl(input) {
   return { ok: true, value: `https://www.facebook.com/${raw}` };
 }
 
+// --- Sage V2 P4: other social/profile URLs (instagram, linkedin, youtube,
+// tiktok, google business). Accepts a full URL on an allowed host, or (where
+// handles make sense) a bare "@handle"; normalizes to a canonical https URL.
+const SOCIAL_PLATFORMS = {
+  instagram: { hosts: ["instagram.com"], canonical: "https://www.instagram.com/", handle: true },
+  linkedin: { hosts: ["linkedin.com"], canonical: null, handle: false },
+  youtube: { hosts: ["youtube.com", "youtu.be"], canonical: "https://www.youtube.com/", handle: true },
+  tiktok: { hosts: ["tiktok.com"], canonical: "https://www.tiktok.com/@", handle: true },
+  google_business: { hosts: ["google.com", "g.page", "maps.app.goo.gl", "goo.gl", "business.google.com"], canonical: null, handle: false },
+};
+
+function normalizeSocialUrl(platform, input) {
+  const spec = SOCIAL_PLATFORMS[platform];
+  if (!spec) return { ok: false };
+  if (input === null || input === undefined) return { ok: true, value: null };
+  if (typeof input !== "string") return { ok: false };
+  const raw = input.trim();
+  if (!raw) return { ok: true, value: null };
+
+  // Bare handle ("@myshop" / "myshop") for platforms where that is unambiguous.
+  if (spec.handle && !/[/.]/.test(raw.replace(/^@/, ""))) {
+    const handle = raw.replace(/^@/, "");
+    if (!/^[A-Za-z0-9._\-]+$/.test(handle)) return { ok: false };
+    if (!spec.canonical) return { ok: false }; // no unambiguous handle form
+    return { ok: true, value: `${spec.canonical}${handle}` };
+  }
+
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  let url;
+  try {
+    url = new URL(candidate);
+  } catch {
+    return { ok: false };
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return { ok: false };
+  const host = url.hostname.toLowerCase().replace(/^www\.|^m\./, "");
+  const allowed = spec.hosts.some((h) => host === h || host.endsWith(`.${h}`));
+  if (!allowed) return { ok: false };
+  return { ok: true, value: `https://${url.hostname}${url.pathname.replace(/\/+$/, "")}${url.search}` };
+}
+
 // True when an interview answer is a refusal ("no", "we don't have one") —
 // word-bounded so real inputs like "northsideplumbing.com" are never treated
 // as a "no". Used by AI-capture paths, which must skip (never store) refusals.
@@ -66,4 +107,10 @@ function isRefusalAnswer(input) {
   );
 }
 
-module.exports = { normalizeWebsiteUrl, normalizeFacebookPageUrl, isRefusalAnswer };
+module.exports = {
+  normalizeWebsiteUrl,
+  normalizeFacebookPageUrl,
+  normalizeSocialUrl,
+  SOCIAL_PLATFORMS,
+  isRefusalAnswer,
+};

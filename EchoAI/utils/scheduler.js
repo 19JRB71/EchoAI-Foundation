@@ -735,6 +735,19 @@ function startScheduler() {
     run: () => runApiQuotaSweep({ notify: true }),
   });
 
+  // Monthly (1st, 04:30): mine last month's real customer conversations for
+  // recurring objections/questions (Sage V2 P4; flag-gated inside the runner,
+  // skip-gated per brand/month — safe no-op while SAGE_V2_TRUTH_INPUTS is off).
+  scheduleJob({
+    name: "objections-mining",
+    cronExpr: "30 4 1 * *",
+    ai: true,
+    run: () => {
+      const { runMonthlyObjectionsMining } = require("./objectionsMining");
+      return runMonthlyObjectionsMining();
+    },
+  });
+
   // Nightly 03:30: Sage V2 data-quality sentry — deterministic SQL rules only
   // (zero AI): conflicting active intel items, stale approved Company Truth,
   // analytics coverage gaps. No-ops entirely with SAGE_V2_DQ_SENTRY off.

@@ -5,16 +5,27 @@ const { makeUnconfiguredClient } = require("../utils/optionalClient");
 const { assertAiAllowed } = require("../utils/aiGate");
 const { recordUsage, categorizeAiError, newRequestId } = require("../utils/aiUsage");
 const { companyContextForBrand } = require("../utils/companyContext");
+const { phase4ContextForBrand } = require("../utils/sagePhase4Context");
 
 /**
  * Sage V2 P1 (SAGE_V2_CONTEXT flag, default OFF): when the call is brand-scoped
  * (meta.brandId from opts or ambient AI context), append the approved Company
  * Truth digest to the system prompt so EVERY department consumes vetted facts.
  * No brand, no approved truth, flag off, or lookup failure → params unchanged.
+ *
+ * Sage V2 P4: additionally appends the offers/constraints/memory context
+ * (each behind its own flag). `audience` defaults to "customer": customer-
+ * facing prompts get ONLY the explicit allowlist of public offer fields;
+ * owner-facing internal surfaces opt in via opts.contextAudience="internal"
+ * to also receive constraints, memories, and owner margin notes.
  */
-async function withTruthSystem(params, brandId) {
+async function withTruthSystem(params, brandId, audience) {
   if (!brandId) return params;
-  const context = await companyContextForBrand(brandId); // "" when dark
+  const [truth, phase4] = await Promise.all([
+    companyContextForBrand(brandId), // "" when dark
+    phase4ContextForBrand(brandId, audience), // "" when dark
+  ]);
+  const context = [truth, phase4].filter(Boolean).join("\n\n");
   if (!context) return params;
   if (typeof params.system === "string" && params.system) {
     return { ...params, system: `${params.system}\n\n${context}` };
@@ -107,7 +118,7 @@ async function createMessage(params, opts = {}) {
     ...meta,
   };
 
-  params = await withTruthSystem(params, meta.brandId);
+  params = await withTruthSystem(params, meta.brandId, opts.contextAudience);
 
   // The SDK refuses non-streaming requests that could run longer than 10
   // minutes (large max_tokens, e.g. a multi-week autopilot batch): "Streaming
@@ -214,7 +225,7 @@ async function streamMessage(params, opts = {}, onDelta) {
     ...meta,
   };
 
-  params = await withTruthSystem(params, meta.brandId);
+  params = await withTruthSystem(params, meta.brandId, opts.contextAudience);
 
   let lastErr;
   for (let attempt = 1; attempt <= attempts; attempt++) {

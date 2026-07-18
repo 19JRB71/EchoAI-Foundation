@@ -160,3 +160,57 @@ recommendations.
   exclusion; foreign-brand 404s on every new endpoint.
 - Full suite + client tests + client build; architect self-review; completion
   report. Validation gates remain `test`, `client-test`, `client-build`.
+
+## 6. Completion report (July 18, 2026)
+
+**Status: implemented, tested, and verified. One documented deviation awaiting
+CEO sign-off (§6.3). Flag-dark = byte-identical (all 4 flags default OFF).**
+
+### 6.1 What shipped
+
+- **Migration `119_sage_v2_phase4.sql`** — exactly the approved scope: 3 tables
+  (`sage_offers`, `brand_constraints`, `sage_memory`) + 5 social URL columns on
+  `brands` (instagram, linkedin, youtube, tiktok, google business). Idempotent.
+- **4A Offers** — owner-only CRUD (`/api/sage/offers`), ownership via
+  `getOwnedBrand`, flag `SAGE_V2_OFFERS`. Active offers feed prompt context;
+  the CEO allowlist rule is enforced by construction: customer-facing prompts
+  see ONLY `name / offer_type / terms / starts_at / ends_at` — `margin_note`
+  is internal-audience opt-in only.
+- **4B Constraints** — owner-only upsert (`/api/sage/constraints`), prompt
+  context only (internal audience only), flag `SAGE_V2_CONSTRAINTS`.
+  `utils/constraintClamp.js` is fully tested and **wired to nothing** (inert
+  until Phase 5, per directive; architect review confirmed no runtime wiring).
+- **4C Truth inputs** — new Company Truth probes; monthly objections mining
+  (cron `30 4 1 * *`, aggregate paraphrased themes only, ≥5 conversations or
+  no-op, skip-gated on input hash, AI failure fails visibly); 5 social URL
+  fields with normalize-or-400 (`normalizeSocialUrl`, host-allowlisted, never
+  cross-platform coercion).
+- **4D Executive memory** — owner-only CRUD + archive (`/api/sage/memory`),
+  flag `SAGE_V2_EXEC_MEMORY`; Echo's confirmation-gated `[[REMEMBER]]` capture
+  appends the spoken "saved" line ONLY after the DB write really succeeded.
+- **Client** — Sage → Company Truth tab: Business Links card extended with the
+  5 socials; new Offers, Constraints, and Memory cards (each hides entirely on
+  `{enabled:false}`, so flag-dark UI is unchanged). Guided Setup profile step:
+  optional collapsed "Add your website & social links" panel. PWA shell cache
+  bumped to v137.
+
+### 6.2 Verification
+
+- `test`: 862/862 pass (includes 20 new Phase 4 tests: inert clamp honesty
+  rules, allowlist leak tests with sentinel secrets, fail-closed unknown
+  audience, flag-dark = empty context + zero feature-table queries, objections
+  parse aggregates-only, REMEMBER capture flag/kind/empty guards).
+- `client-test`: 367/367 pass. `client-build`: clean.
+- Architect review: PASS on all scope items, security, allowlist, flag-dark,
+  ownership; one contract deviation flagged (§6.3).
+
+### 6.3 Documented deviation — needs CEO decision
+
+§1 specified `blackout_dates daterange[]`; the implementation uses **JSONB**
+(`[{from, to, label}]`). Reason: `daterange[]` cannot carry the owner's label
+("closed for vacation"), open-ended windows are awkward, and the client edits
+labeled windows directly. Behavior is identical for the prompt context and the
+inert clamp helper. Recommendation: amend §1 to JSONB (safest — the migration
+is already applied and the JSONB shape is strictly more expressive). If you
+prefer the literal `daterange[]` contract, say so and a follow-up migration
+will convert it before any flag is enabled.

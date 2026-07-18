@@ -441,6 +441,32 @@ export const api = {
   getSageSubmissions: (brandId) =>
     request(`/api/sage/submissions?brandId=${encodeURIComponent(brandId)}`),
 
+  // Sage V2 Phase 4 — offers, business constraints, executive memory.
+  // All flag-gated server-side: when a flag is off the endpoint answers
+  // { enabled: false } and the UI hides the card entirely.
+  listSageOffers: (brandId) =>
+    request(`/api/sage/offers?brandId=${encodeURIComponent(brandId)}`),
+  createSageOffer: (brandId, data) =>
+    request("/api/sage/offers", { method: "POST", body: { brandId, ...data } }),
+  updateSageOffer: (brandId, offerId, data) =>
+    request(`/api/sage/offers/${offerId}`, {
+      method: "PATCH",
+      body: { brandId, ...data },
+    }),
+  getSageConstraints: (brandId) =>
+    request(`/api/sage/constraints?brandId=${encodeURIComponent(brandId)}`),
+  saveSageConstraints: (brandId, data) =>
+    request("/api/sage/constraints", { method: "PUT", body: { brandId, ...data } }),
+  listSageMemories: (brandId) =>
+    request(`/api/sage/memory?brandId=${encodeURIComponent(brandId)}`),
+  createSageMemory: (brandId, kind, content) =>
+    request("/api/sage/memory", { method: "POST", body: { brandId, kind, content } }),
+  archiveSageMemory: (brandId, memoryId) =>
+    request(`/api/sage/memory/${memoryId}/archive`, {
+      method: "PATCH",
+      body: { brandId },
+    }),
+
   // AI Marketing Department — team roster, per-agent detail, Mission Control.
   getAgents: () => request("/api/agents"),
   getMissionControl: (brandId) =>

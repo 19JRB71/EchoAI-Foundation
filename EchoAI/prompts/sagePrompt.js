@@ -238,7 +238,14 @@ async function deepResearch(brand, competitors, opts = {}) {
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
       messages: [{ role: "user", content: user }],
     },
-    { label: "Sage deep research", timeout: HEAVY_AI_TIMEOUT_MS, attempts: 2 },
+    {
+      label: "Sage deep research",
+      timeout: HEAVY_AI_TIMEOUT_MS,
+      attempts: 2,
+      // Sage's own analysis is an owner-facing internal surface: it may see
+      // internal constraints/memory context (flag-gated; no-op while dark).
+      contextAudience: "internal",
+    },
   );
 
   // The gate is on REAL web-search citations only — Facebook data is

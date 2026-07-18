@@ -1278,9 +1278,20 @@ function TruthReport({ report, editable, onSave }) {
 
 // The business's own website + Facebook page — Sage researches these directly
 // when building the Company Intelligence Report, so we ask for them right here.
+// The five social/online links added in Sage V2 Phase 4 — same save path as
+// website/Facebook (api.updateBrand), same normalize-or-400 server contract.
+const SOCIAL_LINK_FIELDS = [
+  { key: "instagram_url", body: "instagramUrl", label: "Instagram", placeholder: "e.g. @yourbusiness or instagram.com/yourbusiness" },
+  { key: "linkedin_url", body: "linkedinUrl", label: "LinkedIn", placeholder: "e.g. linkedin.com/company/yourbusiness" },
+  { key: "youtube_url", body: "youtubeUrl", label: "YouTube", placeholder: "e.g. youtube.com/@yourbusiness" },
+  { key: "tiktok_url", body: "tiktokUrl", label: "TikTok", placeholder: "e.g. @yourbusiness or tiktok.com/@yourbusiness" },
+  { key: "google_business_url", body: "googleBusinessUrl", label: "Google Business profile", placeholder: "e.g. g.page/yourbusiness" },
+];
+
 function BusinessLinksCard({ brandId }) {
   const [website, setWebsite] = useState("");
   const [facebookPage, setFacebookPage] = useState("");
+  const [socials, setSocials] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1297,6 +1308,9 @@ function BusinessLinksCard({ brandId }) {
         if (cancelled) return;
         setWebsite(brand.website_url || "");
         setFacebookPage(brand.facebook_page_url || "");
+        const next = {};
+        for (const f of SOCIAL_LINK_FIELDS) next[f.key] = brand[f.key] || "";
+        setSocials(next);
         setLoaded(true);
       })
       .catch((err) => {
@@ -1316,12 +1330,14 @@ function BusinessLinksCard({ brandId }) {
     setSaveError("");
     setSaved(false);
     try {
-      const updated = await api.updateBrand(brandId, {
-        websiteUrl: website,
-        facebookPageUrl: facebookPage,
-      });
+      const payload = { websiteUrl: website, facebookPageUrl: facebookPage };
+      for (const f of SOCIAL_LINK_FIELDS) payload[f.body] = socials[f.key] || "";
+      const updated = await api.updateBrand(brandId, payload);
       setWebsite(updated.website_url || "");
       setFacebookPage(updated.facebook_page_url || "");
+      const next = {};
+      for (const f of SOCIAL_LINK_FIELDS) next[f.key] = updated[f.key] || "";
+      setSocials(next);
       setSaved(true);
     } catch (err) {
       setSaveError(err.message || "Failed to save");
@@ -1363,6 +1379,21 @@ function BusinessLinksCard({ brandId }) {
             className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-emerald-500 focus:outline-none"
           />
         </label>
+        {SOCIAL_LINK_FIELDS.map((f) => (
+          <label key={f.key} className="block text-sm">
+            <span className="text-gray-400">{f.label}</span>
+            <input
+              value={socials[f.key] || ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSocials((prev) => ({ ...prev, [f.key]: v }));
+                setSaved(false);
+              }}
+              placeholder={f.placeholder}
+              className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-emerald-500 focus:outline-none"
+            />
+          </label>
+        ))}
       </div>
       {saveError && <p className="mt-2 text-sm text-red-400">{saveError}</p>}
       <div className="mt-3 flex items-center gap-3">
@@ -1377,6 +1408,479 @@ function BusinessLinksCard({ brandId }) {
         {saved && <span className="text-sm text-emerald-400">Saved.</span>}
       </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sage V2 Phase 4 cards — Offers, Business Constraints, Executive Memory.
+// Every endpoint is flag-gated server-side: flags off → { enabled: false } →
+// the card renders nothing at all, keeping the page byte-identical to before.
+// ---------------------------------------------------------------------------
+
+const OFFER_TYPE_OPTIONS = [
+  { value: "discount", label: "Discount" },
+  { value: "financing", label: "Financing" },
+  { value: "guarantee", label: "Guarantee" },
+  { value: "bundle", label: "Bundle" },
+  { value: "lead_magnet", label: "Free / lead magnet" },
+  { value: "urgency", label: "Limited time" },
+];
+
+const MEMORY_KIND_OPTIONS = [
+  { value: "operational_lesson", label: "Operational lesson" },
+  { value: "seasonal_lesson", label: "Seasonal pattern" },
+  { value: "vendor", label: "Vendor / supplier" },
+  { value: "local_insight", label: "Local insight" },
+  { value: "unwritten_rule", label: "Unwritten rule" },
+  { value: "owner_context", label: "Business context" },
+];
+
+const memoryKindLabel = (kind) =>
+  (MEMORY_KIND_OPTIONS.find((k) => k.value === kind) || {}).label || kind;
+
+const inputCls =
+  "mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-emerald-500 focus:outline-none";
+
+function fmtDateOnly(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
+}
+
+function OffersCard({ brandId }) {
+  const [state, setState] = useState(null); // null=loading, {enabled,offers}
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", offerType: "discount", terms: "", marginNote: "", startsAt: "", endsAt: "" });
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .listSageOffers(brandId)
+      .then(setState)
+      .catch((err) => setState({ enabled: true, offers: [], loadError: err.message }));
+  }, [brandId]);
+
+  useEffect(() => {
+    setState(null);
+    setError("");
+    setShowForm(false);
+    load();
+  }, [load]);
+
+  if (!state || !state.enabled) return null;
+
+  const setF = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const create = async () => {
+    setWorking(true);
+    setError("");
+    try {
+      await api.createSageOffer(brandId, {
+        name: form.name,
+        offerType: form.offerType,
+        terms: form.terms,
+        marginNote: form.marginNote,
+        startsAt: form.startsAt || null,
+        endsAt: form.endsAt || null,
+      });
+      setForm({ name: "", offerType: "discount", terms: "", marginNote: "", startsAt: "", endsAt: "" });
+      setShowForm(false);
+      load();
+    } catch (err) {
+      setError(err.message || "Failed to save the offer");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const archive = async (offerId) => {
+    setError("");
+    try {
+      await api.updateSageOffer(brandId, offerId, { status: "archived" });
+      load();
+    } catch (err) {
+      setError(err.message || "Failed to archive the offer");
+    }
+  };
+
+  const offers = state.offers || [];
+  const active = offers.filter((o) => o.status === "active");
+  const archived = offers.filter((o) => o.status !== "active");
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-gray-200">Your offers</h3>
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="rounded-md border border-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:border-emerald-500 hover:text-emerald-300"
+        >
+          {showForm ? "Cancel" : "Add an offer"}
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-gray-400">
+        Tell your AI team about the deals you actually run — discounts,
+        financing, guarantees. Active offers are worked into the ads and posts
+        your team drafts. Margin notes stay private to you.
+      </p>
+      {state.loadError && <p className="mt-2 text-sm text-red-400">{state.loadError}</p>}
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+
+      {showForm && (
+        <div className="mt-3 space-y-3 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="text-gray-400">Offer name</span>
+              <input value={form.name} onChange={setF("name")} placeholder='e.g. "10% off first service"' className={inputCls} />
+            </label>
+            <label className="block text-sm">
+              <span className="text-gray-400">Type</span>
+              <select value={form.offerType} onChange={setF("offerType")} className={inputCls}>
+                {OFFER_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-gray-400">Starts (optional)</span>
+              <input type="date" value={form.startsAt} onChange={setF("startsAt")} className={inputCls} />
+            </label>
+            <label className="block text-sm">
+              <span className="text-gray-400">Ends (optional)</span>
+              <input type="date" value={form.endsAt} onChange={setF("endsAt")} className={inputCls} />
+            </label>
+          </div>
+          <label className="block text-sm">
+            <span className="text-gray-400">Terms (optional)</span>
+            <input value={form.terms} onChange={setF("terms")} placeholder="e.g. new customers only, one per household" className={inputCls} />
+          </label>
+          <label className="block text-sm">
+            <span className="text-gray-400">Margin note (private — never shown to customers)</span>
+            <input value={form.marginNote} onChange={setF("marginNote")} placeholder="e.g. thin margin — don't stack with other discounts" className={inputCls} />
+          </label>
+          <button
+            type="button"
+            onClick={create}
+            disabled={working || !form.name.trim()}
+            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {working ? "Saving…" : "Save offer"}
+          </button>
+        </div>
+      )}
+
+      {active.length === 0 && !showForm && (
+        <p className="mt-3 text-sm text-gray-500">No offers yet. Add the deals you run so your AI team can use them.</p>
+      )}
+      {active.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {active.map((o) => (
+            <li key={o.offer_id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-gray-100">{o.name}</span>
+                  <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
+                    {(OFFER_TYPE_OPTIONS.find((t) => t.value === o.offer_type) || {}).label || o.offer_type}
+                  </Badge>
+                  {(o.starts_at || o.ends_at) && (
+                    <span className="text-xs text-gray-500">
+                      {o.starts_at ? `from ${fmtDateOnly(o.starts_at)}` : ""}
+                      {o.starts_at && o.ends_at ? " " : ""}
+                      {o.ends_at ? `until ${fmtDateOnly(o.ends_at)}` : ""}
+                    </span>
+                  )}
+                </div>
+                {o.terms && <p className="mt-1 text-xs text-gray-400">{o.terms}</p>}
+                {o.margin_note && (
+                  <p className="mt-1 text-xs text-amber-300/80">Private note: {o.margin_note}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => archive(o.offer_id)}
+                className="text-xs text-gray-500 hover:text-red-400"
+              >
+                Archive
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {archived.length > 0 && (
+        <p className="mt-2 text-xs text-gray-600">{archived.length} archived offer{archived.length === 1 ? "" : "s"}.</p>
+      )}
+    </div>
+  );
+}
+
+function ConstraintsCard({ brandId }) {
+  const [state, setState] = useState(null); // null=loading
+  const [form, setForm] = useState(null); // editable copy
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setState(null);
+    setForm(null);
+    setError("");
+    setSaved(false);
+    api
+      .getSageConstraints(brandId)
+      .then((data) => {
+        if (cancelled) return;
+        setState(data);
+        if (data.enabled) {
+          const c = data.constraints || {};
+          setForm({
+            monthlyBudgetDollars:
+              c.monthly_budget_cents != null ? String(Number(c.monthly_budget_cents) / 100) : "",
+            staffCount: c.staff_count != null ? String(c.staff_count) : "",
+            weeklyCapacity: c.weekly_capacity != null ? String(c.weekly_capacity) : "",
+            legalNotes: c.legal_notes || "",
+            cashFlowNote: c.cash_flow_note || "",
+            blackoutDates: Array.isArray(c.blackout_dates) ? c.blackout_dates : [],
+          });
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Load failure: don't show empty editable fields we couldn't prefill —
+        // saving them would silently wipe real stored constraints.
+        setState({ enabled: true, loadError: err.message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [brandId]);
+
+  if (!state || !state.enabled) return null;
+
+  const setF = (k) => (e) => {
+    const v = e.target.value;
+    setForm((p) => ({ ...p, [k]: v }));
+    setSaved(false);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      const data = await api.saveSageConstraints(brandId, {
+        monthlyBudgetDollars: form.monthlyBudgetDollars.trim() === "" ? null : form.monthlyBudgetDollars,
+        staffCount: form.staffCount.trim() === "" ? null : form.staffCount,
+        weeklyCapacity: form.weeklyCapacity.trim() === "" ? null : form.weeklyCapacity,
+        legalNotes: form.legalNotes,
+        cashFlowNote: form.cashFlowNote,
+        blackoutDates: form.blackoutDates,
+      });
+      const c = data.constraints || {};
+      setForm((p) => ({
+        ...p,
+        monthlyBudgetDollars:
+          c.monthly_budget_cents != null ? String(Number(c.monthly_budget_cents) / 100) : "",
+        staffCount: c.staff_count != null ? String(c.staff_count) : "",
+        weeklyCapacity: c.weekly_capacity != null ? String(c.weekly_capacity) : "",
+        legalNotes: c.legal_notes || "",
+        cashFlowNote: c.cash_flow_note || "",
+        blackoutDates: Array.isArray(c.blackout_dates) ? c.blackout_dates : [],
+      }));
+      setSaved(true);
+    } catch (err) {
+      setError(err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+      <h3 className="text-sm font-semibold text-gray-200">Business realities</h3>
+      <p className="mt-1 text-sm text-gray-400">
+        The practical limits your AI team should respect — budget, staff,
+        capacity. Leave anything blank if it doesn&apos;t apply; nothing is
+        assumed. Cash-flow and legal notes stay private to you.
+      </p>
+      {state.loadError ? (
+        <p className="mt-2 text-sm text-red-400">{state.loadError}</p>
+      ) : form && (
+        <>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <label className="block text-sm">
+              <span className="text-gray-400">Monthly marketing budget ($)</span>
+              <input type="number" min="0" value={form.monthlyBudgetDollars} onChange={setF("monthlyBudgetDollars")} placeholder="e.g. 1500" className={inputCls} />
+            </label>
+            <label className="block text-sm">
+              <span className="text-gray-400">Staff count</span>
+              <input type="number" min="0" value={form.staffCount} onChange={setF("staffCount")} placeholder="e.g. 4" className={inputCls} />
+            </label>
+            <label className="block text-sm">
+              <span className="text-gray-400">Jobs / customers per week</span>
+              <input type="number" min="0" value={form.weeklyCapacity} onChange={setF("weeklyCapacity")} placeholder="e.g. 25" className={inputCls} />
+            </label>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="text-gray-400">Legal / compliance notes (private)</span>
+              <input value={form.legalNotes} onChange={setF("legalNotes")} placeholder="e.g. licensed in GA only" className={inputCls} />
+            </label>
+            <label className="block text-sm">
+              <span className="text-gray-400">Cash-flow note (private)</span>
+              <input value={form.cashFlowNote} onChange={setF("cashFlowNote")} placeholder="e.g. tight until Q4" className={inputCls} />
+            </label>
+          </div>
+          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="rounded-md border border-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:border-emerald-500 hover:text-emerald-300 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save business realities"}
+            </button>
+            {saved && <span className="text-sm text-emerald-400">Saved.</span>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MemoryCard({ brandId }) {
+  const [state, setState] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ kind: "operational_lesson", content: "" });
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .listSageMemories(brandId)
+      .then(setState)
+      .catch((err) => setState({ enabled: true, memories: [], loadError: err.message }));
+  }, [brandId]);
+
+  useEffect(() => {
+    setState(null);
+    setError("");
+    setShowForm(false);
+    load();
+  }, [load]);
+
+  if (!state || !state.enabled) return null;
+
+  const create = async () => {
+    setWorking(true);
+    setError("");
+    try {
+      await api.createSageMemory(brandId, form.kind, form.content);
+      setForm({ kind: "operational_lesson", content: "" });
+      setShowForm(false);
+      load();
+    } catch (err) {
+      setError(err.message || "Failed to save");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const archive = async (memoryId) => {
+    setError("");
+    try {
+      await api.archiveSageMemory(brandId, memoryId);
+      load();
+    } catch (err) {
+      setError(err.message || "Failed to remove");
+    }
+  };
+
+  const memories = state.memories || [];
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-gray-200">What your AI team remembers</h3>
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="rounded-md border border-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:border-emerald-500 hover:text-emerald-300"
+        >
+          {showForm ? "Cancel" : "Add a memory"}
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-gray-400">
+        Durable facts about how your business really works — seasonal patterns,
+        vendor relationships, local know-how. You can also just tell Echo
+        &quot;remember this&quot; in chat. Remove anything that&apos;s no longer true.
+      </p>
+      {state.loadError && <p className="mt-2 text-sm text-red-400">{state.loadError}</p>}
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+
+      {showForm && (
+        <div className="mt-3 space-y-3 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+          <label className="block text-sm">
+            <span className="text-gray-400">Kind</span>
+            <select
+              value={form.kind}
+              onChange={(e) => setForm((p) => ({ ...p, kind: e.target.value }))}
+              className={inputCls}
+            >
+              {MEMORY_KIND_OPTIONS.map((k) => (
+                <option key={k.value} value={k.value}>{k.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="text-gray-400">What should your team remember?</span>
+            <input
+              value={form.content}
+              onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
+              placeholder='e.g. "Winter is our slow season — push maintenance plans"'
+              className={inputCls}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={create}
+            disabled={working || !form.content.trim()}
+            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {working ? "Saving…" : "Save memory"}
+          </button>
+        </div>
+      )}
+
+      {memories.length === 0 && !showForm && (
+        <p className="mt-3 text-sm text-gray-500">Nothing saved yet.</p>
+      )}
+      {memories.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {memories.map((m) => (
+            <li key={m.memory_id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30">{memoryKindLabel(m.kind)}</Badge>
+                  <span className="text-xs text-gray-500">{fmtDateOnly(m.created_at)}</span>
+                </div>
+                <p className="mt-1 text-sm text-gray-200">{m.content}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => archive(m.memory_id)}
+                className="text-xs text-gray-500 hover:text-red-400"
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -1517,6 +2021,9 @@ function CompanyTruthTab({ brandId }) {
       </div>
 
       <BusinessLinksCard brandId={brandId} />
+      <OffersCard brandId={brandId} />
+      <ConstraintsCard brandId={brandId} />
+      <MemoryCard brandId={brandId} />
 
       {!pending && !approved && (
         <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-6 text-center">

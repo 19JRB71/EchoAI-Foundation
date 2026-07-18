@@ -37,6 +37,10 @@ const SWITCH_DEFAULTS = {
   SAGE_V2_DQ_SENTRY: false, // Sage V2 P2: nightly deterministic data-quality sentry (dark until enabled)
   SAGE_V2_OUTCOME_CAPTURE: false, // Sage V2 P3: lead outcome capture (chips/voice/convert paths write outcome + attribution fields; dark until enabled)
   SAGE_V2_COVERAGE_DISPLAYS: false, // Sage V2 P3: outcome-coverage labels + <30% financial-view gate (dark until enabled)
+  SAGE_V2_OFFERS: false, // Sage V2 P4: sage_offers registry (endpoints, UI card, prompt injection; dark until enabled)
+  SAGE_V2_CONSTRAINTS: false, // Sage V2 P4: brand_constraints capture + context (NO enforcement — deferred to P5; dark until enabled)
+  SAGE_V2_TRUTH_INPUTS: false, // Sage V2 P4: expanded gatherCompanyData sources + monthly objections mining (dark until enabled)
+  SAGE_V2_EXEC_MEMORY: false, // Sage V2 P4: Executive Memory (Echo "remember this" capture + sage_memory + context; dark until enabled)
   ANTHROPIC_CONTENT_ENABLED: true, // Anthropic (Claude) calls
 };
 
