@@ -9,3 +9,4 @@ description: Lessons from building lead outcome capture, attribution, and covera
 - `trg_leads_updated_at` (and similar triggers) reset `updated_at` on every UPDATE — tests staging stale timestamps must `ALTER TABLE ... DISABLE TRIGGER` around the staging write.
 - `uniq_appointments_active_slot` is unique on (brand_id, start_time) — test fixtures inserting multiple appointments per brand need distinct start times.
 - Voice-answer parsing (Hermes) fails CLOSED: unclear/error → nothing written; UI chips remain the fallback capture path. Deal values only when explicitly stated, never estimated.
+- Coverage denominator is LOCKED: all leads of the brand, no time window, no exclusions (arch doc §6.1). Never narrow it (e.g. last-90-days) without a CEO-approved amendment — it silently distorts the program adoption metric.

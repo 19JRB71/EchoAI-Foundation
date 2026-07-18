@@ -128,3 +128,29 @@ intelligence items.
 - **Verification** — `tests/sageV2Phase3.test.js` 10/10; full server suite
   842/842 (was 832); client 367/367; client build clean; architect review PASS
   with no severe findings.
+
+### 6.1 Coverage denominator — locked definition (documentation hygiene, CEO-requested)
+
+`coverageForBrand(brandId)` in `utils/leadOutcome.js` is the ONLY coverage
+calculation. Its definition, in plain terms:
+
+- **Denominator (`totalLeads`):** every row in `leads` for the brand.
+  **No time window. No exclusions.** Old leads, new leads, hot leads, cold
+  leads, converted or not — all count. (An earlier draft of the completion
+  report said "closed-window leads"; that phrasing was wrong and is corrected
+  here. There is no window.)
+- **Numerator (`withOutcome`):** leads whose `outcome` column is non-NULL —
+  i.e. a human or the one-way convert-sync recorded won / lost / no_show /
+  not_a_fit.
+- **`coveragePct`** = round(numerator / denominator × 100); 0 when the brand
+  has no leads.
+- **`sufficient`** = `coveragePct >= 30` — the only threshold; below it,
+  financial coverage views show the capture prompt instead of numbers.
+- Value-less wins are counted in coverage but reported separately
+  (`wonValueMissing`) — never hidden, never estimated.
+
+**Rule for future developers:** do NOT narrow the denominator (e.g. "last 90
+days", "excluding cold leads") without a CEO-approved amendment to this
+document. Any change to the eligible population silently inflates or deflates
+coverage and corrupts the program-level success metric in `MILESTONES.md`
+(Phase 3 adoption gate: coverage <30% after two months pauses later phases).
