@@ -467,6 +467,55 @@ export const api = {
       body: { brandId },
     }),
 
+  // Sage V2 Phase 5 — opportunity queue, decisions, change diagnostics,
+  // "What Sage knows" page. All flag-gated server-side ({ enabled:false }
+  // when dark → the UI hides the tabs entirely).
+  listSageOpportunities: (brandId, includeArchived = false) =>
+    request(
+      `/api/sage/opportunities?brandId=${encodeURIComponent(brandId)}${includeArchived ? "&includeArchived=true" : ""}`,
+    ),
+  getSageOpportunity: (brandId, id) =>
+    request(`/api/sage/opportunities/${id}?brandId=${encodeURIComponent(brandId)}`),
+  decideSageOpportunity: (brandId, id, decision, why) =>
+    request(`/api/sage/opportunities/${id}/decide`, {
+      method: "POST",
+      body: { brandId, decision, why, via: "opportunities_tab" },
+    }),
+  archiveSageOpportunity: (brandId, id) =>
+    request(`/api/sage/opportunities/${id}/archive`, {
+      method: "POST",
+      body: { brandId },
+    }),
+  assignSageOpportunity: (brandId, id) =>
+    request(`/api/sage/opportunities/${id}/assign`, {
+      method: "POST",
+      body: { brandId },
+    }),
+  listSageDecisions: (brandId) =>
+    request(`/api/sage/decisions?brandId=${encodeURIComponent(brandId)}`),
+  getSageChangeDiagnostics: (brandId) =>
+    request(`/api/sage/change-diagnostics?brandId=${encodeURIComponent(brandId)}`),
+  getSageKnowledge: (brandId) =>
+    request(`/api/sage/knowledge?brandId=${encodeURIComponent(brandId)}`),
+  // Authenticated JSON download of everything Sage knows ("my data, readable").
+  downloadSageKnowledge: async (brandId) => {
+    const token = getToken();
+    const res = await fetch(
+      `${BASE_URL}/api/sage/knowledge/export?brandId=${encodeURIComponent(brandId)}`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+    );
+    if (!res.ok) throw new Error("Download failed. Please try again.");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "sage-knowledge.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   // AI Marketing Department — team roster, per-agent detail, Mission Control.
   getAgents: () => request("/api/agents"),
   getMissionControl: (brandId) =>

@@ -189,6 +189,10 @@ async function gatherBriefingData(userId, since, brandId = null) {
   const flyingBlindNudge = setupReminder
     ? null
     : await companyTruthNudge(brandId || brandIds[0] || null);
+  // Sage V2 P5 (flags default off): last week's "what changed" narrative +
+  // up to 3 opportunities awaiting a decision. Fail-soft: never breaks the
+  // briefing; dark flags mean both stay null/empty.
+  const phase5 = await phase5BriefingExtras(brandId || brandIds[0] || null);
   const empty = {
     brands,
     sinceISO: since ? new Date(since).toISOString() : null,
@@ -215,6 +219,8 @@ async function gatherBriefingData(userId, since, brandId = null) {
     openTasks: agenda.openTasks,
     emailCounts,
     setupReminder,
+    whatChanged: phase5.whatChanged,
+    pendingOpportunities: phase5.pendingOpportunities,
   };
   if (brandIds.length === 0) return empty;
 
@@ -447,7 +453,46 @@ async function gatherBriefingData(userId, since, brandId = null) {
     emailCounts,
     setupReminder,
     flyingBlindNudge,
+    whatChanged: phase5.whatChanged,
+    pendingOpportunities: phase5.pendingOpportunities,
   };
+}
+
+/**
+ * Sage V2 P5: gather the briefing's "what changed" line (latest Change
+ * Diagnostics narrative) and up to 3 proposed opportunities awaiting the
+ * owner's decision. Both flag-gated (default off) and fail-soft — any error
+ * returns the dark shape so the briefing never breaks.
+ */
+async function phase5BriefingExtras(brandId) {
+  const dark = { whatChanged: null, pendingOpportunities: [] };
+  try {
+    if (!brandId) return dark;
+    const { getSwitch } = require("../config/aiControls");
+    let whatChanged = null;
+    if (await getSwitch("SAGE_V2_CHANGE_DIAGNOSTICS")) {
+      const { rows } = await db.query(
+        `SELECT narrative FROM sage_change_diagnostics
+          WHERE brand_id = $1 AND narrative IS NOT NULL
+          ORDER BY week_start DESC LIMIT 1`,
+        [brandId]
+      );
+      whatChanged = rows[0] ? rows[0].narrative : null;
+    }
+    let pendingOpportunities = [];
+    if (await getSwitch("SAGE_V2_OPPORTUNITIES")) {
+      const { rows } = await db.query(
+        `SELECT opportunity_id, title FROM sage_opportunities
+          WHERE brand_id = $1 AND status = 'proposed'
+          ORDER BY created_at DESC LIMIT 3`,
+        [brandId]
+      );
+      pendingOpportunities = rows;
+    }
+    return { whatChanged, pendingOpportunities };
+  } catch (_e) {
+    return dark;
+  }
 }
 
 /**
@@ -979,6 +1024,15 @@ function templateMorning(firstName, data, part = "morning") {
   }
   if (data.sageNote) {
     parts.push(`Sage learned something about your industry: ${data.sageNote}`);
+  }
+  if (data.whatChanged) {
+    parts.push(`Here's what changed last week: ${data.whatChanged}`);
+  }
+  if (Array.isArray(data.pendingOpportunities) && data.pendingOpportunities.length) {
+    const titles = data.pendingOpportunities.map((o) => o.title).join("; ");
+    parts.push(
+      `Sage has ${data.pendingOpportunities.length} opportunit${data.pendingOpportunities.length === 1 ? "y" : "ies"} waiting for your decision: ${titles}. You can review them in Sage's Opportunities tab.`
+    );
   }
   if (data.pendingApprovals) {
     parts.push(`${data.pendingApprovals} item${data.pendingApprovals === 1 ? " is" : "s are"} waiting for your approval.`);

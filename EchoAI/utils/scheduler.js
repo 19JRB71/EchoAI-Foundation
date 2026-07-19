@@ -572,6 +572,60 @@ async function runSagePatternStudy() {
 }
 
 /**
+ * Sage V2 Phase 5 — Monday opportunity synthesis. Flag-gated (default off);
+ * when SAGE_V2_OPPORTUNITIES is dark this is a no-op. Runs BEFORE the 06:00
+ * briefing warm so the morning briefing can surface this week's new
+ * opportunities. Per-brand: diagnostics first (deterministic decomposition),
+ * then ONE AI synthesis call; AI failure marks the brand's run failed —
+ * nothing fabricated — and never stops the sweep.
+ */
+async function runSageOpportunitySynthesis() {
+  if (!(await getSwitch("SAGE_V2_OPPORTUNITIES"))) return;
+  const { runSynthesisForBrand } = require("./opportunitySynthesis");
+  const brands = await activeBrandsForSage();
+  const runKey = `opps:${isoWeekKey()}`;
+  let ok = 0;
+  for (const brand of brands) {
+    let claimed = false;
+    try {
+      claimed = await claimRun(brand.brand_id, "opps", runKey);
+      if (!claimed) continue;
+      await runSynthesisForBrand(brand);
+      await finishRun(brand.brand_id, "opps", runKey, "done");
+      ok += 1;
+    } catch (err) {
+      if (claimed) await finishRun(brand.brand_id, "opps", runKey, "failed");
+      console.error(`Sage opportunity synthesis failed for brand ${brand.brand_id}:`, err.message);
+    }
+  }
+  console.log(`Sage opportunity synthesis complete: ${ok}/${brands.length} brands.`);
+}
+
+/**
+ * Sage V2 Phase 5 — nightly deterministic maintenance: join measured analytics
+ * onto completed directives (no AI) and expire stale open opportunities.
+ * Each half is guarded so one failure never blocks the other.
+ */
+async function runSageOpportunityMaintenance() {
+  if (await getSwitch("SAGE_V2_DIRECTIVES")) {
+    try {
+      const { runMeasurementJoin } = require("./directiveBus");
+      await runMeasurementJoin();
+    } catch (err) {
+      console.error("Sage directive measurement join failed:", err.message);
+    }
+  }
+  if (await getSwitch("SAGE_V2_OPPORTUNITIES")) {
+    try {
+      const { runExpirySweep } = require("./opportunitySynthesis");
+      await runExpirySweep();
+    } catch (err) {
+      console.error("Sage opportunity expiry sweep failed:", err.message);
+    }
+  }
+}
+
+/**
  * Daily portfolio health snapshot (Part 5). Computes a deterministic 1-10 score
  * for every REAL brand (demo excluded) so the 12-week trajectory keeps building
  * without any manual action. Scoring is deterministic (no AI), so a single
@@ -915,6 +969,26 @@ function startScheduler() {
     ai: true,
     control: "WEEKLY_AI_STACK_ENABLED",
     run: runWeeklyAutopilot,
+  });
+
+  // Mondays 05:30 (before the 06:00 briefing warm): Sage V2 Phase 5 —
+  // per-brand Change Diagnostics + opportunity synthesis. Flag-gated inside
+  // (SAGE_V2_OPPORTUNITIES, default OFF) so the job is a silent no-op until
+  // the flag is turned on.
+  scheduleJob({
+    name: "sage-opportunity-synthesis",
+    cronExpr: "30 5 * * 1",
+    ai: true,
+    control: "WEEKLY_AI_STACK_ENABLED",
+    run: runSageOpportunitySynthesis,
+  });
+
+  // 02:20 nightly: deterministic Phase 5 maintenance — join real analytics
+  // onto completed directives and expire stale open opportunities. No AI.
+  scheduleJob({
+    name: "sage-opportunity-maintenance",
+    cronExpr: "20 2 * * *",
+    run: runSageOpportunityMaintenance,
   });
 
   // 05:00 daily (launch cadence — was every 6 hours): Scout scans competitor/

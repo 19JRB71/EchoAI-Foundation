@@ -41,6 +41,10 @@ const SWITCH_DEFAULTS = {
   SAGE_V2_CONSTRAINTS: false, // Sage V2 P4: brand_constraints capture + context (NO enforcement — deferred to P5; dark until enabled)
   SAGE_V2_TRUTH_INPUTS: false, // Sage V2 P4: expanded gatherCompanyData sources + monthly objections mining (dark until enabled)
   SAGE_V2_EXEC_MEMORY: false, // Sage V2 P4: Executive Memory (Echo "remember this" capture + sage_memory + context; dark until enabled)
+  SAGE_V2_OPPORTUNITIES: false, // Sage V2 P5: weekly Opportunity Synthesis + queue + decisions (dark until enabled)
+  SAGE_V2_DIRECTIVES: false, // Sage V2 P5: Directive Bus handoffs + nightly measurement join (dark until enabled)
+  SAGE_V2_CHANGE_DIAGNOSTICS: false, // Sage V2 P5: deterministic week-over-week decomposition + briefing "what changed" (dark until enabled)
+  SAGE_V2_KNOWLEDGE_PAGE: false, // Sage V2 P5: "What Sage knows" page + export (dark until enabled)
   ANTHROPIC_CONTENT_ENABLED: true, // Anthropic (Claude) calls
 };
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
+import { OpportunitiesTab, KnowledgeTab } from "./SageOpportunities.jsx";
 
 const TABS = [
   { key: "truth", label: "Company Truth" },
@@ -57,10 +58,30 @@ function fmtDate(d) {
 
 export default function Sage({ brandId, initialTab }) {
   const [tab, setTab] = useState(initialTab || "brief");
+  // Sage V2 P5 tabs appear only when the server says the flags are on
+  // ({ enabled:false } when dark → tabs hidden entirely).
+  const [p5, setP5] = useState({ opportunities: false, knowledge: false });
 
   useEffect(() => {
     if (initialTab) setTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    let alive = true;
+    setP5({ opportunities: false, knowledge: false });
+    if (!brandId) return undefined;
+    api
+      .listSageOpportunities(brandId)
+      .then((d) => alive && setP5((s) => ({ ...s, opportunities: d?.enabled === true })))
+      .catch(() => {});
+    api
+      .getSageKnowledge(brandId)
+      .then((d) => alive && setP5((s) => ({ ...s, knowledge: d?.enabled === true })))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [brandId]);
 
   if (!brandId) {
     return (
@@ -95,7 +116,11 @@ export default function Sage({ brandId, initialTab }) {
       <SageV2Extras brandId={brandId} />
 
       <div className="flex flex-wrap gap-1 border-b border-gray-800">
-        {TABS.map((t) => (
+        {[
+          ...TABS,
+          ...(p5.opportunities ? [{ key: "opportunities", label: "Opportunities" }] : []),
+          ...(p5.knowledge ? [{ key: "knowledge", label: "What Sage Knows" }] : []),
+        ].map((t) => (
           <button
             key={t.key}
             type="button"
@@ -118,6 +143,8 @@ export default function Sage({ brandId, initialTab }) {
       {tab === "insights" && <InsightsTab brandId={brandId} />}
       {tab === "patterns" && <PatternsTab brandId={brandId} />}
       {tab === "input" && <InputTab brandId={brandId} />}
+      {tab === "opportunities" && p5.opportunities && <OpportunitiesTab brandId={brandId} />}
+      {tab === "knowledge" && p5.knowledge && <KnowledgeTab brandId={brandId} />}
     </div>
   );
 }

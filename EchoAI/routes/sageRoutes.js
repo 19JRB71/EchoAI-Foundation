@@ -17,6 +17,7 @@ const { uploadDocument } = require("../middleware/documentUpload");
 const controller = require("../controllers/sageController");
 const briefingController = require("../controllers/sageBriefingController");
 const phase4 = require("../controllers/sagePhase4Controller");
+const phase5 = require("../controllers/sagePhase5Controller");
 
 const router = express.Router();
 
@@ -62,6 +63,20 @@ router.put("/constraints", requireOwner, phase4.saveConstraints);
 router.get("/memory", requireOwner, phase4.listMemories);
 router.post("/memory", requireOwner, phase4.createMemory);
 router.patch("/memory/:id/archive", requireOwner, phase4.archiveMemory);
+
+// Sage V2 P5 (flag-gated, default off): Opportunity queue + decisions +
+// Change Diagnostics + "What Sage knows". Endpoints answer {enabled:false}
+// when dark. Owner-only: opportunities carry financial reasoning and
+// constraint facts.
+router.get("/opportunities", requireOwner, phase5.listOpportunities);
+router.get("/opportunities/:id", requireOwner, phase5.getOpportunity);
+router.post("/opportunities/:id/decide", requireOwner, phase5.decideOpportunity);
+router.post("/opportunities/:id/archive", requireOwner, phase5.archiveOpportunity);
+router.post("/opportunities/:id/assign", requireOwner, phase5.assignOpportunity);
+router.get("/decisions", requireOwner, phase5.listDecisions);
+router.get("/change-diagnostics", requireOwner, phase5.getChangeDiagnostics);
+router.get("/knowledge", requireOwner, phase5.getKnowledge);
+router.get("/knowledge/export", requireOwner, phase5.exportKnowledge);
 
 // Intelligence Input (link / facebook JSON, or image / PDF multipart)
 router.post("/input", uploadDocument, controller.submitIntelligence);
