@@ -1,177 +1,396 @@
 # Sage V2 — Phase 6 Architecture Review (Milestone 6)
 
-**Status: PROPOSED — awaiting CEO review. No implementation has begun.**
+**Status: PROPOSED — awaiting CEO review and approval. No implementation has begun.**
 **Blueprint of record:** `SAGE_V2_CHALLENGE_REVIEW.md` Part 4 (revised phase plan).
-**Gate check:** Phase 3 (outcome capture) and Phase 5 (opportunity queue, Directive
-Bus, Change Diagnostics) are both implemented and approved. Gate satisfied.
+**Gate check:** Phase 6 gates on Phases 3 and 5. Phase 3 (outcome capture,
+approved July 17, 2026) and Phase 5 (opportunity queue, Directive Bus, Change
+Diagnostics, approved July 19, 2026) are both implemented and approved.
+**Gate satisfied.**
 
-Approved lifecycle applies: this Architecture Review → CEO approval →
-Implementation → Testing → Architect self-review → Completion report → CEO
-approval. All new behavior lands behind new flags, default OFF, dark until
-enabled. Additive-only migration. Backward compatible. Every invariant from
-Phases 1–5 (honesty, owner-only, evidence-first, AI→502, no fabrication)
-carries forward unchanged.
+Approved lifecycle applies without exception: this Architecture Review → CEO
+approval → Implementation → Testing → Architect self-review → Completion
+report → CEO approval. All new behavior lands behind new feature flags,
+default OFF, dark until you enable them. One additive-only migration. Fully
+backward compatible. Every invariant from Phases 1–5 (honesty, owner-only
+access, evidence-first, AI failure → 502, no fabrication, no silent
+fallbacks) carries forward unchanged.
+
+---
 
 ## 1. Executive summary
 
 Phase 6 turns Sage from "recommends individual opportunities" into "holds a
-coherent, explainable strategy." Five capabilities, per the locked plan:
+coherent, explainable strategy with a public track record." Five
+capabilities, exactly per the locked blueprint:
 
 1. **Deterministic channel scorecards** — always-current per-channel views
-   (spend, leads, cost/lead, conversions, ROAS, trend) computed by arithmetic
-   from `analytics` + leads/outcome data. **No AI commentary in v1** (explicit
-   REMOVE in the challenge review): numbers first.
-2. **Honest forecasts** — range forecasts (low/expected/high) from the brand's
-   own history using deterministic methods (trailing means + observed
-   variance). Every forecast carries its basis, its assumption list, and an
-   honest "insufficient history" state below a minimum-weeks threshold.
-   Never a single fabricated point number, never AI-invented.
+   (spend, leads, cost/lead, conversions, ROAS, week-over-week trend)
+   computed by pure arithmetic from the brand's own `analytics` and
+   leads/outcome data. **No AI commentary in v1** — the blueprint explicitly
+   removed it ("deterministic numbers first; narration adds cost, not
+   information").
+2. **Honest forecasts** — range forecasts (low / expected / high) computed
+   deterministically from the brand's own history. Every forecast stores its
+   method, the weeks of history behind it, and its assumption list. Below
+   the minimum-history threshold Sage says "insufficient history" — it never
+   invents a number.
 3. **Executive Debate** — for *significant* strategy items only (budget
    allocation, channel mix, quarterly priorities — NOT every opportunity):
-   one Claude call generates ≥3 realistic options with tradeoffs, risks, and
-   "do nothing" as a mandatory baseline. Stored on the strategy item
-   (`options_considered` JSONB, written once, immutable) and shown to the
-   owner. Cost guard: max 2 debates/brand/month, event-triggered, never
-   scheduled.
-4. **Top-3-bets strategy object** — ONE simple strategy record per brand:
-   up to 3 named bets (each linked to opportunities/evidence), a budget
-   line, and a review cadence. Owner approves/revises it. No table zoo
-   (explicit SIMPLIFY): one table, minimal lifecycle.
-5. **Self-eval scorecard** — Sage grades its own past recommendations from
-   REAL measured results (Phase 5 measurement join + Phase 3 outcomes):
-   approved vs declined, measured wins/losses/inconclusive, cost per approved
-   recommendation. Deterministic; shown to the owner as trust surface
-   ("here's my track record — including my misses").
+   one Claude call generates ≥3 realistic options with tradeoffs and risks,
+   including a mandatory "do nothing" baseline. The full comparison is
+   stored immutably on the strategy and shown to the owner. Cost guard:
+   maximum 2 debates per brand per month, event-triggered, never scheduled.
+4. **Top-3-bets strategy object** — ONE simple strategy record per brand: up
+   to 3 named bets (each evidence-linked), a budget line, and a review
+   cadence. The owner approves or revises it. No "table zoo" — the blueprint
+   explicitly simplified this to one object.
+5. **Self-evaluation scorecard** — Sage grades its own past recommendations
+   from REAL measured results: approved vs declined, measured wins, misses,
+   inconclusive, and cost per approved recommendation. Deterministic, shown
+   to the owner as the trust surface: "here is my track record, including my
+   misses."
 
-## 2. Exact approved Phase 6 scope
+## 2. Exact Phase 6 scope — included and excluded
 
-In scope: the five items above; their endpoints, UI, scheduler touches,
-flags, tests. Explicitly **NOT** in Phase 6 (Phase 7, gated): Experiment
-Engine, Industry Playbooks, cross-brand aggregates. Also not in scope:
-AI narration on scorecards, macro-economy monitoring, Department
-Collaboration architecture (post-Phase-6 program, per CEO direction
-July 19, 2026).
+**Included:** the five capabilities above; their database tables, endpoints,
+UI surfaces, one scheduler extension, four feature flags, and full test
+coverage.
 
-## 3. Dependencies (verified in code)
+**Explicitly excluded (and why):**
 
-- `analytics` (brand_id, week_date, total_spend, total_leads, cost_per_lead,
-  conversions, return_on_ad_spend — UNIQUE per brand+week) — scorecard and
-  forecast input.
-- Phase 3 outcome fields on `leads` — outcome coverage feeds scorecard
-  honesty labels and the self-eval scorecard.
+| Excluded item | Reason |
+|---|---|
+| Experiment Engine | Phase 7, hard-gated (coverage >50%, 6 months history, P6 adoption evidence) |
+| Industry Playbooks | Phase 7, same gate; must come from real aggregates, never web research |
+| Cross-brand aggregates / benchmarks | Phase 7+; premature below ~100 brands per industry |
+| AI commentary on scorecards | Blueprint REMOVE — numbers first |
+| New recurring per-brand AI jobs | Blueprint scale rule W7 — none allowed beyond the weekly synthesis |
+| Full strategy lifecycle "table zoo" | Blueprint SIMPLIFY — one Top-3-bets object |
+| Macro-economy monitoring | Blueprint REJECTED — stays rejected |
+| Department Collaboration architecture | Post-Phase-6 program per CEO direction (July 19, 2026) — see §21 |
+
+## 3. Dependencies from Phases 1–5 (verified in code)
+
+- `analytics` table (brand_id, week_date, total_spend, total_leads,
+  cost_per_lead, conversions, return_on_ad_spend; UNIQUE per brand+week) —
+  scorecard and forecast input. No new data collection required.
+- Phase 3 outcome fields on `leads` (measurement-only rule now lifts for
+  this approved consumer) — outcome data feeds scorecard coverage labels and
+  the self-eval scorecard.
 - Phase 5 `sage_opportunities`, `sage_decisions`, `sage_directives`
-  (measured_result) — self-eval input; bets link to opportunities.
-- Phase 5 `changeDiagnostics` — reused for scorecard trend arrows.
-- Phase 4 `brand_constraints` — budget line on the strategy object is
-  clamped/validated against constraints at approval (clamp point carries
-  forward).
-- `sage_job_hashes` skip gates (Phase 2) — debate and any AI step must
-  register input hashes; unchanged inputs = zero AI calls.
+  (`measured_result`) — self-eval input; strategy bets cite opportunities.
+- Phase 5 Change Diagnostics — reused unchanged for scorecard trend
+  decomposition (no duplicate "why" engine).
+- Phase 4 `brand_constraints` — the strategy budget line is validated and
+  clamped against constraints (see §9).
+- Phase 4 Company Truth (approved version only) + Executive Memory — context
+  for strategy drafting and debate prompts.
+- Phase 2 `sage_job_hashes` skip gates — every AI step registers input
+  hashes; unchanged inputs = zero AI calls.
+- Phase 2 job-queue claim pattern + house advisory-lock pattern — debate cap
+  and strategy generation claims are atomic.
 
-## 4. Database additions (one migration, `121_sage_v2_phase6.sql`, additive only)
+## 4. Channel scorecard architecture
 
-- **`sage_channel_scorecards`** — cached deterministic snapshot per
-  (brand_id, channel, week_start): metrics JSONB, computed_at,
-  source_row_counts (honesty: how much data backed it). UNIQUE
-  (brand_id, channel, week_start). Cache only — always recomputable;
-  truncation-safe.
-- **`sage_forecasts`** — (brand_id, metric, horizon_weeks, low, expected,
-  high, basis JSONB {method, weeks_of_history, assumptions[]}, computed_at).
-  CHECK: low ≤ expected ≤ high. A row is only written when
-  weeks_of_history ≥ 8; otherwise the API answers
-  `{ sufficient: false, weeks_needed }` — nothing stored, nothing invented.
-- **`sage_strategies`** — the Top-3-bets object: brand_id, status
-  (`draft → proposed → approved → superseded/archived` — CHECK-constrained,
-  code-guarded transitions like Phase 5), bets JSONB (≤3, each
-  {title, thesis, opportunity_ids[], success_metric}), budget_line JSONB,
-  `options_considered` JSONB (Executive Debate output, written once),
-  review_at, decided_at, owner note. Partial unique index: one
-  proposed-or-approved strategy per brand.
-- **`sage_strategy_bet_opportunities`** — junction (no uuid[] arrays, house
-  rule W3) linking bets' cited opportunities → real `sage_opportunities`
-  rows. "No evidence, no bet": chokepoint rejects a bet citing zero valid
-  opportunities/intel items.
-- **`sage_debates`** — one row per Executive Debate run: brand_id,
-  strategy_id, trigger_event, options JSONB (≥3 incl. mandatory
-  do-nothing), created_at. Debate cost guard enforced in code under the
-  per-brand advisory lock: COUNT in current month ≥ 2 → refuse.
-- **`sage_self_eval`** — cached per (brand_id, period): counts + cents
-  aggregates from decisions/directives/outcomes; deterministic, recomputable.
+- **Inputs:** `analytics` weekly rows (per brand), lead counts and Phase 3
+  outcomes per channel/source, active campaign state.
+- **Computation:** pure arithmetic in a new `utils/channelScorecards.js` —
+  per channel: spend, leads, cost/lead, conversions, ROAS, 4-week trailing
+  averages, week-over-week deltas (delta terms reuse the Phase 5 Change
+  Diagnostics decomposition — one "why" engine, not two).
+- **Honesty labels baked into the data:** every scorecard carries
+  `source_row_counts` (how many weeks/rows backed it) and the brand's
+  outcome-coverage figure; thin data renders as "Limited data — based on N
+  weeks," never as a confident number.
+- **No AI anywhere in this path.** If a metric cannot be computed, the field
+  is `null` with a reason code — never zero-filled (the null→0 fabrication
+  trap is explicitly avoided, as in the quota monitor).
+- **Delivery:** always-current views computed on read with a short-lived
+  cache row (`sage_channel_scorecards`, recomputable at any time). They are
+  NOT a new weekly report — the one-weekly-customer-output rule (W6) is
+  preserved; the Monday briefing may reference them but generates nothing
+  new.
 
-## 5. Feature flags (all default OFF)
+## 5. Forecasting: method, minimum-history rules, assumptions storage
 
-- `SAGE_V2_SCORECARDS` — scorecard compute + endpoints + UI card.
-- `SAGE_V2_FORECASTS` — forecast compute + endpoints + UI.
-- `SAGE_V2_STRATEGY` — Top-3-bets object + Executive Debate + endpoints + UI.
-- `SAGE_V2_SELF_EVAL` — self-eval scorecard + endpoint + UI.
+- **Method (deterministic, v1):** for each metric (leads, spend, cost/lead,
+  conversions), compute the trailing trend from the brand's own weekly
+  history (trailing mean with linear trend component) and the observed
+  week-to-week variance. `expected` = trend projection; `low`/`high` =
+  projection ± observed variance band. CHECK constraint: `low ≤ expected ≤
+  high`. No AI generates or adjusts any number.
+- **Minimum-history rule (hard):** forecasts require **≥ 8 weeks** of
+  analytics history for the metric. Below that, the API answers
+  `{ sufficient: false, weeks_available, weeks_needed }` and the UI shows an
+  honest "Not enough history yet — Sage needs N more weeks" state. Nothing
+  is stored, nothing is invented.
+- **Assumptions storage:** every stored forecast row carries a `basis` JSONB:
+  `{ method, weeks_of_history, variance_observed, assumptions: [ ... ] }`
+  (e.g. "assumes spend stays near the trailing 4-week average," "does not
+  model seasonality in v1"). The UI displays the assumptions with the range.
+- **Labeling:** every forecast surface is labeled "Estimated range from your
+  own history" — the Phase 1 ROI-label convention.
+- **Recompute:** on read with cache, and refreshed when a new analytics week
+  lands. Forecasts are never pushed as alerts; they are a view.
 
-Dark behavior identical to Phase 5: endpoints answer `{ enabled: false }`,
-client probes and hides surfaces entirely, scheduler branches no-op.
+## 6. Executive Debate: flow, option rules, "do nothing" baseline
 
-## 6. Flows
+- **When it runs (event-only, never scheduled):**
+  1. Sage drafts a new strategy (or a major revision).
+  2. The strategy budget line changes by more than 25%.
+  3. A quarterly review date arrives *and the owner opens the strategy*.
+- **Option-generation rules (enforced in code after the AI call):** exactly
+  one Claude call; the response must contain **≥ 3 options**, each with
+  `{ title, description, tradeoffs, risks, expected_effect }`; **one option
+  must be the "do nothing" baseline** with the honest cost of inaction.
+  The chosen recommendation must reference which option it is and why it
+  beat the alternatives. If validation fails (missing baseline, <3 options,
+  empty fields) the result is rejected → 502 to the caller; nothing partial
+  is stored. AI failure never fabricates a debate.
+- **Storage & immutability:** the validated options array is written once to
+  `sage_debates` and mirrored to the strategy's `options_considered` JSONB;
+  application code never updates it afterward (write-once guard in the
+  single write path). The owner always sees exactly what was considered.
+- **Cost guard:** before any AI call, under the per-brand advisory lock,
+  count this month's `sage_debates` rows; ≥ 2 → refuse with an honest
+  "debate limit reached this month" response. Input-hash skip gate applies
+  on top: identical inputs = no second call.
 
-- **Scorecards/forecasts:** computed on read with a short cache
-  (always-current views, NOT weekly reports — one-weekly-output rule W6
-  preserved; the Monday briefing may reference them but they generate no
-  new report).
-- **Strategy:** owner opens Strategy card → if no active strategy, Sage
-  drafts one from approved opportunities + Company Truth (AI, flag-gated,
-  failure → 502, nothing fabricated) → Executive Debate stores
-  options_considered → owner approves/revises → approved bets may issue
-  directives through the EXISTING Phase 5 Directive Bus (all department
-  controls and clamps still apply — approval remains separate from
-  execution).
-- **Debate triggers (event-only):** strategy draft/major revision; budget
-  line change > 25%; quarterly review date. Never cron-scheduled.
-- **Self-eval:** recomputed by the existing nightly maintenance job
-  (extends `sage-opportunity-maintenance`; no new per-brand recurring AI
-  job — W7 scale rule: zero new AI jobs, debate is event-driven).
+## 7. Top-3-bets strategy object
 
-## 7. Honesty & safety invariants (carried forward + new)
+One record per brand in `sage_strategies`:
 
-- Scorecards and self-eval are 100% deterministic; no AI writes numbers.
-- Forecasts: ranges only, basis stored, insufficient-history is a first-class
-  honest state. UI labels every forecast "Estimated range from your own
-  history" (Phase 1 ROI-label convention).
-- Debate options are stored verbatim and immutable — the owner always sees
-  what was considered and why the recommendation won.
-- Strategy budget line validated against `brand_constraints` at approval
-  (clamp), and again at directive time (existing Phase 5 clamp point #2).
-- Owner-only routes throughout; brand ownership via `getOwnedBrand`.
-- Nothing executes autonomously: strategy approval issues directives at
-  most; departments keep their own approval/execution controls.
+- **bets** — up to 3, each `{ title, thesis, success_metric,
+  opportunity_refs }` (refs resolved through the junction table, §8).
+- **budget_line** — a single plain-English budget allocation statement plus
+  structured per-channel amounts (integer cents, house rule).
+- **options_considered** — the Executive Debate output (§6), write-once.
+- **status** — `draft → proposed → approved → superseded | archived`,
+  CHECK-constrained in the schema AND transition-guarded in code (the Phase
+  5 lifecycle pattern: every UPDATE carries the expected prior status in its
+  WHERE clause and branches on row count).
+- **review_at / decided_at / owner_note** — cadence and decision record.
+- A partial unique index allows at most one proposed-or-approved strategy
+  per brand; a new approved strategy supersedes the old one atomically in a
+  transaction (never two live strategies).
 
-## 8. API & UI (sketch)
+## 8. "No evidence, no bet" — code AND database enforcement
 
-Owner-only under `/api/sage`: `GET /scorecards`, `GET /forecasts`,
-`GET /strategy`, `POST /strategy/generate`, `POST /strategy/:id/decide`,
-`GET /self-eval`. Client: Scorecards + Strategy additions inside the
-existing Sage section (new tabs/cards, probe-gated like Phase 5); executive
-labels client-side only.
+- **Database:** `sage_strategy_bet_opportunities` junction table (no uuid[]
+  arrays — house rule) with FKs to `sage_strategies` and
+  `sage_opportunities`. A bet's evidence is real rows, not free text.
+- **Code (chokepoint):** strategy persistence goes through ONE function that,
+  inside the write transaction, verifies every bet cites ≥1 opportunity or
+  intel item that exists, belongs to the same brand, and is not expired or
+  dismissed. Any bet failing the check rejects the whole strategy draft
+  (aiInvalid → 502 when AI-drafted; 400 when owner-edited). This mirrors the
+  Phase 5 evidence-first chokepoint exactly — the AI cannot talk its way
+  past it, because enforcement happens after generation, at the write.
 
-## 9. Testing strategy
+## 9. Strategy approval flow and Directive Bus handoff
 
-Node:test suites per unit: scorecard arithmetic, forecast range math +
-insufficient-history refusal, debate cost-guard atomicity, strategy status
-transitions (invalid jumps rejected), bet-evidence chokepoint, self-eval
-aggregation; vitest for label mapping + dark-tab hiding. All three
-validation gates must stay green.
+1. Owner opens the Strategy card. If none exists, they may request a draft:
+   Sage composes bets from existing approved opportunities + Company Truth +
+   Executive Memory (AI, flag-gated; failure → 502; nothing fabricated).
+2. Executive Debate runs (§6); options stored.
+3. Strategy enters `proposed`. The owner **approves, revises, or declines**.
+   Revisions re-validate evidence and constraints; a >25% budget change
+   re-triggers debate (within the monthly cap).
+4. **At approval:** the budget line is validated against Phase 4
+   `brand_constraints` (clamp point 1 — violations block approval with a
+   plain-English explanation, never silently altered).
+5. **Handoff:** approved bets may issue directives **through the existing
+   Phase 5 Directive Bus only** — same tables, same constraint clamp at
+   directive time (clamp point 2), same department-side controls. Phase 6
+   adds no new execution path.
 
-## 10. Risks and mitigations
+## 10. Confirmation: approval remains separate from execution
 
-- **Forecast misread as promise** → ranges + assumptions + "estimated"
-  labels; no forecast below 8 weeks history.
-- **Debate cost creep** → hard monthly cap in code, atomic under advisory
-  lock; skip-gate hash on inputs.
-- **Strategy vs opportunity confusion** → strategy is a container of ≤3 bets
-  linked to existing opportunities; it introduces no second recommendation
-  pipeline.
-- **Self-eval vanity** → misses shown with the same weight as wins;
-  inconclusive is its own honest bucket.
+Approving a strategy **executes nothing**. It records the owner's decision
+and, at most, creates advisory directives on the existing bus. Every
+receiving department (Atlas, Nova, etc.) retains its own approval and
+execution controls, spend limits, and guardrails exactly as built in Phase 5
+and before. No Phase 6 code spends money, publishes, or changes campaigns.
+This is unchanged from the approved Phase 5 principle.
 
-## 11. Recommendation
+## 11. Sage self-evaluation scorecard
 
-Approve this architecture as Phase 6 scope. Estimated shape: one migration,
-four flags, ~4 server utils + controller + routes, two client surfaces,
-no new recurring AI jobs. On approval, implementation proceeds under the
-standard lifecycle with everything dark until your release decision.
+- **Inputs (all real, all existing):** `sage_decisions` (approved /
+  declined / expired), `sage_directives.measured_result`, Phase 3 lead
+  outcomes, and the AI-cost ledger (cost per approved recommendation — the
+  efficiency metric the blueprint tracks from P5).
+- **Computation:** deterministic aggregation in `utils/sageSelfEval.js`;
+  cached per (brand, period) in `sage_self_eval`; recomputable at any time.
+- **Presentation:** owner-facing card in the Sage section: recommendations
+  made / approved / declined; of the approved-and-measured ones — wins,
+  misses, inconclusive; measurement coverage; cost per approved
+  recommendation. Misses render with the same visual weight as wins.
+
+## 12. Wins, misses, inconclusive, and insufficient data — exact handling
+
+| Result class | Definition (deterministic) | Displayed as |
+|---|---|---|
+| **Win** | Measured result met or beat the opportunity's stated success metric within its window | "Worked" |
+| **Miss** | Measured result clearly fell short of the stated metric | "Didn't work" — never hidden or reworded |
+| **Inconclusive** | Measured, but confounded (overlapping changes flagged by Change Diagnostics) or too small to attribute | "Inconclusive" — its own first-class bucket, never counted as a win |
+| **Insufficient data** | Approved but no measurable outcome captured (coverage gap) | "Not yet measurable — N of M approved recommendations had trackable outcomes" |
+
+The scorecard always states its denominator ("measured 4 of 7") — it never
+computes a win rate over only the measurable subset without saying so.
+
+## 13. Database migration plan (`121_sage_v2_phase6.sql`, additive only)
+
+Six new tables, idempotent (`IF NOT EXISTS`), no changes to existing tables:
+
+1. `sage_channel_scorecards` — cache: brand_id, channel, week_start, metrics
+   JSONB, source_row_counts JSONB, computed_at; UNIQUE (brand, channel,
+   week_start).
+2. `sage_forecasts` — brand_id, metric, horizon_weeks, low, expected, high,
+   basis JSONB, computed_at; CHECK (low ≤ expected AND expected ≤ high).
+3. `sage_strategies` — §7 columns; CHECK-constrained status; partial unique
+   index on live status per brand.
+4. `sage_strategy_bet_opportunities` — junction with FKs (§8).
+5. `sage_debates` — brand_id, strategy_id, trigger_event, options JSONB,
+   created_at; index on (brand_id, created_at) for the monthly-cap count.
+6. `sage_self_eval` — brand_id, period, aggregates JSONB (integer counts,
+   cents), computed_at; UNIQUE (brand, period).
+
+Rollback-safe: all tables are new; dropping them (or leaving them dark)
+affects nothing existing. Runner: existing `utils/runMigrations.js`,
+per-file transaction.
+
+## 14. New APIs, services, schedulers, and UI changes
+
+**Server (owner-only, `auth → lockoutCheck → owner guard`, flag-gated):**
+- `GET /api/sage/scorecards?brandId=` — computed scorecards + honesty labels.
+- `GET /api/sage/forecasts?brandId=` — ranges or `{ sufficient: false }`.
+- `GET /api/sage/strategy?brandId=` — current strategy + options_considered.
+- `POST /api/sage/strategy/generate` — draft (AI; 502 on failure).
+- `POST /api/sage/strategy/:id/decide` — approve / revise / decline
+  (atomic status-guarded transitions).
+- `GET /api/sage/self-eval?brandId=` — the scorecard.
+
+**New utils:** `channelScorecards.js`, `sageForecasts.js`,
+`sageStrategy.js` (draft + debate + evidence chokepoint),
+`sageSelfEval.js`. One controller + route additions to the existing Sage
+route group.
+
+**Scheduler:** NO new jobs. The existing nightly `sage-opportunity-
+maintenance` job gets a flag-gated branch to refresh self-eval caches
+(deterministic SQL only, no AI). Debate is event-driven from owner actions.
+
+**Client (`sections/Sage.jsx` + subcomponents):** two new probe-gated
+surfaces inside the existing Sage section — "Channels & Forecasts"
+(scorecard grid + forecast ranges + honest empty states) and "Strategy"
+(Top-3 bets, debate options viewer, approve/revise controls, self-eval
+scorecard). Executive labels remain a pure client mapping. Hidden entirely
+when flags are dark. Client rebuild + sw.js cache bump on ship.
+
+## 15. Feature flags and flags-off behavior (all default OFF)
+
+- `SAGE_V2_SCORECARDS` — scorecards compute + endpoint + UI.
+- `SAGE_V2_FORECASTS` — forecasts compute + endpoint + UI.
+- `SAGE_V2_STRATEGY` — strategy object + debate + endpoints + UI.
+- `SAGE_V2_SELF_EVAL` — self-eval + endpoint + UI.
+
+Flags-off behavior identical to Phase 5's verified dark pattern: endpoints
+answer `{ enabled: false }` (no schema hints, byte-identical dark
+responses), the client probe hides every surface, the scheduler branch
+no-ops, zero AI calls, zero writes. Resolution order: DB override → env →
+default, per the existing flag helper.
+
+## 16. Privacy, ownership, and access controls
+
+- Every route is owner-only for the brand (existing owner-guard pattern) and
+  brand-scoped via `getOwnedBrand(userId, brandId)` — 404 on foreign brands;
+  all mutations join to `brands` on `user_id`.
+- All data is per-brand from the brand's own history. No cross-brand reads
+  anywhere in Phase 6.
+- Sensitive-flagged intel items (Phase 2 redaction rules) keep their
+  owner-only visibility when cited as bet evidence.
+- Demo brands (`is_demo`) are excluded at the data-gathering layer from all
+  scorecard/forecast/self-eval computation, per the standing rule.
+- No new PII is collected or stored; debate prompts use the same redacted
+  context layers as existing Sage AI calls.
+
+## 17. Explainability and audit trail
+
+- **Scorecards:** every number is arithmetic over rows the owner can see;
+  `source_row_counts` shows exactly how much data backed it.
+- **Forecasts:** basis + assumptions stored and displayed; the owner can see
+  *why* the range is what it is.
+- **Debate:** the full option set — including the rejected options and the
+  do-nothing baseline — is stored immutably and permanently visible. This is
+  the direct answer to "why this, what else was considered, what's the risk,
+  what does doing nothing cost."
+- **Strategy:** every status change records who decided and when
+  (`decided_at`, owner note); bets link to their evidence rows; superseded
+  strategies are kept, never deleted.
+- **Self-eval:** the audit trail *of Sage itself* — decisions, results, and
+  costs traceable to the underlying decision/directive/outcome rows.
+
+## 18. Testing and rollback plan
+
+**Testing (all three validation gates must stay green):**
+- node:test — scorecard arithmetic incl. null-not-zero handling; forecast
+  math, band ordering, and the 8-week refusal; debate validation (missing
+  baseline rejected, <3 options rejected, monthly cap atomic under
+  concurrent calls); strategy status transitions (invalid jumps rejected via
+  row-count branching); evidence chokepoint (foreign/expired/dismissed
+  citations rejected); self-eval aggregation incl. denominators and
+  inconclusive bucketing; flags-dark byte-identical responses.
+- vitest — dark surfaces fully hidden; honest empty/insufficient states
+  render; label mapping.
+- Standard AI mocking pattern; no test calls real AI.
+
+**Rollback:** flags OFF restores current behavior instantly (dark = today's
+production behavior, verified byte-identical). Migration is additive-only;
+tables can sit empty indefinitely or be dropped without touching any
+existing feature. Each milestone remains a release candidate and a rollback
+point, per the standing rule.
+
+## 19. Scale and AI-cost safeguards
+
+- **Zero new recurring AI jobs** (blueprint rule W7). The only new AI calls
+  are strategy drafting and debate — both owner-initiated events.
+- Debate hard cap: 2/brand/month, enforced atomically; drafts also pass the
+  input-hash skip gate (unchanged inputs = no call).
+- Scorecards, forecasts, and self-eval are pure SQL + arithmetic —
+  negligible cost at any brand count; caches keep reads cheap.
+- All AI calls go through the existing `createMessage` wrapper (timeout,
+  transient-only retry, 502 mapping) and the AI-cost ledger.
+
+## 20. Architectural conflicts or deviations from the locked blueprint
+
+**One deviation to flag (report-before-change rule):** the blueprint's
+Phase 3 standing rule says outcomes are "measurement-only — no
+recommendation, strategy, or learning behavior may consume them until the
+approved later phase." **Phase 6 is that approved later phase** for two
+consumers: scorecard outcome-coverage labels and the self-eval scorecard
+(both read-only aggregation; still no recommendation *generation* consumes
+outcomes). Approving this document approves that planned lift. No other
+conflicts identified: no existing table changes, no department boundary
+changes (Atlas keeps execution-time optimization), one-weekly-output rule
+preserved.
+
+## 21. Scope confirmations
+
+- **No Phase 7 functionality is included.** No Experiment Engine, no
+  Playbooks, no cross-brand aggregates; the Phase 7 gate (coverage >50%,
+  6 months history, Phase 6 adoption evidence) stands.
+- **Department Collaboration remains post-Phase 6**, per CEO direction of
+  July 19, 2026. Nothing in this phase begins that architecture; the
+  Directive Bus handoff reuses only what Phase 5 already built.
+
+## 22. Final implementation-readiness recommendation
+
+The architecture is implementation-ready: gates satisfied, all inputs exist
+in production schema today, no new data collection, no new recurring AI
+jobs, one additive migration, four dark flags, and every honesty and safety
+invariant carried forward with specific enforcement points named. Estimated
+shape: one migration, four utils, one controller extension, six endpoints,
+two client surfaces, ~no scheduler risk.
+
+**Recommendation: approve this architecture as the locked Phase 6 scope.**
+On your approval, implementation proceeds under the standard lifecycle —
+everything stays dark behind flags until your release decision.
