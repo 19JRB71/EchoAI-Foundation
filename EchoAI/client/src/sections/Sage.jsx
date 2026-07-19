@@ -70,14 +70,18 @@ export default function Sage({ brandId, initialTab }) {
     let alive = true;
     setP5({ opportunities: false, knowledge: false });
     if (!brandId) return undefined;
-    api
-      .listSageOpportunities(brandId)
-      .then((d) => alive && setP5((s) => ({ ...s, opportunities: d?.enabled === true })))
-      .catch(() => {});
-    api
-      .getSageKnowledge(brandId)
-      .then((d) => alive && setP5((s) => ({ ...s, knowledge: d?.enabled === true })))
-      .catch(() => {});
+    if (typeof api.listSageOpportunities === "function") {
+      api
+        .listSageOpportunities(brandId)
+        .then((d) => alive && setP5((s) => ({ ...s, opportunities: d?.enabled === true })))
+        .catch(() => {});
+    }
+    if (typeof api.getSageKnowledge === "function") {
+      api
+        .getSageKnowledge(brandId)
+        .then((d) => alive && setP5((s) => ({ ...s, knowledge: d?.enabled === true })))
+        .catch(() => {});
+    }
     return () => {
       alive = false;
     };
