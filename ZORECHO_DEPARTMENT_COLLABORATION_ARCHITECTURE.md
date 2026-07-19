@@ -1,6 +1,10 @@
 # Zorecho Department Collaboration Architecture
 
-**Status:** DRAFT — awaiting CEO approval. No implementation has begun.
+**Status:** DRAFT v2 — approved in principle by the CEO (July 19, 2026);
+revised to incorporate CEO Additions 1–3 (Department Performance Scorecards,
+Executive Roundtable, Collaboration Philosophy). **Awaiting final approval.
+No implementation has begun — Stage 0 does not start until this revision is
+approved.**
 **Date:** July 19, 2026
 **Scope:** System-wide. This is not a Sage phase. Sage V2 is feature complete
 (bug fixes only). This document defines how every current and future
@@ -30,6 +34,15 @@ standing invariants proven through Sage V2:
    afterthought.
 6. **The owner is the executive.** Departments collaborate to prepare better
    work for the owner's decision — they never form a quorum that replaces it.
+7. **Collaboration Philosophy (CEO Addition 3).** *Every department is
+   responsible not only for performing its own responsibilities well, but
+   also for improving the effectiveness of every other department whenever
+   it possesses information those departments need.* Cooperation is a core
+   architectural behavior, not an optional enhancement — the Collaboration
+   Bus exists to make this principle cheap, auditable, and safe to practice.
+   (Enforcement: the registry topics in §4 and reporting flows in §5 are the
+   concrete expression of this duty; a department that owns information
+   another department needs gets a topic, not an excuse.)
 
 ## 1. The company model
 
@@ -334,7 +347,90 @@ data — the loop itself adds **zero new recurring AI jobs**. (The only
 `generation` topic, `creative.request`, is owner-flow work that would have
 been generated anyway; it is not part of this loop.)
 
-## 12. Rollout plan (each step CEO-gated)
+## 12. Department Performance Scorecards (CEO Addition 1)
+
+Every department gets **deterministic weekly performance metrics** — factual
+measurements computed from the department's own operational data. No AI
+generates, adjusts, or interprets any number. Same discipline as the Sage
+Phase 6 channel scorecards: `null` with a reason code when data doesn't
+exist, never a fabricated zero; source row counts stored with every card.
+
+**Initial metric sets (per CEO direction):**
+
+| Dept | Metrics |
+|---|---|
+| **Forge** | Creative requests completed · average turnaround time · approval rate · owner revision rate · asset reuse percentage |
+| **Atlas** | Campaigns created · budget accuracy · ROAS · strategy compliance · campaign success rate |
+| **Nova** | Posts published · on-time publishing percentage · engagement metrics · strategy alignment · scheduling accuracy |
+| **Pulse** | Follow-ups completed · average response time · appointment conversion rate · lead outcome coverage · CRM completion percentage |
+| **Voice** | Calls handled · appointment booking percentage · customer satisfaction (where available) · new customer objections discovered · escalation rate |
+| **Scout** | New intelligence reports created · intelligence later referenced by other departments · competitor changes detected · research turnaround time |
+| **Sentinel** | Issues detected · false alarm rate · downtime prevented · connection health accuracy |
+| **Vision** | Visual analyses completed · assets improved · visual recommendations adopted |
+| **Echo** | Tasks coordinated · average orchestration time · owner reminders delivered · approval queue efficiency |
+| **Sage** | Opportunities identified · recommendations approved · recommendation success rate · strategy accuracy · forecast accuracy (Sage's existing Phase 6 self-eval **is** this scorecard — reused, not rebuilt) |
+
+**Rules:**
+
+- **Deterministic only.** Every metric is a SQL aggregate over rows the
+  department already writes (posts, campaigns, calls, directives, bus
+  messages). Metrics whose source data doesn't exist yet for a brand
+  (e.g. Voice satisfaction without a survey source, "downtime prevented"
+  without an incident baseline) report `null` + reason code
+  (`no_data_source`) until the source exists — stated honestly in the UI,
+  never estimated.
+- **Denominators always stated** (approval rate = approved of N submitted),
+  per the Phase 6 convention.
+- **For continuous improvement, not autonomous action.** Scorecards are
+  displayed to the owner and available to Sage's self-review as evidence.
+  No code path ranks departments against each other, reallocates work,
+  changes budgets, or triggers any action from a scorecard. They measure;
+  the owner decides.
+- **Mechanics:** one `department_scorecards` cache table (brand, dept, week,
+  metrics JSONB, source_row_counts), computed by a flag-gated branch of the
+  existing nightly maintenance job (`COLLAB_DEPT_SCORECARDS`, OFF), surfaced
+  on each Department View. Zero AI cost.
+
+## 13. Executive Roundtable (CEO Addition 2)
+
+A **structured collaboration pattern — not AI agents freely conversing.**
+When the owner asks a major strategic question ("Should we increase Facebook
+ad spend?"), Echo may initiate a Roundtable:
+
+1. **Owner-initiated only.** A Roundtable starts from an explicit owner
+   question (via Echo). It is never scheduled and never self-triggered.
+2. **Echo selects only the relevant departments** for the question and
+   issues one bus `request` to each — mechanically, a Roundtable is a
+   pre-declared Echo plan (§10 `plan_id`, all requests declared up front,
+   the ≤ N step bound applies). No follow-up rounds, no cross-talk between
+   departments: each participant sees the question, not each other's
+   answers — structurally preventing consensus drift.
+3. **Each department answers only from information it owns** — its registry
+   topics, its stored data, the same honest-empty rules ("Atlas: Facebook
+   isn't connected; I have no campaign data" is a valid, complete answer).
+   Perspective framing may use the department's existing AI voice, but
+   every factual claim must come from owned stored data — the same
+   evidence-first discipline as Sage strategy bets.
+4. **Echo never alters responses.** Echo's summary presents, verbatim-
+   linked to the underlying responses: areas of agreement, areas of
+   disagreement, supporting evidence, risks, and a final recommendation —
+   with every department's full answer one click away in the activity log.
+5. **The owner always makes the final decision.** The Roundtable produces a
+   briefing, not an action. Nothing executes; any resulting work goes
+   through each department's existing approval paths, exactly like every
+   other output in this architecture (§7 disagreement rules apply
+   unchanged — conflicting positions are shown side-by-side, never
+   arbitrated by more AI).
+6. **Cost bounds:** one Roundtable consumes at most one bus request per
+   participant plus one Echo summary call; a per-brand monthly Roundtable
+   cap (same pattern as the Executive Debate cap) keeps costs honest.
+   Flag: `COLLAB_ROUNDTABLE` (OFF), Stage 3.
+
+The Roundtable is the Collaboration Bus's executive showcase: a structured
+review with ownership, evidence, honesty, and approval rules all preserved —
+what a real leadership team does when the CEO asks a hard question.
+
+## 14. Rollout plan (each step CEO-gated)
 
 - **Stage 0 — Foundation (dark):** migration (`department_messages`),
   `collaborationBus.js`, `knowledgeRegistry.js`, expiry-sweep branch, flags
@@ -345,9 +441,13 @@ been generated anyway; it is not part of this loop.)
 - **Stage 1 — Read-only consultation:** flows 1–3 (Forge/Atlas/Nova ask
   before creating). Lowest risk: answers come from stored data; failure mode
   is an honest gap note.
-- **Stage 2 — Reporting:** flows 4–6 (Pulse/Voice/Scout feed Sage) + the
-  Mission Control activity card.
-- **Stage 3 — Echo orchestration:** routing, sequencing, alert unification.
+- **Stage 2 — Reporting & measurement:** flows 4–6 (Pulse/Voice/Scout feed
+  Sage), the Mission Control activity card, and the **Department Performance
+  Scorecards** (§12, `COLLAB_DEPT_SCORECARDS`) — deterministic, so lowest
+  risk once the bus data exists to measure.
+- **Stage 3 — Echo orchestration:** routing, sequencing, alert unification,
+  and the **Executive Roundtable** (§13, `COLLAB_ROUNDTABLE`) — it depends
+  on Echo's plan mechanics and the consultation flows being proven.
 - **Stage 4 — Customer testing:** enable Sage V2 flags + collaboration for
   **one real business**, watch the traffic in the activity view, refine,
   expand gradually — per the CEO's release plan.
@@ -355,7 +455,7 @@ been generated anyway; it is not part of this loop.)
 Each stage ends with tests, architect review, and a completion report before
 the next begins. No stage starts without approval of this document.
 
-## 13. Explicitly out of scope
+## 15. Explicitly out of scope
 
 - Any change to Sage V2 behavior (feature-frozen; bug fixes only).
 - Phase 7 (Experiment Engine / Playbooks) — still gated on its own criteria.
@@ -364,7 +464,7 @@ the next begins. No stage starts without approval of this document.
 - Any new execution path, spend path, or approval bypass — permanently out
   of scope by principle §0.2.
 
-## 14. What makes this a defining advantage
+## 16. What makes this a defining advantage
 
 Most multi-agent platforms have agents that share a codebase but not an
 organization. This design gives Zorecho what companies have: **defined

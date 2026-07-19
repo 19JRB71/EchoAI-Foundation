@@ -1,0 +1,148 @@
+Prompt for Replit
+
+The Department Collaboration Architecture is approved in principle, with the following additions to be incorporated into the architecture document before implementation begins.
+
+Do not begin Stage 0 implementation until these additions have been integrated into the architecture and the updated document has been presented for final approval.
+
+Addition 1 — Department Performance Scorecards
+
+Add a new section titled:
+
+Department Performance Scorecards
+
+Every department should have deterministic weekly performance metrics. These are not AI-generated evaluations—they are factual measurements based on the department's own work.
+
+Initial scorecards:
+
+Forge
+
+Creative requests completed
+Average turnaround time
+Approval rate
+Owner revision rate
+Asset reuse percentage
+
+Atlas
+
+Campaigns created
+Budget accuracy
+ROAS
+Strategy compliance
+Campaign success rate
+
+Nova
+
+Posts published
+On-time publishing percentage
+Engagement metrics
+Strategy alignment
+Scheduling accuracy
+
+Pulse
+
+Follow-ups completed
+Average response time
+Appointment conversion rate
+Lead outcome coverage
+CRM completion percentage
+
+Voice
+
+Calls handled
+Appointment booking percentage
+Customer satisfaction metrics (where available)
+New customer objections discovered
+Escalation rate
+
+Scout
+
+New intelligence reports created
+Intelligence later referenced by other departments
+Competitor changes detected
+Research turnaround time
+
+Sentinel
+
+Issues detected
+False alarm rate
+Downtime prevented
+Connection health accuracy
+
+Vision
+
+Visual analyses completed
+Assets improved
+Visual recommendations adopted
+
+Echo
+
+Tasks coordinated
+Average orchestration time
+Owner reminders delivered
+Approval queue efficiency
+
+Sage
+
+Opportunities identified
+Recommendations approved
+Recommendation success rate
+Strategy accuracy
+Forecast accuracy
+
+These scorecards should be deterministic and derived only from factual operational data. They are intended for continuous improvement, not autonomous ranking or decision-making.
+
+Addition 2 — Executive Roundtable
+
+Add a new architectural section titled:
+
+Executive Roundtable
+
+This is a structured collaboration pattern, not AI agents freely conversing.
+
+When the owner asks a major strategic question (for example, "Should we increase Facebook ad spend?"), Echo may initiate a structured Executive Roundtable.
+
+Echo requests input from only the departments relevant to the decision.
+
+Example:
+
+Sage → Strategic recommendation
+Atlas → Advertising perspective
+Pulse → Lead quality and sales impact
+Scout → Competitive intelligence
+Nova → Social implications
+Forge → Creative considerations
+
+Each department responds only from information it owns.
+
+Echo never alters responses.
+
+Echo simply summarizes:
+
+Areas of agreement
+Areas of disagreement
+Supporting evidence
+Risks
+Final recommendation
+
+The owner always makes the final decision.
+
+This is not an AI discussion or consensus engine. It is a structured executive review conducted through the Collaboration Bus with all existing approval, ownership, evidence, and honesty rules preserved.
+
+Addition 3 — Collaboration Philosophy
+
+Add the following principle to the architecture:
+
+Every department is responsible not only for performing its own responsibilities well, but also for improving the effectiveness of every other department whenever it possesses information those departments need.
+
+This principle reinforces the purpose of the Collaboration Bus and establishes cooperation as a core architectural behavior rather than an optional enhancement.
+
+Next Steps
+
+After incorporating these additions:
+
+Update the Department Collaboration Architecture document.
+Verify that these additions do not conflict with any existing architectural principles.
+Present the revised architecture for one final review.
+Do not begin Stage 0 implementation until final approval is received.
+
+Once approved, implementation should proceed under the existing milestone workflow with all collaboration feature flags remaining OFF until testing is complete.
