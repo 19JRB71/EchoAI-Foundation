@@ -450,3 +450,9 @@ id = "PHRzrPyJE8LpAtxvR8Fdd"
 uri = "file://SAGE_V2_PHASE6_COMPLETION_REPORT.md"
 type = "text"
 title = "Sage V2 Phase 6 — Completion Report (Final, for CEO Approval)"
+
+[[outputs]]
+id = "NFReBw0niMLYvTFrOI7Vc"
+uri = "file://ZORECHO_DEPARTMENT_COLLABORATION_ARCHITECTURE.md"
+type = "text"
+title = "Zorecho Department Collaboration Architecture (DRAFT — for CEO Approval)"
