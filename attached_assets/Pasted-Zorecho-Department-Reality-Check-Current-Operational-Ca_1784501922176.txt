@@ -1,0 +1,353 @@
+Zorecho Department Reality Check
+Current Operational Capability Audit
+Before beginning another implementation milestone, I need to verify what Zorecho can actually do today.
+This is not a request for new features.
+Do not write code yet.
+Do not redesign anything.
+Do not assume a function works simply because routes, screens, prompts, or database tables exist.
+I need an evidence-based audit showing whether each department can perform its real job from beginning to end.
+The immediate business priority is determining whether I can begin using Zorecho on my own businesses this week.
+Central Question
+Can I connect my real business accounts right now and use Zorecho to:
+Publish real social-media posts.
+Create and operate real Facebook advertising.
+Receive and organize real leads in the CRM.
+Answer real phone calls using Twilio and the Voice Agent.
+Read and respond to real business emails.
+Separate genuine customer emails from spam, promotions, and unrelated messages.
+Track each customer interaction through the appropriate department.
+I need the answer based on the current deployed architecture and integrations—not based on what is planned.
+
+Part 1 — Current Environment
+Explain precisely where Zorecho currently runs.
+Include:
+Replit development environment
+GitHub repository
+Railway production deployment
+Current public URL
+Current database being used
+Whether the Railway application is operational
+Whether real OAuth callbacks currently point to Railway, Replit, or somewhere else
+Whether I can safely connect real business accounts today
+What “not live” currently means in practical terms
+Answer this directly:
+Can Zorecho currently interact with real Facebook pages, ad accounts, emails, phone numbers, and leads even though it has not been publicly launched?
+Separate these situations clearly:
+Technically available
+Available only in development
+Available on Railway
+Requires account configuration
+Requires provider approval
+Partially implemented
+Mocked or simulated
+Not implemented
+Present in the UI but not operational
+
+Part 2 — Facebook Organic Posting
+Audit the complete Facebook publishing workflow.
+Verify:
+Facebook login and OAuth
+Required Meta permissions
+Page selection
+Token storage
+Token refresh or expiration handling
+Business and brand ownership checks
+Creating a post
+Adding an image
+Scheduling a post
+Publishing immediately
+Confirming successful publication
+Retrieving the Facebook post ID
+Recording success or failure in Zorecho
+Retry behavior
+Failed-post notification
+Whether Nova and Forge are connected to this real workflow
+Whether approval is required before publication
+Whether Autopilot can currently publish without manual intervention
+Do not tell me that the code appears correct.
+Tell me whether a real post has been successfully published through the current system and provide the evidence available in logs, database records, tests, or provider responses.
+If it has not been proven with a real post, say that clearly.
+
+Part 3 — Facebook and Meta Advertising
+Audit the full advertising workflow.
+Verify whether Zorecho can currently:
+Connect a real Meta Business account
+Select the correct ad account
+Read existing campaigns
+Create a campaign
+Create an ad set
+Select audience, location, age, budget, and schedule
+Upload or select creative
+Create the ad
+Submit it to Meta
+Detect Meta approval or rejection
+Pause and resume campaigns
+Read campaign spending
+Read leads and results
+Calculate performance
+Apply spending limits
+Require my approval before money is spent
+Prevent duplicate campaigns
+Record every external Meta ID
+Report failures honestly
+Answer specifically:
+Could I safely create and run a small real Facebook campaign for one of my own businesses this week using the present system?
+If yes, provide the exact test procedure and the safest minimum budget.
+If no, identify every blocker and categorize each one as:
+Configuration
+Missing permissions
+Meta approval
+Missing code
+Incomplete workflow
+Untested behavior
+Security concern
+Do not create or launch an advertisement during this audit.
+
+Part 4 — CRM Lead Flow
+Trace a real lead from beginning to end.
+Cover these possible sources:
+Facebook lead form
+Facebook Messenger
+Website form
+Incoming phone call
+SMS
+Email
+Manual entry
+Advertising campaign
+For every source, verify:
+How the lead enters Zorecho.
+Which webhook or endpoint receives it.
+How duplicates are detected.
+How the lead is assigned to the proper brand.
+Which department receives responsibility.
+How the lead appears in the CRM.
+Whether the source and campaign are recorded.
+Whether conversation history is attached.
+Whether a follow-up task is created.
+Whether the lead can move through stages.
+Whether missed or failed lead ingestion is reported.
+I need to be able to open the CRM, click the lead, and verify:
+Who the person is
+Where the lead came from
+What they asked
+What Zorecho said
+What action is required
+Which employee or department is responsible
+Whether follow-up occurred
+The final outcome
+Identify any point where this chain currently breaks.
+
+Part 5 — CRM Lead Categories
+The current categories are:
+Hot
+Warm
+Tire Kicker
+“Tire Kicker” is not professional enough for a customer-facing CRM.
+Review every place where these categories are used:
+Database
+Backend logic
+Frontend display
+Filters
+Reports
+Automations
+Prompts
+Lead scoring
+Notifications
+Analytics
+For planning purposes, evaluate replacing them with:
+Priority — strong buying intent and immediate follow-up needed
+Engaged — genuine interest but additional conversation or qualification needed
+Nurture — early-stage or low-immediacy lead that should remain in follow-up
+Spam, fake leads, duplicates, and genuinely unqualified contacts should not be placed in the Nurture category. They should have a separate disposition such as:
+Spam
+Duplicate
+Not Qualified
+Closed Lost
+Do not make this change yet.
+Explain the migration impact and recommend the most professional three-tier naming system.
+
+Part 6 — Twilio and Voice Agent
+Audit what is required for me to connect my Twilio account and let Zorecho answer real business calls.
+Verify:
+Twilio account credentials
+Phone-number setup
+Incoming-call webhook
+Public webhook URL
+Call routing
+Voice Agent startup
+Speech-to-text provider
+Text-to-speech provider
+Conversation reasoning
+Business knowledge access
+Caller identification
+Lead creation
+Call transcription
+Recording consent requirements
+Appointment booking
+Human transfer
+Voicemail handling
+After-hours handling
+Failed-call handling
+Call summary
+CRM attachment
+Cost tracking
+Emergency shutdown switch
+Explain exactly what I must configure inside Twilio.
+Provide a step-by-step setup checklist, but do not connect or purchase anything during the audit.
+Answer:
+If I connect a Twilio number today, can Zorecho reliably answer a real customer call?
+Separate:
+The telephone connection
+The Voice Agent conversation
+Voice recognition accuracy
+CRM lead creation
+Transfer and escalation
+Appointment booking
+I already know Echo’s general voice recognition may still need refinement. Do not allow that issue to distract from verifying whether the Voice Agent’s core telephone workflow exists and functions.
+
+Part 7 — Email Assistant
+Audit the real email workflow.
+Verify whether Zorecho can currently:
+Connect Gmail or another supported mailbox
+Read incoming messages
+Identify the correct business and brand
+Distinguish customers from spam
+Distinguish leads from vendors
+Detect promotions and automated notifications
+Identify urgent customer messages
+Identify existing CRM contacts
+Create new CRM leads when appropriate
+Draft replies
+Require approval
+Send approved replies
+Attach the email thread to the CRM
+Avoid replying to no-reply addresses
+Avoid replying to spam
+Avoid duplicate replies
+Escalate uncertain messages instead of guessing
+Record what was sent and why
+Explain what classification logic exists today.
+Identify whether classification is:
+Deterministic rules
+AI classification
+Gmail category data
+Sender reputation
+CRM matching
+Keyword-based
+A combination
+Answer:
+Can I safely connect a real business mailbox today without Zorecho accidentally responding to spam or unrelated email?
+If the answer is not an unqualified yes, clearly state the safeguards that are missing.
+
+Part 8 — Department-by-Department Reality Matrix
+Audit every Zorecho department:
+Echo
+Sage
+Scout
+Atlas
+Nova
+Forge
+Pulse
+Voice
+Sentinel
+Vision
+For each one provide a table containing:
+Promised responsibility
+What it actually does today
+Real external systems it can access
+Real actions it can take
+Inputs it requires
+Outputs it creates
+Scheduled jobs
+Feature flags
+Approval requirements
+Known bugs
+Untested paths
+Current limitations
+Evidence that it has completed real work
+Status
+Use these status labels only:
+Operational
+Operational with configuration
+Partially operational
+Built but unproven
+UI only
+Not implemented
+Blocked by external approval
+Do not give a department an Operational status merely because automated tests pass.
+Operational means it has completed its intended real-world workflow successfully.
+
+Part 9 — This Week’s Live Testing Plan
+Create a safe, ordered testing plan for this coming week.
+The preferred sequence is:
+Connect one real business brand.
+Verify Facebook organic posting.
+Publish one approved real post.
+Verify Meta advertising access.
+Run one small controlled ad only after my approval.
+Submit a test lead.
+Trace the lead through the CRM.
+Test follow-up and lead status.
+Connect a Twilio test number.
+Place controlled incoming calls.
+Verify CRM creation and call summaries.
+Connect one controlled email inbox.
+Send customer, vendor, spam, promotional, and no-reply test messages.
+Verify classification and response safeguards.
+Review every department individually.
+For every test include:
+Preconditions
+Exact steps
+Expected result
+Evidence to capture
+Cost or risk
+Stop condition
+Rollback or disconnect procedure
+No real advertising spend, customer messaging, autonomous email response, or live call handling should begin without my explicit approval.
+
+Required Deliverable
+Create:
+ZORECHO_CURRENT_OPERATIONAL_CAPABILITY_AUDIT.md
+It must include:
+Executive summary
+Direct yes/no answers to the major questions
+Environment and deployment truth
+Facebook posting audit
+Facebook advertising audit
+CRM lead-flow audit
+CRM category recommendation
+Twilio and Voice Agent audit
+Email Assistant audit
+Department reality matrix
+Current blockers
+Configuration requirements
+Safe testing plan for this week
+Recommended order of correction
+Clear distinction between bugs, configuration, unfinished implementation, and untested functionality
+Rules
+No code.
+No deployment changes.
+No feature additions.
+No provider connections.
+No advertising spend.
+No assumptions.
+Inspect the real code, routes, database, feature flags, environment-variable requirements, logs, and tests.
+If something has never completed a real external workflow, label it Built but unproven.
+Wait for CEO approval after presenting the report.
+
+For the CRM, my strongest recommendation is:
+Lead priority
+Priority
+Engaged
+Nurture
+Lead disposition
+New
+Contacted
+Appointment Set
+Qualified
+Closed Won
+Closed Lost
+Not Qualified
+Spam
+Duplicate
+That separates how valuable or urgent the lead appears from what has actually happened to the lead. Right now, “Hot, Warm, Tire Kicker” mixes judgment with workflow. A lead could be Priority but already contacted, or Nurture but later become qualified. Keeping priority and disposition separate will give Pulse and Echo much cleaner information to work with. 
