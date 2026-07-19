@@ -444,3 +444,9 @@ id = "bkgkAkObkBo5szTAsUGtd"
 uri = "file://screenshots/roi-estimated-labels.png"
 type = "image"
 title = "Advanced ROI: ESTIMATED badges on modeled figures"
+
+[[outputs]]
+id = "PHRzrPyJE8LpAtxvR8Fdd"
+uri = "file://SAGE_V2_PHASE6_COMPLETION_REPORT.md"
+type = "text"
+title = "Sage V2 Phase 6 — Completion Report (Final, for CEO Approval)"
