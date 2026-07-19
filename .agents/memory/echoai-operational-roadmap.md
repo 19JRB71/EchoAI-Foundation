@@ -9,6 +9,10 @@ description: Governing operational document + CEO validation cadence rules that 
 
 **Customer Value Created:** every roadmap phase (and by extension, future phase-level planning docs) must include a non-technical "Customer Value Created" section (experience, problem solved, why care, trust, retention, measurement).
 
+**Milestone process (CEO-approved order):** Architecture review → Implementation → Testing → Architect self-review → Completion report → CEO approval → CEO Operational Validation. If a validation failure is caused solely by tooling/workflow/task-tracking (not the code under review), the completion report must explicitly classify it as a **Non-Engineering Validation Exception** (CEO refinement, July 19 2026).
+
+**Phase 4 (Staging Environment) status:** engineering approved by CEO July 19 2026; remaining work is operational and CEO-owned (staging branch, Railway staging service + Postgres, vars per `EchoAI/STAGING_ENV.md`, live smoke pass). Only after that is Phase 4 marked complete in the roadmap; next is planning Department Collaboration Stage 1. Implementation is frozen unless a genuine defect surfaces during Railway deployment.
+
 **Why:** CEO directive to shift from governance-writing to execution; he explicitly said to stop creating new planning documents and revise existing ones only when completed milestones give a concrete reason.
 
 **How to apply:** Don't propose new governance/architecture documents unprompted. Before starting any implementation milestone, check the roadmap's order and confirm CEO approval; after completing one, expect the validation week rather than immediately starting the next build.
