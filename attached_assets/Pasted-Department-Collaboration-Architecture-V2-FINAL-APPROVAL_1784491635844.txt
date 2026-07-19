@@ -1,0 +1,47 @@
+Department Collaboration Architecture V2 — FINAL APPROVAL
+
+The revised Department Collaboration Architecture (DRAFT v2) is approved.
+
+The additions have been integrated correctly and remain consistent with the Engineering Constitution, the Sage V2 architecture, and the overall Zorecho design philosophy. The architecture preserves owner authority, deterministic behavior, evidence-based decision making, structural cost controls, and the existing approval model while establishing a unified collaboration framework for every department.
+
+Approved Actions
+Change the document status from DRAFT v2 to APPROVED.
+Update MILESTONES.md to record the Department Collaboration Architecture as approved.
+Push all approved documentation to GitHub:
+Department Collaboration Architecture
+Sage Phase 6 Completion Report
+Updated MILESTONES.md
+Begin Stage 0 (Dark Implementation) only.
+Keep every collaboration feature flag OFF throughout Stage 0 development.
+Follow the approved architecture exactly. Any architectural changes must return for approval before implementation.
+Stage 0 Scope
+
+Stage 0 is limited to:
+
+Collaboration Bus foundation
+department_messages migration
+collaborationBus.js
+Knowledge Registry
+Expiry sweep integration
+Collaboration feature flags
+Complete automated testing
+Architect review
+Stage 0 Completion Report
+
+Do not begin Stage 1.
+
+Stage Gates
+
+After Stage 0 is complete:
+
+Perform a full architect review.
+Run complete validation and testing.
+Submit the Stage 0 Completion Report.
+Wait for approval before beginning Stage 1.
+Git Reminder
+
+Before beginning Stage 0, push the approved documentation and milestone updates to GitHub so the approved architecture becomes the permanent baseline for future development.
+
+I also want to say something outside of the approval itself.
+
+Over the past couple of weeks, the project has shifted from "building AI agents" to "building an AI company." That's a meaningful architectural change. Sage is no longer just an analytics component, and Echo is no longer just a voice assistant. With this collaboration model, you've defined how the entire organization communicates, shares knowledge, and stays accountable. That gives future development a consistent framework instead of adding one-off integrations.

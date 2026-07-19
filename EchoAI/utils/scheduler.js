@@ -631,6 +631,15 @@ async function runSageOpportunityMaintenance() {
   } catch (err) {
     console.error("Sage self-eval cache refresh failed:", err.message);
   }
+  // Collab Stage 0: bus maintenance (expire overdue requests, rescue stale
+  // claims, purge past 180-day retention). runBusMaintenance no-ops while
+  // COLLAB_BUS is dark. Guarded so a failure never blocks the other halves.
+  try {
+    const { runBusMaintenance } = require("./collaborationBus");
+    await runBusMaintenance();
+  } catch (err) {
+    console.error("Collaboration bus maintenance failed:", err.message);
+  }
 }
 
 /**

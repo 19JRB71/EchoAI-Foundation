@@ -49,6 +49,16 @@ const SWITCH_DEFAULTS = {
   SAGE_V2_FORECASTS: false, // Sage V2 P6: honest range forecasts from own history (≥8 weeks; dark until enabled)
   SAGE_V2_STRATEGY: false, // Sage V2 P6: Top-3-bets strategy + Executive Debate (owner-initiated AI; dark until enabled)
   SAGE_V2_SELF_EVAL: false, // Sage V2 P6: Sage self-evaluation scorecard (deterministic; dark until enabled)
+  COLLAB_BUS: false, // Collab Stage 0: department_messages bus chokepoint (all bus entry points no-op while dark)
+  COLLAB_ACTIVITY_VIEW: false, // Collab Stage 2: owner-facing Department Activity view (dark until enabled)
+  COLLAB_FORGE_SAGE: false, // Collab Stage 1 flow: Forge consults Sage strategy before creative (dark)
+  COLLAB_ATLAS_INTEL: false, // Collab Stage 1 flow: Atlas reads Scout competitor intel before campaigns (dark)
+  COLLAB_NOVA_STRATEGY: false, // Collab Stage 1 flow: Nova aligns content with Sage strategy (dark)
+  COLLAB_PULSE_REPORTS: false, // Collab Stage 1 flow: Pulse lead-outcome reports to Sage (dark)
+  COLLAB_VOICE_INSIGHTS: false, // Collab Stage 1 flow: Voice customer-language insights to Nova/Forge (dark)
+  COLLAB_SCOUT_ENRICH: false, // Collab Stage 1 flow: Scout enrichment on demand (dark)
+  COLLAB_DEPT_SCORECARDS: false, // Collab Stage 2 (CEO Addition 1): deterministic department scorecards (dark)
+  COLLAB_ROUNDTABLE: false, // Collab Stage 3 (CEO Addition 2): owner-initiated Executive Roundtable (dark)
   ANTHROPIC_CONTENT_ENABLED: true, // Anthropic (Claude) calls
 };
 
