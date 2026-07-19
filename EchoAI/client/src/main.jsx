@@ -9,6 +9,7 @@ import HeroPreviewPage from "./landing/HeroPreviewPage.jsx";
 import { BrandingProvider } from "./lib/BrandingContext.jsx";
 import { registerServiceWorker } from "./push.js";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import EnvironmentBanner from "./components/EnvironmentBanner.jsx";
 // Zorecho design language: self-hosted Inter (no external font requests).
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
@@ -25,6 +26,7 @@ createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
     <BrandingProvider>
+      <EnvironmentBanner />
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           {/* Public marketing site at the root URL. */}

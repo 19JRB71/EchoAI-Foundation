@@ -10,6 +10,7 @@ const path = require("path");
 const fs = require("fs");
 
 const { validateEnv } = require("./config/env");
+const { ENVIRONMENT, DEPLOY_VERSION } = require("./config/environment");
 const { pool } = require("./config/db");
 
 // Validate the environment before anything else. Missing critical vars (DB,
@@ -100,6 +101,16 @@ const IS_PROD = process.env.NODE_ENV === "production";
 // Trust the Replit reverse proxy so secure cookies / req.protocol reflect HTTPS
 // and rate-limit / logging see the real client IP via X-Forwarded-For.
 app.set("trust proxy", 1);
+
+// Non-production environments (staging, development) must never be indexed by
+// search engines. Applied globally so the SPA, uploads, and API responses all
+// carry the header. Production is untouched.
+if (ENVIRONMENT !== "production") {
+  app.use((req, res, next) => {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    next();
+  });
+}
 
 // Request logging: see every request hitting the server. Concise in production,
 // colored/dev format locally.
@@ -237,6 +248,8 @@ app.get("/api/health", (req, res) => {
     name: "Zorecho",
     status: "ok",
     message: "Zorecho API is running",
+    environment: ENVIRONMENT,
+    version: DEPLOY_VERSION || undefined,
   });
 });
 
