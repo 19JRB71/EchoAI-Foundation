@@ -497,6 +497,29 @@ export const api = {
     request(`/api/sage/change-diagnostics?brandId=${encodeURIComponent(brandId)}`),
   getSageKnowledge: (brandId) =>
     request(`/api/sage/knowledge?brandId=${encodeURIComponent(brandId)}`),
+  // Sage V2 Phase 6 — channel scorecards, honest forecasts, Top-3-bets
+  // strategy + Executive Debate, self-eval. All flag-gated server-side
+  // ({ enabled:false } when dark → the UI hides the tabs entirely).
+  getSageScorecards: (brandId) =>
+    request(`/api/sage/scorecards?brandId=${encodeURIComponent(brandId)}`),
+  getSageForecasts: (brandId) =>
+    request(`/api/sage/forecasts?brandId=${encodeURIComponent(brandId)}`),
+  getSageStrategy: (brandId) =>
+    request(`/api/sage/strategy?brandId=${encodeURIComponent(brandId)}`),
+  generateSageStrategy: (brandId, triggerEvent) =>
+    request(`/api/sage/strategy/generate`, {
+      method: "POST",
+      body: { brandId, triggerEvent },
+    }),
+  decideSageStrategy: (brandId, id, action, payload = {}) =>
+    request(`/api/sage/strategy/${id}/decide`, {
+      method: "POST",
+      body: { brandId, action, ...payload },
+    }),
+  getSageSelfEval: (brandId, period = "90d") =>
+    request(
+      `/api/sage/self-eval?brandId=${encodeURIComponent(brandId)}&period=${encodeURIComponent(period)}`,
+    ),
   // Authenticated JSON download of everything Sage knows ("my data, readable").
   downloadSageKnowledge: async (brandId) => {
     const token = getToken();

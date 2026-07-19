@@ -1,6 +1,9 @@
 # Sage V2 — Phase 6 Architecture Review (Milestone 6)
 
-**Status: PROPOSED — awaiting CEO review and approval. No implementation has begun.**
+**Status: APPROVED by CEO July 19, 2026 — with one refinement (bet structure, §7): each
+bet carries Objective, Expected timeframe, Primary KPI, Success threshold, and an
+Automatic review date, forming the objective basis for self-evaluation and outcome
+measurement.**
 **Blueprint of record:** `SAGE_V2_CHALLENGE_REVIEW.md` Part 4 (revised phase plan).
 **Gate check:** Phase 6 gates on Phases 3 and 5. Phase 3 (outcome capture,
 approved July 17, 2026) and Phase 5 (opportunity queue, Directive Bus, Change
@@ -160,8 +163,16 @@ coverage.
 
 One record per brand in `sage_strategies`:
 
-- **bets** — up to 3, each `{ title, thesis, success_metric,
-  opportunity_refs }` (refs resolved through the junction table, §8).
+- **bets** — up to 3, each (CEO refinement, July 19, 2026):
+  `{ title, thesis, objective, expected_timeframe, primary_kpi,
+  success_threshold, review_date, opportunity_refs }` — objective = what the
+  bet is trying to achieve in plain English; expected_timeframe = when
+  results should show; primary_kpi = the ONE metric that judges it;
+  success_threshold = the concrete pass/fail line on that KPI;
+  review_date = automatic date when Sage re-examines the bet against its
+  threshold (feeds self-eval win/miss classification). All five fields are
+  REQUIRED — the write chokepoint rejects any bet missing one (refs resolved
+  through the junction table, §8).
 - **budget_line** — a single plain-English budget allocation statement plus
   structured per-channel amounts (integer cents, house rule).
 - **options_considered** — the Executive Debate output (§6), write-once.
@@ -394,3 +405,31 @@ two client surfaces, ~no scheduler risk.
 **Recommendation: approve this architecture as the locked Phase 6 scope.**
 On your approval, implementation proceeds under the standard lifecycle —
 everything stays dark behind flags until your release decision.
+
+---
+
+## 23. As-built notes (July 19, 2026)
+
+Implemented exactly per the locked scope, with these clarifications:
+
+- **Migration**: `EchoAI/models/121_sage_v2_phase6.sql` — 6 tables + 4 flags
+  (all default OFF). Dark endpoints answer `{ enabled: false }`.
+- **CEO refinement enforced**: every bet requires `objective`,
+  `expected_timeframe`, `primary_kpi`, `success_threshold`, `review_date`;
+  the validator + evidence chokepoint reject drafts and revisions missing any.
+- **Draft concurrency (hardened post-review)**: the live-strategy check and
+  monthly debate cap both run under the per-brand advisory lock BEFORE the AI
+  call; the check is repeated under the lock inside the write transaction
+  (the AI call runs unlocked), and a unique-index collision is mapped to the
+  same honest 409 `live_strategy_exists` — never a raw 500, never wasted spend
+  persisted.
+- **Honesty fix found by tests**: `channelScorecards` originally fabricated a
+  0 for NULL numerics (`Number(null) === 0`); now null-guarded — missing data
+  reports as null with a reason.
+- **Client**: two probe-gated tabs in `Sage.jsx` — Channels & Forecasts
+  (honest empty states, "won't guess" forecast messaging, demo-excluded
+  notice) and Strategy (Top-3 bets, debate viewer, approve / revise inline
+  editor / decline, self-eval scorecard with stated denominators).
+- **Validation**: server 909/909, Phase 6 suite 29/29, client 372/372,
+  client build clean. Architect review findings (field-binding mismatches,
+  missing revise UI, draft race) all fixed.

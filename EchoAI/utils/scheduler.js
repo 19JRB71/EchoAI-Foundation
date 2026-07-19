@@ -623,6 +623,14 @@ async function runSageOpportunityMaintenance() {
       console.error("Sage opportunity expiry sweep failed:", err.message);
     }
   }
+  // Sage V2 P6: refresh self-eval caches (deterministic SQL only, zero AI).
+  // refreshSelfEvalCaches no-ops when SAGE_V2_SELF_EVAL is dark.
+  try {
+    const { refreshSelfEvalCaches } = require("./sageSelfEval");
+    await refreshSelfEvalCaches();
+  } catch (err) {
+    console.error("Sage self-eval cache refresh failed:", err.message);
+  }
 }
 
 /**

@@ -45,6 +45,10 @@ const SWITCH_DEFAULTS = {
   SAGE_V2_DIRECTIVES: false, // Sage V2 P5: Directive Bus handoffs + nightly measurement join (dark until enabled)
   SAGE_V2_CHANGE_DIAGNOSTICS: false, // Sage V2 P5: deterministic week-over-week decomposition + briefing "what changed" (dark until enabled)
   SAGE_V2_KNOWLEDGE_PAGE: false, // Sage V2 P5: "What Sage knows" page + export (dark until enabled)
+  SAGE_V2_SCORECARDS: false, // Sage V2 P6: deterministic channel scorecards (compute + endpoint + UI; dark until enabled)
+  SAGE_V2_FORECASTS: false, // Sage V2 P6: honest range forecasts from own history (≥8 weeks; dark until enabled)
+  SAGE_V2_STRATEGY: false, // Sage V2 P6: Top-3-bets strategy + Executive Debate (owner-initiated AI; dark until enabled)
+  SAGE_V2_SELF_EVAL: false, // Sage V2 P6: Sage self-evaluation scorecard (deterministic; dark until enabled)
   ANTHROPIC_CONTENT_ENABLED: true, // Anthropic (Claude) calls
 };
 

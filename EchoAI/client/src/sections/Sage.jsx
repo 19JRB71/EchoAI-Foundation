@@ -61,6 +61,8 @@ export default function Sage({ brandId, initialTab }) {
   // Sage V2 P5 tabs appear only when the server says the flags are on
   // ({ enabled:false } when dark → tabs hidden entirely).
   const [p5, setP5] = useState({ opportunities: false, knowledge: false });
+  // Sage V2 P6 surfaces, same probe pattern (flags dark → hidden entirely).
+  const [p6, setP6] = useState({ channels: false, strategy: false });
 
   useEffect(() => {
     if (initialTab) setTab(initialTab);
@@ -80,6 +82,21 @@ export default function Sage({ brandId, initialTab }) {
       api
         .getSageKnowledge(brandId)
         .then((d) => alive && setP5((s) => ({ ...s, knowledge: d?.enabled === true })))
+        .catch(() => {});
+    }
+    setP6({ channels: false, strategy: false });
+    if (typeof api.getSageScorecards === "function") {
+      api
+        .getSageScorecards(brandId)
+        .then((d) => alive && d?.enabled === true && setP6((s) => ({ ...s, channels: true })))
+        .catch(() => {});
+      api
+        .getSageForecasts(brandId)
+        .then((d) => alive && d?.enabled === true && setP6((s) => ({ ...s, channels: true })))
+        .catch(() => {});
+      api
+        .getSageStrategy(brandId)
+        .then((d) => alive && d?.enabled === true && setP6((s) => ({ ...s, strategy: true })))
         .catch(() => {});
     }
     return () => {
@@ -123,6 +140,8 @@ export default function Sage({ brandId, initialTab }) {
         {[
           ...TABS,
           ...(p5.opportunities ? [{ key: "opportunities", label: "Opportunities" }] : []),
+          ...(p6.channels ? [{ key: "channels", label: "Channels & Forecasts" }] : []),
+          ...(p6.strategy ? [{ key: "strategy", label: "Strategy" }] : []),
           ...(p5.knowledge ? [{ key: "knowledge", label: "What Sage Knows" }] : []),
         ].map((t) => (
           <button
@@ -148,6 +167,8 @@ export default function Sage({ brandId, initialTab }) {
       {tab === "patterns" && <PatternsTab brandId={brandId} />}
       {tab === "input" && <InputTab brandId={brandId} />}
       {tab === "opportunities" && p5.opportunities && <OpportunitiesTab brandId={brandId} />}
+      {tab === "channels" && p6.channels && <ChannelsForecastsTab brandId={brandId} />}
+      {tab === "strategy" && p6.strategy && <StrategyTab brandId={brandId} />}
       {tab === "knowledge" && p5.knowledge && <KnowledgeTab brandId={brandId} />}
     </div>
   );
@@ -2266,6 +2287,548 @@ function SageV2Extras({ brandId }) {
           {(briefing.sections || []).some((s) => !s.available) && (
             <p className="mt-4 text-xs text-gray-600">{weekly.copy?.unavailableNote}</p>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------- Sage V2 P6 — Channels & Forecasts --------------------- */
+// Deterministic scorecards + honest forecast ranges. Every metric that can't
+// be computed is null with a reason — rendered as an honest label, never 0.
+
+function metricVal(v, suffix = "") {
+  if (v == null) return null;
+  return `${typeof v === "number" ? v.toLocaleString() : v}${suffix}`;
+}
+
+function HonestMetric({ label, value, reason, prefix = "" }) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+      {value != null ? (
+        <p className="text-lg font-semibold text-gray-100">
+          {prefix}
+          {metricVal(value)}
+        </p>
+      ) : (
+        <p className="text-sm text-gray-500">
+          {reason === "no_per_channel_spend_data"
+            ? "No per-channel spend data"
+            : reason === "no_leads_or_spend_this_week"
+              ? "No leads/spend this week"
+              : reason === "not_reported_this_week"
+                ? "Not reported this week"
+                : "Not available"}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ChannelsForecastsTab({ brandId }) {
+  const [cards, setCards] = useState(null);
+  const [forecasts, setForecasts] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    setCards(null);
+    setForecasts(null);
+    setError("");
+    api
+      .getSageScorecards(brandId)
+      .then((d) => alive && setCards(d))
+      .catch((err) => alive && setError(err.message));
+    api
+      .getSageForecasts(brandId)
+      .then((d) => alive && setForecasts(d))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [brandId]);
+
+  if (error) return <p className="text-sm text-red-400">{error}</p>;
+  if (!cards) return <p className="text-sm text-gray-500">Loading channel scorecards…</p>;
+  if (cards.demoExcluded)
+    return (
+      <p className="text-sm text-gray-400">
+        Demo businesses are excluded from scorecards — switch to a real business to see live numbers.
+      </p>
+    );
+
+  const list = cards.scorecards || [];
+  const all = list.find((c) => c.channel === "all");
+  const channels = list.filter((c) => c.channel !== "all");
+  const fmap = forecasts?.enabled ? forecasts.forecasts || {} : {};
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-100">Channel scorecards</h3>
+        <p className="mt-1 text-xs text-gray-500">
+          Computed from your own weekly analytics and lead history. Anything Sage can&apos;t
+          measure is labeled honestly — never shown as zero.
+        </p>
+      </div>
+
+      {all && all.metrics?.unavailable ? (
+        <p className="text-sm text-gray-400">
+          No weekly analytics history yet — scorecards will appear after your first analytics week.
+        </p>
+      ) : all ? (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+          <div className="flex items-baseline justify-between">
+            <h4 className="font-semibold text-gray-100">All channels</h4>
+            <span className="text-xs text-gray-500">
+              Week of {fmtDate(all.metrics.week_start)} · {all.source_row_counts?.analytics_weeks ?? 0} weeks of data
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <HonestMetric label="Spend" value={all.metrics.spend} prefix="$" reason="not_reported_this_week" />
+            <HonestMetric label="Leads" value={all.metrics.leads} reason="not_reported_this_week" />
+            <HonestMetric
+              label="Cost per lead"
+              value={all.metrics.cost_per_lead}
+              prefix="$"
+              reason={all.metrics.cost_per_lead_reason}
+            />
+            <HonestMetric label="ROAS" value={all.metrics.roas} reason={all.metrics.roas_reason} />
+          </div>
+          {all.metrics.trailing_avg && (
+            <p className="mt-3 text-xs text-gray-500">
+              Trailing {all.metrics.trailing_avg.weeks}-week average:{" "}
+              {all.metrics.trailing_avg.spend != null ? `$${all.metrics.trailing_avg.spend} spend · ` : ""}
+              {all.metrics.trailing_avg.leads != null ? `${all.metrics.trailing_avg.leads} leads` : ""}
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {channels.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {channels.map((c) => (
+            <div key={c.channel} className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+              <div className="flex items-baseline justify-between">
+                <h4 className="font-semibold capitalize text-gray-100">{c.channel}</h4>
+                <span className="text-xs text-gray-500">{c.source_row_counts?.leads_60d ?? 0} leads / 60d</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <HonestMetric label="Leads (30d)" value={c.metrics.leads_30d} />
+                <HonestMetric label="Won" value={c.metrics.outcomes?.won} />
+                <HonestMetric label="Spend" value={c.metrics.spend} prefix="$" reason={c.metrics.spend_reason} />
+                <HonestMetric
+                  label="Cost per lead"
+                  value={c.metrics.cost_per_lead}
+                  prefix="$"
+                  reason={c.metrics.cost_per_lead_reason}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {forecasts?.enabled && !forecasts.demoExcluded && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-100">Forecasts</h3>
+          <p className="mt-1 text-xs text-gray-500">{forecasts.label}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {Object.entries(fmap).map(([metric, f]) => (
+              <div key={metric} className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+                <h4 className="font-semibold capitalize text-gray-100">{metric.replace(/_/g, " ")}</h4>
+                {f.sufficient ? (
+                  <>
+                    <p className="mt-2 text-lg font-semibold text-gray-100">
+                      {f.low.toLocaleString()} – {f.high.toLocaleString()}
+                      <span className="ml-2 text-sm font-normal text-gray-400">
+                        (expected ≈ {f.expected.toLocaleString()})
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Next {f.basis?.horizon_weeks || 4} weeks, from {f.basis?.weeks_of_history} weeks of your history.
+                    </p>
+                    {Array.isArray(f.basis?.assumptions) && (
+                      <ul className="mt-2 list-inside list-disc text-xs text-gray-500">
+                        {f.basis.assumptions.map((a, i) => (
+                          <li key={i}>{a}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-gray-400">
+                    Not enough history yet — {f.weeks_available} of {f.weeks_needed} weeks needed. Sage
+                    won&apos;t guess.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------ Sage V2 P6 — Strategy tab -------------------------- */
+// Top-3 bets + Executive Debate viewer + approve/revise/decline + Sage's own
+// self-eval scorecard. Drafting is owner-initiated (never scheduled).
+
+function StrategyTab({ brandId }) {
+  const [state, setState] = useState(null);
+  const [selfEval, setSelfEval] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [showDebate, setShowDebate] = useState(false);
+  const [reviseBets, setReviseBets] = useState(null); // null = revise editor closed
+
+  const load = () => {
+    api
+      .getSageStrategy(brandId)
+      .then(setState)
+      .catch((err) => setError(err.message));
+    api
+      .getSageSelfEval(brandId)
+      .then(setSelfEval)
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    setState(null);
+    setSelfEval(null);
+    setError("");
+    setNotice("");
+    setReviseBets(null);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandId]);
+
+  const generate = async () => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.generateSageStrategy(brandId);
+      setNotice("Sage drafted a strategy — review the bets and the debate below.");
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decide = async (action) => {
+    const ownerNote =
+      action === "decline" ? window.prompt("Why decline? (optional)") || undefined : undefined;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.decideSageStrategy(brandId, state.strategy.strategyId, action, { ownerNote });
+      setNotice(action === "approve" ? "Strategy approved. Approval changes nothing by itself — execution still flows through directives you control." : "Strategy declined.");
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitRevision = async () => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.decideSageStrategy(brandId, state.strategy.strategyId, "revise", {
+        bets: reviseBets,
+        budgetLine: state.strategy.budgetLine || undefined,
+      });
+      setReviseBets(null);
+      setNotice("Revision saved — the strategy was superseded by your revised version, awaiting your approval.");
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const editBet = (i, field, value) => {
+    setReviseBets((prev) => prev.map((b, idx) => (idx === i ? { ...b, [field]: value } : b)));
+  };
+
+  if (error && !state) return <p className="text-sm text-red-400">{error}</p>;
+  if (!state) return <p className="text-sm text-gray-500">Loading strategy…</p>;
+  if (state.demoExcluded)
+    return (
+      <p className="text-sm text-gray-400">
+        Demo businesses are excluded from strategy — switch to a real business.
+      </p>
+    );
+
+  const s = state.strategy;
+  const debate = s?.optionsConsidered;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-100">Top-3 bets strategy</h3>
+          <p className="mt-1 text-xs text-gray-500">
+            One strategy at a time, built only on real evidence. {state.debatesRemainingThisMonth} of{" "}
+            2 executive debates left this month.
+          </p>
+        </div>
+        {!s && (
+          <button
+            type="button"
+            onClick={generate}
+            disabled={busy}
+            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {busy ? "Sage is thinking…" : "Ask Sage to draft a strategy"}
+          </button>
+        )}
+      </div>
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+      {notice && <p className="text-sm text-emerald-400">{notice}</p>}
+
+      {!s && (
+        <p className="text-sm text-gray-400">
+          No strategy yet. Sage drafts one from your approved opportunities — no evidence, no bet.
+        </p>
+      )}
+
+      {s && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs">
+            <span
+              className={`rounded-full px-2 py-0.5 font-medium ${
+                s.status === "approved"
+                  ? "bg-emerald-900/60 text-emerald-300"
+                  : "bg-amber-900/60 text-amber-300"
+              }`}
+            >
+              {s.status === "approved" ? "Approved" : "Awaiting your decision"}
+            </span>
+            {s.origin === "owner_revision" && <span className="text-gray-500">Revised by you</span>}
+            {s.reviewAt && <span className="text-gray-500">First review: {fmtDate(s.reviewAt)}</span>}
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            {(s.bets || []).map((bet, i) => (
+              <div key={i} className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+                <h4 className="font-semibold text-gray-100">
+                  Bet {i + 1}: {bet.title}
+                </h4>
+                <p className="mt-2 text-sm text-gray-300">{bet.thesis}</p>
+                <dl className="mt-3 space-y-1 text-xs text-gray-400">
+                  <div><span className="text-gray-500">Objective:</span> {bet.objective}</div>
+                  <div><span className="text-gray-500">Timeframe:</span> {bet.expected_timeframe}</div>
+                  <div><span className="text-gray-500">KPI:</span> {bet.primary_kpi}</div>
+                  <div><span className="text-gray-500">Success looks like:</span> {bet.success_threshold}</div>
+                  <div><span className="text-gray-500">Review on:</span> {fmtDate(bet.review_date)}</div>
+                  <div>
+                    <span className="text-gray-500">Evidence:</span>{" "}
+                    {(bet.opportunity_ids || []).length} linked opportunit
+                    {(bet.opportunity_ids || []).length === 1 ? "y" : "ies"}
+                  </div>
+                </dl>
+              </div>
+            ))}
+          </div>
+
+          {s.budgetLine && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+              <h4 className="font-semibold text-gray-100">Budget line</h4>
+              <p className="mt-1 text-sm text-gray-300">{s.budgetLine.statement}</p>
+              <p className="mt-2 text-xs text-gray-500">
+                {(s.budgetLine.channels || [])
+                  .map((c) => `${c.channel}: $${(c.amount_cents / 100).toFixed(2)}/mo`)
+                  .join(" · ")}
+              </p>
+            </div>
+          )}
+
+          {debate && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+              <button
+                type="button"
+                onClick={() => setShowDebate((v) => !v)}
+                className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
+              >
+                {showDebate ? "Hide" : "Show"} the executive debate ({(debate.options || []).length}{" "}
+                options Sage weighed)
+              </button>
+              {showDebate && (
+                <div className="mt-3 space-y-3">
+                  {(debate.options || []).map((opt, i) => {
+                    const chosen = opt.title === debate.chosen_option_title;
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-md border p-3 ${
+                          chosen ? "border-emerald-700 bg-emerald-950/30" : "border-gray-800"
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-gray-100">
+                          {opt.title}
+                          {opt.is_baseline && (
+                            <span className="ml-2 text-xs font-normal text-gray-500">(do-nothing baseline)</span>
+                          )}
+                          {chosen && (
+                            <span className="ml-2 text-xs font-normal text-emerald-400">← chosen</span>
+                          )}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400">{opt.description}</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Trade-offs: {opt.tradeoffs} · Risks: {opt.risks} · Expected effect: {opt.expected_effect}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  {debate.chosen_because && (
+                    <p className="text-xs text-gray-400">
+                      <span className="text-gray-500">Why this one:</span> {debate.chosen_because}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {reviseBets && (
+            <div className="rounded-lg border border-amber-800/60 bg-amber-950/20 p-4">
+              <h4 className="font-semibold text-gray-100">Revise the bets</h4>
+              <p className="mt-1 text-xs text-gray-500">
+                Edit any field. Every bet keeps its evidence links and still needs an objective,
+                timeframe, KPI, success threshold, and review date — the chokepoint rejects anything less.
+              </p>
+              <div className="mt-3 space-y-4">
+                {reviseBets.map((bet, i) => (
+                  <div key={i} className="rounded-md border border-gray-800 bg-gray-900/60 p-3">
+                    <p className="mb-2 text-xs font-medium text-gray-400">Bet {i + 1}</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {[
+                        ["title", "Title"],
+                        ["objective", "Objective"],
+                        ["expected_timeframe", "Timeframe"],
+                        ["primary_kpi", "Primary KPI"],
+                        ["success_threshold", "Success threshold"],
+                        ["review_date", "Review date (YYYY-MM-DD)"],
+                      ].map(([field, label]) => (
+                        <label key={field} className="block text-xs text-gray-500">
+                          {label}
+                          <input
+                            type="text"
+                            value={bet[field] || ""}
+                            onChange={(e) => editBet(i, field, e.target.value)}
+                            className="mt-1 w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <label className="mt-2 block text-xs text-gray-500">
+                      Thesis
+                      <textarea
+                        value={bet.thesis || ""}
+                        onChange={(e) => editBet(i, "thesis", e.target.value)}
+                        rows={2}
+                        className="mt-1 w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={submitRevision}
+                  disabled={busy}
+                  className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                >
+                  {busy ? "Saving…" : "Save revision"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReviseBets(null)}
+                  disabled={busy}
+                  className="rounded-md border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {s.status === "proposed" && !reviseBets && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => decide("approve")}
+                disabled={busy}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => setReviseBets((s.bets || []).map((b) => ({ ...b })))}
+                disabled={busy}
+                className="rounded-md border border-amber-700 px-4 py-2 text-sm text-amber-300 hover:bg-amber-950/40 disabled:opacity-50"
+              >
+                Revise
+              </button>
+              <button
+                type="button"
+                onClick={() => decide("decline")}
+                disabled={busy}
+                className="rounded-md border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+              >
+                Decline
+              </button>
+            </div>
+          )}
+          {s.status === "proposed" && (
+            <p className="text-xs text-gray-600">
+              Approving changes nothing by itself — execution still flows through the directives you
+              control, with the same spend limits and guardrails.
+            </p>
+          )}
+        </div>
+      )}
+
+      {selfEval?.enabled && !selfEval.demoExcluded && selfEval.aggregates && (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+          <h4 className="font-semibold text-gray-100">Sage&apos;s own scorecard (last 90 days)</h4>
+          <p className="mt-1 text-xs text-gray-500">
+            Sage&apos;s track record, including misses — denominators stated, nothing hidden.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <HonestMetric label="Recommended" value={selfEval.aggregates.recommendations_proposed} />
+            <HonestMetric label="You approved" value={selfEval.aggregates.approved} />
+            <HonestMetric
+              label="Measured wins"
+              value={selfEval.aggregates.wins}
+            />
+            <HonestMetric label="Measured misses" value={selfEval.aggregates.misses} />
+          </div>
+          <p className="mt-3 text-xs text-gray-500">
+            {selfEval.aggregates.measured_of_approved
+              ? `${selfEval.aggregates.measured_of_approved.measured} of ${selfEval.aggregates.measured_of_approved.of} approved recommendations have measurable outcomes so far`
+              : ""}
+            {selfEval.aggregates.inconclusive
+              ? ` · ${selfEval.aggregates.inconclusive} inconclusive (not counted as wins)`
+              : ""}
+            {selfEval.aggregates.ai_cost_cents != null
+              ? ` · AI cost this period: $${(selfEval.aggregates.ai_cost_cents / 100).toFixed(2)}`
+              : ""}
+          </p>
         </div>
       )}
     </div>

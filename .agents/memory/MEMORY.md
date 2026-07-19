@@ -114,3 +114,4 @@
 - [EchoAI clipboard image paste](echoai-clipboard-paste.md) — paste-to-upload listeners must branch on clipboard CONTENT (image files → hijack anywhere), never skip by focused-element type, or pasting with a text box focused silently no-ops.
 - [EchoAI Sage V2 Phase 1](echoai-sage-v2-phase1.md) — flag-dark endpoints answer {enabled:false}; weekly aggregators must week-bound EVERY source query, never latest-ever rows.
 - [Sage V2 Phase 3 outcome capture](echoai-sage-v2-phase3.md) — leads.outcome is measurement-only; flag-on-only response fields keep dark bytes identical; disable updated_at trigger to stage stale test rows.
+- [EchoAI Sage V2 Phase 6](echoai-sage-v2-phase6.md) — repeat the singleton-exists check under the lock inside the write tx (AI call runs unlocked) + map 23505 to 409; bind client JSX to literal server field names.

@@ -18,6 +18,7 @@ const controller = require("../controllers/sageController");
 const briefingController = require("../controllers/sageBriefingController");
 const phase4 = require("../controllers/sagePhase4Controller");
 const phase5 = require("../controllers/sagePhase5Controller");
+const phase6 = require("../controllers/sagePhase6Controller");
 
 const router = express.Router();
 
@@ -77,6 +78,16 @@ router.get("/decisions", requireOwner, phase5.listDecisions);
 router.get("/change-diagnostics", requireOwner, phase5.getChangeDiagnostics);
 router.get("/knowledge", requireOwner, phase5.getKnowledge);
 router.get("/knowledge/export", requireOwner, phase5.exportKnowledge);
+
+// Sage V2 P6 (flag-gated, default off): channel scorecards, honest
+// forecasts, Top-3-bets strategy + Executive Debate, self-eval scorecard.
+// Endpoints answer {enabled:false} when dark. Owner-only.
+router.get("/scorecards", requireOwner, phase6.getScorecardsHandler);
+router.get("/forecasts", requireOwner, phase6.getForecastsHandler);
+router.get("/strategy", requireOwner, phase6.getStrategyHandler);
+router.post("/strategy/generate", requireOwner, phase6.generateStrategyHandler);
+router.post("/strategy/:id/decide", requireOwner, phase6.decideStrategyHandler);
+router.get("/self-eval", requireOwner, phase6.getSelfEvalHandler);
 
 // Intelligence Input (link / facebook JSON, or image / PDF multipart)
 router.post("/input", uploadDocument, controller.submitIntelligence);
