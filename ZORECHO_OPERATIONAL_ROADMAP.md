@@ -4,7 +4,7 @@
 **Prepared for:** James (CEO), Blackfox Ventures
 **Prepared by:** Lead Software Engineer (Replit/Claude)
 **Date:** July 19, 2026
-**Status:** PLANNING DOCUMENT — no code, no implementation, no architecture changes. Awaiting CEO approval of the recommended execution order before any milestone begins.
+**Status:** APPROVED IN PRINCIPLE (CEO, July 19, 2026) — this is the **governing operational document** for Zorecho until superseded by a future version. Finalized with two CEO additions: the permanent **CEO Operational Validation** milestone and a **Customer Value Created** section in every phase. No implementation begins without milestone-level CEO approval.
 **Standing rules carried forward:** every milestone is a release candidate (main always deployable, everything dark behind flags until approved); Architecture review → Implementation → Testing → Architect self-review → Completion report → CEO approval, for every stage, no exceptions.
 
 ---
@@ -24,6 +24,28 @@ What stands between today and a production-ready AI company is **not more AI fea
 **The single most important strategic judgment in this document:** the sequence is deliberately *trust-first*. Every phase produces evidence that the platform behaves honestly under real use before the blast radius widens. That is the same discipline that made Sage V2 and Stage 0 clean — applied to the company itself.
 
 **Recommended headline order:** Staging Environment → Collab Stage 1 → Founder Mode v1 → Internal Beta begins (and never stops) → Collab Stage 2 → Founder Mode v2 → Collab Stage 3 → Trusted Customer Beta → Readiness checklist → Public launch. Estimated calendar: roughly 4–6 months to a defensible public launch, dominated not by engineering time but by **observation windows** — weeks where the right move is to watch, not build.
+
+**Permanent cadence rule (CEO directive, July 19, 2026):** after every major implementation milestone, engineering pauses for one week of **CEO Operational Validation** (see the standing milestone below). Real-world usefulness is validated before anything further is built.
+
+---
+
+# CEO Operational Validation — Permanent Standing Milestone
+
+**Applies after every major implementation milestone, without exception.** When a milestone completes its lifecycle (tests → architect review → completion report → CEO approval), engineering **stops for one week**. During that week the CEO operates his real businesses through Zorecho exactly as a customer would — no engineer-assisted workarounds, no special knowledge applied, no fixes shipped mid-week (trust-fatal incidents excepted, per the Internal Beta fix rules).
+
+**The seven questions.** At the end of each validation week, these must be answered in writing (the field journal is the natural home):
+
+1. What saved me time?
+2. What frustrated me?
+3. What did I ignore?
+4. What surprised me?
+5. What feature did I rely on most?
+6. What feature did I expect but didn't exist?
+7. Would I miss this if it disappeared tomorrow?
+
+**How the answers are used.** Engineering priorities for the **next** milestone are influenced by these observations before that milestone's architecture note is written. The answers are reviewed alongside the milestone's own success criteria; a milestone that passed its tests but failed question 7 ("no, I wouldn't miss it") is a signal to change course, not to keep building. Answers accumulate milestone over milestone — trends across validation weeks (the same frustration twice, the same ignored feature twice) outrank any single week's notes.
+
+**Effect on the timeline.** Every estimate in this document already assumes observation windows dominate the calendar; this milestone formalizes it. One validation week per major milestone is added to the critical path deliberately — it is the cheapest quality gate in the program.
 
 ---
 
@@ -102,6 +124,15 @@ The architecture is locked (`ZORECHO_DEPARTMENT_COLLABORATION_ARCHITECTURE.md`).
 
 **Objective.** Enable Sage V2 + collaboration flags for real businesses, gradually. This stage **is** the Internal Beta → Trusted Customer Beta pipeline (Phases 5–6 below) — it is listed here for completeness but executed through those phases, one brand at a time, watching the activity view.
 
+## Customer Value Created
+
+- **Customer experience:** the customer stops managing ten separate tools that happen to share a login. Ads reference the strategy. Content serves the current bet. Reports reach the strategist automatically. It feels like hiring a coordinated team instead of ten freelancers.
+- **Business problem solved:** small-business owners are the only integration point between their marketing channels — every insight travels through their memory and their time. Collaboration removes the owner as the bottleneck.
+- **Why customers care:** their creative and campaigns visibly cite *why* ("Supports Bet 1: fill units in the 78745 zip"). Marketing stops feeling random.
+- **How it increases trust:** the honesty is structural — when no strategy exists, the work says so in writing instead of pretending. Customers learn the platform never bluffs, which is precisely what makes them believe it when it *does* cite intelligence.
+- **How it improves retention:** coordinated departments compound — every month of use makes the shared intelligence richer and switching away more costly. The activity view lets the owner *see* the team working, which is the emotional core of "this is worth $350/month."
+- **How success is measured:** citation/gap-note rate on generated work, scorecard consult rates, owner approval rates on collaboration-informed vs uninformed drafts, and ultimately retention of brands with collaboration on vs off.
+
 ---
 
 # Phase 2 — CEO Daily Operations
@@ -156,6 +187,15 @@ After Collab Stage 2: the **department scorecards** join this review — one hon
 - Platform review: Sage Self-Review items marked "planned" — pick which become engineering milestones.
 - Beta review (once running): tester activity, conversion candidates, waitlist.
 
+## Customer Value Created
+
+- **Customer experience:** this phase *is* the customer experience — the daily/weekly routine designed here becomes the template every customer inherits. A business owner gets a repeatable ~45-minute rhythm that replaces hours of scattered checking.
+- **Business problem solved:** owners don't fail at marketing for lack of tools; they fail for lack of a manageable routine. This phase turns "an app I should check" into "the way I run my mornings."
+- **Why customers care:** the promise becomes concrete — open Zorecho at 7:30, know everything that matters, make three decisions on Monday, done.
+- **How it increases trust:** a routine only survives if the information in it is reliable; by living this routine first on real businesses, every weak briefing or noisy alert gets found and fixed before a customer experiences it.
+- **How it improves retention:** habits retain customers far better than features. A product woven into the owner's daily routine is not churned casually.
+- **How success is measured:** daily active use of the briefing and approval queue, Monday review completion (the ≤3 weekly decisions actually made), and time-in-app staying *low* while decisions-made stays high — Zorecho succeeds when it takes less of the owner's day, not more.
+
 ---
 
 # Phase 3 — Founder Mode (architecture for a later, CEO-gated build)
@@ -185,6 +225,15 @@ After Collab Stage 2: the **department scorecards** join this review — one hon
 
 **Complexity:** v1 Medium (almost entirely read-only views over existing data); v2 Medium. **Risk:** low — read-only by construction; the only write surface is the flag panel, which already exists. **Success criterion:** you can answer "what did Zorecho do for South Dixie Storage yesterday, what did it cost, and did anything fail?" in under two minutes, without asking me.
 
+## Customer Value Created
+
+- **Customer experience:** customers never see Founder Mode — but they feel it. Every fabrication tripwire, cost anomaly, and failure surfaced here is caught before it reaches a customer's briefing or bill.
+- **Business problem solved:** an AI platform that can't inspect its own honesty will eventually ship a confident lie. Founder Mode makes the platform's truthfulness auditable *before* strangers depend on it.
+- **Why customers care:** they're trusting an AI with their marketing budget and their leads. "The CEO verifies every claim-type against source data on his own businesses" is a sales-grade trust statement — and it's true.
+- **How it increases trust:** trust metrics (validation pass rate, gap-note honesty, override rates) become measured numbers with history, not assurances. Problems get fixed from evidence, not anecdotes.
+- **How it improves retention:** the failures that kill retention are silent ones — a briefing quietly wrong, a cost quietly ballooning. Founder Mode exists to make silent failure structurally impossible to miss.
+- **How success is measured:** briefing-validation pass rate ≥99%, time-to-detection of injected test failures, and zero customer-reported incidents that Founder Mode hadn't already surfaced first.
+
 ---
 
 # Phase 4 — Staging Environment
@@ -205,6 +254,15 @@ After Collab Stage 2: the **department scorecards** join this review — one hon
 - **Testing before production.** The three automated gates (server, client, build) remain the merge bar in dev; staging adds the *environmental* checks automation can't cover: real proxy/TLS, real OAuth redirects, real Stripe test-mode webhooks, migration-on-nonempty-DB, PWA/service-worker behavior on a real domain.
 
 **Complexity: Low-Medium** (mostly configuration + one documented workflow; ~a day of setup plus the checklist doc). **Risks:** environment drift (staging quietly stops matching production) — mitigated by the variable checklist and the quarterly rebuild; false confidence (staging passes, production differs) — mitigated by keeping the variable *names* and code paths identical. **Dependencies:** none. It can start immediately upon approval.
+
+## Customer Value Created
+
+- **Customer experience:** customers never see staging — they experience its absence of consequences: no broken mornings after a release, no "sorry, that update had a bug," no downtime during business hours.
+- **Business problem solved:** a small business running its lead capture and follow-up on Zorecho cannot afford our mistakes. Staging means our mistakes happen in a room with no customers in it.
+- **Why customers care:** reliability is the product. An owner who delegates their marketing to an AI is really buying the confidence that it works every single day.
+- **How it increases trust:** every migration and feature rehearses on staging before touching customer data — and the rollback drill means even a surprise is a minutes-long event, not an outage.
+- **How it improves retention:** nothing churns a small-business customer faster than the tool failing during their busy week. Fewer incidents is the most direct retention investment available.
+- **How success is measured:** production incidents caused by deployments (target: zero after staging exists), time-to-rollback when needed (minutes), and migration failures reaching production (zero).
 
 ---
 
@@ -249,6 +307,15 @@ The Phase 2 Monday review, plus 15 internal-beta minutes: journal notes → tria
 **Ignore (deliberately):** cosmetic issues on rarely-used screens; features your businesses don't exercise (note them for beta-customer matching instead); one-time transients that self-reported and self-recovered — the platform behaving as designed is not a bug.
 
 **Exit criterion for Phase 5 → 6:** all five readiness metrics green for **four consecutive weeks** across at least two of your businesses, and your honest answer to one question is yes: *"Would I be comfortable watching a stranger's business run on exactly what I used this month?"*
+
+## Customer Value Created
+
+- **Customer experience:** every rough edge, confusing screen, and broken promise gets discovered by the founder instead of by a paying customer. The first outside customer inherits a product that has already survived three real businesses.
+- **Business problem solved:** most software is tested by engineers who don't live the customer's problem. Internal Beta closes that gap — the CEO of a storage business, a real-estate company, and a holding company runs his actual operations through the product.
+- **Why customers care:** "we run our own companies on it" is the strongest claim a business tool can make — and after this phase it is literally, verifiably true.
+- **How it increases trust:** the readiness metrics (no fabrications, no silent failures, stable costs) are proven on real stakes before any customer bears them.
+- **How it improves retention:** the fix-now/fix-later/ignore triage means the issues that actually drive churn — repeated friction, avoided features — get fixed in priority order, informed by genuine use.
+- **How success is measured:** the five readiness metrics held green for four consecutive weeks, plus per-business ground truth (units rented, qualified leads, a replaced manual process).
 
 ---
 
@@ -306,6 +373,16 @@ The one-click Convert-to-Paid (built) is the mechanism; the moment is when their
 - Zero unresolved trust incidents in the final 4 weeks.
 - The Phase 7 checklist below: 100% complete.
 
+## Customer Value Created
+
+- **Customer experience:** beta customers get white-glove treatment — free Enterprise access, a weekly call with the CEO, and visible influence over the product. Their feedback demonstrably shapes what ships next.
+- **Business problem solved:** it proves, on businesses we don't own, that Zorecho creates measurable value for a stranger — the only evidence that matters before charging the public.
+- **Why customers care (beta cohort):** they get a marketing team's output for free during the beta, founding-customer terms afterward, and a product tuned to businesses exactly like theirs.
+- **Why customers care (future cohort):** the public launch product is shaped by ten real businesses' feedback, not by engineering guesses.
+- **How it increases trust:** the conversion moment is honest by design — customers convert when *their* numbers beat *their* baseline, not when a sales sequence expires.
+- **How it improves retention:** beta alumni who converted on evidence become the highest-retention cohort and the reference customers whose stories retain everyone after them.
+- **How it is measured:** week-8 activity (≥7 of 10), unprompted conversions (≥5), ground-truth improvement in half the businesses, support load ≤2 hrs/week.
+
 ---
 
 # Phase 7 — Product Readiness Checklist (the public-launch gate)
@@ -340,6 +417,15 @@ Every item gets a real verification, not a vibe. Grouped; each line is checkable
 
 **Disaster recovery.** Railway Postgres backup schedule confirmed + **one actual restore drill to staging** (a backup you haven't restored is a hope, not a backup); uploads durability re-verified (BYTEA source of truth — already designed for Railway's ephemeral disk); "Railway is down" runbook page: what you tell customers, what I do.
 
+## Customer Value Created
+
+- **Customer experience:** every checklist line is a customer promise made keepable: onboarding they can finish alone, billing that never surprises them, integrations that reconnect gracefully, help that actually helps, data that survives a disaster.
+- **Business problem solved:** small businesses have been burned by tools that launched before they were ready. This checklist is the difference between "available for purchase" and "ready to be depended on."
+- **Why customers care:** none of them will read the checklist — all of them will feel it as an absence of bad days.
+- **How it increases trust:** the checklist is verification-based ("a restore drill was performed"), never aspiration-based ("backups are configured"). That standard is the company's character, expressed as operations.
+- **How it improves retention:** most churn in the first 90 days traces to onboarding failure, billing surprise, or an unresolved incident — the three areas this checklist tests hardest.
+- **How it is measured:** 100% of items verified (not asserted); then post-launch: first-90-day churn, onboarding completion rate, support tickets per customer per month.
+
 ---
 
 # Phase 8 — First Year Growth (high level)
@@ -355,6 +441,15 @@ Every item gets a real verification, not a vibe. Grouped; each line is checkable
 **Q4 — Durability (150→300).** Infrastructure: evaluate Postgres scaling (partitioning the largest tables — leads, messages, department_messages traffic will tell us); formal SLA + status page; disaster-recovery drill cadence quarterly. Technical-debt sweep: retire `FREE_TEST_MODE` in favor of invite codes fully; consolidate the oldest migration files; client bundle splitting if size crept. Team: support person #2 or engineer #2, whichever the constraint is — decided by where your hours are going.
 
 **Standing first-year rules:** no new AI department without a quarter of customer evidence; every hire must remove a named bottleneck (not "help generally"); infrastructure spend follows measured pressure, never anticipation; the CEO-gated milestone discipline survives growth — it *is* the company's engineering culture now.
+
+## Customer Value Created
+
+- **Customer experience:** the product a customer joined for keeps working exactly as well at 300 customers as it did at 3 — same reliability, same response times, same honesty — while measurably improving each quarter in the areas customers actually use.
+- **Business problem solved:** most SaaS products degrade as they grow — support slows, quality slips, focus scatters. This plan grows capacity (hires, infrastructure) *ahead* of the pressure customers would otherwise feel.
+- **Why customers care:** the "deepen, don't widen" rule means their existing tools get better instead of being abandoned for shiny new ones; the customer-success hire means a human still answers.
+- **How it increases trust:** durability is trust over time — SLAs, a status page, quarterly disaster drills, and security posture work all convert "we care" into commitments a business can rely on.
+- **How it improves retention:** every quarter's technical-debt priority comes from real customer friction (the field journal, then support data) — retention work is literally scheduled into the roadmap.
+- **How it is measured:** net revenue retention, support response times holding as customer count grows, uptime against the SLA, and quarterly improvement in each department's scorecard on real customer brands.
 
 ---
 
@@ -385,7 +480,7 @@ Every item gets a real verification, not a vibe. Grouped; each line is checkable
 
 # Critical Path
 
-Staging → Collab Stage 1 → Founder Mode v1 → Internal Beta 4-green-weeks gate → Customer Beta → Readiness checklist → Launch.
+Staging → Collab Stage 1 → Founder Mode v1 → Internal Beta 4-green-weeks gate → Customer Beta → Readiness checklist → Launch — with a one-week CEO Operational Validation after every major milestone on the path.
 Everything else (Stage 2/3, Founder Mode v2, small builds) parallelizes around that spine. The critical path's slowest link is deliberately **the Internal Beta observation window** — it cannot be compressed by engineering effort, only by the platform behaving well.
 
 # Risks (program-level)
@@ -445,4 +540,4 @@ Calendar time is 3–4× these numbers because every milestone carries the full 
 
 ---
 
-*This document is the proposed operational baseline. Nothing in it begins until you approve the execution order (or amend it). Recommended immediate approval: Phase 4 (Staging) as the next implementation milestone, with Collab Stage 1 queued behind it.*
+*This document is the governing operational document for Zorecho until superseded by a future version (CEO, July 19, 2026). Execution order approved in principle; each implementation milestone still requires its own CEO approval before work begins, and every major milestone is followed by a one-week CEO Operational Validation. Recommended first milestone: Phase 4 (Staging), with Collab Stage 1 queued behind it.*

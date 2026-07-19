@@ -1,0 +1,14 @@
+---
+name: Zorecho operational roadmap governance
+description: Governing operational document + CEO validation cadence rules that gate all future implementation work
+---
+
+**Rule:** `ZORECHO_OPERATIONAL_ROADMAP.md` is the CEO-approved governing operational document (July 19, 2026) until superseded. Execution order: Staging → Collab Stage 1 → Founder Mode v1 → Internal Beta → Collab Stage 2 → Founder Mode v2 → Collab Stage 3 → Customer Beta → readiness checklist → launch. Each milestone still needs its own CEO approval.
+
+**CEO Operational Validation (permanent):** after every major implementation milestone, engineering pauses for ONE WEEK while the CEO runs his real businesses through the platform as a customer. Seven written questions (time saved / frustrations / ignored / surprises / most-relied / expected-but-missing / would-I-miss-it) must be answered; they influence the next milestone's priorities before its architecture note is written.
+
+**Customer Value Created:** every roadmap phase (and by extension, future phase-level planning docs) must include a non-technical "Customer Value Created" section (experience, problem solved, why care, trust, retention, measurement).
+
+**Why:** CEO directive to shift from governance-writing to execution; he explicitly said to stop creating new planning documents and revise existing ones only when completed milestones give a concrete reason.
+
+**How to apply:** Don't propose new governance/architecture documents unprompted. Before starting any implementation milestone, check the roadmap's order and confirm CEO approval; after completing one, expect the validation week rather than immediately starting the next build.
