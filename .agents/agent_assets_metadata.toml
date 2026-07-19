@@ -456,3 +456,9 @@ id = "NFReBw0niMLYvTFrOI7Vc"
 uri = "file://ZORECHO_DEPARTMENT_COLLABORATION_ARCHITECTURE.md"
 type = "text"
 title = "Zorecho Department Collaboration Architecture — DRAFT v2 (for Final CEO Approval)"
+
+[[outputs]]
+id = "kHek3QxT7YO0rO-IxsS_d"
+uri = "file://COLLAB_STAGE0_COMPLETION_REPORT.md"
+type = "text"
+title = "Department Collaboration — Stage 0 Completion Report"
