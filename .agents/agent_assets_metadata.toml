@@ -462,3 +462,9 @@ id = "kHek3QxT7YO0rO-IxsS_d"
 uri = "file://COLLAB_STAGE0_COMPLETION_REPORT.md"
 type = "text"
 title = "Department Collaboration — Stage 0 Completion Report"
+
+[[outputs]]
+id = "7rQB1IhfloHvsS1-Ad2Nc"
+uri = "file://ZORECHO_OPERATIONAL_ROADMAP.md"
+type = "text"
+title = "Zorecho Operational Readiness Roadmap"
