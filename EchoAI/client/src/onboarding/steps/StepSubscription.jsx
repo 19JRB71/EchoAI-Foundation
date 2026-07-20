@@ -3,7 +3,6 @@
 // collects payment details via Stripe Elements, then creates the subscription.
 
 import { useEffect, useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
   CardElement,
@@ -12,9 +11,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { api } from "../../api.js";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
-
-const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-const stripePromise = PUBLISHABLE_KEY ? loadStripe(PUBLISHABLE_KEY) : null;
+import { useStripePromise } from "../../lib/stripe.js";
 
 const ADDITIONAL_SEAT_PRICE = 50;
 
@@ -97,6 +94,8 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
       cancelled = true;
     };
   }, []);
+
+  const { loading: stripeLoading, stripePromise } = useStripePromise();
 
   function select(value) {
     setTier(value);
@@ -193,17 +192,19 @@ export default function StepSubscription({ onNext, onBack, onSelectTier }) {
       </div>
 
       <div className="mt-8">
-        {stripePromise ? (
+        {stripeLoading ? (
+          <p className="text-sm text-gray-400">Loading payment form…</p>
+        ) : stripePromise ? (
           <Elements stripe={stripePromise}>
             <PaymentForm tier={tier} onNext={onNext} onBack={onBack} />
           </Elements>
         ) : (
           <div className="rounded-lg bg-amber-500/10 p-4 text-sm text-amber-300">
-            Payments are not configured. Set{" "}
+            Payments are not configured in this environment. Set{" "}
             <code className="rounded bg-amber-500/15 px-1">
-              VITE_STRIPE_PUBLISHABLE_KEY
+              STRIPE_PUBLISHABLE_KEY
             </code>{" "}
-            to enable checkout.
+            on the server to enable checkout.
           </div>
         )}
       </div>

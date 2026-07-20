@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { stripePromise, stripeConfigured } from "../../lib/stripe.js";
+import { useStripePromise } from "../../lib/stripe.js";
 import { api } from "../../api.js";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 
@@ -13,6 +13,8 @@ const secondaryBtn =
   "rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-60";
 
 export default function UpdatePaymentMethodModal({ onClose, onSaved }) {
+  const { loading: stripeLoading, stripePromise } = useStripePromise();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
@@ -22,13 +24,15 @@ export default function UpdatePaymentMethodModal({ onClose, onSaved }) {
             ✕
           </button>
         </div>
-        {stripeConfigured ? (
+        {stripeLoading ? (
+          <p className="text-sm text-gray-400">Loading payment form…</p>
+        ) : stripePromise ? (
           <Elements stripe={stripePromise}>
             <CardForm onClose={onClose} onSaved={onSaved} />
           </Elements>
         ) : (
           <div className="rounded-lg bg-amber-500/10 p-4 text-sm text-amber-300">
-            Payments are not configured. Set <code className="rounded bg-amber-500/15 px-1">VITE_STRIPE_PUBLISHABLE_KEY</code> to enable card updates.
+            Payments are not configured in this environment. Set <code className="rounded bg-amber-500/15 px-1">STRIPE_PUBLISHABLE_KEY</code> on the server to enable card updates.
           </div>
         )}
       </div>

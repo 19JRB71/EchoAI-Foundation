@@ -19,6 +19,12 @@ router.post(
   subscriptionController.handleWebhook
 );
 
+// Public (no auth): the Stripe PUBLISHABLE key for this environment. Needed
+// before login/checkout so the prebuilt SPA can initialize Stripe Elements at
+// runtime instead of baking a key into the bundle at build time. Publishable
+// keys are public by design; nothing sensitive is exposed.
+router.get("/config", subscriptionController.getPublicConfig);
+
 // Authenticated subscription management routes.
 router.post("/", authMiddleware, lockoutCheck, adminOnly, subscriptionController.createSubscription);
 router.post("/cancel", authMiddleware, lockoutCheck, adminOnly, subscriptionController.cancelSubscription);
