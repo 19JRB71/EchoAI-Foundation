@@ -518,6 +518,21 @@ async function getPlans(req, res) {
 }
 
 /**
+ * GET /api/subscriptions/config
+ * Public (no auth): returns the Stripe PUBLISHABLE key for the current
+ * environment so the SPA can initialize Stripe Elements at runtime. The
+ * publishable key is public by design (it is always visible in the browser);
+ * the secret key is never exposed here. Runtime delivery — instead of baking
+ * the key into the client bundle at build time — lets ONE prebuilt bundle
+ * serve every environment (staging uses pk_test, production pk_live).
+ */
+async function getPublicConfig(req, res) {
+  return res.json({
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || null,
+  });
+}
+
+/**
  * POST /api/subscriptions/change
  * Upgrades or downgrades the active subscription to a new tier. Updates the
  * Stripe subscription item (with prorations) and immediately reflects the new
@@ -849,6 +864,7 @@ module.exports = {
   cancelSubscription,
   getSubscriptionStatus,
   getPlans,
+  getPublicConfig,
   changeSubscription,
   updateTeamSize,
   updatePaymentMethod,
