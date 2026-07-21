@@ -258,10 +258,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // HTTP response is sent, so a tightly-sequenced next call can momentarily see
 // the lock (409 "already running"). The real client retries; so do we.
 async function executeStep(token, body) {
-  for (let attempt = 0; attempt < 10; attempt++) {
+  // Generous retry budget with backoff: under a fully parallel test run the
+  // event loop (and the post-response `finally` that frees the claim) can lag
+  // well past the old 10×25ms window, which made this flake suite-load-dependent.
+  for (let attempt = 0; attempt < 30; attempt++) {
     const res = await apiRequest(token, "POST", "/execute", body);
     if (res.status === 409 && res.body && /already running/i.test(res.body.error || "")) {
-      await sleep(25);
+      await sleep(Math.min(50 * (attempt + 1), 400));
       continue;
     }
     return res;
