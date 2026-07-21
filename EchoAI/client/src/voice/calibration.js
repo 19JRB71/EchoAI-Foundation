@@ -98,6 +98,69 @@ export const CALIBRATION_QUESTIONS = [
 // barge-in commands).
 export const STOP_TEST_PHRASES = ["stop", "wait", "hold on", "let me finish", "that's enough"];
 
+// Normalize a transcript for stop-command matching: lowercase, strip
+// punctuation/apostrophes, collapse whitespace.
+function normalizeForStop(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const STOP_PHRASES_NORM = STOP_TEST_PHRASES.map((p) => normalizeForStop(p));
+// Fillers a user may prefix ("okay stop", "echo stop", "please wait").
+const STOP_FILLERS = new Set(["ok", "okay", "no", "echo", "please", "hey"]);
+
+/**
+ * Decide whether a recognizer segment is a REAL user stop command during the
+ * interruption test — and not Echo's own voice leaking back through the mic.
+ *
+ * The stop-test script itself says "say Stop, or Wait, or Hold on", so a naive
+ * keyword match self-triggers off Echo's speech (observed on staging: Echo
+ * "passed" the test with the user silent). Rules:
+ *  1. A short standalone stop phrase (optionally prefixed by a filler like
+ *     "okay"/"echo") is ALWAYS a user command.
+ *  2. Otherwise a segment containing a stop word only counts when its tail
+ *     (the ~4 words leading up to and including the stop phrase) does NOT
+ *     appear in the spoken script, and the segment as a whole is not a
+ *     fragment of the script.
+ */
+export function isUserStopCommand(segmentText, scriptText) {
+  const seg = normalizeForStop(segmentText);
+  if (!seg) return false;
+
+  // Rule 1: exact standalone phrase (with optional leading fillers).
+  const words = seg.split(" ");
+  let start = 0;
+  while (start < words.length - 1 && STOP_FILLERS.has(words[start])) start += 1;
+  const stripped = words.slice(start).join(" ");
+  if (STOP_PHRASES_NORM.includes(stripped)) return true;
+
+  // Find a stop phrase inside the segment at a word boundary.
+  const hit = STOP_PHRASES_NORM.find((p) =>
+    new RegExp(`(?:^| )${p}(?: |$)`).test(seg),
+  );
+  if (!hit) return false;
+
+  const script = normalizeForStop(scriptText);
+  // Whole segment is a fragment of Echo's own script → self-echo.
+  if (script.includes(seg)) return false;
+  // Local window: the few words before the stop phrase + the phrase itself.
+  // Only meaningful when there ARE preceding words — a bare leading stop
+  // phrase ("stop now", "wait please") must not be rejected just because the
+  // word "stop" appears somewhere in the script.
+  const idx = seg.indexOf(hit);
+  const before = seg.slice(0, idx).trim().split(" ").filter(Boolean);
+  if (before.length > 0) {
+    const windowText = [...before.slice(-3), hit].join(" ");
+    if (script.includes(windowText)) return false;
+  }
+
+  return true;
+}
+
 function clampNum(value, [min, max], fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
