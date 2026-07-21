@@ -206,10 +206,16 @@ export default function GuidedSetupWizard({ onComplete }) {
   }, []);
 
   const gotoStep = useCallback(
-    (next) => {
+    (next, { resumed = false } = {}) => {
       setStep(next);
       persist(next, flagsRef.current);
-      const line = pickLine(STEP_VOICE_LINES[next]);
+      // A resume must NOT replay the step's first-time intro line — e.g.
+      // returning mid-execution to the profile step would say "Now tell me
+      // about your business" as if starting over. Echo instead says a short
+      // pick-up line and lets the step's own UI carry the state.
+      const line = resumed
+        ? "Picking up right where we left off, Sir."
+        : pickLine(STEP_VOICE_LINES[next]);
       if (line) speak(line);
     },
     [persist, speak],
@@ -306,7 +312,7 @@ export default function GuidedSetupWizard({ onComplete }) {
               onResume={() => {
                 const target = resume;
                 setResume(null);
-                gotoStep(target);
+                gotoStep(target, { resumed: true });
               }}
               onLater={finish}
               speak={speak}

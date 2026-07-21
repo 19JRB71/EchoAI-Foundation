@@ -49,3 +49,6 @@ Related honesty rule from the same incident: setup-status probes must
 distinguish "never connected" from "connected but broken" (any non-connected
 row = they DID connect once → say "reconnect", never "connect one"), and a
 spoken setup reminder must name the brand when the owner has >1 brand.
+
+## Calibration stop-test variant (July 2026)
+The Voice Calibration interruption test runs its own recognizer WHILE Echo speaks a script that literally says "say Stop, or Wait, or Hold on" — a naive keyword match self-triggers with the user silent. Fix pattern: evaluate each recognizer segment individually via `isUserStopCommand(segment, script)` (calibration.js): exact standalone stop phrase (filler-prefixed ok) always accepted; otherwise reject when the segment or the ≤3-words-before+phrase window is a substring of the normalized script — but skip the window check when the stop phrase leads the segment ("stop now"), or bare-word script overlap causes false negatives.

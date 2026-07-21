@@ -21,7 +21,7 @@ import { api } from "../api.js";
 import { recordVoiceEvent } from "../voice/flightRecorder.js";
 import {
   CALIBRATION_QUESTIONS,
-  STOP_TEST_PHRASES,
+  isUserStopCommand,
   STYLE_LABELS,
   PROFILE_PRESETS,
   analyzeAnswer,
@@ -52,10 +52,6 @@ const STOP_TEST_TEXT =
   "minutes are far more likely to win the customer, which is why speed matters so " +
   "much, and why having an assistant that listens properly makes all the...";
 
-const STOP_REGEX = new RegExp(
-  `\\b(${STOP_TEST_PHRASES.map((p) => p.replace(/[^a-z ]/g, "")).join("|")})\\b`,
-  "i",
-);
 
 export default function VoiceCalibration({ onComplete, onSkip }) {
   const supported = Boolean(getSpeechRecognition());
@@ -289,13 +285,17 @@ export default function VoiceCalibration({ onComplete, onSkip }) {
       rec.interimResults = true;
       rec.lang = (typeof navigator !== "undefined" && navigator.language) || "en-US";
       rec.onresult = (e) => {
-        let heard = "";
+        // Evaluate each recognizer segment on its own: the mic often hears
+        // Echo's OWN stop-test speech (which literally says "say Stop, or
+        // Wait, or Hold on"), so a naive keyword match on the concatenated
+        // transcript self-triggers with the user silent. isUserStopCommand
+        // filters out segments that are fragments of the spoken script.
         for (let i = e.resultIndex; i < e.results.length; i += 1) {
-          heard += e.results[i][0].transcript;
-        }
-        if (STOP_REGEX.test(heard) && !stopHeardRef.current) {
-          stopHeardRef.current = true;
-          stopAudio(); // halt Echo mid-sentence, exactly like real barge-in
+          const segment = e.results[i][0].transcript;
+          if (!stopHeardRef.current && isUserStopCommand(segment, STOP_TEST_TEXT)) {
+            stopHeardRef.current = true;
+            stopAudio(); // halt Echo mid-sentence, exactly like real barge-in
+          }
         }
       };
       rec.onend = () => {

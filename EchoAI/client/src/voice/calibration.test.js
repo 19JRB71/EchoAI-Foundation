@@ -4,6 +4,7 @@ import {
   PROFILE_CLAMPS,
   CALIBRATION_QUESTIONS,
   endsWithContinuationCue,
+  isUserStopCommand,
   clampProfile,
   timingsForProfile,
   analyzeAnswer,
@@ -233,5 +234,63 @@ describe("constants sanity", () => {
   });
   it("MIN_PAUSE_MS sits above normal talking-gap spacing", () => {
     expect(MIN_PAUSE_MS).toBeGreaterThan(400);
+  });
+});
+
+describe("isUserStopCommand (stop-test self-echo filter)", () => {
+  const SCRIPT =
+    "Now let's test interruptions. I'm going to keep talking for a little while, " +
+    "and whenever you feel like it, just cut me off — say Stop, or Wait, or Hold on. " +
+    "I'll keep going until you do. Businesses that respond to new leads within five " +
+    "minutes are far more likely to win the customer, which is why speed matters so " +
+    "much, and why having an assistant that listens properly makes all the...";
+
+  it("accepts a bare standalone stop phrase", () => {
+    expect(isUserStopCommand("Stop", SCRIPT)).toBe(true);
+    expect(isUserStopCommand("wait!", SCRIPT)).toBe(true);
+    expect(isUserStopCommand("Hold on.", SCRIPT)).toBe(true);
+    expect(isUserStopCommand("that's enough", SCRIPT)).toBe(true);
+  });
+
+  it("accepts a filler-prefixed stop phrase (okay stop / echo wait)", () => {
+    expect(isUserStopCommand("okay stop", SCRIPT)).toBe(true);
+    expect(isUserStopCommand("Echo, stop", SCRIPT)).toBe(true);
+    expect(isUserStopCommand("please wait", SCRIPT)).toBe(true);
+  });
+
+  it("rejects Echo's own script leaking through the mic", () => {
+    expect(
+      isUserStopCommand(
+        "just cut me off say stop or wait or hold on",
+        SCRIPT,
+      ),
+    ).toBe(false);
+    expect(isUserStopCommand("say stop", SCRIPT)).toBe(false);
+    expect(isUserStopCommand("or wait or hold on", SCRIPT)).toBe(false);
+    expect(
+      isUserStopCommand("whenever you feel like it just cut me off say stop", SCRIPT),
+    ).toBe(false);
+  });
+
+  it("rejects growing interim fragments of the script", () => {
+    expect(isUserStopCommand("cut me off say stop or", SCRIPT)).toBe(false);
+    expect(isUserStopCommand("say stop or wait", SCRIPT)).toBe(false);
+  });
+
+  it("accepts a user stop embedded after non-script speech", () => {
+    expect(isUserStopCommand("listens properly makes all the stop", SCRIPT)).toBe(true);
+    expect(isUserStopCommand("alright alright stop talking", SCRIPT)).toBe(true);
+  });
+
+  it("accepts leading stop phrase with trailing words (stop now / wait please)", () => {
+    expect(isUserStopCommand("stop now", SCRIPT)).toBe(true);
+    expect(isUserStopCommand("wait please", SCRIPT)).toBe(true);
+    expect(isUserStopCommand("stop talking", SCRIPT)).toBe(true);
+  });
+
+  it("rejects unrelated speech with no stop phrase", () => {
+    expect(isUserStopCommand("", SCRIPT)).toBe(false);
+    expect(isUserStopCommand("tell me more about leads", SCRIPT)).toBe(false);
+    expect(isUserStopCommand("stopping by later", SCRIPT)).toBe(false);
   });
 });

@@ -73,6 +73,13 @@ function Avatar() {
   );
 }
 
+// The interview questions come back from the AI with light markdown emphasis
+// (**business**). Strip it for both display and speech — the interview card
+// renders plain text.
+export function stripEmphasis(text) {
+  return String(text || "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*\*/g, "");
+}
+
 // Normalize the server's needs_connection `connect` payload into a single kind:
 // a bare string ("google"/"facebook"), a `{ type: "social", ... }` object, or the
 // legacy `{ provider: "google" }` shape all map to one comparable value.
@@ -168,8 +175,16 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       if (document.hidden) {
         pauseViaBeacon();
       } else if (shouldPause()) {
-        // Returned to the tab and still mid-flow — re-arm so a later
-        // background/close pauses again.
+        // Returned to the tab and still mid-flow. If the hidden-tab beacon
+        // paused the session server-side, silently flip it back to
+        // in_progress — otherwise the very next answer/step hits a 409
+        // "paused" and the user (who never left the flow) is dumped onto the
+        // "Setup paused" panel. Then re-arm so a later background/close
+        // pauses again. Best-effort: if the resume fails, the resumable
+        // paused panel still works as the fallback.
+        if (pausedRef.current) {
+          api.startSetupSession().catch(() => {});
+        }
         pausedRef.current = false;
       }
     };
@@ -337,6 +352,61 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
   useEffect(() => {
     if (!voiceMode || phase !== "interview") stopVoice();
   }, [voiceMode, phase, stopVoice]);
+
+  // ---- Speak each interview question aloud (voice mode) ----------------------
+  // Voice mode without speech made the agent feel broken ("he didn't speak at
+  // all"): read each new question in Echo's voice. Playback is best-effort —
+  // the on-screen text always carries the step — and never overlaps the mic:
+  // it's cut the moment the user starts recording.
+  const questionAudioRef = useRef(null);
+  const spokenQuestionRef = useRef("");
+  const stopQuestionAudio = useCallback(() => {
+    const el = questionAudioRef.current;
+    if (el) {
+      try {
+        el.pause();
+        el.src = "";
+      } catch {
+        /* already stopped */
+      }
+      questionAudioRef.current = null;
+    }
+  }, []);
+  useEffect(() => {
+    const text = question && !question.complete ? stripEmphasis(question.message) : "";
+    if (phase !== "interview" || !voiceMode || !text) return undefined;
+    if (spokenQuestionRef.current === text) return undefined;
+    spokenQuestionRef.current = text;
+    let cancelled = false;
+    (async () => {
+      try {
+        const blob = await api.echoVoiceSpeak(text);
+        if (cancelled) return;
+        stopQuestionAudio();
+        const url = URL.createObjectURL(blob);
+        const el = new Audio(url);
+        el.onended = () => URL.revokeObjectURL(url);
+        questionAudioRef.current = el;
+        el.play().catch(() => {
+          /* autoplay blocked — the on-screen text carries the question */
+        });
+      } catch {
+        /* TTS unavailable — text on screen carries the step */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, voiceMode, question, stopQuestionAudio]);
+  // Never talk over the user: cut playback when recording starts, when the
+  // interview phase ends, and on unmount.
+  useEffect(() => {
+    if (voice.recording) stopQuestionAudio();
+  }, [voice.recording, stopQuestionAudio]);
+  useEffect(() => {
+    if (phase !== "interview") stopQuestionAudio();
+  }, [phase, stopQuestionAudio]);
+  useEffect(() => stopQuestionAudio, [stopQuestionAudio]);
 
   // ---- Consent ---------------------------------------------------------------
 
@@ -618,7 +688,7 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         <div className="flex flex-1 flex-col justify-center">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-10">
             <p className="text-2xl font-semibold leading-snug md:text-3xl">
-              {question ? question.message : "…"}
+              {question ? stripEmphasis(question.message) : "…"}
             </p>
             {question && question.suggestion ? (
               <p className="mt-3 text-sm text-teal-300/80">{question.suggestion}</p>

@@ -278,9 +278,14 @@ test("due predicate (scheduled_time <= cutoff) selects exactly the posts at/befo
     (s) => s.scheduled.getTime() <= cutoff.getTime()
   ).length;
 
+  // NOTE: deliberately no `status = 'scheduled'` filter. Test files run in
+  // parallel against one shared DB, and another suite's publisher sweep can
+  // claim these (past-dated) posts and flip their status mid-run, which made
+  // this count nondeterministic (observed 39/42 vs 46). The predicate under
+  // test is the TIME comparison; scheduled_time is never mutated.
   const due = await db.query(
     `SELECT COUNT(*)::int AS n FROM social_posts
-     WHERE calendar_id = $1 AND status = 'scheduled' AND scheduled_time <= $2`,
+     WHERE calendar_id = $1 AND scheduled_time <= $2`,
     [state.springCalId, cutoff.toISOString()]
   );
   assert.equal(due.rows[0].n, expectedDue, "cutoff selects exactly the at/before set");

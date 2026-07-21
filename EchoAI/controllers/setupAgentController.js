@@ -55,6 +55,13 @@ async function askInterview(messages) {
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
   } catch (err) {
+    // Log the REAL upstream failure (status + message) so operators can
+    // diagnose from server logs; the user still gets the generic 502 below.
+    console.error(
+      `Setup interview AI call failed${err && err.status ? ` (status ${err.status})` : ""}: ${
+        (err && err.message) || err
+      }`,
+    );
     throw upstreamError(
       "The AI provider could not continue the setup interview right now. Please try again shortly.",
     );
