@@ -517,7 +517,10 @@ async function changePassword(req, res) {
 
     const matches = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
     if (!matches) {
-      return res.status(401).json({ error: "Current password is incorrect" });
+      // 400 (not 401): the client's shared request wrapper treats any 401 on
+      // an authenticated call as session expiry and force-logs the user out.
+      // A mistyped current password is a validation error, not a dead session.
+      return res.status(400).json({ error: "Current password is incorrect" });
     }
 
     const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);

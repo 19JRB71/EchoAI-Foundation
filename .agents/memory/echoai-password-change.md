@@ -7,4 +7,6 @@ description: Password-change endpoint must invalidate previously issued JWTs and
 
 **Why:** Auth is stateless JWT (30-day tokens). Without the middleware check, a stolen/other-device token stays valid for up to 30 days after a password change, defeating password change as a recovery control. Without the fresh token, the user who changed their password is instantly logged out of their own session.
 
+**Never return 401 for a wrong current password** (use 400): the client's shared request wrapper treats ANY 401 on an authenticated call as session expiry — clearToken + forced logout — so a mistyped password would log the user out.
+
 **How to apply:** Any future flow that rotates credentials (admin reset, forgot-password) must also stamp `password_changed_at` and issue a fresh token where a live session should survive. The middleware check lives in the existing best-effort users lookup in `middleware/auth.js` — no extra query. Change-password always acts on `actualUserId` (team member changes their OWN password, never the workspace owner's).

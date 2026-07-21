@@ -63,7 +63,7 @@ test("rejects reusing the current password", async () => {
   assert.match(res.body.error, /different/i);
 });
 
-test("401 when the current password is wrong", async () => {
+test("400 when the current password is wrong (never 401 — the client treats 401 as session expiry and would force-logout)", async () => {
   const hash = await bcrypt.hash("real-password", 4);
   db.query = async (sql) => {
     if (/SELECT password_hash/i.test(sql)) return { rows: [{ password_hash: hash }] };
@@ -74,7 +74,7 @@ test("401 when the current password is wrong", async () => {
     req({ currentPassword: "wrong-guess", newPassword: "brand-new-pass" }),
     res,
   );
-  assert.equal(res.statusCode, 401);
+  assert.equal(res.statusCode, 400);
   assert.match(res.body.error, /incorrect/i);
 });
 
