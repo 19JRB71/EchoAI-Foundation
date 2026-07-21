@@ -25,3 +25,6 @@ description: New-customer front-door wizard (/api/guided-setup) — OAuth param 
   "low", missing guidance → aiInvalid → 502; low confidence/502 → honest "unsure"
   phase + support-ticket escalation. Never fabricate guidance.
 - Progress route is `PUT /api/guided-setup/progress` (not POST).
+
+## Hidden-tab pause must auto-resume on return (July 2026)
+The Setup Agent pauses the server session via beacon on visibilitychange→hidden (tab switch, screenshot tool, notifications all trigger it). Returning to the tab must SILENTLY call the idempotent startSetupSession to flip paused→in_progress before re-arming the guard — otherwise the very next answer/step 409s and the user who never left is dumped on the "Setup paused" panel ("it paused itself, I didn't touch anything").

@@ -222,6 +222,60 @@ describe("SetupAgent pauses at most once (beacon OR unmount, never both)", () =>
   });
 });
 
+describe("SetupAgent silently resumes when the tab becomes visible again", () => {
+  function setHidden(hidden) {
+    Object.defineProperty(document, "hidden", { value: hidden, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }
+
+  afterEach(() => {
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
+
+  test("hidden pauses via beacon; visible again silently un-pauses the session", async () => {
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+    // The initial mount consumed one startSetupSession call.
+    expect(api.startSetupSession).toHaveBeenCalledTimes(1);
+
+    // Backgrounding the tab pauses via the beacon.
+    setHidden(true);
+    expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
+
+    // Returning to the tab mid-interview silently flips the session back to
+    // in_progress (idempotent startSetupSession) — the user never sees the
+    // "Setup paused" panel just because the tab lost focus for a moment.
+    setHidden(false);
+    await waitFor(() => expect(api.startSetupSession).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("Setup paused")).not.toBeInTheDocument();
+    expect(screen.getByText("What does your business do?")).toBeInTheDocument();
+
+    // And the guard re-armed: hiding again pauses again.
+    setHidden(true);
+    expect(navigator.sendBeacon).toHaveBeenCalledTimes(2);
+  });
+
+  test("becoming visible without a prior pause does NOT call resume", async () => {
+    api.startSetupSession.mockResolvedValue({
+      session: INTERVIEW_SESSION,
+      question: { message: "What does your business do?" },
+    });
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByText("What does your business do?")).toBeInTheDocument();
+    expect(api.startSetupSession).toHaveBeenCalledTimes(1);
+
+    // Visible event with no preceding hidden/pause — nothing to resume.
+    setHidden(false);
+    expect(api.startSetupSession).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("SetupAgent beacon helper self-guards on missing prerequisites", () => {
   test("no token → no beacon even during the interview", async () => {
     // If the JWT is gone (e.g. logged out in another tab) the real helper bails

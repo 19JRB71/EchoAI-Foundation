@@ -175,8 +175,16 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       if (document.hidden) {
         pauseViaBeacon();
       } else if (shouldPause()) {
-        // Returned to the tab and still mid-flow — re-arm so a later
-        // background/close pauses again.
+        // Returned to the tab and still mid-flow. If the hidden-tab beacon
+        // paused the session server-side, silently flip it back to
+        // in_progress — otherwise the very next answer/step hits a 409
+        // "paused" and the user (who never left the flow) is dumped onto the
+        // "Setup paused" panel. Then re-arm so a later background/close
+        // pauses again. Best-effort: if the resume fails, the resumable
+        // paused panel still works as the fallback.
+        if (pausedRef.current) {
+          api.startSetupSession().catch(() => {});
+        }
         pausedRef.current = false;
       }
     };
