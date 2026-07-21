@@ -29,5 +29,8 @@ router.post("/waitlist", authLimiter, authController.joinWaitlist);
 router.get("/profile", authMiddleware, authController.getProfile);
 router.put("/profile", authMiddleware, authController.updateProfile);
 router.put("/profile/onboarding", authMiddleware, authController.updateOnboarding);
+// Password change re-verifies the current password, so it gets the same
+// brute-force limiter as login (failed guesses burn the budget; successes don't).
+router.put("/profile/password", authMiddleware, authLimiter, authController.changePassword);
 
 module.exports = router;

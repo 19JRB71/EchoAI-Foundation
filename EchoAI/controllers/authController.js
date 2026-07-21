@@ -484,6 +484,64 @@ async function updateOnboarding(req, res) {
   }
 }
 
+/**
+ * PUT /profile/password  (protected)
+ * Changes the authenticated user's password. Requires the current password to
+ * be re-entered (so a stolen/left-open session can't silently take over the
+ * account). Always operates on the REAL authenticated user (actualUserId), not
+ * the remapped workspace owner — a team member changes their own password.
+ */
+async function changePassword(req, res) {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: "Current password and new password are required" });
+  }
+  if (typeof newPassword !== "string" || newPassword.length < 8) {
+    return res.status(400).json({ error: "New password must be at least 8 characters long" });
+  }
+  if (newPassword === currentPassword) {
+    return res.status(400).json({ error: "New password must be different from the current one" });
+  }
+
+  const selfId = req.user.actualUserId || req.user.userId;
+
+  try {
+    const result = await db.query(
+      "SELECT password_hash FROM users WHERE user_id = $1",
+      [selfId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const matches = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+    if (!matches) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    // Stamp password_changed_at so every previously issued JWT (any other
+    // device, or a stolen token) is invalidated by the auth middleware.
+    const updated = await db.query(
+      `UPDATE users
+          SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW()
+        WHERE user_id = $2
+        RETURNING email`,
+      [newHash, selfId]
+    );
+
+    // Issue a fresh token for THIS device so the user who just changed their
+    // password stays signed in (their old token is now invalid like all others).
+    const token = generateToken({ userId: selfId, email: updated.rows[0].email });
+
+    return res.json({ success: true, message: "Password updated", token });
+  } catch (err) {
+    console.error("Change password error:", err);
+    return res.status(500).json({ error: "Failed to change password" });
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -493,4 +551,5 @@ module.exports = {
   getProfile,
   updateProfile,
   updateOnboarding,
+  changePassword,
 };
