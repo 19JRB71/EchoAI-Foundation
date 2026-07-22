@@ -393,7 +393,7 @@ describe("SetupAgent needs_connection handoff", () => {
     const connectInstagram = screen.getByRole("button", { name: /connect instagram/i });
     fireEvent.click(connectInstagram);
 
-    expect(onExitToSection).toHaveBeenCalledWith("social");
+    expect(onExitToSection).toHaveBeenCalledWith("social", "accounts");
   });
 });
 
