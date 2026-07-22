@@ -86,6 +86,14 @@ export default function SetupChecklistCard({ onNavigate, onStatus }) {
           </li>
         ))}
       </ul>
+
+      <button
+        type="button"
+        onClick={() => onNavigate && onNavigate("connections")}
+        className="mt-3 w-full rounded-lg border border-cyan-900/60 px-2.5 py-1.5 text-center text-[11px] font-semibold text-cyan-300 hover:bg-cyan-950/40"
+      >
+        Open Connections &amp; Setup →
+      </button>
     </div>
   );
 }

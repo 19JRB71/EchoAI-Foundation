@@ -32,6 +32,7 @@ import CompetitorSites from "./sections/CompetitorSites.jsx";
 import Sage from "./sections/Sage.jsx";
 import Vision from "./sections/Vision.jsx";
 import Portfolio from "./sections/Portfolio.jsx";
+import Connections from "./sections/Connections.jsx";
 import Reputation from "./sections/Reputation.jsx";
 import PhoneAgent from "./sections/PhoneAgent.jsx";
 import Appointments from "./sections/Appointments.jsx";
@@ -1204,6 +1205,9 @@ export default function App() {
               )}
               {section === "aiteam" && (
                 <AiTeam onOpenDepartment={openDepartment} />
+              )}
+              {section === "connections" && (
+                <Connections onNavigate={handleSelectSection} />
               )}
               {section === "echomemory" &&
                 (canOpenSection("echomemory") ? <EchoMemory /> : null)}
