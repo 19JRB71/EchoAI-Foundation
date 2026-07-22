@@ -443,9 +443,11 @@ app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.stack || err.message);
   const status = err.status || err.statusCode || 500;
   // 4xx errors carry intentional, user-facing messages (validation text,
-  // "use an app password", etc.) — show them even in production. Only true
-  // server faults (5xx) are masked in production to avoid leaking internals.
-  const mask = IS_PROD && status >= 500;
+  // "use an app password", etc.) — show them even in production. True server
+  // faults (5xx) are masked in production to avoid leaking internals, UNLESS
+  // the thrower explicitly marked the message safe with err.expose = true
+  // (the message is deliberately written for the user and leaks nothing).
+  const mask = IS_PROD && status >= 500 && err.expose !== true;
   res.status(status).json({
     error: mask ? "Internal server error" : err.message || "Internal server error",
   });
