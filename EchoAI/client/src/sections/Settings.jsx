@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { api } from "../api.js";
+import { api, getToken } from "../api.js";
+import { enablePushNotifications } from "../push.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import BrandDiscovery from "./BrandDiscovery.jsx";
@@ -94,6 +95,7 @@ export default function Settings({
           <SetupAgentCard />
           <ProfileCard isTeamMember={isTeamMember} />
           <PasswordCard />
+          <NotificationsCard />
           <FacebookCard />
           <TwilioCard brandId={brandId} />
           <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
@@ -483,6 +485,87 @@ function PasswordCard() {
           {saving ? "Updating…" : "Update password"}
         </button>
       </form>
+    </Card>
+  );
+}
+
+// Phone/device alert card: shows whether push notifications are enabled on
+// THIS device and offers a button to turn them on. Permission is per-device,
+// so the installed phone app and a desktop browser each enable separately.
+function NotificationsCard() {
+  const supported =
+    typeof window !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    "Notification" in window;
+  const [permission, setPermission] = useState(
+    supported ? Notification.permission : "unsupported",
+  );
+  const [enabling, setEnabling] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+
+  async function enable() {
+    setEnabling(true);
+    setNotice("");
+    setError("");
+    try {
+      const ok = await enablePushNotifications(getToken());
+      setPermission(supported ? Notification.permission : "unsupported");
+      if (ok) {
+        setNotice(
+          "Notifications are on for this device. You'll get alerts for hot leads, reminders, and anything that needs your attention.",
+        );
+      } else if (supported && Notification.permission === "denied") {
+        setError(
+          "Notifications are blocked for this app in your device settings. Turn them on there, then come back and try again.",
+        );
+      } else {
+        setError(
+          "Couldn't turn on notifications on this device. Please try again.",
+        );
+      }
+    } finally {
+      setEnabling(false);
+    }
+  }
+
+  return (
+    <Card title="Phone & device alerts">
+      <div className="space-y-3">
+        <p className="text-sm text-gray-400">
+          Get instant alerts on this device for hot leads, reminders, failed
+          posts, and system issues — even when the app is closed. Enable this
+          on each device where you want alerts (like the app on your phone).
+        </p>
+        {!supported ? (
+          <p className="text-sm text-gray-400">
+            This browser doesn't support notifications. On iPhone, add the app
+            to your Home Screen first, then enable alerts from inside the
+            installed app.
+          </p>
+        ) : permission === "granted" ? (
+          <p className="text-sm text-green-600">
+            Notifications are enabled on this device.
+          </p>
+        ) : permission === "denied" ? (
+          <p className="text-sm text-amber-400">
+            Notifications are currently blocked for this app in your device or
+            browser settings. Allow them there, then tap the button below.
+          </p>
+        ) : null}
+        {notice && <p className="text-sm text-green-600">{notice}</p>}
+        <ErrorBanner message={error} />
+        {supported && (
+          <button onClick={enable} disabled={enabling} className={primaryBtn}>
+            {enabling
+              ? "Turning on…"
+              : permission === "granted"
+                ? "Re-check alerts on this device"
+                : "Turn on alerts on this device"}
+          </button>
+        )}
+      </div>
     </Card>
   );
 }
