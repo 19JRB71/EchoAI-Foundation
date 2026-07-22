@@ -93,6 +93,7 @@ export default function Settings({
         <div className="space-y-6">
           <SetupAgentCard />
           <ProfileCard isTeamMember={isTeamMember} />
+          <PasswordCard />
           <FacebookCard />
           <TwilioCard brandId={brandId} />
           <BrandCard brandId={brandId} onBrandsChanged={onBrandsChanged} />
@@ -402,6 +403,84 @@ function ProfileCard({ isTeamMember = false }) {
         <ErrorBanner message={error} />
         <button disabled={saving} className={primaryBtn}>
           {saving ? "Saving…" : "Save changes"}
+        </button>
+      </form>
+    </Card>
+  );
+}
+
+function PasswordCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function save(e) {
+    e.preventDefault();
+    setError("");
+    setNotice("");
+    if (!currentPassword || !newPassword) {
+      setError("Please fill in your current password and a new password.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("New passwords don't match.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      setNotice("Password updated.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card title="Change password">
+      <form onSubmit={save} className="space-y-3">
+        <Labeled label="Current password">
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className={inputClass}
+          />
+        </Labeled>
+        <Labeled label="New password (at least 8 characters)">
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className={inputClass}
+          />
+        </Labeled>
+        <Labeled label="Confirm new password">
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className={inputClass}
+          />
+        </Labeled>
+        {notice && <p className="text-sm text-green-600">{notice}</p>}
+        <ErrorBanner message={error} />
+        <button disabled={saving} className={primaryBtn}>
+          {saving ? "Updating…" : "Update password"}
         </button>
       </form>
     </Card>

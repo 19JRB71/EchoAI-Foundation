@@ -684,6 +684,19 @@ export const api = {
     request("/api/auth/waitlist", { method: "POST", body: { email }, auth: false }),
   updateProfile: (payload) =>
     request("/api/auth/profile", { method: "PUT", body: payload }),
+  changePassword: async (currentPassword, newPassword) => {
+    const data = await request("/api/auth/profile/password", {
+      method: "PUT",
+      body: { currentPassword, newPassword },
+    });
+    // The server rotates the session: every previously issued token is now
+    // invalid, and the response carries a fresh one for THIS device. Store it
+    // in the same place the old token lived (localStorage = "remember me").
+    if (data && data.token) {
+      setToken(data.token, !!localStorage.getItem(TOKEN_KEY));
+    }
+    return data;
+  },
   updateOnboarding: (payload) =>
     request("/api/auth/profile/onboarding", { method: "PUT", body: payload }),
 

@@ -63,6 +63,7 @@ async function authMiddleware(req, res, next) {
   try {
     const { rows } = await db.query(
       `SELECT u.role AS platform_role,
+              u.password_changed_at,
               tm.account_owner_user_id AS owner_id,
               tm.role AS team_role
          FROM users u
@@ -78,6 +79,20 @@ async function authMiddleware(req, res, next) {
     );
 
     const row = rows[0];
+
+    // Session invalidation on password change: any token issued BEFORE the
+    // password was last changed is rejected, so changing the password locks
+    // out every other (possibly stolen) session. JWT iat has second precision,
+    // so allow a 2s grace window for the fresh token minted during the change.
+    if (row && row.password_changed_at && decoded.iat) {
+      const changedAtMs = new Date(row.password_changed_at).getTime();
+      if (Number.isFinite(changedAtMs) && decoded.iat * 1000 < changedAtMs - 2000) {
+        return res
+          .status(401)
+          .json({ error: "Unauthorized: password was changed — please log in again" });
+      }
+    }
+
     if (row) {
       req.user.isPlatformAdmin = row.platform_role === "admin";
 

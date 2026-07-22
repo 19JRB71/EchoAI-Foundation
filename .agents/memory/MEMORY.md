@@ -113,6 +113,7 @@
 - [EchoAI skip gates scope](echoai-skip-gates.md) — input-hash skip gates suppress only AI/aggregation cost; owner-facing deliverables (weekly report etc.) must still fire from the stored result.
 - [EchoAI clipboard image paste](echoai-clipboard-paste.md) — paste-to-upload listeners must branch on clipboard CONTENT (image files → hijack anywhere), never skip by focused-element type, or pasting with a text box focused silently no-ops.
 - [EchoAI Sage V2 Phase 1](echoai-sage-v2-phase1.md) — flag-dark endpoints answer {enabled:false}; weekly aggregators must week-bound EVERY source query, never latest-ever rows.
+- [EchoAI password change](echoai-password-change.md) — stamp password_changed_at + middleware rejects older-iat JWTs + response carries a fresh token for the changing device.
 - [Sage V2 Phase 3 outcome capture](echoai-sage-v2-phase3.md) — leads.outcome is measurement-only; flag-on-only response fields keep dark bytes identical; disable updated_at trigger to stage stale test rows.
 - [EchoAI runtime client config](echoai-runtime-client-config.md) — committed prebuilt bundle means Railway VITE_* vars never reach the client; env-dependent client config must come from a public runtime endpoint.
 - [EchoAI Sage V2 Phase 6](echoai-sage-v2-phase6.md) — repeat the singleton-exists check under the lock inside the write tx (AI call runs unlocked) + map 23505 to 409; bind client JSX to literal server field names.
