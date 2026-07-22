@@ -1034,10 +1034,14 @@ export default function App() {
         workspaceRole={workspaceRole}
         ownerBusinessName={ownerBusinessName}
       />
+      {/* Floating-button column (bottom-right): Take the Tour sits at
+          bottom-5, Help & Support at bottom-24, the "Hey Echo" chip at
+          bottom-40 — so "Finish your setup" takes the bottom-56 slot to
+          avoid burying/being buried by any of them. */}
       {setupPending ? (
         <button
           onClick={() => setShowSetup(true)}
-          className="fixed bottom-6 right-6 z-40 rounded-full bg-teal-500 px-5 py-3 font-semibold text-black shadow-lg shadow-teal-500/30 hover:bg-teal-400"
+          className="fixed bottom-56 right-5 z-40 rounded-full bg-teal-500 px-5 py-3 font-semibold text-black shadow-lg shadow-teal-500/30 hover:bg-teal-400"
         >
           Finish your setup →
         </button>
