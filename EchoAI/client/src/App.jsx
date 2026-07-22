@@ -636,10 +636,16 @@ export default function App() {
   // Step out of the Setup Agent to a dashboard section (e.g. Social Accounts) to
   // connect something, keeping the unfinished session so the user can return via
   // the floating "Finish setup" button.
-  const handleSetupExitToSection = useCallback((sec) => {
+  const handleSetupExitToSection = useCallback((sec, tab) => {
     setShowSetup(false);
     setSetupPending(true);
-    if (sec) setSection(sec);
+    if (sec) {
+      // Optional sub-tab (e.g. Social Media's "accounts" tab for connecting
+      // social accounts) so the user lands on the right screen, not the
+      // section's default tab.
+      setActiveToolTab(tab || null);
+      setSection(sec);
+    }
   }, []);
 
   // Consume a pending team invitation once authenticated. Accepting joins the
@@ -1237,6 +1243,7 @@ export default function App() {
                 <SocialMedia
                   brandId={selectedBrandId}
                   tier={currentTier}
+                  initialTab={activeToolTab || undefined}
                   prefillImage={socialPrefillImage}
                   onPrefillConsumed={() => setSocialPrefillImage(null)}
                 />

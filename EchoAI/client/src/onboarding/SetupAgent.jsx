@@ -460,7 +460,9 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
     // off to the existing Social Accounts screen. The session stays in_progress
     // (the running phase never auto-pauses on unmount), so setup resumes and
     // re-checks the connection when the user returns via "Finish setup".
-    if (typeof onExitToSection === "function") onExitToSection("social");
+    // Land directly on the Connected Accounts tab (not the section's default
+    // Content Calendar tab) so the connect buttons are immediately visible.
+    if (typeof onExitToSection === "function") onExitToSection("social", "accounts");
   }
 
   async function skipConnection() {
