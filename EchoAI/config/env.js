@@ -54,6 +54,11 @@ const FEATURES = [
     optional: ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_REDIRECT_URI"],
   },
   {
+    name: "Jobber integration (OAuth — clients, schedule, lead push)",
+    vars: ["JOBBER_CLIENT_ID", "JOBBER_CLIENT_SECRET"],
+    optional: ["JOBBER_REDIRECT_URI", "JOBBER_API_VERSION"],
+  },
+  {
     name: "Web push notifications (VAPID)",
     vars: ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"],
   },

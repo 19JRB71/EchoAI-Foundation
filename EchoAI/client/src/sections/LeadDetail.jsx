@@ -4,7 +4,7 @@ import Badge from "../components/Badge.jsx";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 
-export default function LeadDetail({ leadId, onClose }) {
+export default function LeadDetail({ leadId, jobberConnected = false, onClose }) {
   const [lead, setLead] = useState(null);
   const [interactions, setInteractions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +78,15 @@ export default function LeadDetail({ leadId, onClose }) {
               <Field label="Email" value={lead.email} />
               <Field label="Phone" value={lead.phone} />
             </dl>
+
+            {jobberConnected && (
+              <JobberSendSection
+                lead={lead}
+                onSent={(jobberClientId) =>
+                  setLead((prev) => ({ ...prev, jobber_client_id: jobberClientId }))
+                }
+              />
+            )}
 
             {outcomeCapture && (
               <OutcomeSection lead={lead} onRecorded={(updated) => setLead((prev) => ({ ...prev, ...updated }))} />
@@ -280,6 +289,69 @@ function OutcomeSection({ lead, onRecorded }) {
           {saveError && <p className="text-xs text-red-400">{saveError}</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * "Send to Jobber" — rendered only when the owner's Jobber account is
+ * connected. Idempotent server-side: an already-linked lead just reports its
+ * existing Jobber client instead of creating a duplicate.
+ */
+function JobberSendSection({ lead, onSent }) {
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState("");
+  const [webUri, setWebUri] = useState(null);
+  const [sendError, setSendError] = useState("");
+
+  const linked = Boolean(lead.jobber_client_id);
+
+  async function send() {
+    setSending(true);
+    setSendError("");
+    setMessage("");
+    try {
+      const data = await api.sendLeadToJobber(lead.lead_id);
+      setMessage(data.message || "Lead created in Jobber.");
+      if (data.jobberWebUri) setWebUri(data.jobberWebUri);
+      if (data.jobberClientId) onSent(data.jobberClientId);
+    } catch (err) {
+      setSendError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h4 className="text-sm font-semibold text-gray-300">Jobber</h4>
+        {linked ? (
+          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+            In Jobber
+          </span>
+        ) : (
+          <button
+            onClick={send}
+            disabled={sending}
+            className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700 disabled:opacity-50"
+          >
+            {sending ? "Sending…" : "Send to Jobber"}
+          </button>
+        )}
+        {webUri && (
+          <a
+            href={webUri}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-amber-400 hover:text-amber-300"
+          >
+            Open in Jobber ↗
+          </a>
+        )}
+      </div>
+      {message && <p className="mt-1 text-xs text-emerald-300">{message}</p>}
+      {sendError && <p className="mt-1 text-xs text-red-400">{sendError}</p>}
     </div>
   );
 }

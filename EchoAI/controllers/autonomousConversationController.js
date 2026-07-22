@@ -312,6 +312,10 @@ async function handleInboundReply(args) {
   // and the converting touch (this conversation's channel).
   if (closeReason === "converted") {
     leadOutcome.markWonFromConvert(lead.lead_id, "autonomous", channel).catch(() => {});
+    // Jobber hook (best-effort): a converted lead becomes a Jobber client.
+    require("./jobberController")
+      .autoCreateClientForLead(lead.lead_id)
+      .catch(() => {});
   }
 
   // 4) Escalate on a strong buying signal (best-effort). Fire at most once per

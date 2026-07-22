@@ -4,6 +4,7 @@ const zapierController = require("./zapierController");
 const followUpController = require("./followUpController");
 const { applyLeadGeo } = require("../utils/leadGeoFlag");
 const leadOutcome = require("../utils/leadOutcome");
+const jobberController = require("./jobberController");
 
 /**
  * Verifies that a brand belongs to the authenticated user.
@@ -219,6 +220,8 @@ async function updateLead(req, res) {
 
     // A converted lead no longer needs any running follow-up — stop them.
     if (conversionStatus === "converted") {
+      // Jobber hook (best-effort): a converted lead becomes a Jobber client.
+      jobberController.autoCreateClientForLead(leadId).catch(() => {});
       followUpController
         .cancelActiveSequencesForLead(leadId, "converted")
         .catch((err) => console.error("Follow-up stop (convert) failed:", err.message));
@@ -284,6 +287,9 @@ async function convertLead(req, res) {
 
     // Sage V2 P3 one-way sync (flag-gated no-op when dark).
     leadOutcome.markWonFromConvert(leadId, "crm", null).catch(() => {});
+
+    // Jobber hook (best-effort): a converted lead becomes a Jobber client.
+    jobberController.autoCreateClientForLead(leadId).catch(() => {});
 
     return res.json({ message: "Lead converted", lead: updated.rows[0] });
   } catch (err) {

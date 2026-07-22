@@ -39,6 +39,12 @@ const ITEM_META = {
     oauth: "google",
     cta: "Connect via Google",
   },
+  jobber: {
+    benefit:
+      "Pulls your Jobber clients in as leads, shows your booked visits, and sends converted leads back to Jobber automatically.",
+    oauth: "jobber",
+    cta: "Connect Jobber",
+  },
   phone: {
     benefit: "Your AI receptionist answers calls and texts on a business phone number.",
     cta: "Set up phone agent",
@@ -121,7 +127,11 @@ export default function Connections({ onNavigate }) {
     setOauthError("");
     try {
       const { authUrl } =
-        provider === "facebook" ? await api.startFacebookOAuth() : await api.startGoogleOAuth();
+        provider === "facebook"
+          ? await api.startFacebookOAuth()
+          : provider === "jobber"
+            ? await api.startJobberOAuth()
+            : await api.startGoogleOAuth();
       window.location.href = authUrl;
       // navigating away — leave the button disabled
     } catch (err) {

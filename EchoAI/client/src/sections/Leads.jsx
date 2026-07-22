@@ -19,6 +19,23 @@ export default function Leads({ brandId }) {
   const [error, setError] = useState("");
   const [activeLeadId, setActiveLeadId] = useState(null);
   const [coverage, setCoverage] = useState(null);
+  const [jobberConnected, setJobberConnected] = useState(false);
+
+  // Jobber connection (best-effort probe — never blocks the lead list).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await api.getJobberStatus();
+        if (active) setJobberConnected(data?.connected === true);
+      } catch {
+        if (active) setJobberConnected(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Sage V2 P3 coverage display (flag-gated server-side; {enabled:false} when
   // dark → renders nothing). Best-effort — never blocks the lead list.
@@ -85,6 +102,8 @@ export default function Leads({ brandId }) {
       </div>
 
       <ErrorBanner message={error} />
+
+      {jobberConnected && <JobberBar brandId={brandId} onImported={load} />}
 
       {coverage && coverage.totalLeads > 0 && (
         <div
@@ -181,11 +200,134 @@ export default function Leads({ brandId }) {
       {activeLeadId && (
         <LeadDetail
           leadId={activeLeadId}
+          jobberConnected={jobberConnected}
           onClose={() => setActiveLeadId(null)}
         />
       )}
     </div>
   );
+}
+
+/**
+ * Jobber toolbar — shown only when the owner's Jobber account is connected.
+ * Import pulls Jobber clients into this brand's CRM (deduped server-side);
+ * the schedule toggle shows the next 14 days of booked Jobber visits.
+ */
+function JobberBar({ brandId, onImported }) {
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [importError, setImportError] = useState("");
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [schedule, setSchedule] = useState(null);
+  const [scheduleError, setScheduleError] = useState("");
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+
+  async function runImport() {
+    setImporting(true);
+    setImportError("");
+    setImportResult(null);
+    try {
+      const data = await api.importJobberClients(brandId);
+      setImportResult(data);
+      if (data.imported > 0) onImported();
+    } catch (err) {
+      setImportError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function toggleSchedule() {
+    if (showSchedule) {
+      setShowSchedule(false);
+      return;
+    }
+    setShowSchedule(true);
+    if (schedule) return;
+    setScheduleLoading(true);
+    setScheduleError("");
+    try {
+      const data = await api.getJobberSchedule();
+      setSchedule(data);
+    } catch (err) {
+      setScheduleError(err.message);
+    } finally {
+      setScheduleLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-gray-300">Jobber</span>
+        <button
+          onClick={runImport}
+          disabled={importing}
+          className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700 disabled:opacity-50"
+        >
+          {importing ? "Importing…" : "Import clients as leads"}
+        </button>
+        <button
+          onClick={toggleSchedule}
+          className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700"
+        >
+          {showSchedule ? "Hide upcoming visits" : "Show upcoming visits"}
+        </button>
+        {importResult && (
+          <span className="text-xs text-emerald-300">
+            Imported {importResult.imported} new lead
+            {importResult.imported === 1 ? "" : "s"}
+            {importResult.skipped > 0
+              ? ` (${importResult.skipped} already in your CRM)`
+              : ""}
+            {importResult.complete === false
+              ? " — more remain, run the import again"
+              : ""}
+          </span>
+        )}
+        {importError && <span className="text-xs text-red-400">{importError}</span>}
+      </div>
+
+      {showSchedule && (
+        <div className="mt-3 border-t border-gray-800 pt-3">
+          {scheduleLoading ? (
+            <Spinner label="Loading Jobber schedule…" />
+          ) : scheduleError ? (
+            <p className="text-xs text-red-400">{scheduleError}</p>
+          ) : !schedule || schedule.visits.length === 0 ? (
+            <p className="text-xs text-gray-400">
+              No booked Jobber visits in the next 14 days.
+            </p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {schedule.visits.map((v) => (
+                <li key={v.id} className="flex flex-wrap justify-between gap-2">
+                  <span className="text-gray-200">
+                    {v.title || "Visit"}
+                    {v.clientName ? (
+                      <span className="text-gray-400"> — {v.clientName}</span>
+                    ) : null}
+                  </span>
+                  <span className="text-gray-400">{formatDateTime(v.startAt)}</span>
+                </li>
+              ))}
+              {schedule.hasMore && (
+                <li className="text-xs text-gray-500">
+                  Showing the first 50 visits.
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString();
 }
 
 function formatDate(value) {

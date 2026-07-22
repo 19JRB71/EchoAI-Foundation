@@ -232,7 +232,7 @@ async function getChecklist(req, res) {
   try {
     const userId = req.user.userId;
 
-    const [profile, facebook, google, phone, chatbot, email] = await Promise.all([
+    const [profile, facebook, google, phone, chatbot, email, jobber] = await Promise.all([
       probeExists(
         `SELECT 1 FROM brands
           WHERE user_id = $1 AND COALESCE(TRIM(brand_name), '') <> '' LIMIT 1`,
@@ -251,6 +251,11 @@ async function getChecklist(req, res) {
         [userId],
       ),
       probeExists(`SELECT 1 FROM email_accounts WHERE user_id = $1 LIMIT 1`, [userId]),
+      probeExists(
+        `SELECT 1 FROM jobber_integrations
+          WHERE user_id = $1 AND connection_status = 'connected' LIMIT 1`,
+        [userId],
+      ),
     ]);
 
     const items = [
@@ -274,6 +279,7 @@ async function getChecklist(req, res) {
       { key: "phone", label: "Phone agent", status: phone, section: "phone" },
       { key: "chatbot", label: "Website chatbot", status: chatbot, section: "chatbot" },
       { key: "email", label: "Email assistant", status: email, section: "echoemail" },
+      { key: "jobber", label: "Jobber", status: jobber, section: "leads" },
       { key: "crm", label: "CRM & leads", status: "link", section: "leads" },
       { key: "gbp", label: "Google Business Profile", status: "link", section: "googleseo" },
     ];
