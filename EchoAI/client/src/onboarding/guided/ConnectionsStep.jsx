@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { api } from "../../api.js";
+import { openAuthUrl } from "../../lib/oauthNav.js";
 import { CONNECTION_CATALOG } from "./connectionCatalog.jsx";
 import { translateConnectionError, errorCopyForKey } from "./connectionErrors.js";
 import PreviewPanel from "./PreviewPanel.jsx";
@@ -58,8 +59,11 @@ export default function ConnectionsStep({
       // the wizard resumes on this step after the full-page OAuth redirect.
       await updateFlags(connection.key, { connecting: true, errorKey: null, skipped: false });
       const { authUrl } = await connection.start();
-      window.location.href = authUrl;
-      // navigating away — leave busy so the button stays disabled
+      // When embedded (staging preview iframe) OAuth opens in a new tab —
+      // Google/Facebook refuse to render inside a frame. The wizard resumes
+      // on this step there thanks to the persisted "connecting" flag.
+      const navigatedAway = openAuthUrl(authUrl);
+      if (!navigatedAway) setBusyKey(null);
     } catch (err) {
       setBusyKey(null);
       setPreviewFor(null);

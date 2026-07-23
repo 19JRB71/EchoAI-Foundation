@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api.js";
+import { openAuthUrl } from "../lib/oauthNav.js";
 import Spinner from "../components/Spinner.jsx";
 import { classifyExecuteError } from "./executeError.js";
 import { useVoiceInput, detectIsMobile } from "./useVoiceInput.js";
@@ -433,7 +434,7 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       const { authUrl } = await api.startGoogleOAuth();
       // Full-page handoff to Google's own consent screen. The setup session
       // persists; the agent resumes automatically when the user returns.
-      window.location.href = authUrl;
+      if (!openAuthUrl(authUrl)) setBusy(false);
     } catch (err) {
       setBusy(false);
       setError(err.message || "Could not start Google connection.");
@@ -447,7 +448,7 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       const { authUrl } = await api.startFacebookOAuth();
       // Full-page handoff to Facebook's own consent screen. The setup session
       // persists; the agent resumes automatically when the user returns.
-      window.location.href = authUrl;
+      if (!openAuthUrl(authUrl)) setBusy(false);
     } catch (err) {
       setBusy(false);
       setError(err.message || "Could not start Facebook connection.");

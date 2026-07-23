@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api";
+import { openAuthUrl } from "../lib/oauthNav.js";
 import EchoBrain from "./EchoBrain.jsx";
 import { useEchoConversation } from "../voice/EchoConversationContext.jsx";
 import { isQuestion } from "../voice/conversationHelpers.js";
@@ -372,7 +373,7 @@ export default function EchoCompanion({ brandId = "", onSelectBrand } = {}) {
     try {
       const { authUrl } = await api.startFacebookOAuth();
       if (authUrl) {
-        window.location.href = authUrl;
+        if (!openAuthUrl(authUrl)) setConnecting(false);
       } else {
         throw new Error("Couldn't start Facebook connection.");
       }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { api } from "../api";
+import { openAuthUrl } from "../lib/oauthNav.js";
 import { useVoice } from "../voice/VoiceContext.jsx";
 
 // ---------------------------------------------------------------------------
@@ -554,7 +555,7 @@ function ConnectStep({ oauthError = "" }) {
     try {
       const { authUrl } = await api.startFacebookOAuth();
       if (authUrl) {
-        window.location.href = authUrl;
+        if (!openAuthUrl(authUrl)) setConnecting(false);
       } else {
         throw new Error("Couldn't start the Facebook connection.");
       }

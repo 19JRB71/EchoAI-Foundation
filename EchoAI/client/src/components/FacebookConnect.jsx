@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
+import { openAuthUrl } from "../lib/oauthNav.js";
 import ErrorBanner from "./ErrorBanner.jsx";
 
 const FB_BLUE = "#1877F2";
@@ -25,7 +26,7 @@ function ConnectButton({ full = false, onError }) {
     if (onError) onError("");
     try {
       const { authUrl } = await api.startFacebookOAuth();
-      window.location.href = authUrl;
+      if (!openAuthUrl(authUrl)) setStarting(false);
     } catch (err) {
       if (onError) onError(err.message);
       setStarting(false);

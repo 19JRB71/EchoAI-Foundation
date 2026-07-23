@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
+import { openAuthUrl } from "../lib/oauthNav.js";
 import Spinner from "../components/Spinner.jsx";
 
 // Extra copy + behavior per checklist key. Keys the server doesn't send are
@@ -132,8 +133,8 @@ export default function Connections({ onNavigate }) {
           : provider === "jobber"
             ? await api.startJobberOAuth()
             : await api.startGoogleOAuth();
-      window.location.href = authUrl;
-      // navigating away — leave the button disabled
+      const navigatedAway = openAuthUrl(authUrl);
+      if (!navigatedAway) setBusyKey(null); // opened in a new tab (embedded preview)
     } catch (err) {
       setBusyKey(null);
       setOauthError(err.message || `Couldn't start the ${provider} connection.`);
