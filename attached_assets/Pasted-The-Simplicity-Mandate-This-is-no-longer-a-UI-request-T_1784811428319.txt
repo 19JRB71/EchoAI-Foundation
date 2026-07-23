@@ -1,0 +1,146 @@
+The Simplicity Mandate
+
+This is no longer a UI request.
+
+This is a company philosophy.
+
+Every screen, workflow, feature, department, and integration must be evaluated against one question:
+
+Can a busy business owner understand and use this in under one minute without training?
+
+If the answer is no, the design is wrong.
+
+Not the customer.
+
+The design.
+
+First Hour Rule
+
+A brand-new customer should experience meaningful value within their first hour.
+
+During that first hour they should be able to:
+
+Connect their business.
+Connect Facebook.
+Connect Google.
+Connect email.
+Connect phone (optional).
+Complete company setup.
+Generate a post.
+Publish a post.
+Generate an ad.
+Review the CRM.
+Hear Echo's first executive briefing.
+
+No hunting.
+
+No reading documentation.
+
+No wondering which department does what.
+
+Echo guides the customer through every step.
+
+One Question at a Time
+
+Never present ten setup decisions simultaneously.
+
+Instead:
+
+"Let's connect Facebook."
+
+Done.
+
+Next.
+
+"Let's connect Google."
+
+Done.
+
+Next.
+
+Every completed step immediately produces visible progress.
+
+Every Click Must Produce Value
+
+The customer should never click something that simply opens another menu.
+
+Every action should accomplish something meaningful.
+
+Examples:
+
+Connect account.
+Publish post.
+Generate ad.
+Import leads.
+Review approvals.
+Hear briefing.
+
+Not:
+
+Settings.
+
+Advanced.
+
+Configuration.
+
+Integration Manager.
+
+OAuth Console.
+
+Those concepts belong to engineers, not business owners.
+
+Echo Owns Setup
+
+Customers should never think:
+
+"Where do I go?"
+
+Instead they should think:
+
+"Echo is walking me through this."
+
+Echo should know:
+
+what is complete,
+what is missing,
+what is optional,
+what blocks automation,
+and what should happen next.
+Time to First Win
+
+The first hour should include several moments where the customer says:
+
+"Wow...it already did something useful."
+
+Not:
+
+"I think I'm almost configured."
+
+CEO Test
+
+Every workflow must pass this test:
+
+If the CEO becomes frustrated, confused, or has to ask where something is...
+
+...the workflow fails.
+
+The solution is not more documentation.
+
+The solution is a simpler experience.
+
+One thing I'd add from a product perspective
+
+I wouldn't measure onboarding by time to complete setup.
+
+I'd measure time to first success.
+
+Those are different.
+
+For example:
+
+If it takes 45 minutes to connect everything, but the customer publishes their first Facebook post in 8 minutes, they'll likely stay engaged because they experienced success early.
+If setup is technically finished in 20 minutes but nothing useful happens until the end, many people will feel like they spent 20 minutes filling out forms.
+
+That changes how you prioritize the flow. Instead of thinking, "What information do we need first?" you start thinking, "What's the quickest way to let this business owner accomplish something they care about?" Then you fill in the remaining integrations as the customer gains confidence.
+
+I think that's the mindset shift that will make Zorecho feel less like software and more like having someone sit beside you and say, "I've got this—let's get your business running."
