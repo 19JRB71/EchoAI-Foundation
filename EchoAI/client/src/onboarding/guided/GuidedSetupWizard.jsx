@@ -16,6 +16,7 @@ import SetupAgent from "../SetupAgent.jsx";
 import StepSubscription from "../steps/StepSubscription.jsx";
 import StepTeam from "../steps/StepTeam.jsx";
 import ConnectionsStep from "./ConnectionsStep.jsx";
+import FirstWinStep from "./FirstWinStep.jsx";
 import OnlineLinksPanel from "./OnlineLinksPanel.jsx";
 import { CONNECTION_CATALOG } from "./connectionCatalog.jsx";
 import { translateConnectionError } from "./connectionErrors.js";
@@ -25,16 +26,18 @@ import { useEchoSpeak } from "./useEchoSpeak.js";
 const TRACKED_STEPS = [
   { key: "plan", title: "Your plan" },
   { key: "profile", title: "Business profile" },
-  { key: "connections", title: "Connect accounts" },
+  { key: "firstwin", title: "Your first win" },
+  { key: "connections", title: "Unlock automation" },
   { key: "team", title: "Your team" },
-  { key: "done", title: "Ready" },
+  { key: "done", title: "Business ready" },
 ];
 
 const STEP_LABELS = {
   welcome: "getting started",
   plan: "choosing your plan",
   profile: "telling Echo about your business",
-  connections: "connecting your accounts",
+  firstwin: "getting your first win",
+  connections: "unlocking automation",
   team: "setting up your team",
   done: "finishing up",
 };
@@ -51,9 +54,13 @@ const STEP_VOICE_LINES = {
     "Excellent. Now tell me about your business, Sir — just answer naturally, and I'll do the heavy lifting.",
     "Wonderful choice, Sir. Now, tell me about your business — a few easy questions, and I'll handle everything from there.",
   ],
+  firstwin: [
+    "Now for the good part, Sir — let's get something working immediately. Pick one, and I'll do real work for your business right now.",
+    "Before we connect anything, Sir, let's put a win on the board. Choose one, and I'll take care of it right now.",
+  ],
   connections: [
-    "Very good, Sir. Let's link your accounts — before each one, I'll show you exactly what you'll see.",
-    "Excellent, Sir. Next, your accounts. Each one you connect lets me do more for you — and I'll walk you through every screen.",
+    "To automate this, I need Facebook, Sir. Each account you connect unlocks another ability — and before each one, I'll show you exactly what you'll see.",
+    "Very good, Sir. Now let's unlock automation — each account you connect lets me do more for you, and I'll walk you through every screen.",
   ],
   team: [
     "Nearly there, Sir. Would you like to bring in teammates? Entirely optional.",
@@ -339,12 +346,22 @@ export default function GuidedSetupWizard({ onComplete }) {
                 <SetupAgent
                   embedded
                   doneLabel="Continue setup"
-                  onClose={() => gotoStep("connections")}
-                  onExitToSection={() => gotoStep("connections")}
+                  onClose={() => gotoStep("firstwin")}
+                  onExitToSection={() => gotoStep("firstwin")}
                 />
               </div>
               <OnlineLinksPanel />
             </div>
+          )}
+
+          {step === "firstwin" && (
+            <FirstWinStep
+              flags={flags}
+              updateFlags={updateFlags}
+              speak={speak}
+              onNext={() => gotoStep("connections")}
+              onBack={() => gotoStep("profile")}
+            />
           )}
 
           {step === "connections" && (
@@ -356,7 +373,7 @@ export default function GuidedSetupWizard({ onComplete }) {
               notice={oauthNotice}
               onDismissNotice={() => setOauthNotice(null)}
               onNext={() => gotoStep("team")}
-              onBack={() => gotoStep("profile")}
+              onBack={() => gotoStep("firstwin")}
             />
           )}
 
@@ -367,6 +384,7 @@ export default function GuidedSetupWizard({ onComplete }) {
           {step === "done" && (
             <DoneScreen
               statuses={statuses}
+              flags={flags}
               finishing={finishing}
               onEnter={finish}
               onEnterWithTour={() => {
@@ -455,9 +473,21 @@ function WelcomeScreen({ resume, finishing, onStart, onResume, onLater, speak })
   );
 }
 
-function DoneScreen({ statuses, finishing, onEnter, onEnterWithTour }) {
+// Milestone 5 — "Business Ready". Recaps the first win and everything the
+// customer unlocked, and points at the one big ability still waiting (the AI
+// phone agent lives in the Phone department — too involved for the wizard).
+const FIRST_WIN_RECAP = {
+  post: "Your first social post is written and on the calendar.",
+  lead: "Your first lead is in your CRM, with Echo watching over it.",
+  ad: "Your first ad creatives are drafted in the Ad Studio.",
+  email: "Your first campaign email is written and waiting in Email Marketing.",
+};
+
+function DoneScreen({ statuses, flags, finishing, onEnter, onEnterWithTour }) {
   const connected = CONNECTION_CATALOG.filter((c) => statuses?.[c.key] === "connected");
   const notConnected = CONNECTION_CATALOG.filter((c) => statuses?.[c.key] !== "connected");
+  const emailConnected = statuses?.email === "connected";
+  const firstWin = flags?.firstwin?.done ? FIRST_WIN_RECAP[flags.firstwin.choice] : null;
 
   return (
     <div className="mx-auto max-w-xl pt-8 text-center">
@@ -465,7 +495,7 @@ function DoneScreen({ statuses, finishing, onEnter, onEnterWithTour }) {
         🎉
       </div>
       <p className="mt-6 text-sm font-semibold uppercase tracking-[0.2em] text-amber-300">
-        Congratulations, Sir.
+        Milestone 5 · Business ready — Congratulations, Sir.
       </p>
       <h1 className="mt-2 text-3xl font-extrabold text-gray-100">
         Your AI company is now online.
@@ -485,6 +515,12 @@ function DoneScreen({ statuses, finishing, onEnter, onEnterWithTour }) {
       </p>
 
       <div className="mt-6 space-y-2 text-left">
+        {firstWin && (
+          <div className="flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-4 py-3">
+            <span className="text-xl" aria-hidden="true">🏆</span>
+            <span className="text-sm font-semibold text-emerald-200">{firstWin}</span>
+          </div>
+        )}
         {connected.map((c) => (
           <div
             key={c.key}
@@ -494,6 +530,14 @@ function DoneScreen({ statuses, finishing, onEnter, onEnterWithTour }) {
             <span className="text-sm font-semibold text-emerald-200">{c.name} connected ✓</span>
           </div>
         ))}
+        {emailConnected && (
+          <div className="flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-4 py-3">
+            <span className="text-xl" aria-hidden="true">✉️</span>
+            <span className="text-sm font-semibold text-emerald-200">
+              Business email connected ✓ — Echo is watching your inbox.
+            </span>
+          </div>
+        )}
         {notConnected.map((c) => (
           <div
             key={c.key}
@@ -506,6 +550,14 @@ function DoneScreen({ statuses, finishing, onEnter, onEnterWithTour }) {
             </span>
           </div>
         ))}
+        <div className="flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-900 px-4 py-3">
+          <span className="text-xl" aria-hidden="true">📞</span>
+          <span className="text-sm text-gray-400">
+            One more ability is waiting: the AI phone agent — &quot;I&apos;ll answer when you
+            can&apos;t.&quot; Set it up any time in the Phone department, and I&apos;ll walk you
+            through it.
+          </span>
+        </div>
       </div>
 
       <p className="mt-8 text-base font-semibold text-gray-200">

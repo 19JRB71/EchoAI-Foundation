@@ -811,6 +811,11 @@ export const api = {
     request("/api/brands/discovery", { method: "POST", body: payload }),
 
   // Leads
+  createLead: ({ brandId, name, email, phone, city, state, zip }) =>
+    request("/api/leads", {
+      method: "POST",
+      body: { brandId, name, email, phone, city, state, zip },
+    }),
   getLeads: (brandId, temperature) => {
     const params = new URLSearchParams({ brandId });
     if (temperature) params.set("temperature", temperature);

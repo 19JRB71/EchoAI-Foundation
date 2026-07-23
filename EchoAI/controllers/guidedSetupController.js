@@ -23,8 +23,18 @@ const db = require("../config/db");
 const { persistScreenshot } = require("./healthMonitorController");
 const { analyzeSetupHelpScreenshot } = require("../prompts/guidedSetupPrompt");
 
-const GUIDED_STEPS = ["welcome", "plan", "profile", "connections", "team", "done"];
-const CONNECTION_KEYS = ["facebook", "google"];
+const GUIDED_STEPS = [
+  "welcome",
+  "plan",
+  "profile",
+  "firstwin",
+  "connections",
+  "team",
+  "done",
+];
+const CONNECTION_KEYS = ["facebook", "google", "email"];
+// First-win choices the client may record (Milestone 1 of the first hour).
+const FIRST_WIN_CHOICES = ["post", "ad", "email", "lead"];
 
 // --- Live connection probes (same sources of truth as utils/setupStatus.js) --
 
@@ -46,6 +56,18 @@ async function probeGoogle(userId) {
     const { rows } = await db.query(
       `SELECT 1 FROM google_integrations
         WHERE user_id = $1 AND connection_status = 'connected' LIMIT 1`,
+      [userId],
+    );
+    return rows.length > 0 ? "connected" : "not_connected";
+  } catch {
+    return "unknown";
+  }
+}
+
+async function probeEmail(userId) {
+  try {
+    const { rows } = await db.query(
+      `SELECT 1 FROM email_accounts WHERE user_id = $1 LIMIT 1`,
       [userId],
     );
     return rows.length > 0 ? "connected" : "not_connected";
@@ -79,6 +101,7 @@ async function getState(req, res) {
 
     const facebook = await probeFacebook(userId);
     const google = await probeGoogle(userId);
+    const email = await probeEmail(userId);
 
     // Latest Setup Agent session (drives "Continue previous setup" and the
     // profile step's resume behavior). Probe failure is reported honestly.
@@ -103,7 +126,7 @@ async function getState(req, res) {
 
     return res.json({
       progress,
-      connectionStatus: { facebook, google },
+      connectionStatus: { facebook, google, email },
       setupSession,
     });
   } catch (err) {
@@ -127,6 +150,17 @@ function sanitizeConnections(input) {
       entry.errorKey = v.errorKey.trim().slice(0, 64);
     }
     out[key] = entry;
+  }
+  // Milestone 1 "first win" record — {choice, done} only, whitelisted.
+  const fw = input.firstwin;
+  if (fw && typeof fw === "object" && !Array.isArray(fw)) {
+    const entry = {};
+    if (typeof fw.choice === "string" && FIRST_WIN_CHOICES.includes(fw.choice)) {
+      entry.choice = fw.choice;
+    }
+    if (typeof fw.done === "boolean") entry.done = fw.done;
+    if (typeof fw.skipped === "boolean") entry.skipped = fw.skipped;
+    if (Object.keys(entry).length > 0) out.firstwin = entry;
   }
   return out;
 }
