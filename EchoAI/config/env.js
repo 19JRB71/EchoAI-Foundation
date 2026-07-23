@@ -47,6 +47,7 @@ const FEATURES = [
   {
     name: "Facebook ad connection (OAuth)",
     vars: ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"],
+    optional: ["FACEBOOK_REDIRECT_URI"],
   },
   {
     name: "Google integration (OAuth — Business Profile, Ads, Analytics, Search Console)",
