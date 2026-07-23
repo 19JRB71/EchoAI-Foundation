@@ -95,6 +95,8 @@ export default function GuidedSetupWizard({ onComplete }) {
   const [statuses, setStatuses] = useState({});
   // Server-side provider readiness ("no green button without a green backend").
   const [readiness, setReadiness] = useState(null);
+  // Provider verification: has a full OAuth round trip ever succeeded here?
+  const [verification, setVerification] = useState(null);
   const [resume, setResume] = useState(null); // saved step to offer "continue"
   const [oauthNotice, setOauthNotice] = useState(null); // { tone, text } after an OAuth return
   const [error, setError] = useState("");
@@ -153,6 +155,7 @@ export default function GuidedSetupWizard({ onComplete }) {
       let nextFlags = state.progress?.connections || {};
       setStatuses(state.connectionStatus || {});
       setReadiness(state.providerReadiness || null);
+      setVerification(state.providerVerification || null);
 
       if (oauth && savedStep === "connections") {
         // We just came back from a provider while on the connections step.
@@ -269,6 +272,7 @@ export default function GuidedSetupWizard({ onComplete }) {
         if (active) {
           setStatuses(state.connectionStatus || {});
           setReadiness(state.providerReadiness || null);
+          setVerification(state.providerVerification || null);
         }
       })
       .catch(() => {});
@@ -374,6 +378,7 @@ export default function GuidedSetupWizard({ onComplete }) {
             <ConnectionsStep
               statuses={statuses}
               readiness={readiness}
+              verification={verification}
               flags={flags}
               updateFlags={updateFlags}
               speak={speak}

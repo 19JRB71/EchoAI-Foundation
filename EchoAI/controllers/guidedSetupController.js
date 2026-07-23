@@ -45,6 +45,41 @@ function providerReadiness() {
   };
 }
 
+/**
+ * Provider VERIFICATION: has a full authorization round trip ever succeeded
+ * on THIS deployment? Credentials being present (readiness) is not the same
+ * as the connection being proven end-to-end (verification). Until a provider
+ * is verified, the client shows "Configured but awaiting verification" so a
+ * customer is never shown a connection the platform hasn't proven works.
+ * Fails closed (false) on query errors — never claims verified by accident.
+ */
+async function providerVerification() {
+  async function exists(sql) {
+    try {
+      const r = await db.query(sql);
+      return r.rows.length > 0;
+    } catch {
+      return false;
+    }
+  }
+  const google = await exists(
+    "SELECT 1 FROM google_integrations WHERE connection_status = 'connected' LIMIT 1",
+  );
+  const facebook = await exists(
+    "SELECT 1 FROM api_integrations WHERE platform = 'facebook' AND connection_status = 'connected' LIMIT 1",
+  );
+  const jobber = await exists(
+    "SELECT 1 FROM jobber_integrations WHERE connection_status = 'connected' LIMIT 1",
+  );
+  return {
+    google,
+    facebook,
+    instagram: facebook, // rides on the Facebook connection
+    jobber,
+    email: true, // user-supplied credentials; the connect flow verifies itself
+  };
+}
+
 const GUIDED_STEPS = [
   "welcome",
   "plan",
@@ -150,6 +185,7 @@ async function getState(req, res) {
       progress,
       connectionStatus: { facebook, google, email },
       providerReadiness: providerReadiness(),
+      providerVerification: await providerVerification(),
       setupSession,
     });
   } catch (err) {
@@ -350,6 +386,7 @@ async function getChecklist(req, res) {
       probedTotal: probed.length,
       allDone: probed.every((i) => i.status === "connected"),
       providerReadiness: providerReadiness(),
+      providerVerification: await providerVerification(),
     });
   } catch (err) {
     console.error("guidedSetup getChecklist error:", err);
@@ -364,6 +401,7 @@ module.exports = {
   reportConnectionError,
   helpAnalyze,
   // exported for tests
+  providerVerification,
   GUIDED_STEPS,
   CONNECTION_KEYS,
   sanitizeConnections,

@@ -32,6 +32,7 @@ const MILESTONE_UNLOCKS = {
 export default function ConnectionsStep({
   statuses,
   readiness,
+  verification,
   flags,
   updateFlags,
   speak,
@@ -142,6 +143,7 @@ export default function ConnectionsStep({
               flag={flag}
               error={error}
               ready={readiness ? readiness[connection.key] !== false : undefined}
+              verified={verification ? verification[connection.key] !== false : undefined}
               busy={busyKey === connection.key}
               onConnect={() => openPreview(connection)}
               onSkip={() => skip(connection)}
@@ -195,13 +197,16 @@ export default function ConnectionsStep({
   );
 }
 
-function ConnectionCard({ connection, status, flag, error, busy, ready, onConnect, onSkip, onHelp }) {
+function ConnectionCard({ connection, status, flag, error, busy, ready, verified, onConnect, onSkip, onHelp }) {
   const { name, benefit, Logo } = connection;
   const connected = status === "connected";
   const unknown = status === "unknown";
   // "No green button without a green backend": the server said this
   // provider's credentials are missing, so a Connect attempt cannot succeed.
   const setupRequired = !connected && ready === false;
+  // Credentials are configured, but no full authorization round trip has
+  // ever succeeded on this system — be honest that it's still unproven.
+  const awaitingVerification = !connected && ready !== false && verified === false;
 
   return (
     <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
@@ -238,6 +243,11 @@ function ConnectionCard({ connection, status, flag, error, busy, ready, onConnec
             {setupRequired && (
               <span className="rounded-full bg-gray-700/60 px-2.5 py-0.5 text-xs font-semibold text-gray-300">
                 Setup required
+              </span>
+            )}
+            {awaitingVerification && (
+              <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                Configured but awaiting verification
               </span>
             )}
           </div>

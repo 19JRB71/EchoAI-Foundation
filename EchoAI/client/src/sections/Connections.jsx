@@ -225,6 +225,15 @@ export default function Connections({ onNavigate }) {
           // (e.g. the calendar card connects through Google), else the key.
           const readinessKey = meta.oauth || item.key;
           const ready = readinessMap ? readinessMap[readinessKey] !== false : undefined;
+          const verificationMap = checklist?.providerVerification;
+          const verified = verificationMap
+            ? verificationMap[readinessKey] !== false
+            : undefined;
+          // Configured, but no full authorization round trip has ever
+          // succeeded on this system — say so honestly (Connect stays live
+          // so verification can actually happen).
+          const awaitingVerification =
+            !connected && meta.oauth && ready !== false && verified === false;
           return (
             <div
               key={item.key}
@@ -239,6 +248,12 @@ export default function Connections({ onNavigate }) {
               </p>
               {item.note && meta.benefit && (
                 <p className="mt-1 text-xs text-gray-500">{item.note}</p>
+              )}
+              {awaitingVerification && (
+                <p className="mt-1 text-xs font-semibold text-amber-300">
+                  Configured but awaiting verification — this connection hasn&apos;t
+                  been proven end-to-end on this system yet.
+                </p>
               )}
               <div className="mt-3">
                 {connected ? (

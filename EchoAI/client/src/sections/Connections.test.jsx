@@ -14,8 +14,9 @@ vi.mock("../api.js", () => ({
   api: { getSetupChecklist: vi.fn() },
 }));
 
-function checklist(readiness) {
+function checklist(readiness, verification) {
   return {
+    providerVerification: verification,
     items: [
       { key: "google", label: "Google", status: "not_connected" },
       { key: "calendar", label: "Calendar", status: "not_connected" },
@@ -59,6 +60,26 @@ describe("Connections readiness gate", () => {
     expect(screen.queryByText("Connect via Facebook")).toBeNull();
     expect(screen.queryByText("Connect Jobber")).toBeNull();
     expect(screen.getByText("Connect Google")).toBeTruthy();
+  });
+
+  it("configured-but-unverified providers show the awaiting-verification note with Connect still live", async () => {
+    api.getSetupChecklist.mockResolvedValue(
+      checklist(
+        { google: true, facebook: true, instagram: true, jobber: true },
+        { google: false, facebook: false, instagram: false, jobber: true },
+      ),
+    );
+    render(<Connections />);
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(/Configured but awaiting verification/),
+      ).toHaveLength(4), // google, calendar, facebook, instagram
+    );
+    // Connect stays available so verification can actually happen.
+    expect(screen.getByText("Connect Google")).toBeTruthy();
+    expect(screen.getByText("Connect Facebook")).toBeTruthy();
+    // Verified provider carries no note.
+    expect(screen.getByText("Connect Jobber")).toBeTruthy();
   });
 
   it("fails open (buttons stay) when readiness is absent from the response", async () => {

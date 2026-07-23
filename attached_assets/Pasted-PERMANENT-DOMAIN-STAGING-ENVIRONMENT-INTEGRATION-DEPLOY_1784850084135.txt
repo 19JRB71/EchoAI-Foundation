@@ -1,0 +1,252 @@
+PERMANENT DOMAIN, STAGING ENVIRONMENT & INTEGRATION DEPLOYMENT PLAN
+
+Now that I own zorecho.com, I want to stop using temporary Replit preview URLs as the primary testing environment. From this point forward, we are transitioning Zorecho from a development project into a professionally managed application with dedicated environments for development, staging, and production.
+
+This is now the highest-priority infrastructure task. No new feature development should take precedence over completing this transition.
+
+Objective
+
+Establish a permanent staging environment using my domain so every external integration (Google, Facebook, Instagram, Stripe, Twilio, etc.) is configured against stable URLs rather than temporary preview domains.
+
+Replit preview URLs should only be used for development and debugging—not for validating customer-facing integrations.
+
+Domain Architecture
+
+Design and configure the domain structure as follows.
+
+Public Website
+
+https://zorecho.com
+
+Purpose:
+
+Marketing website
+Product information
+AI team overview
+Features
+Demo videos
+Pricing
+Contact page
+Waiting list
+Founding Member signups
+
+This site should not contain the customer application.
+
+Production Application
+
+https://app.zorecho.com
+
+Purpose:
+
+Live customer application
+Paying customers
+Production database
+Production APIs
+Production integrations
+Production authentication
+Production OAuth
+
+This is the environment customers will ultimately use.
+
+Staging Environment
+
+https://staging.zorecho.com
+
+Purpose:
+
+Internal testing
+CEO operational testing
+QA
+Integration testing
+Final approval before production deployment
+
+This becomes the official testing environment going forward.
+
+Infrastructure Tasks
+
+Deploy the current approved application to Railway (or the appropriate hosting platform) using:
+
+https://staging.zorecho.com
+
+Complete the following:
+
+Configure DNS
+Configure SSL certificates
+Verify HTTPS
+Verify API routing
+Verify websocket functionality
+Verify static assets
+Verify authentication
+Verify application performance
+Verify deployment health
+
+The staging environment should closely mirror production.
+
+OAuth & External Integrations
+
+All OAuth providers must be updated to use permanent callback URLs instead of temporary Replit preview domains.
+
+Examples:
+
+Google
+
+https://staging.zorecho.com/api/google/oauth/callback
+
+Facebook
+
+https://staging.zorecho.com/api/facebook/oauth/callback
+
+Instagram
+
+Uses the Facebook OAuth callback.
+
+Future providers should follow this same permanent structure.
+
+No customer-facing integration should rely on temporary development URLs.
+
+Environment Readiness Audit
+
+After deployment, perform a complete environment-readiness audit.
+
+For every customer-facing integration, provide:
+
+Current status
+Required environment variables present
+Secrets verified
+Redirect URI verified
+Provider configuration complete
+End-to-end connection tested
+Remaining owner action (if any)
+Customer experience if unavailable
+
+Include, at minimum:
+
+Google
+Facebook
+Instagram
+Gmail
+Business Email
+Stripe
+Twilio Voice
+Twilio SMS
+Anthropic
+OpenAI
+ElevenLabs
+Hermes
+Jobber
+Any additional customer-facing providers
+
+Use only these classifications:
+
+Operational and Tested
+Configured but Not Fully Tested
+Blocked – Owner Action Required
+Not Configured
+Not Applicable
+Customer Experience Standard
+
+The application should never allow a customer to begin a connection that the system already knows cannot succeed.
+
+If an integration is unavailable, incomplete, or missing configuration:
+
+Do not display an active Connect button.
+
+Instead display:
+
+Setup Required
+
+Explain:
+
+Why it is unavailable
+What configuration is missing
+What action is required
+Whether the owner or the customer needs to complete that action
+
+Customers should never be redirected to unexplained provider error pages whenever the application can determine beforehand that the connection will fail.
+
+If an unexpected provider error occurs, return the customer to Zorecho with a clear explanation and recovery options.
+
+Permanent Development Rule
+
+No Green Button Without a Green Backend.
+
+Before enabling any customer-facing integration, the system must verify:
+
+Required secrets exist
+Environment variables are present
+Redirect URIs match
+Provider application is configured
+Required permissions exist
+Backend services are operational
+
+Only then should the integration appear available.
+
+CEO Operational Testing Standard
+
+Before asking me to test any workflow, complete all engineering validation first.
+
+That includes:
+
+Technical testing
+Integration testing
+Environment validation
+Customer journey testing
+Failure-state testing
+Recovery testing
+
+Only after those steps are complete should the application be handed to me.
+
+My responsibility is to evaluate:
+
+Ease of use
+Customer experience
+Business value
+Workflow efficiency
+Trust
+Simplicity
+First impressions
+Overall product quality
+
+I should not be discovering missing credentials, missing secrets, broken callback URLs, missing environment variables, incomplete provider setup, or other engineering issues during CEO testing.
+
+Public Launch Preparation
+
+After the staging environment is fully operational, prepare the public website.
+
+The website at https://zorecho.com should include:
+
+Professional homepage
+Product overview
+AI team introduction
+Features
+Screenshots
+Demo videos
+Pricing information
+Frequently asked questions
+Waiting list
+Founding Member registration
+Contact information
+
+The production application should remain at:
+
+https://app.zorecho.com
+
+The staging application should remain at:
+
+https://staging.zorecho.com
+
+Final Deliverables
+
+Return with the following:
+
+Confirmation that staging.zorecho.com is live.
+Confirmation that DNS and SSL are fully configured.
+Permanent callback URLs for every OAuth provider.
+A complete environment-readiness report.
+A provider status matrix.
+Any remaining owner actions required.
+Confirmation that all customer-facing integrations comply with the customer experience standards outlined above.
+Confirmation that customers cannot initiate any connection the system already knows will fail.
+Confirmation that the staging environment is ready for comprehensive CEO operational testing.
+
+Do not begin additional feature development until the domain configuration, staging deployment, infrastructure validation, and integration readiness work are complete.
