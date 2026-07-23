@@ -45,12 +45,18 @@ const MIN_ANSWER_WORDS = 3;
 // Hard cap per answer so a wedged recognizer can never hang the flow.
 const ANSWER_CAP_MS = 90000;
 
+// IMPORTANT: this spoken script must NEVER contain the interrupt words
+// themselves ("stop", "wait", "hold on") — the microphone hears Echo's own
+// voice, and a self-spoken trigger word ends the test with the user silent
+// (observed in CEO testing July 2026). The trigger words are shown on screen
+// instead; Echo only points at them.
 const STOP_TEST_TEXT =
   "Now let's test interruptions. I'm going to keep talking for a little while, " +
-  "and whenever you feel like it, just cut me off — say Stop, or Wait, or Hold on. " +
-  "I'll keep going until you do. Businesses that respond to new leads within five " +
-  "minutes are far more likely to win the customer, which is why speed matters so " +
-  "much, and why having an assistant that listens properly makes all the...";
+  "and whenever you feel like it, just cut me off using one of the words on your " +
+  "screen. I'll keep going until you do. Businesses that respond to new leads " +
+  "within five minutes are far more likely to win the customer, which is why " +
+  "speed matters so much, and why having an assistant that listens properly " +
+  "makes all the...";
 
 
 export default function VoiceCalibration({ onComplete, onSkip }) {
