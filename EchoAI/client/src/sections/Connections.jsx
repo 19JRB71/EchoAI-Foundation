@@ -220,6 +220,11 @@ export default function Connections({ onNavigate }) {
           const meta = ITEM_META[item.key] || {};
           const connected = item.status === "connected";
           const busy = busyKey === item.key;
+          const readinessMap = checklist?.providerReadiness;
+          // Gate by the OAuth provider when the card connects via OAuth
+          // (e.g. the calendar card connects through Google), else the key.
+          const readinessKey = meta.oauth || item.key;
+          const ready = readinessMap ? readinessMap[readinessKey] !== false : undefined;
           return (
             <div
               key={item.key}
@@ -243,6 +248,13 @@ export default function Connections({ onNavigate }) {
                   >
                     Manage
                   </button>
+                ) : meta.oauth && ready === false ? (
+                  // "No green button without a green backend": the server
+                  // says this provider's credentials aren't configured, so a
+                  // Connect attempt cannot succeed — say so instead.
+                  <span className="inline-block rounded-lg border border-gray-700 bg-gray-800/60 px-3 py-1.5 text-xs font-medium text-gray-400">
+                    Setup required — not configured on this system yet
+                  </span>
                 ) : meta.oauth ? (
                   <button
                     onClick={() => startOAuth(meta.oauth, item.key)}

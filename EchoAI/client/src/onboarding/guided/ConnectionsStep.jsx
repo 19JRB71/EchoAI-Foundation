@@ -31,6 +31,7 @@ const MILESTONE_UNLOCKS = {
 
 export default function ConnectionsStep({
   statuses,
+  readiness,
   flags,
   updateFlags,
   speak,
@@ -140,6 +141,7 @@ export default function ConnectionsStep({
               status={status}
               flag={flag}
               error={error}
+              ready={readiness ? readiness[connection.key] !== false : undefined}
               busy={busyKey === connection.key}
               onConnect={() => openPreview(connection)}
               onSkip={() => skip(connection)}
@@ -193,10 +195,13 @@ export default function ConnectionsStep({
   );
 }
 
-function ConnectionCard({ connection, status, flag, error, busy, onConnect, onSkip, onHelp }) {
+function ConnectionCard({ connection, status, flag, error, busy, ready, onConnect, onSkip, onHelp }) {
   const { name, benefit, Logo } = connection;
   const connected = status === "connected";
   const unknown = status === "unknown";
+  // "No green button without a green backend": the server said this
+  // provider's credentials are missing, so a Connect attempt cannot succeed.
+  const setupRequired = !connected && ready === false;
 
   return (
     <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
@@ -230,6 +235,11 @@ function ConnectionCard({ connection, status, flag, error, busy, onConnect, onSk
                 Needs attention
               </span>
             )}
+            {setupRequired && (
+              <span className="rounded-full bg-gray-700/60 px-2.5 py-0.5 text-xs font-semibold text-gray-300">
+                Setup required
+              </span>
+            )}
           </div>
           <p className="mt-1 text-sm leading-relaxed text-gray-400">{benefit}</p>
           {MILESTONE_UNLOCKS[connection.key] && (
@@ -248,7 +258,29 @@ function ConnectionCard({ connection, status, flag, error, busy, onConnect, onSk
         </div>
       </div>
 
-      {!connected && (
+      {!connected && setupRequired && (
+        <div className="mt-4">
+          <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-3">
+            <p className="text-sm font-semibold text-gray-200">Setup required</p>
+            <p className="mt-1 text-sm leading-relaxed text-gray-400">
+              {name} isn&apos;t available on this system yet — the administrator
+              hasn&apos;t finished configuring it. You can skip this for now and
+              connect later; nothing else is blocked.
+            </p>
+          </div>
+          {!flag.skipped && (
+            <button
+              type="button"
+              onClick={onSkip}
+              className="mt-3 rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-400 hover:bg-gray-800"
+            >
+              Skip for now
+            </button>
+          )}
+        </div>
+      )}
+
+      {!connected && !setupRequired && (
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"

@@ -22,6 +22,28 @@
 const db = require("../config/db");
 const { persistScreenshot } = require("./healthMonitorController");
 const { analyzeSetupHelpScreenshot } = require("../prompts/guidedSetupPrompt");
+const { oauthConfigured: googleOauthConfigured } = require("../config/google");
+const { oauthConfigured: facebookOauthConfigured } = require("./facebookOAuthController");
+const { configured: jobberConfigured } = require("../config/jobber");
+
+/**
+ * "No green button without a green backend": server-side readiness per
+ * provider, derived from the SAME predicates the OAuth initiate endpoints
+ * use. When a provider is not configured, the client renders "Setup
+ * Required" instead of a Connect button — the customer is never sent into a
+ * provider flow the server already knows cannot succeed. Email is
+ * user-supplied (app password), so it is always available.
+ */
+function providerReadiness() {
+  const facebook = Boolean(facebookOauthConfigured());
+  return {
+    google: Boolean(googleOauthConfigured()),
+    facebook,
+    instagram: facebook, // Instagram connects through the same Facebook app
+    jobber: Boolean(jobberConfigured()),
+    email: true,
+  };
+}
 
 const GUIDED_STEPS = [
   "welcome",
@@ -127,6 +149,7 @@ async function getState(req, res) {
     return res.json({
       progress,
       connectionStatus: { facebook, google, email },
+      providerReadiness: providerReadiness(),
       setupSession,
     });
   } catch (err) {
@@ -326,6 +349,7 @@ async function getChecklist(req, res) {
       completedCount,
       probedTotal: probed.length,
       allDone: probed.every((i) => i.status === "connected"),
+      providerReadiness: providerReadiness(),
     });
   } catch (err) {
     console.error("guidedSetup getChecklist error:", err);

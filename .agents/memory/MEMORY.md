@@ -121,3 +121,4 @@
 - [EchoAI Sage V2 Phase 6](echoai-sage-v2-phase6.md) — repeat the singleton-exists check under the lock inside the write tx (AI call runs unlocked) + map 23505 to 409; bind client JSX to literal server field names.
 - [Zorecho dept collaboration](echoai-dept-collaboration.md) — architecture APPROVED+locked; Stage 0 bus/registry BUILT dark (all COLLAB_* flags OFF); Stage 1 needs explicit CEO go-ahead.
 - [Zorecho ops roadmap governance](echoai-operational-roadmap.md) — roadmap doc governs execution order; 1-week CEO validation pause after every major milestone; no new governance docs unprompted.
+- [EchoAI provider readiness gate](echoai-provider-readiness-gate.md) — Connect buttons gated by server providerReadiness (provider-keyed!); via-cards (calendar→google, instagram→facebook) gate by meta.oauth, absent map fails open.
