@@ -28,6 +28,12 @@ const {
 
 const { recordCommsUsage, UNIT_PRICES } = require("./aiUsage");
 
+// Language enforcement — only supported by Turbo/Flash v2.5 models; sending it
+// to other models is a 400. Default pins English; override or blank via env.
+const LANGUAGE_CODE = /_v2_5/.test(TTS_MODEL)
+  ? (process.env.ELEVENLABS_LANGUAGE_CODE ?? "en")
+  : (process.env.ELEVENLABS_LANGUAGE_CODE || "");
+
 // Balanced voice settings: stable but still expressive/energetic.
 const VOICE_SETTINGS = {
   stability: 0.4,
@@ -86,6 +92,10 @@ async function synthesize(text, { voiceId: overrideVoice } = {}) {
         text: String(text).slice(0, 5000),
         model_id: TTS_MODEL,
         voice_settings: VOICE_SETTINGS,
+        // Flash/Turbo v2.5 are multilingual and AUTO-DETECT language from the
+        // text, which can misfire on brand names/unusual words and make Echo
+        // suddenly speak another language. Pin English explicitly.
+        ...(LANGUAGE_CODE ? { language_code: LANGUAGE_CODE } : {}),
       }),
     });
   } catch (err) {
