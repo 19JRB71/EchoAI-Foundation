@@ -5,6 +5,14 @@ const {
   BRAND_PROFILE_SYNTHESIS_PROMPT,
 } = require("../prompts/brandDiscoveryPrompt");
 
+// Hidden completion marker the discovery agent appends once the user confirms
+// the reflected profile (see prompts/brandDiscoveryPrompt.js). Tolerates minor
+// whitespace drift inside the brackets. Detection regex is deliberately
+// non-global (a /g/ regex's .test() is stateful); stripping uses its own
+// global copy so repeated/drifted markers never leak into the transcript.
+const PROFILE_CONFIRMED_MARKER = /\[\[\s*PROFILE_CONFIRMED\s*\]\]/i;
+const PROFILE_CONFIRMED_STRIP = /\[\[\s*PROFILE_CONFIRMED\s*\]\]/gi;
+
 function toAnthropicMessages(messages) {
   return messages.map((m) => ({ role: m.role, content: m.content }));
 }
@@ -195,13 +203,53 @@ async function discovery(req, res) {
       return res.status(400).json({ error: "message is required to continue the conversation" });
     }
 
-    const reply = await getAssistantReply(messages);
+    const rawReply = await getAssistantReply(messages);
+
+    // The agent appends [[PROFILE_CONFIRMED]] when the user has confirmed the
+    // reflected profile. Strip it before showing/storing the reply and auto-save
+    // the brand right here — the user should never have to click a save button
+    // after Echo tells them they're all set.
+    const confirmed = PROFILE_CONFIRMED_MARKER.test(rawReply);
+    const reply = rawReply.replace(PROFILE_CONFIRMED_STRIP, "").trim();
     messages.push({ role: "assistant", content: reply });
 
     await db.query(
       "UPDATE brand_discovery_sessions SET messages = $1::jsonb WHERE session_id = $2",
       [JSON.stringify(messages), session.session_id]
     );
+
+    if (confirmed) {
+      try {
+        const profile = await synthesizeProfile(messages);
+        const savedBrand = await saveProfile(userId, session.brand_id, profile);
+        await db.query(
+          `UPDATE brand_discovery_sessions
+             SET status = 'completed', draft_profile = $1::jsonb, brand_id = $2
+           WHERE session_id = $3`,
+          [JSON.stringify(profile), savedBrand.brand_id, session.session_id]
+        );
+        return res.json({
+          sessionId: session.session_id,
+          status: "completed",
+          reply,
+          brand: savedBrand,
+        });
+      } catch (saveErr) {
+        // Deliberate exception to the "AI failures → 502" rule: this turn's
+        // PRIMARY job (Echo's conversational reply) already succeeded and is
+        // persisted — a 502 here would throw that reply away in the UI. The
+        // failure is surfaced honestly via saveError (never silently), and the
+        // explicit "Finish & save" retry path still maps AI failures to 502.
+        console.error("Brand discovery auto-save failed:", saveErr.message);
+        return res.json({
+          sessionId: session.session_id,
+          status: session.status,
+          reply,
+          saveError:
+            "Your answers are safe, but saving the brand profile failed. Please click \"Finish & save brand profile\" to retry.",
+        });
+      }
+    }
 
     return res.json({
       sessionId: session.session_id,

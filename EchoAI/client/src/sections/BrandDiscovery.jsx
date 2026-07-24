@@ -143,6 +143,14 @@ export default function BrandDiscovery({ brandId, onClose, onComplete }) {
         setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
         speak(data.reply);
       }
+      // Auto-save: once the user confirms the profile, the server saves the
+      // brand in the same turn — no button click required.
+      if (data.status === "completed") {
+        setCompleted(true);
+        if (onComplete) onComplete();
+      } else if (data.saveError) {
+        setError(data.saveError);
+      }
     } catch (err) {
       if (activeRef.current) setError(err.message);
     } finally {
