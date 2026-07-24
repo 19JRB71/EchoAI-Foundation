@@ -1,0 +1,60 @@
+Environment Readiness Gate — Effective Immediately
+
+I keep discovering missing secret keys, unauthorized redirect URLs, and incomplete third-party configuration only after I begin testing.
+
+That is no longer acceptable.
+
+Before any workflow involving an external service is presented as ready for CEO testing, you must perform an environment-readiness audit.
+
+For every integration, verify:
+
+required environment variables exist;
+secrets are nonempty and available to the running environment;
+application IDs and client IDs are present;
+redirect and callback URLs exactly match the current domain;
+provider-side application configuration is complete;
+test users and permissions are correctly configured;
+webhook endpoints are reachable where applicable;
+the connection can complete from start to finish;
+missing configuration is detected before the customer clicks Connect;
+known-unavailable integrations are clearly disabled and labeled.
+
+Audit at minimum:
+
+Google
+Facebook and Instagram
+Gmail or business email
+Twilio voice and SMS
+payment processing
+AI model providers
+any other customer-facing external connection
+
+Create a status matrix using only:
+
+Operational and tested
+Configured but not fully tested
+Blocked — owner action required
+Not configured
+Not applicable in this environment
+
+Do not label anything “ready” based solely on code existing.
+
+If owner action is required, tell me before testing:
+
+What credential or configuration is missing
+Where I obtain it
+Where it must be entered
+What permissions it needs
+How you will verify it afterward
+
+The customer interface must also check readiness before allowing an external connection attempt. A button must never send a user into a provider flow that the system already knows cannot succeed.
+
+After the audit, return the integration matrix and the exact owner actions still required. Do not add new features.
+
+And this rule needs to become permanent:
+
+No green button without a green backend.
+
+If the credential, redirect URI, permission, or provider setup is missing, that Connect button should not look available. It should say Setup Required and explain the missing action.
+
+You're not asking AI to foresee every possible failure. You're asking it to verify that the gasoline is in the car before handing you the keys. That's a completely reasonable expectation.

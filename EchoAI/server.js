@@ -43,6 +43,7 @@ const imageRoutes = require("./routes/imageRoutes");
 const pushRoutes = require("./routes/pushRoutes");
 const facebookOAuthRoutes = require("./routes/facebookOAuthRoutes");
 const googleRoutes = require("./routes/googleRoutes");
+const jobberRoutes = require("./routes/jobberRoutes");
 const seoRoutes = require("./routes/seoRoutes");
 const roiRoutes = require("./routes/roiRoutes");
 const usageRoutes = require("./routes/usageRoutes");
@@ -279,6 +280,7 @@ app.use("/api/images", imageRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/facebook", facebookOAuthRoutes);
 app.use("/api/google", googleRoutes);
+app.use("/api/jobber", jobberRoutes);
 app.use("/api/seo", seoRoutes);
 app.use("/api/roi", roiRoutes);
 app.use("/api/usage", usageRoutes);
@@ -440,8 +442,14 @@ app.use((err, req, res, next) => {
   }
   console.error("Unhandled error:", err.stack || err.message);
   const status = err.status || err.statusCode || 500;
+  // 4xx errors carry intentional, user-facing messages (validation text,
+  // "use an app password", etc.) — show them even in production. True server
+  // faults (5xx) are masked in production to avoid leaking internals, UNLESS
+  // the thrower explicitly marked the message safe with err.expose = true
+  // (the message is deliberately written for the user and leaks nothing).
+  const mask = IS_PROD && status >= 500 && err.expose !== true;
   res.status(status).json({
-    error: IS_PROD ? "Internal server error" : err.message || "Internal server error",
+    error: mask ? "Internal server error" : err.message || "Internal server error",
   });
 });
 

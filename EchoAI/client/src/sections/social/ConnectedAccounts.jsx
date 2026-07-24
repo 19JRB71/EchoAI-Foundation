@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "../../api.js";
+import { openAuthUrl } from "../../lib/oauthNav.js";
 import Spinner from "../../components/Spinner.jsx";
 import ErrorBanner from "../../components/ErrorBanner.jsx";
 import { PLATFORMS, PlatformBadge, platformMeta } from "./platformMeta.jsx";
@@ -191,7 +192,7 @@ function FacebookPagePicker({ brandId, onConnected }) {
     try {
       const { authUrl } = await api.startFacebookOAuth();
       if (authUrl) {
-        window.location.href = authUrl;
+        openAuthUrl(authUrl);
         return;
       }
       setError("Could not start the Facebook connection. Please try again.");

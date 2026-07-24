@@ -453,6 +453,31 @@ Every item gets a real verification, not a vibe. Grouped; each line is checkable
 
 ---
 
+# Future Roadmap — Market Intelligence Engine (MIE)
+
+**Status: future roadmap feature — does not interrupt or delay any phase above.**
+Full CEO-approved specification lives in `MARKET_INTELLIGENCE_ENGINE_SPEC.md`
+(added July 2026).
+
+One-paragraph summary: a multi-source public-data Market Intelligence Engine —
+geographic market research and comparison (worldwide down to ZIP/radius/custom
+territory), keyword and demand intelligence, Facebook Ad Library competitor
+analysis, opportunity maps and scores — feeding Scout (gathering), Sage
+(analysis), Atlas (ad estimates), Forge/Nova (recommendations), Vision (visual),
+and Echo (evidence-backed executive recommendations). Modular data-provider
+architecture; hard safeguards: never fabricate data, confidence scores on
+everything, verified/estimated/predicted labels, public sources only, respect
+all platform terms, never copy competitor creative.
+
+Sequencing: earliest sensible slot is after Phase 6 (trusted customer beta)
+proves the existing departments on real customers — MIE deepens those
+departments rather than widening the product prematurely (per the "deepen,
+don't widen" rule). It builds on existing Scout foundations (competitor
+intelligence, ad spy) rather than replacing them. No engineering work is
+scheduled until the CEO green-lights a phase-gated architecture plan.
+
+---
+
 # Priority Matrix
 
 | Initiative | Impact | Effort | Risk if skipped | Priority |

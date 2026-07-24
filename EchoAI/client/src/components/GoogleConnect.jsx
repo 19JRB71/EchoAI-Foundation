@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
+import { openAuthUrl } from "../lib/oauthNav.js";
 import ErrorBanner from "./ErrorBanner.jsx";
 
 const SERVICE_LABELS = {
@@ -45,7 +46,7 @@ function ConnectButton({ full = false, onError }) {
     if (onError) onError("");
     try {
       const { authUrl } = await api.startGoogleOAuth();
-      window.location.href = authUrl;
+      if (!openAuthUrl(authUrl)) setStarting(false);
     } catch (err) {
       if (onError) onError(err.message);
       setStarting(false);

@@ -39,6 +39,80 @@ const FILTERS = [
   { value: "payment", label: "Payments" },
 ];
 
+// Step-by-step app-password instructions per provider. Expanded on demand so
+// the connect form stays compact for people who already know what to do.
+const APP_PASSWORD_STEPS = {
+  gmail: {
+    label: "Gmail",
+    note: "Google requires 2-Step Verification to be turned on first (Google Account → Security).",
+    steps: [
+      "Open myaccount.google.com and sign in with the Gmail account you want to connect.",
+      'In the search bar at the top, type "App passwords" and select it. (If it doesn\'t appear, turn on 2-Step Verification under Security first, then search again.)',
+      'Under "App name", type something like "Zorecho" and press Create.',
+      "Google shows a 16-character password in a yellow box. Copy it (spaces don't matter).",
+      "Paste it into the App password field below and press Connect.",
+    ],
+  },
+  yahoo: {
+    label: "Yahoo",
+    steps: [
+      "Open login.yahoo.com and sign in, then go to Account Info → Security.",
+      'Select "Generate app password" (sometimes under "Other ways to sign in").',
+      'Type a name like "Zorecho" and press Generate.',
+      "Copy the password Yahoo shows you.",
+      "Paste it into the App password field below and press Connect.",
+    ],
+  },
+  icloud: {
+    label: "iCloud",
+    steps: [
+      "Open appleid.apple.com and sign in with your Apple ID.",
+      "Go to Sign-In and Security → App-Specific Passwords.",
+      'Press the + button, type a name like "Zorecho", and confirm with your Apple ID password.',
+      "Copy the password Apple shows you.",
+      "Paste it into the App password field below and press Connect.",
+    ],
+  },
+  outlook: {
+    label: "Outlook",
+    note: "Microsoft requires two-step verification to be turned on first (account.microsoft.com → Security).",
+    steps: [
+      "Open account.microsoft.com and sign in, then go to Security → Advanced security options.",
+      'Under "App passwords", select "Create a new app password". (If you don\'t see it, turn on two-step verification first.)',
+      "Copy the password Microsoft shows you.",
+      "Paste it into the App password field below and press Connect.",
+    ],
+  },
+};
+
+function AppPasswordGuide({ provider }) {
+  const [open, setOpen] = useState(false);
+  const guide = APP_PASSWORD_STEPS[provider];
+  if (!guide) return null;
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-950/60">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-medium text-blue-300 hover:text-blue-200"
+      >
+        <span>Show me how to get a {guide.label} app password (step by step)</span>
+        <span className="text-gray-500">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="border-t border-gray-800 px-3 py-3">
+          {guide.note && <p className="mb-2 text-xs text-amber-300/90">{guide.note}</p>}
+          <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-gray-300">
+            {guide.steps.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function fmtDateTime(ts) {
   if (!ts) return "";
   try {
@@ -304,8 +378,11 @@ export default function EchoEmail() {
         <form onSubmit={handleConnect} className="space-y-3 rounded-xl border border-gray-800 bg-gray-900/60 p-4">
           <h3 className="font-medium text-white">Connect a mailbox</h3>
           <p className="text-xs text-gray-400">
-            Use an <span className="text-gray-200">app password</span>, not your normal password. Gmail: Google Account → Security → App passwords. Yahoo: Account Security → Generate app password. iCloud: appleid.apple.com → App-Specific Passwords.
+            This is an optional, one-time setup that takes about 2 minutes. Your email provider
+            requires a special <span className="text-gray-200">app password</span> (not your normal
+            password) so apps like this one can read mail safely — you can revoke it any time.
           </p>
+          <AppPasswordGuide provider={form.provider} />
           <div className="grid gap-3 sm:grid-cols-2">
             <select
               value={form.provider}

@@ -47,11 +47,17 @@ const FEATURES = [
   {
     name: "Facebook ad connection (OAuth)",
     vars: ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"],
+    optional: ["FACEBOOK_REDIRECT_URI"],
   },
   {
     name: "Google integration (OAuth — Business Profile, Ads, Analytics, Search Console)",
     vars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
     optional: ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_REDIRECT_URI"],
+  },
+  {
+    name: "Jobber integration (OAuth — clients, schedule, lead push)",
+    vars: ["JOBBER_CLIENT_ID", "JOBBER_CLIENT_SECRET"],
+    optional: ["JOBBER_REDIRECT_URI", "JOBBER_API_VERSION"],
   },
   {
     name: "Web push notifications (VAPID)",

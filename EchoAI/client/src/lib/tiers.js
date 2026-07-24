@@ -103,6 +103,7 @@ export const SECTION_TIERS = {
   // Starter (baseline)
   portfolio: "starter",
   missioncontrol: "starter",
+  connections: "starter",
   aiteam: "starter",
   overview: "starter",
   leads: "starter",

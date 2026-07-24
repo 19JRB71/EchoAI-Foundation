@@ -113,6 +113,7 @@ export function departmentTools(agentId) {
 export const SECTION_TITLES = {
   portfolio: "Portfolio",
   missioncontrol: "Mission Control",
+  connections: "Connections & Setup",
   aiteam: "AI Team",
   settings: "Settings",
   admin: "Admin",

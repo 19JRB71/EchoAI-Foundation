@@ -137,7 +137,8 @@ client wiring). Open that file when working inside a specific subsystem.
 | Autopilot Mode | `/api/autopilot` | Pro (content_calendar gate); weekly AI content+ad batch → owner approve/decline/revise queue with spend limits; Learning Engine records every decision, Monday-05:00 study distills them into learnings (fed back into prompts) + clarifying questions surfaced in the briefing/Autopilot card |
 | Echo Self-Review | `/api/admin/self-review` | admin-only; Monday 07:15 Sage studies the past week's REAL platform data (failures, feedback, feature asks, quotas, learning signals, adoption) → evidence-based ranked improvement recommendations. Recommendation-only — changes nothing; admin triages items (new/planned/dismissed/done) |
 | Competitor Ad Spy | `/api/competitor-ads` | Enterprise (Scout); every 6h scans each CONFIRMED competitor's live Facebook ads, Hermes classifies threat, aggressive new ad → owner voice+SMS alert, weekly Claude ad-intelligence report + counter-campaign drafts. No FB token → no-op/empty (nothing fabricated); snapshot is a link |
-| Guided Setup Wizard | `/api/guided-setup` | all tiers, owner-only; new-customer front door (Welcome → Plan → Business Profile via embedded Setup Agent → Connect Accounts → Team → Done); server-side save/resume, live connection probes (unknown on failure, never fabricated), static SVG OAuth previews, plain-English OAuth error translation, "Help Me" screenshot rescue (Anthropic vision, honest low-confidence → support escalation). Client: `client/src/onboarding/guided/` |
+| Jobber CRM sync | `/api/jobber` | all tiers, OAuth (needs JOBBER_CLIENT_ID/SECRET from developer.getjobber.com); imports Jobber clients as leads (app-code dedup), shows 14-day visit schedule, pushes leads to Jobber as clients (idempotent via leads.jobber_client_id) + auto-push on lead conversion (best-effort) |
+| Guided Setup Wizard | `/api/guided-setup` | all tiers, owner-only; milestone-based new-customer front door (Welcome → Plan → Business Profile via embedded Setup Agent → First Win (post/ad/email/lead, tier-aware, pre-connection) → Unlock Automation (FB/Google OAuth + embedded email app-password connect) → Team → Business Ready); server-side save/resume, live connection probes (unknown on failure, never fabricated), static SVG OAuth previews, plain-English OAuth error translation, "Help Me" screenshot rescue (Anthropic vision, honest low-confidence → support escalation). Client: `client/src/onboarding/guided/` |
 
 The dashboard nav is team-member-centric: the sidebar lists the 10 AI agents
 (Echo/Scout/Atlas/Nova/Pulse/Voice/Forge/Sentinel/Sage/Vision) + Mission Control; clicking an
@@ -195,6 +196,14 @@ Three registered validation steps gate task completion (see the `validation` ski
   July 2026) is Zorecho's permanent engineering constitution. Evaluate major
   architectural decisions against it. It changes only by deliberate CEO-approved
   amendment — never implicitly through implementation.
+- **Customer Experience Constitution.** `CUSTOMER_EXPERIENCE_CONSTITUTION.md`
+  (v1.0, CEO-approved July 2026) carries equal weight: every screen/feature must
+  pass "can a busy business owner use this in under a minute without training?"
+  8 principles (Time to First Success, Echo Leads the Journey, One Decision at a
+  Time, Every Click Creates Value, Progress Is Visible, Business Language, No
+  Hidden Dead Ends, Customer Time Is Sacred) + the CEO Test. The first hour is
+  milestone-based (First Win → Unlock Automation → Never Miss a Lead → Never
+  Miss a Call → Business Ready). Amend only with CEO approval.
 - **Operating model (established July 2026).** Zorecho runs like a company:
   James = CEO (vision, approvals, final say); ChatGPT = Creative Director
   (Zorecho branding, marketing, ads, website/sales/email copy, visual direction,

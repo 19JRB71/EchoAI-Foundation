@@ -149,7 +149,23 @@ async function createAccount(userId, { emailAddress, password, provider, display
     e.cause = err;
     throw e;
   }
-  const { rows } = await db.query(
+  // Encrypt BEFORE the insert so a key problem is reported for what it is.
+  let passwordEncrypted;
+  try {
+    passwordEncrypted = encrypt(password);
+  } catch (err) {
+    console.error("Email assistant: password encryption failed:", err.message);
+    const e = new Error(
+      "The mailbox signed in, but this server can't store the password securely — its credential encryption key (ENCRYPTION_KEY) is misconfigured. Ask your administrator to set it to a 64-character hex value.",
+    );
+    e.statusCode = 500;
+    e.expose = true;
+    e.cause = err;
+    throw e;
+  }
+  let rows;
+  try {
+    ({ rows } = await db.query(
     `INSERT INTO email_accounts
        (user_id, provider, email_address, display_name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
@@ -172,9 +188,24 @@ async function createAccount(userId, { emailAddress, password, provider, display
       hosts.imapPort,
       hosts.smtpHost,
       hosts.smtpPort,
-      encrypt(password),
+      passwordEncrypted,
     ],
-  );
+    ));
+  } catch (err) {
+    console.error("Email assistant: saving the mailbox failed:", err.message);
+    // Missing table / missing unique index = the migrations haven't run on
+    // this server's database. Say so honestly instead of a blank 500.
+    if (err.code === "42P01" || err.code === "42P10") {
+      const e = new Error(
+        "The mailbox signed in, but this server's database is missing the email assistant tables — the latest database migrations haven't been applied here yet.",
+      );
+      e.statusCode = 500;
+      e.expose = true;
+      e.cause = err;
+      throw e;
+    }
+    throw err;
+  }
   return rows[0];
 }
 

@@ -811,6 +811,11 @@ export const api = {
     request("/api/brands/discovery", { method: "POST", body: payload }),
 
   // Leads
+  createLead: ({ brandId, name, email, phone, city, state, zip }) =>
+    request("/api/leads", {
+      method: "POST",
+      body: { brandId, name, email, phone, city, state, zip },
+    }),
   getLeads: (brandId, temperature) => {
     const params = new URLSearchParams({ brandId });
     if (temperature) params.set("temperature", temperature);
@@ -1310,6 +1315,18 @@ export const api = {
   getGoogleBusinessProfile: () => request("/api/google/business-profile"),
   getGoogleAdsPerformance: () => request("/api/google/ads/performance"),
   getGoogleAdPlan: () => request("/api/google/ad-plan"),
+
+  // Jobber integration (OAuth — clients, schedule, lead push)
+  getJobberStatus: () => request("/api/jobber/status"),
+  startJobberOAuth: () =>
+    request("/api/jobber/oauth/initiate", { method: "POST" }),
+  disconnectJobber: () =>
+    request("/api/jobber/disconnect", { method: "POST" }),
+  importJobberClients: (brandId) =>
+    request("/api/jobber/clients/import", { method: "POST", body: { brandId } }),
+  getJobberSchedule: () => request("/api/jobber/schedule"),
+  sendLeadToJobber: (leadId) =>
+    request(`/api/jobber/leads/${leadId}/send`, { method: "POST" }),
 
   // SEO tools (AI SEO content + keyword research)
   generateSeoContent: ({ brandId, keyword, contentType }) =>

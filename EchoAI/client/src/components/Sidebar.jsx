@@ -65,6 +65,16 @@ function MiniIcon({ name }) {
           />
         </svg>
       );
+    case "connections":
+      return (
+        <svg {...common}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
+          />
+        </svg>
+      );
     case "settings":
       return (
         <svg {...common}>
@@ -157,6 +167,7 @@ export default function Sidebar({
   );
 
   const missionActive = section === "missioncontrol";
+  const connectionsActive = section === "connections";
   const settingsActive = section === "settings";
   const adminActive = section === "admin";
 
@@ -210,6 +221,18 @@ export default function Sidebar({
         >
           <MiniIcon name="missioncontrol" />
           <span>Mission Control</span>
+        </button>
+
+        <button
+          data-tour="nav-connections"
+          onClick={() => onSelectSection("connections")}
+          style={connectionsActive ? { backgroundColor: `${brandTeal}22`, borderLeftColor: brandTeal, color: brandTeal } : { borderLeftColor: "transparent" }}
+          className={`mt-1 flex w-full items-center gap-3 rounded-r-lg border-l-[3px] px-3 py-2 text-sm transition ${
+            connectionsActive ? "font-bold" : "font-semibold text-gray-200 hover:bg-gray-800"
+          }`}
+        >
+          <MiniIcon name="connections" />
+          <span>Connections &amp; Setup</span>
         </button>
 
         <div className="mb-1 mt-5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">

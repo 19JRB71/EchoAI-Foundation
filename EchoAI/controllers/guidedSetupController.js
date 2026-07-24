@@ -22,9 +22,76 @@
 const db = require("../config/db");
 const { persistScreenshot } = require("./healthMonitorController");
 const { analyzeSetupHelpScreenshot } = require("../prompts/guidedSetupPrompt");
+const { oauthConfigured: googleOauthConfigured } = require("../config/google");
+const { oauthConfigured: facebookOauthConfigured } = require("./facebookOAuthController");
+const { configured: jobberConfigured } = require("../config/jobber");
 
-const GUIDED_STEPS = ["welcome", "plan", "profile", "connections", "team", "done"];
-const CONNECTION_KEYS = ["facebook", "google"];
+/**
+ * "No green button without a green backend": server-side readiness per
+ * provider, derived from the SAME predicates the OAuth initiate endpoints
+ * use. When a provider is not configured, the client renders "Setup
+ * Required" instead of a Connect button — the customer is never sent into a
+ * provider flow the server already knows cannot succeed. Email is
+ * user-supplied (app password), so it is always available.
+ */
+function providerReadiness() {
+  const facebook = Boolean(facebookOauthConfigured());
+  return {
+    google: Boolean(googleOauthConfigured()),
+    facebook,
+    instagram: facebook, // Instagram connects through the same Facebook app
+    jobber: Boolean(jobberConfigured()),
+    email: true,
+  };
+}
+
+/**
+ * Provider VERIFICATION: has a full authorization round trip ever succeeded
+ * on THIS deployment? Credentials being present (readiness) is not the same
+ * as the connection being proven end-to-end (verification). Until a provider
+ * is verified, the client shows "Configured but awaiting verification" so a
+ * customer is never shown a connection the platform hasn't proven works.
+ * Fails closed (false) on query errors — never claims verified by accident.
+ */
+async function providerVerification() {
+  async function exists(sql) {
+    try {
+      const r = await db.query(sql);
+      return r.rows.length > 0;
+    } catch {
+      return false;
+    }
+  }
+  const google = await exists(
+    "SELECT 1 FROM google_integrations WHERE connection_status = 'connected' LIMIT 1",
+  );
+  const facebook = await exists(
+    "SELECT 1 FROM api_integrations WHERE platform = 'facebook' AND connection_status = 'connected' LIMIT 1",
+  );
+  const jobber = await exists(
+    "SELECT 1 FROM jobber_integrations WHERE connection_status = 'connected' LIMIT 1",
+  );
+  return {
+    google,
+    facebook,
+    instagram: facebook, // rides on the Facebook connection
+    jobber,
+    email: true, // user-supplied credentials; the connect flow verifies itself
+  };
+}
+
+const GUIDED_STEPS = [
+  "welcome",
+  "plan",
+  "profile",
+  "firstwin",
+  "connections",
+  "team",
+  "done",
+];
+const CONNECTION_KEYS = ["facebook", "google", "email"];
+// First-win choices the client may record (Milestone 1 of the first hour).
+const FIRST_WIN_CHOICES = ["post", "ad", "email", "lead"];
 
 // --- Live connection probes (same sources of truth as utils/setupStatus.js) --
 
@@ -46,6 +113,18 @@ async function probeGoogle(userId) {
     const { rows } = await db.query(
       `SELECT 1 FROM google_integrations
         WHERE user_id = $1 AND connection_status = 'connected' LIMIT 1`,
+      [userId],
+    );
+    return rows.length > 0 ? "connected" : "not_connected";
+  } catch {
+    return "unknown";
+  }
+}
+
+async function probeEmail(userId) {
+  try {
+    const { rows } = await db.query(
+      `SELECT 1 FROM email_accounts WHERE user_id = $1 LIMIT 1`,
       [userId],
     );
     return rows.length > 0 ? "connected" : "not_connected";
@@ -79,6 +158,7 @@ async function getState(req, res) {
 
     const facebook = await probeFacebook(userId);
     const google = await probeGoogle(userId);
+    const email = await probeEmail(userId);
 
     // Latest Setup Agent session (drives "Continue previous setup" and the
     // profile step's resume behavior). Probe failure is reported honestly.
@@ -103,7 +183,9 @@ async function getState(req, res) {
 
     return res.json({
       progress,
-      connectionStatus: { facebook, google },
+      connectionStatus: { facebook, google, email },
+      providerReadiness: providerReadiness(),
+      providerVerification: await providerVerification(),
       setupSession,
     });
   } catch (err) {
@@ -127,6 +209,17 @@ function sanitizeConnections(input) {
       entry.errorKey = v.errorKey.trim().slice(0, 64);
     }
     out[key] = entry;
+  }
+  // Milestone 1 "first win" record — {choice, done} only, whitelisted.
+  const fw = input.firstwin;
+  if (fw && typeof fw === "object" && !Array.isArray(fw)) {
+    const entry = {};
+    if (typeof fw.choice === "string" && FIRST_WIN_CHOICES.includes(fw.choice)) {
+      entry.choice = fw.choice;
+    }
+    if (typeof fw.done === "boolean") entry.done = fw.done;
+    if (typeof fw.skipped === "boolean") entry.skipped = fw.skipped;
+    if (Object.keys(entry).length > 0) out.firstwin = entry;
   }
   return out;
 }
@@ -232,7 +325,7 @@ async function getChecklist(req, res) {
   try {
     const userId = req.user.userId;
 
-    const [profile, facebook, google, phone, chatbot, email] = await Promise.all([
+    const [profile, facebook, google, phone, chatbot, email, jobber] = await Promise.all([
       probeExists(
         `SELECT 1 FROM brands
           WHERE user_id = $1 AND COALESCE(TRIM(brand_name), '') <> '' LIMIT 1`,
@@ -251,6 +344,11 @@ async function getChecklist(req, res) {
         [userId],
       ),
       probeExists(`SELECT 1 FROM email_accounts WHERE user_id = $1 LIMIT 1`, [userId]),
+      probeExists(
+        `SELECT 1 FROM jobber_integrations
+          WHERE user_id = $1 AND connection_status = 'connected' LIMIT 1`,
+        [userId],
+      ),
     ]);
 
     const items = [
@@ -274,6 +372,7 @@ async function getChecklist(req, res) {
       { key: "phone", label: "Phone agent", status: phone, section: "phone" },
       { key: "chatbot", label: "Website chatbot", status: chatbot, section: "chatbot" },
       { key: "email", label: "Email assistant", status: email, section: "echoemail" },
+      { key: "jobber", label: "Jobber", status: jobber, section: "leads" },
       { key: "crm", label: "CRM & leads", status: "link", section: "leads" },
       { key: "gbp", label: "Google Business Profile", status: "link", section: "googleseo" },
     ];
@@ -286,6 +385,8 @@ async function getChecklist(req, res) {
       completedCount,
       probedTotal: probed.length,
       allDone: probed.every((i) => i.status === "connected"),
+      providerReadiness: providerReadiness(),
+      providerVerification: await providerVerification(),
     });
   } catch (err) {
     console.error("guidedSetup getChecklist error:", err);
@@ -300,6 +401,7 @@ module.exports = {
   reportConnectionError,
   helpAnalyze,
   // exported for tests
+  providerVerification,
   GUIDED_STEPS,
   CONNECTION_KEYS,
   sanitizeConnections,

@@ -6,6 +6,45 @@ staging service. Same variable **names** as production, different **values**.
 
 ---
 
+## 0. Domain architecture (CEO directive, July 2026 — zorecho.com owned)
+
+| Domain | Purpose | Where it points |
+|---|---|---|
+| `https://zorecho.com` | Public marketing website (no customer app) | Separate site — built AFTER staging is operational |
+| `https://app.zorecho.com` | Production application (paying customers) | Railway **production** service |
+| `https://staging.zorecho.com` | Official staging/testing environment | Railway **staging** service |
+
+Replit preview URLs are for development and debugging only — never for
+validating customer-facing integrations.
+
+**Attaching a custom domain to a Railway service (CEO, one per service):**
+1. Railway → the service → Settings → **Networking / Custom Domain** →
+   add `staging.zorecho.com` (or `app.zorecho.com` on production).
+2. Railway shows a **CNAME target**. At your DNS provider (wherever
+   zorecho.com is registered), add a CNAME record:
+   `staging` → the Railway-provided target (and later `app` → its target).
+3. Wait for the DNS check to pass in Railway; Railway issues the SSL
+   certificate automatically. HTTPS is verified when the padlock appears and
+   `https://staging.zorecho.com/api/health` answers.
+4. Update the service variables that carry the domain (see the table below):
+   `ALLOWED_ORIGINS=https://staging.zorecho.com`, and pin the OAuth callbacks
+   with `GOOGLE_REDIRECT_URI` / `FACEBOOK_REDIRECT_URI`.
+
+**Permanent OAuth callback URLs (register these in the provider consoles):**
+
+| Provider | Staging callback | Production callback |
+|---|---|---|
+| Google | `https://staging.zorecho.com/api/google/oauth/callback` | `https://app.zorecho.com/api/google/oauth/callback` |
+| Facebook | `https://staging.zorecho.com/api/facebook/oauth/callback` | `https://app.zorecho.com/api/facebook/oauth/callback` |
+| Instagram | (uses the Facebook callback) | (uses the Facebook callback) |
+| Jobber | `https://staging.zorecho.com/api/jobber/oauth/callback` | `https://app.zorecho.com/api/jobber/oauth/callback` |
+
+The app derives its callback from the request host automatically, but on each
+Railway service **pin the exact value** with `GOOGLE_REDIRECT_URI`,
+`FACEBOOK_REDIRECT_URI`, and `JOBBER_REDIRECT_URI` so the URL sent to the
+provider can never drift from what's registered. Future providers follow the
+same `/api/<provider>/oauth/callback` structure.
+
 ## 1. One-time Railway setup (CEO, in the Railway dashboard)
 
 1. **Create the `staging` branch** in GitHub (from `main`). This can be done from
@@ -16,8 +55,8 @@ staging service. Same variable **names** as production, different **values**.
    - Root directory: same as production (`EchoAI` if production uses it).
 3. **New Railway Postgres instance** for staging. Never share the production
    database. Copy its connection string into the staging service's `DATABASE_URL`.
-4. **Domain:** use the Railway-generated `*.up.railway.app` domain for staging.
-   Do not attach the customer-facing domain.
+4. **Domain:** attach `staging.zorecho.com` as the custom domain (section 0).
+   The Railway-generated `*.up.railway.app` domain keeps working as a fallback.
 5. Set the variables per the policy table below.
 6. First deploy: push anything to `staging` (or click "Deploy"). The migration
    runner bootstraps the fresh DB (schema.sql first, then migrations).
@@ -36,7 +75,8 @@ staging service. Same variable **names** as production, different **values**.
 | `AI_BUDGET_DEV_DAILY_USD` | Set the staging daily AI cap (recommended: `5`). This cap applies to ALL paid calls on staging because staging is a non-production environment. |
 | `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_*` | **Test-mode** keys and price IDs. Add a staging webhook endpoint in the Stripe dashboard (test mode) pointing at `https://<staging-domain>/api/subscriptions/webhook`. |
 | Twilio (`TWILIO_*`, `SALES_TWILIO_*`) | Dedicated staging number, or **unset** (features degrade to 503 by design). Never the production numbers. |
-| `FACEBOOK_APP_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET` | Same apps; **add the staging redirect URIs** in the FB/Google consoles. Connect only sandbox/test accounts, never a customer's. |
+| `FACEBOOK_APP_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET` | Same apps; **add the staging redirect URIs** in the FB/Google consoles (section 0 table). Connect only sandbox/test accounts, never a customer's. |
+| `GOOGLE_REDIRECT_URI`, `FACEBOOK_REDIRECT_URI`, `JOBBER_REDIRECT_URI` | Pin to the `https://staging.zorecho.com/api/<provider>/oauth/callback` URLs so the callback can never drift from what's registered. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Staging-unique pair (generate fresh; do not reuse production's). |
 | SMTP (`SMTP_HOST` etc.) | Unset (emails 503 gracefully) or a test inbox — never a real customer-facing sender. |
 | `FREE_TEST_MODE` | `true` — all staging accounts are "beta". |
