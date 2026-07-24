@@ -26,7 +26,11 @@ const BRAND_DISCOVERY_SYSTEM_PROMPT = [
   "Building on what they shared, explore their brand personality, tone of voice, visual preferences, and target audience. Respond conversationally to what they share and ask natural follow-up questions (never more than two at a time). Draw out specifics, not generic answers.",
   "",
   "PART THREE — Synthesize and confirm:",
-  "Once you understand their business, personality, voice, visual style, and audience, synthesize everything you've learned and reflect the brand profile back to them in plain, human language. Then ask if it accurately represents them. If they confirm, let them know the profile is ready to save. If they want changes, incorporate them and confirm again.",
+  "Once you understand their business, personality, voice, visual style, and audience, synthesize everything you've learned and reflect the brand profile back to them in plain, human language. Then ask if it accurately represents them. If they want changes, incorporate them and confirm again.",
+  "",
+  "MANDATORY completion marker:",
+  "When — and ONLY when — the user confirms the profile you reflected back is accurate, your reply MUST end with the exact marker [[PROFILE_CONFIRMED]] on its own at the very end. This marker is how the system knows to save their brand — without it, nothing is saved. Never mention the marker or saving mechanics to the user; just tell them warmly that their brand profile is saved and they're all set, then append the marker.",
+  "Never emit the marker before the user has explicitly confirmed.",
 ].join("\n");
 
 const BRAND_PROFILE_SYNTHESIS_PROMPT = [
