@@ -10,11 +10,11 @@
 
 | Item | Status |
 |---|---|
-| Git tag `pre-turnaround-baseline` | **BLOCKED in the agent environment** — the Replit agent is prohibited from creating git refs. **James must create it** (see §5). |
-| Branch `backup/pre-turnaround` | **BLOCKED for the same reason** — James creates it via the Git panel or GitHub (see §5). |
+| Git tag `pre-turnaround-baseline` | **CREATED 2026-07-25 by James** on GitHub via a published release "Pre-turnaround baseline (2026-07-25)" targeting `main`. |
+| Branch `backup/pre-turnaround` | **CREATED 2026-07-25 by James** on GitHub from `main` (confirmed "up to date with main" at creation). |
 | Baseline test results | **RECORDED** (see §4). |
-| Railway production DB backup | **NOT CAPTURED by the agent** — no Railway access from Replit. James captures it in the Railway dashboard (see §2). |
-| Railway staging DB backup | **NOT CAPTURED by the agent** — same reason. |
+| Railway production DB backup | **CAPTURED 2026-07-25 22:56 UTC** by James (940 MB manual volume backup — see §2). |
+| Railway staging DB backup | **CAPTURED 2026-07-25 22:58 UTC** by James (885 MB manual volume backup — see §2). |
 | Restore drill | **PERFORMED 2026-07-25** against the Replit development database (the only database reachable from this environment). Full evidence in §3. A drill against an actual Railway staging backup remains **UNVERIFIED** until run. |
 
 ## 2. Database backup — how to capture (Railway)
@@ -31,8 +31,10 @@ The agent has no Railway credentials. James (or anyone with Railway dashboard ac
    Store the dump somewhere safe **outside git**. Never commit dump files.
 
 **Backup identifiers (fill in when captured):**
-- Production backup: `____________________` (date/ID)
-- Staging backup: `____________________` (date/ID)
+- Production backup: `2026-07-25 22:56 UTC — manual volume backup, 940 MB` (Railway project "calm-purpose" → service **Postgres**, linked to EchoAI-Foundation production)
+- Staging backup: `2026-07-25 22:58 UTC — manual volume backup, 885 MB` (Railway project "calm-purpose" → service **Postgres-v9JE**, linked to prolific-perception / staging.zorecho.com)
+
+Captured by James in the Railway dashboard on 2026-07-25; screenshots confirmed by the agent. Note: Point-in-time recovery (PITR) is currently **off** on both services — recommended follow-up: enable PITR and/or a backup schedule on both.
 
 ## 3. Restore drill — procedure + the 2026-07-25 drill evidence
 
