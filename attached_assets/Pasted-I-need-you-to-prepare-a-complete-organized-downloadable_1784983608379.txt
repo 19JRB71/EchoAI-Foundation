@@ -1,0 +1,848 @@
+I need you to prepare a complete, organized, downloadable review package of the entire Zorecho platform so I can provide it to an outside senior AI software architect for a full system audit.
+
+This is not a request to modify, rebuild, refactor, redesign, or improve the platform.
+
+Do not make any code changes unless a change is strictly required to successfully export or document the existing system. Do not remove files, rename files, upgrade dependencies, restructure folders, or attempt to clean up the code before exporting it.
+
+The purpose of this task is to create a truthful and complete snapshot of Zorecho exactly as it exists today.
+
+## PRIMARY OBJECTIVE
+
+Create a complete system package that allows an outside reviewer to understand:
+
+* What Zorecho is designed to do.
+* How the entire platform is currently structured.
+* What has actually been implemented.
+* What is partially implemented.
+* What is incomplete.
+* What is simulated, mocked, placeholder-based, or hard-coded.
+* What is connected to real services.
+* What is disconnected or unreliable.
+* How information moves through the system.
+* How onboarding currently works.
+* How each AI department and agent operates.
+* How automation, approvals, campaigns, advertisements, integrations, memory, scheduling, analytics, and background jobs operate.
+* Where the likely weak links, bottlenecks, technical debt, duplicated systems, and failure points exist.
+
+## PACKAGE REQUIREMENTS
+
+Create one clearly named downloadable package:
+
+ZORECHO_FULL_SYSTEM_REVIEW_PACKAGE_[CURRENT_DATE]
+
+The package should include all files necessary to review the platform, excluding private secrets and unnecessary generated files.
+
+## 1. COMPLETE SOURCE CODE
+
+Include the complete current source code for:
+
+* Frontend
+* Backend
+* API routes
+* Server functions
+* Database layer
+* Authentication
+* Agent systems
+* AI prompts
+* Automation systems
+* Scheduling systems
+* Background workers
+* Approval workflows
+* Campaign creation
+* Advertising systems
+* CRM functionality
+* Social-media functionality
+* Research functionality
+* Content-generation systems
+* Media-library functionality
+* Reporting and analytics
+* Notifications
+* Billing and subscription logic
+* Admin tools
+* Mission Control
+* Onboarding
+* Business-profile creation
+* Business-memory systems
+* Department communication
+* Shared data systems
+* Audit logs
+* Testing systems
+* Error handling
+* Security-related logic
+* Any other feature or service contained in the platform
+
+Do not include:
+
+* node_modules
+* Build-output folders
+* Temporary cache folders
+* Unnecessary generated files
+* Large duplicated assets that are not required for review
+* Secrets
+* API keys
+* Access tokens
+* Passwords
+* Private credentials
+
+## 2. FILE AND FOLDER MAP
+
+Create a document named:
+
+SYSTEM_FILE_MAP.md
+
+It must explain the purpose of every major folder and important file.
+
+For each major component, explain:
+
+* What it does.
+* What part of the platform uses it.
+* Whether it is currently active.
+* Whether it is legacy code.
+* Whether it appears unused.
+* Whether another file or system duplicates its function.
+* Whether it contains unfinished, placeholder, mocked, or hard-coded logic.
+
+Do not describe unfinished systems as complete.
+
+## 3. SYSTEM ARCHITECTURE DOCUMENT
+
+Create a document named:
+
+CURRENT_SYSTEM_ARCHITECTURE.md
+
+Document the present architecture, including:
+
+* Frontend framework
+* Backend framework
+* Database
+* Authentication system
+* AI providers and models
+* External APIs
+* Storage systems
+* Deployment environment
+* Background-job system
+* Scheduling system
+* Webhooks
+* Queues
+* Realtime services
+* Email services
+* Social-platform connections
+* Advertising-platform connections
+* Analytics services
+* Payment services
+* File and media services
+* Search and research services
+* Monitoring and logging
+* Any third-party service used by the platform
+
+Include a written data-flow explanation showing how information moves from:
+
+User input → onboarding → business profile → department heads → individual agents → generated work → approval → publishing or execution → results → reporting.
+
+Clearly identify any breaks or uncertainty in this flow.
+
+## 4. DATABASE PACKAGE
+
+Include:
+
+* Complete database schema
+* Table definitions
+* Relationships
+* Foreign keys
+* Indexes
+* Enums
+* Migration files
+* Seed files
+* Sample sanitized records where useful
+* Data-retention logic
+* Tenant-separation logic
+* User-role structure
+* Permission structure
+* Business-profile storage
+* Agent-memory storage
+* Campaign data
+* Approval data
+* Integration data
+* Activity logs
+* Automation records
+* Scheduled-task records
+
+Create a document named:
+
+DATABASE_MAP.md
+
+For every table or collection, explain:
+
+* Its purpose.
+* Which features use it.
+* Which fields are critical.
+* What writes to it.
+* What reads from it.
+* Whether it appears fully used.
+* Whether it contains duplicate, abandoned, or obsolete structures.
+
+Do not include real customer information, passwords, tokens, or confidential personal data.
+
+## 5. ENVIRONMENT AND INTEGRATION MANIFEST
+
+Create a document named:
+
+ENVIRONMENT_AND_INTEGRATIONS.md
+
+List every required environment variable without exposing its value.
+
+Use this format:
+
+VARIABLE_NAME
+Purpose:
+Required or optional:
+System using it:
+Status: configured, missing, uncertain, or unused.
+
+Also list every integration and show:
+
+* Integration name
+* Purpose
+* Authentication method
+* Files responsible for it
+* Whether it is live
+* Whether it is tested
+* Whether it uses real data
+* Whether it uses placeholder data
+* Known limitations
+* Required setup steps
+* Current failure points, if known
+
+Redact all actual secret values.
+
+Provide a sanitized:
+
+.env.example
+
+The example file must contain variable names only, with blank or clearly fake values.
+
+## 6. DEPENDENCY REPORT
+
+Include all dependency files and lock files.
+
+Create:
+
+DEPENDENCY_REPORT.md
+
+For each major dependency, explain:
+
+* Why it is used.
+* Which feature depends on it.
+* Whether it is essential.
+* Whether similar dependencies overlap with it.
+* Whether it appears unused.
+* Whether there are known compatibility concerns.
+* Whether changing it could break the system.
+
+Do not upgrade dependencies during this task.
+
+## 7. ONBOARDING WORKFLOW DOCUMENTATION
+
+Create:
+
+ONBOARDING_CURRENT_STATE.md
+
+Document the complete onboarding journey exactly as it operates today.
+
+Start from:
+
+New user signs up.
+
+Continue through:
+
+* Business name entry
+* Industry selection
+* Business details
+* Website information
+* Business research
+* Business-profile creation
+* Account connections
+* Email connection
+* Facebook connection
+* Google connection
+* Advertising connection
+* Social-media connection
+* Approval steps
+* Department setup
+* Agent setup
+* Campaign readiness
+* First campaign generation
+* First advertisement approval
+* First advertisement launch
+
+For every step, document:
+
+* What the user sees.
+* What the user must enter manually.
+* What the platform discovers automatically.
+* What data is saved.
+* Where the data is saved.
+* Which system receives it.
+* Which department receives it.
+* Whether the information is shared across departments.
+* Whether the user must enter the same information again.
+* Whether the step is required.
+* Whether the step can fail.
+* What happens when it fails.
+* Whether the user can continue.
+* Whether the feature is fully functional.
+* Whether it is partially functional.
+* Whether it is only represented in the interface.
+
+Create a visual or text-based workflow map showing the current onboarding path and every major branch, delay, dependency, and possible dead end.
+
+## 8. AGENT AND DEPARTMENT INVENTORY
+
+Create:
+
+AGENT_AND_DEPARTMENT_INVENTORY.md
+
+Document every department head, agent, worker, assistant, service, and AI-related component.
+
+For each one, include:
+
+* Name
+* Intended role
+* Current actual role
+* Prompt location
+* Model used
+* Tools available
+* Data available
+* Memory available
+* Permissions
+* Inputs
+* Outputs
+* Trigger method
+* Approval requirements
+* Systems it communicates with
+* Whether it performs real actions
+* Whether it only generates text
+* Whether it uses simulated results
+* Whether it operates automatically
+* Whether it requires manual intervention
+* Known limitations
+* Current implementation status
+
+Clearly document the chain of command.
+
+Show how information is supposed to move:
+
+Business profile → department head → agents → work product → review → approval → execution → reporting.
+
+Then show how it actually moves today.
+
+## 9. PROMPT INVENTORY
+
+Create:
+
+AI_PROMPT_INVENTORY.md
+
+Include every system prompt, agent prompt, task prompt, hidden instruction, workflow prompt, and prompt template currently used in Zorecho.
+
+For each prompt, document:
+
+* Prompt name
+* File location
+* Agent or system using it
+* When it is triggered
+* Inputs provided
+* Expected output
+* Actual output handling
+* Whether output is validated
+* Whether output can trigger real actions
+* Whether the prompt overlaps or conflicts with another prompt
+* Whether it contains outdated instructions
+* Whether it contains hard-coded business assumptions
+
+Do not rewrite the prompts during this task.
+
+## 10. AUTOMATION AND BACKGROUND-JOB INVENTORY
+
+Create:
+
+AUTOMATION_AND_BACKGROUND_JOBS.md
+
+Document every:
+
+* Scheduled task
+* Cron job
+* Queue
+* Worker
+* Event trigger
+* Webhook
+* Automated follow-up
+* Overnight process
+* Monitoring task
+* Campaign task
+* Publishing task
+* Research task
+* Reporting task
+* Notification task
+* Retry process
+
+For each one, state:
+
+* What triggers it.
+* What it is supposed to do.
+* What it actually does.
+* Where it runs.
+* What data it uses.
+* What service it calls.
+* How success is recorded.
+* How failure is recorded.
+* Whether it retries.
+* Whether it can silently fail.
+* Whether it is currently active.
+* Whether it has been tested.
+* Whether it depends on a user keeping the application open.
+
+## 11. EXTERNAL-ACTION INVENTORY
+
+Create:
+
+REAL_ACTIONS_VS_SIMULATED_ACTIONS.md
+
+This document is extremely important.
+
+List every place where Zorecho appears to perform an external action, including:
+
+* Publishing a social post
+* Creating an advertisement
+* Launching an advertisement
+* Sending an email
+* Sending a notification
+* Updating a CRM record
+* Creating a campaign
+* Uploading media
+* Pulling analytics
+* Conducting research
+* Scheduling content
+* Generating reports
+* Following up with a lead
+* Calling or messaging a customer
+* Updating connected accounts
+
+For each action, classify it as:
+
+* Fully real and live
+* Real but incomplete
+* Real but untested
+* Partially simulated
+* Fully simulated
+* UI-only
+* Placeholder
+* Unknown
+
+Provide the file paths and functions responsible for each action.
+
+Do not mark an action as real merely because a button, screen, success message, or database record exists.
+
+A real action means the intended external result actually occurs.
+
+## 12. FEATURE STATUS MATRIX
+
+Create:
+
+FEATURE_STATUS_MATRIX.md
+
+Create a table containing every major platform feature.
+
+Use these status options:
+
+* Fully functional and verified
+* Functional but not fully tested
+* Partially implemented
+* Frontend only
+* Backend only
+* Mocked or simulated
+* Placeholder
+* Broken
+* Disabled
+* Legacy
+* Unknown
+* Not started
+
+For every feature, include:
+
+* Feature name
+* Intended purpose
+* Current status
+* Frontend file
+* Backend file
+* Database dependency
+* Integration dependency
+* Known issue
+* Test status
+* Recommended verification method
+
+## 13. KNOWN ISSUES AND TECHNICAL DEBT
+
+Create:
+
+KNOWN_ISSUES_AND_TECHNICAL_DEBT.md
+
+Include all known:
+
+* Bugs
+* Error messages
+* Failed tests
+* Incomplete features
+* Workarounds
+* Temporary fixes
+* Duplicate logic
+* Legacy code
+* Dead code
+* Unused components
+* Hard-coded values
+* Hard-coded users or businesses
+* Hard-coded responses
+* Placeholder content
+* Mock data
+* Fake success states
+* Inconsistent naming
+* Conflicting prompts
+* Conflicting workflows
+* Data-sync problems
+* Race conditions
+* Permission problems
+* Tenant-isolation risks
+* Security concerns
+* Performance bottlenecks
+* Cost-control issues
+* Logging gaps
+* Missing error handling
+* Missing retries
+* Missing validation
+* Missing tests
+
+Include existing Replit notes, task lists, development logs, and unresolved issues where available.
+
+Do not hide, minimize, or soften problems.
+
+## 14. TESTING PACKAGE
+
+Include all existing tests.
+
+Create:
+
+TESTING_CURRENT_STATE.md
+
+Document:
+
+* Existing unit tests
+* Integration tests
+* End-to-end tests
+* Manual tests
+* Test accounts
+* Test data
+* Coverage areas
+* Untested areas
+* Flaky tests
+* Disabled tests
+* Failed tests
+* Mocked services
+* Missing test environments
+
+Run only safe, non-destructive existing tests.
+
+Do not run tests that could:
+
+* Publish content
+* Launch advertisements
+* Spend money
+* Send real customer messages
+* Delete data
+* Change production data
+* Trigger live campaigns
+* Modify external accounts
+
+Record the test results without attempting broad fixes.
+
+## 15. CURRENT USER JOURNEY
+
+Create:
+
+CURRENT_USER_JOURNEY.md
+
+Map the actual experience for a new customer from:
+
+Signup → onboarding → business understanding → account connections → campaign creation → approval → launch → monitoring → reporting.
+
+At each stage, identify:
+
+* Required user actions
+* System actions
+* Waiting points
+* Repeated questions
+* Manual setup
+* Integration dependencies
+* Confusing screens
+* Missing guidance
+* Dead ends
+* Failure points
+* Developer intervention required
+* Time-to-value delays
+
+Do not describe the intended experience unless it is clearly labeled as intended.
+
+The reviewer needs to see the actual experience.
+
+## 16. SECURITY AND PRIVACY REVIEW MATERIALS
+
+Create:
+
+SECURITY_AND_PRIVACY_OVERVIEW.md
+
+Document:
+
+* Authentication
+* Authorization
+* Role permissions
+* Admin permissions
+* Tenant isolation
+* Secret management
+* Token storage
+* Encryption
+* User-data storage
+* Customer-data storage
+* Logging of sensitive data
+* File-upload security
+* API protection
+* Rate limiting
+* Input validation
+* Output validation
+* Prompt-injection protections
+* AI-action permissions
+* Approval gates
+* Audit logging
+* Data deletion
+* Account deletion
+* Backup procedures
+* Recovery procedures
+
+Do not include actual secrets or exploit instructions.
+
+## 17. COST AND RESOURCE USAGE
+
+Create:
+
+AI_AND_INFRASTRUCTURE_COST_MAP.md
+
+Document:
+
+* Every AI model used
+* Which feature uses each model
+* Estimated usage pattern
+* Token tracking
+* Cost controls
+* Spending caps
+* Retry behavior
+* Duplicate calls
+* Unnecessary calls
+* Background AI usage
+* Image-generation usage
+* Voice usage
+* Storage usage
+* Bandwidth usage
+* Third-party subscription dependencies
+
+If exact costs are unavailable, state that clearly.
+
+Do not invent numbers.
+
+## 18. DEPLOYMENT AND RECOVERY DOCUMENTATION
+
+Create:
+
+DEPLOYMENT_AND_RECOVERY.md
+
+Include:
+
+* How the platform is deployed
+* Current deployment configuration
+* Build commands
+* Start commands
+* Environment requirements
+* Database migration procedure
+* Rollback procedure
+* Backup procedure
+* Restore procedure
+* Branch structure
+* Production branch
+* Staging branch
+* Development branch
+* Known deployment failures
+* Known production-specific differences
+
+## 19. SANITIZED SAMPLE DATA
+
+Where useful, include sanitized sample data that helps the reviewer understand:
+
+* A business profile
+* A completed onboarding record
+* A campaign
+* An advertisement
+* An agent task
+* An approval
+* A scheduled job
+* A social-media connection record
+* An analytics response
+* A CRM record
+* A department handoff
+* An activity log
+
+Never include actual customer secrets, private messages, passwords, API keys, or access tokens.
+
+## 20. RECENT DEVELOPMENT HISTORY
+
+Create:
+
+RECENT_DEVELOPMENT_HISTORY.md
+
+Summarize the recent development history using available:
+
+* Git commits
+* Replit checkpoints
+* Task history
+* Development notes
+* Change logs
+* Bug reports
+* Test reports
+
+Document:
+
+* What has been changed recently
+* What features were added
+* What features were paused
+* What areas have required repeated fixes
+* What problems keep returning
+* What changes introduced regressions
+* What parts of the system are currently being stabilized
+
+Do not invent explanations for changes when they are not documented.
+
+## 21. OPEN QUESTIONS FOR THE REVIEWER
+
+Create:
+
+OPEN_TECHNICAL_QUESTIONS.md
+
+List every system area where the current implementation or intent is unclear.
+
+For each question, include:
+
+* The unclear area
+* Relevant file paths
+* What the code appears to do
+* What cannot be confirmed
+* What information the outside reviewer should investigate
+
+## 22. MASTER README
+
+Create:
+
+START_HERE_ZORECHO_REVIEW.md
+
+This should be the first document the outside reviewer opens.
+
+Include:
+
+* Brief description of Zorecho
+* Current technology stack
+* Package contents
+* Recommended reading order
+* How to inspect the code
+* How to understand the database
+* How to identify active versus legacy systems
+* How to locate prompts
+* How to locate integrations
+* How to locate automation
+* How to locate onboarding
+* How to locate agent logic
+* How to locate campaign and advertising logic
+* Known limitations of the package
+* Any files that could not be included
+* Any sections where documentation may be incomplete
+
+## TRUTHFULNESS REQUIREMENT
+
+Accuracy is more important than making the platform appear complete.
+
+Do not:
+
+* Claim a feature is working because the screen exists.
+* Claim an integration is live because environment variables exist.
+* Claim automation is active because a scheduled-task file exists.
+* Claim an agent performs work because it generates a response.
+* Claim a campaign launches because a database record is created.
+* Claim a test passes if it was not run.
+* Hide known issues.
+* Fill documentation with assumptions.
+* Describe intended behavior as current behavior.
+* modify the platform to make the review package appear stronger.
+
+When something cannot be verified, label it:
+
+UNVERIFIED
+
+When something is incomplete, label it:
+
+PARTIALLY IMPLEMENTED
+
+When something is represented only in the interface, label it:
+
+UI ONLY
+
+When something is mocked or simulated, label it:
+
+SIMULATED
+
+When something is not understood, label it:
+
+UNKNOWN
+
+## SECURITY REQUIREMENT
+
+Before creating the final archive, scan the package for:
+
+* API keys
+* Passwords
+* Authentication tokens
+* OAuth tokens
+* Private certificates
+* Database credentials
+* Session secrets
+* Personal customer information
+* Private email content
+* Private uploaded files
+* Payment information
+
+Remove or redact these items.
+
+Do not remove the variable names, integration names, or configuration structure needed for technical review.
+
+## FINAL DELIVERABLES
+
+When finished, provide:
+
+1. The downloadable archive.
+2. The total archive size.
+3. A complete list of included files and folders.
+4. A list of excluded files and why they were excluded.
+5. A list of redacted materials.
+6. A list of documentation files created.
+7. A list of any items you could not export.
+8. A list of any systems you could not confidently document.
+9. Confirmation that the production code was not modified.
+10. The exact Git commit, checkpoint, or project state represented by the package.
+
+Before finalizing, verify that the archive opens successfully and that the documentation files are readable.
+
+Do not begin improving Zorecho.
+
+Only prepare the complete, truthful, secure review package.

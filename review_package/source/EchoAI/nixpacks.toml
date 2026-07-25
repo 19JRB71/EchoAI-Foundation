@@ -1,0 +1,72 @@
+# =============================================================================
+# Nixpacks build recipe for EchoAI (Railway)
+# =============================================================================
+# Railway's default Node build ran `npm ci`, which crashed on Railway with
+# "Exit handler never called!". This file replaces the auto-detected phases with
+# an explicit, robust recipe:
+#
+#  * setup   - Node 20 (has prebuilt `bcrypt` binaries, so no native compile is
+#              needed) plus python3/gcc/make as a fallback in case any native
+#              dependency must build from source.
+#  * install - server deps via `npm install` (not the crashing `npm ci`).
+#  * build   - NO client build runs on Railway. Railway's builder crashes the
+#              client's npm install with "npm error Exit handler never called!",
+#              so instead the React SPA is built locally and its output
+#              (client/dist) is committed to the repo (un-ignored in
+#              EchoAI/.gitignore). Railway serves that prebuilt bundle directly.
+#              This build phase only verifies the committed bundle is present.
+#              NOTE: after ANY change under EchoAI/client/, rebuild with
+#              `cd EchoAI/client && npm run build` and commit client/dist.
+#
+# The start command, health check, and restart policy live in railway.toml.
+# =============================================================================
+
+providers = ["node"]
+
+[phases.setup]
+# `yarn` is added because npm 10.8.2 (bundled with nodejs_20) is broken on this
+# builder (see install phase). Yarn is used only to INSTALL dependencies; the app
+# still runs under node/npm at start time.
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake", "yarn"]
+
+[phases.install]
+# The npm bundled with Node 20.x can crash on Railway with "Exit handler never
+# called!" and "ENOTEMPTY ... rename node_modules/<pkg>" when it installs on top
+# of an existing/partial node_modules (e.g. a restored build cache) or under
+# memory pressure. When that happens npm exits without finishing, leaving
+# node_modules HALF-installed (dotenv and others missing) — which is exactly why
+# the app crashed at runtime with "Cannot find module 'dotenv'".
+#
+# Neither a clean+serialized install NOR upgrading npm worked: npm 10.8.2
+# (bundled with nodejs_20) hits the "Exit handler never called!" bug — it crashes
+# mid-install, EXITS 0 anyway (so the failure is invisible), and leaves
+# node_modules incomplete (dotenv missing). corepack could not upgrade npm here
+# because the Nix store is read-only.
+#
+# Fix: install dependencies with Yarn, which does not have this bug. Yarn is only
+# used to build node_modules; the app still runs under node/npm at start time.
+# `--production=false` installs everything regardless of NODE_ENV=production
+# (all runtime deps live in "dependencies"; there are no devDependencies). Step 3
+# hard-verifies the critical deps actually landed, so any partial install fails
+# the build LOUDLY instead of shipping a broken image.
+#   --ignore-engines: the Nix `yarn` package brings its own Node (22.x) while
+#   package.json pins engines to "20.x", so Yarn aborts on the mismatch. The app
+#   runs fine on newer Node (the dev environment uses an even newer version), so
+#   this skips the (over-strict) engine check for the project AND its deps.
+cmds = [
+  "rm -rf node_modules",
+  # --frozen-lockfile: yarn.lock is committed (generated from a verified clean
+  # install that boots the server), so every Railway build installs the EXACT
+  # same dependency versions instead of re-resolving semver ranges fresh — a
+  # new (broken) release of any dependency can no longer change a build.
+  "yarn install --production=false --non-interactive --network-concurrency 1 --ignore-engines --frozen-lockfile",
+  # Verify EVERY production dependency actually landed (not just a hand-picked
+  # few). A half-install (the npm/yarn crash class above) previously shipped an
+  # image missing modules that only fail at runtime → the healthcheck never
+  # passes and Railway rolls the deploy back. require.resolve() catches missing
+  # packages without executing them (no config/env needed at build time).
+  "node -e 'const d=Object.keys(require(process.cwd()+\"/package.json\").dependencies);const bad=[];for(const p of d){try{require.resolve(p)}catch(e){bad.push(p)}}if(bad.length){console.error(\"MISSING DEPS AFTER INSTALL: \"+bad.join(\", \"));process.exit(1)}console.log(\"all \"+d.length+\" runtime deps verified OK\")'"
+]
+
+[phases.build]
+cmds = ["test -f client/dist/index.html || (echo 'ERROR: client/dist is missing - run: cd EchoAI/client && npm run build, then commit client/dist' && exit 1)"]

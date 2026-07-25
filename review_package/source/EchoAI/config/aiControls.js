@@ -1,0 +1,211 @@
+require("dotenv").config();
+
+const db = require("./db");
+const { ENVIRONMENT, isProduction } = require("./environment");
+
+/**
+ * Emergency AI switches and budget limits.
+ *
+ * Resolution order for every control: ai_settings DB row (admin override,
+ * takes effect within CACHE_TTL_MS without a redeploy) > environment variable
+ * of the same name > built-in default. Values are cached briefly so gating a
+ * paid call never adds a meaningful DB cost.
+ */
+
+// Boolean switches. Defaults implement the launch-sprint policy:
+// - Background AI runs only in production, and Sage's 30-minute urgent scan,
+//   the weekly Monday AI stack, and autonomous growth are OFF until explicitly
+//   re-enabled by the administrator.
+// - Development never makes paid calls unless DEVELOPMENT_AI_ENABLED is set.
+const SWITCH_DEFAULTS = {
+  AI_ENABLED: true, // master emergency shutoff (false = no paid calls at all)
+  USER_AI_ENABLED: true, // user-requested AI (chat, content the owner asks for)
+  BACKGROUND_AI_ENABLED: true, // scheduled/autonomous AI (production only)
+  SAGE_RESEARCH_ENABLED: true, // Sage deep industry research (now daily)
+  SAGE_URGENT_ENABLED: false, // Sage 30-minute urgent scan (launch default OFF)
+  COMPETITOR_RESEARCH_ENABLED: true, // competitor scan/ad spy/site monitor (now daily)
+  WEEKLY_AI_STACK_ENABLED: false, // Monday analytics/intel/learning/self-review/autopilot
+  AUTONOMOUS_GROWTH_ENABLED: false, // daily autonomous growth review (launch default OFF)
+  DEVELOPMENT_AI_ENABLED: false, // allow paid calls outside production
+  OPENAI_CONTENT_ENABLED: false, // OpenAI as a content provider (future pilot)
+  SAGE_V2_CONTEXT: false, // Sage V2 P1: inject approved Company Truth into every department's AI context (dark until enabled)
+  SAGE_V2_WEEKLY_BRIEFING: false, // Sage V2 P1: consolidated weekly Sage briefing (copy pending ChatGPT; dark until enabled)
+  SAGE_V2_ROI_LABELS: false, // Sage V2 P1: "estimated" badges on modeled ROI figures (dark until enabled)
+  SAGE_V2_INTEL_STORE: false, // Sage V2 P2: canonical sage_intel_items store (writes+reads cut over; dark until enabled)
+  SAGE_V2_JOB_QUEUE: false, // Sage V2 P2: scheduler enqueues per-brand AI work into sage_job_queue (dark until enabled)
+  SAGE_V2_SKIP_GATES: false, // Sage V2 P2: input-hash skip gates — unchanged inputs make zero AI calls (dark until enabled)
+  SAGE_V2_DQ_SENTRY: false, // Sage V2 P2: nightly deterministic data-quality sentry (dark until enabled)
+  SAGE_V2_OUTCOME_CAPTURE: false, // Sage V2 P3: lead outcome capture (chips/voice/convert paths write outcome + attribution fields; dark until enabled)
+  SAGE_V2_COVERAGE_DISPLAYS: false, // Sage V2 P3: outcome-coverage labels + <30% financial-view gate (dark until enabled)
+  SAGE_V2_OFFERS: false, // Sage V2 P4: sage_offers registry (endpoints, UI card, prompt injection; dark until enabled)
+  SAGE_V2_CONSTRAINTS: false, // Sage V2 P4: brand_constraints capture + context (NO enforcement — deferred to P5; dark until enabled)
+  SAGE_V2_TRUTH_INPUTS: false, // Sage V2 P4: expanded gatherCompanyData sources + monthly objections mining (dark until enabled)
+  SAGE_V2_EXEC_MEMORY: false, // Sage V2 P4: Executive Memory (Echo "remember this" capture + sage_memory + context; dark until enabled)
+  SAGE_V2_OPPORTUNITIES: false, // Sage V2 P5: weekly Opportunity Synthesis + queue + decisions (dark until enabled)
+  SAGE_V2_DIRECTIVES: false, // Sage V2 P5: Directive Bus handoffs + nightly measurement join (dark until enabled)
+  SAGE_V2_CHANGE_DIAGNOSTICS: false, // Sage V2 P5: deterministic week-over-week decomposition + briefing "what changed" (dark until enabled)
+  SAGE_V2_KNOWLEDGE_PAGE: false, // Sage V2 P5: "What Sage knows" page + export (dark until enabled)
+  SAGE_V2_SCORECARDS: false, // Sage V2 P6: deterministic channel scorecards (compute + endpoint + UI; dark until enabled)
+  SAGE_V2_FORECASTS: false, // Sage V2 P6: honest range forecasts from own history (≥8 weeks; dark until enabled)
+  SAGE_V2_STRATEGY: false, // Sage V2 P6: Top-3-bets strategy + Executive Debate (owner-initiated AI; dark until enabled)
+  SAGE_V2_SELF_EVAL: false, // Sage V2 P6: Sage self-evaluation scorecard (deterministic; dark until enabled)
+  COLLAB_BUS: false, // Collab Stage 0: department_messages bus chokepoint (all bus entry points no-op while dark)
+  COLLAB_ACTIVITY_VIEW: false, // Collab Stage 2: owner-facing Department Activity view (dark until enabled)
+  COLLAB_FORGE_SAGE: false, // Collab Stage 1 flow: Forge consults Sage strategy before creative (dark)
+  COLLAB_ATLAS_INTEL: false, // Collab Stage 1 flow: Atlas reads Scout competitor intel before campaigns (dark)
+  COLLAB_NOVA_STRATEGY: false, // Collab Stage 1 flow: Nova aligns content with Sage strategy (dark)
+  COLLAB_PULSE_REPORTS: false, // Collab Stage 1 flow: Pulse lead-outcome reports to Sage (dark)
+  COLLAB_VOICE_INSIGHTS: false, // Collab Stage 1 flow: Voice customer-language insights to Nova/Forge (dark)
+  COLLAB_SCOUT_ENRICH: false, // Collab Stage 1 flow: Scout enrichment on demand (dark)
+  COLLAB_DEPT_SCORECARDS: false, // Collab Stage 2 (CEO Addition 1): deterministic department scorecards (dark)
+  COLLAB_ROUNDTABLE: false, // Collab Stage 3 (CEO Addition 2): owner-initiated Executive Roundtable (dark)
+  ANTHROPIC_CONTENT_ENABLED: true, // Anthropic (Claude) calls
+};
+
+// Numeric limits (USD unless noted). All periods are UTC days/months.
+const NUMBER_DEFAULTS = {
+  AI_BUDGET_GLOBAL_DAILY_USD: 25,
+  AI_BUDGET_GLOBAL_MONTHLY_USD: 400,
+  AI_BUDGET_DEV_DAILY_USD: 2,
+  AI_BUDGET_BACKGROUND_DAILY_USD: 10,
+  AI_BUDGET_BRAND_DAILY_USD: 10,
+  AI_BUDGET_BRAND_MONTHLY_USD: 150,
+  AI_MAX_CALLS_PER_MINUTE: 30,
+};
+
+const CACHE_TTL_MS = 15000;
+let cache = { at: 0, overrides: null };
+
+function parseBool(raw) {
+  if (raw == null) return null;
+  const v = String(raw).trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(v)) return true;
+  if (["false", "0", "no", "off"].includes(v)) return false;
+  return null;
+}
+
+/** Load all ai_settings rows (cached). Never throws — a DB failure falls back
+ *  to env/default values so a settings outage can't take AI down by accident. */
+async function loadOverrides() {
+  const now = Date.now();
+  if (cache.overrides && now - cache.at < CACHE_TTL_MS) return cache.overrides;
+  try {
+    const r = await db.query("SELECT key, value FROM ai_settings");
+    const map = {};
+    for (const row of r.rows) map[row.key] = row.value;
+    cache = { at: now, overrides: map };
+  } catch (err) {
+    // Table may not exist yet (pre-migration) or DB hiccup: use env/defaults.
+    if (!/relation "ai_settings" does not exist/i.test(err.message || "")) {
+      console.error("aiControls: failed to load ai_settings:", err.message);
+    }
+    cache = { at: now, overrides: {} };
+  }
+  return cache.overrides;
+}
+
+async function getSwitch(name) {
+  if (!(name in SWITCH_DEFAULTS)) throw new Error(`Unknown AI switch: ${name}`);
+  const overrides = await loadOverrides();
+  const fromDb = parseBool(overrides[name]);
+  if (fromDb != null) return fromDb;
+  const fromEnv = parseBool(process.env[name]);
+  if (fromEnv != null) return fromEnv;
+  return SWITCH_DEFAULTS[name];
+}
+
+async function getNumber(name) {
+  if (!(name in NUMBER_DEFAULTS)) throw new Error(`Unknown AI limit: ${name}`);
+  const overrides = await loadOverrides();
+  for (const raw of [overrides[name], process.env[name]]) {
+    if (raw != null && raw !== "") {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+  }
+  return NUMBER_DEFAULTS[name];
+}
+
+/** Full effective view (for the admin status endpoint): every control with its
+ *  effective value and where it came from. */
+async function describeControls() {
+  const overrides = await loadOverrides();
+  const describe = (name, defaults, parse) => {
+    const fromDb = parse(overrides[name]);
+    if (fromDb != null) return { name, value: fromDb, source: "admin setting" };
+    const fromEnv = parse(process.env[name]);
+    if (fromEnv != null) return { name, value: fromEnv, source: "environment variable" };
+    return { name, value: defaults[name], source: "default" };
+  };
+  const parseNum = (raw) => {
+    if (raw == null || raw === "") return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  return {
+    environment: ENVIRONMENT,
+    switches: Object.keys(SWITCH_DEFAULTS).map((k) => describe(k, SWITCH_DEFAULTS, parseBool)),
+    limits: Object.keys(NUMBER_DEFAULTS).map((k) => describe(k, NUMBER_DEFAULTS, parseNum)),
+  };
+}
+
+/** Admin write path. Only known keys are accepted. */
+async function setControl(key, value, updatedBy) {
+  const isSwitch = key in SWITCH_DEFAULTS;
+  const isNumber = key in NUMBER_DEFAULTS;
+  if (!isSwitch && !isNumber) throw new Error(`Unknown AI control: ${key}`);
+  let stored;
+  if (isSwitch) {
+    const parsed = parseBool(value);
+    if (parsed == null) throw new Error(`"${key}" must be true or false.`);
+    stored = String(parsed);
+  } else {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) throw new Error(`"${key}" must be a non-negative number.`);
+    stored = String(n);
+  }
+  await db.query(
+    `INSERT INTO ai_settings (key, value, updated_at, updated_by)
+     VALUES ($1, $2, NOW(), $3)
+     ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW(), updated_by = $3`,
+    [key, stored, updatedBy || null],
+  );
+  cache = { at: 0, overrides: null }; // take effect immediately in this process
+  return { key, value: stored };
+}
+
+/** Clear an admin override so env var / default applies again. */
+async function clearControl(key) {
+  await db.query("DELETE FROM ai_settings WHERE key = $1", [key]);
+  cache = { at: 0, overrides: null };
+}
+
+/** True when background AI may run in THIS environment at all. */
+async function backgroundAiAllowedHere() {
+  if (!isProduction() && !(await getSwitch("DEVELOPMENT_AI_ENABLED"))) {
+    return { allowed: false, reason: `background AI is disabled outside production (environment: ${ENVIRONMENT})` };
+  }
+  if (!(await getSwitch("AI_ENABLED"))) {
+    return { allowed: false, reason: "the emergency AI shutoff is on (AI_ENABLED=false)" };
+  }
+  if (!(await getSwitch("BACKGROUND_AI_ENABLED"))) {
+    return { allowed: false, reason: "background AI is switched off (BACKGROUND_AI_ENABLED=false)" };
+  }
+  return { allowed: true };
+}
+
+function _resetCacheForTests() {
+  cache = { at: 0, overrides: null };
+}
+
+module.exports = {
+  SWITCH_DEFAULTS,
+  NUMBER_DEFAULTS,
+  getSwitch,
+  getNumber,
+  describeControls,
+  setControl,
+  clearControl,
+  backgroundAiAllowedHere,
+  _resetCacheForTests,
+};

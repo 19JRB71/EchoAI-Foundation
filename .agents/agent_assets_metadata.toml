@@ -468,3 +468,9 @@ id = "7rQB1IhfloHvsS1-Ad2Nc"
 uri = "file://ZORECHO_OPERATIONAL_ROADMAP.md"
 type = "text"
 title = "Zorecho Operational Readiness Roadmap (Final — Governing Document)"
+
+[[outputs]]
+id = "qduSmsU251-IClSTfcacw"
+uri = "file://ZORECHO_FULL_SYSTEM_REVIEW_PACKAGE_2026-07-24.zip"
+type = "unspecified"
+title = "Zorecho Full System Review Package (2026-07-24)"
