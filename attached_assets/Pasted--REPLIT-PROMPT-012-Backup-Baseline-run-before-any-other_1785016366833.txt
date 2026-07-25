@@ -1,0 +1,15 @@
+# REPLIT_PROMPT_012 — Backup & Baseline (run before any other prompt)
+**Phase A · Prereqs: none · This prompt changes no product code.**
+
+**Objective:** Create the safety floor: protected backup branch + git tag at the current commit; captured Railway Postgres backups for production AND staging; ONE successful restore drill onto staging (or a scratch DB); recorded baseline test results; written rollback procedure.
+**Reason:** Audit roadmap Phase 0 — no repair without proven restore. A backup that has never been restored is a hope, not a backup.
+**Scope:** git branches/tags, Railway backup operations, one restore target, docs. **Out of scope:** ANY application code, schema, or config change; the global rules' out-of-scope list.
+**Preflight:** report current commit hash on main and staging; Railway backup capability/settings for both DBs; disk/size constraints.
+**Implementation:** (1) tag `pre-turnaround-baseline` + branch `backup/pre-turnaround` at current main. (2) Capture prod + staging DB backups; record identifiers. (3) Restore the staging backup into a scratch database; run the app's migration status check and 3 sanity SQL counts (users, brands, campaigns) against it; record results. (4) Write ROLLBACK.md at repo root: exact restore steps, code-revert steps, and who/when performed the drill. (5) Record baseline: current test-suite results (or reference audit's 2026-07-25 runs), current staging behavior notes.
+**Migration:** none. **Tenant isolation:** restore target must not be reachable by the app. **Security:** backup artifacts stored per Railway defaults; no dumps committed to git.
+**Honest state / External proof:** the restore DRILL output (row counts + timestamps) is the evidence; a backup listed in a dashboard is not proof.
+**Testing:** the drill is the test. **Completion evidence:** tag/branch names + commit, backup IDs, drill output, ROLLBACK.md content.
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** conclude with COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated items = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full (preflight, out-of-scope list, tenant isolation, security, honest state, external proof, testing, completion evidence, stop conditions).
+**Acceptance criteria:** tag+branch exist; both backups captured; drill succeeded with recorded counts; ROLLBACK.md exists.
