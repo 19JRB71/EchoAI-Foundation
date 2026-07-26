@@ -2,6 +2,20 @@
 
 **Last updated:** 2026-07-26. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
 
+## 2026-07-26 — Prompt 008 v2 (disable legacy-FCM mobile push)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight: legacy endpoint reachable pre-change | REPRODUCED | `config/fcm.js:14` (`fcm.googleapis.com/fcm/send`); reachable when `FCM_SERVER_KEY` set; failures counted, never thrown |
+| Preflight: caller enumeration | DONE | `sendToTokens` sole caller: `mobilePushController.sendToUser:121`; `sendToUser` called from 14 best-effort alert sites; zero web-UI mentions of mobile push (grep) |
+| Endpoint unreachable after change (fetch tripwire, server key set) | 3/3 PASS | `EchoAI/tests/mobilePushDisabled.test.js` — `{skipped:true, reason:'legacy_endpoint_disabled'}`, 0 fetch calls |
+| Grep proof: no code path to legacy endpoint | VERIFIED | `fcm.googleapis.com` appears only in `config/fcm.js` (behind the default-off flag), a webpush comment, and the test comment |
+| Honest surface | VERIFIED | register API: "Device registered. Mobile push is not available yet." + `mobilePushAvailable:false`; no web UI to screenshot (mobile push has no web surface — API response IS the surface) |
+| Web push untouched | VERIFIED | zero changes to `config/webpush.js`, `client/src/push.js`, `client/public/sw.js` |
+| Full server suite | 985/985 PASS | `/tmp/prompt008_full_run.log`, `npm test`, 2026-07-26 |
+| Architect review | PASS (no alternate send path; callers best-effort-safe) | review round 2026-07-26 |
+| Rollback | `FCM_LEGACY_ENABLED=true` re-enable flag | `config/fcm.js` comment block |
+
 ## 2026-07-26 — Prompt 014 (tenant-isolation regression suite)
 
 | Check | Result | Evidence |

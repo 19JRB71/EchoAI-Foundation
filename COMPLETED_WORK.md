@@ -2,6 +2,15 @@
 
 **Last updated:** 2026-07-26. Append-only; newest first. Milestone-level history predating this file lives in `MILESTONES.md` (authoritative for Sage V2 phases 1–6 and Collab Stage 0).
 
+## 2026-07-26 — REPLIT_PROMPT_008 v2: Honestly disable legacy-FCM mobile push — COMPLETE
+
+- Preflight reproduced the gap: `config/fcm.js:14` targets Google's retired `fcm.googleapis.com/fcm/send`; with `FCM_SERVER_KEY` set, sends would hit it and count failures silently. One caller chain (`sendToTokens` ← `mobilePushController.sendToUser` ← 14 best-effort alert sites). No web-UI mention of mobile push (web push is a separate working system — untouched).
+- `config/fcm.js`: hard disable behind `FCM_LEGACY_ENABLED` (default OFF = disabled); ONE boot warning when a server key is present; `sendToTokens` no-ops with `{skipped:true, reason:'legacy_endpoint_disabled'}` before any network path; exports `disabledReason`.
+- `mobilePushController`: token registration retained (zero-effort, ready for post-GA HTTP v1); register response is honest — "Device registered. Mobile push is not available yet." + `mobilePushAvailable:false`; `sendToUser` propagates the reason.
+- `tests/mobilePushDisabled.test.js` (3 tests): fetch tripwire proves the endpoint is unreachable even with a server key set.
+- Suite 982 → 985/985 green. Architect review PASS (verified no alternate send path; all callers best-effort-safe).
+- Rollback: `FCM_LEGACY_ENABLED=true` (emergency only — re-opens retired-endpoint behavior).
+
 ## 2026-07-26 — REPLIT_PROMPT_014: Tenant-isolation regression suite — COMPLETE
 
 - New dedicated suite (20 tests, tests-only change): `EchoAI/tests/tenantIsolation.core.test.js` (10), `tenantIsolation.surfaces.test.js` (6), `tenantIsolation.background.test.js` (4).

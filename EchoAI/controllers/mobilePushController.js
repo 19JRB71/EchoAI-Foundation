@@ -45,13 +45,19 @@ async function registerDeviceToken(req, res) {
       [userId, pushToken, normalizedPlatform, deviceId || null, deviceName || null]
     );
 
+    // Honest state (REPLIT_PROMPT_008): registration is retained (zero-effort,
+    // tokens keep working for the future HTTP v1 migration) but the response
+    // must never imply delivery while mobile push is disabled.
     return success(res, {
       status: 201,
-      message: "Device registered for push notifications",
+      message: fcm.isConfigured
+        ? "Device registered for push notifications"
+        : "Device registered. Mobile push is not available yet.",
       data: {
         deviceTokenId: result.rows[0].device_token_id,
         platform: result.rows[0].platform,
         pushConfigured: fcm.isConfigured,
+        mobilePushAvailable: fcm.isConfigured,
       },
     });
   } catch (err) {
@@ -90,7 +96,11 @@ async function unregisterDeviceToken(req, res) {
  * @returns {Promise<{sent:number, failed:number, skipped?:boolean}>}
  */
 async function sendToUser(userId, payload) {
-  if (!fcm.isConfigured) return { sent: 0, failed: 0, skipped: true };
+  if (!fcm.isConfigured) {
+    return fcm.disabledReason
+      ? { sent: 0, failed: 0, skipped: true, reason: fcm.disabledReason }
+      : { sent: 0, failed: 0, skipped: true };
+  }
 
   let tokens;
   try {

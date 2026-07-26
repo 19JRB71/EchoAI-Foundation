@@ -13,7 +13,23 @@
 
 const FCM_ENDPOINT = "https://fcm.googleapis.com/fcm/send";
 const SERVER_KEY = process.env.FCM_SERVER_KEY;
-const isConfigured = Boolean(SERVER_KEY);
+
+// REPLIT_PROMPT_008 / Decision D-12: the legacy FCM endpoint above is RETIRED by
+// Google — sends fail silently (counted, never delivered). Mobile push is
+// therefore honestly disabled through GA. The HTTP v1 migration is post-GA.
+// Rollback / re-enable path (not recommended): set FCM_LEGACY_ENABLED=true.
+const LEGACY_ENABLED = process.env.FCM_LEGACY_ENABLED === "true";
+const DISABLED_REASON = "legacy_endpoint_disabled";
+const isConfigured = Boolean(SERVER_KEY) && LEGACY_ENABLED;
+
+// ONE boot warning so operators know why mobile pushes stopped, then silence.
+if (SERVER_KEY && !LEGACY_ENABLED) {
+  console.warn(
+    "[mobile-push] FCM_SERVER_KEY is set but mobile push is DISABLED: it targets " +
+      "Google's retired legacy endpoint and cannot deliver (Decision D-12). " +
+      `All sends no-op with { skipped: true, reason: '${DISABLED_REASON}' }.`
+  );
+}
 
 /**
  * Send a notification to a batch of device tokens.
@@ -23,6 +39,10 @@ const isConfigured = Boolean(SERVER_KEY);
  * @returns {Promise<{sent:number, failed:number, invalidTokens:string[], skipped?:boolean}>}
  */
 async function sendToTokens(tokens, payload = {}) {
+  // Hard disable: no code path may reach the retired legacy endpoint.
+  if (!LEGACY_ENABLED) {
+    return { sent: 0, failed: 0, invalidTokens: [], skipped: true, reason: DISABLED_REASON };
+  }
   if (!isConfigured) return { sent: 0, failed: 0, invalidTokens: [], skipped: true };
   if (!Array.isArray(tokens) || tokens.length === 0) {
     return { sent: 0, failed: 0, invalidTokens: [] };
@@ -100,4 +120,4 @@ async function sendToTokens(tokens, payload = {}) {
   return { sent, failed, invalidTokens };
 }
 
-module.exports = { isConfigured, sendToTokens };
+module.exports = { isConfigured, sendToTokens, disabledReason: LEGACY_ENABLED ? null : DISABLED_REASON };

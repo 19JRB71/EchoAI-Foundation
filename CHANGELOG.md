@@ -4,6 +4,7 @@ Newest first. Documentation-only entries are marked (docs). For deep milestone h
 
 ## 2026-07-26
 
+- REPLIT_PROMPT_008 v2 **COMPLETE**: legacy-FCM mobile push honestly disabled — retired endpoint unreachable (`FCM_LEGACY_ENABLED` default off, boot warning, no-op with `reason:'legacy_endpoint_disabled'`); register API copy "Mobile push is not available yet"; token registration retained; web push untouched. +3 tests; suite 985/985.
 - REPLIT_PROMPT_014 **COMPLETE**: tenant-isolation regression suite added — `EchoAI/tests/tenantIsolation.{core,surfaces,background}.test.js` (20 tests, incl. background tier-gate test). Zero cross-tenant defects found; no application code changed. Server suite 982/982.
 
 ## 2026-07-25

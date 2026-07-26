@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — Zorecho Project State
 
-**Last updated:** 2026-07-26 (close of REPLIT_PROMPT_014)
+**Last updated:** 2026-07-26 (close of REPLIT_PROMPT_008 v2)
 **Maintained by:** Lead Software Engineer (Replit agent). Update at the close of every prompt.
 
 ## Snapshot
@@ -20,7 +20,8 @@
 
 ## Test state (last verified 2026-07-25, Replit dev environment)
 
-- Server suite: 982/982 passing (2026-07-26). Client suite: 385/385 passing. Client production build: green.
+- Server suite: 985/985 passing (2026-07-26).
+- Mobile push (legacy FCM): **honestly disabled** (Decision D-12, Prompt 008) — retired endpoint unreachable; sends no-op with `reason: 'legacy_endpoint_disabled'`; token registration retained; re-enable only via `FCM_LEGACY_ENABLED=true` (emergency rollback only). Web push unaffected. Client suite: 385/385 passing. Client production build: green.
 - Evidence index: `TEST_EVIDENCE_INDEX.md`.
 
 ## Open operational follow-ups (not blockers)
@@ -33,5 +34,6 @@
 
 - REPLIT_PROMPT_012 (Backup & Baseline): **COMPLETE** (2026-07-25).
 - REPLIT_PROMPT_013 (test-env bootstrap & suite hygiene): **COMPLETE** (2026-07-25) — clean checkout now runs `npm test` green with zero secrets configured (test-only dummy defaults in the guarded preload); ordering-sensitive failure root-caused (env dependency, not cross-file leak) and gone; suite 962/962 both with and without env vars. Evidence in `TEST_EVIDENCE_INDEX.md`.
+- REPLIT_PROMPT_008 v2 (disable legacy-FCM mobile push): **COMPLETE** (2026-07-26) — `config/fcm.js` hard-disabled behind `FCM_LEGACY_ENABLED` (default off), one boot warning, `sendToTokens`/`sendToUser` no-op with `reason:'legacy_endpoint_disabled'`; register API says "Mobile push is not available yet"; no web-UI surface mentions mobile push (grep-proven); 3 new tests incl. fetch tripwire; suite 985/985. Web push untouched.
 - REPLIT_PROMPT_014 (tenant-isolation regression suite): **COMPLETE** (2026-07-26) — three new suites `EchoAI/tests/tenantIsolation.{core,surfaces,background}.test.js` (20 tests) cover direct-id probing on brands/campaigns/leads/social_posts/ad_creatives/email/integrations/setup sessions/guided progress, team-member remap (viewer can't admin), background is_demo gating (publishDuePosts, runDailyGoalTracking), background tier-gating (maybeStartSequenceForLead enforces the Pro gate itself on the sweep path), and Sage single-brand delivery. **Defects found: NONE** — verification outcome, zero application-code changes. Server suite 982/982.
 - REPLIT_PROMPT_001 v2 (token encryption + Stripe webhook signatures): **COMPLETE** (2026-07-25) — verification-only outcome (no code gaps found); 11 new security tests green (server suite 962/962); staging SQL ciphertext check PASSED (all 4 token columns show ciphertext, evidence in `TEST_EVIDENCE_INDEX.md`). Bonus: `STAGING_DATABASE_URL` secret now available for the restore-drill follow-up.

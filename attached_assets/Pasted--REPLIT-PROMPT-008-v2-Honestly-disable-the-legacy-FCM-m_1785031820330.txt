@@ -1,0 +1,16 @@
+# REPLIT_PROMPT_008 (v2) — Honestly disable the legacy-FCM mobile push surface
+**Phase A · Prereqs: 012**
+
+**Objective:** Stop presenting mobile push as functional; it targets Google's retired legacy endpoint and fails silently.
+**Reason:** Audit P1-5; config/fcm.js:14 (`fcm.googleapis.com/fcm/send`), failures counted never thrown. Decision D-12: disabled through GA; HTTP v1 is post-GA.
+**Scope:** config/fcm.js, mobilePushController, any UI referencing mobile push. **Out of scope:** web-push (working design — untouched); FCM v1 migration; mobile app; global list.
+**Preflight:** list every caller of sendToTokens and every UI mention of mobile push.
+**Implementation:** disable behind the existing config pattern; sendToTokens logs ONE boot warning then no-ops `{skipped:true, reason:'legacy_endpoint_disabled'}`; UI copy "Mobile push is not available yet"; retain token registration only if zero-effort, else disable with honest copy.
+**Migration:** none. **Tenant isolation:** n/a. **Security:** n/a beyond global.
+**Honest state:** no surface may imply delivery. **External proof:** n/a (removal of a false capability).
+**Testing:** unit test the no-op result; grep proof no code path can reach the legacy endpoint; suite green.
+**Completion evidence:** diff, grep output, UI screenshot, commit, rollback (re-enable flag).
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** conclude with COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated items = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full (preflight, out-of-scope list, tenant isolation, security, honest state, external proof, testing, completion evidence, stop conditions).
+**Acceptance criteria:** legacy endpoint unreachable; UI honest; suite green.
