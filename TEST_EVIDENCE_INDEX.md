@@ -2,6 +2,19 @@
 
 **Last updated:** 2026-07-25. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
 
+## 2026-07-25 — Prompt 001 v2 (token encryption + Stripe webhook signatures)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight: all api_integrations/google_integrations token writes use `encrypt()` | VERIFIED | facebookOAuthController.js:205/209/313, campaignController.js:101, googleController.js:126/235-236 |
+| Preflight: all token reads use `decrypt()` (no plaintext fallback) | VERIFIED | campaignController.js:43, facebookOAuthController.js:286/299/447, socialController.js:192, googleController.js:96/100 |
+| Preflight: ENCRYPTION_KEY boot-critical | VERIFIED | config/env.js:18 (CRITICAL array; validateEnv throws) |
+| Preflight: Stripe webhook uses `constructEvent` + raw body, 400 before any state change, no bypass path | VERIFIED | subscriptionController.js:229-236, subscriptionRoutes.js:16-20, server.js:214-216 |
+| Encrypt round-trip + tamper/wrong-key/plaintext-rejection unit tests | 6/6 PASS | `EchoAI/test/encryptionRoundTrip.test.js` |
+| Forged/missing/wrong-secret webhook signature → 400 with ZERO db writes; legit signature → 200 processed | 5/5 PASS | `EchoAI/test/stripeWebhookSignature.test.js` |
+| Full server suite after adding tests | 962/962 PASS | `npm test`, 2026-07-25 |
+| Staging SQL ciphertext screenshot (`SELECT LEFT(api_token_encrypted,10)...`) | **UNVERIFIED** — awaiting CEO staging query | Will be recorded here when captured |
+
 ## 2026-07-25 — Prompt 012 validation run (Replit dev environment)
 
 | Check | Result | Evidence |

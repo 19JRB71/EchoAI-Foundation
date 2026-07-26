@@ -1,0 +1,17 @@
+# REPLIT_PROMPT_001 (v2) — Verify/fix token-at-rest encryption and Stripe webhook signatures
+**Phase A · Prereqs: 012**
+
+**Objective:** Prove or fix: (a) OAuth/social tokens in `api_integrations` and `google_integrations` are encrypted at rest; (b) every Stripe webhook is signature-verified before any state change.
+**Reason:** Audit P0-2 and the UNVERIFIED Stripe-signature flag. DB leak with plaintext tokens = customer ad-account takeover; unverified webhooks = forged billing events.
+**Scope:** utils/encryption.js callers; read/write paths of the two tables; Stripe webhook handler (controllers/subscriptionController.js, routes/webhookRoutes.js). **Out of scope:** other features; dependencies; refactors; global list.
+**Preflight:** report findings FIRST with file/line evidence for both questions before changing anything. If tokens are already encrypted and signatures already verified, this prompt completes as verification-only.
+**Implementation (only where the preflight shows a gap):** encrypt token writes via existing utility; backfill migration with dual-read tolerance (attempt decrypt → fallback plaintext read → re-encrypt on next write); never log values. Stripe: `stripe.webhooks.constructEvent` with STRIPE_WEBHOOK_SECRET; non-verifying → 400 before any state change.
+**Migration:** token backfill, reversible with ENCRYPTION_KEY. **Tenant isolation:** per global rules; tokens remain scoped as today. **Security:** ENCRYPTION_KEY required at boot in prod when integrations enabled — fail loudly if absent.
+**Honest state:** decryption failure ⇒ integration shows disconnected + reconnect prompt; never fake-connected.
+**External proof:** staging SQL `SELECT LEFT(access_token,10) ...` screenshot showing ciphertext, not `EAAB...`/`ya29...`; forged-webhook 400 test output.
+**Testing:** encrypt round-trip unit test; forged-signature rejected; legitimate test event accepted; full suite green.
+**Completion evidence:** preflight findings, diff, migration, test output, staging SQL screenshot, commit, rollback.
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** conclude with COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated items = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full (preflight, out-of-scope list, tenant isolation, security, honest state, external proof, testing, completion evidence, stop conditions).
+**Acceptance criteria:** no plaintext token on staging; forged webhook rejected; suite green.

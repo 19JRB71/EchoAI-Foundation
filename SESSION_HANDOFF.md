@@ -12,7 +12,7 @@
 
 ## Next prompt to execute
 
-**REPLIT_PROMPT_001** — the first prompt of the turnaround sequence (prompt text supplied by James via the ChatGPT → CEO-approval workflow). Nothing blocks it: the staging-backup restore drill is recorded as an operational follow-up, not a prerequisite (the roadmap does not require it before Prompt 001).
+REPLIT_PROMPT_001 v2 executed 2026-07-25: verification-only outcome — token encryption and Stripe webhook signature verification were already correctly implemented; 11 new security tests added (server 962/962 green). **PARTIALLY COMPLETE** until the CEO captures the staging SQL ciphertext screenshot (`SELECT LEFT(api_token_encrypted,10) FROM api_integrations` on staging showing ciphertext, not `EAAB...`/`ya29...`). Next prompt text comes from the CEO's prompt series.
 
 ## Standing context for the next session
 
