@@ -1,0 +1,15 @@
+# REPLIT_PROMPT_014 — Tenant-isolation regression suite
+**Phase A · Prereqs: 012**
+
+**Objective:** A dedicated suite proving one tenant can never read/write another tenant's data across the major surfaces, including the historically-bitten classes.
+**Reason:** Audit docs 11/13; recorded past bug classes (client active-brand copies; Sage single-brand delivery; background paths bypassing route gates; is_demo bleed).
+**Scope:** NEW test files only (server: tests/tenantIsolation.*.test.js; client where relevant), plus fixing any REAL isolation defect the tests expose (each fix reported explicitly, minimal diff). **Out of scope:** speculative refactors; auth redesign; global list.
+**Preflight:** enumerate the brand/user-scoped tables and endpoints the suite will cover; list the lesson-file bug classes being encoded.
+**Implementation:** two-tenant fixtures; per major endpoint: A requests B's resource ⇒ 403/404 never data; direct-id probing on brands, campaigns, leads, social_posts, ad_creatives, email, integrations, setup sessions, guided progress; team-member remap correctness (viewer can't admin); background-path gating test (a sweep must not process a gated/demo brand); Sage delivery single-brand test.
+**Migration:** none. **Security:** this IS the security control. **Honest state:** any found defect logged in 06_OPEN_ISSUES with severity before fixing.
+**External proof:** n/a (internal). **Testing:** the suite itself + full suite green.
+**Completion evidence:** coverage list, suite output, defects found+fixed (or NONE FOUND stated), commit, rollback.
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** conclude with COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated items = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full (preflight, out-of-scope list, tenant isolation, security, honest state, external proof, testing, completion evidence, stop conditions).
+**Acceptance criteria:** suite exists, green, covers the enumerated surfaces + all four historical classes; zero unexplained cross-tenant reads.

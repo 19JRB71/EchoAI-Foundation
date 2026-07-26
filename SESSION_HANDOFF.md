@@ -1,20 +1,20 @@
 # SESSION_HANDOFF.md — Zorecho
 
-**Written:** 2026-07-25, at the close of REPLIT_PROMPT_012. Overwrite this file at the end of every prompt/session.
+**Written:** 2026-07-26, at the close of REPLIT_PROMPT_014. Overwrite this file at the end of every prompt/session.
 
 ## Where we are
 
-- REPLIT_PROMPT_012 (Backup & Baseline): **COMPLETE**. Full pre-turnaround safety net is in place:
-  - GitHub `main` pushed; tag `pre-turnaround-baseline` + branch `backup/pre-turnaround` created.
-  - Railway backups captured for production and staging (IDs in `ROLLBACK.md` §2).
-  - Restore procedure proven end-to-end on the dev database (`ROLLBACK.md` §3).
-- Repository is clean: no uncommitted application-code changes; all tests green at last validation (951 server / 385 client / client build).
+- REPLIT_PROMPT_014 (tenant-isolation regression suite): **COMPLETE** (2026-07-26).
+  - New dedicated suite (tests-only, 19 tests): `EchoAI/tests/tenantIsolation.core.test.js`, `tenantIsolation.surfaces.test.js`, `tenantIsolation.background.test.js`.
+  - Coverage: two-tenant direct-id probing on brands, campaigns, leads, social_posts, ad_creatives, email, integrations, setup sessions, guided progress, Sage; team-member remap (viewer can't admin); background is_demo gating (publishDuePosts, runDailyGoalTracking); Sage single-brand delivery.
+  - **Defects found: NONE** — nothing to log in open issues; no application code changed.
+  - Server suite 981/981 green (`/tmp/prompt014_full_run.log`). Architect review PASS.
+- Prior prompts: 012, 013, 001 v2 all **COMPLETE** (2026-07-25) — details in `CURRENT_STATE.md` and `COMPLETED_WORK.md`.
+- Repository: tenant-isolation tests + doc updates are committed locally; James pushes via the Git panel.
 
 ## Next prompt to execute
 
-REPLIT_PROMPT_013: **COMPLETE** (2026-07-25) — clean-checkout `npm test` green with zero secrets (guarded preload defaults); ordering failure root-caused and gone; 962/962 both runs. Evidence in `TEST_EVIDENCE_INDEX.md`.
-
-REPLIT_PROMPT_001 v2: **COMPLETE** (2026-07-25) — verification-only outcome; token encryption and Stripe webhook signature verification were already correctly implemented; 11 new security tests added (server 962/962 green); staging SQL ciphertext check PASSED (evidence in `TEST_EVIDENCE_INDEX.md`). `STAGING_DATABASE_URL` secret is now in Replit Secrets — usable for the staging restore-drill follow-up. Next prompt text comes from the CEO's prompt series.
+Awaiting the next prompt text from the CEO's external prompt series. `GLOBAL_PROMPT_RULES.md` is still not in the repo — worth requesting an upload.
 
 ## Standing context for the next session
 
@@ -24,6 +24,6 @@ REPLIT_PROMPT_001 v2: **COMPLETE** (2026-07-25) — verification-only outcome; t
 
 ## Open follow-ups (operational, non-blocking)
 
-1. Restore drill against a real Railway staging backup — needs the staging DB public connection URL in Secrets; then run the identical `ROLLBACK.md` §3 drill.
+1. Restore drill against a real Railway staging backup — `STAGING_DATABASE_URL` is now in Secrets; run the identical `ROLLBACK.md` §3 drill.
 2. Enable PITR on both Railway Postgres services.
 3. Set a backup schedule on both Railway Postgres services.

@@ -1,6 +1,20 @@
 # TEST_EVIDENCE_INDEX.md — Zorecho Test & Verification Evidence Index
 
-**Last updated:** 2026-07-25. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
+**Last updated:** 2026-07-26. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
+
+## 2026-07-26 — Prompt 014 (tenant-isolation regression suite)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight: prereq 012 satisfied | VERIFIED | `CURRENT_STATE.md` Baseline section, `ROLLBACK.md` §2/§3 |
+| Preflight: tenant-scoped surfaces enumerated | DONE | user-scoped: users, subscriptions, brands, api_integrations, guided_setup_progress; brand-scoped: leads, campaigns, social_posts/accounts, email_marketing_*, ad_creatives, sage_*, goals — route/middleware map recorded in this session |
+| Direct-id cross-tenant probing (brands, campaigns, leads, social_posts, ad_creatives) | 10/10 PASS — 403/404, zero leakage (secret-marker body checks + DB re-reads) | `EchoAI/tests/tenantIsolation.core.test.js` |
+| Email, integrations, setup sessions, guided progress, Sage endpoints + team-member remap (viewer reads owner data, blocked from admin/mutations) | 6/6 PASS | `EchoAI/tests/tenantIsolation.surfaces.test.js` |
+| Background is_demo gating (publishDuePosts, runDailyGoalTracking) + Sage single-brand delivery (runUrgentScanForBrand writes scoped to one brand) | 3/3 PASS | `EchoAI/tests/tenantIsolation.background.test.js` |
+| Four historical bug classes encoded (active-brand copies, Sage single-brand, background gate bypass, is_demo bleed) | COVERED | mapping in `COMPLETED_WORK.md` 2026-07-26 entry |
+| Cross-tenant defects found | **NONE FOUND** — no application code changed | all probes denied with no data in bodies |
+| Full server suite after adding 19 tests | 981/981 PASS | `/tmp/prompt014_full_run.log`, `npm test`, 2026-07-26 |
+| Architect review | PASS (no severe gaps; suite non-vacuous, cleanup safe) | review round 2026-07-26 |
 
 ## 2026-07-25 — Prompt 013 (test-environment bootstrap & suite hygiene)
 

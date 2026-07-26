@@ -1,6 +1,14 @@
 # COMPLETED_WORK.md — Zorecho Completed Work Log
 
-**Last updated:** 2026-07-25. Append-only; newest first. Milestone-level history predating this file lives in `MILESTONES.md` (authoritative for Sage V2 phases 1–6 and Collab Stage 0).
+**Last updated:** 2026-07-26. Append-only; newest first. Milestone-level history predating this file lives in `MILESTONES.md` (authoritative for Sage V2 phases 1–6 and Collab Stage 0).
+
+## 2026-07-26 — REPLIT_PROMPT_014: Tenant-isolation regression suite — COMPLETE
+
+- New dedicated suite (19 tests, tests-only change): `EchoAI/tests/tenantIsolation.core.test.js` (10), `tenantIsolation.surfaces.test.js` (6), `tenantIsolation.background.test.js` (3).
+- Coverage: two-tenant direct-id probing (brands, campaigns, leads, social_posts, ad_creatives, email campaigns/recipients, setup sessions, Sage endpoints; integrations & guided progress proven user-scoped with no foreign-id input path); team-member remap correctness (viewer reads owner's data, blocked from admin routes and mutations); background is_demo gating (`publishDuePosts`, `runDailyGoalTracking`); Sage single-brand delivery (`runUrgentScanForBrand(X)` writes scoped to X only).
+- All four historical bug classes encoded: client active-brand copies (server-side brand-scoping probes), Sage single-brand delivery, background paths bypassing route gates, is_demo bleed.
+- **Defects found: NONE** — every probe returned 403/404 with no data leakage; body-content secret-marker checks + DB re-reads confirm no unauthorized reads or writes. No application code changed.
+- Server suite 962 → 981/981 green. Architect review PASS.
 
 ## 2026-07-25 — REPLIT_PROMPT_012: Backup & Baseline — COMPLETE
 
