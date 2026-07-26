@@ -11,9 +11,10 @@
 | Direct-id cross-tenant probing (brands, campaigns, leads, social_posts, ad_creatives) | 10/10 PASS — 403/404, zero leakage (secret-marker body checks + DB re-reads) | `EchoAI/tests/tenantIsolation.core.test.js` |
 | Email, integrations, setup sessions, guided progress, Sage endpoints + team-member remap (viewer reads owner data, blocked from admin/mutations) | 6/6 PASS | `EchoAI/tests/tenantIsolation.surfaces.test.js` |
 | Background is_demo gating (publishDuePosts, runDailyGoalTracking) + Sage single-brand delivery (runUrgentScanForBrand writes scoped to one brand) | 3/3 PASS | `EchoAI/tests/tenantIsolation.background.test.js` |
-| Four historical bug classes encoded (active-brand copies, Sage single-brand, background gate bypass, is_demo bleed) | COVERED | mapping in `COMPLETED_WORK.md` 2026-07-26 entry |
+| Background TIER gating: `maybeStartSequenceForLead` enforces the Pro gate itself (Starter brand: 0 sequences created; Pro brand: 1) — encodes the "background paths bypassing route gates" lesson in full | 1/1 PASS | `EchoAI/tests/tenantIsolation.background.test.js` test #4; gate at `controllers/followUpController.js:66-78`, invoked at :737 |
+| "Client active-brand copies" class — encoded control | Server-side denial of any foreign brand-id is the isolation control (core+surfaces probes; team-member remap test proves even a remapped user's stale brand-id can't cross workspaces). The recorded App.jsx bug was WITHIN-tenant display staleness, not cross-tenant access — no client test needed for isolation | core/surfaces suites; justification in `COMPLETED_WORK.md` 2026-07-26 entry |
 | Cross-tenant defects found | **NONE FOUND** — no application code changed | all probes denied with no data in bodies |
-| Full server suite after adding 19 tests | 981/981 PASS | `/tmp/prompt014_full_run.log`, `npm test`, 2026-07-26 |
+| Full server suite after adding 20 tests | 982/982 PASS | `/tmp/prompt014_full_run2.log`, `npm test`, 2026-07-26 |
 | Architect review | PASS (no severe gaps; suite non-vacuous, cleanup safe) | review round 2026-07-26 |
 
 ## 2026-07-25 — Prompt 013 (test-environment bootstrap & suite hygiene)

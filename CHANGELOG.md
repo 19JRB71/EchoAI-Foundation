@@ -4,7 +4,7 @@ Newest first. Documentation-only entries are marked (docs). For deep milestone h
 
 ## 2026-07-26
 
-- REPLIT_PROMPT_014 **COMPLETE**: tenant-isolation regression suite added — `EchoAI/tests/tenantIsolation.{core,surfaces,background}.test.js` (19 tests). Zero cross-tenant defects found; no application code changed. Server suite 981/981.
+- REPLIT_PROMPT_014 **COMPLETE**: tenant-isolation regression suite added — `EchoAI/tests/tenantIsolation.{core,surfaces,background}.test.js` (20 tests, incl. background tier-gate test). Zero cross-tenant defects found; no application code changed. Server suite 982/982.
 
 ## 2026-07-25
 

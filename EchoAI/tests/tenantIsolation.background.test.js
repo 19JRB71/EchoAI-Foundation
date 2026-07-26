@@ -37,6 +37,7 @@ const { encrypt } = require("../utils/encryption");
 const { publishDuePosts } = require("../controllers/socialController");
 const { runDailyGoalTracking } = require("../utils/goalAlerts");
 const { runUrgentScanForBrand } = require("../controllers/sageController");
+const { maybeStartSequenceForLead } = require("../controllers/followUpController");
 
 // --- fixtures ----------------------------------------------------------------
 
@@ -313,5 +314,136 @@ test("runUrgentScanForBrand(X): every row it writes is scoped to X, none to Y", 
     restoreAi();
     await dropTenant(x);
     await dropTenant(y);
+  }
+});
+
+// =============================================================================
+// 4. maybeStartSequenceForLead — background auto-enroll enforces the tier gate
+// =============================================================================
+//
+// Follow-up sequences are a Professional-tier feature. HTTP routes protect
+// generateSequence/saveAndActivate with the featureGate middleware, but AUTO
+// enrollment runs via maybeStartSequenceForLead — called fire-and-forget from
+// the chatbot / widget / phone qualification flows, which never touch route
+// middleware. So the gate has to live inside the helper itself
+// (controllers/followUpController.js: brandOwnerHasFollowUps at line ~66, called
+// from maybeStartSequenceForLead at line ~737 — brand -> users -> subscriptions
+// lookup + meetsTier(tier, "pro")). This proves a background sweep will NOT
+// enroll a gated (Starter) brand, while a Professional brand enrolls (so the
+// denial isn't vacuous).
+
+// A subscription row at a given tier for the owner (contentCalendarDst pattern).
+async function seedSubscription(userId, tier) {
+  await db.query(
+    `INSERT INTO subscriptions (user_id, subscription_tier, payment_status, is_locked)
+     VALUES ($1, $2::subscription_tier, 'active', FALSE)`,
+    [userId, tier]
+  );
+}
+
+// A qualifying lead: has an email to reach them on, not converted. Seeded warm
+// so maybeStartSequenceForLead sees a fresh cold(tire_kicker) -> warm transition.
+async function seedQualifyingLead(brandId) {
+  const r = await db.query(
+    `INSERT INTO leads (brand_id, lead_name, email, temperature, conversion_status)
+     VALUES ($1, 'Iso FollowUp Lead', $2, 'warm', 'new')
+     RETURNING lead_id`,
+    [brandId, `iso-fu-${Date.now()}-${Math.random().toString(36).slice(2)}@example.test`]
+  );
+  return r.rows[0].lead_id;
+}
+
+async function activeSequenceCount(brandId) {
+  const r = await db.query(
+    "SELECT COUNT(*)::int AS n FROM follow_up_sequences WHERE brand_id = $1",
+    [brandId]
+  );
+  return r.rows[0].n;
+}
+
+// FK-safe teardown for the follow-up rows this test creates, before dropTenant.
+async function dropFollowUps(brandId) {
+  await db.query(
+    `DELETE FROM sequence_touchpoints
+     WHERE sequence_id IN (SELECT sequence_id FROM follow_up_sequences WHERE brand_id = $1)`,
+    [brandId]
+  );
+  await db.query("DELETE FROM follow_up_sequences WHERE brand_id = $1", [brandId]);
+  await db.query("DELETE FROM leads WHERE brand_id = $1", [brandId]);
+}
+
+async function dropOwnerSubscription(userId) {
+  await db.query("DELETE FROM subscriptions WHERE user_id = $1", [userId]);
+}
+
+test("maybeStartSequenceForLead: background auto-enroll enforces the tier gate itself (a sweep must not process a gated brand)", async () => {
+  // Owner S — Starter tier (below Professional): auto-enroll must be denied.
+  const starter = await createTenant({ isDemo: false, name: "Starter FollowUp Brand" });
+  // Owner P — Professional tier: auto-enroll is entitled (happy path).
+  const pro = await createTenant({ isDemo: false, name: "Pro FollowUp Brand" });
+
+  await seedSubscription(starter.userId, "starter");
+  await seedSubscription(pro.userId, "pro");
+
+  const starterLead = await seedQualifyingLead(starter.brandId);
+  const proLead = await seedQualifyingLead(pro.brandId);
+
+  // maybeStartSequenceForLead calls generateFollowUpSequence, which hits the
+  // Anthropic client. Stub it to return a valid single-touchpoint JSON array so
+  // the Pro happy path can persist without spending credits or hitting network.
+  stubAi(() => ({
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify([
+          {
+            step: 1,
+            channel: "email",
+            dayOffset: 1,
+            subject: "Following up",
+            message: "Just checking in to see if we can help.",
+          },
+        ]),
+      },
+    ],
+    usage: { input_tokens: 10, output_tokens: 10 },
+  }));
+
+  try {
+    // Fire the background auto-enroll for BOTH leads (fresh cold -> warm).
+    await maybeStartSequenceForLead({
+      brandId: starter.brandId,
+      leadId: starterLead,
+      temperature: "warm",
+      prevTemperature: "tire_kicker",
+    });
+    await maybeStartSequenceForLead({
+      brandId: pro.brandId,
+      leadId: proLead,
+      temperature: "warm",
+      prevTemperature: "tire_kicker",
+    });
+
+    // The gate held on the background path: no sequence for the Starter brand.
+    assert.strictEqual(
+      await activeSequenceCount(starter.brandId),
+      0,
+      "Starter (gated) brand must NOT be auto-enrolled by the background path"
+    );
+
+    // Happy path: the Professional brand IS enrolled, so the denial isn't vacuous.
+    assert.strictEqual(
+      await activeSequenceCount(pro.brandId),
+      1,
+      "Professional brand must be auto-enrolled (happy path)"
+    );
+  } finally {
+    restoreAi();
+    await dropFollowUps(starter.brandId);
+    await dropFollowUps(pro.brandId);
+    await dropOwnerSubscription(starter.userId);
+    await dropOwnerSubscription(pro.userId);
+    await dropTenant(starter);
+    await dropTenant(pro);
   }
 });

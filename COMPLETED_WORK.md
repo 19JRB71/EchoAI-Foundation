@@ -4,11 +4,11 @@
 
 ## 2026-07-26 — REPLIT_PROMPT_014: Tenant-isolation regression suite — COMPLETE
 
-- New dedicated suite (19 tests, tests-only change): `EchoAI/tests/tenantIsolation.core.test.js` (10), `tenantIsolation.surfaces.test.js` (6), `tenantIsolation.background.test.js` (3).
+- New dedicated suite (20 tests, tests-only change): `EchoAI/tests/tenantIsolation.core.test.js` (10), `tenantIsolation.surfaces.test.js` (6), `tenantIsolation.background.test.js` (4).
 - Coverage: two-tenant direct-id probing (brands, campaigns, leads, social_posts, ad_creatives, email campaigns/recipients, setup sessions, Sage endpoints; integrations & guided progress proven user-scoped with no foreign-id input path); team-member remap correctness (viewer reads owner's data, blocked from admin routes and mutations); background is_demo gating (`publishDuePosts`, `runDailyGoalTracking`); Sage single-brand delivery (`runUrgentScanForBrand(X)` writes scoped to X only).
-- All four historical bug classes encoded: client active-brand copies (server-side brand-scoping probes), Sage single-brand delivery, background paths bypassing route gates, is_demo bleed.
+- All four historical bug classes encoded: (1) client active-brand copies — the isolation control is server-side denial of any foreign brand-id, whatever the client sends (core/surfaces probes; the team-member remap test additionally proves a remapped user's own stale brand-id cannot cross workspaces); the original App.jsx bug was within-tenant display staleness, not cross-tenant access, so no client test is required for isolation. (2) Sage single-brand delivery (background test #3). (3) background paths bypassing route gates — BOTH halves: is_demo exclusion (tests #1-2) AND tier gating (test #4: `maybeStartSequenceForLead` enforces the Pro gate internally at `followUpController.js:737`; Starter brand gets zero sequences, Pro brand gets one). (4) is_demo bleed (tests #1-2).
 - **Defects found: NONE** — every probe returned 403/404 with no data leakage; body-content secret-marker checks + DB re-reads confirm no unauthorized reads or writes. No application code changed.
-- Server suite 962 → 981/981 green. Architect review PASS.
+- Server suite 962 → 982/982 green. Architect review PASS.
 
 ## 2026-07-25 — REPLIT_PROMPT_012: Backup & Baseline — COMPLETE
 

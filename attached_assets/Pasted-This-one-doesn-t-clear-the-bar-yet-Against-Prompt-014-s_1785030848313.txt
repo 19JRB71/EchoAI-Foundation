@@ -1,0 +1,23 @@
+This one doesn't clear the bar yet. Against Prompt 014's own acceptance criteria — "suite exists, green, covers the enumerated surfaces + all four historical classes; zero unexplained cross-tenant reads" — the verdict is PARTIALLY COMPLETE. Here's the split.
+
+What passes:
+
+The surface coverage matches the prompt's required list item for item: direct-id probing on brands, campaigns, leads, social_posts, ad_creatives; then email, integrations, setup sessions, guided progress, Sage; team-member remap (viewer reads, can't mutate/admin); background gating; Sage single-brand write. The test design is the right kind — denial plus body-leakage marker checks plus DB re-read, and happy-path assertions so the denials aren't vacuous. "Defects found: NONE" is explicitly stated, which the prompt permits. And the arithmetic is internally consistent: 10+6+3 = 19 new tests, 962+19 = 981. Scope discipline was kept — test files only.
+
+Four gaps before COMPLETE:
+
+Commit hash — missing again. "Checkpoint made" is not a hash. This was the exact gap in 013's first report; it needs to become automatic. One hash, and rollback stated as git revert <hash>.
+Suite output not pasted. The prompt's completion evidence requires suite output; the report gives numbers and a log path. Paste the summary tail of /tmp/prompt014_full_run.log (the tests/pass/fail block), same as 013's E-6.
+Historical class #1 — "client active-brand copies" — not demonstrably encoded. All three delivered files are server-side. The prompt's scope explicitly allowed "client where relevant," and this class is the client-relevant one (the recorded bug was stale active-brand state in App.jsx). Server-side probing does defend against a stale client brand-id, but the report must either say so explicitly ("server denial of foreign brand-id requests is the encoded control for this class; no client test needed because X") or add the client test. Right now the class is listed in the preflight and then never traced to a specific test.
+Historical class #3 — "background paths bypassing route gates" — only half-encoded. The background tests prove demo-brand exclusion and Sage scoping. But the recorded lesson was about tier/feature-gated resources: a background flow creating a gated resource must enforce the gate itself, because route-level featureGate never runs for sweeps. The prompt's own wording is "a sweep must not process a gated/demo brand." Demo is covered; the tier-gate half needs either a test or an explicit, evidence-based statement of where that assertion lives.
+
+Suggested paste-back to Replit: "014 not yet accepted. Provide: (1) the commit hash + git-revert rollback line, (2) the pasted summary tail of the 981-test run, (3) the specific test (or explicit server-side-control justification) encoding the 'client active-brand copies' class, (4) a test or evidence that a background sweep respects tier/feature gates — demo exclusion alone doesn't cover that lesson. No other changes."
+
+Updating the index and current-state files to reflect the in-review status so the record stays truthful:
+
+Edited 2 files, used 2 tools
+Edited 2 files, used 2 tools
+
+Prompt 014: PARTIALLY COMPLETE — not accepted yet. The suite itself looks well-built (19 substantive tests, right surfaces, non-vacuous denials, arithmetic checks out at 981), but four evidence gaps remain: no commit hash, no pasted run tail, and two of the four historical bug classes aren't demonstrably encoded — "client active-brand copies" (all delivered tests are server-side; needs the client test or an explicit justification that server denial of foreign brand-ids is the control) and "background paths bypassing route gates" (demo exclusion is proven, but the recorded lesson was about tier/feature gates, which no test appears to assert).
+
+The index and current state on your disk now show 014 in review with the gaps named, and 008 stays blocked until 014 is accepted. The suggested paste-back for Replit is in my review above — once its supplemental evidence comes back, I'll re-verify and, if justified, mark 014 COMPLETE, file its evidence row, and clear you to run 008, the last prompt in Phase A.
