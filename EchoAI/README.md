@@ -170,6 +170,16 @@ npm run dev          # auto-reload, or: npm start
 npm test    # node --test over test/**/*.test.js and tests/**/*.test.js
 ```
 
+**One command, no secret setup required.** A clean checkout runs the full
+suite green with `npm test` alone: the preload (`tests/dbGuard.js`) supplies
+safe, obviously-fake TEST-ONLY defaults for `ENCRYPTION_KEY`,
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `JWT_SECRET`, and
+`SESSION_SECRET` when they are absent (real values, when set, always win).
+Every provider SDK is stubbed in tests, so the dummies are never sent
+anywhere. The only true external requirement is a reachable Postgres
+(`DATABASE_URL` or `TEST_DATABASE_URL`) — the preload redirects the run to an
+isolated test database (see below) and refuses to run in production.
+
 The suite covers the AI Setup Agent end-to-end (`test/setupAgent.e2e.test.js`)
 plus the setup-agent health/gating/lease unit tests (`tests/*.test.js`). It runs
 against a **real Postgres database** and the **real Express routes/controllers** —

@@ -4,6 +4,8 @@ Newest first. Documentation-only entries are marked (docs). For deep milestone h
 
 ## 2026-07-25
 
+- REPLIT_PROMPT_013 **COMPLETE**: `tests/dbGuard.js` preload now supplies test-only fake defaults for ENCRYPTION_KEY, ANTHROPIC/OPENAI/ELEVENLABS keys, JWT_SECRET, SESSION_SECRET (production-guarded; real values win); README documents the one-command run. Suite 962/962 green with and without env vars.
+
 - REPLIT_PROMPT_001 v2 **COMPLETE**: verification-only (no code gaps). Added `test/encryptionRoundTrip.test.js` + `test/stripeWebhookSignature.test.js` (11 tests); server suite 962/962 green; staging SQL ciphertext check PASSED on all 4 token columns.
 
 - (docs) REPLIT_PROMPT_012 (Backup & Baseline) closed as **COMPLETE**. Continuity documents introduced: `CURRENT_STATE.md`, `COMPLETED_WORK.md`, `CHANGELOG.md`, `SESSION_HANDOFF.md`, `TEST_EVIDENCE_INDEX.md`.

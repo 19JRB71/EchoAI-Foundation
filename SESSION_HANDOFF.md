@@ -12,6 +12,8 @@
 
 ## Next prompt to execute
 
+REPLIT_PROMPT_013: **COMPLETE** (2026-07-25) — clean-checkout `npm test` green with zero secrets (guarded preload defaults); ordering failure root-caused and gone; 962/962 both runs. Evidence in `TEST_EVIDENCE_INDEX.md`.
+
 REPLIT_PROMPT_001 v2: **COMPLETE** (2026-07-25) — verification-only outcome; token encryption and Stripe webhook signature verification were already correctly implemented; 11 new security tests added (server 962/962 green); staging SQL ciphertext check PASSED (evidence in `TEST_EVIDENCE_INDEX.md`). `STAGING_DATABASE_URL` secret is now in Replit Secrets — usable for the staging restore-drill follow-up. Next prompt text comes from the CEO's prompt series.
 
 ## Standing context for the next session

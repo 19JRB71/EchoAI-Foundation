@@ -2,6 +2,19 @@
 
 **Last updated:** 2026-07-25. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
 
+## 2026-07-25 — Prompt 013 (test-environment bootstrap & suite hygiene)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight repro: full suite with ANTHROPIC/OPENAI/ELEVENLABS/ENCRYPTION keys unset | 45/962 FAIL reproduced (incl. `publishDuePosts forwards video_url`) | `/tmp/clean_env_run1.log`, 2026-07-25 |
+| Root cause identified | Env dependency, not cross-file leak: `node --test` isolates each file in a child process; the video_url test seeds fixtures via real `encrypt()`, which throws without ENCRYPTION_KEY | socialMediaUpload.test.js:176; fails alone too without the key |
+| Fix: TEST-ONLY dummy defaults in `tests/dbGuard.js` preload (6 vars incl. JWT_SECRET + SESSION_SECRET, after production hard-fail; real values always win) | Implemented | dbGuard.js diff |
+| Full suite, ALL six env vars stripped (clean-checkout simulation) | 962/962 PASS | `/tmp/clean_env_run3.log` |
+| Full suite, real env vars set | 962/962 PASS | `/tmp/normal_env_run.log` |
+| Previously order-sensitive test green inside the full clean run | PASS | 0 failures in clean run |
+| Architect review | PASS after fixing flagged JWT_SECRET/README gap | review round 2026-07-25 |
+| README documents the one-command run | DONE | `EchoAI/README.md` Testing section |
+
 ## 2026-07-25 — Prompt 001 v2 (token encryption + Stripe webhook signatures)
 
 | Check | Result | Evidence |
