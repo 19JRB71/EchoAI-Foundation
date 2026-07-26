@@ -32,4 +32,4 @@
 ## Prompt series status
 
 - REPLIT_PROMPT_012 (Backup & Baseline): **COMPLETE** (2026-07-25).
-- REPLIT_PROMPT_001 v2 (token encryption + Stripe webhook signatures): **PARTIALLY COMPLETE** (2026-07-25) — verification-only outcome (no code gaps found); 11 new security tests green (server suite 962/962). Remaining: CEO runs the staging SQL ciphertext check (screenshot) to close the external-proof criterion.
+- REPLIT_PROMPT_001 v2 (token encryption + Stripe webhook signatures): **COMPLETE** (2026-07-25) — verification-only outcome (no code gaps found); 11 new security tests green (server suite 962/962); staging SQL ciphertext check PASSED (all 4 token columns show ciphertext, evidence in `TEST_EVIDENCE_INDEX.md`). Bonus: `STAGING_DATABASE_URL` secret now available for the restore-drill follow-up.

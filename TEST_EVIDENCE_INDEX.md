@@ -13,7 +13,7 @@
 | Encrypt round-trip + tamper/wrong-key/plaintext-rejection unit tests | 6/6 PASS | `EchoAI/test/encryptionRoundTrip.test.js` |
 | Forged/missing/wrong-secret webhook signature → 400 with ZERO db writes; legit signature → 200 processed | 5/5 PASS | `EchoAI/test/stripeWebhookSignature.test.js` |
 | Full server suite after adding tests | 962/962 PASS | `npm test`, 2026-07-25 |
-| Staging SQL ciphertext screenshot (`SELECT LEFT(api_token_encrypted,10)...`) | **UNVERIFIED** — awaiting CEO staging query | Will be recorded here when captured |
+| Staging SQL ciphertext check (`SELECT LEFT(...,10)` on all 4 token columns) | VERIFIED — PASS | Read-only query run 2026-07-25 via `STAGING_DATABASE_URL` against Postgres-v9JE. Results: api_integrations (facebook, connected): `api_token_encrypted` starts `am7pI86hEn`, `facebook_page_tokens` starts `DLj5hBSbp5`; google_integrations (connected): `access_token_encrypted` starts `wOrqSr8wLO`, `refresh_token_encrypted` starts `+p+F9ncvpx`. All base64 ciphertext — no `EAAB...`/`ya29...` plaintext. 1 row per table. |
 
 ## 2026-07-25 — Prompt 012 validation run (Replit dev environment)
 

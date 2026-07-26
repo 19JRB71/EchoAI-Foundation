@@ -12,7 +12,7 @@
 
 ## Next prompt to execute
 
-REPLIT_PROMPT_001 v2 executed 2026-07-25: verification-only outcome — token encryption and Stripe webhook signature verification were already correctly implemented; 11 new security tests added (server 962/962 green). **PARTIALLY COMPLETE** until the CEO captures the staging SQL ciphertext screenshot (`SELECT LEFT(api_token_encrypted,10) FROM api_integrations` on staging showing ciphertext, not `EAAB...`/`ya29...`). Next prompt text comes from the CEO's prompt series.
+REPLIT_PROMPT_001 v2: **COMPLETE** (2026-07-25) — verification-only outcome; token encryption and Stripe webhook signature verification were already correctly implemented; 11 new security tests added (server 962/962 green); staging SQL ciphertext check PASSED (evidence in `TEST_EVIDENCE_INDEX.md`). `STAGING_DATABASE_URL` secret is now in Replit Secrets — usable for the staging restore-drill follow-up. Next prompt text comes from the CEO's prompt series.
 
 ## Standing context for the next session
 
