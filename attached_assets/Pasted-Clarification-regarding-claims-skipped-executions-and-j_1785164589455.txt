@@ -1,0 +1,46 @@
+Clarification regarding claims, skipped executions, and job_runs:
+
+There must be exactly one canonical job_runs record per scheduled (job_name, tick), regardless of how many replicas attempt the tick.
+A replica that loses the atomic claim must not execute the job and must not create a second job_runs row. It may log a duplicate-claim skip locally, but the database must still contain only the canonical claimed run.
+A job that is successfully claimed but is intentionally skipped by existing business logic or AI gating must still produce the canonical job_runs record.
+The schema must distinguish:
+success
+skipped
+failed
+Add an additive outcome or status field, preferably constrained to running, success, skipped, and failed, unless the repository already has an equivalent convention.
+The row should be inserted as running immediately after the claim succeeds and then finalized with finished_at, duration, and the truthful outcome.
+Do not classify a skipped execution as an ordinary successful execution merely because no exception occurred.
+Preserve the existing job business logic and gating semantics. This clarification only governs claiming and telemetry.
+
+For the 24-hour evidence window, record the exact deployed SHA, the UTC window start time, and the UTC completion time. The window does not begin until the migration and scheduler wrapper are deployed and confirmed active on staging.
+
+Then let Replit proceed.
+
+WHAT YOU SHOULD DO
+
+Keep Prompt 010 in its separate task and allow it to complete the coding, migration, and tests. Do not wait 24 hours before reviewing the implementation.
+
+Its first report should likely be:
+
+PARTIALLY COMPLETE
+
+That is correct when:
+
+code is finished,
+tests are green,
+staging is deployed,
+but the 24-hour telemetry period is still running.
+
+Before accepting the implementation portion, make sure Replit provides:
+
+the full 43-job inventory,
+proof only one concurrent caller executed,
+proof the losing claimant did not create a duplicate row,
+success, skipped, and failed telemetry examples,
+migration number and schema,
+full-suite results,
+deployment SHA,
+UTC telemetry-window start and end,
+rollback instructions.
+
+Prompt 002 remains your active Facebook path. Prompt 010 should not touch or delay it.
