@@ -47,6 +47,13 @@
 4. **Only then** record the 24h window: deployed SHA, UTC start, UTC end (= start + 24h). Extract at the end: `SELECT job_name, tick_key, outcome, started_at, finished_at, duration_ms, error FROM job_runs WHERE started_at >= <window start> ORDER BY started_at;`
 - Window status: **PENDING — not started; UTC start/end will be recorded at deploy confirmation.**
 
+### 6a. Staging verification attempt — 2026-07-27 15:17 UTC (FAILED VERIFICATION: wrong SHA deployed)
+A staging redeploy was reported, but the deployed build does **not** contain Prompt 010:
+- `https://staging.zorecho.com/api/health` reports deployed SHA **`62ea1fc68d8f1e686bdf5b8983ee47e6a7e4bd31`** (GitHub `staging` branch tip, "Merge pull request #7") — that tree contains **no** `models/125_job_runs.sql` and its `utils/scheduler.js` has no `RUN_SCHEDULER` / `runClaimedJob` (verified via `git ls-tree -r 62ea1fc` and `git show`).
+- Staging database (read-only check): `job_runs` relation **does not exist**; latest applied migration is `124_jobber.sql` (2026-07-24). `125_job_runs.sql` never ran.
+- The Prompt 010 commit (`b8d002f`, local workspace main) has not been pushed to the GitHub repo (`19JRB71/EchoAI-Foundation`): GitHub `main` is at `592c514`, `staging` at `62ea1fc`, and the two histories have diverged from the workspace's local main.
+- **Consequence:** the restart test, outcome examples, and the 24h telemetry window CANNOT start yet. Status remains PARTIALLY COMPLETE. Required: get `b8d002f` (or a commit containing it) onto the GitHub `staging` branch and redeploy, then re-verify `/api/health` SHA + `schema_migrations` before opening the window.
+
 ## Rollback
 - Set `RUN_SCHEDULER=false` to stop all cron registration on an instance (no code change).
 - Code rollback: revert this task's commit; the app runs exactly as before.
