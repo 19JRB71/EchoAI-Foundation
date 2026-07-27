@@ -217,6 +217,14 @@ Three registered validation steps gate task completion (see the `validation` ski
   The deployed application is the technical source of truth; if creative
   direction conflicts with the implementation, explain the conflict, recommend
   the safest solution, and wait for James's approval before changing behavior.
+- **Evidence rule (CEO directive, July 2026).** Every claim that a feature is
+  functional must include proof: exact file paths, responsible functions, the
+  test performed, the test result, the date tested, the environment tested, and
+  evidence that the intended external action actually occurred. Without that
+  evidence, classify the feature as **UNVERIFIED**. Never rely on previous
+  Replit task summaries, completion messages, developer notes, or AI-generated
+  documentation as proof — verify claims directly against the current code and
+  actual test results.
 - **Always remind the user to hit "Push" in the Git panel** whenever a change
   needs to reach the live site. This project deploys to Railway from GitHub
   `main`; the user (non-technical, address as James/Sir) pushes manually via the

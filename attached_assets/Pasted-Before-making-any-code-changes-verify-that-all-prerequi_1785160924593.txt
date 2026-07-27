@@ -1,0 +1,73 @@
+Before making any code changes, verify that all prerequisites for REPLIT_PROMPT_002 are satisfied based on the current repository, staging deployment, and completed Phase A work. Phase A prompts 012, 001, 013, 014, and 008 have been accepted as COMPLETE. Do not reopen or rerun them because of stale or inconsistent documentation.
+
+This prompt is primarily a live staging verification. Begin with a strict preflight and do not modify application code until the current configuration and live staging behavior have been verified.
+
+Preflight requirements:
+
+Confirm the current Git commit and staging branch state.
+Confirm that staging.zorecho.com is running the expected deployed SHA or DEPLOY_VERSION.
+Identify the staging Facebook App ID being used, without exposing the App Secret.
+Verify that the required staging OAuth redirect URI is configured correctly.
+Verify whether the connected test user, test Page, and test ad account already exist and are accessible.
+Verify that the first-consent flow requests all required permissions:
+ads_management
+ads_read
+business_management
+pages_show_list
+pages_read_engagement
+pages_manage_posts
+Identify any missing Facebook asset, permission, environment variable, redirect URI, or staging configuration before attempting implementation.
+
+If the required Facebook assets already exist, reuse them. Do not recreate assets unnecessarily. If Replit cannot verify an item because it requires owner access to the Meta dashboard, state exactly what I must inspect or click and wait for my evidence.
+
+Do not claim Facebook connection success from a database row, mocked test, UI message, or local response alone. The proof must come from the live staging OAuth connection, successful Page and ad-account discovery, screenshots, and the reconnect test required by Prompt 002.
+
+If the preflight reveals an actual code defect, reproduce it first, report the exact defect and scope, then make the smallest necessary correction allowed by Prompt 002. Do not perform unrelated refactors or begin Prompt 003.
+
+At completion, provide a complete End-of-Prompt Report containing:
+
+prerequisite and deployed-SHA confirmation,
+Facebook asset and permission inventory,
+every code or configuration change,
+live connection and API-probe results,
+Page-selection evidence,
+ad-account-selection evidence,
+reconnect evidence,
+screenshots still requiring owner capture,
+dedicated and full-suite test output,
+defects found and fixed, or NONE FOUND,
+exact commit hash,
+exact rollback instructions,
+final status: COMPLETE, PARTIALLY COMPLETE, BLOCKED, or FAILED VERIFICATION.
+
+Undemonstrated live items must be marked UNVERIFIED. Do not mark the prompt COMPLETE until every acceptance criterion in REPLIT_PROMPT_002 is evidenced.
+
+Now execute REPLIT_PROMPT_002 exactly as written below.
+
+[PASTE THE COMPLETE REPLIT_PROMPT_002 HERE]
+
+STEP 3 — WHILE REPLIT RUNS
+
+Replit may need you to open the Meta Developer dashboard. Be prepared to verify:
+
+The staging Facebook app
+The redirect URI
+The test user
+The test Page
+The test ad account
+The permissions granted during OAuth
+
+Do not create duplicates until Replit identifies something as missing.
+
+STEP 4 — AFTER REPLIT FINISHES
+
+Do not immediately move to Prompt 003.
+
+Send me Replit’s complete report first. Then send the same report to Claude for acceptance and continuity updates.
+
+The next action depends on Prompt 002’s result:
+
+COMPLETE: proceed to Prompt 003.
+PARTIALLY COMPLETE: return only for missing evidence.
+BLOCKED by Meta setup: complete the exact owner-side steps identified by Replit.
+Waiting on Facebook: begin Prompt 010 in a separate Replit session while keeping Prompt 002 open.

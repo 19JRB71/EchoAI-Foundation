@@ -1,0 +1,16 @@
+# REPLIT_PROMPT_013 — Test-environment bootstrap and suite hygiene
+**Phase A · Prereqs: 012**
+
+**Objective:** A clean checkout runs the full suite green with ONE documented command; the ordering-sensitive test is fixed.
+**Reason:** Audit V-2/P2-2: suite silently requires ANTHROPIC_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY (dummies suffice) and ENCRYPTION_KEY; `test/socialMediaUpload.test.js` ("forwards video_url") failed in a full run without ENCRYPTION_KEY but passes alone.
+**Scope:** tests/dbGuard.js (or a new tests/env.js preload), the ordering-sensitive test file and whatever state it leaks/inherits, TESTING docs/README. **Out of scope:** production env handling; test logic changes beyond the fix; global list.
+**Preflight:** reproduce both failures on a clean env; identify the exact leakage mechanism (module-level client construction? env read order?).
+**Implementation:** set safe TEST-ONLY defaults for the four vars inside the test preload (never in production paths, guarded by the existing test-db plan detection); fix the cross-file interaction at its root (isolate the stub/restore or lazy-init the client); document required env + one-command run in README/TESTING.
+**Migration:** none. **Tenant isolation:** n/a. **Security:** dummy values clearly fake; preload must be unreachable outside test runs.
+**Honest state / External proof:** the clean-checkout run log IS the proof — paste it.
+**Testing:** full suite twice: with no env vars set (preload supplies), and with them set — both green; the previously order-sensitive test green inside the full run.
+**Completion evidence:** diff, run logs (both), commit, rollback.
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** conclude with COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated items = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full (preflight, out-of-scope list, tenant isolation, security, honest state, external proof, testing, completion evidence, stop conditions).
+**Acceptance criteria:** clean checkout + documented single command = green; ordering failure gone.

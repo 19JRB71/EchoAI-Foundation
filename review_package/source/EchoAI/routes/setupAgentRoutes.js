@@ -1,0 +1,43 @@
+const express = require("express");
+
+const router = express.Router();
+
+const auth = require("../middleware/auth");
+const lockout = require("../middleware/lockout");
+const { requireOwner } = require("../middleware/rolePermissions");
+const { requireSetupConsent } = require("../middleware/setupConsent");
+const { uploadAudio } = require("../middleware/audioUpload");
+const controller = require("../controllers/setupAgentController");
+
+// sendBeacon pause fires during a hard tab/window close and can't set an
+// Authorization header, so it is defined BEFORE the auth middleware and verifies
+// the JWT from its own body instead. Kept minimal and self-guarded.
+router.post("/pause-beacon", controller.pauseSessionBeacon);
+
+// The AI Setup Agent configures a whole workspace, so it is restricted to the
+// account owner (or platform admin) — invited team members are blocked
+// server-side, not just hidden in the UI. Per-action tier gating happens inside
+// the action runner so gated actions are skipped gracefully rather than blocking
+// the whole flow.
+router.use(auth, lockout, requireOwner);
+
+// Interview + session lifecycle
+router.get("/latest", controller.getLatestSession);
+router.post("/session", controller.initiateSession);
+router.post("/answer", controller.submitAnswer);
+
+// Voice input fallback: transcribe a recorded answer with OpenAI Whisper when the
+// browser has no Web Speech API. Multipart audio, so multer parses it (the global
+// JSON parser leaves multipart bodies untouched).
+router.post("/transcribe", uploadAudio, controller.transcribeVoiceInput);
+router.post("/consent", controller.grantConsent);
+router.post("/pause", controller.pauseSession);
+router.post("/dismiss", controller.dismissSession);
+
+// Clears the caller's setup history so they can re-experience the new-user flow.
+router.post("/reset", controller.resetSetup);
+
+// Account configuration — sits behind the explicit setup-consent guard.
+router.post("/execute", requireSetupConsent, controller.executeNextAction);
+
+module.exports = router;

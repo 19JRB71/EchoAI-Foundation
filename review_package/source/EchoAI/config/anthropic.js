@@ -1,0 +1,309 @@
+require("dotenv").config();
+
+const Anthropic = require("@anthropic-ai/sdk");
+const { makeUnconfiguredClient } = require("../utils/optionalClient");
+const { assertAiAllowed } = require("../utils/aiGate");
+const { recordUsage, categorizeAiError, newRequestId } = require("../utils/aiUsage");
+const { companyContextForBrand } = require("../utils/companyContext");
+const { phase4ContextForBrand } = require("../utils/sagePhase4Context");
+
+/**
+ * Sage V2 P1 (SAGE_V2_CONTEXT flag, default OFF): when the call is brand-scoped
+ * (meta.brandId from opts or ambient AI context), append the approved Company
+ * Truth digest to the system prompt so EVERY department consumes vetted facts.
+ * No brand, no approved truth, flag off, or lookup failure → params unchanged.
+ *
+ * Sage V2 P4: additionally appends the offers/constraints/memory context
+ * (each behind its own flag). `audience` defaults to "customer": customer-
+ * facing prompts get ONLY the explicit allowlist of public offer fields;
+ * owner-facing internal surfaces opt in via opts.contextAudience="internal"
+ * to also receive constraints, memories, and owner margin notes.
+ */
+async function withTruthSystem(params, brandId, audience) {
+  if (!brandId) return params;
+  const [truth, phase4] = await Promise.all([
+    companyContextForBrand(brandId), // "" when dark
+    phase4ContextForBrand(brandId, audience), // "" when dark
+  ]);
+  const context = [truth, phase4].filter(Boolean).join("\n\n");
+  if (!context) return params;
+  if (typeof params.system === "string" && params.system) {
+    return { ...params, system: `${params.system}\n\n${context}` };
+  }
+  if (Array.isArray(params.system)) {
+    return { ...params, system: [...params.system, { type: "text", text: context }] };
+  }
+  if (params.system == null) return { ...params, system: context };
+  return params;
+}
+
+// The Anthropic SDK throws at construction when no key is available (arg
+// undefined AND no ANTHROPIC_API_KEY in env), which would crash the whole server
+// at boot. AI text features are optional, so build the client only when the key
+// is present; otherwise use a stub that fails only if Anthropic is actually
+// called (createMessage below surfaces that as an upstream AI error).
+let anthropic;
+if (process.env.ANTHROPIC_API_KEY) {
+  anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+} else {
+  console.warn(
+    "Warning: ANTHROPIC_API_KEY is not set. AI features are disabled; Anthropic calls will fail until it is configured."
+  );
+  anthropic = makeUnconfiguredClient("Anthropic (AI)", "ANTHROPIC_API_KEY");
+}
+
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+
+// Per-request timeouts (ms). AI-heavy generations (long, multi-part JSON like a
+// full drip sequence or a month of calendar posts) legitimately take much longer
+// than a short single-shot completion, so they get a longer ceiling. Both are
+// env-overridable for tuning without a code change.
+const DEFAULT_AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 120000; // 2 min
+const HEAVY_AI_TIMEOUT_MS = Number(process.env.AI_HEAVY_TIMEOUT_MS) || 300000; // 5 min
+
+// How many total attempts (initial + retries) an AI-heavy generation gets before
+// the error surfaces to the user.
+const DEFAULT_AI_ATTEMPTS = Number(process.env.AI_MAX_ATTEMPTS) || 3;
+
+// Transient upstream conditions worth retrying: request timeouts, dropped
+// connections, rate limits (429), and 5xx / "overloaded" errors. Deterministic
+// failures (auth/quota 4xx) are NOT retried — they'd only fail again.
+function isTransientAiError(err) {
+  if (!err) return false;
+  const name = String(err.name || "");
+  if (/Timeout|Connection/i.test(name)) return true;
+  const code = err.code;
+  if (code === "ETIMEDOUT" || code === "ECONNRESET" || code === "ECONNREFUSED" || code === "EPIPE") {
+    return true;
+  }
+  const status = err.status;
+  if (status === 408 || status === 409 || status === 429) return true;
+  if (typeof status === "number" && status >= 500) return true;
+  if (typeof err.message === "string" && /overloaded|timeout|timed out|temporarily/i.test(err.message)) {
+    return true;
+  }
+  return false;
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Create a message with a per-request timeout and automatic retry on transient
+ * upstream failures. Retries use exponential backoff and stop early on
+ * non-transient errors. The SDK's own retry is disabled (`maxRetries: 0`) so this
+ * wrapper is the single source of retry behavior.
+ *
+ * @param {object} params - anthropic.messages.create params (model, system, ...).
+ * @param {object} [opts]
+ * @param {number} [opts.timeout=DEFAULT_AI_TIMEOUT_MS] - per-attempt timeout (ms).
+ * @param {number} [opts.attempts=DEFAULT_AI_ATTEMPTS] - total attempts (incl. first).
+ * @param {string} [opts.label="AI request"] - label for retry logs.
+ */
+async function createMessage(params, opts = {}) {
+  const timeout = opts.timeout || DEFAULT_AI_TIMEOUT_MS;
+  const attempts = Math.max(1, opts.attempts || DEFAULT_AI_ATTEMPTS);
+  const label = opts.label || "AI request";
+
+  // Admission gate: emergency switches, environment policy, rate limit, and
+  // budgets — checked ONCE before any money is spent (not per retry). Throws
+  // an honest 503 when blocked. Returns resolved metadata for the ledger.
+  const meta = await assertAiAllowed("anthropic", opts);
+  const requestId = newRequestId();
+  const startedAt = Date.now();
+  const ledgerBase = {
+    provider: "anthropic",
+    model: params.model || MODEL,
+    feature: opts.feature || label,
+    requestId,
+    ...meta,
+  };
+
+  params = await withTruthSystem(params, meta.brandId, opts.contextAudience);
+
+  // The SDK refuses non-streaming requests that could run longer than 10
+  // minutes (large max_tokens, e.g. a multi-week autopilot batch): "Streaming
+  // is required for operations that may take longer than 10 minutes." For
+  // those, stream under the hood and return the same final-message shape —
+  // callers never see the difference. Threshold mirrors the SDK's own
+  // heuristic (~128 output tokens/minute × 10 minutes ≈ 21,333 tokens); 16k
+  // is a safe, conservative cut-over.
+  const mustStream = Number(params.max_tokens) >= 16000;
+
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const callOnce = (p) =>
+        mustStream
+          ? anthropic.messages.stream(p, { timeout, maxRetries: 0 }).finalMessage()
+          : anthropic.messages.create(p, { timeout, maxRetries: 0 });
+
+      let response = await callOnce(params);
+
+      // Server-tool turns (web search) can end with stop_reason "pause_turn":
+      // the API paused a long-running turn and expects the caller to send the
+      // partial content back as an assistant message so the model can finish.
+      // Without this loop the partial response reaches callers, whose JSON
+      // extraction then fails ("returned no JSON report"). Bounded so a
+      // pathological ping-pong can't spin forever.
+      const totals = { in: 0, out: 0, cached: 0, searches: 0 };
+      const tally = (u) => {
+        if (!u) return;
+        totals.in += u.input_tokens || 0;
+        totals.out += u.output_tokens || 0;
+        totals.cached += u.cache_read_input_tokens || 0;
+        totals.searches +=
+          (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
+      };
+      tally(response.usage);
+      let continuationMessages = params.messages;
+      for (let round = 0; response.stop_reason === "pause_turn" && round < 5; round++) {
+        console.warn(`${label}: turn paused by API (round ${round + 1}); continuing`);
+        continuationMessages = [
+          ...continuationMessages,
+          { role: "assistant", content: response.content },
+        ];
+        response = await callOnce({ ...params, messages: continuationMessages });
+        tally(response.usage);
+      }
+
+      recordUsage({
+        ...ledgerBase,
+        inputTokens: totals.in,
+        outputTokens: totals.out,
+        cachedInputTokens: totals.cached,
+        webSearches: totals.searches,
+        retryCount: attempt - 1,
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
+      return response;
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= attempts || !isTransientAiError(err)) {
+        recordUsage({
+          ...ledgerBase,
+          retryCount: attempt - 1,
+          durationMs: Date.now() - startedAt,
+          success: false,
+          errorCategory: categorizeAiError(err),
+        });
+        throw err;
+      }
+      const backoffMs = Math.min(8000, 500 * 2 ** (attempt - 1));
+      console.warn(
+        `${label}: attempt ${attempt}/${attempts} failed (${err && err.message}); retrying in ${backoffMs}ms`
+      );
+      await sleep(backoffMs);
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Streaming variant of createMessage for latency-sensitive conversational
+ * replies (Echo voice chat). Calls `onDelta(textPiece)` as text arrives and
+ * resolves with the FULL reply text once the stream ends.
+ *
+ * Retry policy: a transient failure is retried only if NOTHING has been
+ * emitted yet — once deltas have reached the caller (and possibly the user's
+ * ears), a silent restart would double-speak, so mid-stream failures throw.
+ */
+async function streamMessage(params, opts = {}, onDelta) {
+  const timeout = opts.timeout || DEFAULT_AI_TIMEOUT_MS;
+  const attempts = Math.max(1, opts.attempts || DEFAULT_AI_ATTEMPTS);
+  const label = opts.label || "AI stream";
+
+  // Same admission gate as createMessage — checked once, before any spend.
+  const meta = await assertAiAllowed("anthropic", opts);
+  const requestId = newRequestId();
+  const startedAt = Date.now();
+  const ledgerBase = {
+    provider: "anthropic",
+    model: params.model || MODEL,
+    feature: opts.feature || label,
+    requestId,
+    ...meta,
+  };
+
+  params = await withTruthSystem(params, meta.brandId, opts.contextAudience);
+
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    let emitted = false;
+    // Streaming usage arrives in events: message_start carries input tokens,
+    // message_delta carries the running output token count.
+    let inputTokens = null;
+    let cachedInputTokens = null;
+    let outputTokens = null;
+    try {
+      const stream = anthropic.messages.stream(params, { timeout, maxRetries: 0 });
+      let full = "";
+      for await (const event of stream) {
+        if (event.type === "message_start" && event.message && event.message.usage) {
+          inputTokens = event.message.usage.input_tokens ?? null;
+          cachedInputTokens = event.message.usage.cache_read_input_tokens ?? null;
+        } else if (event.type === "message_delta" && event.usage) {
+          outputTokens = event.usage.output_tokens ?? outputTokens;
+        }
+        if (
+          event.type === "content_block_delta" &&
+          event.delta &&
+          event.delta.type === "text_delta" &&
+          event.delta.text
+        ) {
+          full += event.delta.text;
+          emitted = true;
+          if (onDelta) {
+            try {
+              onDelta(event.delta.text);
+            } catch {
+              /* a bad consumer must not kill the stream */
+            }
+          }
+        }
+      }
+      recordUsage({
+        ...ledgerBase,
+        inputTokens,
+        outputTokens,
+        cachedInputTokens,
+        retryCount: attempt - 1,
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
+      return full;
+    } catch (err) {
+      lastErr = err;
+      if (emitted || attempt >= attempts || !isTransientAiError(err)) {
+        recordUsage({
+          ...ledgerBase,
+          inputTokens,
+          outputTokens,
+          cachedInputTokens,
+          retryCount: attempt - 1,
+          durationMs: Date.now() - startedAt,
+          success: false,
+          errorCategory: categorizeAiError(err),
+        });
+        throw err;
+      }
+      const backoffMs = Math.min(8000, 500 * 2 ** (attempt - 1));
+      console.warn(
+        `${label}: attempt ${attempt}/${attempts} failed (${err && err.message}); retrying in ${backoffMs}ms`
+      );
+      await sleep(backoffMs);
+    }
+  }
+  throw lastErr;
+}
+
+module.exports = {
+  anthropic,
+  MODEL,
+  DEFAULT_AI_TIMEOUT_MS,
+  HEAVY_AI_TIMEOUT_MS,
+  DEFAULT_AI_ATTEMPTS,
+  isTransientAiError,
+  createMessage,
+  streamMessage,
+};

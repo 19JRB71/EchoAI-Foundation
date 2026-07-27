@@ -1,0 +1,45 @@
+# =============================================================================
+# Railway deployment configuration for EchoAI
+# =============================================================================
+# This file is read when the Railway service "Root Directory" is set to EchoAI,
+# so Railway builds ONLY this standalone Node/Express app with npm and ignores
+# the surrounding pnpm monorepo at the repository root.
+#
+# Railway runs two phases:
+#   1. BUILD  - no database yet. Installs deps and builds the React SPA.
+#   2. DEPLOY - DATABASE_URL and PORT are injected. Runs migrations, then starts.
+#
+# Migrations run in the START command (the database is only reachable at deploy
+# time). The runner is idempotent (tracks applied files in schema_migrations),
+# so running it on every deploy is safe and a no-op once everything is applied.
+# =============================================================================
+
+[build]
+builder = "nixpacks"
+# Build phases (setup / install / build) are defined in nixpacks.toml. The
+# install step does a clean, serialized `npm install` and then verifies the
+# critical runtime deps are present, so a partial/corrupt install fails the build
+# loudly instead of shipping an image that crashes at startup. The React SPA is
+# prebuilt locally and committed under client/dist; the build only verifies it.
+
+[deploy]
+# Apply pending SQL migrations (idempotent) then start the Express server.
+#
+# Do NOT run `npm install` here. Installing at deploy time runs on top of the
+# node_modules already baked into the image by the build, which triggers npm's
+# "ENOTEMPTY ... rename" / "Exit handler never called!" crash and leaves deps
+# broken. Dependencies are installed (cleanly + verified) in the BUILD phase
+# (see nixpacks.toml) so they are already present and complete at runtime.
+#
+# server.js reads PORT (Railway injects it) and serves BOTH the /api routes and
+# the built React SPA from client/dist on a single origin.
+startCommand = "npm run migrate && node server.js"
+# Railway hits this public endpoint to confirm the app is live before routing
+# traffic to a new deploy.
+healthcheckPath = "/api/health"
+# Generous window: a cold container runs migrations before the server listens.
+# This is the max time Railway waits for /api/health to respond before declaring
+# the deploy failed.
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

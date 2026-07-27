@@ -1,0 +1,263 @@
+/**
+ * The compact Echo "Talk to Echo" control that lives in the top navigation bar,
+ * next to the speaker mute button. It is a small icon button; when Echo is
+ * speaking (or an error / autoplay-gesture prompt applies) a compact popover
+ * drops down beneath it with the live waveform, the spoken title/text, and
+ * Skip / Replay / Talk controls. Everything is driven by the VoiceContext
+ * engine; this component is purely presentational + user gestures.
+ */
+import { useEffect, useRef, useState } from "react";
+import { useVoice } from "./VoiceContext.jsx";
+
+const BAR_COUNT = 16;
+
+function Waveform({ active }) {
+  const [bars, setBars] = useState(() => new Array(BAR_COUNT).fill(0.2));
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    if (!active) {
+      setBars(new Array(BAR_COUNT).fill(0.15));
+      return;
+    }
+    let t = 0;
+    const tick = () => {
+      t += 0.25;
+      setBars(
+        Array.from({ length: BAR_COUNT }, (_, i) => {
+          const base =
+            0.5 +
+            0.35 * Math.sin(t + i * 0.5) +
+            0.15 * Math.sin(t * 1.7 + i * 0.9);
+          const jitter = (Math.random() - 0.5) * 0.2;
+          return Math.min(1, Math.max(0.12, base + jitter));
+        }),
+      );
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [active]);
+
+  return (
+    <div className="flex h-6 items-center gap-[2px]" aria-hidden="true">
+      {bars.map((h, i) => (
+        <span
+          key={i}
+          className="w-[2px] rounded-full bg-teal-400 transition-[height] duration-100"
+          style={{ height: `${Math.round(h * 100)}%`, opacity: active ? 1 : 0.4 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 12a6 6 0 01-12 0M12 18v3" />
+    </svg>
+  );
+}
+
+export default function VoicePlayer() {
+  const voice = useVoice();
+  const [busyStatus, setBusyStatus] = useState(false);
+  const [busyWeekly, setBusyWeekly] = useState(false);
+
+  if (!voice || !voice.active) return null;
+
+  const { muted, playing, current, error, notice, needsGesture, suggestions } = voice;
+  const sugList = suggestions || [];
+
+  const handleTalk = async () => {
+    setBusyStatus(true);
+    try {
+      await voice.talkToEcho();
+    } catch {
+      /* error surfaced via context */
+    } finally {
+      setBusyStatus(false);
+    }
+  };
+
+  const handleWeekly = async () => {
+    setBusyWeekly(true);
+    try {
+      await voice.weeklyBriefing();
+    } catch {
+      /* error surfaced via context */
+    } finally {
+      setBusyWeekly(false);
+    }
+  };
+
+  // The popover only appears when there's something to show, keeping the top-bar
+  // footprint to a single small icon the rest of the time.
+  const expanded =
+    busyStatus ||
+    busyWeekly ||
+    Boolean(current) ||
+    Boolean(error) ||
+    Boolean(notice) ||
+    sugList.length > 0 ||
+    (needsGesture && !playing);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={handleTalk}
+        disabled={busyStatus || muted}
+        title={muted ? "Unmute to talk to Echo" : "Talk to Echo"}
+        aria-label="Talk to Echo"
+        className={`relative flex h-7 w-7 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-40 ${
+          expanded
+            ? "text-teal-200"
+            : "text-teal-300 hover:text-teal-200"
+        }`}
+      >
+        <MicIcon />
+        {playing && (
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-teal-400" />
+        )}
+      </button>
+
+      {expanded ? (
+        <div className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-800 bg-gray-950/95 p-3 shadow-xl shadow-black/40 backdrop-blur">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-teal-300">
+              {current
+                ? current.title || "Echo"
+                : busyWeekly
+                  ? "Reviewing your week…"
+                  : busyStatus
+                    ? "Asking Echo…"
+                    : "Echo"}
+            </span>
+            {playing && (
+              <span className="text-[10px] text-gray-500">
+                {voice.chunkPos && voice.chunkPos.total > 1
+                  ? `section ${voice.chunkPos.index + 1} of ${voice.chunkPos.total}`
+                  : "speaking…"}
+              </span>
+            )}
+          </div>
+
+          {current || playing ? <Waveform active={playing} /> : null}
+
+          {current && current.text ? (
+            <p className="mt-1 text-xs leading-relaxed text-gray-400 line-clamp-3">
+              {current.text}
+            </p>
+          ) : null}
+
+          {error ? <p className="mt-1 text-xs text-amber-400">{error}</p> : null}
+
+          {notice ? <p className="mt-1 text-xs text-amber-300">{notice}</p> : null}
+
+          {needsGesture && !playing ? (
+            <p className="mt-1 text-xs text-teal-300">
+              Click anywhere to hear Echo’s briefing.
+            </p>
+          ) : null}
+
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={voice.skipBack}
+              disabled={!playing}
+              title="Back one section"
+              aria-label="Back one section"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800 disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5.5 4.5a.75.75 0 01.75.75v4.06l6.61-4.5a.75.75 0 011.14.63v9.12a.75.75 0 01-1.14.63l-6.61-4.5v4.06a.75.75 0 01-1.5 0v-9.5a.75.75 0 01.75-.75z" />
+              </svg>
+            </button>
+            <button
+              onClick={voice.stopAll}
+              disabled={!playing}
+              className="flex items-center gap-1.5 rounded-lg bg-red-500/90 px-3.5 py-1.5 text-sm font-bold text-white shadow shadow-red-900/40 hover:bg-red-400 disabled:opacity-40"
+            >
+              <span className="inline-block h-2.5 w-2.5 rounded-[2px] bg-white" aria-hidden="true" />
+              Stop
+            </button>
+            <button
+              onClick={voice.skipForward}
+              disabled={!playing}
+              title="Forward one section"
+              aria-label="Forward one section"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800 disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M14.5 4.5a.75.75 0 00-.75.75v4.06l-6.61-4.5a.75.75 0 00-1.14.63v9.12a.75.75 0 001.14.63l6.61-4.5v4.06a.75.75 0 001.5 0v-9.5a.75.75 0 00-.75-.75z" />
+              </svg>
+            </button>
+            <button
+              onClick={voice.replay}
+              className="rounded-lg border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs font-medium text-gray-300 hover:bg-gray-800"
+            >
+              Replay
+            </button>
+            <button
+              onClick={handleWeekly}
+              disabled={busyWeekly || muted}
+              title={muted ? "Unmute to hear the weekly briefing" : "Weekly strategy briefing"}
+              className="ml-auto rounded-lg border border-teal-700/60 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-200 hover:bg-teal-500/20 disabled:opacity-50"
+            >
+              {busyWeekly ? "…" : "Weekly"}
+            </button>
+            <button
+              onClick={handleTalk}
+              disabled={busyStatus || muted}
+              className="rounded-lg bg-teal-500/90 px-2.5 py-1 text-xs font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+            >
+              {busyStatus ? "Asking…" : "Talk to Echo"}
+            </button>
+          </div>
+
+          {sugList.length ? (
+            <div className="mt-3 border-t border-gray-800 pt-2">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-teal-300">
+                Worth adding
+              </p>
+              <ul className="space-y-2">
+                {sugList.map((s) => (
+                  <li
+                    key={s.key}
+                    className="rounded-lg border border-gray-800 bg-gray-900/60 p-2"
+                  >
+                    <p className="text-xs font-medium text-gray-200">{s.channel}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-gray-400">
+                      {s.reason}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <button
+                        onClick={() => voice.acceptSuggestion(s)}
+                        className="rounded-md bg-teal-500/90 px-2 py-0.5 text-[11px] font-semibold text-black hover:bg-teal-400"
+                      >
+                        Set it up
+                      </button>
+                      <button
+                        onClick={() => voice.dismissSuggestion(s)}
+                        className="rounded-md border border-gray-700 bg-gray-900 px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:bg-gray-800"
+                      >
+                        Not now
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}

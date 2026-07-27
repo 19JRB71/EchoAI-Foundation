@@ -1,0 +1,81 @@
+# TEST_EVIDENCE_INDEX.md — Zorecho Test & Verification Evidence Index
+
+**Last updated:** 2026-07-26. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
+
+## 2026-07-26 — Prompt 008 v2 (disable legacy-FCM mobile push)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight: legacy endpoint reachable pre-change | REPRODUCED | `config/fcm.js:14` (`fcm.googleapis.com/fcm/send`); reachable when `FCM_SERVER_KEY` set; failures counted, never thrown |
+| Preflight: caller enumeration | DONE | `sendToTokens` sole caller: `mobilePushController.sendToUser:121`; `sendToUser` called from 14 best-effort alert sites; zero web-UI mentions of mobile push (grep) |
+| Endpoint unreachable after change (fetch tripwire, server key set) | 3/3 PASS | `EchoAI/tests/mobilePushDisabled.test.js` — `{skipped:true, reason:'legacy_endpoint_disabled'}`, 0 fetch calls |
+| Grep proof: no code path to legacy endpoint | VERIFIED | `fcm.googleapis.com` appears only in `config/fcm.js` (behind the default-off flag), a webpush comment, and the test comment |
+| Honest surface | VERIFIED | register API: "Device registered. Mobile push is not available yet." + `mobilePushAvailable:false`; no web UI to screenshot (mobile push has no web surface — API response IS the surface) |
+| Web push untouched | VERIFIED | zero changes to `config/webpush.js`, `client/src/push.js`, `client/public/sw.js` |
+| Full server suite | 985/985 PASS | `/tmp/prompt008_full_run.log`, `npm test`, 2026-07-26 |
+| Architect review | PASS (no alternate send path; callers best-effort-safe) | review round 2026-07-26 |
+| Rollback | `FCM_LEGACY_ENABLED=true` re-enable flag | `config/fcm.js` comment block |
+
+## 2026-07-26 — Prompt 014 (tenant-isolation regression suite)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight: prereq 012 satisfied | VERIFIED | `CURRENT_STATE.md` Baseline section, `ROLLBACK.md` §2/§3 |
+| Preflight: tenant-scoped surfaces enumerated | DONE | user-scoped: users, subscriptions, brands, api_integrations, guided_setup_progress; brand-scoped: leads, campaigns, social_posts/accounts, email_marketing_*, ad_creatives, sage_*, goals — route/middleware map recorded in this session |
+| Direct-id cross-tenant probing (brands, campaigns, leads, social_posts, ad_creatives) | 10/10 PASS — 403/404, zero leakage (secret-marker body checks + DB re-reads) | `EchoAI/tests/tenantIsolation.core.test.js` |
+| Email, integrations, setup sessions, guided progress, Sage endpoints + team-member remap (viewer reads owner data, blocked from admin/mutations) | 6/6 PASS | `EchoAI/tests/tenantIsolation.surfaces.test.js` |
+| Background is_demo gating (publishDuePosts, runDailyGoalTracking) + Sage single-brand delivery (runUrgentScanForBrand writes scoped to one brand) | 3/3 PASS | `EchoAI/tests/tenantIsolation.background.test.js` |
+| Background TIER gating: `maybeStartSequenceForLead` enforces the Pro gate itself (Starter brand: 0 sequences created; Pro brand: 1) — encodes the "background paths bypassing route gates" lesson in full | 1/1 PASS | `EchoAI/tests/tenantIsolation.background.test.js` test #4; gate at `controllers/followUpController.js:66-78`, invoked at :737 |
+| "Client active-brand copies" class — encoded control | Server-side denial of any foreign brand-id is the isolation control (core+surfaces probes; team-member remap test proves even a remapped user's stale brand-id can't cross workspaces). The recorded App.jsx bug was WITHIN-tenant display staleness, not cross-tenant access — no client test needed for isolation | core/surfaces suites; justification in `COMPLETED_WORK.md` 2026-07-26 entry |
+| Cross-tenant defects found | **NONE FOUND** — no application code changed | all probes denied with no data in bodies |
+| Full server suite after adding 20 tests | 982/982 PASS | `/tmp/prompt014_full_run2.log`, `npm test`, 2026-07-26 |
+| Architect review | PASS (no severe gaps; suite non-vacuous, cleanup safe) | review round 2026-07-26 |
+
+## 2026-07-25 — Prompt 013 (test-environment bootstrap & suite hygiene)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight repro: full suite with ANTHROPIC/OPENAI/ELEVENLABS/ENCRYPTION keys unset | 45/962 FAIL reproduced (incl. `publishDuePosts forwards video_url`) | `/tmp/clean_env_run1.log`, 2026-07-25 |
+| Root cause identified | Env dependency, not cross-file leak: `node --test` isolates each file in a child process; the video_url test seeds fixtures via real `encrypt()`, which throws without ENCRYPTION_KEY | socialMediaUpload.test.js:176; fails alone too without the key |
+| Fix: TEST-ONLY dummy defaults in `tests/dbGuard.js` preload (6 vars incl. JWT_SECRET + SESSION_SECRET, after production hard-fail; real values always win) | Implemented | dbGuard.js diff |
+| Full suite, ALL six env vars stripped (clean-checkout simulation) | 962/962 PASS | `/tmp/clean_env_run3.log` |
+| Full suite, real env vars set | 962/962 PASS | `/tmp/normal_env_run.log` |
+| Previously order-sensitive test green inside the full clean run | PASS | 0 failures in clean run |
+| Architect review | PASS after fixing flagged JWT_SECRET/README gap | review round 2026-07-25 |
+| README documents the one-command run | DONE | `EchoAI/README.md` Testing section |
+
+## 2026-07-25 — Prompt 001 v2 (token encryption + Stripe webhook signatures)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight: all api_integrations/google_integrations token writes use `encrypt()` | VERIFIED | facebookOAuthController.js:205/209/313, campaignController.js:101, googleController.js:126/235-236 |
+| Preflight: all token reads use `decrypt()` (no plaintext fallback) | VERIFIED | campaignController.js:43, facebookOAuthController.js:286/299/447, socialController.js:192, googleController.js:96/100 |
+| Preflight: ENCRYPTION_KEY boot-critical | VERIFIED | config/env.js:18 (CRITICAL array; validateEnv throws) |
+| Preflight: Stripe webhook uses `constructEvent` + raw body, 400 before any state change, no bypass path | VERIFIED | subscriptionController.js:229-236, subscriptionRoutes.js:16-20, server.js:214-216 |
+| Encrypt round-trip + tamper/wrong-key/plaintext-rejection unit tests | 6/6 PASS | `EchoAI/test/encryptionRoundTrip.test.js` |
+| Forged/missing/wrong-secret webhook signature → 400 with ZERO db writes; legit signature → 200 processed | 5/5 PASS | `EchoAI/test/stripeWebhookSignature.test.js` |
+| Full server suite after adding tests | 962/962 PASS | `npm test`, 2026-07-25 |
+| Staging SQL ciphertext check (`SELECT LEFT(...,10)` on all 4 token columns) | VERIFIED — PASS | Read-only query run 2026-07-25 via `STAGING_DATABASE_URL` against Postgres-v9JE. Results: api_integrations (facebook, connected): `api_token_encrypted` starts `am7pI86hEn`, `facebook_page_tokens` starts `DLj5hBSbp5`; google_integrations (connected): `access_token_encrypted` starts `wOrqSr8wLO`, `refresh_token_encrypted` starts `+p+F9ncvpx`. All base64 ciphertext — no `EAAB...`/`ya29...` plaintext. 1 row per table. |
+
+## 2026-07-25 — Prompt 012 validation run (Replit dev environment)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Server suite (`cd EchoAI && npm test`) | 951/951 PASS | Automated validation at commit `1be389c2`, 2026-07-25 |
+| Client suite (`cd EchoAI/client && npm test`) | 385/385 PASS (34 files) | Same validation run |
+| Client production build (`npm run build:client`) | PASS | Same validation run |
+| Restore drill (dump → restore → migrate-check → sanity counts) | PASS, 0 errors | `ROLLBACK.md` §3 (full numbers) |
+| GitHub tag + branch creation | VERIFIED | James's screenshots, 2026-07-25 session; visible at github.com/19JRB71/EchoAI-Foundation |
+| Railway backups (prod + staging) | VERIFIED | James's screenshots, 2026-07-25; IDs in `ROLLBACK.md` §2 |
+| Restore drill on a REAL Railway staging backup | **UNVERIFIED** — operational follow-up | Will be recorded here when run |
+
+## Standing baselines
+
+- `ROLLBACK.md` §4 — baseline test results recorded 2026-07-24/25.
+- `review_package/docs/TESTING_CURRENT_STATE.md` (inside `ZORECHO_FULL_SYSTEM_REVIEW_PACKAGE_2026-07-24.zip`) — full testing-state document as of the review package.
+- `COLLAB_STAGE0_COMPLETION_REPORT.md` — Stage 0 test evidence (925 server / 372 client at that date).
+- Sage V2 phase evidence — each `SAGE_V2_PHASE*_ARCHITECTURE.md` / completion report.
+
+## How to add entries
+
+At the close of each prompt, append a dated section with: the exact command run, the result counts, the date, the environment, and where the raw log or screenshot lives. Never cite a previous summary as proof — re-verify against current code.

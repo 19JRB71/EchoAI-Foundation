@@ -48,4 +48,38 @@ if (process.env.AI_MAX_CALLS_PER_MINUTE === undefined) {
   process.env.AI_MAX_CALLS_PER_MINUTE = "0"; // 0 = unlimited
 }
 
+// TEST-ONLY env defaults (REPLIT_PROMPT_013): a clean checkout has none of the
+// provider keys, and the suite silently depended on them — module-level client
+// constructors log "disabled" warnings and any code path that touches
+// utils/encryption.js (e.g. tests that seed encrypted fixtures with encrypt())
+// throws without ENCRYPTION_KEY. Every provider SDK is stubbed in tests, so
+// obviously-fake dummies suffice. This block is unreachable outside test runs:
+// this file is only loaded via the `npm test` preload / tests/helpers.js, and
+// planTestDatabase() above has already hard-failed if this is a production
+// runtime (NODE_ENV=production or REPLIT_DEPLOYMENT). Real values, when
+// present, are always respected — we only fill gaps.
+if (!process.env.ENCRYPTION_KEY) {
+  // Must be exactly 32 bytes (utils/encryption.js requirement).
+  process.env.ENCRYPTION_KEY = "echoai-test-only-encryption-32b!";
+}
+if (!process.env.ANTHROPIC_API_KEY) {
+  process.env.ANTHROPIC_API_KEY = "test-only-fake-anthropic-key";
+}
+if (!process.env.OPENAI_API_KEY) {
+  process.env.OPENAI_API_KEY = "test-only-fake-openai-key";
+}
+if (!process.env.ELEVENLABS_API_KEY) {
+  process.env.ELEVENLABS_API_KEY = "test-only-fake-elevenlabs-key";
+}
+// The other boot-critical secrets (config/env.js CRITICAL list) that tests
+// exercise directly: setup-agent/e2e tests sign real JWTs with JWT_SECRET, and
+// OAuth CSRF session code reads SESSION_SECRET. Same rules: test-only,
+// obviously fake, real values always win.
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = "test-only-fake-jwt-secret";
+}
+if (!process.env.SESSION_SECRET) {
+  process.env.SESSION_SECRET = "test-only-fake-session-secret";
+}
+
 module.exports = { testUrl };
