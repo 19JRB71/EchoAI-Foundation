@@ -1,30 +1,36 @@
 # SESSION_HANDOFF.md — Zorecho
 
-**Written:** 2026-07-26, at the close of REPLIT_PROMPT_008 v2. Overwrite this file at the end of every prompt/session.
+**Written:** 2026-07-27, during REPLIT_PROMPT_003 v2. Overwrite this file at the end of every prompt/session.
 
 ## Where we are
 
-- REPLIT_PROMPT_008 v2 (honestly disable legacy-FCM mobile push): **COMPLETE** (2026-07-26).
-  - `config/fcm.js` hard-disabled behind `FCM_LEGACY_ENABLED` (default off); one boot warning; sends no-op with `reason:'legacy_endpoint_disabled'`; register API says "Mobile push is not available yet."; token registration retained; web push untouched.
-  - 3 new tests (fetch tripwire proves the retired endpoint unreachable). Server suite 985/985 green (`/tmp/prompt008_full_run.log`). Architect review PASS.
-  - Rollback: `FCM_LEGACY_ENABLED=true` (emergency only).
-- REPLIT_PROMPT_014 (tenant-isolation suite): **COMPLETE** (2026-07-26) — 20 tests, zero defects found; reviewer's four evidence gaps closed (commit hash, run tail, active-brand-class justification, background tier-gate test).
-- Prior prompts 012, 013, 001 v2: **COMPLETE** (2026-07-25). Details in `CURRENT_STATE.md` / `COMPLETED_WORK.md`.
-- Phase A of the CEO's prompt series is fully executed pending reviewer acceptance of 014 and 008.
+- REPLIT_PROMPT_003 v2 (Facebook ad object in both launch paths): **code phase COMPLETE — staging external proof pending owner steps** (2026-07-27).
+  - Shared `createPausedAd` (only `/ads` POST, PAUSED asserted); fail-fast Page/link guard; duplicate-ad guard; `facebook_ad_id` persisted only after FB returns it; partial chains recorded (`launch_failed` + partial ids) and surfaced via `partialChain`; four ids logged per launch; Autopilot shares the single launcher (test-asserted).
+  - Migration `EchoAI/models/126_facebook_ad_object.sql` (additive). Tests +8 (`tests/facebookAdObject.test.js`); suite **993/993** (`/tmp/prompt003_full_run.log`). Architect review round done, blocking findings fixed.
+  - Remaining: owner merges to `staging`, then one live launch on staging → Ads Manager screenshot of the paused campaign→ad set→ad chain → delete the chain (record deletion responses) → confirm zero spend.
+  - **Deployment correction applied (CEO, 2026-07-27):** migration renamed `125_facebook_ad_object.sql` → `126_facebook_ad_object.sql` (staging already has Prompt 010's `125_job_runs.sql`; 126 verified unused on the live `staging` branch, tip `6799def`). Deploy via a dedicated Prompt 003 branch into `staging` — never a main→staging PR; leave `main` untouched; no force pushes.
+  - **Continuity item for Prompt 005:** the new `campaigns.status = 'launch_failed'` value must be incorporated into Prompt 005's campaign-state migration and consumer inventory (any query filtering by campaign status must decide how to treat `launch_failed` rows).
+  - Behavior change to know: `launchFacebookCampaign` now 503s when no Page/link instead of silently creating an undeliverable campaign+adset (affects setup agent / echo companion fallback paths — honest failure, step recorded skipped, never blocks setup).
+- REPLIT_PROMPT_002 v2 (Facebook staging connect + Page + ad-account selection): **COMPLETE** (2026-07-27).
+  - Live staging verification only — **zero code changes, zero migrations**. Staging deployed at SHA `62ea1fc` (contains all accepted Phase A).
+  - Connected via South Dixie Storage (owner decision D — own-business testing): SDS2 ad account (`act_8186…`), South Dixie Storage Page; integration row `23c39a73-8486-49a1-b734-3979c1516527` (user-scoped, by design).
+  - All 4 live probes green pre- AND post-reconnect; revoke-and-reconnect proven by row `updated_at` advance (07-24 17:44 → 07-27 14:57 UTC) with refs intact. Consent screenshot: owner-attested only (see TEST_EVIDENCE_INDEX).
+  - Lesson recorded: FB re-consent silently re-applies the prior grant; pages snapshot shrank 19→1 (memory: echoai-fb-reconnect-grant).
+- Phase A (012, 001, 013, 014, 008): **all COMPLETE and owner-accepted**; merged to `staging` branch and deployed.
 
 ## Next prompt to execute
 
-Awaiting the next prompt text from the CEO's external series (008 was the last Phase A prompt). `GLOBAL_PROMPT_RULES.md` is still not in the repo — worth requesting an upload.
+Prompt 002 unblocks **003 (missing FB ad object), 004 (per-brand ad Page/link), 006 (real FB post + email proof), 016 (Google data pull)**. Await the CEO's chosen next prompt text. Note the prompt index also lists 010 (a Task #124 proposal appeared in the project task queue).
 
 ## Standing context for the next session
 
-- Read `CURRENT_STATE.md` first, then `ZORECHO_OPERATIONAL_ROADMAP.md` for execution order and the CEO Operational Validation cadence.
-- Rules that always apply: main stays deployable; new functionality dark behind flags; Evidence rule (no functional claim without proof — see `replit.md` User preferences); ChatGPT-approved copy is implemented exactly as approved; remind James to Push after any change that must go live.
-- End-of-Prompt Reports must ALWAYS include: commit hash + `git revert <hash>` line, pasted suite-summary tail, and per-criterion evidence (reviewer requires these verbatim).
-- Sage V2 is feature complete (bug fixes only). Collab Stage 1 needs explicit CEO go-ahead.
+- Read `CURRENT_STATE.md` first, then `ZORECHO_OPERATIONAL_ROADMAP.md` for execution order and the CEO validation cadence.
+- Staging deploys from the GitHub `staging` branch (PR main→staging; Railway auto-deploys; verify via `https://staging.zorecho.com/api/health` version field). Agent cannot push/create refs — owner merges via GitHub.
+- Staging DB is verifiable read-only via `STAGING_DATABASE_URL` (`SET default_transaction_read_only = on`).
+- Evidence rule, End-of-Prompt Report format, commit-hash lag note, rollback line: all still mandatory. `GLOBAL_PROMPT_RULES.md` still not in repo.
 
 ## Open follow-ups (operational, non-blocking)
 
-1. Restore drill against a real Railway staging backup — `STAGING_DATABASE_URL` is in Secrets; run the identical `ROLLBACK.md` §3 drill.
+1. Restore drill against a real Railway staging backup (`ROLLBACK.md` §3).
 2. Enable PITR on both Railway Postgres services.
 3. Set a backup schedule on both Railway Postgres services.

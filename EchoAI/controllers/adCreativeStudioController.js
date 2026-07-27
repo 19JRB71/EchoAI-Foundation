@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { anthropic, MODEL } = require("../config/anthropic");
-const { graphGet, graphPost } = require("../utils/facebookApi");
+const { graphGet, graphPost, createPausedAd } = require("../utils/facebookApi");
+const { recordFailedLaunch, findExistingAdId } = require("../utils/facebookLaunchSafety");
 const { decrypt } = require("../utils/encryption");
 const {
   CAMPAIGN_GOALS,
@@ -398,66 +399,135 @@ async function launchCreative(req, res) {
     const campaignName = `${creative.brand_name} - ${pkg.conceptName || pkg.angle || "Creative"}`;
     const dailyBudgetCents = Math.round(Number(budget) * 100);
 
-    // 1. Campaign (paused).
-    const campaign = await graphPost(
-      `${accountRef}/campaigns`,
-      { name: campaignName, objective, status: "PAUSED", special_ad_categories: [] },
-      accessToken
-    );
+    // Track every Facebook object id so a mid-chain failure is recorded for
+    // cleanup and surfaced — never a silent partial chain.
+    const ids = { campaignId: null, adSetId: null, creativeId: null, adId: null };
 
-    // 2. Ad set (paused).
-    const adSet = await graphPost(
-      `${accountRef}/adsets`,
-      {
-        name: `${campaignName} - Ad Set`,
-        campaign_id: campaign.id,
-        daily_budget: dailyBudgetCents,
-        billing_event: "IMPRESSIONS",
-        optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
-        targeting: buildTargeting(pkg.audienceTargeting, creative.geo_targeting),
-        status: "PAUSED",
-      },
-      accessToken
-    );
+    try {
+      // 1. Campaign (paused).
+      const campaign = await graphPost(
+        `${accountRef}/campaigns`,
+        { name: campaignName, objective, status: "PAUSED", special_ad_categories: [] },
+        accessToken
+      );
+      ids.campaignId = campaign.id;
 
-    // 3. Ad creative (page + link guaranteed present by the guard above).
-    const created = await graphPost(
-      `${accountRef}/adcreatives`,
-      {
-        name: `${campaignName} - Creative`,
-        object_story_spec: {
-          page_id: pageId,
-          link_data: {
-            message: pkg.bodyCopyVariations[0],
-            link: linkUrl,
-            name: pkg.headline,
-            call_to_action: { type: "LEARN_MORE", value: { link: linkUrl } },
+      // 2. Ad set (paused).
+      const adSet = await graphPost(
+        `${accountRef}/adsets`,
+        {
+          name: `${campaignName} - Ad Set`,
+          campaign_id: campaign.id,
+          daily_budget: dailyBudgetCents,
+          billing_event: "IMPRESSIONS",
+          optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
+          targeting: buildTargeting(pkg.audienceTargeting, creative.geo_targeting),
+          status: "PAUSED",
+        },
+        accessToken
+      );
+      ids.adSetId = adSet.id;
+
+      // 3. Ad creative (page + link guaranteed present by the guard above).
+      const created = await graphPost(
+        `${accountRef}/adcreatives`,
+        {
+          name: `${campaignName} - Creative`,
+          object_story_spec: {
+            page_id: pageId,
+            link_data: {
+              message: pkg.bodyCopyVariations[0],
+              link: linkUrl,
+              name: pkg.headline,
+              call_to_action: { type: "LEARN_MORE", value: { link: linkUrl } },
+            },
           },
         },
-      },
-      accessToken
-    );
-    const facebookCreativeId = created.id;
+        accessToken
+      );
+      ids.creativeId = created.id;
 
-    // 4. Record a campaigns row so the optimizer/analytics include it.
-    const insertedCampaign = await db.query(
-      `INSERT INTO campaigns
-         (brand_id, user_id, campaign_name, budget, ad_creative_variations,
-          launch_date, facebook_campaign_id, facebook_adset_id, status)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, 'active')
-       RETURNING campaign_id`,
-      [
-        creative.brand_id,
+      // 4. The actual ad object — PAUSED, via the one shared helper.
+      // Duplicate guard: never POST /ads twice for the same Facebook campaign.
+      const existingAdId = await findExistingAdId(ids.campaignId);
+      if (existingAdId) {
+        ids.adId = existingAdId;
+      } else {
+        const ad = await createPausedAd(
+          accountRef,
+          { name: `${campaignName} - Ad`, adSetId: ids.adSetId, creativeId: ids.creativeId },
+          accessToken
+        );
+        ids.adId = ad.id;
+      }
+    } catch (chainErr) {
+      await recordFailedLaunch({
+        brandId: creative.brand_id,
         userId,
         campaignName,
         budget,
-        JSON.stringify([pkg]),
-        campaign.id,
-        adSet.id,
-      ]
-    );
+        variations: [pkg],
+        ids,
+        error: chainErr,
+      });
+      return res.status(502).json({
+        error: `Facebook launch failed: ${chainErr.message}. Partial objects were recorded for cleanup.`,
+        partialChain: { ...ids },
+      });
+    }
 
-    // 5. Mark the creative launched and remember which package shipped.
+    console.log(
+      `Facebook launch complete for brand ${creative.brand_id}: ` +
+        `campaign=${ids.campaignId} adset=${ids.adSetId} creative=${ids.creativeId} ad=${ids.adId} (all PAUSED)`
+    );
+    const facebookCreativeId = ids.creativeId;
+
+    // 5. Record a campaigns row so the optimizer/analytics include it —
+    // facebook_ad_id persisted only after Facebook returned the ad id. A local
+    // write failure AFTER Facebook succeeded is still recorded/logged with all
+    // ids — the objects are never silently orphaned.
+    let insertedCampaign;
+    try {
+      insertedCampaign = await runCampaignInsert();
+    } catch (persistErr) {
+      await recordFailedLaunch({
+        brandId: creative.brand_id,
+        userId,
+        campaignName,
+        budget,
+        variations: [pkg],
+        ids,
+        error: persistErr,
+      });
+      return res.status(500).json({
+        error: `The Facebook chain was created but saving it locally failed: ${persistErr.message}. Partial objects were recorded for cleanup.`,
+        partialChain: { ...ids },
+      });
+    }
+
+    async function runCampaignInsert() {
+      return db.query(
+        `INSERT INTO campaigns
+           (brand_id, user_id, campaign_name, budget, ad_creative_variations,
+            launch_date, facebook_campaign_id, facebook_adset_id,
+            facebook_creative_id, facebook_ad_id, status)
+         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'active')
+         RETURNING campaign_id`,
+        [
+          creative.brand_id,
+          userId,
+          campaignName,
+          budget,
+          JSON.stringify([pkg]),
+          ids.campaignId,
+          ids.adSetId,
+          ids.creativeId,
+          ids.adId,
+        ]
+      );
+    }
+
+    // 6. Mark the creative launched and remember which package shipped.
     const launchedPackage = {
       conceptName: pkg.conceptName || null,
       angle: pkg.angle || null,
@@ -474,8 +544,8 @@ async function launchCreative(req, res) {
        WHERE creative_id = $5`,
       [
         JSON.stringify(launchedPackage),
-        campaign.id,
-        adSet.id,
+        ids.campaignId,
+        ids.adSetId,
         insertedCampaign.rows[0].campaign_id,
         creativeId,
       ]
@@ -484,9 +554,10 @@ async function launchCreative(req, res) {
     return res.status(201).json({
       creativeId,
       campaignId: insertedCampaign.rows[0].campaign_id,
-      facebookCampaignId: campaign.id,
-      facebookAdSetId: adSet.id,
+      facebookCampaignId: ids.campaignId,
+      facebookAdSetId: ids.adSetId,
       facebookCreativeId,
+      facebookAdId: ids.adId,
       objective,
     });
   } catch (err) {

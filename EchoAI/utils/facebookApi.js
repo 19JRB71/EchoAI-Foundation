@@ -102,9 +102,39 @@ function verifyAdAccount(adAccountId, accessToken) {
   return graphGet(id, { fields: "name,account_status,currency,timezone_name" }, accessToken);
 }
 
+/**
+ * Creates the actual Facebook ad object (adset + creative → deliverable ad).
+ * This is the ONLY function the launch paths may use to POST /ads, and it
+ * always creates the ad PAUSED — a spending safeguard: nothing this platform
+ * launches may ever go live without an explicit, separate unpause step.
+ *
+ * @param {string} accountRef  "act_<id>"
+ * @param {object} p           { name, adSetId, creativeId }
+ * @param {string} accessToken
+ * @returns {Promise<{id: string}>}
+ */
+async function createPausedAd(accountRef, { name, adSetId, creativeId } = {}, accessToken) {
+  if (!accountRef || !adSetId || !creativeId) {
+    throw new Error("createPausedAd requires accountRef, adSetId and creativeId");
+  }
+  const params = {
+    name: name || "Ad",
+    adset_id: adSetId,
+    creative: { creative_id: creativeId },
+    status: "PAUSED",
+  };
+  // PAUSED-only assertion: no caller can override the status. If this ever
+  // fails, the code above was tampered with — refuse to create the ad.
+  if (params.status !== "PAUSED") {
+    throw new Error("Spending safeguard violated: ads must be created PAUSED");
+  }
+  return graphPost(`${accountRef}/ads`, params, accessToken);
+}
+
 module.exports = {
   graphRequest,
   graphGet,
   graphPost,
   verifyAdAccount,
+  createPausedAd,
 };
