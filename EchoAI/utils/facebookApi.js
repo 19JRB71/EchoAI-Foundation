@@ -76,11 +76,28 @@ async function graphRequest(path, { method = "GET", params = {}, accessToken } =
       continue;
     }
 
-    const error = new Error(fbError.message || `Facebook API error (HTTP ${response.status})`);
+    // Surface Facebook's full explanation, not just the generic top-line
+    // message ("Invalid parameter" alone is undebuggable). error_user_title /
+    // error_user_msg carry the human-readable reason when present.
+    const detailParts = [];
+    if (fbError.error_user_title) detailParts.push(fbError.error_user_title);
+    if (fbError.error_user_msg) detailParts.push(fbError.error_user_msg);
+    const codeParts = [];
+    if (code !== undefined) codeParts.push(`code ${code}`);
+    if (fbError.error_subcode !== undefined) codeParts.push(`subcode ${fbError.error_subcode}`);
+    const baseMsg = fbError.message || `Facebook API error (HTTP ${response.status})`;
+    const fullMsg =
+      baseMsg +
+      (detailParts.length ? ` — ${detailParts.join(": ")}` : "") +
+      (codeParts.length ? ` (${codeParts.join(", ")})` : "");
+
+    const error = new Error(fullMsg);
     error.status = response.status;
     error.fbCode = code;
     error.fbType = fbError.type;
     error.fbSubcode = fbError.error_subcode;
+    error.fbUserTitle = fbError.error_user_title;
+    error.fbUserMsg = fbError.error_user_msg;
     throw error;
   }
 }
