@@ -191,6 +191,9 @@ async function launchFacebookCampaign(p) {
         objective,
         status: "PAUSED",
         special_ad_categories: [],
+        // Required by Facebook (subcode 4834011): budgets live on our ad
+        // sets, so ad-set budget sharing must be explicitly disabled.
+        is_adset_budget_sharing_enabled: false,
       },
       accessToken
     );

@@ -407,7 +407,15 @@ async function launchCreative(req, res) {
       // 1. Campaign (paused).
       const campaign = await graphPost(
         `${accountRef}/campaigns`,
-        { name: campaignName, objective, status: "PAUSED", special_ad_categories: [] },
+        {
+          name: campaignName,
+          objective,
+          status: "PAUSED",
+          special_ad_categories: [],
+          // Required by Facebook (subcode 4834011): budgets live on our ad
+          // sets, so ad-set budget sharing must be explicitly disabled.
+          is_adset_budget_sharing_enabled: false,
+        },
         accessToken
       );
       ids.campaignId = campaign.id;
