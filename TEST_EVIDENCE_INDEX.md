@@ -2,6 +2,39 @@
 
 **Last updated:** 2026-07-26. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
 
+## 2026-07-27 — Prompt 003 v2 (Facebook ad object in both launch paths)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preflight: no `/ads` POST anywhere; both paths stop after creative | REPRODUCED | grep across controllers/utils; `campaignController.js` (old ~152–214), `adCreativeStudioController.js` (old ~402–475) |
+| Preflight: silent partial chain | REPRODUCED | old `launchFacebookCampaign` skipped the creative when Page/link env missing — campaign+adset created undeliverable, row saved `'active'` |
+| Four linked POSTs incl. PAUSED `/ads`, ids persisted (manual path) | PASS | `EchoAI/tests/facebookAdObject.test.js` "happy path" (mocked Graph; adset_id/creative linkage + PAUSED asserted) |
+| Same for Ad Creative Studio path | PASS | "studio path: four linked POSTs…" |
+| Fail-fast: 0 Graph calls, no row, on missing Page/link | PASS | "fail-fast" test |
+| Partial `/ads` failure → `launch_failed` row + surfaced `partialChain` (both paths + manual API body) | PASS | 3 partial-failure tests |
+| Duplicate-ad guard: no second `/ads` POST | PASS | "duplicate guard" test |
+| Tenant isolation: chain uses only the caller's stored token | PASS | happy-path access_token assertion |
+| Single launch path (Autopilot = manual) | PASS | source-assertion test; `autopilotController.js:1214` |
+| Full suite | 993/993 (985 + 8) | `/tmp/prompt003_full_run.log` |
+| Staging external proof (Ads Manager paused chain screenshot, delete chain, zero spend) | **PENDING** | owner steps |
+
+## 2026-07-27 — Prompt 002 v2 (Facebook staging connect + Page + ad-account selection)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Staging on accepted code | VERIFIED | /api/health version `62ea1fc`; `git merge-base --is-ancestor` confirms a106744 + bf12db8 contained |
+| App ID match | VERIFIED | Meta app 1747619749738868 = Railway FACEBOOK_APP_ID (owner screenshots) |
+| Redirect URI | VERIFIED | Meta Valid OAuth Redirect URIs + FACEBOOK_REDIRECT_URI both exactly `https://staging.zorecho.com/api/facebook/oauth/callback` |
+| Scopes at first consent | VERIFIED | facebookOAuthController SCOPES = the 6 required incl. ads_management; auth_type=rerequest |
+| Connected probe green | VERIFIED | wizard verify: 4/4 green (owner screenshot, pre- and post-reconnect) |
+| page_ref persisted/resolvable | VERIFIED | staging DB: page_ref=South Dixie Storage page id; = facebook_pages[0].id post-reconnect |
+| ad-account ref persisted | VERIFIED | account_ref `act_8186…` (SDS2 · USD · Active on connected card) |
+| providerVerification | VERIFIED | connected row present → facebook:true (fails-closed design); live probes green |
+| Reconnect after revoke | VERIFIED | FB Business Integrations removal (owner screenshot of dialog) → reconnect → row updated_at 2026-07-24 17:44 → 2026-07-27 14:57 UTC, refs intact, tokens refreshed |
+| Consent screenshot | UNVERIFIED (owner-attested) | not captured during reconnect; DB round-trip proof stands in |
+| Code changes / migration | NONE | zero diff; all columns pre-existing |
+| Token encryption | VERIFIED | tokens stored via encrypt() (Prompt 001 path); api_token_encrypted + facebook_page_tokens non-null |
+
 ## 2026-07-26 — Prompt 008 v2 (disable legacy-FCM mobile push)
 
 | Check | Result | Evidence |

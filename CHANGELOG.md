@@ -2,6 +2,11 @@
 
 Newest first. Documentation-only entries are marked (docs). For deep milestone history see `MILESTONES.md`.
 
+## 2026-07-27
+
+- REPLIT_PROMPT_003 v2 (code phase done; staging external proof pending owner steps): both launch paths now create the actual Facebook **ad object** (`POST act_<id>/ads`, PAUSED-only via shared `createPausedAd`); fail-fast Page/link guard before ANY FB object in `launchFacebookCampaign`; duplicate-ad guard; partial chains recorded as `status='launch_failed'` with all known ids + surfaced (`partialChain` in API errors, incl. local-persist-failure-after-FB-success); four-object-id log line per launch. Migration `126_facebook_ad_object.sql` (additive: `campaigns.facebook_creative_id`, `campaigns.facebook_ad_id`). +8 tests (`tests/facebookAdObject.test.js`); suite 985→993/993.
+- REPLIT_PROMPT_002 v2 **COMPLETE** (live staging verification, zero code changes): Facebook connect on staging.zorecho.com verified end-to-end — SDS2 ad account + South Dixie Storage Page persisted, all 4 live probes green, revoke-and-reconnect proven via integration-row timestamp advance. Phase B unblocked (003/004/006/016).
+
 ## 2026-07-26
 
 - REPLIT_PROMPT_008 v2 **COMPLETE**: legacy-FCM mobile push honestly disabled — retired endpoint unreachable (`FCM_LEGACY_ENABLED` default off, boot warning, no-op with `reason:'legacy_endpoint_disabled'`); register API copy "Mobile push is not available yet"; token registration retained; web push untouched. +3 tests; suite 985/985.

@@ -1,5 +1,6 @@
 const db = require("../config/db");
-const { graphGet, graphPost, verifyAdAccount } = require("../utils/facebookApi");
+const { graphGet, graphPost, verifyAdAccount, createPausedAd } = require("../utils/facebookApi");
+const { recordFailedLaunch, findExistingAdId } = require("../utils/facebookLaunchSafety");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { buildAdCreativePrompt, generateCreativeVariations } = require("../prompts/adCreativePrompt");
 const { fbGeoLocations } = require("../utils/geoTargeting");
@@ -26,7 +27,7 @@ function normalizeAdAccountId(id) {
  */
 async function getFacebookIntegration(userId) {
   const result = await db.query(
-    `SELECT api_token_encrypted, account_ref, connection_status
+    `SELECT api_token_encrypted, account_ref, page_ref, connection_status
      FROM api_integrations
      WHERE user_id = $1 AND platform = 'facebook'`,
     [userId]
@@ -42,6 +43,7 @@ async function getFacebookIntegration(userId) {
   return {
     accessToken: decrypt(row.api_token_encrypted),
     accountRef: row.account_ref,
+    pageRef: row.page_ref,
   };
 }
 
@@ -152,48 +154,65 @@ async function connectFacebookAccount(req, res) {
 async function launchFacebookCampaign(p) {
   const { userId, brand, name, goal, budget, targetAudience, creativeOverride } = p;
 
-  const { accessToken, accountRef } = await getFacebookIntegration(userId);
+  const { accessToken, accountRef, pageRef } = await getFacebookIntegration(userId);
   const objective = GOAL_TO_OBJECTIVE[goal] || GOAL_TO_OBJECTIVE.leads;
   const campaignName = name || `${brand.brand_name} - ${goal}`;
   const dailyBudgetCents = Math.round(Number(budget) * 100);
 
-  // 1. Create the campaign (paused so nothing spends until reviewed).
-  const campaign = await graphPost(
-    `${accountRef}/campaigns`,
-    {
-      name: campaignName,
-      objective,
-      status: "PAUSED",
-      special_ad_categories: [],
-    },
-    accessToken
-  );
+  // Fail fast BEFORE creating any Facebook object: a deliverable chain needs a
+  // creative, which needs a Page + destination link. Never create a campaign or
+  // ad set that can't actually serve ads (mirrors the Ad Creative Studio guard).
+  const pageId = pageRef || process.env.FACEBOOK_PAGE_ID;
+  const linkUrl = process.env.FACEBOOK_LINK_URL;
+  if (!pageId || !linkUrl) {
+    const err = new Error(
+      !pageId
+        ? "No Facebook Page is connected. Finish the Facebook Setup Wizard to pick a Page, then try again."
+        : "Facebook ad creation is not configured. Set FACEBOOK_LINK_URL to launch campaigns."
+    );
+    err.statusCode = 503;
+    throw err;
+  }
 
-  // 2. Create the ad set.
-  const adSet = await graphPost(
-    `${accountRef}/adsets`,
-    {
-      name: `${campaignName} - Ad Set`,
-      campaign_id: campaign.id,
-      daily_budget: dailyBudgetCents,
-      billing_event: "IMPRESSIONS",
-      optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
-      targeting: buildTargeting(targetAudience, brand.geo_targeting),
-      status: "PAUSED",
-    },
-    accessToken
-  );
-
-  // 3. Creative copy: the caller's approved creative when supplied (Autopilot),
-  // otherwise brand-tailored generated variations; optionally push to Facebook.
   const variations = creativeOverride
     ? [creativeOverride]
     : generateCreativeVariations(brand, { campaignGoal: goal, count: 3 });
-  let creativeId = null;
-  const pageId = process.env.FACEBOOK_PAGE_ID;
-  const linkUrl = process.env.FACEBOOK_LINK_URL;
 
-  if (pageId && linkUrl) {
+  // Track every Facebook object id as it is created so a mid-chain failure can
+  // be recorded (never silent) and the orphaned objects cleaned up.
+  const ids = { campaignId: null, adSetId: null, creativeId: null, adId: null };
+
+  try {
+    // 1. Create the campaign (paused so nothing spends until reviewed).
+    const campaign = await graphPost(
+      `${accountRef}/campaigns`,
+      {
+        name: campaignName,
+        objective,
+        status: "PAUSED",
+        special_ad_categories: [],
+      },
+      accessToken
+    );
+    ids.campaignId = campaign.id;
+
+    // 2. Create the ad set (paused).
+    const adSet = await graphPost(
+      `${accountRef}/adsets`,
+      {
+        name: `${campaignName} - Ad Set`,
+        campaign_id: campaign.id,
+        daily_budget: dailyBudgetCents,
+        billing_event: "IMPRESSIONS",
+        optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
+        targeting: buildTargeting(targetAudience, brand.geo_targeting),
+        status: "PAUSED",
+      },
+      accessToken
+    );
+    ids.adSetId = adSet.id;
+
+    // 3. Create the ad creative (page + link guaranteed by the guard above).
     const primary = variations[0];
     const creative = await graphPost(
       `${accountRef}/adcreatives`,
@@ -211,32 +230,89 @@ async function launchFacebookCampaign(p) {
       },
       accessToken
     );
-    creativeId = creative.id;
-  }
+    ids.creativeId = creative.id;
 
-  // 4. Store the campaign record locally.
-  const inserted = await db.query(
-    `INSERT INTO campaigns
-       (brand_id, user_id, campaign_name, budget, ad_creative_variations,
-        launch_date, facebook_campaign_id, facebook_adset_id, status)
-     VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, 'active')
-     RETURNING campaign_id`,
-    [
-      brand.brand_id,
+    // 4. Create the actual ad object — PAUSED, via the one shared helper.
+    // Duplicate guard: never POST /ads twice for the same Facebook campaign.
+    const existingAdId = await findExistingAdId(ids.campaignId);
+    if (existingAdId) {
+      ids.adId = existingAdId;
+    } else {
+      const ad = await createPausedAd(
+        accountRef,
+        { name: `${campaignName} - Ad`, adSetId: ids.adSetId, creativeId: ids.creativeId },
+        accessToken
+      );
+      ids.adId = ad.id;
+    }
+  } catch (err) {
+    // Honest partial-chain handling: record whatever was created for cleanup,
+    // then surface the failure — never report success on a partial chain.
+    await recordFailedLaunch({
+      brandId: brand.brand_id,
       userId,
       campaignName,
       budget,
-      JSON.stringify(variations),
-      campaign.id,
-      adSet.id,
-    ]
+      variations,
+      ids,
+      error: err,
+    });
+    err.partialChain = { ...ids };
+    if (!err.statusCode) err.statusCode = 502;
+    throw err;
+  }
+
+  console.log(
+    `Facebook launch complete for brand ${brand.brand_id}: ` +
+      `campaign=${ids.campaignId} adset=${ids.adSetId} creative=${ids.creativeId} ad=${ids.adId} (all PAUSED)`
   );
+
+  // 5. Store the campaign record locally — facebook_ad_id is persisted only
+  // here, after Facebook successfully returned the ad id. If the local write
+  // fails AFTER Facebook succeeded, the chain is still recorded (or at minimum
+  // logged with every id) so the objects are never silently orphaned.
+  let inserted;
+  try {
+    inserted = await db.query(
+      `INSERT INTO campaigns
+         (brand_id, user_id, campaign_name, budget, ad_creative_variations,
+          launch_date, facebook_campaign_id, facebook_adset_id,
+          facebook_creative_id, facebook_ad_id, status)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'active')
+       RETURNING campaign_id`,
+      [
+        brand.brand_id,
+        userId,
+        campaignName,
+        budget,
+        JSON.stringify(variations),
+        ids.campaignId,
+        ids.adSetId,
+        ids.creativeId,
+        ids.adId,
+      ]
+    );
+  } catch (err) {
+    await recordFailedLaunch({
+      brandId: brand.brand_id,
+      userId,
+      campaignName,
+      budget,
+      variations,
+      ids,
+      error: err,
+    });
+    err.partialChain = { ...ids };
+    if (!err.statusCode) err.statusCode = 500;
+    throw err;
+  }
 
   return {
     campaignId: inserted.rows[0].campaign_id,
-    facebookCampaignId: campaign.id,
-    facebookAdSetId: adSet.id,
-    facebookCreativeId: creativeId,
+    facebookCampaignId: ids.campaignId,
+    facebookAdSetId: ids.adSetId,
+    facebookCreativeId: ids.creativeId,
+    facebookAdId: ids.adId,
     objective,
   };
 }
@@ -278,7 +354,10 @@ async function createCampaign(req, res) {
   } catch (err) {
     const status = err.statusCode || 500;
     console.error("Create campaign error:", err.message);
-    return res.status(status).json({ error: err.message || "Failed to create campaign" });
+    const body = { error: err.message || "Failed to create campaign" };
+    // Surface a partial Facebook chain to the UI — never a silent partial launch.
+    if (err.partialChain) body.partialChain = err.partialChain;
+    return res.status(status).json(body);
   }
 }
 
