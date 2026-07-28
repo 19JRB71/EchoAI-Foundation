@@ -428,6 +428,9 @@ async function launchCreative(req, res) {
           campaign_id: campaign.id,
           daily_budget: dailyBudgetCents,
           billing_event: "IMPRESSIONS",
+          // Required by Facebook (subcode 2490487): without an explicit bid
+          // strategy it demands a bid cap. Automatic bidding needs no bid amount.
+          bid_strategy: "LOWEST_COST_WITHOUT_CAP",
           optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
           targeting: buildTargeting(pkg.audienceTargeting, creative.geo_targeting),
           status: "PAUSED",
