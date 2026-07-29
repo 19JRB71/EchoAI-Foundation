@@ -1342,6 +1342,7 @@ const SOCIAL_LINK_FIELDS = [
 
 function BusinessLinksCard({ brandId }) {
   const [website, setWebsite] = useState("");
+  const [adLink, setAdLink] = useState("");
   const [facebookPage, setFacebookPage] = useState("");
   const [socials, setSocials] = useState({});
   const [loaded, setLoaded] = useState(false);
@@ -1359,6 +1360,7 @@ function BusinessLinksCard({ brandId }) {
       .then((brand) => {
         if (cancelled) return;
         setWebsite(brand.website_url || "");
+        setAdLink(brand.ad_link_url || "");
         setFacebookPage(brand.facebook_page_url || "");
         const next = {};
         for (const f of SOCIAL_LINK_FIELDS) next[f.key] = brand[f.key] || "";
@@ -1382,10 +1384,11 @@ function BusinessLinksCard({ brandId }) {
     setSaveError("");
     setSaved(false);
     try {
-      const payload = { websiteUrl: website, facebookPageUrl: facebookPage };
+      const payload = { websiteUrl: website, adLinkUrl: adLink, facebookPageUrl: facebookPage };
       for (const f of SOCIAL_LINK_FIELDS) payload[f.body] = socials[f.key] || "";
       const updated = await api.updateBrand(brandId, payload);
       setWebsite(updated.website_url || "");
+      setAdLink(updated.ad_link_url || "");
       setFacebookPage(updated.facebook_page_url || "");
       const next = {};
       for (const f of SOCIAL_LINK_FIELDS) next[f.key] = updated[f.key] || "";
@@ -1419,6 +1422,15 @@ function BusinessLinksCard({ brandId }) {
             value={website}
             onChange={(e) => { setWebsite(e.target.value); setSaved(false); }}
             placeholder="e.g. https://yourbusiness.com"
+            className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-emerald-500 focus:outline-none"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="text-gray-400">Ad destination link</span>
+          <input
+            value={adLink}
+            onChange={(e) => { setAdLink(e.target.value); setSaved(false); }}
+            placeholder="Where your Facebook ads send people (defaults to your website)"
             className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-emerald-500 focus:outline-none"
           />
         </label>

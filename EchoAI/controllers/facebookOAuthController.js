@@ -378,13 +378,18 @@ async function selectAccount(req, res) {
 }
 
 /**
- * POST /api/facebook/select-page  { pageId }
+ * POST /api/facebook/select-page  { pageId, brandId? }
  * Sets which connected Facebook Page Zorecho should run ads through. The id must
  * be one of the pages returned by Facebook at connect time.
+ *
+ * Prompt 004: ads resolve their Page per BRAND (brands.facebook_page_id).
+ * When brandId is provided, the selection is written to that brand (after an
+ * ownership check). page_ref is still updated as the wizard's default
+ * suggestion for future brands — launch paths never read it.
  */
 async function selectPage(req, res) {
   const userId = req.user.userId;
-  const { pageId } = req.body;
+  const { pageId, brandId } = req.body;
   if (!pageId) {
     return res.status(400).json({ error: "pageId is required" });
   }
@@ -404,13 +409,25 @@ async function selectPage(req, res) {
       return res.status(400).json({ error: "Unknown Facebook page" });
     }
 
+    if (brandId) {
+      const brandUpdate = await db.query(
+        `UPDATE brands SET facebook_page_id = $1
+         WHERE brand_id = $2 AND user_id = $3
+         RETURNING brand_id`,
+        [pageId, brandId, userId],
+      );
+      if (brandUpdate.rows.length === 0) {
+        return res.status(404).json({ error: "Brand not found" });
+      }
+    }
+
     await db.query(
       `UPDATE api_integrations SET page_ref = $1
        WHERE user_id = $2 AND platform = 'facebook'`,
       [pageId, userId],
     );
 
-    return res.status(200).json({ selectedPageId: pageId });
+    return res.status(200).json({ selectedPageId: pageId, brandId: brandId || null });
   } catch (err) {
     console.error("Select Facebook page error:", err.message);
     return res.status(500).json({ error: "Failed to update selected page" });
