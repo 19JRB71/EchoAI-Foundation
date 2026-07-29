@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — Zorecho Project State
 
-**Last updated:** 2026-07-27 (REPLIT_PROMPT_003 v2 — code phase done, staging external proof pending)
+**Last updated:** 2026-07-29 (REPLIT_PROMPT_003 v2 — COMPLETE: staging PAUSED-chain proof done; 5 follow-up PRs merged for mid-2026 Facebook API required fields)
 **Maintained by:** Lead Software Engineer (Replit agent). Update at the close of every prompt.
 
 ## Snapshot
@@ -21,7 +21,7 @@
 ## Test state (last verified 2026-07-25, Replit dev environment)
 
 - Server suite: 993/993 passing (2026-07-27, `/tmp/prompt003_full_run.log`).
-- Facebook launches (Prompt 003): both paths now create the full PAUSED chain campaign→ad set→creative→**ad** and persist all four ids; partial chains recorded as `campaigns.status='launch_failed'` and surfaced (`partialChain`); duplicate-ad guard; missing Page/link fails fast with 503 before any FB object (previous silent-skip behavior removed). Staging external proof (Ads Manager screenshot + delete chain, zero spend) still pending.
+- Facebook launches (Prompt 003): both paths now create the full PAUSED chain campaign→ad set→creative→**ad** and persist all four ids; partial chains recorded as `campaigns.status='launch_failed'` and surfaced (`partialChain`); duplicate-ad guard; missing Page/link fails fast with 503 before any FB object (previous silent-skip behavior removed). Staging external proof COMPLETE (2026-07-29): full PAUSED chain created on SDS2 via Ad Creative Studio, verified Off/$0 in Ads Manager (screenshots), all 6 test campaigns (1 complete + 5 partial from iteration) deleted, zero spend. Mid-2026 Facebook Graph API now requires on create: campaign `is_adset_budget_sharing_enabled:false`; ad set `bid_strategy:"LOWEST_COST_WITHOUT_CAP"`, `targeting_automation.advantage_audience:0`, `promoted_object:{page_id}` — all added to both launch paths (PRs #11–#14). Graph errors now surface `error_user_title/error_user_msg` + code/subcode (PR #10). The Meta app must be **published/Live** (dev-mode creatives can't create ads) and staging needs `FACEBOOK_LINK_URL` set — both done. Staging tip: `1389e7a`.
 - Mobile push (legacy FCM): **honestly disabled** (Decision D-12, Prompt 008) — retired endpoint unreachable; sends no-op with `reason: 'legacy_endpoint_disabled'`; token registration retained; re-enable only via `FCM_LEGACY_ENABLED=true` (emergency rollback only). Web push unaffected. Client suite: 385/385 passing. Client production build: green.
 - Evidence index: `TEST_EVIDENCE_INDEX.md`.
 

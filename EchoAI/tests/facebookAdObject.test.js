@@ -136,6 +136,28 @@ test("happy path: four linked Graph POSTs including /ads with PAUSED, ids persis
     assert.equal(p.params.status, "PAUSED", `${p.path} must be PAUSED`);
   }
 
+  // Mid-2026 Graph API required create fields (regression lock).
+  assert.equal(
+    posts[0].params.is_adset_budget_sharing_enabled,
+    "false",
+    "campaign must explicitly disable ad-set budget sharing (subcode 4834011)",
+  );
+  assert.equal(
+    adSetPost.params.bid_strategy,
+    "LOWEST_COST_WITHOUT_CAP",
+    "ad set must use automatic bidding (subcode 2490487)",
+  );
+  assert.deepEqual(
+    JSON.parse(adSetPost.params.promoted_object),
+    { page_id: "1400123456789" },
+    "ad set must promote the connected Page (subcode 1885154)",
+  );
+  assert.equal(
+    JSON.parse(adSetPost.params.targeting).targeting_automation.advantage_audience,
+    0,
+    "targeting must explicitly disable Advantage Audience (subcode 1870227)",
+  );
+
   // Tenant isolation: the chain used THIS user's stored token, nobody else's.
   for (const c of graphCalls) {
     assert.equal(c.params.access_token, `token-for-${userId}`);
@@ -314,6 +336,15 @@ test("studio path: four linked POSTs incl. PAUSED /ads, ids persisted, response 
   assert.deepEqual(JSON.parse(adPost.params.creative), { creative_id: "cr_1" });
   assert.equal(res.body.facebookAdId, "ad_1");
 
+  // Mid-2026 Graph API required create fields (regression lock, studio path).
+  assert.equal(posts[0].params.is_adset_budget_sharing_enabled, "false");
+  assert.equal(posts[1].params.bid_strategy, "LOWEST_COST_WITHOUT_CAP");
+  assert.deepEqual(JSON.parse(posts[1].params.promoted_object), { page_id: "1400123456789" });
+  assert.equal(
+    JSON.parse(posts[1].params.targeting).targeting_automation.advantage_audience,
+    0,
+  );
+
   const { rows } = await db.query(
     `SELECT facebook_creative_id, facebook_ad_id, status FROM campaigns WHERE campaign_id = $1`,
     [res.body.campaignId],
@@ -368,6 +399,41 @@ test("manual API path surfaces partialChain in the error response body", async (
     creativeId: "cr_1",
     adId: null,
   });
+});
+
+test("graphRequest error composition: error_user_title/msg + code/subcode surfaced", async () => {
+  const { graphPost } = require("../utils/facebookApi");
+  global.fetch = async () => ({
+    ok: false,
+    status: 400,
+    headers: { get: () => null },
+    text: async () =>
+      JSON.stringify({
+        error: {
+          message: "Invalid parameter",
+          type: "OAuthException",
+          code: 100,
+          error_subcode: 4834011,
+          error_user_title: "Budget Sharing Required",
+          error_user_msg: "You must specify True or False.",
+        },
+      }),
+  });
+  let thrown;
+  try {
+    await graphPost("act_999001/campaigns", { name: "x" }, "tok");
+  } catch (err) {
+    thrown = err;
+  }
+  assert.ok(thrown, "a Graph error must throw");
+  assert.equal(
+    thrown.message,
+    "Invalid parameter — Budget Sharing Required: You must specify True or False. (code 100, subcode 4834011)",
+  );
+  assert.equal(thrown.fbCode, 100);
+  assert.equal(thrown.fbSubcode, 4834011);
+  assert.equal(thrown.fbUserTitle, "Budget Sharing Required");
+  assert.equal(thrown.fbUserMsg, "You must specify True or False.");
 });
 
 test("single launch path: Autopilot approve and manual create both use launchFacebookCampaign", () => {
