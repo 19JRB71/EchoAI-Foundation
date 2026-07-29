@@ -214,6 +214,9 @@ async function launchFacebookCampaign(p) {
         // strategy it demands a bid cap. Automatic bidding needs no bid amount.
         bid_strategy: "LOWEST_COST_WITHOUT_CAP",
         optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
+        // Required by Facebook (subcode 1885154): the ad set must name what
+        // it promotes. Our ads promote the connected Page.
+        promoted_object: { page_id: pageId },
         targeting: buildTargeting(targetAudience, brand.geo_targeting),
         status: "PAUSED",
       },
