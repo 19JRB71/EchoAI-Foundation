@@ -2,6 +2,12 @@
 
 **Last updated:** 2026-07-26. Append-only; newest first. Milestone-level history predating this file lives in `MILESTONES.md` (authoritative for Sage V2 phases 1–6 and Collab Stage 0).
 
+## 2026-07-29 — REPLIT_PROMPT_003 v2: staging PAUSED-chain external proof — COMPLETE
+
+- Full PAUSED chain created on staging (SDS2, brand "Pole Barn Kits", $5/day): campaign `120249420223810774` → ad set `120249420224360774` → creative `1408353584447141` → ad `120249420227100774`. Verified Off/$0.00 in Ads Manager (owner screenshots); all 6 test campaigns (1 complete + 5 partial from the debugging iteration) deleted via Ads Manager ("6 campaigns were deleted" confirmation); zero spend at every step.
+- Mid-2026 Facebook Graph API required-field changes discovered live and fixed in both launch paths via five PRs into `staging` (#10 Graph error-detail surfacing; #11 `is_adset_budget_sharing_enabled:false`, subcode 4834011; #12 `bid_strategy:"LOWEST_COST_WITHOUT_CAP"`, 2490487; #13 `targeting_automation.advantage_audience:0`, 1870227; #14 `promoted_object:{page_id}`, 1885154). Server suite 993/993 on every PR. Staging tip: `1389e7a`.
+- Environment prerequisites: `FACEBOOK_LINK_URL` set on Railway staging; Meta app published to **Live** (dev-mode creatives cannot back ads, subcode 1885183).
+
 ## 2026-07-27 — REPLIT_PROMPT_003 v2: Facebook ad object in both launch paths — code phase COMPLETE (staging proof pending)
 
 - **Gap reproduced:** grep-proven zero `/ads` POSTs anywhere; both paths stopped after the creative; `campaignController` silently skipped the creative when Page/link env was missing (undeliverable chain reported as success); mid-chain Graph failures orphaned FB objects with no local record.

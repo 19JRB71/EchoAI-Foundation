@@ -2,6 +2,17 @@
 
 **Last updated:** 2026-07-26. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
 
+## 2026-07-29 — Prompt 003 v2 staging external proof (PAUSED chain on SDS2)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Full PAUSED chain created via Ad Creative Studio launch | PASS — "Creative launched to Facebook (paused for review)" | Staging DB `campaigns` row `1db22694-...` (2026-07-29 15:24 UTC): campaign `120249420223810774`, ad set `120249420224360774`, creative `1408353584447141`, ad `120249420227100774` |
+| Ads Manager verification (SDS2) | PASS — all 6 test campaigns Off, $0.00 spent, "0 active campaigns" | Owner screenshots, 2026-07-29 session |
+| Chain deletion | PASS — "Multiple items deleted: 6 campaigns were deleted" | Owner screenshot, 2026-07-29; only pre-existing Marketplace drafts remain |
+| Zero spend | PASS — Amount spent $0 across all rows and account total | Same screenshots |
+| Server suite on each follow-up PR (#10–#14) | 993/993 PASS ×4 runs | `cd EchoAI && npm test`, 2026-07-28/29, Replit dev |
+| Regression lock added post-review: assertions for all 4 new Graph create fields (both paths) + Graph error-composition unit test | 994/994 PASS | `tests/facebookAdObject.test.js` (9 tests), full suite 2026-07-29 |
+
 ## 2026-07-27 — Prompt 003 v2 (Facebook ad object in both launch paths)
 
 | Check | Result | Evidence |
