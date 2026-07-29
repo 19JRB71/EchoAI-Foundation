@@ -726,8 +726,16 @@ const ACTIONS = [
         [session.brand_id],
       );
       const creativeId = latestCreative.rows[0] && latestCreative.rows[0].creative_id;
+      // Launching the generated creative needs the BRAND's own ad destination
+      // (per-brand Facebook Page + link) — never env vars. The connection is
+      // already verified above; the launch path re-checks it live.
+      const gateBrand = await db.query(
+        "SELECT facebook_page_id, ad_link_url FROM brands WHERE brand_id = $1",
+        [session.brand_id],
+      );
+      const brandDest = gateBrand.rows[0] || {};
       const canLaunchCreative =
-        creativeId && process.env.FACEBOOK_PAGE_ID && process.env.FACEBOOK_LINK_URL;
+        creativeId && brandDest.facebook_page_id && brandDest.ad_link_url;
 
       if (canLaunchCreative) {
         const launched = await invoke(adCreativeStudioController.launchCreative, userId, {

@@ -210,10 +210,14 @@ the project root `replit.md` — read that first; this file expands each subsyst
 - **Launch reuses the Facebook campaign infra** (`utils/facebookApi.js`
   graphPost): creates campaign + ad set + ad creative all **PAUSED**, records a
   `campaigns` row (so optimizer/analytics pick it up), then marks the creative
-  `launched` with `launched_package`/FB ids. **Fails fast with 503** if
-  `FACEBOOK_PAGE_ID`/`FACEBOOK_LINK_URL` are unset — never reports success for a
-  campaign that can't serve ads (no partial-launch state mutation). Decrypted FB
-  token via `getFacebookIntegration` (`api_integrations`, status `connected`).
+  `launched` with `launched_package`/FB ids. **Fails fast with 503** if the
+  brand has no `facebook_page_id`/`ad_link_url` (per-brand ad destination,
+  migration `models/127_brand_ad_destination.sql`) or its Page is no longer in
+  the owner's granted list (`api_integrations.facebook_pages`) — never reports
+  success for a campaign that can't serve ads (no partial-launch state
+  mutation). Env vars are never read; `page_ref` is only a wizard default
+  suggestion. Decrypted FB token via `getFacebookIntegration`
+  (`api_integrations`, status `connected`).
 - **Weekly performance refresh.** `updateCreativePerformanceForBrand(brand)` pulls
   real FB insights for launched creatives; wired **best-effort** (try/catch) into
   the Monday `scheduler.js` run so a failure (e.g. no FB account) never stops it.

@@ -361,7 +361,7 @@ function StepBody(props) {
     case "connect":
       return <ConnectStep oauthError={props.oauthError} />;
     case "verify":
-      return <VerifyStep goNext={props.goNext} />;
+      return <VerifyStep goNext={props.goNext} brandId={props.brandId} />;
     case "launch":
       return <LaunchStep brandId={props.brandId} enqueue={props.enqueue} finish={props.finish} />;
     default:
@@ -632,7 +632,7 @@ function CheckRow({ check }) {
   );
 }
 
-function VerifyStep({ goNext }) {
+function VerifyStep({ goNext, brandId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState(null); // { accounts, selectedAccountId, pages, selectedPageId }
@@ -687,7 +687,9 @@ function VerifyStep({ goNext }) {
   async function onSelectPage(id) {
     setData((d) => ({ ...d, selectedPageId: id }));
     try {
-      await api.selectFacebookPage(id);
+      // Page selection is written to the ACTIVE brand (per-brand ad Page);
+      // the server also keeps it as the default suggestion for new brands.
+      await api.selectFacebookPage(id, brandId);
       await runVerify();
     } catch (e) {
       setError(e.message);

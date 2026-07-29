@@ -253,7 +253,7 @@ async function getOrCreateState(userId) {
 
 async function getBrand(userId) {
   const { rows } = await db.query(
-    `SELECT brand_id, brand_name FROM brands
+    `SELECT brand_id, brand_name, facebook_page_id, ad_link_url FROM brands
      WHERE user_id = $1 AND is_demo = false ORDER BY created_at ASC LIMIT 1`,
     [userId],
   );
@@ -451,8 +451,22 @@ const ACTIVATION_STEPS = [
 async function runExec(userId, exec) {
   if (!exec || !exec.action) return "Done.";
   if (exec.action === "launch_campaign") {
+    // Launching the generated creative needs a fully configured brand ad
+    // destination (per-brand Facebook Page + link) AND a live Facebook
+    // connection; otherwise fall back to a standard campaign, whose launch
+    // path enforces the same brand-level guard honestly.
+    const gateBrand = await getBrand(userId);
+    const connectedRow = await db.query(
+      `SELECT 1 FROM api_integrations
+       WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected'`,
+      [userId],
+    );
     const canLaunchCreative =
-      exec.creativeId && process.env.FACEBOOK_PAGE_ID && process.env.FACEBOOK_LINK_URL;
+      exec.creativeId &&
+      gateBrand &&
+      gateBrand.facebook_page_id &&
+      gateBrand.ad_link_url &&
+      connectedRow.rows.length > 0;
     if (canLaunchCreative) {
       const launched = await invoke(adCreativeStudioController.launchCreative, userId, {
         body: { creativeId: exec.creativeId, packageIndex: 0, budget: exec.budget },

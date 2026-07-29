@@ -27,7 +27,7 @@ function normalizeAdAccountId(id) {
  */
 async function getFacebookIntegration(userId) {
   const result = await db.query(
-    `SELECT api_token_encrypted, account_ref, page_ref, connection_status
+    `SELECT api_token_encrypted, account_ref, facebook_pages, connection_status
      FROM api_integrations
      WHERE user_id = $1 AND platform = 'facebook'`,
     [userId]
@@ -43,8 +43,41 @@ async function getFacebookIntegration(userId) {
   return {
     accessToken: decrypt(row.api_token_encrypted),
     accountRef: row.account_ref,
-    pageRef: row.page_ref,
+    grantedPages: Array.isArray(row.facebook_pages) ? row.facebook_pages : [],
   };
+}
+
+/**
+ * Resolves the Facebook Page + destination link for an ad launch from the
+ * BRAND row (brands.facebook_page_id / brands.ad_link_url) — never from
+ * environment variables and never from the user-scoped page_ref (which is
+ * only a wizard default suggestion now). Also verifies the brand's Page is
+ * still in the owner's granted list; a revoked/no-longer-granted Page fails
+ * honestly with reconnect guidance instead of launching through a dead Page.
+ *
+ * Throws err.statusCode = 503 (config, not code, is the problem) so callers
+ * fail fast BEFORE creating any Facebook object.
+ */
+function resolveBrandAdDestination(brand, grantedPages) {
+  const pageId = brand.facebook_page_id;
+  const linkUrl = brand.ad_link_url;
+  if (!pageId || !linkUrl) {
+    const err = new Error(
+      !pageId
+        ? "This brand has no Facebook Page selected for ads. Pick a Page for this brand in the Facebook Setup Wizard, then try again."
+        : "This brand has no ad destination link. Add a website / destination link in the brand's settings, then try again."
+    );
+    err.statusCode = 503;
+    throw err;
+  }
+  if (!grantedPages.some((p) => p && p.id === pageId)) {
+    const err = new Error(
+      "This brand's Facebook Page is no longer available on your connected Facebook account. Reconnect Facebook and grant access to that Page (or pick a different Page for this brand), then try again."
+    );
+    err.statusCode = 503;
+    throw err;
+  }
+  return { pageId, linkUrl };
 }
 
 /**
@@ -157,25 +190,15 @@ async function connectFacebookAccount(req, res) {
 async function launchFacebookCampaign(p) {
   const { userId, brand, name, goal, budget, targetAudience, creativeOverride } = p;
 
-  const { accessToken, accountRef, pageRef } = await getFacebookIntegration(userId);
+  const { accessToken, accountRef, grantedPages } = await getFacebookIntegration(userId);
   const objective = GOAL_TO_OBJECTIVE[goal] || GOAL_TO_OBJECTIVE.leads;
   const campaignName = name || `${brand.brand_name} - ${goal}`;
   const dailyBudgetCents = Math.round(Number(budget) * 100);
 
   // Fail fast BEFORE creating any Facebook object: a deliverable chain needs a
-  // creative, which needs a Page + destination link. Never create a campaign or
-  // ad set that can't actually serve ads (mirrors the Ad Creative Studio guard).
-  const pageId = pageRef || process.env.FACEBOOK_PAGE_ID;
-  const linkUrl = process.env.FACEBOOK_LINK_URL;
-  if (!pageId || !linkUrl) {
-    const err = new Error(
-      !pageId
-        ? "No Facebook Page is connected. Finish the Facebook Setup Wizard to pick a Page, then try again."
-        : "Facebook ad creation is not configured. Set FACEBOOK_LINK_URL to launch campaigns."
-    );
-    err.statusCode = 503;
-    throw err;
-  }
+  // creative, which needs a Page + destination link — resolved from the BRAND
+  // row, never from env vars (mirrors the Ad Creative Studio guard).
+  const { pageId, linkUrl } = resolveBrandAdDestination(brand, grantedPages);
 
   const variations = creativeOverride
     ? [creativeOverride]
@@ -560,6 +583,7 @@ async function generateAdCreative(req, res) {
 module.exports = {
   connectFacebookAccount,
   launchFacebookCampaign,
+  resolveBrandAdDestination,
   createCampaign,
   optimizeCampaign,
   getCampaignPerformance,

@@ -849,10 +849,10 @@ export const api = {
       method: "POST",
       body: { accountId },
     }),
-  selectFacebookPage: (pageId) =>
+  selectFacebookPage: (pageId, brandId) =>
     request("/api/facebook/select-page", {
       method: "POST",
-      body: { pageId },
+      body: brandId ? { pageId, brandId } : { pageId },
     }),
   verifyFacebookConnection: () => request("/api/facebook/verify"),
   disconnectFacebook: () =>

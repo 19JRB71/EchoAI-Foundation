@@ -63,35 +63,53 @@ function installFetchMock() {
   };
 }
 
-async function connectFacebook(uid, { pageRef = "1400123456789" } = {}) {
+// Prompt 004: the Page + destination link are per-BRAND columns; the
+// connection only carries the granted-pages list (and page_ref as a wizard
+// suggestion that launch paths never read).
+const GRANTED_PAGES = [
+  { id: "1400123456789", name: "Test Page A" },
+  { id: "1400999888777", name: "Test Page B" },
+];
+
+async function connectFacebook(uid, { pages = GRANTED_PAGES } = {}) {
   await db.query(
     `INSERT INTO api_integrations
-       (user_id, platform, api_token_encrypted, account_ref, page_ref, connection_status)
-     VALUES ($1, 'facebook', $2, $3, $4, 'connected')
+       (user_id, platform, api_token_encrypted, account_ref, facebook_pages, connection_status)
+     VALUES ($1, 'facebook', $2, $3, $4::jsonb, 'connected')
      ON CONFLICT (user_id, platform) DO UPDATE
        SET api_token_encrypted = EXCLUDED.api_token_encrypted,
            account_ref = EXCLUDED.account_ref,
-           page_ref = EXCLUDED.page_ref,
+           facebook_pages = EXCLUDED.facebook_pages,
            connection_status = 'connected'`,
-    [uid, encrypt(`token-for-${uid}`), "act_999001", pageRef],
+    [uid, encrypt(`token-for-${uid}`), "act_999001", JSON.stringify(pages)],
   );
+}
+
+async function insertBrand(uid, name, { pageId = "1400123456789", linkUrl = "https://example.test/landing" } = {}) {
+  const { rows } = await db.query(
+    `INSERT INTO brands (user_id, brand_name, facebook_page_id, ad_link_url)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [uid, name, pageId, linkUrl],
+  );
+  return rows[0];
 }
 
 before(async () => {
   userId = await createTestUser();
   otherUserId = await createTestUser();
-  const { rows } = await db.query(
-    `INSERT INTO brands (user_id, brand_name) VALUES ($1, 'Ad Object Test Brand') RETURNING *`,
-    [userId],
-  );
-  brand = rows[0];
+  brand = await insertBrand(userId, "Ad Object Test Brand");
   await connectFacebook(userId);
-  process.env.FACEBOOK_LINK_URL = "https://example.test/landing";
+  // Prompt 004 regression guard: even if a deploy still carries these env
+  // vars, launch paths must NEVER read them. Misleading values here prove it —
+  // if any launch path consumed them, the Graph-param assertions would fail.
+  process.env.FACEBOOK_PAGE_ID = "9999999999999";
+  process.env.FACEBOOK_LINK_URL = "https://WRONG-env-link.example.test/";
 });
 
 after(async () => {
   global.fetch = realFetch;
   delete process.env.FACEBOOK_LINK_URL;
+  delete process.env.FACEBOOK_PAGE_ID;
   await deleteUser(userId);
   await deleteUser(otherUserId);
   await db.pool.end();
@@ -179,50 +197,103 @@ test("happy path: four linked Graph POSTs including /ads with PAUSED, ids persis
   });
 });
 
-test("fail-fast: missing Page/link errors BEFORE any Facebook object is created", async () => {
-  await connectFacebook(otherUserId, { pageRef: null });
-  const { rows } = await db.query(
-    `INSERT INTO brands (user_id, brand_name) VALUES ($1, 'No Page Brand') RETURNING *`,
-    [otherUserId],
+test("fail-fast: missing brand Page/link errors BEFORE any Facebook object is created", async () => {
+  await connectFacebook(otherUserId);
+  const noPageBrand = await insertBrand(otherUserId, "No Page Brand", { pageId: null });
+  await assert.rejects(
+    launchFacebookCampaign({
+      userId: otherUserId,
+      brand: noPageBrand,
+      goal: "leads",
+      budget: 5,
+      creativeOverride: { headline: "H", primaryText: "P" },
+    }),
+    /no Facebook Page selected/,
   );
-  const savedLink = process.env.FACEBOOK_LINK_URL;
-  const savedPage = process.env.FACEBOOK_PAGE_ID;
-  delete process.env.FACEBOOK_PAGE_ID;
-  try {
-    await assert.rejects(
-      launchFacebookCampaign({
-        userId: otherUserId,
-        brand: rows[0],
-        goal: "leads",
-        budget: 5,
-        creativeOverride: { headline: "H", primaryText: "P" },
-      }),
-      /No Facebook Page is connected/,
-    );
-    assert.equal(graphCalls.length, 0, "no Graph call may happen before the guard");
+  assert.equal(graphCalls.length, 0, "no Graph call may happen before the guard");
 
-    // Same guard for a missing destination link.
-    delete process.env.FACEBOOK_LINK_URL;
-    await assert.rejects(
-      launchFacebookCampaign({
-        userId, // has a page_ref
-        brand,
-        goal: "leads",
-        budget: 5,
-        creativeOverride: { headline: "H", primaryText: "P" },
-      }),
-      /FACEBOOK_LINK_URL/,
-    );
-    assert.equal(graphCalls.length, 0);
-    const n = await db.query(
-      "SELECT COUNT(*)::int AS n FROM campaigns WHERE user_id = ANY($1::uuid[])",
-      [[userId, otherUserId]],
-    );
-    assert.equal(n.rows[0].n, 0, "fail-fast must not record any campaign row");
-  } finally {
-    process.env.FACEBOOK_LINK_URL = savedLink;
-    if (savedPage) process.env.FACEBOOK_PAGE_ID = savedPage;
+  // Same guard for a missing destination link — env FACEBOOK_LINK_URL is set
+  // (misleading value) and must NOT rescue the launch.
+  const noLinkBrand = await insertBrand(otherUserId, "No Link Brand", { linkUrl: null });
+  await assert.rejects(
+    launchFacebookCampaign({
+      userId: otherUserId,
+      brand: noLinkBrand,
+      goal: "leads",
+      budget: 5,
+      creativeOverride: { headline: "H", primaryText: "P" },
+    }),
+    /no ad destination link/,
+  );
+  assert.equal(graphCalls.length, 0);
+  const n = await db.query(
+    "SELECT COUNT(*)::int AS n FROM campaigns WHERE user_id = ANY($1::uuid[])",
+    [[userId, otherUserId]],
+  );
+  assert.equal(n.rows[0].n, 0, "fail-fast must not record any campaign row");
+});
+
+test("fail-fast: brand Page no longer in the granted list → honest 503 reconnect guidance", async () => {
+  await connectFacebook(otherUserId, { pages: [{ id: "1400111222333", name: "Only Page" }] });
+  const revokedBrand = await insertBrand(otherUserId, "Revoked Page Brand"); // page not in grant
+  let thrown;
+  try {
+    await launchFacebookCampaign({
+      userId: otherUserId,
+      brand: revokedBrand,
+      goal: "leads",
+      budget: 5,
+      creativeOverride: { headline: "H", primaryText: "P" },
+    });
+  } catch (e) {
+    thrown = e;
   }
+  assert.ok(thrown, "a revoked Page must fail the launch");
+  assert.equal(thrown.statusCode, 503);
+  assert.match(thrown.message, /no longer available.*Reconnect Facebook/s);
+  assert.equal(graphCalls.length, 0, "no Graph call for a revoked Page");
+});
+
+test("two-brand isolation: same user, each brand launches through ITS OWN Page and link", async () => {
+  const brandA = await insertBrand(userId, "Iso Brand A", {
+    pageId: "1400123456789",
+    linkUrl: "https://brand-a.example.test/landing",
+  });
+  const brandB = await insertBrand(userId, "Iso Brand B", {
+    pageId: "1400999888777",
+    linkUrl: "https://brand-b.example.test/other",
+  });
+
+  for (const [b, expectedPage, expectedLink] of [
+    [brandA, "1400123456789", "https://brand-a.example.test/landing"],
+    [brandB, "1400999888777", "https://brand-b.example.test/other"],
+  ]) {
+    installFetchMock(); // reset capture per launch
+    await launchFacebookCampaign({
+      userId,
+      brand: b,
+      goal: "leads",
+      budget: 5,
+      creativeOverride: { headline: "H", primaryText: "P" },
+    });
+    const posts = graphCalls.filter((c) => c.method === "POST");
+    assert.deepEqual(
+      JSON.parse(posts[1].params.promoted_object),
+      { page_id: expectedPage },
+      `${b.brand_name}: ad set promotes ITS OWN page`,
+    );
+    const spec = JSON.parse(posts[2].params.object_story_spec);
+    assert.equal(spec.page_id, expectedPage, `${b.brand_name}: creative uses ITS OWN page`);
+    assert.equal(spec.link_data.link, expectedLink, `${b.brand_name}: creative links ITS OWN destination`);
+    assert.equal(
+      spec.link_data.call_to_action.value.link,
+      expectedLink,
+      `${b.brand_name}: CTA links ITS OWN destination`,
+    );
+  }
+  await db.query("DELETE FROM campaigns WHERE brand_id = ANY($1::uuid[])", [
+    [brandA.brand_id, brandB.brand_id],
+  ]);
 });
 
 test("partial failure on /ads: recorded as launch_failed with partial ids, error surfaced", async () => {
@@ -350,6 +421,73 @@ test("studio path: four linked POSTs incl. PAUSED /ads, ids persisted, response 
     [res.body.campaignId],
   );
   assert.deepEqual(rows[0], { facebook_creative_id: "cr_1", facebook_ad_id: "ad_1", status: "active" });
+});
+
+test("studio two-brand isolation: same user, each creative launches through ITS OWN brand's Page and link", async () => {
+  const brandA = await insertBrand(userId, "Studio Iso A", {
+    pageId: "1400123456789",
+    linkUrl: "https://studio-a.example.test/a",
+  });
+  const brandB = await insertBrand(userId, "Studio Iso B", {
+    pageId: "1400999888777",
+    linkUrl: "https://studio-b.example.test/b",
+  });
+  for (const [b, expectedPage, expectedLink] of [
+    [brandA, "1400123456789", "https://studio-a.example.test/a"],
+    [brandB, "1400999888777", "https://studio-b.example.test/b"],
+  ]) {
+    installFetchMock();
+    const { rows } = await db.query(
+      `INSERT INTO ad_creatives (brand_id, campaign_goal, creative_concept, status)
+       VALUES ($1, 'lead_generation', $2, 'draft') RETURNING creative_id`,
+      [
+        b.brand_id,
+        JSON.stringify({
+          packages: [
+            { conceptName: "C", angle: "a", headline: "H", bodyCopyVariations: ["B"], callToAction: "LEARN_MORE" },
+          ],
+        }),
+      ],
+    );
+    const res = fakeRes();
+    await adCreativeStudioController.launchCreative(
+      { user: { userId }, body: { creativeId: rows[0].creative_id, packageIndex: 0, budget: 7 } },
+      res,
+    );
+    assert.equal(res.statusCode, 201, JSON.stringify(res.body));
+    const posts = graphCalls.filter((c) => c.method === "POST");
+    assert.deepEqual(JSON.parse(posts[1].params.promoted_object), { page_id: expectedPage });
+    const spec = JSON.parse(posts[2].params.object_story_spec);
+    assert.equal(spec.page_id, expectedPage);
+    assert.equal(spec.link_data.link, expectedLink);
+  }
+  await db.query("DELETE FROM campaigns WHERE brand_id = ANY($1::uuid[])", [
+    [brandA.brand_id, brandB.brand_id],
+  ]);
+});
+
+test("studio path: unconfigured brand destination → honest 503, zero Graph calls", async () => {
+  const bareBrand = await insertBrand(userId, "Studio Bare Brand", { pageId: null, linkUrl: null });
+  const { rows } = await db.query(
+    `INSERT INTO ad_creatives (brand_id, campaign_goal, creative_concept, status)
+     VALUES ($1, 'lead_generation', $2, 'draft') RETURNING creative_id`,
+    [
+      bareBrand.brand_id,
+      JSON.stringify({
+        packages: [
+          { conceptName: "C", angle: "a", headline: "H", bodyCopyVariations: ["B"], callToAction: "LEARN_MORE" },
+        ],
+      }),
+    ],
+  );
+  const res = fakeRes();
+  await adCreativeStudioController.launchCreative(
+    { user: { userId }, body: { creativeId: rows[0].creative_id, packageIndex: 0, budget: 7 } },
+    res,
+  );
+  assert.equal(res.statusCode, 503);
+  assert.match(res.body.error, /no Facebook Page selected/);
+  assert.equal(graphCalls.length, 0, "no Graph call for an unconfigured brand");
 });
 
 test("studio path partial failure on /ads: 502 with partialChain + launch_failed row", async () => {

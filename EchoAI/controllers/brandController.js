@@ -159,6 +159,46 @@ async function updateBrand(req, res) {
     ["tiktokUrl", "tiktok_url", "tiktok"],
     ["googleBusinessUrl", "google_business_url", "google_business"],
   ];
+  // Prompt 004: per-brand ad destination link. Same authoritative-edit
+  // semantics (blank clears, malformed is a 400). This is where launched ads
+  // send clicks for THIS brand — validated as a normal http(s) URL.
+  const adLinkUrl = req.body.adLinkUrl !== undefined ? req.body.adLinkUrl : req.body.ad_link_url;
+  if (adLinkUrl !== undefined) {
+    const norm = normalizeWebsiteUrl(adLinkUrl);
+    if (!norm.ok) {
+      return res.status(400).json({ error: "adLinkUrl must be a valid web address (e.g. https://yourbusiness.com)" });
+    }
+    fields.push(`ad_link_url = $${idx++}`);
+    values.push(norm.value);
+  }
+  // Prompt 004: per-brand Facebook Page for ads. Settable ONLY to a Page in
+  // the owner's granted list (api_integrations.facebook_pages); blank clears.
+  const facebookPageId =
+    req.body.facebookPageId !== undefined ? req.body.facebookPageId : req.body.facebook_page_id;
+  if (facebookPageId !== undefined) {
+    if (facebookPageId === null || facebookPageId === "") {
+      fields.push(`facebook_page_id = $${idx++}`);
+      values.push(null);
+    } else {
+      if (typeof facebookPageId !== "string") {
+        return res.status(400).json({ error: "facebookPageId must be a Facebook Page id string" });
+      }
+      const grant = await db.query(
+        `SELECT facebook_pages FROM api_integrations
+         WHERE user_id = $1 AND platform = 'facebook'`,
+        [userId]
+      );
+      const pages = (grant.rows[0] && grant.rows[0].facebook_pages) || [];
+      if (!Array.isArray(pages) || !pages.some((p) => p && p.id === facebookPageId)) {
+        return res.status(400).json({
+          error:
+            "facebookPageId must be one of the Pages on your connected Facebook account. Reconnect Facebook if the Page is missing.",
+        });
+      }
+      fields.push(`facebook_page_id = $${idx++}`);
+      values.push(facebookPageId);
+    }
+  }
   for (const [bodyKey, col, platform] of SOCIAL_URL_FIELDS) {
     const value = req.body[bodyKey] !== undefined ? req.body[bodyKey] : req.body[col];
     if (value === undefined) continue;
@@ -184,7 +224,8 @@ async function updateBrand(req, res) {
        RETURNING brand_id, brand_name, brand_personality, voice_description,
                  visual_style_preferences, target_audience, brand_type,
                  website_url, facebook_page_url, instagram_url, linkedin_url,
-                 youtube_url, tiktok_url, google_business_url, updated_at`,
+                 youtube_url, tiktok_url, google_business_url,
+                 facebook_page_id, ad_link_url, updated_at`,
       values
     );
 

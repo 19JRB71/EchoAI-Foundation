@@ -3,6 +3,7 @@ const { anthropic, MODEL } = require("../config/anthropic");
 const { graphGet, graphPost, createPausedAd } = require("../utils/facebookApi");
 const { recordFailedLaunch, findExistingAdId } = require("../utils/facebookLaunchSafety");
 const { decrypt } = require("../utils/encryption");
+const { resolveBrandAdDestination } = require("./campaignController");
 const {
   CAMPAIGN_GOALS,
   AD_CREATIVE_DIRECTOR_SYSTEM_PROMPT,
@@ -80,7 +81,7 @@ async function getOwnedBrand(brandId, userId) {
  */
 async function getFacebookIntegration(userId) {
   const result = await db.query(
-    `SELECT api_token_encrypted, account_ref, page_ref, connection_status
+    `SELECT api_token_encrypted, account_ref, facebook_pages, connection_status
      FROM api_integrations
      WHERE user_id = $1 AND platform = 'facebook'`,
     [userId]
@@ -96,7 +97,7 @@ async function getFacebookIntegration(userId) {
   return {
     accessToken: decrypt(row.api_token_encrypted),
     accountRef: row.account_ref,
-    pageRef: row.page_ref,
+    grantedPages: Array.isArray(row.facebook_pages) ? row.facebook_pages : [],
   };
 }
 
@@ -358,7 +359,8 @@ async function launchCreative(req, res) {
   try {
     // Ownership: join to brands on user_id so a foreign creative 404s.
     const creativeResult = await db.query(
-      `SELECT ac.*, b.user_id, b.brand_name, b.geo_targeting
+      `SELECT ac.*, b.user_id, b.brand_name, b.geo_targeting,
+              b.facebook_page_id, b.ad_link_url
        FROM ad_creatives ac
        JOIN brands b ON b.brand_id = ac.brand_id
        WHERE ac.creative_id = $1 AND b.user_id = $2`,
@@ -382,21 +384,24 @@ async function launchCreative(req, res) {
       return res.status(400).json({ error: "packageIndex is out of range" });
     }
 
-    const { accessToken, accountRef, pageRef } = await getFacebookIntegration(userId);
+    const { accessToken, accountRef, grantedPages } = await getFacebookIntegration(userId);
 
     // A real, deliverable launch needs an ad creative, which requires a Facebook
-    // Page + destination link. The Page comes from the owner's Setup Wizard
-    // selection (page_ref); fall back to FACEBOOK_PAGE_ID for legacy setups.
+    // Page + destination link — resolved from the BRAND row (never env vars,
+    // never the user-scoped page_ref, which is only a wizard suggestion now).
     // Fail fast (before creating any campaign/ad set) so we never report success
     // for a campaign that can't actually serve ads.
-    const pageId = pageRef || process.env.FACEBOOK_PAGE_ID;
-    const linkUrl = process.env.FACEBOOK_LINK_URL;
-    if (!pageId || !linkUrl) {
-      return res.status(503).json({
-        error: !pageId
-          ? "No Facebook Page is connected. Finish the Facebook Setup Wizard to pick a Page, then try again."
-          : "Facebook ad creation is not configured. Set FACEBOOK_LINK_URL to launch creatives.",
-      });
+    let pageId, linkUrl;
+    try {
+      ({ pageId, linkUrl } = resolveBrandAdDestination(
+        { facebook_page_id: creative.facebook_page_id, ad_link_url: creative.ad_link_url },
+        grantedPages
+      ));
+    } catch (destErr) {
+      if (destErr.statusCode === 503) {
+        return res.status(503).json({ error: destErr.message });
+      }
+      throw destErr;
     }
     const objective = GOAL_TO_OBJECTIVE[creative.campaign_goal] || GOAL_TO_OBJECTIVE.lead_generation;
     const campaignName = `${creative.brand_name} - ${pkg.conceptName || pkg.angle || "Creative"}`;
