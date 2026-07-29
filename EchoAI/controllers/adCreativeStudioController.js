@@ -312,7 +312,10 @@ async function getCreativeLibrary(req, res) {
  * unresolved interest IDs.
  */
 function buildTargeting(audienceTargeting = {}, brandGeo = null) {
-  const targeting = {};
+  // Required by Facebook (subcode 1870227): the targeting spec must state the
+  // Advantage Audience flag explicitly. We build explicit targeting, so it is
+  // disabled (0) — never let Facebook auto-expand past our geo hard blocks.
+  const targeting = { targeting_automation: { advantage_audience: 0 } };
   // Brand geo targeting/exclusions are a HARD BLOCK over any AI-suggested geo.
   const geoSpec = fbGeoLocations(brandGeo);
   if (geoSpec) {

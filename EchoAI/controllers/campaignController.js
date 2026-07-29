@@ -51,7 +51,10 @@ async function getFacebookIntegration(userId) {
  * Builds a Facebook targeting spec from supplied audience details.
  */
 function buildTargeting(targetAudience = {}, brandGeo = null) {
-  const targeting = {};
+  // Required by Facebook (subcode 1870227): the targeting spec must state the
+  // Advantage Audience flag explicitly. We build explicit targeting, so it is
+  // disabled (0) — never let Facebook auto-expand past our geo hard blocks.
+  const targeting = { targeting_automation: { advantage_audience: 0 } };
 
   // Brand geographic targeting + exclusion zones are a HARD BLOCK: when
   // configured they override any audience-supplied countries entirely.
