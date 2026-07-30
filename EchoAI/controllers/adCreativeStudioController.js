@@ -165,7 +165,10 @@ async function generateCreativePackagesForBrand(brand, opts = {}) {
   try {
     response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 4096,
+      // Five full creative packages regularly exceed 4096 output tokens; a
+      // truncated response either fails JSON parsing or silently drops
+      // package 5's fields. 8192 gives comfortable headroom.
+      max_tokens: 8192,
       system: AD_CREATIVE_DIRECTOR_SYSTEM_PROMPT,
       messages: [{ role: "user", content: prompt }],
     });
@@ -175,6 +178,14 @@ async function generateCreativePackagesForBrand(brand, opts = {}) {
     const wrapped = new Error(err.message || "AI request failed");
     wrapped.statusCode = 502;
     throw wrapped;
+  }
+
+  // A response cut off at the output-token cap is an upstream AI problem —
+  // surface it honestly as 502 instead of a confusing parse/validation error.
+  if (response.stop_reason === "max_tokens") {
+    const err = new Error("AI response was truncated — please try again");
+    err.statusCode = 502;
+    throw err;
   }
 
   const parsed = parseJsonResponse(extractText(response));
