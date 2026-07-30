@@ -4,6 +4,29 @@
 
 **Last updated:** 2026-07-30.
 
+## 2026-07-30 — Prompt 015 code phase (dev environment)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Server suite | PASS — **1035/1035** (baseline 1014 + 21 new) | `npm test` in `EchoAI/` (node --test) |
+| New suite `tests/spendCapControls.test.js` | 21 tests: deny-by-default (no brand cap / no platform row / brand SUM / platform SUM), term-6 pending sums, denial = audit row + ZERO Graph calls, atomic compensation (order ad→adset→campaign, PAUSED re-pause bodies, marker NULL), idempotent no-ops (no Graph, no audit), pause campaign-first + marker clear (incl. partial-failure regression pair), refresh recognition-only (zero POSTs), tenant isolation 404s, launch-path ACTIVE grep-proof, money round-trips incl. NUMERIC strings | test file + suite output |
+| Client suite / build | PASS — 385/385; vite build green (sw v158 in dist) | `npm test` in client; `npm run build:client` |
+| Migration 129 | Applied to dev (`+ applied 129_ad_spend_caps.sql`, platform row = 2500¢ verified) and test DB (pretest runner) | migration runner output + psql check |
+| Architect review | 1 critical finding (stale pending marker on partial pause) — fixed, 2 regression tests added, suite re-run green | review transcript in session |
+| Staging denial proof | **PENDING owner steps** — unpause without cap ⇒ denial screenshot + `ad_spend_audit` `result='denied'` row via read-only `$STAGING_DATABASE_URL`; NO real unpause-to-spend (D-7) | to be recorded here after merge/deploy |
+
+## 2026-07-30 — Prompt 005 staging live proof (SDS2)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Deploy SHA = PR #17 merge | PASS — `/api/health` `6a5e508` (parents `a65e2f5`+`bc6ee20`) | curl + GitHub API |
+| Migration 128 on staging | PASS — 2 `active`→`created_paused`, 7 `launch_failed` preserved, 0 other; new columns + default `created_paused` | staging DB read-only query |
+| Launch ends `created_paused` | PASS — row `626851f3…`: full FB chain `120249449573260774`→`120249449573460774`→`920566577037015`→`120249449574540774`, $5, `last_verified_at`/`last_verify_error` NULL | staging DB + owner screenshot |
+| Required UI copy | PASS — amber "Created (paused at Facebook — will not spend until enabled)" on new + both migrated rows; no green Live anywhere | owner screenshot |
+| Ads Manager matches | PASS — campaign Off, no delivery, $0 spent; 3 pre-existing drafts untouched | owner screenshot |
+| Chain deleted, zero spend | PASS — deletion published ("1 campaign was published" = Ads Manager applying the delete edit); list back to 3 drafts; account $0 | owner screenshot |
+| Ad Creative Studio truncation fix (PR #18, `cc94b78`) | PASS — root cause reproduced locally (parse fail + missing-body-copy), 3/3 clean after max_tokens 8192 + honest truncation 502 | local curl runs, suite 1014/1014 |
+
 ## 2026-07-30 — Prompt 005 code phase (local)
 
 | Check | Result | Evidence |
