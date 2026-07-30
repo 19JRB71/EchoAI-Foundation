@@ -116,7 +116,7 @@ const GATHERERS = {
     brand: await brandSnapshot(brandId),
     campaigns: await one(
       `SELECT COUNT(*)::int AS n, MAX(updated_at)::text AS last
-         FROM campaigns WHERE brand_id = $1 AND status = 'active'`,
+         FROM campaigns WHERE brand_id = $1 AND status IN ('created_paused', 'live')`,
       [brandId],
     ),
     bucket: dayBucket(),
@@ -141,7 +141,7 @@ const GATHERERS = {
     bucket: isoWeekBucket(),
     campaigns: await one(
       `SELECT COUNT(*)::int AS n, MAX(updated_at)::text AS last
-         FROM campaigns WHERE brand_id = $1 AND status = 'active'`,
+         FROM campaigns WHERE brand_id = $1 AND status IN ('created_paused', 'live')`,
       [brandId],
     ),
     leads: await one(

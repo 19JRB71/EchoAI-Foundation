@@ -107,7 +107,7 @@ async function sweepAnalyticsCoverageGaps() {
     `SELECT DISTINCT c.brand_id
        FROM campaigns c
        JOIN brands b ON b.brand_id = c.brand_id AND b.is_demo = false
-      WHERE c.status = 'active'
+      WHERE c.status = 'live'
         AND NOT EXISTS (
           SELECT 1 FROM analytics a
            WHERE a.brand_id = c.brand_id

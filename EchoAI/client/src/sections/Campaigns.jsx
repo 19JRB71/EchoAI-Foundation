@@ -115,14 +115,28 @@ export default function Campaigns({ brandId }) {
 }
 
 function StatusPill({ status }) {
-  const ok = status === "active";
+  // Honest lifecycle states (Prompt 005): a campaign is only ever "Live" after
+  // a Facebook read-back confirmed the whole chain is ACTIVE.
+  const LABELS = {
+    live: "Live",
+    created_paused: "Created (paused at Facebook — will not spend until enabled)",
+    launch_failed: "Launch failed",
+    draft: "Draft",
+    approved: "Approved",
+    completed: "Completed",
+    failed: "Failed",
+  };
+  const styles =
+    status === "live"
+      ? "bg-green-100 text-green-700"
+      : status === "created_paused"
+        ? "bg-amber-100 text-amber-700"
+        : status === "launch_failed" || status === "failed"
+          ? "bg-red-100 text-red-700"
+          : "bg-gray-800 text-gray-400";
   return (
-    <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        ok ? "bg-green-100 text-green-700" : "bg-gray-800 text-gray-400"
-      }`}
-    >
-      {status || "unknown"}
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles}`}>
+      {LABELS[status] || status || "unknown"}
     </span>
   );
 }

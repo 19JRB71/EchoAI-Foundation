@@ -1,6 +1,46 @@
 # TEST_EVIDENCE_INDEX.md — Zorecho Test & Verification Evidence Index
 
-**Last updated:** 2026-07-26. Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
+ Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
+
+**Last updated:** 2026-07-30.
+
+## 2026-07-30 — Prompt 005 code phase (local)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Server suite after state machine + consumer updates | PASS — 1014/1014 (998 baseline + 16 new) | `cd EchoAI && npm test`, 2026-07-30; new file `tests/campaignStateMachine.test.js` |
+| Client suite + build | PASS — 385/385; vite build green; shell cache v157 | `cd EchoAI/client && npx vitest run`; `npm run build:client` |
+| Impossible-to-render-live | PASS — direct `created_paused→live` write throws without the verification authority; read-back fail-closed both directions | tests: "IMPOSSIBLE-TO-RENDER-LIVE…", read-back tests in `campaignStateMachine.test.js` |
+| Migration 128 mapping | PASS — dev DB: 9 `active`→9 `created_paused`, 0 unexpected; staging preflight counts: 2 `active`, 7 `launch_failed`, 0 other | `node utils/runMigrations.js` output + read-only staging query, 2026-07-30 |
+| Recognition-only (no mutating Graph calls added) | PASS — grep over full diff: zero `graphPost`/POST additions | grep-proof, 2026-07-30 |
+| Architect review round | DONE — 2 findings fixed (weekly-analytics discovery, admin spend `live`-only), re-run 1014/1014 | review notes, 2026-07-30 |
+
+## 2026-07-29 — Prompt 004 v3 staging live proof (SDS2)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Deploy SHA = PR #16 merge | PASS — `/api/health` version `a65e2f5` (parents `add2ecda`+`1565a353`) | curl + GitHub API, 2026-07-29 |
+| Migration 127 + backfill on staging | PASS — brand columns exist; Pole Barn Kits got Page `140006069194366` from `page_ref`, `ad_link_url` NULL (no website stored — correct, never fabricated) | staging DB read-only query |
+| App healthy with `FACEBOOK_LINK_URL` deleted from Railway | PASS — health OK across redeploy | curl polls |
+| Unconfigured brand launch → honest 503, zero FB objects | PASS — "This brand has no ad destination link. Add a website / destination link in the brand's settings, then try again."; 0 new campaigns rows; creative stayed `draft`, no FB ids | owner screenshot + staging DB |
+| Configured brand launch from brand data only | PASS — full PAUSED chain: campaign `120249425003060774` → ad set `120249425003620774` → creative `1511205266964014` → ad `120249425006940774`; brand row shows Page `140006069194366` + `https://polebarnkits.com/` (env var already gone) | staging DB + owner screenshots |
+| Ads Manager: Off/$0, chain deleted | PASS — campaign Off, no spend; "Campaign deleted — 1 campaign was deleted"; account total $0 | owner screenshots, 2026-07-29 |
+
+## 2026-07-29 — Prompt 004 v3 code phase (per-brand Page + link, D-20 Option C)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Zero env reads (`FACEBOOK_PAGE_ID`/`FACEBOOK_LINK_URL`) in server code | PASS — grep across controllers/utils/jobs/middleware/routes returns NONE | grep run 2026-07-29, Replit dev |
+| Zero `page_ref` reads in launch paths | PASS — only comments mention it | same grep run |
+| Env values cannot influence launches | PASS — suite runs with misleading env values set; Graph captures assert brand values | `tests/facebookAdObject.test.js` before() hook |
+| Two-brand same-user isolation (shared launcher) | PASS — each chain's promoted_object, object_story_spec.page_id, link_data.link, CTA link match ITS brand | "two-brand isolation" test |
+| Two-brand isolation (Ad Creative Studio) | PASS | "studio two-brand isolation" test |
+| Revoked / no-longer-granted Page | PASS — 503 reconnect guidance, zero Graph calls | "brand Page no longer in the granted list" test |
+| Unconfigured brand (no page/link) | PASS — 503, zero Graph calls, no campaign row | fail-fast + studio-unconfigured tests |
+| Prompt 003 regression (4 Graph POSTs, PAUSED, mid-2026 fields) | PASS — unchanged assertions still green | same file, happy-path + studio tests |
+| Server suite | **998/998** PASS (994 + 4 new) | `cd EchoAI && npm test`, 2026-07-29, Replit dev |
+| Client suite / production build | **385/385** PASS / build green | `npm test` (client), `npm run build:client`, 2026-07-29 |
+| Migration 127 applies cleanly (dev + test DB) | PASS — "1 applied, 131 skipped"; backfill row counts logged | runMigrations + setupTestDb output, 2026-07-29 |
 
 ## 2026-07-29 — Prompt 003 v2 staging external proof (PAUSED chain on SDS2)
 

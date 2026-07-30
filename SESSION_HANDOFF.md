@@ -1,40 +1,33 @@
 # SESSION_HANDOFF.md — Zorecho
 
-**Written:** 2026-07-27, during REPLIT_PROMPT_003 v2. Overwrite this file at the end of every prompt/session.
+**Written:** 2026-07-30, during REPLIT_PROMPT_005 v2 (+ owner addendum v3, binding). Overwrite this file at the end of every prompt/session.
 
 ## Where we are
 
-- REPLIT_PROMPT_003 v2 (Facebook ad object in both launch paths): **COMPLETE** (2026-07-29 — staging external proof done).
-  - **Staging proof (2026-07-29):** full PAUSED chain created on SDS2 via Ad Creative Studio ("Pole Barn Kits - Tipping Point", $5/day): campaign `120249420223810774`, ad set `120249420224360774`, creative `1408353584447141`, ad `120249420227100774`. Verified Off/$0 in Ads Manager (owner screenshots). All 6 test campaigns (1 complete + 5 partial from the iteration) deleted via Ads Manager bulk delete ("6 campaigns were deleted" confirmation captured); zero spend throughout.
-  - **Mid-2026 Facebook Graph API changes discovered & fixed (5 follow-up PRs into `staging`, each 993/993):** PR #10 surface `error_user_title/error_user_msg`+code/subcode in Graph errors (`utils/facebookApi.js`); PR #11 campaign create requires `is_adset_budget_sharing_enabled:false` (subcode 4834011); PR #12 ad set requires explicit `bid_strategy:"LOWEST_COST_WITHOUT_CAP"` (2490487); PR #13 targeting requires `targeting_automation.advantage_audience:0` (1870227); PR #14 ad set requires `promoted_object:{page_id}` (1885154). Both launch paths patched. Staging tip after PR #14: `1389e7a`.
-  - **Environment prerequisites established:** `FACEBOOK_LINK_URL=https://staging.zorecho.com` set on Railway staging (prolific-perception); the Meta app was **published to Live** by the owner (dev-mode apps cannot create ads from their creatives, subcode 1885183) — production launches need both.
-  - Temp fine-grained GitHub PAT used for the 5 surgical branch pushes; owner to delete the token + the `GITHUB_PUSH_TOKEN` secret (same cleanup as the Prompt 003 deploy).
-  - Shared `createPausedAd` (only `/ads` POST, PAUSED asserted); fail-fast Page/link guard; duplicate-ad guard; `facebook_ad_id` persisted only after FB returns it; partial chains recorded (`launch_failed` + partial ids) and surfaced via `partialChain`; four ids logged per launch; Autopilot shares the single launcher (test-asserted).
-  - Migration `EchoAI/models/126_facebook_ad_object.sql` (additive). Tests +8 (`tests/facebookAdObject.test.js`); suite **993/993** (`/tmp/prompt003_full_run.log`). Architect review round done, blocking findings fixed.
-  - Remaining: owner merges to `staging`, then one live launch on staging → Ads Manager screenshot of the paused campaign→ad set→ad chain → delete the chain (record deletion responses) → confirm zero spend.
-  - **Deployment correction applied (CEO, 2026-07-27):** migration renamed `125_facebook_ad_object.sql` → `126_facebook_ad_object.sql` (staging already has Prompt 010's `125_job_runs.sql`; 126 verified unused on the live `staging` branch, tip `6799def`). Deploy via a dedicated Prompt 003 branch into `staging` — never a main→staging PR; leave `main` untouched; no force pushes.
-  - **Continuity item for Prompt 005:** the new `campaigns.status = 'launch_failed'` value must be incorporated into Prompt 005's campaign-state migration and consumer inventory (any query filtering by campaign status must decide how to treat `launch_failed` rows).
-  - Behavior change to know: `launchFacebookCampaign` now 503s when no Page/link instead of silently creating an undeliverable campaign+adset (affects setup agent / echo companion fallback paths — honest failure, step recorded skipped, never blocks setup).
-- REPLIT_PROMPT_002 v2 (Facebook staging connect + Page + ad-account selection): **COMPLETE** (2026-07-27).
-  - Live staging verification only — **zero code changes, zero migrations**. Staging deployed at SHA `62ea1fc` (contains all accepted Phase A).
-  - Connected via South Dixie Storage (owner decision D — own-business testing): SDS2 ad account (`act_8186…`), South Dixie Storage Page; integration row `23c39a73-8486-49a1-b734-3979c1516527` (user-scoped, by design).
-  - All 4 live probes green pre- AND post-reconnect; revoke-and-reconnect proven by row `updated_at` advance (07-24 17:44 → 07-27 14:57 UTC) with refs intact. Consent screenshot: owner-attested only (see TEST_EVIDENCE_INDEX).
-  - Lesson recorded: FB re-consent silently re-applies the prior grant; pages snapshot shrank 19→1 (memory: echoai-fb-reconnect-grant).
-- Phase A (012, 001, 013, 014, 008): **all COMPLETE and owner-accepted**; merged to `staging` branch and deployed.
+- REPLIT_PROMPT_005 v2 (honest campaign lifecycle with Facebook read-back verification): **code phase COMPLETE locally** (2026-07-30). Server **1014/1014** (baseline 998 + 16 new in `tests/campaignStateMachine.test.js`), client **385/385**, build green, migration `128_campaign_state_machine.sql` applied to dev + test DBs (dev: 9 `active` → 9 `created_paused`). Architect review round done (2 findings fixed: `runWeeklyAnalytics` brand discovery still on `'active'`; admin `adSpendManaged` now `live`-only).
+- **Pending:** branch + PR into `staging` off tip `a65e2f5` (waiting on owner: GitHub PAT status — the Prompt 004 temp PAT was to be deleted; a fresh fine-grained PAT is needed for the push), then staging deploy, then the SDS2 external proof (launch ends `created_paused`, UI copy shown, Ads Manager matches, delete chain, record deletion response, zero spend).
+- Prior: REPLIT_PROMPT_004 v3 **COMPLETE** (PR #16, deployed `a65e2f5`, live-verified on SDS2, `FACEBOOK_LINK_URL` removed from Railway).
 
-## Next prompt to execute
+## What Prompt 005 changed (summary)
 
-Prompt 002 unblocks **003 (missing FB ad object), 004 (per-brand ad Page/link), 006 (real FB post + email proof), 016 (Google data pull)**. Await the CEO's chosen next prompt text. Note the prompt index also lists 010 (a Task #124 proposal appeared in the project task queue).
+- Legal states: `draft, approved, created_paused, live, completed, failed, launch_failed`. Launches insert `created_paused`. No writers exist for `completed`/`failed` (future prompts).
+- `utils/campaignState.js` — the single state machine. Every domain-state change goes through `transitionCampaignStatus` (guarded UPDATE, row-count branch, illegal transitions throw). `created_paused⇔live` requires a private authority token held ONLY by the verification helper.
+- `utils/campaignVerification.js` — `verifyCampaignStatus(campaignId)`, the Single Verification Authority: GET-only Graph read-back (campaign + ad set + EVERY ad must have `status`==ACTIVE AND `effective_status`==ACTIVE; zero ads ≠ live). Failed read-back: state unchanged + `last_verify_error`. Success: `last_verified_at` stamped, error cleared, honest flips both directions. Token comes from the campaign row's OWN user (tenant isolation).
+- Owner ruling (2026-07-30, recorded): Autonomous Growth must NEVER write `campaigns.status` directly. Its legacy `paused` writer was removed; the engine is scoped to `live` rows (correctly dormant until Prompt 015 ships unpause); after its provider-side FB pause it calls the verification helper best-effort.
+- Committed spend counts ONLY `live`: `spendLimits.getBrandSpend`, `adminController` platform stats (`campaignsRunning`, `adSpendManaged`), AG `monthToDateSpend`. NO budget-reservation feature (addendum G).
+- Presence consumers moved to `IN ('created_paused','live')`; `dataQualitySentry` analytics-coverage sweep deliberately narrowed to `live`.
+- UI: Campaigns `StatusPill` — `created_paused` shows **"Created (paused at Facebook — will not spend until enabled)"** (amber); `live` green only after verification; `launch_failed` red. PWA shell cache v156→v157; dist rebuilt.
+- Recognition-only proven: diff adds zero mutating Graph calls (grep-proof in the report). Unpause is Prompt 015's alone.
 
-## Standing context for the next session
+## Next steps (in order)
 
-- Read `CURRENT_STATE.md` first, then `ZORECHO_OPERATIONAL_ROADMAP.md` for execution order and the CEO validation cadence.
-- Staging deploys from the GitHub `staging` branch (PR main→staging; Railway auto-deploys; verify via `https://staging.zorecho.com/api/health` version field). Agent cannot push/create refs — owner merges via GitHub.
-- Staging DB is verifiable read-only via `STAGING_DATABASE_URL` (`SET default_transaction_read_only = on`).
-- Evidence rule, End-of-Prompt Report format, commit-hash lag note, rollback line: all still mandatory. `GLOBAL_PROMPT_RULES.md` still not in repo.
+1. Owner: confirm Prompt 004 temp PAT deleted; provide a fresh fine-grained PAT (`GITHUB_PUSH_TOKEN` secret) for the Prompt 005 push.
+2. Verify migration slot 128 still free on the live `staging` tip at push time; branch `prompt-005-campaign-states` off current staging tip (`a65e2f5` as of 2026-07-30) via the git-plumbing recipe (never `git branch/tag` from the shell); PR into `staging`; owner merges.
+3. Staging external proof on SDS2 per addendum H; then final End-of-Prompt report + doc updates to COMPLETE.
 
-## Open follow-ups (operational, non-blocking)
+## Continuity items
 
-1. Restore drill against a real Railway staging backup (`ROLLBACK.md` §3).
-2. Enable PITR on both Railway Postgres services.
-3. Set a backup schedule on both Railway Postgres services.
+- `launch_failed → approved` (explicit retry) and `approved → created_paused` are legal in the machine but NO retry endpoint exists yet — a future prompt may add it, reusing the Prompt 003 duplicate-ad guard.
+- Prompt 015 (unpause) must use `verifyCampaignStatus` for the `live` flip — never a direct write; the authority token stays private to `utils/campaignVerification.js`.
+- Demo seeder rows now default to `created_paused` (column default changed in 128).
+- I-22 recommendation stands (Ad Creative Studio still assembles its own chain — consolidation candidate).

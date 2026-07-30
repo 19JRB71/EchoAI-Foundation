@@ -124,5 +124,7 @@
 - [Zorecho ops roadmap governance](echoai-operational-roadmap.md) — roadmap doc governs execution order; 1-week CEO validation pause after every major milestone; no new governance docs unprompted.
 - [Blocked git ref lockfiles](echoai-git-ref-lockfile.md) — never `git tag/branch` from the agent shell; blocked attempts leave `.git/**/*.lock` that break the user's Git panel Push.
 - [Facebook reconnect grant behavior](echoai-fb-reconnect-grant.md) — re-consent silently re-applies the prior grant (pages snapshot may shrink to the selected one); verify reconnect via row updated_at, not the consent screen.
-- [EchoAI scheduler claims + job_runs](echoai-job-runs-claims.md) — every tick's job_runs INSERT is the cross-replica claim; gated ticks record skipped never success; RUN_SCHEDULER gate; inventory is 42 jobs not 43.
+- [FB Graph mid-2026 create fields](echoai-fb-graph-2026-fields.md) — required explicit campaign/ad-set flags; dev-mode apps can't back ads; surface error_user_msg.
+- [EchoAI campaign lifecycle](echoai-campaign-lifecycle.md) — never write campaigns.status directly; live only via verifyCampaignStatus read-back; committed spend = live only; presence = created_paused+live.
+- [EchoAI per-brand ad destination](echoai-brand-ad-destination.md) — ad launches resolve Page+link from brand columns only (never env/page_ref); granted-list check throws 503 pre-Graph; page_ref = wizard suggestion only.
 - [EchoAI provider readiness gate](echoai-provider-readiness-gate.md) — Connect buttons gated by server providerReadiness (provider-keyed!); via-cards (calendar→google, instagram→facebook) gate by meta.oauth, absent map fails open.

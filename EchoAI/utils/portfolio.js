@@ -87,7 +87,7 @@ async function computeHealthForBrand(brandId) {
       [brandId, since7, since14],
     ),
     db.query(
-      `SELECT COUNT(*) FILTER (WHERE status = 'active')::int AS active
+      `SELECT COUNT(*) FILTER (WHERE status IN ('created_paused', 'live'))::int AS active
        FROM campaigns WHERE brand_id = $1`,
       [brandId],
     ),

@@ -193,7 +193,7 @@ test("happy path: four linked Graph POSTs including /ads with PAUSED, ids persis
     facebook_adset_id: "as_1",
     facebook_creative_id: "cr_1",
     facebook_ad_id: "ad_1",
-    status: "active",
+    status: "created_paused",
   });
 });
 
@@ -420,7 +420,7 @@ test("studio path: four linked POSTs incl. PAUSED /ads, ids persisted, response 
     `SELECT facebook_creative_id, facebook_ad_id, status FROM campaigns WHERE campaign_id = $1`,
     [res.body.campaignId],
   );
-  assert.deepEqual(rows[0], { facebook_creative_id: "cr_1", facebook_ad_id: "ad_1", status: "active" });
+  assert.deepEqual(rows[0], { facebook_creative_id: "cr_1", facebook_ad_id: "ad_1", status: "created_paused" });
 });
 
 test("studio two-brand isolation: same user, each creative launches through ITS OWN brand's Page and link", async () => {

@@ -180,9 +180,11 @@ async function connectFacebookAccount(req, res) {
  * Launches a Facebook campaign + ad set for an OWNED brand and stores the
  * record in the campaigns table. Shared by the manual create-campaign endpoint
  * and Autopilot's approve-ad path so both go through the exact same steps.
- * The Facebook objects are created PAUSED (nothing spends until reviewed at
- * Facebook), while the local row is 'active' — its daily budget counts toward
- * the owner's committed spend from launch.
+ * The Facebook objects are created PAUSED (nothing spends until enabled at
+ * Facebook), and the local row honestly says so: it is inserted as
+ * 'created_paused'. Only the verification helper (Facebook read-back) can
+ * ever mark a campaign 'live', and only live campaigns count as committed
+ * spend.
  *
  * @param {object} p { userId, brand, name?, goal, budget, targetAudience?, creativeOverride? }
  * @returns {{campaignId, facebookCampaignId, facebookAdSetId, facebookCreativeId, objective}}
@@ -313,7 +315,7 @@ async function launchFacebookCampaign(p) {
          (brand_id, user_id, campaign_name, budget, ad_creative_variations,
           launch_date, facebook_campaign_id, facebook_adset_id,
           facebook_creative_id, facebook_ad_id, status)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'active')
+       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'created_paused')
        RETURNING campaign_id`,
       [
         brand.brand_id,
@@ -421,7 +423,7 @@ async function optimizeCampaign(req, res) {
     const campaignsResult = await db.query(
       `SELECT campaign_id, campaign_name, budget, facebook_campaign_id, facebook_adset_id
        FROM campaigns
-       WHERE user_id = $1 AND status = 'active' AND facebook_campaign_id IS NOT NULL`,
+       WHERE user_id = $1 AND status IN ('created_paused', 'live') AND facebook_campaign_id IS NOT NULL`,
       [userId]
     );
 
@@ -507,7 +509,7 @@ async function getCampaignPerformance(req, res) {
                 c.conversion_rate, c.launch_date, c.facebook_campaign_id, c.status
          FROM campaigns c
          JOIN brands b ON b.brand_id = c.brand_id AND b.user_id = $1
-         WHERE c.brand_id = $2 AND c.status = 'active'
+         WHERE c.brand_id = $2 AND c.status IN ('created_paused', 'live')
          ORDER BY c.launch_date DESC`,
         [userId, brandId]
       );
@@ -518,7 +520,7 @@ async function getCampaignPerformance(req, res) {
                 c.conversion_rate, c.launch_date, c.facebook_campaign_id, c.status
          FROM campaigns c
          LEFT JOIN brands b ON b.brand_id = c.brand_id
-         WHERE c.user_id = $1 AND c.status = 'active'
+         WHERE c.user_id = $1 AND c.status IN ('created_paused', 'live')
            AND COALESCE(b.is_demo, false) = false
          ORDER BY c.launch_date DESC`,
         [userId]

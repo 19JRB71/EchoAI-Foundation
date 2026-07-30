@@ -532,7 +532,7 @@ async function getMissionControlV2(req, res) {
     // Greeting + briefing (owner's local clock — never "Good morning" at 5pm).
     const tod = await userPartOfDay(userId);
     const leadsWeek = bid ? await n("SELECT COUNT(*)::int AS n FROM leads WHERE brand_id = $1 AND created_at > NOW() - INTERVAL '7 days'", [bid]) : 0;
-    const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
+    const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status IN ('created_paused', 'live')", [bid]) : 0;
     const fixesWeek = bid ? await n("SELECT COALESCE(SUM(issues_auto_fixed),0)::int AS n FROM health_checks WHERE brand_id = $1 AND check_time > NOW() - INTERVAL '7 days'", [bid]) : 0;
     const attentionNames = roster.filter((a) => a.status === "attention").map((a) => a.name);
     const briefing =

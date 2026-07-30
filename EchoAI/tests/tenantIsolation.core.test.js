@@ -99,7 +99,7 @@ async function seedTenant(tag) {
   const campaignName = `Campaign-secret-${tag}-${uniq("c")}`;
   const c = await db.query(
     `INSERT INTO campaigns (brand_id, user_id, campaign_name, budget, status, facebook_campaign_id)
-     VALUES ($1, $2, $3, $4, 'active', $5)
+     VALUES ($1, $2, $3, $4, 'created_paused', $5)
      RETURNING campaign_id`,
     [brandId, userId, campaignName, 50, `fbcamp-secret-${tag}`]
   );

@@ -116,7 +116,7 @@ function suggestDailyBudget(p) {
 async function getBrandSpend(brandId) {
   const { rows } = await db.query(
     `SELECT COALESCE(SUM(budget), 0) AS daily_total
-       FROM campaigns WHERE brand_id = $1 AND status = 'active'`,
+       FROM campaigns WHERE brand_id = $1 AND status = 'live'`,
     [brandId]
   );
   const committedDailySpend = Number(rows[0] ? rows[0].daily_total : 0) || 0;

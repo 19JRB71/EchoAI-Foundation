@@ -152,7 +152,7 @@ async function runWeeklyAnalytics() {
     `SELECT DISTINCT b.brand_id, b.user_id
      FROM brands b
      JOIN campaigns c ON c.brand_id = b.brand_id
-     WHERE c.status = 'active'
+     WHERE c.status IN ('created_paused', 'live')
        AND b.is_demo = false`
   );
 
@@ -328,7 +328,7 @@ async function runCompetitorScan() {
   const { rows } = await db.query(
     `SELECT * FROM brands
      WHERE is_demo = false
-       AND brand_id IN (SELECT DISTINCT brand_id FROM campaigns WHERE status = 'active')`
+       AND brand_id IN (SELECT DISTINCT brand_id FROM campaigns WHERE status IN ('created_paused', 'live'))`
   );
   let ok = 0;
   for (const brand of rows) {
@@ -360,7 +360,7 @@ async function runCompetitorAdScan() {
   const { rows } = await db.query(
     `SELECT * FROM brands
      WHERE is_demo = false
-       AND brand_id IN (SELECT DISTINCT brand_id FROM campaigns WHERE status = 'active')`
+       AND brand_id IN (SELECT DISTINCT brand_id FROM campaigns WHERE status IN ('created_paused', 'live'))`
   );
   let ok = 0;
   for (const brand of rows) {
@@ -742,114 +742,13 @@ async function executeJob({ name, ai, control, run }) {
   return { ran: true };
 }
 
-// ---------------------------------------------------------------------------
-// Cross-replica claims + run telemetry (Prompt 010).
-//
-// Every scheduled tick is claimed by atomically inserting the canonical
-// job_runs row (unique on job_name + tick_key, ON CONFLICT DO NOTHING) — a
-// generalization of Sage's claimRun pattern — so when more than one replica
-// fires the same cron tick, exactly one executes and exactly one row exists.
-// The losing replica logs a duplicate-claim skip locally and inserts nothing.
-// The winner's row starts as 'running' and is finalized with the truthful
-// outcome: 'skipped' when existing gating/business logic declined the tick,
-// 'failed' with the captured error (recorded, never thrown), else 'success'.
-// Job business logic and gating semantics are unchanged — only claiming and
-// telemetry live here.
-// ---------------------------------------------------------------------------
-
-// Cron granularity is one minute, so the tick key is the fire time truncated
-// to the minute (UTC ISO). Replicas firing the same cron tick — even a few
-// seconds apart — derive the same key and race for the same claim row.
-function tickKeyFor(date = new Date()) {
-  const d = new Date(date.getTime());
-  d.setUTCSeconds(0, 0);
-  return d.toISOString();
-}
-
-/**
- * Atomically claim (jobName, tickKey) by inserting the canonical job_runs row
- * with outcome 'running'. Returns the run_id when this caller won the claim,
- * or null when another replica already holds it.
- */
-async function claimJobRun(jobName, tickKey) {
-  const r = await db.query(
-    `INSERT INTO job_runs (job_name, tick_key, outcome)
-     VALUES ($1, $2, 'running')
-     ON CONFLICT (job_name, tick_key) DO NOTHING
-     RETURNING run_id`,
-    [jobName, tickKey],
-  );
-  return r.rows[0] ? r.rows[0].run_id : null;
-}
-
-// Finalize the claimed row with the truthful outcome. Best-effort: telemetry
-// write failures are logged, never thrown into the scheduler loop.
-async function finalizeJobRun(runId, outcome, error = null) {
-  try {
-    await db.query(
-      `UPDATE job_runs
-          SET outcome = $2,
-              error = $3,
-              finished_at = now(),
-              duration_ms = (EXTRACT(EPOCH FROM (now() - started_at)) * 1000)::int
-        WHERE run_id = $1`,
-      [runId, outcome, error],
-    );
-  } catch (err) {
-    console.error(`job_runs finalize failed (run ${runId}):`, err.message);
-  }
-}
-
-/**
- * The shared claimed-and-recorded execution path every scheduled tick goes
- * through. Claims the tick, runs the job via executeJob (gating semantics
- * unchanged), and finalizes the canonical row. Never throws.
- */
-async function runClaimedJob({ name, ai, control, run, tickKey = tickKeyFor() }) {
-  let runId;
-  try {
-    runId = await claimJobRun(name, tickKey);
-  } catch (err) {
-    // Fail closed: if the claim itself cannot be recorded we do not run the
-    // job (another replica may have claimed it), and we say so honestly.
-    console.error(`Scheduled job "${name}" claim failed (${tickKey}):`, err.message);
-    return { executed: false, outcome: null, reason: "claim-error" };
-  }
-  if (runId === null) {
-    // Another replica won this tick. Local log only — no second row.
-    console.log(`Scheduler: "${name}" tick ${tickKey} already claimed by another instance; skipping.`);
-    return { executed: false, outcome: null, reason: "duplicate-claim" };
-  }
-  try {
-    const result = await executeJob({ name, ai, control, run });
-    const outcome = result && result.ran ? "success" : "skipped";
-    await finalizeJobRun(runId, outcome, outcome === "skipped" ? (result && result.reason) || null : null);
-    return { executed: outcome === "success", outcome, runId };
-  } catch (err) {
-    console.error(`Scheduled job "${name}" errored:`, err.message);
-    await finalizeJobRun(runId, "failed", err.message || String(err));
-    return { executed: true, outcome: "failed", runId };
-  }
-}
-
 function scheduleJob({ name, cronExpr, run, ai = false, control = null }) {
   JOBS.push({ name, cronExpr, ai, control });
   cron.schedule(cronExpr, () => {
-    runClaimedJob({ name, ai, control, run }).catch((err) => {
+    executeJob({ name, ai, control, run }).catch((err) => {
       console.error(`Scheduled job "${name}" errored:`, err.message);
     });
   });
-}
-
-/**
- * Whether this instance should run the scheduler. Default TRUE — today's
- * deployment is a single web service, so an unset RUN_SCHEDULER keeps current
- * behavior. Set RUN_SCHEDULER=false on web-only replicas once cron is scaled
- * out, so exactly one instance registers cron jobs.
- */
-function schedulerEnabled(value = process.env.RUN_SCHEDULER) {
-  if (value === undefined || value === null || value === "") return true;
-  return !/^(false|0|no|off)$/i.test(String(value).trim());
 }
 
 function listScheduledJobs() {
@@ -862,17 +761,6 @@ function listScheduledJobs() {
  * reminders, sweeps) always run so scheduled work is never silently dropped.
  */
 function startScheduler() {
-  if (!schedulerEnabled()) {
-    console.log(
-      `Scheduler DISABLED on this instance (RUN_SCHEDULER=${process.env.RUN_SCHEDULER}). ` +
-        "No cron jobs registered here.",
-    );
-    return;
-  }
-  console.log(
-    "Scheduler ENABLED on this instance " +
-      `(RUN_SCHEDULER=${process.env.RUN_SCHEDULER === undefined ? "unset, default true" : process.env.RUN_SCHEDULER}).`,
-  );
   console.log(
     `Scheduler starting — environment: ${ENVIRONMENT} (detected via ${ENVIRONMENT_BASIS}). ` +
       "Background AI jobs run only when allowed by the AI controls."
@@ -1278,11 +1166,8 @@ function startScheduler() {
 
 module.exports = {
   startScheduler,
-  schedulerEnabled,
   listScheduledJobs,
   executeJob,
-  runClaimedJob,
-  tickKeyFor,
   runWeeklyAnalytics,
   latestStoredAnalytics,
   runDailyHealthSnapshots,

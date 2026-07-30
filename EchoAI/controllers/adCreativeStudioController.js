@@ -533,7 +533,7 @@ async function launchCreative(req, res) {
            (brand_id, user_id, campaign_name, budget, ad_creative_variations,
             launch_date, facebook_campaign_id, facebook_adset_id,
             facebook_creative_id, facebook_ad_id, status)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'active')
+         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'created_paused')
          RETURNING campaign_id`,
         [
           creative.brand_id,
