@@ -506,7 +506,8 @@ async function getCampaignPerformance(req, res) {
       // brand belongs to this user (foreign brandId returns nothing).
       result = await db.query(
         `SELECT c.campaign_id, c.campaign_name, c.budget, c.cost_per_lead,
-                c.conversion_rate, c.launch_date, c.facebook_campaign_id, c.status
+                c.conversion_rate, c.launch_date, c.facebook_campaign_id, c.status,
+                c.activation_requested_at, c.last_verified_at
          FROM campaigns c
          JOIN brands b ON b.brand_id = c.brand_id AND b.user_id = $1
          WHERE c.brand_id = $2 AND c.status IN ('created_paused', 'live')
@@ -517,7 +518,8 @@ async function getCampaignPerformance(req, res) {
       // Legacy all-brands view: never let demo-brand campaigns spill into it.
       result = await db.query(
         `SELECT c.campaign_id, c.campaign_name, c.budget, c.cost_per_lead,
-                c.conversion_rate, c.launch_date, c.facebook_campaign_id, c.status
+                c.conversion_rate, c.launch_date, c.facebook_campaign_id, c.status,
+                c.activation_requested_at, c.last_verified_at
          FROM campaigns c
          LEFT JOIN brands b ON b.brand_id = c.brand_id
          WHERE c.user_id = $1 AND c.status IN ('created_paused', 'live')
@@ -536,6 +538,10 @@ async function getCampaignPerformance(req, res) {
       launchDate: c.launch_date,
       facebookCampaignId: c.facebook_campaign_id,
       status: c.status,
+      // Prompt 015: "Facebook is reviewing / activation pending" is honestly
+      // distinct from "intentionally paused" (owner terms 5 & 7).
+      activationPending: Boolean(c.activation_requested_at),
+      lastVerifiedAt: c.last_verified_at,
     }));
 
     return res.json({ count: campaigns.length, campaigns });

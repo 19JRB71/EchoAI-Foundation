@@ -836,6 +836,20 @@ export const api = {
     ),
   optimizeCampaigns: () =>
     request("/api/campaigns/optimize", { method: "POST" }),
+  // Prompt 015: spending caps + pause/unpause delivery controls (owner-only).
+  getSpendCap: (brandId) =>
+    request(`/api/campaigns/spend-cap?brandId=${encodeURIComponent(brandId)}`),
+  setSpendCap: (brandId, dailyCapDollars) =>
+    request("/api/campaigns/spend-cap", {
+      method: "PUT",
+      body: { brandId, dailyCapDollars },
+    }),
+  unpauseCampaign: (campaignId) =>
+    request(`/api/campaigns/${encodeURIComponent(campaignId)}/unpause`, { method: "POST" }),
+  pauseCampaign: (campaignId) =>
+    request(`/api/campaigns/${encodeURIComponent(campaignId)}/pause`, { method: "POST" }),
+  refreshCampaignStatus: (campaignId) =>
+    request(`/api/campaigns/${encodeURIComponent(campaignId)}/refresh-status`, { method: "POST" }),
   connectFacebook: (adAccountId) =>
     request("/api/campaigns/connect", {
       method: "POST",
