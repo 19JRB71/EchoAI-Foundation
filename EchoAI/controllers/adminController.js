@@ -167,13 +167,13 @@ async function getPlatformStats(req, res) {
         `SELECT COUNT(*)::int AS count
            FROM campaigns c
            JOIN brands b ON b.brand_id = c.brand_id
-          WHERE c.status = 'active' AND b.is_demo = false`
+          WHERE c.status = 'live' AND b.is_demo = false`
       ),
       db.query(
         `SELECT COALESCE(SUM(c.budget), 0)::numeric AS spend
            FROM campaigns c
            JOIN brands b ON b.brand_id = c.brand_id
-          WHERE b.is_demo = false`
+          WHERE c.status = 'live' AND b.is_demo = false`
       ),
     ]);
 

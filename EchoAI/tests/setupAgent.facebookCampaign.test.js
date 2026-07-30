@@ -68,7 +68,7 @@ test("skips when there is no brand yet", async () => {
 test("idempotent: reports done without duplicating when a campaign already exists", async () => {
   await db.query(
     `INSERT INTO campaigns (brand_id, user_id, campaign_name, budget, status)
-     VALUES ($1, $2, $3, $4, 'active')`,
+     VALUES ($1, $2, $3, $4, 'created_paused')`,
     [brandId, userId, "Existing Campaign", 20],
   );
 

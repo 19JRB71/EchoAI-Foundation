@@ -158,7 +158,7 @@ async function autoOptimizeCampaignsForBrand(brand) {
     `SELECT campaign_id, campaign_name, budget, cost_per_lead, conversion_rate,
             facebook_campaign_id, facebook_adset_id, ad_creative_variations
      FROM campaigns
-     WHERE brand_id = $1 AND status = 'active'`,
+     WHERE brand_id = $1 AND status IN ('created_paused', 'live')`,
     [brand.brand_id]
   );
   const campaigns = campaignsResult.rows;

@@ -237,7 +237,7 @@ function makeCompetitorScanDb(seed) {
 
   async function query(sql, params = []) {
     // 1) Brand discovery (the scan's first, unguarded query).
-    if (/FROM brands/i.test(sql) && /is_demo = false/i.test(sql) && /FROM campaigns WHERE status = 'active'/i.test(sql)) {
+    if (/FROM brands/i.test(sql) && /is_demo = false/i.test(sql) && /FROM campaigns WHERE status IN \('created_paused', 'live'\)/i.test(sql)) {
       return { rows: seed.brands.map((b) => ({ ...b })) };
     }
 
@@ -344,7 +344,7 @@ function makeHealthSnapshotDb(seed) {
     }
 
     // 3) Active-campaign count.
-    if (/FROM campaigns WHERE brand_id/i.test(sql) && /status = 'active'/i.test(sql)) {
+    if (/FROM campaigns WHERE brand_id/i.test(sql) && /status IN \('created_paused', 'live'\)/i.test(sql)) {
       return { rows: [{ active: 1 }] };
     }
 

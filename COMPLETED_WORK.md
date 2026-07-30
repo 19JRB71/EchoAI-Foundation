@@ -2,6 +2,27 @@
 
 **Last updated:** 2026-07-26. Append-only; newest first. Milestone-level history predating this file lives in `MILESTONES.md` (authoritative for Sage V2 phases 1–6 and Collab Stage 0).
 
+- REPLIT_PROMPT_005 v2 + owner addendum v3 (honest campaign lifecycle): **code phase COMPLETE locally, 2026-07-30** (push/PR + staging external proof pending).
+  - State machine `utils/campaignState.js`; Single Verification Authority `utils/campaignVerification.js` (`verifyCampaignStatus`, GET-only read-back, fail-closed, both directions, `last_verified_at`/`last_verify_error`).
+  - Launches insert `created_paused`; migration `models/128_campaign_state_machine.sql` maps all legacy `active`→`created_paused` deterministically, aborts on unexpected values (dev DB result: 9 `active`→9 `created_paused`).
+  - Owner ruling (2026-07-30): Autonomous Growth's direct `paused` writer removed; engine scoped to `live`; domain-state changes only via the verification helper. No `paused` rows existed in staging or dev.
+  - Committed spend = `live` only; presence consumers = `IN ('created_paused','live')`; full consumer inventory in the Prompt 005 End-of-Prompt report.
+  - Tests: server 998→**1014/1014** (+16 in `tests/campaignStateMachine.test.js`, incl. impossible-to-render-live), client 385/385, build green; architect review round done (2 findings fixed: weekly-analytics brand discovery, admin spend semantics).
+
+## 2026-07-29 — REPLIT_PROMPT_004 v3: per-brand Facebook Page + destination link — COMPLETE (merged + staging live-proof)
+
+- **Deploy:** PR #16 (`prompt-004-brand-page-link` off staging tip `add2ecda`, commit `1565a35`, Prompt 004 files only, PWA shell cache v155→v156) merged → staging deployed at `a65e2f5`; migration 127 ran (backfill gave Pole Barn Kits its Page `140006069194366` automatically).
+- **Live proof (SDS2, 2026-07-29):** `FACEBOOK_LINK_URL` deleted from Railway staging → app healthy. Unconfigured brand (no ad link): launch → honest 503 "This brand has no ad destination link…", DB-verified zero campaign rows, zero FB objects. After setting the new Ad destination link (Sage → Company Truth → Business Links) → launch created a full PAUSED chain from brand data only: campaign `120249425003060774` → ad set `120249425003620774` → creative `1511205266964014` → ad `120249425006940774`. Ads Manager: Off/$0; campaign deleted ("1 campaign was deleted"); zero spend throughout.
+
+- **Decision:** D-20 Option C (owner decision file in `attached_assets/`, 7 binding constraints — all implemented).
+- **Migration `EchoAI/models/127_brand_ad_destination.sql`:** additive nullable `brands.facebook_page_id` + `brands.ad_link_url`; behavior-preserving backfill (owner's `page_ref` → all their brands; `website_url` → `ad_link_url` where present; never overwrites; row counts logged via RAISE NOTICE); rollback statement in header comment.
+- **Launch paths:** shared `resolveBrandAdDestination(brand, grantedPages)` in `campaignController` (exported, reused by Ad Creative Studio). Resolves Page+link ONLY from brand columns; missing Page/link ⇒ honest 503 with owner guidance; Page no longer in the granted list (`api_integrations.facebook_pages`) ⇒ 503 reconnect guidance. Fail-fast BEFORE any Graph call. Zero env reads, zero `page_ref` reads in launch paths (grep-proven); `page_ref` demoted to wizard default suggestion.
+- **Gating:** Echo companion `runExec` and Setup Agent `create_facebook_campaign` now gate creative launch on the brand's columns + live connection (previously env vars).
+- **Selection & editing:** `POST /api/facebook/select-page` accepts `brandId` (ownership-checked) and writes `brands.facebook_page_id` for that brand (wizard passes the active brand); `updateBrand` accepts `adLinkUrl` (normalizeWebsiteUrl-validated, blank clears) and `facebookPageId` (must be in the owner's granted list; blank clears). Sage business-links card gained an "Ad destination link" field.
+- **`social_accounts` untouched** (organic posting independent, constraint 4). Docs: SUBSYSTEMS.md launch guard paragraph rewritten.
+- **Tests:** `tests/facebookAdObject.test.js` fixtures reworked to brand columns + granted-pages JSONB; misleading `FACEBOOK_PAGE_ID`/`FACEBOOK_LINK_URL` env values set for the whole suite proving launch paths ignore them. +4 tests: two-brand same-user isolation (shared path, per-brand page/link asserted in Graph capture), studio two-brand isolation, revoked-page 503 (zero Graph calls), unconfigured-brand studio 503 (zero Graph calls). Server suite 994→**998/998**; client **385/385**; client production build green. Migration applied to dev + test DBs.
+- **Pending:** fresh temp PAT from owner → branch `prompt-004-brand-page-link` from staging tip `add2ecda` → PR to `staging`; post-merge: verify `/api/health` SHA, remove `FACEBOOK_LINK_URL` from Railway staging, live SDS2 verification; I-22 evaluation in final report.
+
 ## 2026-07-29 — REPLIT_PROMPT_003 v2: staging PAUSED-chain external proof — COMPLETE
 
 - Full PAUSED chain created on staging (SDS2, brand "Pole Barn Kits", $5/day): campaign `120249420223810774` → ad set `120249420224360774` → creative `1408353584447141` → ad `120249420227100774`. Verified Off/$0.00 in Ads Manager (owner screenshots); all 6 test campaigns (1 complete + 5 partial from the debugging iteration) deleted via Ads Manager ("6 campaigns were deleted" confirmation); zero spend at every step.

@@ -167,7 +167,7 @@ async function computeAgents(userId, brand) {
     "SELECT COUNT(*)::int AS n FROM api_integrations WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected'",
     [userId],
   );
-  const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
+  const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status IN ('created_paused', 'live')", [bid]) : 0;
   const campaignsWeek = bid ? await n(`SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND ${WEEK}`, [bid]) : 0;
 
   // Nova — social.
@@ -390,7 +390,7 @@ async function getMissionControl(req, res) {
     const agents = filterAgentsFor(req, await computeAgents(userId, brand));
 
     const leadsWeek = bid ? await n(`SELECT COUNT(*)::int AS n FROM leads WHERE brand_id = $1 AND ${WEEK}`, [bid]) : 0;
-    const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
+    const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status IN ('created_paused', 'live')", [bid]) : 0;
     const activeCal = bid ? await n("SELECT COUNT(*)::int AS n FROM content_calendars WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
     const seqActive = bid ? await n("SELECT COUNT(*)::int AS n FROM follow_up_sequences WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
     const postsToday = bid ? await n("SELECT COUNT(*)::int AS n FROM social_posts WHERE brand_id = $1 AND published_time::date = CURRENT_DATE", [bid]) : 0;

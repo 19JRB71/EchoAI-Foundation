@@ -85,7 +85,7 @@ async function recordWeeklyAnalyticsForBrand(brand) {
   const campaigns = await db.query(
     `SELECT campaign_id, facebook_campaign_id
      FROM campaigns
-     WHERE brand_id = $1 AND status = 'active' AND facebook_campaign_id IS NOT NULL`,
+     WHERE brand_id = $1 AND status IN ('created_paused', 'live') AND facebook_campaign_id IS NOT NULL`,
     [brand.brand_id]
   );
 

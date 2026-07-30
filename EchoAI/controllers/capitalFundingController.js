@@ -82,7 +82,7 @@ async function buildOpportunityProfile(brandId) {
     ),
     db.query(
       `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE status = 'active')::int AS active,
+              COUNT(*) FILTER (WHERE status IN ('created_paused', 'live'))::int AS active,
               COALESCE(SUM(budget), 0)::numeric AS total_budget
        FROM campaigns WHERE brand_id = $1`,
       [brandId],

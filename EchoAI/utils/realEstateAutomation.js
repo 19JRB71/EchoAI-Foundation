@@ -130,7 +130,7 @@ async function runListingPromotionSweep() {
     try {
       const { rows: listings } = await db.query(
         `SELECT * FROM property_listings
-          WHERE brand_id = $1 AND status = 'active' AND ad_promoted_at IS NULL
+          WHERE brand_id = $1 AND status IN ('created_paused', 'live') AND ad_promoted_at IS NULL
           ORDER BY created_at ASC LIMIT 3`,
         [brand.brand_id]
       );

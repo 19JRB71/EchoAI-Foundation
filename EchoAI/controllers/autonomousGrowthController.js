@@ -37,6 +37,7 @@ const {
   geoAllowed,
 } = require("../utils/growthGuardrails");
 const { textMentionsExcluded } = require("../utils/geoTargeting");
+const { verifyCampaignStatus } = require("../utils/campaignVerification");
 
 let sendAutonomousSummaryEmail = null;
 try {
@@ -91,7 +92,7 @@ async function getFacebookToken(userId) {
 async function monthToDateSpend(brandId) {
   const { rows } = await db.query(
     `SELECT COALESCE(SUM(budget), 0) AS daily_total
-       FROM campaigns WHERE brand_id = $1 AND status = 'active'`,
+       FROM campaigns WHERE brand_id = $1 AND status = 'live'`,
     [brandId],
   );
   const dailyTotal = Number(rows[0] ? rows[0].daily_total : 0) || 0;
@@ -156,7 +157,7 @@ async function runBudgetAndReallocation(brand, settings, fbToken, counts) {
     `SELECT campaign_id, campaign_name, budget, cost_per_lead, conversion_rate,
             facebook_adset_id, status
        FROM campaigns
-      WHERE brand_id = $1 AND status = 'active'`,
+      WHERE brand_id = $1 AND status = 'live'`,
     [brand.brand_id],
   );
   if (campaigns.length === 0) return;
@@ -179,9 +180,17 @@ async function runBudgetAndReallocation(brand, settings, fbToken, counts) {
         console.error(`autonomous pause FB failed for ${loser.campaign_id}:`, e.message);
       }
     }
-    await db.query("UPDATE campaigns SET status = 'paused' WHERE campaign_id = $1", [
-      loser.campaign_id,
-    ]);
+    // Owner-binding rule (Prompt 005): Autonomous Growth NEVER writes
+    // campaigns.status directly. It may pause delivery at Facebook (above,
+    // existing capability), but the local domain state changes ONLY through
+    // the single verification helper after a successful Graph read-back
+    // (live → created_paused). Best-effort: a failed read-back records
+    // last_verify_error and leaves the state unchanged.
+    try {
+      await verifyCampaignStatus(loser.campaign_id);
+    } catch (e) {
+      console.error(`autonomous pause verification failed for ${loser.campaign_id}:`, e.message);
+    }
     freedBudget += Number(loser.budget) || 0;
     await logAction(brand.user_id, brand.brand_id, {
       kind: "pause",
@@ -224,7 +233,7 @@ async function runBudgetAndReallocation(brand, settings, fbToken, counts) {
       "SELECT status FROM campaigns WHERE campaign_id = $1",
       [loser.campaign_id],
     );
-    if (!stillActive.rows[0] || stillActive.rows[0].status !== "active") continue;
+    if (!stillActive.rows[0] || stillActive.rows[0].status !== "live") continue;
     const current = Number(loser.budget) || 0;
     const proposed = Math.max(0, Math.round(current * 0.7));
     if (proposed < current) {
@@ -323,7 +332,7 @@ function isFatigued(campaign) {
 async function runContentRefresh(brand, settings, counts) {
   const { rows: campaigns } = await db.query(
     `SELECT campaign_id, campaign_name, conversion_rate, ad_creative_variations
-       FROM campaigns WHERE brand_id = $1 AND status = 'active'`,
+       FROM campaigns WHERE brand_id = $1 AND status = 'live'`,
     [brand.brand_id],
   );
   for (const c of campaigns) {

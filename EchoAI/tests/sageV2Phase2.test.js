@@ -446,7 +446,7 @@ test("coverage_gap_analytics flags active campaigns without recent analytics, th
   const { userId, brandId } = await createBrand();
   try {
     await db.query(
-      `INSERT INTO campaigns (brand_id, user_id, campaign_name, status) VALUES ($1, $2, 'C', 'active')`,
+      `INSERT INTO campaigns (brand_id, user_id, campaign_name, status) VALUES ($1, $2, 'C', 'live')`,
       [brandId, userId],
     );
     await sentry.sweepAnalyticsCoverageGaps();
