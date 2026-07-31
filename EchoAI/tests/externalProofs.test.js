@@ -381,7 +381,83 @@ test("partial failure: readback failure keeps the publish row, reports the live 
   assert.deepEqual(rows.map((r) => r.action), ["publish"]);
 });
 
-// ---- 6. Email happy path ------------------------------------------------------
+// ---- 6. Read-only preflight ----------------------------------------------------
+
+test("preflight is strictly read-only: zero proof rows, zero non-GET provider calls", async (t) => {
+  t.after(() => {
+    global.fetch = realFetch;
+  });
+  const runKey = freshRunKey("preflight");
+  await seedPublishedPost(runKey); // gives the brand a connected FB account
+  installGraphMock();
+
+  const before = await db.query("SELECT COUNT(*)::int AS n FROM external_proofs");
+  const res = mockRes();
+  await controller.preflight(
+    { query: { brandId, runKey, to: "proof@example.com" }, user: { userId } },
+    res
+  );
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(res.body.readOnly, true);
+  // Only GET calls ever reach the provider.
+  assert.ok(graphCalls.length > 0);
+  assert.ok(graphCalls.every((c) => c.method === "GET"), JSON.stringify(graphCalls));
+  // Zero external_proofs rows created by preflight.
+  const after = await db.query("SELECT COUNT(*)::int AS n FROM external_proofs");
+  assert.equal(after.rows[0].n, before.rows[0].n);
+});
+
+// ---- 7. Environment guard (structural staging-only gate) ------------------------
+
+test("staging-proof routes 403 outside a staging environment before auth runs", () => {
+  // This test process is NOT staging (config/environment detects the Replit
+  // workspace as 'development'), so the mounted router's first middleware
+  // must reject unconditionally.
+  const { ENVIRONMENT } = require("../config/environment");
+  assert.notEqual(ENVIRONMENT, "staging");
+  const router = require("../routes/stagingProofRoutes");
+  const guard = router.stack[0].handle;
+  const res = mockRes();
+  let nextCalled = false;
+  guard({}, res, () => {
+    nextCalled = true;
+  });
+  assert.equal(nextCalled, false);
+  assert.equal(res.statusCode, 403);
+  assert.match(res.body.error, /staging-only/);
+});
+
+// ---- 8. Redaction regression: token-bearing Graph paging-URL echo ---------------
+
+test("regression: a Graph response echoing paging URLs with access_token persists clean", async () => {
+  const runKey = freshRunKey("pagingurl");
+  const { row } = await recordExternalProof({
+    runKey,
+    provider: "facebook",
+    action: "readback",
+    externalId: "140006_777",
+    brandId,
+    userId,
+    environment: "test",
+    evidence: {
+      id: "140006_777",
+      message: "proof post",
+      paging: {
+        next: "https://graph.facebook.com/v21.0/140006/feed?access_token=EAAGraphPageToken123456&after=xyz",
+        previous:
+          "https://graph.facebook.com/v21.0/140006/feed?limit=25&access_token=EAAGraphPageToken123456",
+      },
+    },
+  });
+  const persisted = JSON.stringify(row.evidence);
+  assert.ok(!persisted.includes("EAAGraphPageToken123456"), persisted);
+  assert.ok(row.evidence.paging.next.includes("access_token=[REDACTED]"));
+  // Non-credential fields survive.
+  assert.equal(row.evidence.id, "140006_777");
+  assert.ok(row.evidence.paging.next.includes("after=xyz"));
+});
+
+// ---- 9. Email happy path ------------------------------------------------------
 
 test("successful email writes exactly one redacted proof row from the SMTP response", async (t) => {
   const runKey = freshRunKey("emailok");
