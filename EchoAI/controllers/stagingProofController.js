@@ -423,6 +423,312 @@ async function runEmail(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Prompt 007 — Stripe test-mode checkout round trip.
+// The checkout itself goes through the REAL direct-subscribe path
+// (POST /api/subscriptions); these endpoints only (a) report Stripe config
+// state read-only and (b) record proof rows from real Stripe API objects
+// AFTER the checkout happened. No pricing logic, no live mode, ever.
+// ---------------------------------------------------------------------------
+
+// Module object (not destructured) so tests can stub the Stripe client.
+const stripeConfig = require("../config/stripe");
+
+function keyMode(value, testPrefix, livePrefix) {
+  if (!value) return "missing";
+  if (value.startsWith(testPrefix)) return "test";
+  if (value.startsWith(livePrefix)) return "LIVE";
+  return "unrecognized";
+}
+
+/**
+ * GET /api/staging-proof/stripe-preflight
+ * Read-only. Reports key modes (prefixes only — never values), webhook-secret
+ * presence, the STRIPE_PRICE_* env price ids, the registered Stripe webhook
+ * endpoints, the live Starter price, and whether STRIPE_PRICE_STARTER matches
+ * it exactly. Price IDs are identifiers, not credentials.
+ */
+async function stripePreflight(req, res) {
+  try {
+    const secretKeyMode = keyMode(process.env.STRIPE_SECRET_KEY, "sk_test_", "sk_live_");
+    const publishableKeyMode = keyMode(
+      process.env.STRIPE_PUBLISHABLE_KEY,
+      "pk_test_",
+      "pk_live_"
+    );
+    const whsec = process.env.STRIPE_WEBHOOK_SECRET;
+    const priceEnv = {
+      STRIPE_PRICE_STARTER: process.env.STRIPE_PRICE_STARTER || null,
+      STRIPE_PRICE_GROWTH: process.env.STRIPE_PRICE_GROWTH || null,
+      STRIPE_PRICE_PRO: process.env.STRIPE_PRICE_PRO || null,
+      STRIPE_PRICE_ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE || null,
+      STRIPE_PRICE_SEAT: process.env.STRIPE_PRICE_SEAT || null,
+    };
+
+    let webhookEndpoints = null;
+    let starter = null;
+    let stripeReadError = null;
+    try {
+      const endpoints = await stripeConfig.stripe.webhookEndpoints.list({ limit: 20 });
+      webhookEndpoints = endpoints.data.map((e) => ({
+        id: e.id,
+        url: e.url,
+        status: e.status,
+        livemode: e.livemode,
+        enabledEvents: e.enabled_events,
+      }));
+      const prices = await stripeConfig.stripe.prices.list({
+        limit: 50,
+        active: true,
+        expand: ["data.product"],
+      });
+      const starterPrice = prices.data.find(
+        (p) => p.product && typeof p.product === "object" && /starter/i.test(p.product.name)
+      );
+      if (starterPrice) {
+        starter = {
+          productId: starterPrice.product.id,
+          productName: starterPrice.product.name,
+          priceId: starterPrice.id,
+          unitAmount: starterPrice.unit_amount,
+          currency: starterPrice.currency,
+          interval: starterPrice.recurring ? starterPrice.recurring.interval : null,
+          livemode: starterPrice.livemode,
+        };
+      }
+    } catch (err) {
+      stripeReadError = err.message;
+    }
+
+    return res.json({
+      readOnly: true,
+      environment: currentEnvironment(),
+      secretKeyMode,
+      publishableKeyMode,
+      webhookSecret: {
+        present: Boolean(whsec),
+        looksValid: Boolean(whsec && whsec.startsWith("whsec_")),
+      },
+      priceEnv,
+      webhookEndpoints,
+      starter,
+      starterPriceMatchesEnv: Boolean(
+        starter && priceEnv.STRIPE_PRICE_STARTER === starter.priceId
+      ),
+      stripeReadError,
+    });
+  } catch (err) {
+    console.error("Stripe preflight error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * POST /api/staging-proof/stripe-proof { runKey, userId }
+ * Records the Prompt 007 evidence for a checkout that ALREADY happened via the
+ * real direct-subscribe path. Every row is written only from a real Stripe API
+ * object fetched here (term 4); stages are sequential and stop-on-fail (term
+ * 11); rows are idempotent by (run_key, provider, action) (term 12).
+ *
+ * Stages / rows (provider 'stripe'):
+ *   1. customer        — the Stripe customer object
+ *   2. subscription    — the Stripe subscription incl. latest invoice + payment
+ *   3. webhook_event   — the delivered invoice.payment_succeeded event (id +
+ *                        type from Stripe) + the resulting tenant-scoped
+ *                        subscriptions row snapshot
+ *
+ * Live-mode stop condition: any Stripe object with livemode=true aborts with
+ * 409 and writes nothing further.
+ */
+async function stripeProof(req, res) {
+  const { runKey, userId } = req.body || {};
+  if (!runKey || !userId) {
+    return res.status(400).json({ error: "runKey and userId are required" });
+  }
+  const environment = currentEnvironment();
+  const stripe = stripeConfig.stripe;
+  const completed = [];
+  try {
+    const userResult = await db.query(
+      `SELECT u.user_id, u.email, u.stripe_customer_id,
+              s.subscription_id, s.subscription_tier, s.payment_status,
+              s.stripe_subscription_id, s.renewal_date, s.billing_cycle
+         FROM users u
+         LEFT JOIN subscriptions s ON s.user_id = u.user_id
+        WHERE u.user_id = $1`,
+      [userId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const tenant = userResult.rows[0];
+    if (!tenant.stripe_customer_id) {
+      return res.status(409).json({
+        error: "User has no stripe_customer_id — checkout has not happened",
+        completed,
+      });
+    }
+    if (!tenant.stripe_subscription_id) {
+      return res.status(409).json({
+        error: "User has no stripe_subscription_id — checkout has not happened",
+        completed,
+      });
+    }
+
+    // Run-key ↔ tenant binding (mirror of assertRunBrandConsistent): a run key
+    // that already carries proof rows for a DIFFERENT user cannot be reused —
+    // idempotent resume would otherwise return another tenant's evidence.
+    const existingRun = await db.query(
+      `SELECT DISTINCT user_id FROM external_proofs
+        WHERE run_key = $1 AND user_id IS NOT NULL`,
+      [runKey]
+    );
+    if (existingRun.rows.some((r) => r.user_id !== userId)) {
+      return res.status(409).json({
+        error: "runKey is already bound to a different user",
+        completed,
+      });
+    }
+
+    // Stage 1: customer.
+    const customer = await stripe.customers.retrieve(tenant.stripe_customer_id);
+    if (customer.livemode) {
+      return res.status(409).json({ error: "LIVE-MODE customer — aborting", completed });
+    }
+    const customerProof = await recordExternalProof({
+      runKey,
+      provider: "stripe",
+      action: "customer",
+      externalId: customer.id,
+      userId,
+      environment,
+      evidence: {
+        source: "Stripe API customers.retrieve",
+        id: customer.id,
+        email: customer.email,
+        livemode: customer.livemode,
+        created: customer.created,
+      },
+    });
+    completed.push({ action: "customer", created: customerProof.created });
+
+    // Stage 2: subscription + latest invoice + payment result.
+    const subscription = await stripe.subscriptions.retrieve(
+      tenant.stripe_subscription_id,
+      { expand: ["latest_invoice.payment_intent"] }
+    );
+    if (subscription.livemode) {
+      return res.status(409).json({ error: "LIVE-MODE subscription — aborting", completed });
+    }
+    // Tenant linkage: the subscription must belong to this tenant's customer,
+    // or we would record another tenant's Stripe objects under this user_id.
+    const subCustomerId =
+      typeof subscription.customer === "object" && subscription.customer
+        ? subscription.customer.id
+        : subscription.customer;
+    if (subCustomerId !== customer.id) {
+      return res.status(409).json({
+        error: "Subscription does not belong to this user's Stripe customer — aborting",
+        completed,
+      });
+    }
+    const invoice = subscription.latest_invoice || null;
+    const paymentIntent = invoice && invoice.payment_intent ? invoice.payment_intent : null;
+    const subscriptionProof = await recordExternalProof({
+      runKey,
+      provider: "stripe",
+      action: "subscription",
+      externalId: subscription.id,
+      userId,
+      environment,
+      evidence: {
+        source: "Stripe API subscriptions.retrieve (expand latest_invoice.payment_intent)",
+        id: subscription.id,
+        status: subscription.status,
+        livemode: subscription.livemode,
+        customer: subscription.customer,
+        priceIds: subscription.items.data.map((i) => i.price && i.price.id),
+        invoice: invoice
+          ? {
+              id: invoice.id,
+              amountDue: invoice.amount_due,
+              amountPaid: invoice.amount_paid,
+              currency: invoice.currency,
+              status: invoice.status,
+              paymentResult: paymentIntent
+                ? { id: paymentIntent.id, status: paymentIntent.status }
+                : null,
+            }
+          : null,
+      },
+    });
+    completed.push({ action: "subscription", created: subscriptionProof.created });
+
+    // Stage 3: the delivered webhook event. The event object (id + type) comes
+    // from Stripe's Events API; delivery + 200 on our verified endpoint is
+    // shown by the Stripe dashboard (owner screenshot). We do not fabricate a
+    // "verified" claim beyond what these two facts prove.
+    const events = await stripe.events.list({
+      type: "invoice.payment_succeeded",
+      limit: 50,
+    });
+    // Strict correlation: the event must reference THIS subscription (or this
+    // exact invoice). A customer-only match could pick up an older, unrelated
+    // payment event and "prove" the wrong checkout.
+    const event = events.data.find((e) => {
+      const obj = e.data && e.data.object;
+      return (
+        obj &&
+        (obj.subscription === subscription.id || (invoice && obj.id === invoice.id))
+      );
+    });
+    if (!event) {
+      return res.status(409).json({
+        error:
+          "No invoice.payment_succeeded event found for this subscription yet — webhook stage not recorded",
+        completed,
+      });
+    }
+    if (event.livemode) {
+      return res.status(409).json({ error: "LIVE-MODE event — aborting", completed });
+    }
+    const rowSnapshot = await db.query(
+      `SELECT s.subscription_id, s.user_id, s.subscription_tier, s.payment_status,
+              s.billing_cycle, s.renewal_date, s.stripe_subscription_id
+         FROM subscriptions s WHERE s.user_id = $1`,
+      [userId]
+    );
+    const eventProof = await recordExternalProof({
+      runKey,
+      provider: "stripe",
+      action: "webhook_event",
+      externalId: event.id,
+      userId,
+      environment,
+      evidence: {
+        source: "Stripe API events.list (event object) + tenant subscriptions row",
+        eventId: event.id,
+        eventType: event.type,
+        livemode: event.livemode,
+        eventCreated: event.created,
+        invoiceId: invoice ? invoice.id : null,
+        resultingSubscriptionRow: rowSnapshot.rows[0] || null,
+      },
+    });
+    completed.push({ action: "webhook_event", created: eventProof.created });
+
+    return res.json({
+      runKey,
+      environment,
+      completed,
+      proofs: (await getRunProofs(runKey)).filter((r) => r.provider === "stripe"),
+    });
+  } catch (err) {
+    console.error("Stripe proof error:", err.message);
+    return res.status(502).json({ error: `Stripe proof failed: ${err.message}`, completed });
+  }
+}
+
 /** GET /api/staging-proof/runs/:runKey — all proof rows for a run. */
 async function getRun(req, res) {
   try {
@@ -439,5 +745,7 @@ module.exports = {
   runFacebook,
   runEmail,
   getRun,
+  stripePreflight,
+  stripeProof,
   DEFAULT_PROOF_POST_TEXT,
 };

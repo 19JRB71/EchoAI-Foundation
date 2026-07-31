@@ -34,4 +34,10 @@ router.post("/facebook", stagingProofController.runFacebook);
 router.post("/email", stagingProofController.runEmail);
 router.get("/runs/:runKey", stagingProofController.getRun);
 
+// Prompt 007 — Stripe test-mode checkout round trip. Preflight is read-only;
+// stripe-proof records evidence for a checkout that already went through the
+// real direct-subscribe path (it performs no checkout itself).
+router.get("/stripe-preflight", stagingProofController.stripePreflight);
+router.post("/stripe-proof", stagingProofController.stripeProof);
+
 module.exports = router;
