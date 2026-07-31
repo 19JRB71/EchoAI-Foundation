@@ -1225,6 +1225,7 @@ module.exports = {
   disconnectSocialAccount,
   getPostPerformance,
   publishStoredPost,
+  loadConnectedAccount,
   publishDuePosts,
   reverifySocialConnections,
   setFacebookBrandPage,
