@@ -40,4 +40,8 @@ router.get("/runs/:runKey", stagingProofController.getRun);
 router.get("/stripe-preflight", stagingProofController.stripePreflight);
 router.post("/stripe-proof", stagingProofController.stripeProof);
 
+// Prompt 016 — Google data pull proof (read-only at the provider).
+router.get("/google-preflight", stagingProofController.googlePreflight);
+router.post("/google-proof", stagingProofController.googleProof);
+
 module.exports = router;
