@@ -4,6 +4,7 @@ import ContentCalendar from "./social/ContentCalendar.jsx";
 import ContentGenerator from "./social/ContentGenerator.jsx";
 import ConnectedAccounts from "./social/ConnectedAccounts.jsx";
 import Performance from "./social/Performance.jsx";
+import ActivityPanel from "./social/ActivityPanel.jsx";
 
 const TABS = [
   { key: "ai-calendar", label: "Content Calendar" },
@@ -11,6 +12,7 @@ const TABS = [
   { key: "generate", label: "AI Content Generator" },
   { key: "accounts", label: "Connected Accounts" },
   { key: "performance", label: "Performance" },
+  { key: "activity", label: "Activity" },
 ];
 
 export default function SocialMedia({ brandId, tier, prefillImage, onPrefillConsumed, initialTab }) {
@@ -54,6 +56,7 @@ export default function SocialMedia({ brandId, tier, prefillImage, onPrefillCons
             ))}
           </div>
 
+          {tab === "activity" && <ActivityPanel brandId={brandId} />}
           {tab === "ai-calendar" && (
             <AICalendar brandId={brandId} onReconnect={openReconnect} />
           )}

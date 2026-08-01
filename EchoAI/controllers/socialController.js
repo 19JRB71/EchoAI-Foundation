@@ -13,6 +13,8 @@ const { getUserTier } = require("../middleware/featureGate");
 const { meetsTier } = require("../config/tiers");
 const { alertOwnerOfFailedSend } = require("../utils/failedSendAlerts");
 const { getPublicBaseUrl } = require("../config/twilio");
+const taskSpine = require("../utils/taskSpine");
+const { recordExternalProof } = require("../utils/externalProofs");
 
 // Starter accounts may connect at most this many distinct social platforms.
 // Professional and above are unlimited (all 6 platforms).
@@ -516,7 +518,22 @@ async function schedulePost(req, res) {
        RETURNING post_id, brand_id, platform, post_content, image_url, video_url, scheduled_time, status, created_at`,
       [brandId, normalizedPlatform, postContent, attachedImageUrl, attachedVideoUrl, when.toISOString()]
     );
-    return res.status(201).json({ post: result.rows[0] });
+    const created = result.rows[0];
+    // Task spine (Prompt 009): a scheduled post is approved-and-waiting.
+    // Recording only — a spine failure never breaks scheduling.
+    await taskSpine.safeSpine(async () => {
+      const { task } = await taskSpine.createTask({
+        brandId,
+        userId,
+        sourceId: String(created.post_id),
+        title: publishTaskTitle(created),
+        status: "APPROVED",
+        actor: `owner:${userId}`,
+        meta: { platform: normalizedPlatform, scheduled_time: created.scheduled_time },
+      });
+      await taskSpine.transition({ taskId: task.task_id, to: "QUEUED", actor: `owner:${userId}`, meta: {} });
+    });
+    return res.status(201).json({ post: created });
   } catch (err) {
     console.error("Schedule post error:", err.message);
     return res.status(500).json({ error: "Failed to schedule post" });
@@ -575,6 +592,16 @@ async function reschedulePost(req, res) {
       [when.toISOString(), postId, userId]
     );
     if (result.rows.length > 0) {
+      // Task spine: owner put a failed (or manually-reviewed) post back on
+      // the schedule — failure-state -> QUEUED, actor owner.
+      await taskSpine.safeSpine(async () =>
+        taskSpine.transition({
+          bySource: { sourceId: String(postId) },
+          to: "QUEUED",
+          actor: `owner:${userId}`,
+          meta: { reason: "owner_reschedule", scheduled_time: when.toISOString() },
+        })
+      );
       return res.json({ post: result.rows[0] });
     }
 
@@ -826,6 +853,184 @@ function isTransientPublishError(err) {
   return status === 429 || (typeof status === "number" && status >= 500);
 }
 
+// ---------------------------------------------------------------------------
+// Task spine recording (Prompt 009). The spine only RECORDS what the publish
+// flow already does — retry policy, timing, claims, and provider semantics
+// are untouched. Every call goes through taskSpine.safeSpine so a recording
+// failure can never break publishing (Addendum F).
+// ---------------------------------------------------------------------------
+
+/** Owner-readable task title for a post row. */
+function publishTaskTitle(post) {
+  const label = post.platform
+    ? post.platform.charAt(0).toUpperCase() + post.platform.slice(1)
+    : "Social";
+  return `Publish to ${label}: ${String(post.post_content || "").slice(0, 80)}`;
+}
+
+/**
+ * Maps a hard publish error to its lifecycle failure state (Stage-1 §3).
+ * Exhausted transient retries stay classified by their real cause.
+ */
+function classifyFailureState(err) {
+  const status = err && err.statusCode;
+  const msg = String((err && err.message) || "");
+  if (status === 401 || /token|credential|expired|revoked|reconnect|log ?in again|oauth/i.test(msg)) {
+    return "AUTH_REQUIRED";
+  }
+  if (status === 403 || /permission|not allowed|forbidden/i.test(msg)) {
+    return "PERMISSION_DENIED";
+  }
+  if (status === 429 || /rate limit/i.test(msg)) return "RATE_LIMITED";
+  if (status === 400 || status === 422 || /invalid|rejected|must be|required|unsupported/i.test(msg)) {
+    return "VALIDATION_FAILED";
+  }
+  return "EXTERNAL_FAILURE";
+}
+
+/**
+ * Get-or-create the canonical task for a post the sweep just claimed and
+ * record QUEUED -> EXECUTING. Posts that predate the spine (or entered
+ * 'scheduled' before an adopter was wired) are backfilled here at QUEUED so
+ * the claim event is never lost. Returns the task row or null.
+ */
+async function spineRecordClaim(post, actor) {
+  return taskSpine.safeSpine(async () => {
+    let task = await taskSpine.findTaskBySource({ sourceId: post.post_id });
+    if (!task || taskSpine.TERMINAL_STATES.includes(task.status)) {
+      const owner = await db.query("SELECT user_id FROM brands WHERE brand_id = $1", [post.brand_id]);
+      if (owner.rows.length === 0) return null;
+      const created = await taskSpine.createTask({
+        brandId: post.brand_id,
+        userId: owner.rows[0].user_id,
+        sourceId: String(post.post_id),
+        title: publishTaskTitle(post),
+        status: "QUEUED",
+        actor,
+        meta: { origin: "claim-backfill", platform: post.platform },
+      });
+      task = created.task;
+    } else {
+      // A retried post sits at RETRY_SCHEDULED; the re-claim is its
+      // RETRY_SCHEDULED -> QUEUED edge. Null result = already QUEUED.
+      await taskSpine.transition({ taskId: task.task_id, to: "QUEUED", actor, meta: { platform: post.platform } });
+    }
+    await taskSpine.transition({ taskId: task.task_id, to: "EXECUTING", actor, meta: { platform: post.platform } });
+    return task;
+  });
+}
+
+/**
+ * Records a successful publish: EXECUTING -> PROVIDER_ACCEPTED with the
+ * provider's post id, then best-effort external verification. Facebook gets
+ * a real Graph read-back whose response is written to external_proofs and
+ * referenced (never copied) at EXTERNALLY_VERIFIED; platforms without a
+ * configured read-back reach REPORTED only with the explicit
+ * verification='unavailable' marker (honesty rule). A failed Facebook
+ * read-back parks the task at MANUAL_REVIEW — the trail never claims a
+ * verification that did not happen. The publish itself is already committed
+ * and is NEVER retried from here (Addendum F).
+ */
+async function spineRecordPublishSuccess(post, publishResult, actor) {
+  await taskSpine.safeSpine(
+    async () => {
+      const task = await taskSpine.findTaskBySource({ sourceId: post.post_id });
+      if (!task) throw new Error("no canonical task for published post");
+      const accepted = await taskSpine.transition({
+        taskId: task.task_id,
+        to: "PROVIDER_ACCEPTED",
+        actor,
+        externalRef: publishResult.externalId,
+        meta: { platform: post.platform },
+      });
+      if (!accepted) return null;
+
+      if (post.platform === "facebook") {
+        try {
+          const account = await loadConnectedAccount(post.brand_id, post.platform);
+          const readBack = await socialApi.fetchMetrics(post.platform, account.credentials, {
+            externalPostId: publishResult.externalId,
+          });
+          const { row } = await recordExternalProof({
+            runKey: `task-${task.task_id}`,
+            provider: "facebook",
+            action: "publish_readback",
+            externalId: publishResult.externalId,
+            brandId: post.brand_id,
+            userId: task.user_id,
+            environment: currentProofEnvironment(),
+            evidence: { readBack, externalPostId: publishResult.externalId },
+          });
+          await taskSpine.transition({
+            taskId: task.task_id,
+            to: "EXTERNALLY_VERIFIED",
+            actor,
+            proofId: row ? row.proof_id : null,
+            meta: { verification: "graph_readback" },
+          });
+          await taskSpine.transition({ taskId: task.task_id, to: "REPORTED", actor, meta: {} });
+        } catch (verifyErr) {
+          // Publish succeeded but verification did not: owner attention, no
+          // false EXTERNALLY_VERIFIED, and absolutely no re-publish.
+          await taskSpine.transition({
+            taskId: task.task_id,
+            to: "MANUAL_REVIEW",
+            actor,
+            lastError: `Verification read-back failed: ${verifyErr.message}`,
+            meta: { reason: "verification_failed", error: verifyErr.message },
+          });
+          return task;
+        }
+      } else {
+        await taskSpine.transition({
+          taskId: task.task_id,
+          to: "REPORTED",
+          actor,
+          meta: { verification: "unavailable", reason: `no read-back configured for ${post.platform}` },
+        });
+      }
+      await taskSpine.transition({ taskId: task.task_id, to: "COMPLETED", actor, meta: {} });
+      return task;
+    },
+    {
+      providerSucceeded: true,
+      source: {
+        sourceId: String(post.post_id),
+        sourceType: "social_post",
+        brandId: post.brand_id,
+        userId: post.user_id || null,
+      },
+    }
+  );
+}
+
+/** Environment tag for proof rows written by the normal publish flow. */
+function currentProofEnvironment() {
+  return process.env.APP_ENV || process.env.NODE_ENV || "development";
+}
+
+/** Records a publish failure outcome after the feature's own guarded flip hit. */
+async function spineRecordPublishFailure(post, err, actor, { transientRetry = false } = {}) {
+  await taskSpine.safeSpine(async () => {
+    if (transientRetry) {
+      return taskSpine.transition({
+        bySource: { sourceId: String(post.post_id) },
+        to: "RETRY_SCHEDULED",
+        actor,
+        lastError: err.message,
+        meta: { classification: "transient", statusCode: err.statusCode || null, error: err.message },
+      });
+    }
+    return taskSpine.transition({
+      bySource: { sourceId: String(post.post_id) },
+      to: classifyFailureState(err),
+      actor,
+      lastError: err.message,
+      meta: { error: err.message, statusCode: err.statusCode || null },
+    });
+  });
+}
+
 /**
  * Alerts the brand owner the moment one of their scheduled posts flips to
  * 'failed' so they can reschedule the same day instead of discovering it in
@@ -892,6 +1097,17 @@ async function publishDuePosts() {
         platform: row.platform,
         reason: RESCUE_REASON,
       });
+      // Task spine: an interrupted publish may or may not have gone out —
+      // exactly the "owner must look" semantics of MANUAL_REVIEW.
+      await taskSpine.safeSpine(async () =>
+        taskSpine.transition({
+          bySource: { sourceId: String(row.post_id) },
+          to: "MANUAL_REVIEW",
+          actor: "system:stale-rescue",
+          lastError: RESCUE_REASON,
+          meta: { reason: "stale_publishing_rescue" },
+        })
+      );
     }
   }
 
@@ -918,9 +1134,13 @@ async function publishDuePosts() {
 
   let published = 0;
   for (const post of due.rows) {
+    // Task spine: the atomic claim above IS the QUEUED -> EXECUTING
+    // transition (Stage-1 B4) — recorded per RETURNING row, no second claim.
+    await spineRecordClaim(post, "system:publish-sweep");
     try {
-      await publishStoredPost(post);
+      const publishResult = await publishStoredPost(post);
       published += 1;
+      await spineRecordPublishSuccess(post, publishResult, "system:publish-sweep");
     } catch (err) {
       const attemptsUsed = (post.publish_attempts || 0) + 1;
       // One transient hiccup (timeout, 5xx, rate limit) shouldn't force the
@@ -943,6 +1163,7 @@ async function publishDuePosts() {
            WHERE post_id = $1 AND status = 'publishing'`,
           [post.post_id]
         );
+        await spineRecordPublishFailure(post, err, "system:publish-sweep", { transientRetry: true });
         continue;
       }
       console.error(`Social publish failed for post ${post.post_id}:`, err.message);
@@ -964,6 +1185,7 @@ async function publishDuePosts() {
           platform: post.platform,
           reason: err.message,
         });
+        await spineRecordPublishFailure(post, err, "system:publish-sweep");
       }
     }
   }
@@ -1041,17 +1263,24 @@ async function publishPostNow(req, res) {
     }
 
     const post = claimed.rows[0];
+    // Task spine: Post Now uses the same atomic claim semantics as the sweep.
+    await spineRecordClaim(post, `owner:${userId}`);
     try {
-      await publishStoredPost(post);
+      const publishResult = await publishStoredPost(post);
+      await spineRecordPublishSuccess(post, publishResult, `owner:${userId}`);
     } catch (err) {
       console.error(`Post Now publish failed for post ${post.post_id}:`, err.message);
-      await db.query(
+      const marked = await db.query(
         `UPDATE social_posts
          SET status = 'failed', engagement_metrics = $1,
              publish_attempts = publish_attempts + 1
-         WHERE post_id = $2 AND status = 'publishing'`,
+         WHERE post_id = $2 AND status = 'publishing'
+         RETURNING post_id`,
         [JSON.stringify({ error: err.message }), post.post_id]
       );
+      if (marked.rows.length > 0) {
+        await spineRecordPublishFailure(post, err, `owner:${userId}`);
+      }
       return res.status(502).json({
         error: `The post could not be published: ${err.message}`,
       });
@@ -1232,4 +1461,10 @@ module.exports = {
   resolveFacebookPageToken,
   // exported for tests (and so the sweep's per-row guard seam is stubbable)
   reverifyAccountRow,
+  // Prompt 009 task-spine seams (tests + adopters in other controllers)
+  publishTaskTitle,
+  classifyFailureState,
+  spineRecordClaim,
+  spineRecordPublishSuccess,
+  spineRecordPublishFailure,
 };
