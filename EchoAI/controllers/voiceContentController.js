@@ -26,6 +26,7 @@ const { buildImagePrompt } = require("../prompts/imagePromptBuilder");
 const { renderFromPrompt, persistImage } = require("./imageController");
 const { zonedWallTimeToUtc, isValidTimezone } = require("../utils/timezone");
 const { recordSignal, learningContextForBrand } = require("../utils/learningEngine");
+const taskSpine = require("../utils/taskSpine");
 
 const DEFAULT_TIMEZONE = "America/New_York";
 
@@ -593,6 +594,21 @@ async function approveDraft(req, res) {
     );
     await client.query("COMMIT");
     client.release();
+
+    // Task spine (Prompt 009): recorded AFTER commit in the spine's own
+    // transaction — a recording failure never rolls back the approval.
+    await taskSpine.safeSpine(async () => {
+      const { task } = await taskSpine.createTask({
+        brandId: draft.brand_id,
+        userId,
+        sourceId: String(inserted.rows[0].post_id),
+        title: `Publish to ${row.platform}: ${String(row.post_content || "").slice(0, 80)}`,
+        status: "APPROVED",
+        actor: "system:voice-approval",
+        meta: { origin: "voice_approve", draftId },
+      });
+      await taskSpine.transition({ taskId: task.task_id, to: "QUEUED", actor: "system:voice-approval", meta: {} });
+    });
 
     recordSignal({
       brandId: draft.brand_id,

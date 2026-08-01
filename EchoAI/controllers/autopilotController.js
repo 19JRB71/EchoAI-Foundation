@@ -36,7 +36,14 @@ const {
   getBrandTimezone,
 } = require("./voiceContentController");
 const { launchFacebookCampaign } = require("./campaignController");
-const { publishStoredPost } = require("./socialController");
+const {
+  publishStoredPost,
+  publishTaskTitle,
+  spineRecordClaim,
+  spineRecordPublishSuccess,
+  spineRecordPublishFailure,
+} = require("./socialController");
+const taskSpine = require("../utils/taskSpine");
 const { evaluateAdSpend, suggestDailyBudget, getBrandSpend } = require("../utils/spendLimits");
 const fs = require("fs");
 const path = require("path");
@@ -1149,6 +1156,20 @@ async function approveItem(req, res) {
           [inserted.rows[0].post_id, itemId]
         );
         await client.query("COMMIT");
+        // Task spine (Prompt 009): recorded AFTER commit in the spine's own
+        // transaction — a recording failure never rolls back the approval.
+        await taskSpine.safeSpine(async () => {
+          const { task } = await taskSpine.createTask({
+            brandId: item.brand_id,
+            userId,
+            sourceId: String(inserted.rows[0].post_id),
+            title: publishTaskTitle({ platform: row.platform, post_content: row.post_content }),
+            status: "APPROVED",
+            actor: "system:autopilot",
+            meta: { origin: "autopilot_approve", itemId },
+          });
+          await taskSpine.transition({ taskId: task.task_id, to: "QUEUED", actor: "system:autopilot", meta: {} });
+        });
         recordSignal({
           brandId: item.brand_id,
           userId,
@@ -1327,6 +1348,20 @@ async function postItemNow(req, res) {
       client.release();
     }
 
+    // Task spine (Prompt 009): recorded after commit, spine's own tx.
+    await taskSpine.safeSpine(async () => {
+      const { task } = await taskSpine.createTask({
+        brandId: item.brand_id,
+        userId,
+        sourceId: String(postId),
+        title: publishTaskTitle({ platform: row.platform, post_content: row.post_content }),
+        status: "APPROVED",
+        actor: "system:autopilot",
+        meta: { origin: "autopilot_post_now", itemId },
+      });
+      await taskSpine.transition({ taskId: task.task_id, to: "QUEUED", actor: "system:autopilot", meta: {} });
+    });
+
     recordSignal({
       brandId: item.brand_id,
       userId,
@@ -1369,19 +1404,25 @@ async function postItemNow(req, res) {
         publishing: status === "publishing",
       });
     }
+    await spineRecordClaim(claim.rows[0], "system:autopilot");
     try {
-      await publishStoredPost(claim.rows[0]);
+      const publishResult = await publishStoredPost(claim.rows[0]);
+      await spineRecordPublishSuccess(claim.rows[0], publishResult, "system:autopilot");
     } catch (err) {
       // Honest failure: mark the post failed (status-guarded) and tell the
       // owner exactly what happened. The item stays approved; the post can be
       // rescheduled from the Social Media calendar.
-      await db.query(
+      const marked = await db.query(
         `UPDATE social_posts
          SET status = 'failed', engagement_metrics = $1,
              publish_attempts = publish_attempts + 1
-         WHERE post_id = $2 AND status = 'publishing'`,
+         WHERE post_id = $2 AND status = 'publishing'
+         RETURNING post_id`,
         [JSON.stringify({ error: err.message }), postId]
       );
+      if (marked.rows.length > 0) {
+        await spineRecordPublishFailure(claim.rows[0], err, "system:autopilot");
+      }
       return res.status(502).json({
         error: `The post was approved but publishing failed: ${err.message} You can retry it from the Social Media calendar.`,
       });

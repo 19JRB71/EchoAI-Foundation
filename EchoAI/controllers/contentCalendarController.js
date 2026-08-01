@@ -12,6 +12,8 @@ const {
 } = require("../prompts/contentCalendarPrompt");
 const { zonedWallTimeToUtc, isValidTimezone } = require("../utils/timezone");
 const { toJsonbParam } = require("../utils/jsonb");
+const taskSpine = require("../utils/taskSpine");
+const socialController = require("./socialController");
 
 const CALENDAR_DAYS = 30;
 const DEFAULT_TIMEZONE = "America/New_York";
@@ -635,22 +637,43 @@ async function activateCalendar(req, res) {
     }
 
     const client = await db.getClient();
+    let activated = [];
     try {
       await client.query("BEGIN");
       await client.query(
         "UPDATE content_calendars SET status = 'active' WHERE calendar_id = $1",
         [calendarId]
       );
-      await client.query(
-        "UPDATE social_posts SET status = 'scheduled' WHERE calendar_id = $1 AND status = 'draft'",
+      const flipped = await client.query(
+        `UPDATE social_posts SET status = 'scheduled'
+          WHERE calendar_id = $1 AND status = 'draft'
+          RETURNING post_id, brand_id, platform, post_content, scheduled_time`,
         [calendarId]
       );
+      activated = flipped.rows;
       await client.query("COMMIT");
     } catch (txErr) {
       await client.query("ROLLBACK");
       throw txErr;
     } finally {
       client.release();
+    }
+    // Task spine (Prompt 009): each activated post is approved-and-waiting.
+    // Re-activation after a pause creates a NEW attempt (the paused task was
+    // CANCELLED — Addendum G). Recording only; failures never break activation.
+    for (const post of activated) {
+      await taskSpine.safeSpine(async () => {
+        const { task } = await taskSpine.createTask({
+          brandId: post.brand_id,
+          userId,
+          sourceId: String(post.post_id),
+          title: socialController.publishTaskTitle(post),
+          status: "APPROVED",
+          actor: `owner:${userId}`,
+          meta: { origin: "calendar_activate", calendarId, platform: post.platform },
+        });
+        await taskSpine.transition({ taskId: task.task_id, to: "QUEUED", actor: `owner:${userId}`, meta: {} });
+      });
     }
     return res.json({ calendarId, status: "active" });
   } catch (err) {
@@ -682,11 +705,25 @@ async function pauseCalendar(req, res) {
         "UPDATE content_calendars SET status = 'paused' WHERE calendar_id = $1",
         [calendarId]
       );
-      await client.query(
-        "UPDATE social_posts SET status = 'draft' WHERE calendar_id = $1 AND status = 'scheduled'",
+      const reverted = await client.query(
+        `UPDATE social_posts SET status = 'draft'
+          WHERE calendar_id = $1 AND status = 'scheduled'
+          RETURNING post_id`,
         [calendarId]
       );
       await client.query("COMMIT");
+      // Task spine: the owner pulled these posts before the sweep —
+      // pre-execution CANCELLED (Stage-2 addition 3). Recording only.
+      for (const row of reverted.rows) {
+        await taskSpine.safeSpine(async () =>
+          taskSpine.transition({
+            bySource: { sourceId: String(row.post_id) },
+            to: "CANCELLED",
+            actor: `owner:${userId}`,
+            meta: { reason: "calendar_paused", calendarId },
+          })
+        );
+      }
     } catch (txErr) {
       await client.query("ROLLBACK");
       throw txErr;

@@ -962,6 +962,9 @@ export const api = {
   // Social media
   getSocialCalendar: (brandId) => request(`/api/social/calendar/${brandId}`),
   getSocialPerformance: (brandId) => request(`/api/social/performance/${brandId}`),
+  getTaskActivity: (brandId) =>
+    request(`/api/tasks/activity?brandId=${encodeURIComponent(brandId)}`),
+  getTaskEvents: (taskId) => request(`/api/tasks/${taskId}/events`),
   getSocialAccounts: (brandId) => request(`/api/social/accounts/${brandId}`),
   generateSocial: (brandId, topic, platform) =>
     request("/api/social/generate", {

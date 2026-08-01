@@ -17,6 +17,7 @@ const {
   publishDuePosts,
   reverifySocialConnections,
 } = require("../controllers/socialController");
+const { scanForMissingTasks } = require("../utils/taskSpine");
 const { triggerWebhook } = require("../controllers/zapierController");
 const mobilePushController = require("../controllers/mobilePushController");
 const {
@@ -779,6 +780,16 @@ function startScheduler() {
 
   // Every minute: publish any scheduled social posts that are now due.
   scheduleJob({ name: "social-publish", cronExpr: "* * * * *", run: publishDuePosts });
+
+  // Every 10 minutes: task-spine reconciliation scan (Prompt 009, Stage-2
+  // addition 2) — discovers recent posts carrying provider IDs (or terminal
+  // publish outcomes) with no canonical task row and rebuilds their trail
+  // deterministically. Never touches the provider, never republishes.
+  scheduleJob({
+    name: "task-spine-reconcile",
+    cronExpr: "*/10 * * * *",
+    run: () => scanForMissingTasks(),
+  });
 
   // Every 5 minutes: send any due follow-up touchpoints (email/SMS/phone).
   scheduleJob({ name: "follow-up-touchpoints", cronExpr: "*/5 * * * *", run: executeDueTouchpoints });
