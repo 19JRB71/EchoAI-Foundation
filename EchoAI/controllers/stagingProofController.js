@@ -729,6 +729,196 @@ async function stripeProof(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Prompt 016 — Google data pull proof. READ-ONLY AT THE PROVIDER BY
+// CONSTRUCTION: every Google call made from here is a GET or a read-only
+// GA4 report query via the app's real pull path. No Google writes exist in
+// this file (no review replies, no GBP edits, no Ads mutations).
+// ---------------------------------------------------------------------------
+
+// Module object (not destructured) so tests can stub the pull path.
+const googleController = require("./googleController");
+
+/**
+ * Provider error text can embed URLs that carry tokens (Google does this).
+ * Route every provider-derived message through the same redaction the
+ * evidence rows get before it can reach a response body.
+ */
+function redactMessage(message) {
+  const out = redactEvidence({ message: String(message || "") });
+  return out.message;
+}
+
+/**
+ * GET /api/staging-proof/google-preflight?userId=
+ * Read-only. Reports the Google grant state for the given user (connected,
+ * scope-derived services, token expiry, refresh-token presence — never token
+ * values) and probes which surfaces the account can serve: Business Profile
+ * accounts (GET) and the GA4 property discovery. Probe failures are reported
+ * honestly as the provider's own error message.
+ */
+async function googlePreflight(req, res) {
+  const userId = req.query.userId || req.user.userId;
+  try {
+    const grantResult = await db.query(
+      `SELECT scope, token_expiry, connection_status,
+              refresh_token_encrypted IS NOT NULL AS has_refresh_token
+         FROM google_integrations
+        WHERE user_id = $1`,
+      [userId]
+    );
+    const grant = grantResult.rows[0] || null;
+
+    let businessProfile = null;
+    let analytics = null;
+    if (grant && grant.has_refresh_token) {
+      try {
+        const { accessToken } = await googleController.getValidAccessToken(userId);
+        try {
+          const accounts = await googleController.googleFetch(
+            "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+            accessToken,
+            "Business Profile accounts"
+          );
+          businessProfile = {
+            reachable: true,
+            accountCount: (accounts.accounts || []).length,
+          };
+        } catch (err) {
+          businessProfile = { reachable: false, error: redactMessage(err.message) };
+        }
+      } catch (err) {
+        businessProfile = { reachable: false, error: redactMessage(err.message) };
+      }
+      try {
+        const summary = await googleController.fetchAnalyticsSummary(userId);
+        analytics = {
+          reachable: true,
+          property: summary.property,
+          hasData: Boolean(summary.metrics),
+        };
+      } catch (err) {
+        analytics = { reachable: false, error: redactMessage(err.message) };
+      }
+    }
+
+    return res.json({
+      readOnly: true,
+      environment: currentEnvironment(),
+      grant: grant
+        ? {
+            connected: grant.connection_status === "connected",
+            connectionStatus: grant.connection_status,
+            hasRefreshToken: grant.has_refresh_token,
+            tokenExpiry: grant.token_expiry,
+            services: String(grant.scope || "")
+              .split(/\s+/)
+              .filter((s) => s.startsWith("https://"))
+              .map((s) => s.replace("https://www.googleapis.com/auth/", "")),
+          }
+        : null,
+      businessProfile,
+      analytics,
+    });
+  } catch (err) {
+    console.error("Google preflight error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * POST /api/staging-proof/google-proof { runKey, userId }
+ * Executes the app's REAL Google Analytics pull path
+ * (googleController.fetchAnalyticsSummary — the same code behind
+ * GET /api/google/analytics) and records ONE proof row, provider 'google',
+ * action 'analytics_pull', written only from the real provider response.
+ * A failed or empty pull writes NO row (partial-proof honesty). Idempotent
+ * by (run_key, provider, action); run-key ↔ user binding enforced.
+ */
+async function googleProof(req, res) {
+  const { runKey, userId } = req.body || {};
+  if (!runKey || !userId) {
+    return res.status(400).json({ error: "runKey and userId are required" });
+  }
+  const environment = currentEnvironment();
+  const completed = [];
+  try {
+    const userResult = await db.query("SELECT user_id, email FROM users WHERE user_id = $1", [
+      userId,
+    ]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const grant = await db.query(
+      "SELECT 1 FROM google_integrations WHERE user_id = $1 AND refresh_token_encrypted IS NOT NULL",
+      [userId]
+    );
+    if (grant.rows.length === 0) {
+      return res.status(409).json({
+        error: "User has no Google connection — nothing to pull",
+        completed,
+      });
+    }
+
+    // Run-key ↔ tenant binding (same rule as the Stripe recorder).
+    const existingRun = await db.query(
+      `SELECT DISTINCT user_id FROM external_proofs
+        WHERE run_key = $1 AND user_id IS NOT NULL`,
+      [runKey]
+    );
+    if (existingRun.rows.some((r) => r.user_id !== userId)) {
+      return res.status(409).json({
+        error: "runKey is already bound to a different user",
+        completed,
+      });
+    }
+
+    // The real pull. Any provider failure throws — no row is written.
+    const summary = await googleController.fetchAnalyticsSummary(userId);
+    if (!summary.property) {
+      return res.status(409).json({
+        error:
+          "Google account has no GA4 property — nothing to prove; no row written",
+        completed,
+      });
+    }
+
+    const proof = await recordExternalProof({
+      runKey,
+      provider: "google",
+      action: "analytics_pull",
+      externalId: summary.property,
+      userId,
+      environment,
+      evidence: {
+        source:
+          "GA4 Admin accountSummaries + Data runReport via googleController.fetchAnalyticsSummary (read-only)",
+        property: summary.property,
+        dateRange: summary.dateRange,
+        metrics: summary.metrics,
+        topSources: summary.topSources,
+        resultCounts: {
+          topSources: (summary.topSources || []).length,
+        },
+      },
+    });
+    completed.push({ action: "analytics_pull", created: proof.created });
+
+    return res.json({
+      runKey,
+      environment,
+      completed,
+      proofs: (await getRunProofs(runKey)).filter((r) => r.provider === "google"),
+    });
+  } catch (err) {
+    console.error("Google proof error:", err.message);
+    return res
+      .status(502)
+      .json({ error: `Google proof failed: ${redactMessage(err.message)}`, completed });
+  }
+}
+
 /** GET /api/staging-proof/runs/:runKey — all proof rows for a run. */
 async function getRun(req, res) {
   try {
@@ -747,5 +937,7 @@ module.exports = {
   getRun,
   stripePreflight,
   stripeProof,
+  googlePreflight,
+  googleProof,
   DEFAULT_PROOF_POST_TEXT,
 };

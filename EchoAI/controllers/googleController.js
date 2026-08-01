@@ -405,83 +405,108 @@ async function getAnalytics(req, res) {
   if (!oauthConfigured()) {
     return res.status(503).json({ error: "Google connection is not configured." });
   }
-  const userId = req.user.userId;
   try {
-    const { accessToken } = await getValidAccessToken(userId);
-
-    // Discover the user's first GA4 property via the Admin API.
-    const summaries = await googleFetch(
-      "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
-      accessToken,
-      "Analytics account summaries",
-    );
-    let propertyId = null;
-    for (const acct of summaries.accountSummaries || []) {
-      const prop = (acct.propertySummaries || [])[0];
-      if (prop?.property) {
-        propertyId = prop.property; // e.g. "properties/123456789"
-        break;
-      }
-    }
-    if (!propertyId) {
-      return res.json({ connected: true, property: null, metrics: null, topSources: [] });
-    }
-
-    const runReport = async (requestBody) => {
-      const res2 = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        },
-      );
-      const data = await res2.json().catch(() => ({}));
-      if (!res2.ok || data.error) {
-        const err = new Error(data.error?.message || `Analytics report failed (HTTP ${res2.status})`);
-        err.googleError = true;
-        throw err;
-      }
-      return data;
-    };
-
-    const dateRanges = [{ startDate: "30daysAgo", endDate: "today" }];
-
-    const totals = await runReport({
-      dateRanges,
-      metrics: [
-        { name: "sessions" },
-        { name: "screenPageViews" },
-        { name: "bounceRate" },
-      ],
+    // Via module.exports so tests (and the staging proof runner's stubs) see
+    // one seam — the exported helper IS the pull path.
+    const summary = await module.exports.fetchAnalyticsSummary(req.user.userId);
+    // Exact legacy response contract — dateRange stays internal to the helper.
+    return res.json({
+      connected: summary.connected,
+      property: summary.property,
+      metrics: summary.metrics,
+      topSources: summary.topSources,
     });
-    const totalRow = totals.rows?.[0]?.metricValues || [];
-    const metrics = {
-      sessions: Number(totalRow[0]?.value || 0),
-      pageviews: Number(totalRow[1]?.value || 0),
-      bounceRate: Number(totalRow[2]?.value || 0),
-    };
-
-    const sources = await runReport({
-      dateRanges,
-      dimensions: [{ name: "sessionSource" }],
-      metrics: [{ name: "sessions" }],
-      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-      limit: 5,
-    });
-    const topSources = (sources.rows || []).map((r) => ({
-      source: r.dimensionValues?.[0]?.value || "(unknown)",
-      sessions: Number(r.metricValues?.[0]?.value || 0),
-    }));
-
-    return res.json({ connected: true, property: propertyId, metrics, topSources });
   } catch (err) {
     console.error("Get Google Analytics error:", err.message);
     return fail(res, err, "Failed to fetch Google Analytics");
   }
+}
+
+/**
+ * The actual GA4 pull path behind GET /api/google/analytics: refresh the
+ * user's token, discover the first GA4 property via the Admin API, and run
+ * the last-30-days traffic reports via the Data API. All calls are GETs or
+ * read-only report queries — no Google state is written. Exported so the
+ * staging proof runner exercises this exact path (Prompt 016).
+ */
+async function fetchAnalyticsSummary(userId) {
+  const { accessToken } = await getValidAccessToken(userId);
+
+  // Discover the user's first GA4 property via the Admin API.
+  const summaries = await googleFetch(
+    "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
+    accessToken,
+    "Analytics account summaries",
+  );
+  let propertyId = null;
+  for (const acct of summaries.accountSummaries || []) {
+    const prop = (acct.propertySummaries || [])[0];
+    if (prop?.property) {
+      propertyId = prop.property; // e.g. "properties/123456789"
+      break;
+    }
+  }
+  if (!propertyId) {
+    return { connected: true, property: null, metrics: null, topSources: [] };
+  }
+
+  const runReport = async (requestBody) => {
+    const res2 = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      },
+    );
+    const data = await res2.json().catch(() => ({}));
+    if (!res2.ok || data.error) {
+      const err = new Error(data.error?.message || `Analytics report failed (HTTP ${res2.status})`);
+      err.googleError = true;
+      throw err;
+    }
+    return data;
+  };
+
+  const dateRanges = [{ startDate: "30daysAgo", endDate: "today" }];
+
+  const totals = await runReport({
+    dateRanges,
+    metrics: [
+      { name: "sessions" },
+      { name: "screenPageViews" },
+      { name: "bounceRate" },
+    ],
+  });
+  const totalRow = totals.rows?.[0]?.metricValues || [];
+  const metrics = {
+    sessions: Number(totalRow[0]?.value || 0),
+    pageviews: Number(totalRow[1]?.value || 0),
+    bounceRate: Number(totalRow[2]?.value || 0),
+  };
+
+  const sources = await runReport({
+    dateRanges,
+    dimensions: [{ name: "sessionSource" }],
+    metrics: [{ name: "sessions" }],
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+    limit: 5,
+  });
+  const topSources = (sources.rows || []).map((r) => ({
+    source: r.dimensionValues?.[0]?.value || "(unknown)",
+    sessions: Number(r.metricValues?.[0]?.value || 0),
+  }));
+
+  return {
+    connected: true,
+    property: propertyId,
+    dateRange: { startDate: "30daysAgo", endDate: "today" },
+    metrics,
+    topSources,
+  };
 }
 
 /**
@@ -620,4 +645,6 @@ module.exports = {
   // Reused by the reputation controller to read Google Business Profile reviews.
   getValidAccessToken,
   googleFetch,
+  // Reused by the staging proof runner so the proof exercises the real pull path.
+  fetchAnalyticsSummary,
 };
