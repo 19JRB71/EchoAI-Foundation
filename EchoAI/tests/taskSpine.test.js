@@ -347,6 +347,7 @@ test("scanForMissingTasks discovers provider-id rows without tasks and rebuilds 
   const realFetch = global.fetch;
   const realPublish = socialApi.publishPost;
   const realMetrics = socialApi.fetchMetrics;
+  const realVerify = socialApi.verifyPostExists;
   let providerTouched = 0;
   global.fetch = async () => {
     providerTouched += 1;
@@ -357,6 +358,7 @@ test("scanForMissingTasks discovers provider-id rows without tasks and rebuilds 
     throw new Error("scan must never publish");
   };
   socialApi.fetchMetrics = socialApi.publishPost;
+  socialApi.verifyPostExists = socialApi.publishPost;
   try {
     const result = await taskSpine.scanForMissingTasks({ lookbackHours: 1 });
     assert.ok(result.repaired >= 2);
@@ -364,6 +366,7 @@ test("scanForMissingTasks discovers provider-id rows without tasks and rebuilds 
     global.fetch = realFetch;
     socialApi.publishPost = realPublish;
     socialApi.fetchMetrics = realMetrics;
+    socialApi.verifyPostExists = realVerify;
   }
   assert.equal(providerTouched, 0);
 
@@ -441,10 +444,10 @@ function stubPublish(impl) {
   };
 }
 function stubMetrics(impl) {
-  const real = socialApi.fetchMetrics;
-  socialApi.fetchMetrics = impl;
+  const real = socialApi.verifyPostExists;
+  socialApi.verifyPostExists = impl;
   return () => {
-    socialApi.fetchMetrics = real;
+    socialApi.verifyPostExists = real;
   };
 }
 
@@ -456,7 +459,7 @@ test("sweep happy path: verified Facebook trail through COMPLETED with a proof r
   await taskSpine.transition({ taskId: task.task_id, to: "QUEUED", actor: `owner:${userId}` });
 
   const restorePublish = stubPublish(async () => ({ externalId: "fb_post_777" }));
-  const restoreMetrics = stubMetrics(async () => ({ likes: 0, comments: 0, shares: null, reach: null }));
+  const restoreMetrics = stubMetrics(async () => ({ id: "fb_post_777", createdTime: "2026-08-01T00:00:00+0000", permalinkUrl: "https://facebook.com/x" }));
   try {
     const result = await socialController.publishDuePosts();
     assert.ok(result.published >= 1);
