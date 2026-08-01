@@ -279,6 +279,38 @@ function normalizeMetrics({ likes = null, comments = null, shares = null, reach 
   return { likes, comments, shares, reach };
 }
 
+/**
+ * Existence read-back for publish verification (task spine). Reads only the
+ * post's identity fields — id, created_time, permalink_url — which the page
+ * token can always access for its own posts. Deliberately NOT fetchMetrics:
+ * engagement fields require the pages_read_engagement permission, which the
+ * connected page token may not carry, and verification must prove the post
+ * exists, not measure it.
+ */
+async function verifyPostExists(platform, credentials, post) {
+  assertSupported(platform);
+  const externalId = post?.externalPostId;
+  if (!externalId) {
+    const err = new Error("Cannot verify a post without an external post id");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (platform !== "facebook") {
+    const err = new Error(`Post verification is not configured for ${platform}`);
+    err.statusCode = 422;
+    throw err;
+  }
+  requireFields(platform, credentials, ["accessToken"]);
+  const data = await httpJson(
+    `${GRAPH_BASE}/${externalId}?fields=${encodeURIComponent("id,created_time,permalink_url")}&access_token=${encodeURIComponent(credentials.accessToken)}`
+  );
+  return {
+    id: data?.id ?? null,
+    createdTime: data?.created_time ?? null,
+    permalinkUrl: data?.permalink_url ?? null,
+  };
+}
+
 async function fetchMetrics(platform, credentials, post) {
   assertSupported(platform);
   const externalId = post?.externalPostId;
@@ -348,4 +380,5 @@ module.exports = {
   verifyConnection,
   publishPost,
   fetchMetrics,
+  verifyPostExists,
 };

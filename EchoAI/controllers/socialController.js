@@ -948,7 +948,7 @@ async function spineRecordPublishSuccess(post, publishResult, actor) {
       if (post.platform === "facebook") {
         try {
           const account = await loadConnectedAccount(post.brand_id, post.platform);
-          const readBack = await socialApi.fetchMetrics(post.platform, account.credentials, {
+          const readBack = await socialApi.verifyPostExists(post.platform, account.credentials, {
             externalPostId: publishResult.externalId,
           });
           const { row } = await recordExternalProof({
