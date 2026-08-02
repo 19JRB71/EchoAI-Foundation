@@ -47,6 +47,23 @@ const STATUS_LABELS = {
   CANCELLED: "Cancelled",
 };
 
+// Prompt 018: ad-launch tasks share the same lifecycle but read differently —
+// a verified launch is a PAUSED chain at Facebook (nothing spends), not a
+// live post.
+const AD_LAUNCH_LABELS = {
+  QUEUED: "Waiting to launch",
+  EXECUTING: "Launching…",
+  PROVIDER_ACCEPTED: "Created at Facebook (paused)",
+  EXTERNALLY_VERIFIED: "Verified at Facebook (paused)",
+};
+
+function statusLabel(task) {
+  if (task.task_type === "ad_launch" && AD_LAUNCH_LABELS[task.status]) {
+    return AD_LAUNCH_LABELS[task.status];
+  }
+  return STATUS_LABELS[task.status] || task.status;
+}
+
 function badgeClass(status) {
   if (FAILURE.has(status)) return "bg-red-900/60 text-red-300";
   return STATUS_STYLES[status] || "bg-gray-800 text-gray-300";
@@ -122,7 +139,7 @@ export default function ActivityPanel({ brandId }) {
         <div>
           <h3 className="text-lg font-semibold text-gray-100">Approvals &amp; Activity</h3>
           <p className="text-sm text-gray-400">
-            Every step of every publish, exactly as it happened — from approval to live verification.
+            Every step of every publish and ad launch, exactly as it happened — from approval to verification.
           </p>
         </div>
         <button
@@ -146,7 +163,7 @@ export default function ActivityPanel({ brandId }) {
                 onClick={() => setOpenTask(openTask === t.task_id ? null : t.task_id)}
               >
                 <span className={`rounded px-2 py-0.5 text-xs font-medium ${badgeClass(t.status)}`}>
-                  {STATUS_LABELS[t.status] || t.status}
+                  {statusLabel(t)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm text-gray-200">{t.title}</span>
                 <span className="text-xs text-gray-500">{formatDate(t.updated_at)}</span>

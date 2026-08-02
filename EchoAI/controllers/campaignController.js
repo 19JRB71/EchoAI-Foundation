@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { graphGet, graphPost, verifyAdAccount, createPausedAd } = require("../utils/facebookApi");
 const { recordFailedLaunch, findExistingAdId } = require("../utils/facebookLaunchSafety");
+const adLaunchSpine = require("../utils/adLaunchSpine");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { buildAdCreativePrompt, generateCreativeVariations } = require("../prompts/adCreativePrompt");
 const { fbGeoLocations } = require("../utils/geoTargeting");
@@ -192,23 +193,55 @@ async function connectFacebookAccount(req, res) {
 async function launchFacebookCampaign(p) {
   const { userId, brand, name, goal, budget, targetAudience, creativeOverride } = p;
 
-  const { accessToken, accountRef, grantedPages } = await getFacebookIntegration(userId);
   const objective = GOAL_TO_OBJECTIVE[goal] || GOAL_TO_OBJECTIVE.leads;
   const campaignName = name || `${brand.brand_name} - ${goal}`;
   const dailyBudgetCents = Math.round(Number(budget) * 100);
 
-  // Fail fast BEFORE creating any Facebook object: a deliverable chain needs a
-  // creative, which needs a Page + destination link — resolved from the BRAND
-  // row, never from env vars (mirrors the Ad Creative Studio guard).
-  const { pageId, linkUrl } = resolveBrandAdDestination(brand, grantedPages);
-
-  const variations = creativeOverride
-    ? [creativeOverride]
-    : generateCreativeVariations(brand, { campaignGoal: goal, count: 3 });
+  // Prompt 018 — canonical task-spine adopter (guide steps 1-2): the launch
+  // request IS the approval; the canonical task and the pre-generated
+  // campaigns.campaign_id exist BEFORE any Facebook call. Recording is
+  // safeSpine'd — a spine failure never blocks or alters the launch.
+  const spineActor = p.spineActor || `owner:${userId}`;
+  const spineOrigin = p.spineOrigin || "manual";
+  const launchRec = await adLaunchSpine.beginLaunch({
+    brandId: brand.brand_id,
+    userId,
+    actor: spineActor,
+    origin: spineOrigin,
+    title: `Launch Facebook campaign: ${campaignName}`,
+  });
 
   // Track every Facebook object id as it is created so a mid-chain failure can
   // be recorded (never silent) and the orphaned objects cleaned up.
   const ids = { campaignId: null, adSetId: null, creativeId: null, adId: null };
+
+  let accessToken, accountRef, pageId, linkUrl, variations;
+  try {
+    const integration = await getFacebookIntegration(userId);
+    accessToken = integration.accessToken;
+    accountRef = integration.accountRef;
+
+    // Fail fast BEFORE creating any Facebook object: a deliverable chain needs a
+    // creative, which needs a Page + destination link — resolved from the BRAND
+    // row, never from env vars (mirrors the Ad Creative Studio guard).
+    ({ pageId, linkUrl } = resolveBrandAdDestination(brand, integration.grantedPages));
+
+    variations = creativeOverride
+      ? [creativeOverride]
+      : generateCreativeVariations(brand, { campaignGoal: goal, count: 3 });
+  } catch (preErr) {
+    // Pre-provider failure (no Facebook object exists): classify + record on
+    // the trail (guide step 5), then surface exactly as before.
+    await adLaunchSpine.recordLaunchFailure({
+      taskId: launchRec.taskId,
+      campaignId: launchRec.campaignId,
+      brandId: brand.brand_id,
+      userId,
+      ids,
+      error: preErr,
+    });
+    throw preErr;
+  }
 
   try {
     // 1. Create the campaign (paused so nothing spends until reviewed).
@@ -293,6 +326,17 @@ async function launchFacebookCampaign(p) {
       variations,
       ids,
       error: err,
+      campaignId: launchRec.campaignId,
+    });
+    // Guide step 5: partial chain -> EXTERNAL_FAILURE with the partial ids in
+    // evidence (D-27 §11); pre-chain causes classify to their failure state.
+    await adLaunchSpine.recordLaunchFailure({
+      taskId: launchRec.taskId,
+      campaignId: launchRec.campaignId,
+      brandId: brand.brand_id,
+      userId,
+      ids,
+      error: err,
     });
     err.partialChain = { ...ids };
     if (!err.statusCode) err.statusCode = 502;
@@ -312,10 +356,10 @@ async function launchFacebookCampaign(p) {
   try {
     inserted = await db.query(
       `INSERT INTO campaigns
-         (brand_id, user_id, campaign_name, budget, ad_creative_variations,
+         (campaign_id, brand_id, user_id, campaign_name, budget, ad_creative_variations,
           launch_date, facebook_campaign_id, facebook_adset_id,
           facebook_creative_id, facebook_ad_id, status)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'created_paused')
+       VALUES ($10, $1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'created_paused')
        RETURNING campaign_id`,
       [
         brand.brand_id,
@@ -327,6 +371,7 @@ async function launchFacebookCampaign(p) {
         ids.adSetId,
         ids.creativeId,
         ids.adId,
+        launchRec.campaignId,
       ]
     );
   } catch (err) {
@@ -338,11 +383,33 @@ async function launchFacebookCampaign(p) {
       variations,
       ids,
       error: err,
+      // Keep the failure row joined to the canonical task source id.
+      campaignId: launchRec.campaignId,
+    });
+    // Provider chain complete, local persist failed: PROVIDER_ACCEPTED (ids
+    // attached) then MANUAL_REVIEW — never a relaunch (Addendum F).
+    await adLaunchSpine.recordPersistFailure({
+      taskId: launchRec.taskId,
+      campaignId: launchRec.campaignId,
+      brandId: brand.brand_id,
+      userId,
+      ids,
+      error: err,
     });
     err.partialChain = { ...ids };
     if (!err.statusCode) err.statusCode = 500;
     throw err;
   }
+
+  // Guide steps 3-4: PROVIDER_ACCEPTED (all four ids) -> Prompt 005 read-back
+  // -> proof row -> EXTERNALLY_VERIFIED -> REPORTED -> COMPLETED.
+  await adLaunchSpine.recordLaunchSuccess({
+    taskId: launchRec.taskId,
+    campaignId: inserted.rows[0].campaign_id,
+    brandId: brand.brand_id,
+    userId,
+    ids,
+  });
 
   return {
     campaignId: inserted.rows[0].campaign_id,
@@ -378,6 +445,10 @@ async function createCampaign(req, res) {
     }
     const brand = brandResult.rows[0];
 
+    // Prompt 018: trusted internal callers (Echo companion, Setup Wizard)
+    // label their launches for the audit trail; anything else is 'manual'.
+    const origin = ["echo", "setup_wizard"].includes(req.body.origin) ? req.body.origin : "manual";
+
     const launched = await launchFacebookCampaign({
       userId,
       brand,
@@ -385,6 +456,8 @@ async function createCampaign(req, res) {
       goal,
       budget,
       targetAudience,
+      spineActor: `owner:${userId}`,
+      spineOrigin: origin,
     });
 
     return res.status(201).json(launched);

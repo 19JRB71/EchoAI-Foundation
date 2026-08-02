@@ -2,7 +2,68 @@
 
  Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
 
-**Last updated:** 2026-07-30.
+**Last updated:** 2026-08-02.
+
+## 2026-08-02 — Prompt 018: ad-launch task spine (pre-merge evidence)
+
+- **Suites:** server 1105/1105 (baseline 1090 + 15 `tests/adLaunchSpine.test.js`), client 385/385, client build clean (workflow logs, 2026-08-02). Test DB migration 132 applied via setupTestDb.
+- **Grep-proofs:** all launch entry points converge on `utils/adLaunchSpine` (§10 single canonical path); `createPausedAd` in `utils/facebookApi.js` remains the ONLY POST `/ads` (regression grep clean).
+- **New-test coverage:** full trail w/ proof reference; origin propagation (autopilot/ad_studio/echo/setup_wizard/manual); partial-chain EXTERNAL_FAILURE sharing the source id; pre-chain VALIDATION_FAILED with zero Graph calls; verify-fail -> MANUAL_REVIEW no retry; persist-fail -> PROVIDER_ACCEPTED then MANUAL_REVIEW; completeness gate; §13 spine-throw regression (one launch, one row, scan rebuild with zero provider calls); proof reuse-by-reference; stale-EXECUTING rescue; proof re-link; 015 unpause evidence on the same task.
+- **Staging live proof (SDS2 PAUSED chain, $0 spend):** PENDING — runs after owner merges the PR and staging deploys.
+
+## 2026-08-01 — Prompt 009 Stage 2: task spine LIVE PROOF (staging, run prompt009-live-2)
+
+- **Deploys:** PR #23 merged → `df6dad4`; read-back fix PR #24 (`c60084a`) merged → staging `b0fbf61` (health-verified).
+- **Live finding (proof run 1, `prompt009-live-1`, post `8e196c38…`):** publish succeeded (FB post `140006069194366_122254752164056707`) but the metrics-based read-back was refused (`pages_read_engagement` not granted) → task `d56721cf…` honestly parked at MANUAL_REVIEW `verification_failed`, provider NOT retried — the designed honesty path, live. Fix (PR #24): verification now uses `socialApi.verifyPostExists` (id/created_time/permalink_url only — the permission profile Prompt 006 already proved). Suite re-verified 1090/1090.
+- **Full lifecycle (proof run 2, post `d5f3d371-db1b-42b2-8311-0043e1cba744`):** scheduled via the normal owner flow 23:29:18Z → published by the sweep 23:31:04Z (FB post `140006069194366_122254752710056707`). Task `2b5f0850-d824-4c46-90ca-fa38541c2d5d` trail, every event timestamped + actored (staging DB, read-only):
+  - 23:29:18.831 created at APPROVED — `owner:cb06cf12…` (meta platform facebook)
+  - 23:29:18.850 APPROVED→QUEUED — `owner:cb06cf12…`
+  - 23:31:00.210 QUEUED→EXECUTING — `system:publish-sweep`
+  - 23:31:04.886 EXECUTING→PROVIDER_ACCEPTED — `system:publish-sweep` (external_ref set)
+  - 23:31:05.298 PROVIDER_ACCEPTED→EXTERNALLY_VERIFIED — `system:publish-sweep` (meta verification=graph_readback)
+  - 23:31:05.313 EXTERNALLY_VERIFIED→REPORTED — `system:publish-sweep`
+  - 23:31:05.326 REPORTED→COMPLETED — `system:publish-sweep`
+- **external_proofs linkage:** task.proof_id = `7b400278-a6c4-43f3-9324-aee10a648614`; row run_key `task-2b5f0850…`, provider facebook / action `publish_readback`, external_id = the FB post id, evidence = live Graph body (id, createdTime 2026-08-01T23:31:00+0000, permalinkUrl facebook.com/122254631936056707/posts/122254752710056707), environment staging.
+- **Activity view screenshots:** `test_evidence/prompt009/activity-list.png` (tab with Completed live-2, MANUAL_REVIEW live-1 incl. honest FB error text, and the scan-repaired Prompt-006-era post shown Completed) and `activity-trail-expanded.png` (live-2 expanded: all 7 transitions with timestamps and actors rendered in-app).
+- **Owner corroboration:** `test_evidence/prompt009/fb-page-both-posts-live.png` — owner's Manage Page screenshot showing BOTH proof posts live on the South Dixie Storage Page (live-2 "Published by Zorecho · 26m", live-1 "· 35m") before deletion.
+- **FB deletion:** DONE 2026-08-01 — owner attested ("done") deleting both test posts from the South Dixie Storage Page. Owner step — the two test posts (live-1 and live-2) deleted manually from the South Dixie Storage Page (spine posts go through the normal flow, so they carry no staging-proof run claim; page token decryptable only on Railway).
+
+## 2026-08-01 — Prompt 009 Stage 2: task spine (code-complete evidence)
+
+- **Suite:** server **1090/1090** = 1071 + 19 (`EchoAI/tests/taskSpine.test.js`). Single-file: `cd EchoAI && node --require ./tests/dbGuard.js --test tests/taskSpine.test.js`. Client 385/385; client build green.
+- **Transactional pairing (both directions):** proven with test-only DB triggers that RAISE on agent_task_events INSERT (state change rolls back) and on agent_tasks UPDATE (no orphan event), plus a caller-supplied tx client whose ROLLBACK discards both.
+- **Honesty guards tested:** PROVIDER_ACCEPTED→REPORTED refused without meta.verification='unavailable'; illegal targets throw; guarded misses return null with no event; append-only trigger rejects UPDATE/DELETE.
+- **Reconciliation tested:** scan rebuilds a published-with-external-id trail through COMPLETED with zero provider calls (fetch + socialApi stubbed to throw, providerTouched=0); per-row guard (one bad row never aborts the sweep); safeSpine provider-succeeded failure creates a MANUAL_REVIEW reconciliation task; spine-down publish still succeeds and the scan repairs afterwards.
+- **Full sweep trail:** APPROVED→QUEUED→EXECUTING→PROVIDER_ACCEPTED→EXTERNALLY_VERIFIED→REPORTED→COMPLETED with external_proofs row action `publish_readback`; transient retry re-queue and AUTH_REQUIRED exhaustion trail asserted event-by-event.
+- **Live staging proof:** PENDING — runs after PR #23 merges and Railway deploys (Addendum D+I, run key prompt009-live-1, South Dixie Storage Page 140006069194366).
+
+## 2026-08-01 — Prompt 016: Google data pull proof (staging)
+
+- **Suite:** server **1071/1071** = 1035 + 16 (externalProofs) + 10 (stripeStagingProof) + 10 (`EchoAI/tests/googleStagingProof.test.js`). Single-file: `cd EchoAI && node --require ./tests/dbGuard.js --test tests/googleStagingProof.test.js`.
+- **Deployed preflight** (`GET /api/staging-proof/google-preflight` on `5ff21e4`): grant connected, refresh token present, services analytics.readonly/adwords/business.manage/userinfo.email/webmasters.readonly/calendar.events; businessProfile reachable:false with Google's own quota-exceeded text (honest); analytics reachable:true property `properties/473906255` hasData:true.
+- **Live evidence (`prompt016-live-1`):** external_proofs row `ec3835c3-dd4c-4a9b-a56c-7f53766aaee4` provider google / action analytics_pull / external_id `properties/473906255` — 9 sessions, 19 pageviews, bounce 0.111 (30daysAgo→today), top sources google 5 / (direct) 2 / bing 1 / lm.facebook.com 1. Verified via read-only `$STAGING_DATABASE_URL`; credential regex scan (ya29|Bearer |access_token|refresh_token) = clean; idempotent re-run created:false, row count still 1.
+- **In-app screenshot:** `test_evidence/prompt016/analytics-in-app.png` — staging dashboard Google & SEO → Google Analytics tab rendering the same 9/19/11.1% + source table.
+- **Read-only proof:** diff contains no Google write call; proof path = GA4 Admin accountSummaries GET + Data runReport (read-only report queries) via `googleController.fetchAnalyticsSummary`.
+
+## 2026-08-01 — Prompt 007: Stripe test-mode checkout round trip (staging)
+
+- **Suite:** server **1061/1061** = 1035 (pre-006 baseline) + 16 (externalProofs) + 10 (`EchoAI/tests/stripeStagingProof.test.js`); client build green. Single-file: `cd EchoAI && node --require ./tests/dbGuard.js --test tests/stripeStagingProof.test.js`.
+- **Genuine forged-signature rejection:** POST staging `/api/subscriptions/webhook` with fabricated `Stripe-Signature` → 400 "No signatures found matching the expected signature" (previously 400 from missing key — not accepted).
+- **Deployed preflight:** `GET /api/staging-proof/stripe-preflight` on `bfbc4d9`: secret+publishable keys test-mode, webhookSecret present/looksValid, `starterPriceMatchesEnv:true` (`price_1TvKgc4bVsLTHBIim45VzLqc` = $197/mo, livemode:false), one enabled test-mode webhook endpoint.
+- **Live evidence (`prompt007-live-1`):** external_proofs rows customer `cus_UzfN5V9KWPToJe`, subscription `sub_1TzgFU4bVsLTHBIigpP8YT1X` (invoice `in_1TzgFU4bVsLTHBIizlj8CE4M`, amountPaid 19700, PI succeeded), webhook_event `evt_1TzgFX4bVsLTHBIia10C99B1` (invoice.payment_succeeded) incl. resulting tenant subscriptions row starter/active. Verified via read-only `$STAGING_DATABASE_URL`; regex credential scan (sk_/rk_/whsec_/pk_live) = 0 hits; all livemode:false.
+
+## 2026-07-31 — Prompt 006: external_proofs substrate + staging live proof
+
+| Check | Result | Evidence |
+|---|---|---|
+| Server suite | PASS — **1051/1051** (baseline 1035 + 16 new) | `npm test` in `EchoAI/` (node --test) |
+| New suite `tests/externalProofs.test.js` | 16 tests: redaction (key + value patterns, persisted-row check, Graph paging-URL `access_token` regression), rows only from provider responses (missing evidence throws; failed email send ⇒ 502 + zero rows; unpublished post ⇒ 409 + zero rows), `(run_key,provider,action)` dup returns existing row, proof-post claim atomic get-or-create (one row across retries), run-key binding 409, cross-brand run-key 409, immutability trigger rejects UPDATE/DELETE, preflight read-only (zero proof rows, GET-only provider calls), env guard 403s outside staging | test file + suite output |
+| Migration 130 | Applied to dev + test DBs (`+ applied 130_external_proofs.sql`) and to staging via deploy `d12f1ec` | migration runner output; staging preflight 200 |
+| Architect review | 2 critical findings (double-post window in proof-row-inferred resume; FKs on immutable table block account deletion) — both fixed + regression tests, suite re-run green | review transcript in session |
+| Owner merge conditions | (1) staging-only structural env guard before auth + admin gate — regression-tested; (2) paging-URL token redaction regression test; (3) append-only via trigger `trg_external_proofs_immutable`, deletion path deferred to Prompt 029 | Stage-2 preflight report in session |
+| Item-9 read-only preflight | PASS — `readOnly:true`, environment `staging`, Page `South Dixie Storage` `140006069194366` read via Graph GET, token present, SMTP `smtp.resend.com` / `Zorecho <no-reply@zorecho.com>`, `existingProofs: []` | CLI output in session (2026-07-31) |
+| Live run `prompt006-live-1` | PASS — post `140006069194366_122254631924056707` published with item-14 text → read-back (permalink `facebook.com/122254631936056707/posts/122254631924056707`) → deleted (`success:true`); email messageId `<20b86a89-e364-5000-c27e-16069a064861@zorecho.com>` to jamesrblacketer71@gmail.com | CLI output (server-redacted provider responses) in session |
+| Evidence rows | 4 rows in staging `external_proofs` (publish/readback/delete/send), each `environment='staging'`, verified credential-clean (regex sweep for EAA/re\_/Bearer/access_token= patterns — all false) | read-only `$STAGING_DATABASE_URL` queries, 2026-07-31 |
 
 ## 2026-07-30 — Prompt 015 code phase (dev environment)
 
@@ -13,7 +74,7 @@
 | Client suite / build | PASS — 385/385; vite build green (sw v158 in dist) | `npm test` in client; `npm run build:client` |
 | Migration 129 | Applied to dev (`+ applied 129_ad_spend_caps.sql`, platform row = 2500¢ verified) and test DB (pretest runner) | migration runner output + psql check |
 | Architect review | 1 critical finding (stale pending marker on partial pause) — fixed, 2 regression tests added, suite re-run green | review transcript in session |
-| Staging denial proof | **PENDING owner steps** — unpause without cap ⇒ denial screenshot + `ad_spend_audit` `result='denied'` row via read-only `$STAGING_DATABASE_URL`; NO real unpause-to-spend (D-7) | to be recorded here after merge/deploy |
+| Staging denial proof | **PASS** (2026-07-30, owner steps) — PR #19 merged, deploy SHA `b19c8de` verified via `/api/health` ×3; migration 129 seeded platform row 2500¢, zero brand caps; Enable clicked with no cap ⇒ red denial copy "No daily spending cap is set for this business. Set a cap first — unpausing is impossible without one." (owner screenshots, incl. stale-PWA v157→v158 refresh cycle first); audit row `6ad5ae59…` on campaign `626851f3…`: `unpause/denied`, brand cap NULL, platform 2500¢, budget 500¢, committed 0¢; ZERO Graph calls, all 3 rows still `created_paused`, marker NULL; NO real unpause-to-spend (D-7) | owner screenshots (attached_assets 2026-07-30) + read-only staging DB queries |
 
 ## 2026-07-30 — Prompt 005 staging live proof (SDS2)
 

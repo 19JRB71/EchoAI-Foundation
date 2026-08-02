@@ -739,7 +739,7 @@ const ACTIONS = [
 
       if (canLaunchCreative) {
         const launched = await invoke(adCreativeStudioController.launchCreative, userId, {
-          body: { creativeId, packageIndex: 0, budget },
+          body: { creativeId, packageIndex: 0, budget, origin: "setup_wizard" },
         });
         ensureOk(launched, "Failed to launch your first Facebook ad campaign.");
         return {
@@ -751,7 +751,7 @@ const ACTIONS = [
       }
 
       const result = await invoke(campaignController.createCampaign, userId, {
-        body: { brandId: session.brand_id, goal, budget, targetAudience: {} },
+        body: { brandId: session.brand_id, goal, budget, targetAudience: {}, origin: "setup_wizard" },
       });
       ensureOk(result, "Failed to create your first Facebook ad campaign.");
       return {
