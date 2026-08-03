@@ -12,27 +12,42 @@ const db = require("../config/db");
  *
  * @returns {string|null} the recorded campaign_id (null if recording failed)
  */
-async function recordFailedLaunch({ brandId, userId, campaignName, budget, variations, ids, error }) {
+async function recordFailedLaunch({ brandId, userId, campaignName, budget, variations, ids, error, campaignId = null }) {
   try {
-    const inserted = await db.query(
-      `INSERT INTO campaigns
-         (brand_id, user_id, campaign_name, budget, ad_creative_variations,
-          launch_date, facebook_campaign_id, facebook_adset_id,
-          facebook_creative_id, facebook_ad_id, status)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'launch_failed')
-       RETURNING campaign_id`,
-      [
-        brandId,
-        userId,
-        campaignName,
-        budget,
-        JSON.stringify(variations || []),
-        ids.campaignId || null,
-        ids.adSetId || null,
-        ids.creativeId || null,
-        ids.adId || null,
-      ],
-    );
+    // Prompt 018: when the launcher pre-generated the canonical campaign_id
+    // (task-spine source id), the failure row is recorded under that SAME id
+    // so the task trail and the launch_failed row stay joined. Falls back to
+    // a generated id if the explicit one collides or errors.
+    const insertFailedRow = (withId) =>
+      db.query(
+        `INSERT INTO campaigns
+           (${withId ? "campaign_id, " : ""}brand_id, user_id, campaign_name, budget, ad_creative_variations,
+            launch_date, facebook_campaign_id, facebook_adset_id,
+            facebook_creative_id, facebook_ad_id, status)
+         VALUES (${withId ? "$10, " : ""}$1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'launch_failed')
+         RETURNING campaign_id`,
+        [
+          brandId,
+          userId,
+          campaignName,
+          budget,
+          JSON.stringify(variations || []),
+          ids.campaignId || null,
+          ids.adSetId || null,
+          ids.creativeId || null,
+          ids.adId || null,
+          ...(withId ? [campaignId] : []),
+        ],
+      );
+    // Fallback to a generated id ONLY on a true primary-key collision
+    // (23505). Any other DB error must not silently sever the explicit-id
+    // linkage — it bubbles to the outer catch, which logs and returns null.
+    const inserted = campaignId
+      ? await insertFailedRow(true).catch((e) => {
+          if (e && e.code === "23505") return insertFailedRow(false);
+          throw e;
+        })
+      : await insertFailedRow(false);
     console.error(
       `Facebook launch FAILED mid-chain for brand ${brandId}: ${error.message}. ` +
         `Partial objects recorded for cleanup (campaigns row ${inserted.rows[0].campaign_id}): ` +

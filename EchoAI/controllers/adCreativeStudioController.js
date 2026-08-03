@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { anthropic, MODEL } = require("../config/anthropic");
 const { graphGet, graphPost, createPausedAd } = require("../utils/facebookApi");
 const { recordFailedLaunch, findExistingAdId } = require("../utils/facebookLaunchSafety");
+const adLaunchSpine = require("../utils/adLaunchSpine");
 const { decrypt } = require("../utils/encryption");
 const { resolveBrandAdDestination } = require("./campaignController");
 const {
@@ -395,7 +396,42 @@ async function launchCreative(req, res) {
       return res.status(400).json({ error: "packageIndex is out of range" });
     }
 
-    const { accessToken, accountRef, grantedPages } = await getFacebookIntegration(userId);
+    const objective = GOAL_TO_OBJECTIVE[creative.campaign_goal] || GOAL_TO_OBJECTIVE.lead_generation;
+    const campaignName = `${creative.brand_name} - ${pkg.conceptName || pkg.angle || "Creative"}`;
+    const dailyBudgetCents = Math.round(Number(budget) * 100);
+
+    // Prompt 018 — the ONE canonical task-spine adopter (guide steps 1-2):
+    // the launch request is the approval; task + pre-generated campaign_id
+    // exist before any Facebook call. safeSpine'd — recording can never
+    // block or alter the launch.
+    const spineOrigin = ["echo", "setup_wizard"].includes(req.body.origin)
+      ? req.body.origin
+      : "ad_studio";
+    const launchRec = await adLaunchSpine.beginLaunch({
+      brandId: creative.brand_id,
+      userId,
+      actor: `owner:${userId}`,
+      origin: spineOrigin,
+      title: `Launch Facebook campaign: ${campaignName}`,
+    });
+    const spineFail = (error, ids) =>
+      adLaunchSpine.recordLaunchFailure({
+        taskId: launchRec.taskId,
+        campaignId: launchRec.campaignId,
+        brandId: creative.brand_id,
+        userId,
+        ids,
+        error,
+      });
+
+    const emptyIds = { campaignId: null, adSetId: null, creativeId: null, adId: null };
+    let accessToken, accountRef, grantedPages;
+    try {
+      ({ accessToken, accountRef, grantedPages } = await getFacebookIntegration(userId));
+    } catch (intErr) {
+      await spineFail(intErr, emptyIds);
+      throw intErr;
+    }
 
     // A real, deliverable launch needs an ad creative, which requires a Facebook
     // Page + destination link — resolved from the BRAND row (never env vars,
@@ -409,14 +445,12 @@ async function launchCreative(req, res) {
         grantedPages
       ));
     } catch (destErr) {
+      await spineFail(destErr, emptyIds);
       if (destErr.statusCode === 503) {
         return res.status(503).json({ error: destErr.message });
       }
       throw destErr;
     }
-    const objective = GOAL_TO_OBJECTIVE[creative.campaign_goal] || GOAL_TO_OBJECTIVE.lead_generation;
-    const campaignName = `${creative.brand_name} - ${pkg.conceptName || pkg.angle || "Creative"}`;
-    const dailyBudgetCents = Math.round(Number(budget) * 100);
 
     // Track every Facebook object id so a mid-chain failure is recorded for
     // cleanup and surfaced — never a silent partial chain.
@@ -502,7 +536,11 @@ async function launchCreative(req, res) {
         variations: [pkg],
         ids,
         error: chainErr,
+        campaignId: launchRec.campaignId,
       });
+      // Guide step 5: partial chain -> EXTERNAL_FAILURE with partial ids
+      // (D-27 §11); pre-chain causes classify to their failure state.
+      await spineFail(chainErr, ids);
       return res.status(502).json({
         error: `Facebook launch failed: ${chainErr.message}. Partial objects were recorded for cleanup.`,
         partialChain: { ...ids },
@@ -531,6 +569,18 @@ async function launchCreative(req, res) {
         variations: [pkg],
         ids,
         error: persistErr,
+        // Keep the failure row joined to the canonical task source id.
+        campaignId: launchRec.campaignId,
+      });
+      // Provider chain complete, local persist failed: PROVIDER_ACCEPTED then
+      // MANUAL_REVIEW — never a relaunch (Addendum F).
+      await adLaunchSpine.recordPersistFailure({
+        taskId: launchRec.taskId,
+        campaignId: launchRec.campaignId,
+        brandId: creative.brand_id,
+        userId,
+        ids,
+        error: persistErr,
       });
       return res.status(500).json({
         error: `The Facebook chain was created but saving it locally failed: ${persistErr.message}. Partial objects were recorded for cleanup.`,
@@ -541,10 +591,10 @@ async function launchCreative(req, res) {
     async function runCampaignInsert() {
       return db.query(
         `INSERT INTO campaigns
-           (brand_id, user_id, campaign_name, budget, ad_creative_variations,
+           (campaign_id, brand_id, user_id, campaign_name, budget, ad_creative_variations,
             launch_date, facebook_campaign_id, facebook_adset_id,
             facebook_creative_id, facebook_ad_id, status)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'created_paused')
+         VALUES ($10, $1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'created_paused')
          RETURNING campaign_id`,
         [
           creative.brand_id,
@@ -556,9 +606,20 @@ async function launchCreative(req, res) {
           ids.adSetId,
           ids.creativeId,
           ids.adId,
+          launchRec.campaignId,
         ]
       );
     }
+
+    // Guide steps 3-4: PROVIDER_ACCEPTED (all four ids) -> Prompt 005
+    // read-back -> proof row -> EXTERNALLY_VERIFIED -> REPORTED -> COMPLETED.
+    await adLaunchSpine.recordLaunchSuccess({
+      taskId: launchRec.taskId,
+      campaignId: insertedCampaign.rows[0].campaign_id,
+      brandId: creative.brand_id,
+      userId,
+      ids,
+    });
 
     // 6. Mark the creative launched and remember which package shipped.
     const launchedPackage = {

@@ -184,7 +184,12 @@ test("full-chain ACTIVE read-back upgrades created_paused → live (GET-only) an
   const id = await seedCampaign("created_paused");
   readback = { cmp_sm: ACTIVE, as_sm: ACTIVE, "cmp_sm/ads": { data: [ACTIVE, ACTIVE] } };
   const res = await verifyCampaignStatus(id);
-  assert.deepEqual(res, { verified: true, state: "live", changed: true });
+  // Prompt 018: verify also returns the verbatim readBack payload for proof
+  // recording — the verdict fields are unchanged.
+  assert.equal(res.verified, true);
+  assert.equal(res.state, "live");
+  assert.equal(res.changed, true);
+  assert.ok(res.readBack && res.readBack.campaign && res.readBack.adset && Array.isArray(res.readBack.ads));
   const row = await rowState(id);
   assert.equal(row.status, "live");
   assert.ok(row.last_verified_at, "last_verified_at recorded");
@@ -197,7 +202,9 @@ test("any non-ACTIVE object verifies to created_paused — honest downgrade of l
   const id = await seedCampaign("live");
   readback = { cmp_sm: ACTIVE, as_sm: ACTIVE, "cmp_sm/ads": { data: [ACTIVE, PAUSED] } };
   const res = await verifyCampaignStatus(id);
-  assert.deepEqual(res, { verified: true, state: "created_paused", changed: true });
+  assert.equal(res.verified, true);
+  assert.equal(res.state, "created_paused");
+  assert.equal(res.changed, true);
   assert.equal((await rowState(id)).status, "created_paused");
 });
 
@@ -239,7 +246,9 @@ test("read-back failure never converts to failed/launch_failed; success clears t
   assert.equal((await rowState(id)).status, "created_paused");
   readback = { cmp_sm: PAUSED, as_sm: PAUSED, "cmp_sm/ads": { data: [PAUSED] } };
   const res = await verifyCampaignStatus(id);
-  assert.deepEqual(res, { verified: true, state: "created_paused", changed: false });
+  assert.equal(res.verified, true);
+  assert.equal(res.state, "created_paused");
+  assert.equal(res.changed, false);
   const row = await rowState(id);
   assert.equal(row.last_verify_error, null);
   assert.ok(row.last_verified_at);

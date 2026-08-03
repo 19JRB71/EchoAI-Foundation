@@ -1238,6 +1238,8 @@ async function approveItem(req, res) {
         name: `${brand.brand_name} - Autopilot test: ${item.ad_headline || "ad"}`,
         goal: "leads",
         budget: dailyBudget,
+        spineActor: `owner:${userId}`,
+        spineOrigin: "autopilot",
         creativeOverride: {
           headline: item.ad_headline || brand.brand_name,
           primaryText: item.post_content,

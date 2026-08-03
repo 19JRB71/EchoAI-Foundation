@@ -39,6 +39,7 @@ const { graphPost } = require("../utils/facebookApi");
 const { decrypt } = require("../utils/encryption");
 const { verifyCampaignStatus } = require("../utils/campaignVerification");
 const spendCaps = require("../utils/spendCaps");
+const adLaunchSpine = require("../utils/adLaunchSpine");
 const pushController = require("./pushController");
 
 // Advisory-lock namespace for campaign control (distinct from other locks).
@@ -82,13 +83,14 @@ async function tokenForUser(userId) {
 
 /** Append-only audit writer — one row per state-changing attempt or denial. */
 async function writeAudit(a) {
-  await db.query(
+  const inserted = await db.query(
     `INSERT INTO ad_spend_audit
        (campaign_id, brand_id, actor_user_id, action, result,
         brand_cap_cents_at_time, platform_cap_cents_at_time,
         campaign_budget_cents, committed_live_cents_at_time,
         denial_reason, error_message)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING audit_id`,
     [
       a.campaignId,
       a.brandId,
@@ -103,6 +105,23 @@ async function writeAudit(a) {
       a.errorMessage ? String(a.errorMessage).slice(0, 1000) : null,
     ]
   );
+  const auditId = inserted.rows[0] ? inserted.rows[0].audit_id : null;
+  // Prompt 018 §4 — wiring only: the pause/unpause outcome is recorded as an
+  // evidence event on the SAME canonical ad_launch task (no new task per
+  // unpause), referencing this audit row so 015's audit and the task trail
+  // point at each other. safeSpine'd inside — never affects the control flow.
+  await adLaunchSpine.attachLifecycleEvidence({
+    campaignId: a.campaignId,
+    actor: `owner:${a.actorUserId}`,
+    meta: {
+      event: a.action,
+      result: a.result,
+      auditId,
+      ...(a.denialReason ? { denialReason: String(a.denialReason).slice(0, 300) } : {}),
+      ...(a.errorMessage ? { error: String(a.errorMessage).slice(0, 300) } : {}),
+    },
+  });
+  return auditId;
 }
 
 /**

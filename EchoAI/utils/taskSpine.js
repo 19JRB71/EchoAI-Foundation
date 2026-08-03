@@ -382,6 +382,7 @@ async function safeSpine(fn, opts = {}) {
  * Returns the task row or null (e.g. draft posts are out of scope).
  */
 async function reconstructTrail({ sourceType = "social_post", sourceId }) {
+  if (sourceType === "campaign") return reconstructLaunchTrail(sourceId);
   if (sourceType !== "social_post") {
     throw new Error(`taskSpine.reconstructTrail: unsupported sourceType '${sourceType}'`);
   }
@@ -449,6 +450,84 @@ async function reconstructTrail({ sourceType = "social_post", sourceId }) {
 }
 
 /**
+ * Prompt 018 (D-27 §12): rebuilds the missing canonical ad_launch task for a
+ * campaigns row from what the database already knows. BOOKKEEPING ONLY — it
+ * never creates Facebook objects, never relaunches, never calls Facebook.
+ */
+async function reconstructLaunchTrail(campaignId) {
+  const { rows } = await db.query(
+    `SELECT c.*, b.is_demo
+       FROM campaigns c
+       JOIN brands b ON b.brand_id = c.brand_id
+      WHERE c.campaign_id = $1`,
+    [campaignId]
+  );
+  const row = rows[0];
+  if (!row || row.is_demo) return null;
+  // Pre-launch domain states have no provider action to account for.
+  if (row.status === "draft" || row.status === "approved") return null;
+
+  const actor = "system:repair";
+  const title = `Launch Facebook campaign: ${String(row.campaign_name || "").slice(0, 80)}`;
+  const meta = { reconstructed: true, campaign_status: row.status };
+  const fbIds = {
+    campaignId: row.facebook_campaign_id,
+    adSetId: row.facebook_adset_id,
+    creativeId: row.facebook_creative_id,
+    adId: row.facebook_ad_id,
+  };
+
+  const { task } = await createTask({
+    brandId: row.brand_id,
+    userId: row.user_id,
+    taskType: "ad_launch",
+    sourceType: "campaign",
+    sourceId: String(row.campaign_id),
+    title,
+    status: "APPROVED",
+    actor,
+    meta,
+  });
+  const step = (to, extra = {}) =>
+    transition({ taskId: task.task_id, to, actor, meta: { ...meta, ...extra.meta }, ...extra });
+
+  await step("QUEUED");
+  await step("EXECUTING");
+
+  if (row.status === "launch_failed") {
+    const storedError = row.last_verify_error || "Launch failed (reconstructed)";
+    await step("EXTERNAL_FAILURE", {
+      lastError: storedError,
+      meta: { partialChain: fbIds, error: storedError },
+    });
+    return task;
+  }
+
+  // created_paused / live / completed / failed — a full chain was accepted.
+  await step("PROVIDER_ACCEPTED", {
+    externalRef: row.facebook_campaign_id || null,
+    meta: { facebook: fbIds },
+  });
+  // Reference (never copy) any existing launch read-back proof.
+  const proofs = await db.query(
+    `SELECT proof_id FROM external_proofs
+      WHERE external_id = $1 AND provider = 'facebook' AND action = 'launch_readback'
+      ORDER BY created_at ASC LIMIT 1`,
+    [String(row.facebook_campaign_id || "")]
+  );
+  if (proofs.rows.length > 0) {
+    await step("EXTERNALLY_VERIFIED", { proofId: proofs.rows[0].proof_id });
+    await step("REPORTED");
+  } else {
+    // Honesty rule: reconstruction cannot claim a verification that never
+    // happened.
+    await step("REPORTED", { meta: { verification: "unavailable", reason: "reconstructed" } });
+  }
+  await step("COMPLETED");
+  return task;
+}
+
+/**
  * Periodic discovery scan (Stage-2 addition 2): finds recent social_posts
  * that carry a provider id (or a terminal publish outcome) but have NO
  * matching canonical task row, and repairs each via reconstructTrail. The
@@ -486,12 +565,109 @@ async function scanForMissingTasks({ lookbackHours = 48, limit = 100 } = {}) {
   if (rows.length > 0) {
     console.log(`taskSpine scan: repaired ${repaired}/${rows.length} missing trail(s).`);
   }
-  return { found: rows.length, repaired };
+
+  // Prompt 018 (D-27 §12) — ad-launch reconciliation. Three detections, all
+  // bookkeeping-only (zero provider calls):
+  //  a) campaigns rows carrying Facebook ids (or a terminal launch outcome)
+  //     with no canonical ad_launch task -> rebuild the trail;
+  //  b) ad_launch tasks stranded in EXECUTING (launch process died before
+  //     recording an outcome / campaign linkage) -> MANUAL_REVIEW;
+  //  c) launch_readback proof rows whose task lost the proof_id reference
+  //     -> re-attach the evidence reference.
+  const launches = await db.query(
+    `SELECT c.campaign_id
+       FROM campaigns c
+       JOIN brands b ON b.brand_id = c.brand_id AND b.is_demo = false
+      WHERE c.updated_at >= NOW() - make_interval(hours => $1)
+        AND c.status NOT IN ('draft', 'approved')
+        AND (c.facebook_campaign_id IS NOT NULL OR c.status = 'launch_failed')
+        AND NOT EXISTS (
+          SELECT 1 FROM agent_tasks t
+           WHERE t.task_type = 'ad_launch'
+             AND t.source_type = 'campaign'
+             AND t.source_id = c.campaign_id::text
+        )
+      ORDER BY c.updated_at ASC
+      LIMIT $2`,
+    [lookbackHours, limit]
+  );
+  let launchesRepaired = 0;
+  for (const row of launches.rows) {
+    try {
+      await module.exports.repairOneCampaign(row.campaign_id);
+      launchesRepaired += 1;
+    } catch (err) {
+      console.error(`taskSpine scan: launch repair failed for campaign ${row.campaign_id}:`, err.message);
+    }
+  }
+
+  const stranded = await db.query(
+    `SELECT task_id FROM agent_tasks
+      WHERE task_type = 'ad_launch' AND status = 'EXECUTING'
+        AND updated_at < NOW() - INTERVAL '30 minutes'
+      LIMIT $1`,
+    [limit]
+  );
+  for (const row of stranded.rows) {
+    try {
+      await transition({
+        taskId: row.task_id,
+        to: "MANUAL_REVIEW",
+        actor: "system:stale-rescue",
+        lastError: "Launch was interrupted before an outcome was recorded — check the campaign at Facebook before any retry.",
+        meta: { reason: "launch_interrupted" },
+      });
+    } catch (err) {
+      console.error(`taskSpine scan: stale ad_launch rescue failed for ${row.task_id}:`, err.message);
+    }
+  }
+
+  const unlinkedProofs = await db.query(
+    `SELECT t.task_id, p.proof_id
+       FROM agent_tasks t
+       JOIN external_proofs p
+         ON p.run_key = 'task-' || t.task_id::text
+        AND p.action = 'launch_readback'
+      WHERE t.task_type = 'ad_launch' AND t.proof_id IS NULL
+      LIMIT $1`,
+    [limit]
+  );
+  for (const row of unlinkedProofs.rows) {
+    try {
+      await attachEvidence({
+        taskId: row.task_id,
+        proofId: row.proof_id,
+        actor: "system:repair",
+        meta: { reason: "proof_link_repair" },
+      });
+    } catch (err) {
+      console.error(`taskSpine scan: proof re-link failed for task ${row.task_id}:`, err.message);
+    }
+  }
+
+  if (launches.rows.length > 0) {
+    console.log(
+      `taskSpine scan: repaired ${launchesRepaired}/${launches.rows.length} missing launch trail(s).`
+    );
+  }
+  return {
+    found: rows.length,
+    repaired,
+    launchesFound: launches.rows.length,
+    launchesRepaired,
+    strandedLaunches: stranded.rows.length,
+    proofsRelinked: unlinkedProofs.rows.length,
+  };
 }
 
 /** Seam for tests + the per-row guard. */
 async function repairOne(postId) {
   return reconstructTrail({ sourceType: "social_post", sourceId: postId });
+}
+
+/** Seam for tests + the per-row guard (ad launches). */
+async function repairOneCampaign(campaignId) {
+  return reconstructTrail({ sourceType: "campaign", sourceId: campaignId });
 }
 
 module.exports = {
@@ -507,4 +683,5 @@ module.exports = {
   reconstructTrail,
   scanForMissingTasks,
   repairOne,
+  repairOneCampaign,
 };

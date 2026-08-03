@@ -89,6 +89,7 @@ async function verifyCampaignStatus(campaignId) {
   }
 
   let allActive;
+  let readBack = null;
   try {
     if (!row.facebook_campaign_id || !row.facebook_adset_id) {
       throw new Error("Campaign row is missing Facebook object ids — read-back impossible.");
@@ -102,6 +103,9 @@ async function verifyCampaignStatus(campaignId) {
     ]);
     const adList = ads && Array.isArray(ads.data) ? ads.data : null;
     if (!adList) throw new Error("Ad list read-back returned no data — read-back incomplete.");
+    // Verbatim (id/status only) read-back payload — returned so adopters can
+    // record it as external proof (Prompt 018). Additive; nothing else changes.
+    readBack = { campaign, adset, ads: adList };
     allActive =
       fullyActive(campaign) &&
       fullyActive(adset) &&
@@ -124,7 +128,7 @@ async function verifyCampaignStatus(campaignId) {
       WHERE campaign_id = $1`,
     [campaignId]
   );
-  return { verified: true, state: target, changed };
+  return { verified: true, state: target, changed, readBack };
 }
 
 module.exports = { verifyCampaignStatus };

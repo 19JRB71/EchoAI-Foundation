@@ -469,7 +469,7 @@ async function runExec(userId, exec) {
       connectedRow.rows.length > 0;
     if (canLaunchCreative) {
       const launched = await invoke(adCreativeStudioController.launchCreative, userId, {
-        body: { creativeId: exec.creativeId, packageIndex: 0, budget: exec.budget },
+        body: { creativeId: exec.creativeId, packageIndex: 0, budget: exec.budget, origin: "echo" },
       });
       ensureOk(launched, "Failed to launch your campaign.");
       return `Your Facebook ad campaign is launched at $${exec.budget}/day (paused for Facebook's review, as required) — I'll monitor it and optimize weekly.`;
@@ -477,7 +477,7 @@ async function runExec(userId, exec) {
     const brand = await getBrand(userId);
     if (!brand) throw new Error("No brand to launch a campaign for.");
     const result = await invoke(campaignController.createCampaign, userId, {
-      body: { brandId: brand.brand_id, goal: "lead_generation", budget: exec.budget, targetAudience: {} },
+      body: { brandId: brand.brand_id, goal: "lead_generation", budget: exec.budget, targetAudience: {}, origin: "echo" },
     });
     ensureOk(result, "Failed to launch your campaign.");
     return `Your Facebook ad campaign is set up at $${exec.budget}/day (paused for review) — I'll monitor and optimize it for you.`;
