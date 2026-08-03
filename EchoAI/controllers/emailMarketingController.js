@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { sendEmail } = require("../utils/email");
+const emailSendSpine = require("../utils/emailSendSpine");
 const { alertOwnerOfFailedSend } = require("../utils/failedSendAlerts");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { getPublicBaseUrl } = require("../config/twilio");
@@ -443,6 +444,11 @@ async function sendCampaign(req, res) {
   const { campaignId } = req.params;
   const baseUrl = getPublicBaseUrl(req);
 
+  // Prompt 019 spine state (recorder only — never controls the send).
+  let spineTaskId = null;
+  let spineSource = null;
+  const messageIds = [];
+
   const client = await db.getClient();
   try {
     await client.query("BEGIN");
@@ -493,8 +499,22 @@ async function sendCampaign(req, res) {
       return res.status(400).json({ error: "No pending recipients for this campaign" });
     }
 
+    // Prompt 019: canonical email task (guide steps 1-2). The FOR UPDATE row
+    // lock above IS the atomic claim; QUEUED->EXECUTING records it.
+    spineTaskId = await emailSendSpine.beginSend({
+      brandId: campaign.brand_id,
+      userId,
+      actor: `owner:${userId}`,
+      sourceType: "email_marketing_campaign",
+      sourceId: campaignId,
+      title: `Send email blast: ${email.subject_line}`,
+      meta: { path: "manual_blast", recipients: recipients.rows.length },
+    });
+    spineSource = { sourceType: "email_marketing_campaign", sourceId: campaignId, brandId: campaign.brand_id };
+
     let sent = 0;
     let failed = 0;
+    let lastSendError = null;
     for (const r of recipients.rows) {
       if (await isOptedOut(campaign.brand_id, r.email_address, client)) {
         await client.query(
@@ -512,7 +532,8 @@ async function sendCampaign(req, res) {
           email: r.email_address,
           baseUrl,
         });
-        await sendEmail({ to: r.email_address, subject: email.subject_line, html });
+        const info = await sendEmail({ to: r.email_address, subject: email.subject_line, html });
+        if (info && info.messageId) messageIds.push(info.messageId);
         await client.query(
           `UPDATE email_marketing_recipients
            SET delivery_status = 'sent', updated_at = NOW()
@@ -522,6 +543,7 @@ async function sendCampaign(req, res) {
         sent += 1;
       } catch (err) {
         failed += 1;
+        lastSendError = err;
         const { message: reason, permanent } = classifyEmailError(err);
         await client.query(
           `UPDATE email_marketing_recipients
@@ -536,6 +558,11 @@ async function sendCampaign(req, res) {
 
     if (sent === 0) {
       await client.query("ROLLBACK");
+      await emailSendSpine.recordSendFailure({
+        taskId: spineTaskId,
+        error: lastSendError || new Error("No emails could be sent (check SMTP configuration)"),
+        meta: { path: "manual_blast", failedCount: failed },
+      });
       return res.status(502).json({
         error: "No emails could be sent (check SMTP configuration)",
         recipients: recipients.rows.length,
@@ -551,10 +578,41 @@ async function sendCampaign(req, res) {
       [sent, campaignId]
     );
     await client.query("COMMIT");
+    // Recorded AFTER the feature COMMIT (guide tx rule) — a spine failure can
+    // never roll back or repeat a send the provider already accepted.
+    await emailSendSpine.recordSendAccepted({
+      taskId: spineTaskId,
+      brandId: campaign.brand_id,
+      userId,
+      sourceType: "email_marketing_campaign",
+      sourceId: campaignId,
+      messageIds,
+      counts: { sent, failed },
+      meta: { path: "manual_blast" },
+    });
     return res.json({ campaignId, recipients: recipients.rows.length, sent, failed, status: "sent" });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("Send campaign error:", err.message);
+    if (messageIds.length > 0 && spineSource) {
+      // SMTP accepted mail but the local bookkeeping failed: owner attention,
+      // never a resend (D-24 F / D-28 §13).
+      await emailSendSpine.recordPersistFailure({
+        taskId: spineTaskId,
+        brandId: spineSource.brandId,
+        userId,
+        sourceType: spineSource.sourceType,
+        sourceId: spineSource.sourceId,
+        messageIds,
+        error: err,
+      });
+    } else {
+      await emailSendSpine.recordSendFailure({
+        taskId: spineTaskId,
+        error: err,
+        meta: { path: "manual_blast" },
+      });
+    }
     return res.status(500).json({ error: "Failed to send campaign" });
   } finally {
     client.release();
@@ -698,13 +756,18 @@ async function sendDueDripEmails() {
   const failedByCampaign = new Map();
   for (const { recipient_id } of due.rows) {
     const client = await db.getClient();
+    // Prompt 019 spine state for this recipient's send unit (recorder only).
+    let dripTaskId = null;
+    let dripSpineSource = null;
+    let dripMessageId = null;
     try {
       await client.query("BEGIN");
       const claim = await client.query(
         `SELECT r.recipient_id, r.campaign_id, r.email_address, r.current_step,
-                r.send_attempts, c.brand_id, c.campaign_name
+                r.send_attempts, c.brand_id, c.campaign_name, b.user_id
          FROM email_marketing_recipients r
          JOIN email_marketing_campaigns c ON c.campaign_id = r.campaign_id
+         JOIN brands b ON b.brand_id = c.brand_id
          WHERE r.recipient_id = $1
            AND r.delivery_status = 'pending'
            AND r.next_send_at IS NOT NULL AND r.next_send_at <= NOW()
@@ -753,6 +816,25 @@ async function sendDueDripEmails() {
         continue;
       }
 
+      // Prompt 019: canonical email task. The SKIP LOCKED claim above IS the
+      // atomic claim; QUEUED->EXECUTING records it (a below-limit failure
+      // parks the task at RETRY_SCHEDULED and the next tick resumes it).
+      dripTaskId = await emailSendSpine.beginSend({
+        brandId: rec.brand_id,
+        userId: rec.user_id,
+        actor: "system:drip-scheduler",
+        sourceType: "email_marketing_recipient",
+        sourceId: rec.recipient_id,
+        title: `Send drip email (step ${rec.current_step + 1}): ${current.subject_line}`,
+        meta: { path: "drip", campaignId: rec.campaign_id, step: rec.current_step },
+      });
+      dripSpineSource = {
+        sourceType: "email_marketing_recipient",
+        sourceId: rec.recipient_id,
+        brandId: rec.brand_id,
+        userId: rec.user_id,
+      };
+
       let ok = true;
       let sendError = null;
       try {
@@ -762,7 +844,8 @@ async function sendDueDripEmails() {
           email: rec.email_address,
           baseUrl,
         });
-        await sendEmail({ to: rec.email_address, subject: current.subject_line, html });
+        const info = await sendEmail({ to: rec.email_address, subject: current.subject_line, html });
+        dripMessageId = info && info.messageId;
         sent += 1;
       } catch (err) {
         ok = false;
@@ -788,6 +871,12 @@ async function sendDueDripEmails() {
             [attemptsUsed, rec.recipient_id, reason, permanent]
           );
           await client.query("COMMIT");
+          // Post-COMMIT (guide tx rule): attempts exhausted — real failure.
+          await emailSendSpine.recordSendFailure({
+            taskId: dripTaskId,
+            error: sendError,
+            meta: { path: "drip", attemptsUsed },
+          });
           if (flipped.rows.length > 0) {
             const entry = failedByCampaign.get(rec.campaign_id) || {
               brandId: rec.brand_id,
@@ -806,6 +895,12 @@ async function sendDueDripEmails() {
             [attemptsUsed, rec.recipient_id]
           );
           await client.query("COMMIT");
+          // The feature will retry next tick — park the SAME task.
+          await emailSendSpine.recordRetryScheduled({
+            taskId: dripTaskId,
+            error: sendError,
+            meta: { path: "drip", attemptsUsed },
+          });
         }
         continue;
       }
@@ -835,9 +930,31 @@ async function sendDueDripEmails() {
         [rec.campaign_id]
       );
       await client.query("COMMIT");
+      // Post-COMMIT (guide tx rule): provider accepted + bookkeeping saved.
+      await emailSendSpine.recordSendAccepted({
+        taskId: dripTaskId,
+        brandId: rec.brand_id,
+        userId: rec.user_id,
+        sourceType: "email_marketing_recipient",
+        sourceId: rec.recipient_id,
+        messageIds: dripMessageId ? [dripMessageId] : [],
+        counts: { sent: 1, failed: 0 },
+        meta: { path: "drip", step: rec.current_step },
+      });
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       console.error("Drip scheduler error:", err.message);
+      if (dripSpineSource && typeof dripMessageId !== "undefined" && dripMessageId) {
+        // SMTP accepted but bookkeeping failed: owner attention, never resend.
+        await emailSendSpine.recordPersistFailure({
+          taskId: dripTaskId,
+          ...dripSpineSource,
+          messageIds: [dripMessageId],
+          error: err,
+        });
+      } else if (dripTaskId) {
+        await emailSendSpine.recordSendFailure({ taskId: dripTaskId, error: err, meta: { path: "drip" } });
+      }
     } finally {
       client.release();
     }
@@ -1087,11 +1204,17 @@ async function sendDueScheduledCampaigns() {
   for (const { campaign_id } of due.rows) {
     const client = await db.getClient();
     let alertInfo = null;
+    // Prompt 019 spine state for this campaign's send unit (recorder only).
+    let blastTaskId = null;
+    let blastSource = null;
+    const blastMessageIds = [];
+    let blastCounts = null; // set just before COMMIT; recorded after it
     try {
       await client.query("BEGIN");
       const claim = await client.query(
-        `SELECT c.campaign_id, c.brand_id, c.campaign_name
+        `SELECT c.campaign_id, c.brand_id, c.campaign_name, b.user_id
          FROM email_marketing_campaigns c
+         JOIN brands b ON b.brand_id = c.brand_id
          WHERE c.campaign_id = $1 AND c.campaign_type = 'one-time'
            AND c.status = 'scheduled'
            AND c.scheduled_at IS NOT NULL AND c.scheduled_at <= NOW()
@@ -1104,6 +1227,24 @@ async function sendDueScheduledCampaigns() {
         continue;
       }
       processed += 1;
+
+      // Prompt 019: the SKIP LOCKED claim above IS the atomic claim;
+      // QUEUED->EXECUTING records it.
+      blastTaskId = await emailSendSpine.beginSend({
+        brandId: campaign.brand_id,
+        userId: campaign.user_id,
+        actor: "system:scheduled-blast",
+        sourceType: "email_marketing_campaign",
+        sourceId: campaign_id,
+        title: `Send scheduled email blast: ${campaign.campaign_name}`,
+        meta: { path: "scheduled_blast" },
+      });
+      blastSource = {
+        sourceType: "email_marketing_campaign",
+        sourceId: campaign_id,
+        brandId: campaign.brand_id,
+        userId: campaign.user_id,
+      };
 
       const emailResult = await client.query(
         `SELECT subject_line, body_html FROM email_marketing_emails
@@ -1146,7 +1287,8 @@ async function sendDueScheduledCampaigns() {
             email: r.email_address,
             baseUrl,
           });
-          await sendEmail({ to: r.email_address, subject: email.subject_line, html });
+          const info = await sendEmail({ to: r.email_address, subject: email.subject_line, html });
+          if (info && info.messageId) blastMessageIds.push(info.messageId);
           await client.query(
             `UPDATE email_marketing_recipients
              SET delivery_status = 'sent', updated_at = NOW()
@@ -1199,11 +1341,43 @@ async function sendDueScheduledCampaigns() {
           };
         }
       }
+      blastCounts = { sent, failed: recipients.rows.length - sent, lastError };
       await client.query("COMMIT");
+      // Post-COMMIT (guide tx rule): record the outcome on the spine.
+      if (blastCounts.sent > 0) {
+        await emailSendSpine.recordSendAccepted({
+          taskId: blastTaskId,
+          ...blastSource,
+          messageIds: blastMessageIds,
+          counts: blastCounts,
+          meta: { path: "scheduled_blast" },
+        });
+      } else {
+        await emailSendSpine.recordSendFailure({
+          taskId: blastTaskId,
+          error: new Error(blastCounts.lastError || "No emails could be sent."),
+          meta: { path: "scheduled_blast" },
+        });
+      }
     } catch (err) {
       alertInfo = null;
       await client.query("ROLLBACK").catch(() => {});
       console.error("Scheduled blast worker error:", err.message);
+      if (blastMessageIds.length > 0 && blastSource) {
+        // SMTP accepted but bookkeeping failed: owner attention, never resend.
+        await emailSendSpine.recordPersistFailure({
+          taskId: blastTaskId,
+          ...blastSource,
+          messageIds: blastMessageIds,
+          error: err,
+        });
+      } else if (blastTaskId) {
+        await emailSendSpine.recordSendFailure({
+          taskId: blastTaskId,
+          error: err,
+          meta: { path: "scheduled_blast" },
+        });
+      }
     } finally {
       client.release();
     }

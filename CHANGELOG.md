@@ -2,6 +2,9 @@
 
 Newest first. Documentation-only entries are marked (docs). For deep milestone history see `MILESTONES.md`.
 
+## 2026-08-03 — Prompt 019 Stage 2: email-send task spine + unified Approvals Inbox
+- Every email send on the four adopted paths (manual blast, drip scheduler, scheduled blasts, CRM sequence, weekly report) now leaves a full agent_tasks trail with a `send_accept` external_proofs reference (Message-IDs + counts, never recipient addresses); zero Message-IDs can never reach PROVIDER_ACCEPTED; SMTP-accepted-then-persist-failed parks at MANUAL_REVIEW with no resend path. New owner-only `/api/approvals` unified Approvals Inbox (projection-only; spine vs adapter badging; adapter inventory is a retirement ratchet). MANUAL_REVIEW now resolvable by the owner (→COMPLETED with recorded resolution, →CANCELLED on dismiss). Reconciliation extended to email blasts + stale email_send rescue (bookkeeping only). Migration 133 (CHECK widen only). sw v161. Suite 1114 server / 385 client.
+
 ## 2026-08-02 — Prompt 018: ad-launch task spine
 - Every Facebook ad launch now leaves a full agent_tasks trail with an external_proofs read-back reference; failures classify honestly; pause/unpause evidence lands on the same task; reconciliation rebuilds missed trails without provider calls. Migration 132 (CHECK widen only). sw v160.
 

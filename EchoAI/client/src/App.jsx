@@ -12,6 +12,7 @@ import Login from "./sections/Login.jsx";
 // sections/MissionControl.jsx (still unit-tested) for reference/rollback.
 import AiTeam from "./sections/AiTeam.jsx";
 import Overview from "./sections/Overview.jsx";
+import ApprovalsInbox from "./sections/ApprovalsInbox.jsx";
 import Leads from "./sections/Leads.jsx";
 import Supporters from "./sections/Supporters.jsx";
 import Properties from "./sections/Properties.jsx";
@@ -1192,6 +1193,12 @@ export default function App() {
               />
               {section === "portfolio" &&
                 (canOpenSection("portfolio") ? <Portfolio /> : null)}
+              {section === "approvals" && (
+                <ApprovalsInbox
+                  brandId={selectedBrandId}
+                  onSelectSection={handleSelectSection}
+                />
+              )}
               {section === "missioncontrol" && (
                 <MissionControlV2
                   brandId={selectedBrandId}

@@ -2,7 +2,15 @@
 
  Per the Evidence rule (`replit.md`), every functional claim needs recorded proof. This file indexes where each piece of evidence lives. Newest first.
 
-**Last updated:** 2026-08-02.
+**Last updated:** 2026-08-03.
+
+## 2026-08-03 — Prompt 019 Stage 2: email-send task spine + Approvals Inbox (pre-merge evidence)
+
+- **Suites:** server 1114/1114 (baseline 1105 + 9 `tests/emailSendSpine.test.js`), client 385/385, client build clean (workflow logs, 2026-08-03). Test DB migration 133 applied via setupTestDb.
+- **Grep-proofs:** all five adopted send paths (manual blast, drip, scheduled blasts, CRM sequence, weekly report) converge on `utils/emailSendSpine` (the ONE recorder); no other caller writes email_send tasks.
+- **New-test coverage:** full trail w/ `send_accept` proof reference + D-23 evidence redaction (no recipient addresses); Message-ID gate (success w/o IDs can never reach PROVIDER_ACCEPTED); duplicate-send regression BOTH ways (concurrent claim race → one SMTP pass; spine-write failure after SMTP accept → one send, reconciliation task filed, scan never re-sends); total SMTP failure → EXTERNAL_FAILURE; blast reconstruction is honest (REPORTED w/ verification:'unavailable', never invented Message-IDs); stale EXECUTING rescue → MANUAL_REVIEW; inbox aggregation + spine/adapter badging + tenant isolation + deterministic projection; owner-only MANUAL_REVIEW resolution (recorded transition; system actors denied; lost race = 409).
+- **Architect review:** PASS, no severe findings (2026-08-03).
+- **Staging live proof (one real email → 006 proof inbox, full trail + Message-ID):** PENDING — runs after owner merges the PR and staging deploys.
 
 ## 2026-08-02 — Prompt 018: ad-launch task spine (pre-merge evidence)
 
@@ -151,7 +159,7 @@
 | Tenant isolation: chain uses only the caller's stored token | PASS | happy-path access_token assertion |
 | Single launch path (Autopilot = manual) | PASS | source-assertion test; `autopilotController.js:1214` |
 | Full suite | 993/993 (985 + 8) | `/tmp/prompt003_full_run.log` |
-| Staging external proof (Ads Manager paused chain screenshot, delete chain, zero spend) | **PENDING** | owner steps |
+| Staging external proof (Ads Manager paused chain screenshot, delete chain, zero spend) | PASS — post-merge (`aa5cd2f`) launch via normal manual path: full chain `120249543035500774`→`120249543037900774`→`1360358236206552`→`120249543046340774`; trail APPROVED→…→COMPLETED (task `49f877d2`); `launch_readback` proof row PAUSED at all levels; Activity screenshots captured pre-deletion; Ads Manager Off/$0 ("Do you want to delete 4 campaigns?" → "No results found", 018 chain + 3 pre-existing Marketplace drafts removed); $0 spend throughout | agent DB captures + owner Ads Manager screenshots (attached_assets/image_1785758328416/403029/497988.png), 2026-08-03 |
 
 ## 2026-07-27 — Prompt 002 v2 (Facebook staging connect + Page + ad-account selection)
 
