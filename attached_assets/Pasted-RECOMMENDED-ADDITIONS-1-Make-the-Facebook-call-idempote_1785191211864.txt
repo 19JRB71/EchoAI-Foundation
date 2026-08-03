@@ -1,0 +1,93 @@
+RECOMMENDED ADDITIONS
+1. Make the Facebook call idempotent (Highest Recommendation)
+
+Right now, if the API call succeeds but the network times out before your code receives the response, a retry could create duplicate ads.
+
+Add:
+
+Idempotency: Before creating an ad, check whether facebook_ad_id already exists for this campaign. Never issue a second /ads POST for the same campaign unless an explicit recovery path is being executed and documented.
+
+2. Database transaction requirement
+
+You want the database and Facebook state to stay synchronized.
+
+Add:
+
+Persist facebook_ad_id only after Facebook successfully returns the ad ID. If database persistence fails after Facebook creation succeeds, surface the inconsistency explicitly and record the orphaned Facebook object for cleanup.
+
+3. Cleanup verification
+
+The prompt already deletes the staging chain afterward.
+
+I'd make it stronger:
+
+External evidence must include confirmation that Campaign, Ad Set, Creative, and Ad are no longer present after cleanup (or Facebook deletion responses proving successful deletion).
+
+That prevents stale staging objects from accumulating.
+
+4. Structured logging
+
+Instead of simply:
+
+log all four object ids
+
+Require a consistent record:
+
+campaign_id
+adset_id
+creative_id
+ad_id
+tenant
+brand_id
+status
+timestamp
+
+It makes future debugging dramatically easier.
+
+5. Fail-fast clarification
+
+I would tighten this sentence:
+
+Current:
+
+never leave a partial chain silently
+
+Instead say:
+
+Any partial Facebook chain must be explicitly surfaced to the UI, persisted in the campaign record, and included in logs for recovery. Silent partial success is prohibited.
+
+6. Verify routing
+
+You already say:
+
+report Autopilot approve-path routing through launchFacebookCampaign
+
+I'd strengthen it:
+
+Demonstrate that both manual launch and Autopilot approval invoke the exact same implementation path, not duplicated logic.
+
+That prevents future drift.
+
+I WOULD NOT CHANGE
+
+I would leave these exactly as they are:
+
+PAUSED-only enforcement
+zero spend requirement
+delete-after-screenshot
+mocked graph tests
+staging proof
+Definition of Done
+honest COMPLETE/PARTIAL/BLOCKED reporting
+
+Those are exactly what kept Prompt 002 honest.
+
+OVERALL
+
+I think this prompt is ready to send after incorporating those small safeguards. They're not new features—they simply make the implementation more robust and easier to verify.
+
+After Prompt 003 is accepted, you'll have the first complete Facebook object chain:
+
+Campaign → Ad Set → Creative → Ad
+
+At that point, the remaining Facebook work becomes much more about tenant isolation, correct branding, and truthful state reporting rather than missing core functionality.

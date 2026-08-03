@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { graphGet, graphPost, verifyAdAccount, createPausedAd } = require("../utils/facebookApi");
 const { recordFailedLaunch, findExistingAdId } = require("../utils/facebookLaunchSafety");
 const adLaunchSpine = require("../utils/adLaunchSpine");
+const { executeExternal } = require("../utils/executeExternal");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { buildAdCreativePrompt, generateCreativeVariations } = require("../prompts/adCreativePrompt");
 const { fbGeoLocations } = require("../utils/geoTargeting");
@@ -244,6 +245,25 @@ async function launchFacebookCampaign(p) {
   }
 
   try {
+    // Prompt 020: the whole Facebook object chain runs through the ONE
+    // execution gateway (D-30 §11) — ledger row per launch attempt, DB-level
+    // idempotency on the pre-generated campaign id (a re-fire of the same
+    // launch can never create a second chain), terminal escalation to
+    // MANUAL_REVIEW + one owner alert. The chain itself is unchanged.
+    const launchOutcome = await executeExternal({
+      idempotencyKey: `ad_launch:${launchRec.campaignId}`,
+      provider: "facebook",
+      action: "ad_launch",
+      taskId: launchRec.taskId,
+      brandId: brand.brand_id,
+      userId,
+      meta: { origin: spineOrigin },
+      // Ad launches have never auto-retried (partial chains make retries
+      // unsafe); the extracted policy is applied with zero attempts remaining.
+      allowTransientRetry: false,
+      externalRefOf: (r) => (r && r.campaignId) || null,
+      execute: async () => {
+       try {
     // 1. Create the campaign (paused so nothing spends until reviewed).
     const campaign = await graphPost(
       `${accountRef}/campaigns`,
@@ -314,6 +334,24 @@ async function launchFacebookCampaign(p) {
         accessToken
       );
       ids.adId = ad.id;
+    }
+        return { ...ids };
+       } catch (chainErr) {
+        // D-27 §11 honesty: the partial chain rides on the error so the
+        // MANUAL_REVIEW event records exactly which objects exist.
+        chainErr.partialChain = { ...ids };
+        throw chainErr;
+       }
+      },
+    });
+    if (launchOutcome.deduplicated) {
+      // The idempotency guard found a prior in-flight or succeeded execution
+      // for this launch — a second chain must never be created.
+      const dedupErr = new Error(
+        "This launch was already executed (or is executing) — refusing to create a second Facebook chain."
+      );
+      dedupErr.deduplicated = true;
+      throw dedupErr;
     }
   } catch (err) {
     // Honest partial-chain handling: record whatever was created for cleanup,

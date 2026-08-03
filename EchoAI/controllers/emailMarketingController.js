@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { sendEmail } = require("../utils/email");
 const emailSendSpine = require("../utils/emailSendSpine");
+const { executeExternal } = require("../utils/executeExternal");
 const { alertOwnerOfFailedSend } = require("../utils/failedSendAlerts");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { getPublicBaseUrl } = require("../config/twilio");
@@ -532,7 +533,27 @@ async function sendCampaign(req, res) {
           email: r.email_address,
           baseUrl,
         });
-        const info = await sendEmail({ to: r.email_address, subject: email.subject_line, html });
+        // Prompt 020: SMTP runs through the ONE execution gateway (D-30 §11).
+        // Ledger row per recipient attempt; a succeeded row for this
+        // recipient blocks any accidental re-send at the database level.
+        // Per-recipient failures are routine blast bookkeeping, so terminal
+        // handling stays with the feature (record_only).
+        const { result: info, deduplicated, priorAction } = await executeExternal({
+          idempotencyKey: `email_send:${campaignId}:${r.recipient_id}`,
+          provider: "smtp",
+          action: "email_send",
+          taskId: spineTaskId,
+          brandId: campaign.brand_id,
+          userId,
+          onTerminal: "record_only",
+          execute: () => sendEmail({ to: r.email_address, subject: email.subject_line, html }),
+        });
+        if (deduplicated && (!priorAction || priorAction.status !== "succeeded")) {
+          // Strict dedup semantics: an in_progress (crash-stranded) row is NOT
+          // proof of send — leave the recipient pending; reconciliation closes
+          // the stale row and a later retry decides honestly.
+          continue;
+        }
         if (info && info.messageId) messageIds.push(info.messageId);
         await client.query(
           `UPDATE email_marketing_recipients
@@ -540,7 +561,7 @@ async function sendCampaign(req, res) {
            WHERE recipient_id = $1`,
           [r.recipient_id]
         );
-        sent += 1;
+        if (!deduplicated) sent += 1;
       } catch (err) {
         failed += 1;
         lastSendError = err;
@@ -844,7 +865,27 @@ async function sendDueDripEmails() {
           email: rec.email_address,
           baseUrl,
         });
-        const info = await sendEmail({ to: rec.email_address, subject: current.subject_line, html });
+        // Prompt 020: SMTP through the ONE execution gateway — ledger row per
+        // drip attempt, DB-level dedup per (recipient, step). Terminal
+        // handling stays with the drip's own attempt budget (record_only).
+        const { result: info, deduplicated, priorAction } = await executeExternal({
+          idempotencyKey: `email_send:drip:${rec.recipient_id}:step-${rec.current_step}`,
+          provider: "smtp",
+          action: "email_send",
+          taskId: dripTaskId,
+          brandId: rec.brand_id,
+          userId: rec.user_id,
+          onTerminal: "record_only",
+          execute: () => sendEmail({ to: rec.email_address, subject: current.subject_line, html }),
+        });
+        if (deduplicated && (!priorAction || priorAction.status !== "succeeded")) {
+          // Strict dedup semantics: an in_progress row is not proof of send —
+          // fail this tick honestly (attempt counted, retried after
+          // reconciliation closes the stale row).
+          throw new Error(
+            "A send for this drip step is already in flight (ledger in_progress) — not re-sending."
+          );
+        }
         dripMessageId = info && info.messageId;
         sent += 1;
       } catch (err) {
@@ -1287,7 +1328,23 @@ async function sendDueScheduledCampaigns() {
             email: r.email_address,
             baseUrl,
           });
-          const info = await sendEmail({ to: r.email_address, subject: email.subject_line, html });
+          // Prompt 020: SMTP through the ONE execution gateway (see the
+          // manual-blast path above for the invariants).
+          const { result: info, deduplicated, priorAction } = await executeExternal({
+            idempotencyKey: `email_send:${campaign_id}:${r.recipient_id}`,
+            provider: "smtp",
+            action: "email_send",
+            taskId: blastTaskId,
+            brandId: campaign.brand_id,
+            userId: campaign.user_id,
+            onTerminal: "record_only",
+            execute: () => sendEmail({ to: r.email_address, subject: email.subject_line, html }),
+          });
+          if (deduplicated && (!priorAction || priorAction.status !== "succeeded")) {
+            // Strict dedup semantics: an in_progress row is not proof of
+            // send — leave the recipient pending, never fabricate 'sent'.
+            continue;
+          }
           if (info && info.messageId) blastMessageIds.push(info.messageId);
           await client.query(
             `UPDATE email_marketing_recipients

@@ -3,6 +3,7 @@ const { anthropic, MODEL } = require("../config/anthropic");
 const { graphGet, graphPost, createPausedAd } = require("../utils/facebookApi");
 const { recordFailedLaunch, findExistingAdId } = require("../utils/facebookLaunchSafety");
 const adLaunchSpine = require("../utils/adLaunchSpine");
+const { executeExternal } = require("../utils/executeExternal");
 const { decrypt } = require("../utils/encryption");
 const { resolveBrandAdDestination } = require("./campaignController");
 const {
@@ -457,6 +458,22 @@ async function launchCreative(req, res) {
     const ids = { campaignId: null, adSetId: null, creativeId: null, adId: null };
 
     try {
+      // Prompt 020: the whole Facebook object chain runs through the ONE
+      // execution gateway (D-30 §11) — ledger row per launch attempt,
+      // DB-level idempotency on the pre-generated campaign id, terminal
+      // escalation to MANUAL_REVIEW + one owner alert. Chain unchanged.
+      const launchOutcome = await executeExternal({
+        idempotencyKey: `ad_launch:${launchRec.campaignId}`,
+        provider: "facebook",
+        action: "ad_launch",
+        taskId: launchRec.taskId,
+        brandId: creative.brand_id,
+        userId,
+        meta: { origin: "ad_creative_studio" },
+        allowTransientRetry: false,
+        externalRefOf: (r) => (r && r.campaignId) || null,
+        execute: async () => {
+         try {
       // 1. Campaign (paused).
       const campaign = await graphPost(
         `${accountRef}/campaigns`,
@@ -526,6 +543,24 @@ async function launchCreative(req, res) {
           accessToken
         );
         ids.adId = ad.id;
+      }
+          return { ...ids };
+         } catch (chainErr) {
+          // D-27 §11 honesty: the partial chain rides on the error so the
+          // MANUAL_REVIEW event records exactly which objects exist.
+          chainErr.partialChain = { ...ids };
+          throw chainErr;
+         }
+        },
+      });
+      if (launchOutcome.deduplicated) {
+        // The idempotency guard found a prior in-flight or succeeded
+        // execution for this launch — a second chain must never be created.
+        const dedupErr = new Error(
+          "This launch was already executed (or is executing) — refusing to create a second Facebook chain."
+        );
+        dedupErr.deduplicated = true;
+        throw dedupErr;
       }
     } catch (chainErr) {
       await recordFailedLaunch({

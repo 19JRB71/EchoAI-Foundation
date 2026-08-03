@@ -115,6 +115,14 @@ function makeDripDb({ recipients, brands }) {
       if (rec) rec.send_attempts = params[0];
       return { rows: [] };
     }
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: inserts return a row, updates
+      // return nothing (no dedup hit, no alert CAS win).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
+    }
     throw new Error(`makeDripDb: unexpected client query: ${sql.slice(0, 80)}`);
   }
 
@@ -143,6 +151,14 @@ function makeDripDb({ recipients, brands }) {
       state.brandLookups.push(params[0]);
       const b = brands[params[0]];
       return { rows: b ? [b] : [] };
+    }
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: inserts return a row, updates
+      // return nothing (no dedup hit, no alert CAS win).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
     }
     throw new Error(`makeDripDb: unexpected query: ${sql.slice(0, 80)}`);
   }
@@ -475,6 +491,14 @@ function makeSmsDb({ finalFlipHits = true, brands }) {
       state.brandLookups.push(params[0]);
       const b = brands[params[0]];
       return { rows: b ? [b] : [] };
+    }
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: inserts return a row, updates
+      // return nothing (no dedup hit, no alert CAS win).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
     }
     throw new Error(`makeSmsDb: unexpected query: ${sql.slice(0, 80)}`);
   }

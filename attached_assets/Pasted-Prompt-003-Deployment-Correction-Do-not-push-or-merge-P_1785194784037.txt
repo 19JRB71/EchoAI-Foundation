@@ -1,0 +1,78 @@
+Prompt 003 Deployment Correction
+
+Do not push or merge Prompt 003 yet.
+
+Two deployment corrections are required before staging.
+
+1. Resolve the migration-number collision
+
+Prompt 010 has already deployed:
+
+EchoAI/models/125_job_runs.sql
+
+Therefore Prompt 003 cannot also introduce:
+
+125_facebook_ad_object.sql
+
+Inspect the current staging migration directory, determine the next genuinely unused sequential migration number, and rename the migration accordingly (for example, 126_facebook_ad_object.sql if 126 is actually unused).
+
+Do not assume the next number. Verify it from the live staging branch.
+
+Update every reference to the migration, including:
+
+migration filename
+code references
+tests
+reports
+continuity documents
+deployment notes
+migration assertions
+
+Re-run migration verification and the complete test suite after the rename.
+
+Do not modify or renumber the already-deployed 125_job_runs.sql.
+
+2. Correct the deployment flow
+
+Do not create a PR from main → staging.
+
+Instead:
+
+create a dedicated Prompt 003 branch,
+branch from the current staging tip,
+open that branch into staging,
+no force pushes,
+no unrelated commits,
+leave main untouched.
+3. Report back before deployment
+
+Do not deploy or launch the Facebook staging chain yet.
+
+Return the following:
+
+corrected migration filename
+proof that the migration number was unused
+full test-suite results
+branch name
+exact commit SHA
+exact changed-file list
+staging base SHA
+confirmation that the branch is based on the current staging tip
+confirmation that main remains untouched
+
+Also record Claude's continuity item:
+
+launch_failed must be incorporated into Prompt 005's campaign-state migration and consumer inventory.
+
+Prompt 003 remains PARTIALLY COMPLETE until:
+
+the corrected branch is merged,
+Railway staging redeploys,
+the deployed SHA is verified,
+the corrected migration is confirmed applied,
+the staged Facebook chain is created in PAUSED state,
+screenshots are captured,
+the chain is deleted,
+zero spend is verified.
+
+Do not proceed to the Facebook launch until these corrections have been completed and reported.

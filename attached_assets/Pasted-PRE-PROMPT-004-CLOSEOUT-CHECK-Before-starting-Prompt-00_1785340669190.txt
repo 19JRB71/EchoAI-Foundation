@@ -1,0 +1,132 @@
+PRE-PROMPT 004 CLOSEOUT CHECK
+
+Before starting Prompt 004, complete only the remaining Prompt 003 closeout and housekeeping work.
+
+Do not begin Prompt 004 yet.
+
+Please verify and report the following:
+
+1. PR #15
+
+Confirm whether PR #15 has been merged into staging.
+
+Report:
+
+PR number
+merge status
+merge commit SHA
+current staging SHA
+
+Do not merge into main.
+
+Do not force push.
+
+2. Prompt 003 migration filename
+
+Verify the final migration filename in the live repository tree.
+
+Expected:
+
+126_facebook_ad_object.sql
+
+Report:
+
+exact filename
+exact path
+confirmation that it comes after 125_job_runs.sql
+confirmation that no duplicate migration number exists
+
+Do not rename or create any migration unless a real conflict is found.
+
+3. Prompt 003 checkpoint and commit SHAs
+
+Report all Prompt 003-related SHAs, clearly labeled:
+
+implementation commits
+correction commits
+PR merge commits
+final closeout commit
+current deployed staging SHA
+
+Do not guess or summarize them from memory. Read them from Git and GitHub.
+
+4. Exact test baseline reconciliation
+
+Run the full current test suite from the current staging code.
+
+Report the totals separately:
+
+server tests passed / total
+client tests passed / total
+any integration or additional suites passed / total
+combined total
+
+Explain how the current total relates to the previous recorded baseline.
+
+Do not simply state 994/994 without the breakdown.
+
+Report:
+
+command used
+result
+current commit SHA
+any skipped tests
+any flaky or retried tests
+
+Do not modify code just to change the test count.
+
+5. Shared Facebook launch architecture confirmation
+
+Confirm again from the current merged code:
+
+manual launch and Autopilot both use launchFacebookCampaign
+Autopilot contains no independent /ads POST
+createPausedAd is the only /ads POST in the codebase
+PAUSED is enforced inside that helper
+Ad Creative Studio uses the same paused-ad helper
+regression tests cover the four required Facebook fields on both assembly paths
+
+Provide file paths and line references.
+
+Do not refactor anything during this verification.
+
+6. Temporary GitHub credential cleanup
+
+The temporary credential is:
+
+zorecho-temp-push-2
+
+The Replit secret is:
+
+GITHUB_PUSH_TOKEN
+
+First tell me whether either credential is still present.
+
+Then walk me through deleting them one step at a time.
+
+Give me only one owner action at a time and wait for my confirmation after each action.
+
+Do not touch any other GitHub tokens or Replit secrets.
+
+Do not expose the token value in chat, logs, screenshots, or reports.
+
+7. Final Prompt 003 status
+
+After all verification is complete, provide one final closeout report containing:
+
+Prompt 003 status: COMPLETE
+merge SHA
+deployed staging SHA
+migration filename
+exact test breakdown
+confirmation of zero active test campaigns
+confirmation of zero spend
+confirmation that all test campaigns were deleted
+confirmation that the temporary push credentials were removed, if completed
+any remaining non-blocking technical debt
+
+Do not reopen Prompt 003 unless the verification reveals a real defect.
+
+Do not start Prompt 004 until I explicitly approve the closeout report.
+
+Start with the verification work. For any owner action, give me one step at a time.

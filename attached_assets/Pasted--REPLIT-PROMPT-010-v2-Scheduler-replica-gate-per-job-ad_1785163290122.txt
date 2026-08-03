@@ -1,0 +1,17 @@
+# REPLIT_PROMPT_010 (v2) — Scheduler replica-gate, per-job advisory-lock claims, job_runs telemetry
+**Phase E · Prereqs: 012 (can run any time after Phase A starts; independent of B–D)**
+
+**Objective:** (a) startScheduler() only when RUN_SCHEDULER=true (documented default true on today's single web service); (b) every job execution acquires a Postgres advisory-lock claim (generalize Sage's claimRun into the scheduleJob wrapper at utils/scheduler.js:745) so replicas never double-run; (c) every run writes job_runs (name, started, finished, ok, error, duration).
+**Reason:** Audit P2-1: unconditional start at server.js:462; >1 replica duplicates all 43 jobs; zero run visibility.
+**Scope:** server.js boot gate; scheduler wrapper; job_runs migration; Sage claim generalized. **Out of scope:** job logic; cron expressions; AI gating semantics; separating cron into its own service (record as future option only); global list.
+**Preflight:** confirm Railway replica count today; list the 43 jobs and which already have internal claims.
+**Implementation:** wrapper claims → runs → records; failure recorded, not thrown (per-iteration guard behavior preserved — existing sweep-guard tests stay green).
+**Migration:** additive job_runs. **Tenant isolation:** n/a (job metadata). **Security:** boot log states scheduler on/off per instance.
+**Honest state:** job "ran" claims come only from job_runs rows.
+**External proof:** 24h of staging job_runs extract; restart test (kill/restart staging → resume, no duplicates).
+**Testing:** two-process duplicate-claim simulation; wrapper failure-recording test; suite green.
+**Completion evidence:** diff, migration, tests, 24h extract, commit, rollback.
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full.
+**Acceptance criteria:** duplicate-claim test green; 24h clean telemetry; boot logging present.

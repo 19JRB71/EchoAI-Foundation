@@ -1,0 +1,45 @@
+OWNER AUTHORIZATION — PROMPT 015 STAGE 2 (D-22). Implementation may begin.
+
+Your Stage-1 design is accepted as proposed (atomic ordering ad→adset→campaign-last
+with compensating re-pause; sum-based brand cap; ad_spend_caps schema with the
+NULL-brand platform row; assertUnpauseAllowed server-side deny-by-default;
+ad_spend_audit append-only with cap snapshots; advisory-lock idempotency with
+state-gated no-ops; migration 129; controllers/campaignControlController.js;
+launch paths untouched) — PLUS the following ten binding terms:
+
+1. Brand caps: SUM-based — committed live spend + candidate campaign ≤ brand
+   daily cap.
+2. Platform cap: $25/day pilot value, stored as CONFIGURABLE DATABASE DATA
+   (the seeded platform row) — never hard-coded in application logic.
+3. launch_failed retry: NOT in this prompt (separate future prompt, I-24).
+4. Owner-triggered, recognition-only "Refresh status" endpoint + UI action that
+   invokes the EXISTING 005 verification helper. No new verification logic.
+5. UI honestly distinguishes "Facebook is reviewing / activation pending" from
+   "intentionally paused" — never conflated.
+6. Campaigns whose activation Facebook ACCEPTED but which are not yet verified
+   live MUST count toward committed-spend limits (brand and platform sums).
+7. Persist an explicit activation-pending/provider-control marker: set ONLY
+   after Graph accepts activation; cleared on verified live, on pause, or on
+   definitive activation failure. created_paused alone may not carry both
+   meanings.
+8. Money units documented AND tested end-to-end: DB values, campaigns.budget,
+   Graph daily_budget, cents conversions, NUMERIC-string handling. State the
+   unit of every money field in the report.
+9. Audit documentation states: result='success' means Facebook accepted the
+   requested provider change — it does NOT mean verified live.
+10. All previously approved requirements preserved: atomicity + compensating
+    re-pause with failure alerting; idempotency (one audit row per
+    state-changing attempt); cap-at-time audit snapshots; launch paths and
+    their PAUSED-only assertions untouched (grep regression proof); the 005
+    verification helper remains the SOLE writer of live/created_paused.
+
+Sequence: first mint the standing credential per I-25 (fine-grained PAT, single
+repo, Contents + Pull requests only, 90-day expiry, stored in GITHUB_PUSH_TOKEN)
+and write DEPLOY_CREDENTIALS.md with the rotation checklist and expiry date.
+Then implement on a dedicated branch off the current staging tip (D-18: branch
+name, base SHA, changed-file list, main untouched).
+
+External proof: staging denial screenshot + denied audit row; NO real
+unpause-to-spend in this prompt (D-7 — live spend first occurs in Phase H).
+Test accounting: baseline 1014 — state the new total and exact decomposition.
+App-shell cache bump for the UI changes. Report per GLOBAL_PROMPT_RULES.

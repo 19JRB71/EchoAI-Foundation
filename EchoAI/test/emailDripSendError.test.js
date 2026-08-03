@@ -171,6 +171,14 @@ function makeDripDb({ sendAttempts }) {
         rows: [{ brand_name: "Acme", user_id: "u1", is_demo: false }],
       };
     }
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: inserts return a row, updates
+      // return nothing (no dedup hit, no alert CAS win).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
+    }
     throw new Error(`makeDripDb: unexpected query: ${sql.slice(0, 80)}`);
   }
 

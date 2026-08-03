@@ -1,0 +1,82 @@
+OWNER ADDENDUM — PROMPT 018 (D-27)
+
+The accepted Prompt 018 specification is amended with the following additional binding requirements:
+
+9. Evidence Binding Integrity
+
+The Task Spine references provider evidence; it never duplicates provider evidence.
+
+Relationship remains:
+
+agent_tasks → references external_proofs
+external_proofs remains the sole provider-evidence authority.
+
+If provider evidence is unavailable or incomplete, the task transitions to MANUAL_REVIEW. Provider payloads are never copied into task tables.
+
+10. Single Canonical Launch Path
+
+Every launch entry point must converge on one canonical task creation path before reaching launchFacebookCampaign().
+
+This includes:
+
+Manual Launch
+Autopilot
+Ad Creative Studio
+Echo
+Setup Wizard
+Any future caller
+
+There must never be multiple implementations of task creation.
+
+Provide grep-proof in the completion report showing every launch entry point ultimately reaches the same recorder path.
+
+11. Provider Object Completeness
+
+A task may transition to PROVIDER_ACCEPTED only after all Facebook launch objects have been successfully created and attached.
+
+Required objects:
+
+Campaign ID
+Ad Set ID
+Creative ID
+Ad ID
+
+If any object is missing, the task remains EXTERNAL_FAILURE exactly as Prompt 003 defined.
+
+12. Reconciliation Scope
+
+Extend the Prompt 009 reconciliation scan to include ad launches.
+
+The reconciler must detect:
+
+Campaign rows containing Facebook object IDs but no canonical task.
+Canonical task rows lacking campaign linkage.
+external_proofs rows lacking canonical task linkage.
+
+The reconciler reconstructs bookkeeping only.
+
+It must never create Facebook objects, relaunch campaigns, modify provider state, or call Facebook.
+
+13. Launch Safety Regression
+
+Add a regression test proving the following failure scenario:
+
+Facebook successfully creates the complete paused chain.
+
+Immediately afterward the Task Spine throws before the canonical task is committed.
+
+The system must prove:
+
+no second launch occurs,
+no duplicate Facebook objects are created,
+reconciliation rebuilds the missing task,
+exactly one Facebook paused chain exists,
+the campaign remains recoverable without relaunching.
+
+This is the ad-launch equivalent of Prompt 009's publish reconciliation guarantee.
+
+Purpose
+
+These additions reinforce the Recorder-not-Controller architecture established in Prompt 009, preserve external_proofs as the sole evidence authority, guarantee a single canonical launch implementation, and ensure reconciliation can always recover bookkeeping without creating duplicate provider actions.
+
+I think this is worth doing because Prompt 018 is where the Task Spine starts expanding beyond social publishing. Setting these rules now means every future adoption (019, 020, 021, etc.) inherits the same architecture instead of drifting into slightly different implementations.

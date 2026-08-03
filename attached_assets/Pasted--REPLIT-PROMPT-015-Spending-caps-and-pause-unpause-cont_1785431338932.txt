@@ -1,0 +1,68 @@
+# REPLIT_PROMPT_015 — Spending caps and pause/unpause controls (no-cap-no-unpause)
+**Phase B · Prereqs: 005**
+
+**Objective:** In-product pause/unpause for the FB chain, gated so UNPAUSE is impossible without (a) a per-brand daily spend cap set, (b) a platform-level cap, (c) an explicit recorded approval (who/when). Default pilot cap $5/day (D-6).
+**Reason:** Today unpausing is a manual Facebook-side act with no cap; a spend bug is trust-ending. Completes Phase B's "pause and unpause controls, spending caps".
+**Scope:** new ad_spend_caps (brand_id, daily_cap_cents, platform default row), unpause/pause endpoints calling Graph status updates on campaign+ad set+ad, approval recording, UI controls. **Out of scope:** budget optimization; auto-unpause; any automation deciding to spend; global list.
+**Preflight:** confirm Graph status-update pattern already used (campaignController.js:340–344 daily_budget updates) and reuse its wrapper.
+**Implementation:** deny unpause with clear copy when cap unset or requested budget exceeds cap; unpause = Graph updates to ACTIVE on all three objects + read-back (via 005 helper) before showing live; pause = symmetric; every transition writes an approval/audit row (actor, timestamp, cap at time).
+**Migration:** additive caps table. **Tenant isolation:** caps and controls strictly brand-scoped; isolation test.
+**Security:** approval rows are the audit trail; owner-only (requireOwner) on unpause.
+**Honest state:** live only after read-back (inherits 005).
+**External proof:** staging: attempt unpause without cap ⇒ denied (screenshot); DO NOT actually unpause to spend in this prompt — live spend happens first in Phase H on own businesses (D-7).
+**Testing:** cap-enforcement tests (unset, exceeded, ok); approval-row tests; pause/unpause mocked-graph tests; suite green.
+**Completion evidence:** diff, migration, tests, denial screenshot, commit, rollback.
+**Definition of Done / End-of-Prompt Report / Stop Conditions:** GLOBAL_PROMPT_RULES.md applies in full. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Acceptance criteria:** unpause provably impossible without cap+approval; audit rows written; suite green.
+
+---
+OWNER ADDENDUM FOR PROMPT 015 (binding):
+
+A. TWO-STAGE EXECUTION (mandatory): Stage 1 = preflight + architecture proposal
+   ONLY, then STOP and report for owner authorization. No implementation code in
+   Stage 1. This prompt controls real ad delivery; the 004/005 review discipline
+   applies at full strength.
+
+B. Stage-1 preflight must cover: (1) the Graph status-update wrapper to reuse
+   (campaignController.js:340–344 pattern — verify in the LIVE tree, D-19);
+   (2) caps design — CONFIRM whether the brand cap is enforced against the SUM of
+   live budgets (committed spend from spendLimits.js live-only sum + the campaign
+   being unpaused) or per-campaign, and propose the platform-cap mechanism;
+   (3) exactly how unpause/pause map onto the state machine; (4) where
+   no-cap-no-unpause is enforced (server-side, before any Graph call);
+   (5) approval/audit row schema (actor, timestamp, cap-at-time, campaign,
+   budgets); (6) I-24 disposition recommendation — does the launch_failed retry
+   action fold naturally into 015 or stay separate (recommendation only);
+   (7) next unused migration number verified against the LIVE models/ dir
+   (129 expected — verify).
+
+C. STATE-MACHINE INTEGRITY (hard constraint): 015 must NOT create a second
+   writer of 'live'. Unpause = Graph updates to ACTIVE + invoke the EXISTING 005
+   verification helper; the row shows live only when the read-back says so.
+   Pause = symmetric (Graph to PAUSED + helper demotes). The reserved edges
+   (created_paused→failed etc.) gain writers ONLY if the Stage-1 design
+   explicitly proposes them and the owner approves.
+
+D. LAUNCH-PATH SAFETY UNTOUCHED: createPausedAd and both launch paths keep their
+   PAUSED-only assertions and tests exactly as-is. Unpause lives in its own
+   module/endpoints (requireOwner), never in a launch path. Grep proof that
+   launch paths still contain zero ACTIVE-status sends.
+
+E. DENY-BY-DEFAULT: cap unset ⇒ deny; platform cap unset ⇒ deny; requested
+   budget would exceed either cap (counting existing live commitments) ⇒ deny;
+   every denial has clear owner-facing copy and no Graph call occurs.
+   D-6 defaults: $5/day pilot brand cap; platform cap value proposed in Stage 1.
+
+F. NO REAL UNPAUSE-TO-SPEND in this prompt (D-7: live spend first in Phase H).
+   External proof = staging denial screenshot + audit rows; the unpause success
+   path is proven by mocked-Graph tests + the read-back helper's existing tests.
+
+G. STANDING CREDENTIAL (I-25, owner-approved by this package): at Stage-2 start,
+   mint the scoped 90-day PAT (single repo, Contents + Pull requests only),
+   store in GITHUB_PUSH_TOKEN, and write DEPLOY_CREDENTIALS.md (scopes, expiry,
+   rotation checklist). Record the expiry date in the report.
+
+H. Standing rules: D-17 (real SDS2 assets — nothing set ACTIVE), D-18 branch
+   flow (branch off staging tip, base SHA, file list, main untouched), D-19
+   live-tree verification. Test accounting: baseline 1014 — state the new total
+   and decomposition. App-shell cache bump if UI changes.

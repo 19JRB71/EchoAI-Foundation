@@ -1,0 +1,51 @@
+# REPLIT_PROMPT_005 (v2) — Honest campaign lifecycle with Facebook read-back verification
+**Phase B · Prereqs: 003, 004**
+
+**Objective:** Replace status='active' insert with truthful domain states — draft → approved → created_paused → live → completed | failed — where LIVE is set only after a Graph read-back confirms campaign+ad set+ad ACTIVE. Domain states map onto the platform lifecycle (D-13): created_paused≈PROVIDER_ACCEPTED; live≈EXTERNALLY_VERIFIED.
+**Reason:** Audit P0-1/P1-3: local 'active' rows (campaignController.js:222; adCreativeStudio step 4) while FB objects are PAUSED; committed-spend counts from launch.
+**Scope:** campaigns status values; both launch paths; verifyCampaignStatus(campaignId) helper; EVERY consumer of campaigns.status (grep, inventory, update: analytics, optimizer, ROI, committed-spend, UI). **Out of scope:** UNPAUSE feature (that is 015 — do NOT ship any unpause here); global list.
+**Preflight:** produce the full consumer inventory FIRST and include it in the report.
+**Implementation:** launches insert created_paused; read-back helper updates state and records last_verify_error on failure (state unchanged); migration maps legacy 'active' → created_paused unless read-back proves live; committed-spend counts only LIVE unless the owner explicitly opts to reserve budget at approval (surface the choice, default OFF); UI copy: "Created (paused at Facebook — will not spend until enabled)".
+**Migration:** status-value migration with mapping table documented; reversible mapping in report.
+**Tenant isolation:** read-backs use the row's own brand integration only.
+**Security:** per global rules. **Honest state:** THE POINT — no path may render live/active without a verification read-back.
+**External proof:** staging launch → UI shows created/paused; Ads Manager screenshot matches.
+**Testing:** state-transition tests; consumer regression tests; migration test on seeded rows; suite green.
+**Completion evidence:** consumer inventory, diff, migration, tests, screenshot, commit, rollback.
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full.
+**Acceptance criteria:** unverified 'live' impossible (test-proven); consumers updated; suite green.
+
+---
+OWNER ADDENDUM FOR THIS EXECUTION (binding, from the continuity record):
+1. I-16 (mandatory): Prompt 003 introduced the status value 'launch_failed' for
+   partial chains. Your state machine, consumer inventory, and migration mapping
+   MUST absorb it — it becomes a first-class failure/entry state (a launch that
+   failed mid-chain), not an unknown value. Document its transitions (e.g.
+   launch_failed → retry path or terminal).
+2. Consumer inventory (preflight, before any change): grep EVERY read of
+   campaigns.status. Known consumers include campaignController.js (~310, ~396,
+   ~407 in the July-24 tree — line numbers have moved; find them all in the LIVE
+   tree per D-19), analytics, optimizer, ROI, committed-spend, and UI. The
+   inventory table goes in the report verbatim.
+3. Branch flow per D-18: dedicated branch off the CURRENT staging tip → PR into
+   staging; main untouched; no force push; Prompt 005 files only. Report branch
+   name, base SHA, changed-file list.
+4. Migration numbering per D-19: verify the next unused number against the LIVE
+   models/ directory (128 expected after 127_brand_ad_destination — verify, don't
+   assume). State the number and the proof.
+5. Staging external proof runs on the owner's real SDS2 ad account (D-17):
+   PAUSED-only, screenshot, then DELETE the chain and record the deletion
+   response. Zero spend. No unpause of anything — 015 owns unpause.
+6. Read-back helper: failure leaves state UNCHANGED and records last_verify_error;
+   never downgrade or upgrade state on a failed read-back. Add a test for this.
+7. Carry-over confirmations from 004 (one line each in your report):
+   (a) the two-brand isolation fixtures are SAME-user (D-20 constraint 6);
+   (b) the OAuth-callback Page selection now writes to the ACTIVE BRAND
+       (D-20 constraint 7) — cite file/line;
+   (c) social_accounts suggestion UI: present or explicitly deferred;
+   (d) confirm the prompt-004-temp GitHub token has been deleted (owner action —
+       remind him if not).
+8. Test accounting: current server baseline is 998. State the new total and the
+   exact decomposition of what 005 adds. Unexplained drift fails review.

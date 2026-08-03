@@ -1,0 +1,123 @@
+  decline_code: undefined,
+  payment_intent: undefined,
+  payment_method: undefined,
+  source: undefined
+}
+152.233.76.9 - - [01/Aug/2026:16:45:23 +0000] "POST /api/subscriptions HTTP/1.1" 500 41 "-" "curl/8.14.1"
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Create subscription error: StripeInvalidRequestError: The customer does not have a payment method with the ID pm_1Tzg2v4bVsLTHBIidW6nYo2d. The payment method must be attached to the customer.
+    at generateV1Error (/app/node_modules/stripe/cjs/Error.js:11:20)
+    at res.toJSON.then.Error_js_1.StripeAPIError.message (/app/node_modules/stripe/cjs/RequestSender.js:108:62)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  type: 'StripeInvalidRequestError',
+  raw: {
+    message: 'The customer does not have a payment method with the ID pm_1Tzg2v4bVsLTHBIidW6nYo2d. The payment method must be attached to the customer.',
+    param: 'payment_method',
+    request_log_url: 'https://dashboard.stripe.com/acct_1S02l74bVsLTHBIi/test/workbench/logs?object=req_a9aalxyT8544Qq',
+    type: 'invalid_request_error',
+    headers: {
+      server: 'nginx',
+      date: 'Sat, 01 Aug 2026 16:46:01 GMT',
+      'content-type': 'application/json',
+      'content-length': '367',
+      connection: 'keep-alive',
+      'access-control-allow-credentials': 'true',
+      'access-control-allow-methods': 'GET, HEAD, PUT, PATCH, POST, DELETE',
+      'access-control-allow-origin': '*',
+      'access-control-expose-headers': 'Request-Id, Stripe-Manage-Version, Stripe-Should-Retry, X-Stripe-External-Auth-Required, X-Stripe-Privileged-Session-Required',
+      'access-control-max-age': '300',
+      'cache-control': 'no-cache, no-store',
+      'content-security-policy': "base-uri 'none'; default-src 'none'; form-action 'none'; frame-ancestors 'none'; img-src 'self'; script-src 'self' 'report-sample'; style-src 'self'; worker-src 'none'; upgrade-insecure-requests; report-uri https://q.stripe.com/csp-violation?q=KXrc7RgGccPT_FaLY57bol7SqzM1IsxNpB55tycE_a6eEGk8Zonqsei59lSIRqxloH7Tf8WO4IBFgVXs; report-to csp",
+      'idempotency-key': 'stripe-node-retry-d447659e-db70-49a8-bea6-fefa3f07496a',
+      'original-request': 'req_a9aalxyT8544Qq',
+      'report-to': '{"group":"csp","max_age":8640,"endpoints":[{"url":"https://q.stripe.com/csp-report-v2?q=KXrc7RgGccPT_FaLY57bol7SqzM1IsxNpB55tycE_a6eEGk8Zonqsei59lSIRqxloH7Tf8WO4IBFgVXs&t=1"}],"include_subdomains":true}',
+      'reporting-endpoints': 'csp="https://q.stripe.com/csp-report-v2?q=KXrc7RgGccPT_FaLY57bol7SqzM1IsxNpB55tycE_a6eEGk8Zonqsei59lSIRqxloH7Tf8WO4IBFgVXs&t=1"',
+      'request-id': 'req_a9aalxyT8544Qq',
+      'stripe-should-retry': 'false',
+      'stripe-version': '2024-12-18.acacia',
+      vary: 'Origin',
+      'x-stripe-priority-routing-enabled': 'true',
+    'content-security-policy': "base-uri 'none'; default-src 'none'; form-action 'none'; frame-ancestors 'none'; img-src 'self'; script-src 'self' 'report-sample'; style-src 'self'; worker-src 'none'; upgrade-insecure-requests; report-uri https://q.stripe.com/csp-violation?q=KXrc7RgGccPT_FaLY57bol7SqzM1IsxNpB55tycE_a6eEGk8Zonqsei59lSIRqxloH7Tf8WO4IBFgVXs; report-to csp",
+    connection: 'keep-alive',
+    'access-control-allow-credentials': 'true',
+    'access-control-allow-methods': 'GET, HEAD, PUT, PATCH, POST, DELETE',
+    'access-control-allow-origin': '*',
+      'x-stripe-routing-context-priority-tier': 'api-testmode',
+    'access-control-expose-headers': 'Request-Id, Stripe-Manage-Version, Stripe-Should-Retry, X-Stripe-External-Auth-Required, X-Stripe-Privileged-Session-Required',
+    'access-control-max-age': '300',
+      'x-wc': '3c3',
+    'cache-control': 'no-cache, no-store',
+      'strict-transport-security': 'max-age=63072000; includeSubDomains; preload'
+    },
+    statusCode: 400,
+    requestId: 'req_a9aalxyT8544Qq'
+  },
+  rawType: 'invalid_request_error',
+  code: undefined,
+  doc_url: undefined,
+  param: 'payment_method',
+  detail: undefined,
+  headers: {
+    server: 'nginx',
+    date: 'Sat, 01 Aug 2026 16:46:01 GMT',
+    'content-type': 'application/json',
+    'content-length': '367',
+  decline_code: undefined,
+  payment_intent: undefined,
+  payment_method: undefined,
+  payment_method_type: undefined,
+  setup_intent: undefined,
+    'idempotency-key': 'stripe-node-retry-d447659e-db70-49a8-bea6-fefa3f07496a',
+    'original-request': 'req_a9aalxyT8544Qq',
+    'report-to': '{"group":"csp","max_age":8640,"endpoints":[{"url":"https://q.stripe.com/csp-report-v2?q=KXrc7RgGccPT_FaLY57bol7SqzM1IsxNpB55tycE_a6eEGk8Zonqsei59lSIRqxloH7Tf8WO4IBFgVXs&t=1"}],"include_subdomains":true}',
+    'reporting-endpoints': 'csp="https://q.stripe.com/csp-report-v2?q=KXrc7RgGccPT_FaLY57bol7SqzM1IsxNpB55tycE_a6eEGk8Zonqsei59lSIRqxloH7Tf8WO4IBFgVXs&t=1"',
+    'request-id': 'req_a9aalxyT8544Qq',
+    'stripe-should-retry': 'false',
+    'stripe-version': '2024-12-18.acacia',
+    vary: 'Origin',
+    'x-stripe-priority-routing-enabled': 'true',
+    'x-stripe-routing-context-priority-tier': 'api-testmode',
+    'x-wc': '3c3',
+    'strict-transport-security': 'max-age=63072000; includeSubDomains; preload'
+  },
+  requestId: 'req_a9aalxyT8544Qq',
+  statusCode: 400,
+  userMessage: undefined,
+  charge: undefined,
+  source: undefined
+}
+79.127.217.65 - - [01/Aug/2026:16:46:01 +0000] "POST /api/subscriptions HTTP/1.1" 500 41 "-" "curl/8.14.1"
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database

@@ -2,6 +2,9 @@
 
 Newest first. Documentation-only entries are marked (docs). For deep milestone history see `MILESTONES.md`.
 
+## 2026-08-03 — Prompt 020: shared executeExternal() idempotency + attempt ledger
+- Every external side-effect on the adopted flows (social publish, both ad-launch chains, all five spine email paths) now executes through one canonical gateway: external_actions attempt ledger (migration 134) with database-level idempotency (a duplicate fire can never reach the provider twice), classified-transient policy extracted from the publish path, terminal failures parked at MANUAL_REVIEW (the Approvals Inbox is the failure queue) with exactly one owner alert (CAS; email via the send spine, push only if VAPID), provider success surviving bookkeeping failure without re-execution, a bookkeeping-only reconciliation sweep (every 10 min, throws if handed anything executable), and ledger-derived metrics at /api/admin/external-actions/metrics. Strict dedup semantics in email adopters (in_progress is never proof of send). Suite 1125 server / 385 client.
+
 ## 2026-08-03 — Prompt 019 Stage 2: email-send task spine + unified Approvals Inbox
 - Every email send on the four adopted paths (manual blast, drip scheduler, scheduled blasts, CRM sequence, weekly report) now leaves a full agent_tasks trail with a `send_accept` external_proofs reference (Message-IDs + counts, never recipient addresses); zero Message-IDs can never reach PROVIDER_ACCEPTED; SMTP-accepted-then-persist-failed parks at MANUAL_REVIEW with no resend path. New owner-only `/api/approvals` unified Approvals Inbox (projection-only; spine vs adapter badging; adapter inventory is a retirement ratchet). MANUAL_REVIEW now resolvable by the owner (→COMPLETED with recorded resolution, →CANCELLED on dismiss). Reconciliation extended to email blasts + stale email_send rescue (bookkeeping only). Migration 133 (CHECK widen only). sw v161. Suite 1114 server / 385 client.
 

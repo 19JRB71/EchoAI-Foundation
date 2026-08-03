@@ -1,0 +1,250 @@
+OWNER ADDENDUM FOR PROMPT 005 (v3 — FINAL, BINDING)
+
+This addendum supersedes all previous Prompt 005 addenda and is binding for this implementation.
+
+A. Recognition-Only Rule
+
+Prompt 005 is a recognition prompt only.
+
+It must not introduce any button, endpoint, scheduled action, automatic process, controller, background worker, Facebook API POST, PATCH, or other mechanism that changes campaign, ad set, or ad delivery status.
+
+The only Facebook Graph interaction added by Prompt 005 may be READ (GET) operations used for verification.
+
+Acceptance includes grep-proof that Prompt 005's diff contains zero Graph calls capable of mutating delivery status.
+
+A normal launch ends:
+
+draft → approved → created_paused
+
+(or, under today's implementation, launches insert directly as created_paused).
+
+Prompt 015 alone owns enabling/unpausing delivery.
+
+B. Single Verification Authority
+
+All transitions into or out of live must occur through one verification function.
+
+No controller, migration, scheduled job, UI action, repair script, or background process may write live directly.
+
+The verification helper is the only legal authority for:
+
+created_paused → live
+live → created_paused
+C. Read-Back Rule (Fail Closed)
+
+A campaign may become live only after a successful Graph read-back confirms:
+
+campaign effective_status == ACTIVE
+campaign status == ACTIVE
+ad set effective_status == ACTIVE
+ad set status == ACTIVE
+every ad belonging to the launched chain has:
+effective_status == ACTIVE
+status == ACTIVE
+
+Any other value—including:
+
+PAUSED
+PENDING_REVIEW
+IN_PROCESS
+WITH_ISSUES
+DISAPPROVED
+ARCHIVED
+DELETED
+UNKNOWN
+missing objects
+unreadable objects
+mixed status
+
+must not produce live.
+
+Failed or incomplete read-back:
+
+leaves state unchanged
+records last_verify_error
+never upgrades
+never downgrades
+never converts to failed
+never converts to launch_failed
+
+Successful read-back is honest in both directions:
+
+created_paused → live
+live → created_paused
+
+Record last_verified_at after every successful verification.
+
+D. State Machine
+
+Legal states:
+
+draft
+approved
+created_paused
+live
+completed
+failed
+launch_failed
+
+Legal transitions:
+
+draft → approved
+approved → created_paused
+approved → launch_failed
+launch_failed → approved (explicit retry/reset only)
+successful retry → created_paused (reuse Prompt 003 duplicate guard)
+created_paused → live (verification only)
+live → created_paused (verification only)
+created_paused → failed (future writer only)
+live → failed (future writer only)
+live → completed (future writer only)
+
+Prompt 005 shall not introduce writers for future states.
+
+Illegal transitions must throw.
+
+E. Deterministic Migration
+
+Migration must be completely deterministic.
+
+No Facebook API calls.
+
+No network dependency.
+
+Every legacy active row maps unconditionally to:
+
+created_paused
+
+This is considered exact because no delivery-enable mechanism has ever existed.
+
+Preserve:
+
+launch_failed
+
+as a first-class state.
+
+Unexpected status values:
+
+STOP AND REPORT.
+
+Migration report must include:
+
+source counts
+destination counts
+mapping table
+
+Verify the next unused migration number from the live repository before creation.
+
+F. Consumer Inventory (Binding Stop Gate)
+
+Before changing code:
+
+Inventory every read, write, comparison, filter, aggregation, display, scheduled job, export, test, analytics process, optimizer process, ROI calculation, committed-spend calculation, and UI component touching campaigns.status.
+
+For every consumer provide:
+
+previous behavior
+new behavior
+included states
+excluded states
+before/after row visibility
+
+Unknown consumer:
+
+STOP AND REPORT.
+
+Ambiguous active semantics:
+
+STOP AND REPORT.
+
+G. Committed Spend
+
+Committed spend counts only:
+
+live
+
+campaigns.
+
+Do not introduce:
+
+owner preference
+reservation mode
+storage
+UI
+calculations
+tests
+
+for budget reservation.
+
+That feature is deferred.
+
+H. External Proof
+
+Use the owner's SDS2 account.
+
+Verification must demonstrate:
+
+launch ends created_paused
+UI copy:
+"Created (paused at Facebook — will not spend until enabled)"
+Ads Manager matches
+PAUSED chain deleted
+deletion response recorded
+zero spend
+
+Nothing is intentionally set ACTIVE.
+
+The impossibility of rendering live without verification must be demonstrated through automated tests, not by activating a real campaign.
+
+Bump the application shell cache version if required for updated UI wording.
+
+I. Carry-Over Verification
+
+Report:
+
+Prompt 004 same-user isolation confirmation
+OAuth callback still writes Page selection to ACTIVE brand
+social_accounts suggestion UI present or explicitly deferred
+temporary GitHub token deleted
+server test baseline:
+998 → new total
+exact decomposition of added tests
+
+Unexplained test drift fails review.
+
+J. Branch Rules
+
+Follow D-18:
+
+dedicated branch
+current staging tip
+PR into staging
+main untouched
+no force push
+
+Report:
+
+branch
+base SHA
+commit SHA
+changed files
+migration filename
+PR number
+K. Definition of Done
+
+Prompt 005 is COMPLETE only if:
+
+consumer inventory complete
+migration verified
+all consumers updated
+impossible-to-render-live test passes
+external proof complete
+staging verification complete
+suite green
+rollback documented
+
+Otherwise report:
+
+PARTIALLY COMPLETE
+BLOCKED
+FAILED VERIFICATION

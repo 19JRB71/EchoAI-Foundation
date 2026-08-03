@@ -2,6 +2,7 @@ const express = require("express");
 
 const authMiddleware = require("../middleware/auth");
 const adminMiddleware = require("../middleware/admin");
+const { getExecutionMetrics } = require("../utils/executeExternal");
 const adminController = require("../controllers/adminController");
 const betaAdminController = require("../controllers/betaAdminController");
 const featureSuggestionAdminController = require("../controllers/featureSuggestionAdminController");
@@ -16,6 +17,18 @@ const router = express.Router();
 // Every admin route requires a valid session (auth) AND an admin role (admin).
 router.use(authMiddleware);
 router.use(adminMiddleware);
+
+// Prompt 020: execution metrics derived from the external_actions ledger
+// ONLY (D-30 §16) — attempts, retries, dedups, terminal failures,
+// reconciliations, alerts. Observational; nothing reads these back as state.
+router.get("/external-actions/metrics", async (req, res) => {
+  try {
+    res.json(await getExecutionMetrics());
+  } catch (err) {
+    console.error("External-action metrics failed:", err.message);
+    res.status(500).json({ error: "Could not load execution metrics." });
+  }
+});
 
 router.get("/stats", adminController.getPlatformStats);
 router.get("/health", adminController.getPlatformHealth);

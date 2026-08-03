@@ -1,0 +1,35 @@
+# 02_PROMPT_INDEX
+Status values: NOT STARTED / IN PROGRESS / BLOCKED / PARTIALLY COMPLETE / COMPLETE (evidence filed). Update after every session.
+
+| # | Title | Phase | Purpose | Prereqs | Required proof | Status | Started | Completed | Blockers |
+|---|---|---|---|---|---|---|---|---|---|
+| 012 | Backup & baseline (branch/tag, DB backup, RESTORE DRILL, baseline records) | A | Safety floor before any change | — | successful staging restore | COMPLETE (owner-accepted; tag/branch/backups/ROLLBACK.md cited in 013 prereq check — full evidence row pending import, see I-15) | 2026-07-25 | 2026-07-25 | |
+| 001 | Token-at-rest encryption + Stripe webhook signature verification | A | P0-2 + UNVERIFIED sig | 012 | ciphertext SQL proof; forged webhook 400 | COMPLETE (owner-accepted; added 11 tests: encryptionRoundTrip +6, stripeWebhookSignature +5 — full evidence row pending import, see I-15) | 2026-07-25 | 2026-07-25 | |
+| 013 | Test-env bootstrap + suite hygiene (env prereqs, ordering-sensitive test) | A | Audit V-2/P2-2 | 012 | clean-checkout green run | COMPLETE (evidence filed: E-6; commit 8acbb45) | 2026-07-25 | 2026-07-25 | |
+| 014 | Tenant-isolation regression suite | A | Isolation proof | 012 | suite green incl. negative tests | COMPLETE (evidence filed: E-7; 3 files / 20 tests; 982/982; commit b358b75 + supplement checkpoint — record supplement hash once visible in Git panel) | 2026-07-25 | 2026-07-26 | |
+| 008 | Honestly disable legacy-FCM mobile push | A | Silent-failure P1-5 | 012 | no legacy calls; honest UI | COMPLETE (evidence filed: E-8; 985/985; commit = checkpoint after a106744, hash pending — record in E-8 once visible) | 2026-07-26 | 2026-07-26 | |
+| 002 | Facebook staging connect + Page + AD-ACCOUNT selection | B | Unblocks all FB work | 012 | connected probe + screenshots + reconnect | NOT STARTED | | | |
+| 003 | Create the missing Facebook ad object (both paths) | B | P1-1 | 002 | Ads Manager screenshot of full PAUSED chain | NOT STARTED | | | |
+| 004 | Per-brand ad Page + destination link (kill global env) | B | P1-2 | 002 | grep proof + two-brand isolation test | NOT STARTED | | | |
+| 005 | Honest campaign lifecycle + FB read-back verification | B | P1-3/P0-1 | 003,004 | no unverified "live"; consumer inventory | NOT STARTED | | | |
+| 015 | Spending caps + pause/unpause controls (no-cap-no-unpause) | B | Spend safety before any live ad | 005 | cap-enforcement tests; approval recorded | NOT STARTED | | | |
+| 006 | Staging proof: real FB post publish + real email (+external_proofs table) | C | First external deliveries | 002 | post ID + read-back + message-ID | NOT STARTED | | | |
+| 007 | Stripe test-mode checkout round trip | C | Billing proof | 001 | event ID + subscription row | NOT STARTED | | | |
+| 016 | Google data pull proof (reviews/analytics via verified OAuth) | C | Google value path | 012 | pulled real data + proof row | NOT STARTED | | | |
+| 017 | (OPTIONAL/DEFERRED) Twilio SMS proof | C | CRM comms proof | 006 | message SID | DEFERRED (owner decision D-11) | | | |
+| 009 | Task spine schema + lifecycle + first adopter: social publish | D | One truth for work/approval/verification | 006 | full event trail on staging publish | NOT STARTED | | | |
+| 018 | Task spine adoption: ad launch (Atlas) | D | Lifecycle for ads | 009,005 | trail ends EXTERNALLY_VERIFIED | NOT STARTED | | | |
+| 019 | Task spine adoption: email + unified approvals inbox | D | One approvals surface | 009 | inbox live; email trail | NOT STARTED | | | |
+| 010 | Scheduler replica-gate + per-job claims + job_runs telemetry | E | P2-1 + visibility | 012 | duplicate-claim test; 24h job_runs | NOT STARTED | | | |
+| 020 | Shared executeExternal(): idempotency, classified retry, action ledger, failure queue, alerts | E | Reliability standardization | 010,009 | dupe-prevention + retry tests; alert fired in test | NOT STARTED | | | |
+| 021 | Data-backed ops dashboard (+ Hermes usage measurement) | E | Owner visibility, kill guesswork | 010,020 | every tile = table query; Hermes non-null rate logged | NOT STARTED | | | |
+| 022 | Sage pre-interview public research + profile pre-fill with sources | F | Research-first onboarding | 016 | pre-filled draft w/ source tags on staging | NOT STARTED | | | |
+| 011 | Brand profile versioning + source tags + approval lock + review screen | F | No silent AI facts | 022 | silent-overwrite test green | NOT STARTED | | | |
+| 023 | Adaptive interview (only-gap, business-model-conditional questions) | F | Stop generic questionnaires | 022,011 | two different business types get different question sets (test) | NOT STARTED | | | |
+| 024 | Onboarding completion rework (two-stage first win w/ proof; park not complete; progressive tiers) | F | Real first value | 006,011 | staging user reaches verified external first win | NOT STARTED | | | |
+| 025 | Agent operating model registry + Echo honest reporting | G | Chain of command in code | 009,018,019 | Echo-cannot-fake-success test | NOT STARTED | | | |
+| 026 | Own-business testing protocol (South Dixie Storage, Blacor Homes) | H | Real proof, zero customer risk | Gates A–G | full-workflow evidence per business | NOT STARTED | | | |
+| 027 | Golden-path E2E scripted staging test | H | The pilot gate | 026 | pass with zero developer intervention | NOT STARTED | | | |
+| 028 | Controlled-pilot gate checklist + pilot runbook | I | Safe external pilots | 027 | all gate items evidenced | NOT STARTED | | | |
+| 029 | Limited-release gate (live billing, deletion, backup cadence, support) | J | Safe paying customers | 028 | all gate items evidenced | NOT STARTED | | | |
+| 030 | General-release gate (Scorecard green + unattended week) | K | Launch decision | 029 | scorecard 100% + clean week | NOT STARTED | | | |

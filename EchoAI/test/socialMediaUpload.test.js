@@ -213,6 +213,10 @@ test("publishDuePosts forwards video_url to the Facebook publisher", async () =>
       };
     }
     if (/SET status = 'published'/i.test(sql)) return { rows: [{}] };
+    if (/INSERT INTO external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: the insert must return a row.
+      return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+    }
     return { rows: [] };
   };
   socialApi.publishPost = async (platform, credentials, post) => {

@@ -1,0 +1,59 @@
+# REPLIT_PROMPT_020 — Shared executeExternal(): idempotency, classified retry, action ledger, failure queue, alerts
+**Phase E · Prereqs: 010, 009**
+
+**Objective:** One helper wrapping every external side-effect call: (a) idempotency key per action (dedup guaranteed at the DB level); (b) retry ONLY on explicitly classified transient errors (extract the publish path's proven policy); (c) external_actions ledger row per ATTEMPT (action, brand, task_id, key, request summary, response/provider ids, outcome); (d) terminal failures land in a failure queue (MANUAL_REVIEW tasks) with owner-visible alerting (email + web push using the proven channels).
+**Reason:** Audit docs 09/10: retry/idempotency reinvented per feature; silent-failure classes; no attempt-level audit. Lesson files define the correct patterns — standardize them.
+**Scope:** utils/executeExternal.js + migration + adoption by the three spine flows (publish, ad launch, email) — other callers adopt in later phases, listed not migrated. **Out of scope:** changing any retry POLICY beyond extraction; new notification channels; global list.
+**Preflight:** inventory current per-feature retry/idempotency implementations and the transient-error classifier locations.
+**Implementation:** helper is the only path for the three flows (grep-verify); alert fires on terminal failure with plain-language owner copy; ledger row before AND after provider call (attempt/outcome).
+**Migration:** additive external_actions (+ unique index on idempotency key).
+**Tenant isolation:** ledger rows brand-scoped. **Security:** ledger = audit trail; no secrets in request summaries.
+**Honest state:** outcome recorded only from provider responses.
+**External proof:** staged duplicate-fire test (same key twice ⇒ one provider call, proven by mock capture + ledger); one forced terminal failure ⇒ alert received (screenshot).
+**Testing:** dedup, retry-classification, ledger, alert tests; suite green.
+**Completion evidence:** inventory, diff, migration, tests, alert screenshot, commit, rollback.
+**Definition of Done / End-of-Prompt Report / Stop Conditions:** GLOBAL_PROMPT_RULES.md applies in full. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Acceptance criteria:** three flows exclusively via helper (grep proof); dedup + alert demonstrated; suite green.
+
+---
+OWNER ADDENDUM FOR PROMPT 020 (binding, from the continuity record):
+
+1. INHERITED CONTRACTS: D-24 F–I, D-25, D-28, D-29, TASK_SPINE_GUIDE.md.
+   Recorder-not-controller extends to the ledger: executeExternal records and
+   guards; it never changes what a flow does on success.
+2. LEDGER/EVIDENCE BOUNDARY (critical design rule): three layers, no overlap —
+   external_actions = ATTEMPT-level audit (request summary, outcome, provider
+   ID references, timing) · agent_task_events = LIFECYCLE-level trail ·
+   external_proofs = the SOLE repository of provider responses (D-28.10).
+   Ledger rows reference proof rows and task_ids; they never duplicate provider
+   payloads. State this mapping explicitly in the preflight.
+3. FAILURE QUEUE = THE INBOX: terminal failures become MANUAL_REVIEW tasks,
+   which by construction surface in the D-29 Approvals Inbox with the I-31
+   resolution flow. No separate failure UI — the inbox is the surface.
+4. ALERT SENDS RIDE THE SPINE (D-28.9 covers "future notification sends using
+   the shared transport") — 020's alert emails go through the canonical
+   emailSendSpine adopter, NOT around it. This is the first notification-path
+   adoption; note it against I-33's future wave.
+5. ALERT LOOP SAFETY (mandatory): an alert-send failure must NEVER trigger
+   another alert (suppression at the helper level); alerts are deduplicated per
+   underlying terminal failure (one alert per failure, not per retry, not per
+   reconciliation pass). Test both.
+6. Web push: use only if VAPID is actually configured on staging — otherwise
+   email-only with an honest UNVERIFIED note for the push channel. Never fake a
+   channel.
+7. CALLER INVENTORY (adapter-inventory discipline, D-29.2 analog): the report
+   ships a table of every external side-effect caller — adopted-in-020 (the
+   three spine flows) vs listed-for-future-adoption — so the migration path is
+   on the record.
+8. RETRY EXTRACTION ONLY: the publish path's classified-transient policy moves,
+   it does not change; existing retry tests stay green untouched.
+9. STAGING PROOF: duplicate-fire test (same key twice ⇒ exactly one provider
+   call, mock-captured + ledger-proven); one forced terminal failure on staging
+   ⇒ MANUAL_REVIEW task appears in the inbox + alert email received at the
+   proof inbox (screenshot with the plain-language copy). D-23 redaction on all
+   persisted evidence.
+10. D-18 branch flow off the current staging tip (68f1a94 or later; base SHA,
+    file list, main untouched). D-19: migration number verified against the
+    LIVE models/ dir (134 expected). Test accounting: baseline 1114 — new total
+    + exact decomposition. Cache bump if UI changes. Report per
+    GLOBAL_PROMPT_RULES.
