@@ -18,6 +18,7 @@ const {
   reverifySocialConnections,
 } = require("../controllers/socialController");
 const { scanForMissingTasks } = require("../utils/taskSpine");
+const emailSendSpine = require("./emailSendSpine");
 const { triggerWebhook } = require("../controllers/zapierController");
 const mobilePushController = require("../controllers/mobilePushController");
 const {
@@ -212,12 +213,44 @@ async function runWeeklyAnalytics() {
         const owner = ownerResult.rows[0];
         if (brandProfile && owner) {
           const { subject, body } = await generateWeeklyReport(brandProfile, analytics);
-          await sendWeeklyReportEmail({
-            email: owner.email,
-            brandName: brandProfile.brand_name,
-            reportBody: body,
-            subject,
+          // Prompt 019: canonical email task for the weekly report send. One
+          // task per brand per ISO week; the weekly loop itself is the claim
+          // (gateJob dedupes the run), recorded as QUEUED->EXECUTING.
+          const weekKey = isoWeekKey(new Date());
+          const reportTaskId = await emailSendSpine.beginSend({
+            brandId: brand.brand_id,
+            userId: brand.user_id,
+            actor: "system:weekly-report",
+            sourceType: "weekly_report",
+            sourceId: `${brand.brand_id}:${weekKey}`,
+            title: `Send weekly report email: ${brandProfile.brand_name}`,
+            meta: { path: "weekly_report", week: weekKey },
           });
+          try {
+            const info = await sendWeeklyReportEmail({
+              email: owner.email,
+              brandName: brandProfile.brand_name,
+              reportBody: body,
+              subject,
+            });
+            await emailSendSpine.recordSendAccepted({
+              taskId: reportTaskId,
+              brandId: brand.brand_id,
+              userId: brand.user_id,
+              sourceType: "weekly_report",
+              sourceId: `${brand.brand_id}:${weekKey}`,
+              messageIds: info && info.messageId ? [info.messageId] : [],
+              counts: { sent: 1, failed: 0 },
+              meta: { path: "weekly_report" },
+            });
+          } catch (sendErr) {
+            await emailSendSpine.recordSendFailure({
+              taskId: reportTaskId,
+              error: sendErr,
+              meta: { path: "weekly_report" },
+            });
+            throw sendErr;
+          }
 
           // Outbound webhook (Zapier etc.) with the weekly report. Fire-and-forget.
           triggerWebhook(brand.brand_id, "weekly_report_generated", {

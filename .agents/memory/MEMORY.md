@@ -1,3 +1,4 @@
+- [Stripe test-mode checkout proofs](echoai-stripe-test-checkout.md) — pm_card_visa mints a NEW PM per reference (use one concrete pm from tok_visa); webhook secret must live on Railway, not Replit.
 - [EchoAI public widget endpoints](echoai-public-widget-endpoints.md) — method-aware CORS (never path-prefix) + gate owner alerts on real state transitions, not raw public POSTs.
 - [EchoAI self-echo filtering](echoai-self-echo-filter.md) — recognizer finalizes Echo's own TTS seconds after playback; filter (never deaf-gate) finals in a ~7s post-TTS window w/ full-line overlap match.
 - [EchoAI untested-component import trap](echoai-untested-component-import.md) — a new component nobody imports can ship a bad import that vitest passes but the vite build fails; always rebuild.
@@ -125,6 +126,13 @@
 - [Blocked git ref lockfiles](echoai-git-ref-lockfile.md) — never `git tag/branch` from the agent shell; blocked attempts leave `.git/**/*.lock` that break the user's Git panel Push.
 - [Facebook reconnect grant behavior](echoai-fb-reconnect-grant.md) — re-consent silently re-applies the prior grant (pages snapshot may shrink to the selected one); verify reconnect via row updated_at, not the consent screen.
 - [FB Graph mid-2026 create fields](echoai-fb-graph-2026-fields.md) — required explicit campaign/ad-set flags; dev-mode apps can't back ads; surface error_user_msg.
+- [EchoAI AI JSON truncation](echoai-ai-json-truncation.md) — multi-item AI JSON gens overrun max_tokens intermittently; check stop_reason before parsing, size 8192+.
+- [EchoAI external_proofs](echoai-external-proofs.md) — immutable evidence table: no FKs on append-only tables (FK actions violate the trigger); claim proof posts pre-publish, never infer from proof rows.
+- [EchoAI spend caps & unpause](echoai-spend-caps.md) — deny-by-default cap sums count pending activations; marker clears on ANY campaign-object pause; verification helper stays sole live-writer.
 - [EchoAI campaign lifecycle](echoai-campaign-lifecycle.md) — never write campaigns.status directly; live only via verifyCampaignStatus read-back; committed spend = live only; presence = created_paused+live.
 - [EchoAI per-brand ad destination](echoai-brand-ad-destination.md) — ad launches resolve Page+link from brand columns only (never env/page_ref); granted-list check throws 503 pre-Graph; page_ref = wizard suggestion only.
 - [EchoAI provider readiness gate](echoai-provider-readiness-gate.md) — Connect buttons gated by server providerReadiness (provider-keyed!); via-cards (calendar→google, instagram→facebook) gate by meta.oauth, absent map fails open.
+- [EchoAI task spine](echoai-task-spine.md) — recorder-not-controller audit trail: safeSpine everywhere, pairing via one tx, post-commit recording for tx-embedded adopters, parallel-test due-post trap.
+- [EchoAI email-send spine](echoai-email-send-spine.md) — Message-ID gate, accepted-then-persist-fail = MANUAL_REVIEW never resend; Approvals Inbox = projection-only, adapter count is a ratchet.
+- [EchoAI ad-launch spine](echoai-ad-launch-spine.md) — one canonical adopter, explicit shared campaign_id on success AND failure rows, 23505-only id fallback, append-only proofs need per-run-unique test ids.
+- [EchoAI Google pull proof](echoai-google-pull-proof.md) — GBP APIs default quota 0 (apply separately); OAuth Testing mode kills refresh tokens in 7d; redact provider error text in responses too; stub seams need module.exports calls.

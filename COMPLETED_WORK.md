@@ -2,6 +2,12 @@
 
 **Last updated:** 2026-08-01. Append-only; newest first. Milestone-level history predating this file lives in `MILESTONES.md` (authoritative for Sage V2 phases 1–6 and Collab Stage 0).
 
+### 2026-08-03 — Prompt 019 Stage 2 (D-28/D-29): email-send task spine + unified Approvals Inbox (code complete)
+- New: `utils/emailSendSpine.js` (canonical adopter: beginSend / recordSendAccepted (Message-ID gate) / recordSendFailure / recordRetryScheduled / recordPersistFailure), `models/133_email_send_task_type.sql`, `controllers/approvalsController.js` + `routes/approvalsRoutes.js` (`/api/approvals`, owner-only), `tests/emailSendSpine.test.js` (9 tests).
+- Adopted paths: emailMarketingController manual blast + drip scheduler (RETRY_SCHEDULED resume) + scheduled blasts; emailCampaignController CRM sequence; scheduler weekly report. Honest NOT-adopted list in the 019 report (welcome, hot-lead, payment/lockout, invites, appointments, feedback, health-monitor, real-estate, demo inquiries, /api/email/test).
+- taskSpine: MANUAL_REVIEW→COMPLETED legal only for `owner:*` actor with meta.resolution; email reconciliation (reconstructEmailBlastTrail, blast scan, stale email_send→MANUAL_REVIEW rescue) — zero provider calls, never a resend.
+- Client: new Approvals section (Sidebar + App wiring, tier starter) with spine/adapter badges + adapter inventory; ActivityPanel MANUAL_REVIEW resolve buttons (I-31); sw cache v161; dist rebuilt. Suite 1114 server / 385 client, architect review PASS.
+
 ### 2026-08-02 — Prompt 018 (D-27): task-spine adoption for ad launches (code complete)
 - New: `utils/adLaunchSpine.js` (canonical adopter: beginLaunch / recordLaunchFailure / recordPersistFailure / recordLaunchSuccess / attachLifecycleEvidence, AGREEMENT map + enforceStateAgreement), `models/132_ad_launch_task_type.sql`, `tests/adLaunchSpine.test.js` (15 tests).
 - Wired: campaignController.launchFacebookCampaign, adCreativeStudioController.launchCreative, autopilotController (origin=autopilot), echoCompanion/setupAgent (origin echo/setup_wizard), campaignControlController (015 pause/unpause evidence on same task).

@@ -112,6 +112,23 @@ export default function ActivityPanel({ brandId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openTask, setOpenTask] = useState(null);
+  const [busyTask, setBusyTask] = useState(null);
+
+  // Prompt 019 (I-31): a MANUAL_REVIEW item is resolvable right here. The
+  // resolution is a recorded spine transition (owner actor) — never a bare
+  // status edit — via the Approvals Inbox endpoint.
+  async function resolveTask(taskId, resolution) {
+    setBusyTask(taskId);
+    setError("");
+    try {
+      await api.resolveApprovalTask(taskId, resolution);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyTask(null);
+    }
+  }
 
   const load = useCallback(async () => {
     if (!brandId) return;
@@ -170,6 +187,24 @@ export default function ActivityPanel({ brandId }) {
               </button>
               {t.last_error && (
                 <p className="px-4 pb-2 text-xs text-red-400">{t.last_error}</p>
+              )}
+              {t.status === "MANUAL_REVIEW" && (
+                <div className="flex items-center gap-2 px-4 pb-3">
+                  <button
+                    disabled={busyTask === t.task_id}
+                    onClick={() => resolveTask(t.task_id, "confirm_handled")}
+                    className="rounded bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+                  >
+                    Mark handled
+                  </button>
+                  <button
+                    disabled={busyTask === t.task_id}
+                    onClick={() => resolveTask(t.task_id, "dismiss")}
+                    className="rounded bg-gray-700 px-2.5 py-1 text-xs font-semibold text-gray-200 hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               )}
               {openTask === t.task_id && <Trail taskId={t.task_id} />}
             </li>

@@ -965,6 +965,15 @@ export const api = {
   getTaskActivity: (brandId) =>
     request(`/api/tasks/activity?brandId=${encodeURIComponent(brandId)}`),
   getTaskEvents: (taskId) => request(`/api/tasks/${taskId}/events`),
+
+  // Unified Approvals Inbox (Prompt 019)
+  getApprovalsInbox: (brandId) =>
+    request(`/api/approvals${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`),
+  resolveApprovalTask: (taskId, resolution, note) =>
+    request(`/api/approvals/tasks/${taskId}/resolve`, {
+      method: "POST",
+      body: { resolution, note },
+    }),
   getSocialAccounts: (brandId) => request(`/api/social/accounts/${brandId}`),
   generateSocial: (brandId, topic, platform) =>
     request("/api/social/generate", {

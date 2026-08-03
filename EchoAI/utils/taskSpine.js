@@ -87,7 +87,10 @@ const LEGAL_SOURCES = {
   PROVIDER_ACCEPTED: ["EXECUTING"],
   EXTERNALLY_VERIFIED: ["PROVIDER_ACCEPTED"],
   REPORTED: ["EXTERNALLY_VERIFIED", "PROVIDER_ACCEPTED"],
-  COMPLETED: ["REPORTED"],
+  // MANUAL_REVIEW -> COMPLETED is the owner's recorded resolution from the
+  // Approvals Inbox (Prompt 019 / I-31): "reviewed and confirmed handled".
+  // It requires an owner actor + meta.resolution — enforced in transition().
+  COMPLETED: ["REPORTED", "MANUAL_REVIEW"],
   RETRY_SCHEDULED: ["EXECUTING"],
   AUTH_REQUIRED: ["EXECUTING"],
   PERMISSION_DENIED: ["EXECUTING"],
@@ -267,7 +270,13 @@ async function transition({
   lastError = null,
 }) {
   if (!actor) throw new Error("taskSpine.transition: actor is required");
-  const sources = legalSourcesFor(to, meta); // throws on illegal target
+  let sources = legalSourcesFor(to, meta); // throws on illegal target
+  if (to === "COMPLETED" && !(String(actor).startsWith("owner:") && meta && meta.resolution)) {
+    // MANUAL_REVIEW -> COMPLETED is exclusively the owner's recorded
+    // resolution (Prompt 019 / I-31). System actors keep the honest path:
+    // COMPLETED only through REPORTED.
+    sources = sources.filter((s) => s !== "MANUAL_REVIEW");
+  }
 
   return withTx(client, async (c) => {
     let id = taskId;
@@ -383,6 +392,7 @@ async function safeSpine(fn, opts = {}) {
  */
 async function reconstructTrail({ sourceType = "social_post", sourceId }) {
   if (sourceType === "campaign") return reconstructLaunchTrail(sourceId);
+  if (sourceType === "email_marketing_campaign") return reconstructEmailBlastTrail(sourceId);
   if (sourceType !== "social_post") {
     throw new Error(`taskSpine.reconstructTrail: unsupported sourceType '${sourceType}'`);
   }
@@ -445,6 +455,59 @@ async function reconstructTrail({ sourceType = "social_post", sourceId }) {
       (post.engagement_metrics && post.engagement_metrics.error) || "Publish failed (reconstructed)";
     await step("EXTERNAL_FAILURE", { lastError: storedError, meta: { error: storedError } });
     return task;
+  }
+  return task;
+}
+
+/**
+ * Prompt 019 (D-28 §13): rebuilds the missing canonical email_send task for a
+ * one-time blast the database says was sent or failed. BOOKKEEPING ONLY — it
+ * never re-sends a single email (an SMTP-accepted message must never go out
+ * twice because recording failed). Reconstruction cannot recover provider
+ * Message-IDs it never stored, so a 'sent' blast honestly lands at
+ * REPORTED via the explicit verification-unavailable marker.
+ */
+async function reconstructEmailBlastTrail(campaignId) {
+  const { rows } = await db.query(
+    `SELECT c.*, b.user_id AS owner_user_id, b.is_demo
+       FROM email_marketing_campaigns c
+       JOIN brands b ON b.brand_id = c.brand_id
+      WHERE c.campaign_id = $1`,
+    [campaignId]
+  );
+  const campaign = rows[0];
+  if (!campaign || campaign.is_demo) return null;
+  if (!["sent", "failed"].includes(campaign.status)) return null;
+
+  const actor = "system:repair";
+  const meta = { reconstructed: true, campaign_status: campaign.status };
+  const { task } = await createTask({
+    brandId: campaign.brand_id,
+    userId: campaign.owner_user_id,
+    taskType: "email_send",
+    sourceType: "email_marketing_campaign",
+    sourceId: String(campaign.campaign_id),
+    title: `Send email blast: ${campaign.campaign_name}`,
+    status: "APPROVED",
+    actor,
+    meta,
+  });
+  const step = (to, extra = {}) =>
+    transition({ taskId: task.task_id, to, actor, meta: { ...meta, ...extra.meta }, ...extra });
+
+  await step("QUEUED");
+  await step("EXECUTING");
+  if (campaign.status === "sent") {
+    await step("PROVIDER_ACCEPTED", { meta: { sentCount: campaign.sent_count } });
+    // Honesty rule: the Message-IDs were never recorded, so no
+    // EXTERNALLY_VERIFIED — REPORTED carries the explicit marker.
+    await step("REPORTED", { meta: { verification: "unavailable", reason: "reconstructed" } });
+    await step("COMPLETED");
+  } else {
+    await step("EXTERNAL_FAILURE", {
+      lastError: "Blast failed (reconstructed from campaign status)",
+      meta: { error: "reconstructed" },
+    });
   }
   return task;
 }
@@ -650,6 +713,68 @@ async function scanForMissingTasks({ lookbackHours = 48, limit = 100 } = {}) {
       `taskSpine scan: repaired ${launchesRepaired}/${launches.rows.length} missing launch trail(s).`
     );
   }
+
+  // Prompt 019 (D-28 §13) — email-send reconciliation. Bookkeeping only:
+  // never re-sends a single email.
+  //  a) one-time blasts that reached a terminal outcome with no email_send
+  //     task -> rebuild the trail;
+  //  b) email_send tasks stranded in EXECUTING (sender died before recording
+  //     an outcome) -> MANUAL_REVIEW: the owner must check before any retry,
+  //     because some messages may already have been accepted.
+  const blasts = await db.query(
+    `SELECT c.campaign_id
+       FROM email_marketing_campaigns c
+       JOIN brands b ON b.brand_id = c.brand_id AND b.is_demo = false
+      WHERE c.updated_at >= NOW() - make_interval(hours => $1)
+        AND c.campaign_type = 'one-time'
+        AND c.status IN ('sent', 'failed')
+        AND NOT EXISTS (
+          SELECT 1 FROM agent_tasks t
+           WHERE t.task_type = 'email_send'
+             AND t.source_type = 'email_marketing_campaign'
+             AND t.source_id = c.campaign_id::text
+        )
+      ORDER BY c.updated_at ASC
+      LIMIT $2`,
+    [lookbackHours, limit]
+  );
+  let blastsRepaired = 0;
+  for (const row of blasts.rows) {
+    try {
+      await module.exports.repairOneEmailBlast(row.campaign_id);
+      blastsRepaired += 1;
+    } catch (err) {
+      console.error(`taskSpine scan: email repair failed for blast ${row.campaign_id}:`, err.message);
+    }
+  }
+
+  const strandedEmails = await db.query(
+    `SELECT task_id FROM agent_tasks
+      WHERE task_type = 'email_send' AND status = 'EXECUTING'
+        AND updated_at < NOW() - INTERVAL '30 minutes'
+      LIMIT $1`,
+    [limit]
+  );
+  for (const row of strandedEmails.rows) {
+    try {
+      await transition({
+        taskId: row.task_id,
+        to: "MANUAL_REVIEW",
+        actor: "system:stale-rescue",
+        lastError:
+          "Email send was interrupted before an outcome was recorded — some messages may already have gone out; check before any retry.",
+        meta: { reason: "email_send_interrupted" },
+      });
+    } catch (err) {
+      console.error(`taskSpine scan: stale email_send rescue failed for ${row.task_id}:`, err.message);
+    }
+  }
+
+  if (blasts.rows.length > 0) {
+    console.log(
+      `taskSpine scan: repaired ${blastsRepaired}/${blasts.rows.length} missing email trail(s).`
+    );
+  }
   return {
     found: rows.length,
     repaired,
@@ -657,6 +782,9 @@ async function scanForMissingTasks({ lookbackHours = 48, limit = 100 } = {}) {
     launchesRepaired,
     strandedLaunches: stranded.rows.length,
     proofsRelinked: unlinkedProofs.rows.length,
+    emailBlastsFound: blasts.rows.length,
+    emailBlastsRepaired: blastsRepaired,
+    strandedEmailSends: strandedEmails.rows.length,
   };
 }
 
@@ -668,6 +796,11 @@ async function repairOne(postId) {
 /** Seam for tests + the per-row guard (ad launches). */
 async function repairOneCampaign(campaignId) {
   return reconstructTrail({ sourceType: "campaign", sourceId: campaignId });
+}
+
+/** Seam for tests + the per-row guard (email blasts). */
+async function repairOneEmailBlast(campaignId) {
+  return reconstructTrail({ sourceType: "email_marketing_campaign", sourceId: campaignId });
 }
 
 module.exports = {
@@ -684,4 +817,5 @@ module.exports = {
   scanForMissingTasks,
   repairOne,
   repairOneCampaign,
+  repairOneEmailBlast,
 };

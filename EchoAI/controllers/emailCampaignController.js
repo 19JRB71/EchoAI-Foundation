@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { sendEmail } = require("../utils/email");
+const emailSendSpine = require("../utils/emailSendSpine");
 const {
   generateEmailSequence,
   MIN_EMAILS,
@@ -178,6 +179,11 @@ async function sendCampaign(req, res) {
   const userId = req.user.userId;
   const { campaignId } = req.params;
 
+  // Prompt 019 spine state (recorder only — never controls the send).
+  let spineTaskId = null;
+  let spineSource = null;
+  const messageIds = [];
+
   const client = await db.getClient();
   try {
     await client.query("BEGIN");
@@ -227,11 +233,31 @@ async function sendCampaign(req, res) {
         .json({ error: "No CRM leads with an email address for this brand" });
     }
 
+    // Prompt 019: canonical email task per sequence step. The FOR UPDATE lock
+    // above IS the atomic claim; QUEUED->EXECUTING records it.
+    spineTaskId = await emailSendSpine.beginSend({
+      brandId: campaign.brand_id,
+      userId,
+      actor: `owner:${userId}`,
+      sourceType: "email_campaign",
+      sourceId: `${campaignId}:step-${step}`,
+      title: `Send CRM sequence email (step ${step + 1}): ${subject}`,
+      meta: { path: "crm_sequence", campaignId, step },
+    });
+    spineSource = {
+      sourceType: "email_campaign",
+      sourceId: `${campaignId}:step-${step}`,
+      brandId: campaign.brand_id,
+      userId,
+    };
+
     let sent = 0;
     let failed = 0;
+    let lastSendError = null;
     for (const lead of leadsResult.rows) {
       try {
-        await sendEmail({ to: lead.email, subject, html: bodyHtml });
+        const info = await sendEmail({ to: lead.email, subject, html: bodyHtml });
+        if (info && info.messageId) messageIds.push(info.messageId);
         // ON CONFLICT DO NOTHING is a backstop: the row lock already prevents
         // concurrent duplicate steps, but this guarantees idempotency.
         await client.query(
@@ -244,6 +270,7 @@ async function sendCampaign(req, res) {
         sent += 1;
       } catch (err) {
         failed += 1;
+        lastSendError = err;
         console.error(
           `Email send failed for lead ${lead.lead_id} (campaign ${campaignId}):`,
           err.message
@@ -268,6 +295,11 @@ async function sendCampaign(req, res) {
     if (sent === 0) {
       // Nothing went out — release the lock without consuming a step.
       await client.query("ROLLBACK");
+      await emailSendSpine.recordSendFailure({
+        taskId: spineTaskId,
+        error: lastSendError || new Error("No emails could be sent (check SMTP configuration)"),
+        meta: { path: "crm_sequence", failedCount: failed },
+      });
       return res.status(502).json({
         error: "No emails could be sent (check SMTP configuration)",
         recipients: leadsResult.rows.length,
@@ -277,6 +309,14 @@ async function sendCampaign(req, res) {
     }
 
     await client.query("COMMIT");
+    // Post-COMMIT (guide tx rule): record the outcome on the spine.
+    await emailSendSpine.recordSendAccepted({
+      taskId: spineTaskId,
+      ...spineSource,
+      messageIds,
+      counts: { sent, failed },
+      meta: { path: "crm_sequence", step },
+    });
     return res.json({
       campaignId,
       step: step + 1,
@@ -289,6 +329,22 @@ async function sendCampaign(req, res) {
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("Send email campaign error:", err.message);
+    if (messageIds.length > 0 && spineSource) {
+      // SMTP accepted mail but the local bookkeeping failed: owner attention,
+      // never a resend (D-24 F / D-28 §13).
+      await emailSendSpine.recordPersistFailure({
+        taskId: spineTaskId,
+        ...spineSource,
+        messageIds,
+        error: err,
+      });
+    } else if (spineTaskId) {
+      await emailSendSpine.recordSendFailure({
+        taskId: spineTaskId,
+        error: err,
+        meta: { path: "crm_sequence" },
+      });
+    }
     return res.status(500).json({ error: "Failed to send email campaign" });
   } finally {
     client.release();
