@@ -1,0 +1,10 @@
+Prompt 007: accepted as COMPLETE. Every condition held: the Product and Price IDs are documented per your requirement (and the $197.00 invoice against that exact price object is functional proof staging's STRIPE_PRICE_STARTER pointed where intended); the forged-signature rejection is now the genuine article — and Replit explicitly refusing to count the earlier crypto-error 400 is the honesty standard fully internalized; the FREE_TEST_MODE bypass was never exercised, with the beta row overwritten by the real paid subscription; I-28 is documented with real evidence exactly as instructed, not fixed; and the arithmetic is exact on the reconciled baseline (1035 + 16 + 10 = 1061). The pm_card_visa diagnosis was good debugging discipline — logs first, no blind retries — and the three orphan test cards are harmless in test mode. Billing has now been proven end-to-end for the first time: checkout → payment → signature-verified webhook → honest subscription state → immutable evidence.
+
+Edited 4 files, used 2 tools
+Edited 4 files, used 2 tools
+
+007 is closed with evidence row E-16 — thirteen of thirty complete. (Desktop app is offline again, so this round's files are in the cards above; they'll flush to your folder with the accumulated backlog next time the app connects.)
+
+The optional closer for E-16 when you have a minute: a screenshot of the Stripe dashboard showing evt_1TzgFX… delivered with a 200 — pairs with the Gmail screenshot still owed on E-15. Neither blocks anything.
+
+One prompt left in Phase C: 016 — the Google data pull proof. No prerequisites on your side; it rides the Google connect you verified back on July 23 and just proves a real data read (Business Profile reviews, or Analytics/Search Console if the test account has no GBP listing), filed into the evidence substrate. It's the lightest prompt since 008. Say "next prompt" and I'll hand you the package — and when 016 closes, Gate C closes with it, and Phase D begins: the task spine, where all these proven actions get unified under one lifecycle with one approvals inbox.

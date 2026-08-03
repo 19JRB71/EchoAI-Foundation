@@ -19,6 +19,7 @@ const {
 } = require("../controllers/socialController");
 const { scanForMissingTasks } = require("../utils/taskSpine");
 const emailSendSpine = require("./emailSendSpine");
+const { executeExternal, reconcileStaleActions } = require("./executeExternal");
 const { triggerWebhook } = require("../controllers/zapierController");
 const mobilePushController = require("../controllers/mobilePushController");
 const {
@@ -227,12 +228,35 @@ async function runWeeklyAnalytics() {
             meta: { path: "weekly_report", week: weekKey },
           });
           try {
-            const info = await sendWeeklyReportEmail({
-              email: owner.email,
-              brandName: brandProfile.brand_name,
-              reportBody: body,
-              subject,
+            // Prompt 020: SMTP through the ONE execution gateway — one ledger
+            // row per (brand, ISO week); a succeeded row means this week's
+            // report can never be double-sent, guaranteed by the database.
+            const { result: info, deduplicated } = await executeExternal({
+              idempotencyKey: `email_send:weekly:${brand.brand_id}:${weekKey}`,
+              provider: "smtp",
+              action: "email_send",
+              taskId: reportTaskId,
+              brandId: brand.brand_id,
+              userId: brand.user_id,
+              onTerminal: "record_only",
+              execute: () =>
+                sendWeeklyReportEmail({
+                  email: owner.email,
+                  brandName: brandProfile.brand_name,
+                  reportBody: body,
+                  subject,
+                }),
             });
+            if (deduplicated) {
+              // Strict dedup semantics: a prior SUCCEEDED row means this
+              // week's report already went out — skip quietly. An in_progress
+              // (crash-stranded) row is NOT proof of send: fail this run
+              // honestly and let reconciliation close the stale row first.
+              throw Object.assign(
+                new Error("Weekly report send already executed (or in flight) for this week — not re-sending."),
+                { deduplicated: true }
+              );
+            }
             await emailSendSpine.recordSendAccepted({
               taskId: reportTaskId,
               brandId: brand.brand_id,
@@ -822,6 +846,16 @@ function startScheduler() {
     name: "task-spine-reconcile",
     cronExpr: "*/10 * * * *",
     run: () => scanForMissingTasks(),
+  });
+
+  // Every 10 minutes: close external_actions rows stranded in 'in_progress'
+  // by a crash (Prompt 020, D-30 §14). Bookkeeping only — reconciliation can
+  // NEVER execute a provider action; interrupted rows are failed honestly,
+  // the task is parked at MANUAL_REVIEW, and the owner is alerted once.
+  scheduleJob({
+    name: "external-actions-reconcile",
+    cronExpr: "*/10 * * * *",
+    run: () => reconcileStaleActions(),
   });
 
   // Every 5 minutes: send any due follow-up touchpoints (email/SMS/phone).

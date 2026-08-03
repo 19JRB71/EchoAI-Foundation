@@ -2,6 +2,11 @@
 
 **Last updated:** 2026-08-01. Append-only; newest first. Milestone-level history predating this file lives in `MILESTONES.md` (authoritative for Sage V2 phases 1–6 and Collab Stage 0).
 
+### 2026-08-03 — Prompt 020 (D-30): shared executeExternal() idempotency + attempt ledger (code complete)
+- New: `utils/executeExternal.js` (the ONE execution gateway: caller-owned keys, DB-level dedup, extracted transient policy, MANUAL_REVIEW escalation + one-alert CAS, bookkeeping-only reconciliation, ledger-only metrics), `models/134_external_actions.sql`, `tests/executeExternal.test.js` (11 tests), scheduler job `external-actions-reconcile` (10 min), `GET /api/admin/external-actions/metrics`.
+- Adopted: social publish (sweep + Post Now; provider call split from persist; one alert authority), both ad-launch Graph chains (partial ids preserved on the MANUAL_REVIEW event), all five spine email paths (record_only; strict dedup — in_progress is never proof of send). Inventoried-not-migrated: GBP replies, Jobber, Twilio SMS, ~15 direct sendEmail callers, FB lifecycle mutations.
+- Spec-sanctioned test updates (terminal failures now MANUAL_REVIEW). Suite 1125 server / 385 client; architect findings (double alert, dedup-as-sent) fixed.
+
 ### 2026-08-03 — Prompt 019 Stage 2 (D-28/D-29): email-send task spine + unified Approvals Inbox (code complete)
 - New: `utils/emailSendSpine.js` (canonical adopter: beginSend / recordSendAccepted (Message-ID gate) / recordSendFailure / recordRetryScheduled / recordPersistFailure), `models/133_email_send_task_type.sql`, `controllers/approvalsController.js` + `routes/approvalsRoutes.js` (`/api/approvals`, owner-only), `tests/emailSendSpine.test.js` (9 tests).
 - Adopted paths: emailMarketingController manual blast + drip scheduler (RETRY_SCHEDULED resume) + scheduled blasts; emailCampaignController CRM sequence; scheduler weekly report. Honest NOT-adopted list in the 019 report (welcome, hot-lead, payment/lockout, invites, appointments, feedback, health-monitor, real-estate, demo inquiries, /api/email/test).

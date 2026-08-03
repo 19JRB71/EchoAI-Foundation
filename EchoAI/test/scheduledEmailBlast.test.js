@@ -125,6 +125,14 @@ function makeBlastDb({ campaigns, brands }) {
       if (rows.length) state.failedFlips.push(params[0]);
       return { rows };
     }
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: inserts return a row, updates
+      // return nothing (no dedup hit, no alert CAS win).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
+    }
     throw new Error(`makeBlastDb: unexpected client query: ${sql.slice(0, 80)}`);
   }
 
@@ -142,6 +150,14 @@ function makeBlastDb({ campaigns, brands }) {
       state.brandLookups.push(params[0]);
       const b = brands[params[0]];
       return { rows: b ? [b] : [] };
+    }
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: inserts return a row, updates
+      // return nothing (no dedup hit, no alert CAS win).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
     }
     throw new Error(`makeBlastDb: unexpected query: ${sql.slice(0, 80)}`);
   }

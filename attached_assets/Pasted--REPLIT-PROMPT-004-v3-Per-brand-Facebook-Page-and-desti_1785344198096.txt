@@ -1,0 +1,404 @@
+# REPLIT_PROMPT_004 (v3) — Per-brand Facebook Page and destination link
+
+**Phase B**
+**Prerequisites:** Prompt 002 COMPLETE and Prompt 003 COMPLETE.
+
+## Objective
+
+Every Facebook ad launch must resolve its Page ID and destination URL from the correct brand.
+
+No launch path may read:
+
+- FACEBOOK_PAGE_ID
+- FACEBOOK_LINK_URL
+
+from global environment configuration.
+
+This applies to:
+
+1. Manual campaign launch
+2. Autopilot launch
+3. Ad Creative Studio launch
+
+## Reason
+
+Audit finding P1-2 identified global Facebook Page and destination-link configuration as a multi-tenant blocker.
+
+A global Page or link can cause one customer’s campaign to use another customer’s assets or destination.
+
+## Scope
+
+In scope:
+
+- Brand-level ad destination field
+- Existing brand-level Facebook Page reference
+- Wizard persistence of the selected Facebook Page
+- Brand settings UI for the ad destination URL
+- Manual launch path
+- Autopilot launch path
+- Ad Creative Studio launch path
+- echoCompanion gating
+- setupAgent gating
+- Tests, migration, deployment verification and documentation
+
+Out of scope:
+
+- Targeting changes
+- Budget changes
+- Creative-content changes
+- Facebook launcher unification or large refactors
+- Production launch
+- Activating or spending on ads
+
+`GLOBAL_PROMPT_RULES.md` applies in full.
+
+---
+
+## 1. Preflight — report before implementation
+
+Before modifying code, report:
+
+1. Where the selected Facebook Page reference is stored today.
+2. How ownership and tenant association of that Page are validated.
+3. Every read of:
+   - FACEBOOK_PAGE_ID
+   - FACEBOOK_LINK_URL
+4. Every manual, Autopilot and Ad Creative Studio location that supplies:
+   - page_id
+   - link_url
+5. The current staging SHA.
+6. The next unused migration number from the LIVE `EchoAI/models/` directory.
+7. The proposed branch name.
+8. The exact files expected to change.
+
+Do not rely on an old migration listing or repository snapshot.
+
+Stop and report if Page selection is not currently persisted safely against the correct brand.
+
+---
+
+## 2. Branch discipline
+
+Create a dedicated Prompt 004 branch from the CURRENT staging tip.
+
+Required flow:
+
+- Current `staging` → dedicated Prompt 004 branch
+- Pull request → `staging`
+- `main` untouched
+- No force push
+- Prompt 004 files only
+
+Report:
+
+- Branch name
+- Staging base SHA
+- Exact changed-file list
+- Final merge SHA
+- Deployed staging SHA
+
+---
+
+## 3. Database migration
+
+Add:
+
+`brands.ad_link_url`
+
+Requirements:
+
+- Additive and nullable initially
+- Backfill from `brands.website_url` where a valid website URL exists
+- Do not overwrite an existing `ad_link_url`
+- Verify the migration number is unused in the live repository tree
+- Include a safe rollback statement
+
+After migration, runtime launch logic must use `brands.ad_link_url`.
+
+Do not add a live runtime fallback to `website_url`.
+
+The backfill is the transition mechanism; `ad_link_url` is the launch source of truth afterward.
+
+Report:
+
+- Exact migration filename
+- Exact path
+- Proof the number was unused
+- Rows backfilled
+- Rows still missing configuration
+
+---
+
+## 4. Brand-level Page and link resolution
+
+For all three launch entry points:
+
+1. Manual campaign launch
+2. Autopilot
+3. Ad Creative Studio
+
+Resolve from the authenticated campaign’s correct brand:
+
+- Facebook Page reference
+- `brands.ad_link_url`
+
+Never resolve them globally.
+
+Never accept another tenant’s Page or link.
+
+Preserve all existing Facebook connection and Page-ownership validation from Prompt 002.
+
+Manual and Autopilot should continue using the shared launcher.
+
+Ad Creative Studio may retain its current separate campaign/ad-set/creative assembly path during this prompt, but it must use the same correct brand-level Page and link values.
+
+Do not perform the I-22 launcher-unification refactor in Prompt 004.
+
+---
+
+## 5. Fail-fast behavior
+
+If the brand is missing either:
+
+- A valid selected Facebook Page
+- A valid `ad_link_url`
+
+the request must:
+
+- Fail before any Facebook Graph object is created
+- Return the existing honest `503` pattern
+- Identify the missing configuration
+- Give the owner clear instructions for fixing it
+- Avoid reporting success
+- Avoid creating a partial Facebook chain
+- Avoid copying configuration from another brand
+- Avoid falling back to global environment variables
+
+Add tests proving zero Graph creation calls occur in this condition.
+
+---
+
+## 6. Gating checks
+
+Update the gating checks in:
+
+- `echoCompanionController.js`
+- `setupAgentController.js`
+
+They must evaluate the current brand’s stored configuration.
+
+Required behavior:
+
+- Brand A is configured and may proceed.
+- Brand B is unconfigured and receives guidance.
+- Brand B never receives Brand A’s Page ID or URL.
+- No global environment value satisfies either brand’s gate.
+
+---
+
+## 7. Brand settings and wizard persistence
+
+Add or verify:
+
+- A brand-settings field for `ad_link_url`
+- Validation for a legitimate HTTP or HTTPS destination
+- Safe normalization without silently changing the intended domain
+- Persistence of the Page selected in the Facebook wizard against the correct brand
+- Tenant authorization on all reads and writes
+
+Do not expose another brand’s configuration in UI responses, logs or API payloads.
+
+---
+
+## 8. Required tests
+
+### Two-brand tenant-isolation test
+
+Using mocked Facebook Graph calls:
+
+- Brand A has Page A and Link A.
+- Brand B has Page B and Link B.
+- Launch Brand A.
+- Launch Brand B.
+- Capture the supplied Graph parameters.
+- Assert A uses only Page A and Link A.
+- Assert B uses only Page B and Link B.
+- Assert no cross-brand leakage.
+
+Cover:
+
+- Manual/shared launcher
+- Autopilot’s use of the shared launcher
+- Ad Creative Studio
+
+### Gating-isolation test
+
+- Brand A is configured.
+- Brand B is missing Page and/or link.
+- Brand A passes.
+- Brand B receives honest guidance.
+- No Graph creation call occurs for Brand B.
+- Brand B never receives Brand A’s values.
+
+### Environment-removal test
+
+Set misleading test values for:
+
+- FACEBOOK_PAGE_ID
+- FACEBOOK_LINK_URL
+
+Prove launch logic ignores them and uses brand data exclusively.
+
+### Regression coverage
+
+Preserve Prompt 003 guarantees:
+
+- One `/ads` POST implementation
+- `PAUSED` enforced
+- Required Facebook fields retained
+- Detailed Graph errors retained
+- No partial chain on missing configuration
+
+Run and report:
+
+- Server suite
+- Client suite
+- Additional integration suites
+- Skipped tests
+- Flaky or retried tests
+- Exact commit SHA used for the run
+
+---
+
+## 9. Required grep proof
+
+Provide repository-wide grep results for:
+
+- FACEBOOK_PAGE_ID
+- FACEBOOK_LINK_URL
+
+Classify every remaining occurrence.
+
+Acceptance requires zero reads of either variable in:
+
+- Launch code
+- Launch helpers
+- Gating code
+- Manual path
+- Autopilot path
+- Ad Creative Studio path
+
+References in historical documentation, migration notes or explicit tests may remain only if clearly identified and harmless.
+
+---
+
+## 10. Railway staging cleanup and deployed verification
+
+After the Prompt 004 PR is merged and deployed to staging:
+
+1. Verify the deployed SHA through `/api/health`.
+2. Walk the owner through deleting `FACEBOOK_LINK_URL` from Railway staging.
+3. Confirm `FACEBOOK_PAGE_ID` is also absent unless a separately documented non-launch use exists.
+4. Restart or redeploy staging if required.
+5. Confirm the service remains healthy.
+6. Verify the SDS2 brand resolves its Page and link from stored brand data.
+7. Verify an unconfigured staging test brand receives the honest configuration guidance.
+8. Verify no global environment fallback is used.
+
+Production must never receive `FACEBOOK_LINK_URL` or `FACEBOOK_PAGE_ID` as launch configuration.
+
+Do not create an active Facebook ad.
+
+Any external Facebook object created for verification must remain PAUSED and be deleted with zero spend.
+
+---
+
+## 11. I-22 evaluation only
+
+Evaluate whether Ad Creative Studio’s separate campaign/ad-set/creative assembly path should eventually be unified with `launchFacebookCampaign`.
+
+Report:
+
+- Benefits
+- Risks
+- Estimated scope
+- Recommended timing
+- Whether Prompt 004 increases or reduces the drift risk
+
+Do not implement the unification in this prompt.
+
+---
+
+## 12. Owed continuity information
+
+Include, where recoverable:
+
+- Prompt 003 checkpoint SHA(s)
+- Prompt 002 documentation-only checkpoint SHA
+- Confirmation that Prompt 003 used:
+  `EchoAI/models/126_facebook_ad_object.sql`
+- Composed test-count statement:
+  - Pre-010 baseline
+  - Tests added by Prompt 010
+  - Tests added by Prompt 003
+  - Tests added by Prompt 004
+  - Current server total
+  - Current client total
+
+Do not guess missing historical hashes.
+
+Label unavailable evidence as unresolved bookkeeping rather than fabricating it.
+
+Functional Prompt 004 acceptance must still be based on Prompt 004’s actual implementation and evidence.
+
+---
+
+## Completion evidence
+
+The final report must include:
+
+- Status: COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION
+- Preflight findings
+- Diff summary
+- Migration and backfill proof
+- Branch and SHA evidence
+- Exact changed-file list
+- Grep proof
+- Two-brand isolation evidence
+- Gating-isolation evidence
+- Missing-configuration fail-fast evidence
+- Full test results
+- Deployed staging SHA
+- Railway environment-variable removal confirmation
+- Deployed brand-data verification
+- Rollback procedure
+- I-22 evaluation
+- Remaining technical debt
+
+## Definition of Done
+
+Prompt 004 is not complete merely because:
+
+- Code exists
+- A migration exists
+- Mocked tests pass
+- The UI saves a value
+- One brand launches successfully
+- A staging database row exists
+
+Prompt 004 is COMPLETE only when:
+
+1. Every launch path uses the correct brand’s Page and `ad_link_url`.
+2. Manual, Autopilot and Studio paths are covered.
+3. Missing configuration fails before any Facebook object is created.
+4. The two-brand isolation tests pass.
+5. Gating isolation passes.
+6. No launch or gating code reads the two global environment variables.
+7. Full suites pass.
+8. The code is merged and deployed to staging.
+9. The temporary Railway staging global link variable is removed.
+10. Deployed staging resolves configuration successfully from brand data.
+
+Undemonstrated criteria must be marked UNVERIFIED.
+
+Begin with the preflight report only. Do not implement until the preflight is complete and reviewed.

@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { sendEmail } = require("../utils/email");
 const emailSendSpine = require("../utils/emailSendSpine");
+const { executeExternal } = require("../utils/executeExternal");
 const {
   generateEmailSequence,
   MIN_EMAILS,
@@ -256,7 +257,25 @@ async function sendCampaign(req, res) {
     let lastSendError = null;
     for (const lead of leadsResult.rows) {
       try {
-        const info = await sendEmail({ to: lead.email, subject, html: bodyHtml });
+        // Prompt 020: SMTP through the ONE execution gateway (D-30 §11) —
+        // ledger row per (lead, step) attempt; a succeeded row blocks any
+        // accidental re-send at the database level. Per-lead failures are
+        // routine sequence bookkeeping (record_only).
+        const { result: info, deduplicated, priorAction } = await executeExternal({
+          idempotencyKey: `email_send:${campaignId}:step-${step}:${lead.lead_id}`,
+          provider: "smtp",
+          action: "email_send",
+          taskId: spineTaskId,
+          brandId: campaign.brand_id,
+          userId,
+          onTerminal: "record_only",
+          execute: () => sendEmail({ to: lead.email, subject, html: bodyHtml }),
+        });
+        if (deduplicated && (!priorAction || priorAction.status !== "succeeded")) {
+          // Strict dedup semantics: an in_progress row is not proof of send —
+          // skip this lead without recording a send.
+          continue;
+        }
         if (info && info.messageId) messageIds.push(info.messageId);
         // ON CONFLICT DO NOTHING is a backstop: the row lock already prevents
         // concurrent duplicate steps, but this guarantees idempotency.

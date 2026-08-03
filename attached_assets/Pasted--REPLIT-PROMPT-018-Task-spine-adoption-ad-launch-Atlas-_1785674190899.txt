@@ -1,0 +1,58 @@
+# REPLIT_PROMPT_018 — Task spine adoption: ad launch (Atlas)
+**Phase D · Prereqs: 009, 005**
+
+**Objective:** Ad launches (manual + Autopilot approve path) run through agent_tasks: approval → QUEUED → EXECUTING → PROVIDER_ACCEPTED (all four FB object ids attached) → EXTERNALLY_VERIFIED (005 read-back) → REPORTED → COMPLETED; failures map to lifecycle failure states.
+**Reason:** Gate D requires ads traceable in the one lifecycle; campaign domain states (005) map onto it — the task row carries the platform vocabulary, the campaigns row keeps domain states; both must agree (assert in code).
+**Scope:** campaignController/adCreativeStudio launch entry points create+transition tasks; Autopilot approve path included; approvals inbox shows pending ad approvals. **Out of scope:** unpause logic (015 owns it — unpause transitions the SAME task, wire the call only); email (019); global list.
+**Preflight:** list every entry point that can create a launch and confirm each is covered.
+**Implementation:** approval recorded with actor; partial-chain failure ⇒ EXTERNAL_FAILURE with partial ids in evidence; state-agreement assertion (campaigns.status vs task state) with test.
+**Migration:** none beyond 009. **Tenant isolation:** inherited; test.
+**External proof:** staging launch (PAUSED chain) trail ending EXTERNALLY_VERIFIED via read-back of PAUSED-created objects (verification here = objects exist + statuses read; LIVE remains impossible without 015 approval).
+**Testing:** full-flow mocked tests incl. Autopilot path; agreement assertion test; suite green.
+**Completion evidence:** diff, tests, staging trail, commit, rollback.
+**Definition of Done / End-of-Prompt Report / Stop Conditions:** GLOBAL_PROMPT_RULES.md applies in full. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Acceptance criteria:** both entry points produce complete trails; state agreement enforced; suite green.
+
+---
+OWNER ADDENDUM FOR PROMPT 018 (binding, from the continuity record):
+
+1. INHERITED CONTRACTS (non-negotiable): D-24 items F–I (no republish/relaunch on
+   spine-write failure; source idempotency via source_type/source_id/attempt;
+   REPORTED/COMPLETED definitions; evidence-before-cleanup), D-25 (transactional
+   transition+event pairing, caller's tx client; scan-based reconciliation covers
+   ad launches too — a campaigns row with FB object ids and no canonical task is
+   reconstructable without relaunching), and TASK_SPINE_GUIDE.md's 8-step
+   adoption checklist followed step by step (state which step each change
+   satisfies). The publish adopter is the reference implementation.
+2. PREFLIGHT FIRST (single-stage acceptable — the spine exists and the guide is
+   binding): enumerate EVERY entry point that can create a launch (manual,
+   Autopilot approve, Ad Creative Studio, any Echo/setup path that reaches
+   launchFacebookCampaign) and map each to its task-creation point. Include
+   disposition recommendations (recommendation only, no implementation) for:
+   I-22 (Studio-launcher unification — is now the natural moment, or defer?) and
+   I-31 (Activity-tab MANUAL_REVIEW resolution action — fold in here, or 019?).
+3. STATE-AGREEMENT ASSERTION: a code-level assertion (with test) that
+   campaigns.status and the task lifecycle state always agree per the mapping
+   (launch_failed ⇔ EXTERNAL_FAILURE with partial ids; created_paused ⇔
+   PROVIDER_ACCEPTED/EXTERNALLY_VERIFIED per read-back; live ⇔ post-015-unpause
+   verified state). Disagreement throws in tests and raises MANUAL_REVIEW in
+   production — never silently reconciled.
+4. UNPAUSE WIRING ONLY: 015's pause/unpause transitions the SAME task (no new
+   task per unpause); wire the call so 015's audit rows and the task trail
+   reference each other. No unpause behavior changes.
+5. LAUNCH-PATH SAFETY UNTOUCHED (grep regression): createPausedAd remains the
+   only /ads POST; PAUSED-only assertions intact; the spine records, never
+   controls (a spine failure cannot block or alter a launch — test this).
+6. STAGING PROOF (D-17 discipline): one PAUSED-chain launch on SDS2 through the
+   normal manual path → full trail APPROVED→…→EXTERNALLY_VERIFIED (existence +
+   status read-back of the PAUSED objects; LIVE impossible without 015 cap +
+   approval) → REPORTED → COMPLETED → Activity screenshots + task/event rows
+   captured BEFORE chain deletion → delete chain, record responses, $0 spend.
+   No public content is involved (PAUSED ads are not visible), so no D-23
+   content gate is needed — but redaction rules apply to all persisted evidence.
+7. D-18 branch flow (branch off current staging tip; base SHA; changed-file
+   list; main untouched). D-19: no migration expected — if needed, verify
+   against the LIVE models/ dir (132 expected) and justify.
+8. Test accounting: baseline 1090 — state the new total and exact decomposition.
+   App-shell cache bump if the inbox/activity UI changes. Report per
+   GLOBAL_PROMPT_RULES.

@@ -1,0 +1,52 @@
+Here's the Prompt 016 package — the last of Phase C. Paste the whole block into Replit:
+
+# REPLIT_PROMPT_016 — Google data pull proof (reviews / analytics via the verified OAuth)
+**Phase C · Prereqs: 006 (external_proofs), Google connect (already verified 2026-07-23)**
+
+**Objective:** Prove one real Google DATA PULL (not just connect): fetch Google Business Profile reviews (or Analytics/Search Console data if GBP unavailable for the test account) for a connected staging account; store results; file an external_proofs row with the API response metadata.
+**Reason:** Audit: OAuth connect verified but downstream reads untested (reputationController.js real GBP endpoints; google.js scopes). Google is the likely FIRST customer-visible external value (D-5).
+**Scope:** staging run + minimal fixes strictly necessary for the pull. **Out of scope:** posting review REPLIES (destructive — explicitly forbidden here); Google Ads execution; global list.
+**Preflight:** report which Google surfaces the connected test account can actually serve (a test account may have no GBP listing — if none, use Analytics/Search Console and say so).
+**Implementation:** execute the existing pull path; persist as the feature already does; proofs row from the provider response.
+**Migration:** none expected. **Tenant isolation:** pull uses only the connected account's tokens.
+**Security:** read-only scopes exercised; no writes to Google.
+**Honest state:** empty results shown honestly (existing empty-state patterns).
+**External proof:** provider response metadata (request id / etag / counts) + data screenshot in-app.
+**Testing:** suite green; the live pull is the proof.
+**Completion evidence:** proofs row, screenshots, any diff, commit; BLOCKED with specifics if the account can serve nothing.
+**Definition of Done / End-of-Prompt Report / Stop Conditions:** GLOBAL_PROMPT_RULES.md applies in full. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Acceptance criteria:** one real Google pull persisted + proofs row; no destructive calls made.
+
+---
+OWNER ADDENDUM FOR PROMPT 016 (binding, from the continuity record):
+
+1. PREFLIGHT FIRST, report before the pull: which Google surfaces the connected
+   account can actually serve (GBP listing? Analytics property? Search Console
+   site?), current token/connection state, and which pull path will be used.
+   The connect was verified 2026-07-23 but no downstream read has ever run —
+   if the token is expired/revoked, report BLOCKED with the exact reconnect
+   steps for the owner; never simulate. No hard owner gate needed: this prompt
+   is READ-ONLY at the provider by construction.
+2. ABSOLUTE PROHIBITION restated: no Google writes of any kind — no review
+   replies (destructive, public), no GBP edits, no Ads mutations. The diff and
+   the run must both be provably read-only.
+3. Evidence into external_proofs (006 substrate): provider response metadata
+   (request id / etag / result counts) written only from the real response,
+   redacted per the D-23 term-10 standard (no tokens — Google responses can
+   carry them in URLs too). In-app data screenshot per the prompt.
+4. If GBP is unavailable and the fallback is Analytics/Search Console, say so
+   plainly in the report and note the GBP pull as UNVERIFIED-for-now — it then
+   gets proven naturally in Phase H on South Dixie Storage's real listing
+   (which exists). Do not force a GBP pull against a listing that isn't there.
+5. D-18 branch flow if any code changes (branch off current staging tip
+   bfbc4d9 or later; base SHA, changed-file list, main untouched). D-19: no
+   migration expected — if one becomes necessary, verify the next unused number
+   against the LIVE models/ dir (131 expected) and justify it.
+6. Test accounting: baseline 1061 — state the new total and exact decomposition
+   of anything 016 adds.
+7. Report per GLOBAL_PROMPT_RULES: proofs row, screenshots, any diff + commit,
+   rollback.
+
+Item 4 is the one judgment call baked in: if the connected staging account has no Business Profile listing, the Analytics/Search Console fallback is sanctioned by the prompt itself — and the real GBP reviews pull gets proven in Phase H against South Dixie Storage's actual listing, where it means something. No forcing proofs against surfaces that don't exist.
+
+When 016's report comes back and closes, Gate C closes with it: every cheap external action proven with provider-side evidence — connect, publish, email, billing, data pull. Then Phase D starts with 009, the task spine — the architectural centerpiece that unifies everything you've just proven under one lifecycle, one audit trail, and one approvals inbox.

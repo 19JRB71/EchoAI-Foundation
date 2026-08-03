@@ -14,6 +14,7 @@ const { meetsTier } = require("../config/tiers");
 const { alertOwnerOfFailedSend } = require("../utils/failedSendAlerts");
 const { getPublicBaseUrl } = require("../config/twilio");
 const taskSpine = require("../utils/taskSpine");
+const { executeExternal, isTransientProviderError } = require("../utils/executeExternal");
 const { recordExternalProof } = require("../utils/externalProofs");
 
 // Starter accounts may connect at most this many distinct social platforms.
@@ -781,7 +782,7 @@ async function getPostPerformance(req, res) {
  * Publishes a single stored post row to its platform and updates its status.
  * Used by the scheduler. Throws on failure so the caller can mark it failed.
  */
-async function publishStoredPost(post) {
+async function publishStoredPost(post, { taskId = null, userId = null, allowTransientRetry = false } = {}) {
   const account = await loadConnectedAccount(post.brand_id, post.platform);
   // Posts drafted with a visual store a relative /uploads/images/... path;
   // platforms fetch the image themselves so they need an absolute public URL.
@@ -811,16 +812,46 @@ async function publishStoredPost(post) {
       videoUrl = `${base}${post.video_url}`;
     }
   }
-  const result = await socialApi.publishPost(post.platform, account.credentials, {
-    content: post.post_content,
-    imageUrl,
-    videoUrl,
+  // Prompt 020: the provider call runs through the ONE execution gateway
+  // (D-30 §11) — ledger row per attempt, DB-level idempotency on the post id,
+  // classified-transient handling (the policy extracted from this very path,
+  // unchanged), terminal escalation to MANUAL_REVIEW + one owner alert.
+  // ONLY the provider call lives inside execute(); the social_posts persist
+  // below stays outside so a bookkeeping failure can never re-publish (§12).
+  const outcome = await executeExternal({
+    idempotencyKey: `social_publish:${post.post_id}`,
+    provider: post.platform,
+    action: "social_publish",
+    taskId,
+    brandId: post.brand_id,
+    userId,
+    meta: { platform: post.platform },
+    allowTransientRetry,
+    execute: async () => {
+      const published = await socialApi.publishPost(post.platform, account.credentials, {
+        content: post.post_content,
+        imageUrl,
+        videoUrl,
+      });
+      // A publish without a platform post id leaves an unreconcilable record,
+      // so treat it as a failure rather than marking it published.
+      if (!published.externalId) {
+        throw new Error("Platform did not return a post id; treating publish as failed");
+      }
+      return published;
+    },
   });
-  // A publish without a platform post id leaves an unreconcilable record, so
-  // treat it as a failure rather than marking it published.
-  if (!result.externalId) {
-    throw new Error("Platform did not return a post id; treating publish as failed");
+  if (outcome.deduplicated) {
+    // The idempotency guard found a prior in-flight or SUCCEEDED execution for
+    // this post — publishing again could double-post, so it is refused at the
+    // database level. Surfaced as a hard failure with an honest message.
+    const dedupErr = new Error(
+      "An earlier publish attempt for this post already reached (or may have reached) the platform — refusing to publish again. Check the platform before rescheduling."
+    );
+    dedupErr.deduplicated = true;
+    throw dedupErr;
   }
+  const result = outcome.result;
   await db.query(
     `UPDATE social_posts
      SET status = 'published', published_time = NOW(), external_post_id = $1
@@ -1136,9 +1167,15 @@ async function publishDuePosts() {
   for (const post of due.rows) {
     // Task spine: the atomic claim above IS the QUEUED -> EXECUTING
     // transition (Stage-1 B4) — recorded per RETURNING row, no second claim.
-    await spineRecordClaim(post, "system:publish-sweep");
+    const claimedTask = await spineRecordClaim(post, "system:publish-sweep");
     try {
-      const publishResult = await publishStoredPost(post);
+      const publishResult = await publishStoredPost(post, {
+        taskId: claimedTask ? claimedTask.task_id : null,
+        userId: claimedTask ? claimedTask.user_id : null,
+        // The caller (not the helper) owns the retry decision: an attempt
+        // remains only while the proven MAX_PUBLISH_ATTEMPTS budget allows.
+        allowTransientRetry: (post.publish_attempts || 0) + 1 < MAX_PUBLISH_ATTEMPTS,
+      });
       published += 1;
       await spineRecordPublishSuccess(post, publishResult, "system:publish-sweep");
     } catch (err) {
@@ -1179,12 +1216,19 @@ async function publishDuePosts() {
         [JSON.stringify({ error: err.message }), post.post_id]
       );
       if (marked.rows.length > 0) {
-        await alertOwnerOfFailedPost({
-          postId: post.post_id,
-          brandId: post.brand_id,
-          platform: post.platform,
-          reason: err.message,
-        });
+        // Prompt 020: terminal provider failures already alerted the owner
+        // once via the execution gateway's CAS (err.externalActionId set,
+        // not transient). Only failures that never reached the gateway
+        // (persist faults, dedup refusals without escalation) alert here —
+        // one alert authority per failure, never two.
+        if (!(err.externalActionId && !err.classifiedTransient)) {
+          await alertOwnerOfFailedPost({
+            postId: post.post_id,
+            brandId: post.brand_id,
+            platform: post.platform,
+            reason: err.message,
+          });
+        }
         await spineRecordPublishFailure(post, err, "system:publish-sweep");
       }
     }
@@ -1264,9 +1308,14 @@ async function publishPostNow(req, res) {
 
     const post = claimed.rows[0];
     // Task spine: Post Now uses the same atomic claim semantics as the sweep.
-    await spineRecordClaim(post, `owner:${userId}`);
+    const claimedTask = await spineRecordClaim(post, `owner:${userId}`);
     try {
-      const publishResult = await publishStoredPost(post);
+      const publishResult = await publishStoredPost(post, {
+        taskId: claimedTask ? claimedTask.task_id : null,
+        userId,
+        // Post Now has no automatic retry (any failure flips to 'failed').
+        allowTransientRetry: false,
+      });
       await spineRecordPublishSuccess(post, publishResult, `owner:${userId}`);
     } catch (err) {
       console.error(`Post Now publish failed for post ${post.post_id}:`, err.message);

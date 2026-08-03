@@ -1,0 +1,284 @@
+REPLIT_PROMPT_020 — Shared executeExternal(): idempotency, classified retry, action ledger, failure queue, alerts
+
+Phase E · Prereqs: 010, 009
+
+Objective
+
+Create one shared helper (utils/executeExternal.js) wrapping every external side-effect call:
+
+idempotency key per action (dedup guaranteed at the DB level)
+retry ONLY on explicitly classified transient errors (extract the publish path's proven policy)
+external_actions ledger row per ATTEMPT
+terminal failures land in the existing MANUAL_REVIEW task flow and D-29 Approvals Inbox
+owner-visible alerting (email and web push where available)
+Reason
+
+Audit docs 09/10 found retry, idempotency, and provider execution reinvented independently by each feature.
+
+Prompt 020 establishes one canonical execution engine for every external provider.
+
+Scope
+
+Build:
+
+utils/executeExternal.js
+migration for external_actions
+adoption by:
+social publish
+ad launch
+email
+
+List every remaining external caller but do not migrate them.
+
+Out of scope:
+
+changing retry policy
+new notification channels
+migrating remaining providers
+Preflight
+
+Inventory:
+
+every retry implementation
+every idempotency implementation
+every external side-effect caller
+every transient-error classifier
+
+Explicitly state the mapping between:
+
+external_actions
+agent_task_events
+external_proofs
+Implementation
+
+The helper becomes the execution path for the three adopted flows.
+
+Ledger rows are written before and after execution.
+
+Outcome is recorded only from provider responses.
+
+Terminal failures become MANUAL_REVIEW tasks.
+
+Alerts use the existing notification channels.
+
+External Proof
+
+Demonstrate:
+
+duplicate-fire test (same idempotency key twice)
+exactly one provider call
+ledger proof
+one forced terminal failure
+MANUAL_REVIEW task
+owner alert
+inbox evidence
+Testing
+
+Suite green.
+
+Provide:
+
+grep proof
+migration
+tests
+screenshots
+commit
+rollback
+OWNER ADDENDUM
+1.
+
+Recorder-not-controller extends to executeExternal.
+
+The helper records and guards execution.
+
+It never changes successful feature behavior.
+
+2.
+
+Three-layer boundary:
+
+external_actions = attempt ledger
+agent_task_events = lifecycle
+external_proofs = provider evidence
+
+No duplication.
+
+Only references.
+
+3.
+
+Failure queue equals the existing Approvals Inbox.
+
+No second failure UI.
+
+4.
+
+Alert emails use the canonical email spine.
+
+No bypass.
+
+5.
+
+Alert safety.
+
+One alert per underlying failure.
+
+Alert failures never generate alerts.
+
+Test both.
+
+6.
+
+Use web push only if VAPID is configured.
+
+Otherwise report push honestly as UNVERIFIED.
+
+Never fake a channel.
+
+7.
+
+Provide complete inventory of every external caller.
+
+Clearly separate:
+
+adopted in 020
+future adoption
+8.
+
+Retry policy is extracted only.
+
+Behavior must remain unchanged.
+
+Existing retry tests remain green.
+
+9.
+
+Stage proof:
+
+Duplicate execution:
+
+same key twice
+
+↓
+
+one provider execution
+
+↓
+
+ledger proof
+
+↓
+
+forced terminal failure
+
+↓
+
+MANUAL_REVIEW
+
+↓
+
+owner alert email
+
+↓
+
+Approvals Inbox evidence
+
+10.
+
+Branch:
+
+off staging tip (68f1a94 or later)
+
+Verify migration number (134 expected)
+
+Baseline:
+
+1114
+
+Provide exact new totals.
+
+Additional Binding Items (D-30)
+11.
+
+executeExternal() becomes the ONLY execution gateway for adopted flows.
+
+No adopted flow may call Facebook, Stripe, SMTP, Google, etc. directly.
+
+Provide grep proof.
+
+12.
+
+Provider success survives bookkeeping failure.
+
+If the provider accepted the request, bookkeeping failures must NEVER cause the provider action to execute again.
+
+Recovery occurs only through reconciliation.
+
+Regression test required.
+
+13.
+
+Idempotency key ownership belongs to the caller.
+
+The key is created once.
+
+It persists for the entire attempt.
+
+The helper must never silently generate replacement keys.
+
+Regression tests required.
+
+14.
+
+Reconciliation may reconstruct bookkeeping only.
+
+It may never execute provider actions.
+
+Attempting to do so must fail loudly.
+
+Regression test required.
+
+15.
+
+Owner alerts reference:
+
+task_id
+external_action_id
+external_proof_id (when present)
+
+Alerts are navigation.
+
+They are never a second audit trail.
+
+16.
+
+Expose execution metrics derived from the ledger only:
+
+total attempts
+retries
+deduplicated executions
+terminal failures
+reconciliations
+alerts sent
+
+Metrics are observational only.
+
+They never become authoritative state.
+
+OWNER AUTHORIZATION (D-30)
+
+The owner accepts the complete Prompt 020 specification.
+
+Implementation is authorized under:
+
+D-24
+D-25
+D-28
+D-29
+D-30
+TASK_SPINE_GUIDE.md
+all prior standing architectural rules.
+
+Proceed with implementation.
+
+This is the complete package I would send to Replit. It contains everything needed without requiring Replit to piece together instructions from multiple chats.

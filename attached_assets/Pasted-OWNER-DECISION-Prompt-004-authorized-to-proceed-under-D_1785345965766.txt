@@ -1,0 +1,32 @@
+OWNER DECISION — Prompt 004 authorized to proceed under D-20 (Option C).
+
+Architecture: brands.facebook_page_id is the authoritative brand-scoped Facebook
+advertising Page selection, alongside brands.ad_link_url (both in migration
+127_brand_ad_destination.sql). api_integrations remains the user-scoped
+connection/token source. social_accounts remains independent for organic
+posting — UI suggestion only, never an automatic synchronization source.
+
+Binding constraints:
+1. Grant validation on write: facebook_page_id settable only to a page in the
+   owner's granted list (api_integrations.facebook_pages); at launch, a
+   no-longer-granted page ⇒ honest 503 with reconnect guidance, never a broken chain.
+2. Behavior-preserving backfill: copy the owner's page_ref into every one of
+   their brands' facebook_page_id (today's behavior exactly); log row counts.
+   ad_link_url backfills from website_url where present.
+3. Launch paths read ONLY the brand columns. Grep proof must show zero env reads
+   AND zero api_integrations.page_ref reads in launch paths; page_ref is demoted
+   to a wizard default suggestion.
+4. social_accounts: suggestion only; deliberate mismatch allowed and surfaced in
+   copy; no automatic writes in either direction.
+5. Gating checks (echoCompanionController ~455, setupAgentController ~730) gate
+   on brands.facebook_page_id + brands.ad_link_url + a live connection.
+6. Isolation test strengthened: SAME user, two brands, DIFFERENT pages and links —
+   each chain must use its own (mocked-graph capture asserted).
+7. Wizard page selection persists PER BRAND (OAuth callback selection write
+   targets the active brand).
+
+Also in your report: D-18 branch evidence (prompt-004-brand-page-link, base SHA,
+changed-file list, main untouched); remove FACEBOOK_LINK_URL from Railway staging
+after verification and confirm launches work from brand data; I-22 evaluation as
+a recommendation only; and the owed items — 002/003 checkpoint hashes, corrected
+003 migration filename, and the composed test-count decomposition against 994.

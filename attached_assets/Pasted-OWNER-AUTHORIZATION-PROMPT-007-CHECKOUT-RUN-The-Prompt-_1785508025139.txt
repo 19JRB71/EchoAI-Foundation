@@ -1,0 +1,62 @@
+OWNER AUTHORIZATION — PROMPT 007 CHECKOUT RUN
+
+The Prompt 007 preflight is approved with the following conditions.
+
+Before checkout, do all of the following and report the results:
+
+Confirm the Stripe webhook endpoint is registered in test mode at:
+https://staging.zorecho.com/api/subscriptions/webhook
+Confirm it is subscribed to:
+invoice.payment_succeeded
+invoice.payment_failed
+invoice.upcoming
+customer.subscription.deleted
+Confirm STRIPE_WEBHOOK_SECRET is present on Railway staging and the deployment is healthy.
+Confirm all four Stripe price variables are present on Railway staging.
+Report the exact Starter:
+Stripe Product ID (prod_...)
+Stripe Price ID (price_...)
+amount
+billing interval
+Assert that STRIPE_PRICE_STARTER exactly matches the reported Starter price_... value.
+Re-run the forged-signature probe and confirm the rejection now comes from genuine Stripe webhook-signature verification—not from a missing or undefined signing secret.
+
+Once those conditions pass, execute exactly one Prompt 007 proof run:
+
+Stripe test mode only
+one Starter subscription
+dedicated staging test account
+real direct-subscribe path
+Stripe test payment method/card 4242 4242 4242 4242
+do not use or rely on FREE_TEST_MODE
+no pricing changes
+no live-mode activity
+
+Record the real Stripe customer, subscription, invoice, payment, and signature-verified webhook evidence in external_proofs, with credential redaction and tenant scope.
+
+The invoice amount charged must be reported exactly as Stripe returns it. The current pricing discrepancy—Stripe Starter at $197 versus the app-documented Starter price of $100—is I-28. Document it, but do not fix or alter pricing during Prompt 007.
+
+Stop and report immediately if:
+
+any required environment variable is missing,
+STRIPE_PRICE_STARTER does not match the intended Stripe Price ID,
+webhook signature verification is not genuine,
+checkout attempts to use live mode,
+the subscription is associated with the wrong tenant,
+or any provider step fails.
+
+Do not retry failed provider actions without first detecting and accounting for any Stripe objects already created.
+
+Final completion evidence must include:
+
+Product ID and Price ID
+Stripe customer ID
+subscription ID
+invoice ID and exact amount
+payment result
+signature-verified webhook event ID and type
+resulting tenant-scoped subscription row
+external_proofs rows
+confirmation no live-mode objects were created
+final test total and exact test-count decomposition
+commit SHA and rollback instructions

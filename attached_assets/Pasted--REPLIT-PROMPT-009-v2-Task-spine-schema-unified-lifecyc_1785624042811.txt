@@ -1,0 +1,72 @@
+# REPLIT_PROMPT_009 (v2) — Task spine: schema + unified lifecycle + first adopter (social publish)
+**Phase D · Prereqs: 006**
+
+**Objective:** Create agent_tasks + agent_task_events and utils/taskSpine.js implementing the PLATFORM lifecycle (D-13): DRAFTED → REVIEWED → APPROVED → QUEUED → EXECUTING → PROVIDER_ACCEPTED → EXTERNALLY_VERIFIED → REPORTED → COMPLETED; failure/cancel states AUTH_REQUIRED, PERMISSION_DENIED, RATE_LIMITED, VALIDATION_FAILED, EXTERNAL_FAILURE, RETRY_SCHEDULED, MANUAL_REVIEW, CANCELLED. Adopt for exactly ONE flow end-to-end: scheduled social publish (Nova). external_post_id = PROVIDER_ACCEPTED evidence; Graph read-back (where available) = EXTERNALLY_VERIFIED; inclusion in owner-visible activity/report = REPORTED; COMPLETED closes it.
+**Reason:** Audit doc 08: approval/execution semantics differ per feature; nothing records ownership; completion unverifiable. One spine, no agent framework. collaborationBus chokepoint + 122_collaboration_bus.sql exist dark; atomic-claim lesson pattern reusable.
+**Scope:** the two tables, taskSpine.js (create/transition/attachEvidence, illegal transitions throw, every transition writes an event row: actor/from/to/at/meta), socialController adoption, one read-only owner "Approvals & Activity" list. **Out of scope:** other features (018/019); COLLAB flags; autonomy changes; global list.
+**Preflight:** map today's publish flow states (scheduled_posts statuses) to the lifecycle; report the claim pattern reuse.
+**Implementation:** owner scheduling a post = APPROVED (record actor); sweep claims atomically → EXECUTING; success → PROVIDER_ACCEPTED with post id → read-back → EXTERNALLY_VERIFIED → surfaces in activity → REPORTED → COMPLETED; classified failures map to failure states; retries unchanged, recorded as RETRY_SCHEDULED.
+**Migration:** additive tables only. **Tenant isolation:** tasks brand-scoped; owner-only approval transitions; isolation test.
+**Security:** event rows are the audit trail. **Honest state:** UI activity derives ONLY from task states.
+**External proof:** one staging publish's full event trail ending EXTERNALLY_VERIFIED (screenshot + rows).
+**Testing:** transition-legality tests; full-flow integration (mocked HTTP) asserting the trail; duplicate-claim test; suite green.
+**Completion evidence:** schema, diff, tests, staging trail, commit, rollback.
+**Definition of Done / End-of-Prompt Report / Stop Conditions:** GLOBAL_PROMPT_RULES.md applies in full. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Acceptance criteria:** full trail on a staging publish; no other feature behavior changed; suite green.
+
+---
+OWNER ADDENDUM FOR PROMPT 009 (binding, from the continuity record):
+
+A. TWO-STAGE EXECUTION (mandatory — schema-defining prompt; its decisions echo
+   through 018/019/020/025): Stage 1 = preflight + design proposal ONLY, then
+   STOP for owner authorization. No implementation code in Stage 1.
+
+B. Stage-1 design must cover, concretely:
+   (1) agent_tasks + agent_task_events schemas (columns, indexes for the
+       activity/inbox queries, brand scoping);
+   (2) the lifecycle enum + the enforced legal-transition table (illegal throws)
+       — including which failure states are reachable from where;
+   (3) the exact mapping of today's scheduled_posts statuses (scheduled →
+       publishing → published/failed, the 10-minute stuck-publishing reclaim,
+       transient-retry flips back to scheduled) onto the platform lifecycle —
+       every existing state and edge accounted for, none behavior-changed;
+   (4) claim-pattern reuse: the sweep's existing atomic UPDATE-rowcount claim
+       becomes the QUEUED→EXECUTING transition — same guarantees, no second
+       claim mechanism;
+   (5) evidence binding: PROVIDER_ACCEPTED carries external_post_id;
+       EXTERNALLY_VERIFIED links to an external_proofs row (reference, never
+       duplicate the evidence); attachEvidence API shape;
+   (6) REPORTED/COMPLETED semantics for a publish (what surfaces where, what
+       closes the task);
+   (7) actor model: owner scheduling = APPROVED with actor recorded; system
+       actors named explicitly in event rows;
+   (8) the read-only "Approvals & Activity" list (query, scope, UI location);
+   (9) migration number verified against the LIVE models/ dir (131 expected —
+       verify); D-18 branch plan;
+   (10) explicit statement of what 009 does NOT touch: campaign/ad flows (018),
+        email (019), COLLAB flags, retry policy, publish semantics.
+
+C. INTEGRITY CONSTRAINTS: the spine records truth, it does not change behavior —
+   the publish sweep's retry policy, timing, and failure handling are unchanged
+   in 009; a task row exists for every publish attempt and its trail is
+   complete, but publishing works identically with or without the spine writing.
+   005's campaign verification authority is untouched. Event rows are
+   append-only (actor/from/to/at/meta).
+
+D. Stage-2 LIVE TRAIL PROOF runs under the D-23 controls (they are now the
+   standing pattern for public content): read-only preflight naming the Page,
+   brand, and proposed post text (item-14 style, innocuous) → owner approval →
+   schedule the post through the NORMAL flow → the minute-sweep publishes it →
+   trail records through EXTERNALLY_VERIFIED/REPORTED/COMPLETED → screenshot
+   the trail + activity list → delete the post and record the deletion.
+   Redaction per D-23 term 10 throughout.
+
+E. Test accounting: baseline 1071 — state the new total and exact decomposition.
+   App-shell cache bump for the new activity UI. Report per GLOBAL_PROMPT_RULES.
+F. SPINE/PROVIDER CONSISTENCY: A successful provider action must never be retried solely because an agent_tasks or agent_task_events write failed. Preserve the external provider ID in the existing feature record, create a high-severity reconciliation item, and provide a deterministic repair path that can reconstruct the missing task trail without republishing.
+
+G. SOURCE IDEMPOTENCY: Every task must carry a stable source reference (source_type, source_id, and attempt identity where needed). Enforce uniqueness so one scheduled publish attempt cannot create duplicate canonical task rows. Retries must be represented explicitly and must not produce duplicate external posts.
+
+H. REPORTED/COMPLETED DEFINITIONS: REPORTED means the verified result has been durably placed into an owner-visible activity/reporting surface. It does not require proof that the owner opened or read the screen. COMPLETED means the report event is recorded and no automatic work remains for that attempt.
+
+I. LIVE-PROOF ORDER: During the staging proof, capture the complete task trail and owner-visible activity evidence before deleting the Facebook post. Deletion happens only after the task reaches EXTERNALLY_VERIFIED → REPORTED → COMPLETED, and its provider response is recorded separately.

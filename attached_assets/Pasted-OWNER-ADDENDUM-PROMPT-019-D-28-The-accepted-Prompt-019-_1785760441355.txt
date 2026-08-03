@@ -1,0 +1,92 @@
+OWNER ADDENDUM — PROMPT 019 (D-28)
+
+The accepted Prompt 019 specification is amended with the following additional binding requirements.
+
+9. Canonical Email Send Path
+
+Every outbound email send must converge on one canonical Task Spine adopter before reaching the SMTP transport.
+
+This includes, at minimum:
+
+Weekly reports
+Drip campaigns
+Marketing blasts
+Scheduled campaign sends
+Future notification sends using the shared transport
+
+No feature may create its own independent email task implementation.
+
+Provide grep-proof showing every outbound email path reaches the same recorder.
+
+10. Message-ID Authority
+
+PROVIDER_ACCEPTED exists only after the SMTP provider accepts the message and returns a valid Message-ID.
+
+The Message-ID is the provider authority.
+
+Task rows reference the evidence.
+
+external_proofs remains the sole repository of provider responses.
+
+Message headers or provider payloads are never duplicated into task tables.
+
+11. Inbox Determinism
+
+The unified Approvals Inbox must be entirely deterministic.
+
+If the underlying task (or adapter) changes state, the inbox reflects that automatically.
+
+The inbox never maintains independent approval state.
+
+No cached approval status may survive disagreement with the underlying record.
+
+12. Adapter Retirement Plan
+
+Every adapter introduced for unmigrated features must declare:
+
+feature represented
+owner
+retirement prompt
+
+The report must include an Adapter Inventory table showing which approvals are:
+
+Spine-native
+Adapter-backed
+Future adoption
+
+This prevents adapters from becoming permanent architecture.
+
+13. Duplicate Send Regression
+
+Add one regression test proving:
+
+If SMTP accepts the email and immediately afterward the Task Spine persistence fails,
+
+then:
+
+no second email is ever transmitted,
+no second Message-ID is created,
+reconciliation rebuilds bookkeeping only,
+exactly one provider email exists.
+
+This mirrors Prompt 018's duplicate-launch protection.
+
+14. Approval Resolution Integrity
+
+Owner approval actions performed from the unified inbox must always generate a Task Spine transition.
+
+No inbox action may directly update feature tables.
+
+The inbox is a recorder interface only.
+
+Purpose
+
+These additions preserve the Recorder-not-Controller architecture, maintain external_proofs as the provider authority, ensure one canonical email implementation, prevent duplicate email delivery, and guarantee that the unified Approvals Inbox never becomes a second source of truth.
+
+My recommendation
+
+I would send this with Prompt 019.
+
+The biggest addition here is Item 12 (Adapter Retirement Plan). In large systems, "temporary" adapters have a habit of becoming permanent. By forcing every adapter to declare its retirement prompt, you'll know exactly when each one is supposed to disappear as more features adopt the Task Spine.
+
+I think that's one of the strongest additions because it protects the architecture over the long term rather than just solving today's prompt.

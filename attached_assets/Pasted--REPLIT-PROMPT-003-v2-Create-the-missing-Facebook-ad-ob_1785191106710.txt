@@ -1,0 +1,19 @@
+# REPLIT_PROMPT_003 (v2) — Create the missing Facebook ad object in both launch paths
+**Phase B · Prereqs: 002**
+
+**Objective:** After creative creation, create the actual ad — `POST act_<id>/ads {name, adset_id, creative:{creative_id}, status:"PAUSED"}` — in BOTH paths; persist facebook_ad_id.
+**Reason:** Audit P1-1: without the ad object the ad set is empty; unpausing delivers nothing. Evidence: controllers/campaignController.js ~161–214 and controllers/adCreativeStudioController.js ~402–440 stop after creative; grep confirms no /ads POST exists.
+**Scope:** those two functions + utils/facebookApi.js helper if needed + campaigns.facebook_ad_id. **Out of scope:** unpausing anything; budgets; targeting; other integrations; global list.
+**Preflight:** confirm the cited code matches; report Autopilot approve-path routing through launchFacebookCampaign; report current partial-chain behavior when page/link is missing.
+**Implementation:** create the ad PAUSED after creative succeeds; store id. Fail-fast: if creative prerequisites are missing, error BEFORE creating campaign/ad set (mirror adCreativeStudio guard) — never leave a partial chain silently. Assert PAUSED in code (no other status may ever be sent from these paths).
+**Migration:** `ALTER TABLE campaigns ADD COLUMN facebook_ad_id TEXT;` additive.
+**Tenant isolation:** chain built solely from the caller's brand/user integration; add assertion test.
+**Security:** PAUSED-only assertion is a spending safeguard; log all four object ids per launch.
+**Honest state:** if /ads fails after earlier objects succeeded, record partial ids with a non-deliverable status and surface the error.
+**External proof (required):** on staging with the TEST ad account (from 002): one launch → Facebook Ads Manager screenshot showing campaign→ad set→ad, all paused → then delete the chain and record deletion responses. Zero spend.
+**Testing:** mocked-graph tests assert FOUR posts incl. /ads with PAUSED + correct linkage; partial-failure test; Autopilot-path test; suite green.
+**Completion evidence:** diff, migration, test output, screenshot, object ids, commit, rollback.
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full.
+**Acceptance criteria:** four linked objects in mocked tests; staging chain seen in Ads Manager; zero spend; suite green.

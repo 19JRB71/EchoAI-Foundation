@@ -1,0 +1,17 @@
+ADD THIS OWNER ADDENDUM
+
+Paste this below the existing addendum:
+
+9. TWO-STAGE LIVE-ACTION CONTROL: Before any real Facebook publish or proof email is sent, perform a read-only preflight and STOP for owner approval. Report the exact Page name and Page ID, tenant/brand, token permissions, recipient inbox, and proposed public post text. No provider mutation may occur during preflight.
+
+10. EVIDENCE REDACTION: “Verbatim provider response” means the complete relevant provider response with secrets and security credentials removed. Never print or persist access tokens, API keys, SMTP credentials, authorization headers, cookies, or unrelated personal information in logs, terminal output, external_proofs, screenshots, or reports.
+
+11. PARTIAL-PROOF HONESTY: Facebook publish, Graph read-back, and deletion are separate evidence stages. Record each completed stage honestly. If read-back or deletion fails after publishing, preserve the real post ID and provider responses, mark cleanup as incomplete, STOP AND REPORT, and do not claim the Facebook proof complete. Never create a success proof for an action that did not receive a successful provider response.
+
+12. IDEMPOTENCY AND CLEANUP: The runner must use a unique run identifier and must not create duplicate proof rows or duplicate public posts when retried. Before retrying after a partial failure, detect any existing post from that run and complete cleanup rather than publishing another one.
+
+13. MIGRATION AND RETENTION: external_proofs must include immutable creation time and a unique idempotency/run key. Evidence JSON must remain append-only or changes must be separately audited. The rollback must not silently delete real external evidence without explicitly warning the owner.
+
+14. TEST CONTENT: Use this proposed public text unless the owner approves different wording during preflight:
+“South Dixie Storage is testing an internal publishing connection. This post will be removed shortly.”
+Do not include links, promotions, customer information, pricing, or claims.

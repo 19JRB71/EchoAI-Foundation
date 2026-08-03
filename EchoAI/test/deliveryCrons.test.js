@@ -110,6 +110,14 @@ function makeSocialDb(seed) {
       return { rows: [] };
     }
 
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: inserts return a row, updates
+      // return nothing (no dedup hit, no alert CAS win).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
+    }
     throw new Error(`makeSocialDb: unexpected query: ${sql.slice(0, 80)}`);
   }
 
@@ -651,6 +659,13 @@ function makeDripDb(seed) {
       /JOIN email_marketing_campaigns c/i.test(sql)
     ) {
       return { rows: seed.due.map((recipient_id) => ({ recipient_id })) };
+    }
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake (see makeSocialDb).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
     }
     throw new Error(`makeDripDb: unexpected query: ${sql.slice(0, 80)}`);
   }

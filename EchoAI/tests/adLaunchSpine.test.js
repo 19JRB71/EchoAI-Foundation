@@ -284,13 +284,15 @@ test("partial chain: EXTERNAL_FAILURE with partial ids; launch_failed row shares
   assert.equal(row.rows.length, 1, "exactly one launch_failed row");
   const task = await taskOf(row.rows[0].campaign_id);
   assert.ok(task, "failure row and task share the pre-generated campaign_id");
-  assert.equal(task.status, "EXTERNAL_FAILURE");
+  // Prompt 020: terminal launch failures park at MANUAL_REVIEW via the shared
+  // execution gateway; the partial chain still rides on the event (D-27 §11).
+  assert.equal(task.status, "MANUAL_REVIEW");
   const events = await eventsOf(task.task_id);
-  const failure = events.find((e) => e.to_status === "EXTERNAL_FAILURE");
+  const failure = events.find((e) => e.to_status === "MANUAL_REVIEW");
   assert.equal(failure.meta.partialChain.campaignId, "cmp_ls");
   assert.equal(failure.meta.partialChain.creativeId, "cr_ls");
   assert.equal(failure.meta.partialChain.adId, null, "the failed object is honestly null");
-  assert.ok(adLaunchSpine.statesAgree("launch_failed", "EXTERNAL_FAILURE"));
+  assert.ok(adLaunchSpine.statesAgree("launch_failed", "MANUAL_REVIEW"));
 });
 
 test("pre-chain failure (no destination) classifies VALIDATION_FAILED, zero Graph calls", async () => {

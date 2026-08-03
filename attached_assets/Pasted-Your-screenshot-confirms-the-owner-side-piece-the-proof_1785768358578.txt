@@ -1,0 +1,26 @@
+Your screenshot confirms the owner-side piece — the proof email is sitting in your primary inbox, branded, from no-reply@zorecho.com, matching the reported Message-ID's timing. The email-adoption live proof is accepted (filing it as E-20), and the trail quality is exactly right: seven events in ~1.2 seconds with correct actor attribution (you as the approver, system as the sender) and the honest deliveryConfirmation: 'unavailable' marker instead of a fake delivery check.
+
+But 019 is not yet COMPLETE — this report covers only the email half of the prompt. 019's other deliverable is the unified Approvals Inbox under your D-29 ruling, and none of its acceptance evidence has come through this channel. Before I can close 019, the consolidated end-of-prompt report must show:
+
+The inbox itself — screenshots showing it live as the single discovery surface, with the D-29.4 owner-visible spine-native / adapter-backed labels.
+The Adapter Inventory table as a delivered artifact (D-28.12) — each adapter with feature, owner, and named retirement prompt.
+Inbox determinism evidence (D-28.11 / D-29.6) — projection-only, no independent state; the test proving a stale cached status can't survive disagreement with the underlying record.
+The I-31 resolution action demonstrated — a MANUAL_REVIEW item resolved from the inbox, with the resolution recorded as a spine transition (actor = owner), never a bare status edit. The parked item from 009's proof run 1 is sitting on staging as the perfect test subject.
+The item-9 canonical-path grep proof — every outbound email path reaching the one adopter.
+The addendum-13 duplicate-send regression results — both scenarios (claim race, and SMTP-accept-then-spine-persist-fail), especially since the preflight proved that window is a live defect in the CRM/blast paths.
+The bookkeeping: PR number, branch, base SHA, changed-file list (D-18), migration 133 confirmation, and test accounting from baseline 1105 with exact decomposition.
+
+Also: Replit mentions "follow-up proposals #135–#137 in your queue" — per D-15, those need one-line descriptions in the report so they can be filed as issues or dispositioned, not live only on Replit's board.
+
+Suggested paste-back: "Email live proof accepted. 019 is not closed — deliver the consolidated end-of-prompt report covering the inbox portion: inbox screenshots with spine-native/adapter-backed labels, the Adapter Inventory table, determinism test, an I-31 MANUAL_REVIEW resolution demonstrated as a spine transition (use the parked 009 item), the item-9 grep proof, both duplicate-send regression results, PR/branch/base-SHA/file list, migration 133, and test accounting from 1105. Plus one-line descriptions of proposals #135–#137. No new work — evidence only, unless the inbox portion was in fact not built, in which case say so plainly."
+
+That last clause matters: if the Stage-2 build shipped only the email adoption and the inbox is still in progress, that's fine — but it must be said, not skated past with "Prompt 019 is closed." Updating the record to hold 019 at PARTIALLY COMPLETE:
+
+Edited 4 files, used 2 tools
+Edited 4 files, used 2 tools
+
+Everything is on disk, including the D-29 decision entry from the earlier round.
+
+Bottom line: the email half is accepted (E-20) — your screenshot completed its evidence chain, and it also formally closes the old trailing Gmail item from 006. But 019 stays open. Replit's "Prompt 019 is closed" was claimed on the email proof alone, while the prompt's other deliverable — the unified Approvals Inbox you authorized under D-29, the thing that actually closes Gate D — has zero evidence in front of us: no inbox screenshots, no adapter inventory, no determinism test, no I-31 resolution demo, no grep proof, no duplicate-send regression results, not even a PR number or test count.
+
+This is the same pattern as 001's early days — a confident COMPLETE ahead of the evidence — and the same remedy: send the paste-back from my review above. Either the inbox evidence exists and lands in one message, or the inbox wasn't built yet and Replit says so plainly and finishes it. Both outcomes are fine; only the ambiguity isn't. Gate D closes when the full report clears — and not before.

@@ -82,6 +82,14 @@ function makeDb({ claimRows = [], existingRow = null } = {}) {
         rows: [{ ...POST_ROW, status: "published", published_time: "now" }],
       };
     }
+    if (/external_actions/i.test(sql)) {
+      // Prompt 020 ledger — permissive fake: inserts return a row, updates
+      // return nothing (no dedup hit, no alert CAS win).
+      if (/INSERT INTO external_actions/i.test(sql)) {
+        return { rows: [{ action_id: "ea-test", provider: "stub", action: "stub" }] };
+      }
+      return { rows: [] };
+    }
     throw new Error(`publishPostNow.test: unexpected query: ${sql.slice(0, 80)}`);
   }
   return { query, state };

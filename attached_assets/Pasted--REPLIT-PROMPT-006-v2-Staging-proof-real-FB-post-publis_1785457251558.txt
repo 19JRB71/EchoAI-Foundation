@@ -1,0 +1,44 @@
+# REPLIT_PROMPT_006 (v2) — Staging proof: real FB post publish + real email, with external_proofs
+**Phase C · Prereqs: 002**
+
+**Objective:** Fire the two cheapest external actions for real on staging and create the evidence system: new external_proofs table (provider, action, external_id, evidence jsonb, environment, verified_at) + scripts/stagingProof.js runner. (a) publish one text post to the test Page via publishPostNow → capture external_post_id → Graph GET read-back → delete post (record deletion response). (b) send one email via utils/email.sendEmail to an owner-controlled inbox → capture SMTP message-ID.
+**Reason:** Zero external deliveries ever proven; these unlock trust in publish/email machinery and create the proof substrate every later prompt files into.
+**Scope:** staging env config, the runner, the migration. **Out of scope:** production; SMS/calls; ads (003 covers); bulk sends; global list.
+**Preflight:** report SMTP configuration state on staging and the test Page from 002.
+**Implementation:** single-item actions only; runner prints provider responses verbatim; failures reported raw, no extra retries beyond built-in policy.
+**Migration:** additive external_proofs. **Tenant isolation:** proofs rows carry brand/tenant scope.
+**Security:** test Page + proof inbox only. **Honest state:** proof row written only from provider response, never preemptively.
+**External proof:** post ID + read-back body + deletion response; email message-ID + received screenshot with headers.
+**Testing:** unit test proofs writer; the live run is the test; suite green.
+**Completion evidence:** proof rows, ids, screenshots, script code, commit; if SMTP/FB unconfigurable, report exactly what is missing as BLOCKED — never simulate.
+**Definition of Done / End-of-Prompt Report / Stop Conditions:** GLOBAL_PROMPT_RULES.md applies in full. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Acceptance criteria:** two external_proofs rows with real provider ids + screenshots; suite green.
+
+---
+OWNER ADDENDUM FOR PROMPT 006 (binding, from the continuity record):
+
+1. SMTP is already provisioned and proven (Resend, domain-verified, one real
+   message-ID from staging). 006's email proof must still run through the NEW
+   stagingProof.js runner and write its external_proofs row from the provider
+   response — the earlier admin test send does NOT count as 006 evidence.
+2. D-17 applies: the "test Page" is the real South Dixie Storage Page. The test
+   post's content must be innocuous and professional (it is publicly visible
+   until deleted); publish → read back → DELETE promptly, recording the deletion
+   response. One post, one email — single-item actions only, no bulk.
+3. external_proofs is the PLATFORM-WIDE evidence substrate (every later prompt
+   files into it): rows carry brand_id/tenant scope, provider, action,
+   external_id, evidence jsonb (verbatim provider response), environment,
+   verified_at. Design the schema for reuse, not just for these two proofs.
+   Backfill consideration: do NOT retro-create rows for past proofs (E-9..E-14
+   live in the continuity docs); the table starts fresh from 006 onward.
+4. Proof rows are written ONLY from provider responses, never preemptively —
+   test this (a failed provider call must produce zero proof rows).
+5. D-18 branch flow (dedicated branch off current staging tip b19c8de or later;
+   base SHA, changed-file list, main untouched). D-19: verify the next unused
+   migration number against the LIVE models/ dir (130 expected — verify).
+6. Resend free tier is 100 emails/day — fine for proofs; no volume work in 006.
+7. Test accounting: baseline 1035 — state the new total and exact decomposition.
+   No UI changes expected; if any ship, bump the app-shell cache version.
+8. Report per GLOBAL_PROMPT_RULES: proof rows, ids, screenshots (post live on
+   the Page before deletion; email in inbox with headers), runner code, commit,
+   rollback.

@@ -1,0 +1,18 @@
+# REPLIT_PROMPT_002 (v2) — Facebook staging connect end-to-end, including Page AND ad-account selection
+**Phase B · Prereqs: 012 (Phase A need not be fully closed to start this — it is configuration + verification)**
+
+**Objective:** One real Facebook connect on staging.zorecho.com: OAuth completes; token stored; a test PAGE selected and persisted per brand; the AD ACCOUNT reference (`accountRef`) resolved and persisted/verifiable; live probe shows connected; providerVerification records success; one revoke-and-reconnect also succeeds.
+**Reason:** Never tested (package global rules); gates prompts 003/004/006/016. v2 adds ad-account selection because the ad chain needs `act_<id>` — connect without it does not unblock Phase B.
+**Scope:** staging Facebook app configuration; wizard walk-through; minimal code fixes strictly necessary for the round trip and for persisting page_ref + ad-account ref. **Out of scope:** publishing; ads; production; refactors; global list.
+**Preflight:** report how getFacebookIntegration currently resolves accessToken/accountRef/pageRef and where each is stored; report the staging app's redirect URIs and required scopes (incl. ads_management for later phases — request now to avoid a second consent).
+**Implementation:** configure app + URIs; connect as a test user; select test Page; confirm api_integrations row, page_ref, ad-account ref resolvable; probes + providerVerification green; then revoke in FB settings and reconnect successfully.
+**Migration:** only if ad-account persistence lacks a column (additive). **Tenant isolation:** connection rows scoped exactly as today (user-scoped by design — do not "fix" to brand-scoped; see lesson echoai-facebook-scoping).
+**Security:** test app + test assets only; token storage passes through 001's encryption guarantee.
+**Honest state:** cards show connected only from live probes (existing design — preserve).
+**External proof:** screenshots (consent, connected card), integration row id, providerVerification record, resolved act_ id (masked ok).
+**Testing:** existing tests untouched; this is live staging verification.
+**Completion evidence:** all of the above + any diff + commit + limitations found (raw FB errors verbatim if any).
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** conclude with COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated items = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full (preflight, out-of-scope list, tenant isolation, security, honest state, external proof, testing, completion evidence, stop conditions).
+**Acceptance criteria:** connected probe green; page_ref + ad-account ref persisted/resolvable; reconnect-after-revoke succeeded.

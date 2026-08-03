@@ -1,0 +1,52 @@
+# REPLIT_PROMPT_007 (v2) — Stripe test-mode checkout round trip
+**Phase C · Prereqs: 001, 006 (external_proofs exists)**
+
+**Objective:** One complete test-mode subscription: checkout with Stripe test card → signature-verified webhook received on staging → subscription state updated → external_proofs row with the Stripe event id.
+**Reason:** Billing never proven end-to-end; must precede any paying customer. Runtime key resolution for staging already shipped (dev history 07-19→24).
+**Scope:** staging config + proof run; minimal code only if the round trip requires it. **Out of scope:** live mode; pricing/plan logic; global list.
+**Preflight:** report staging webhook endpoint registration state in the Stripe dashboard and which events are subscribed.
+**Implementation:** test keys; checkout; confirm webhook delivery (dashboard endpoint or Stripe CLI); record event id + resulting subscriptions row into external_proofs.
+**Migration:** none expected. **Tenant isolation:** subscription row belongs to the test user only.
+**Security:** signature verification (from 001) exercised on the real event; forged request still 400.
+**Honest state:** subscription status reflects the verified event, nothing earlier.
+**External proof:** Stripe dashboard screenshot + event id + rows.
+**Testing:** existing tests + the live round trip; suite green.
+**Completion evidence:** screenshots, event id, rows, any diff + commit.
+**Definition of Done / End-of-Prompt Report / Stop Conditions:** GLOBAL_PROMPT_RULES.md applies in full. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Acceptance criteria:** proofs row with event id; subscription row correct; forged webhook still rejected.
+
+---
+OWNER ADDENDUM FOR PROMPT 007 (binding, from the continuity record):
+
+1. PREFLIGHT FIRST, report before the checkout run (no hard stop needed — test
+   mode moves no real money): Stripe test-key presence on staging (never print
+   values), webhook endpoint registration state in the Stripe dashboard, which
+   events are subscribed (need at minimum: invoice.payment_succeeded,
+   invoice.payment_failed, customer.subscription.deleted), and the
+   STRIPE_WEBHOOK_SECRET state. If keys or registration are missing, report
+   BLOCKED with exactly what the owner must supply — never simulate.
+2. FREE_TEST_MODE interaction: staging grants Enterprise without payment, which
+   may bypass the real checkout path. The preflight must state how the true
+   checkout flow will be exercised on staging despite it (e.g., a test account
+   outside the beta path or the direct subscribe flow) — the proof must go
+   through the REAL checkout + webhook machinery, not the beta bypass.
+3. Evidence goes into external_proofs (the 006 substrate), staged and honest:
+   the checkout/session outcome, the received webhook event (id + type), and
+   the resulting subscriptions row state — each written only from real provider
+   data, redacted per the D-23 term-10 standard (no keys, no webhook secrets,
+   no signatures persisted).
+4. Re-run the forged-signature rejection as part of this prompt's evidence
+   (a forged request still gets 400 on the deployed staging build) — the
+   acceptance criterion requires it demonstrated, not assumed.
+5. Test card only (4242 4242 4242 4242 or Stripe's documented test cards);
+   test mode keys only; live mode is out of scope until Prompt 029.
+6. D-18 branch flow if any code changes (branch off current staging tip; base
+   SHA, changed-file list, main untouched). D-19: no migration expected — if
+   one becomes necessary, verify the next unused number against the LIVE
+   models/ dir (131 expected) and justify it.
+7. Owed items to include in this report: the one-line 1048→1051 test-count
+   accounting from 006. Baseline is 1051 — state the new total and exact
+   decomposition of anything 007 adds.
+8. Report per GLOBAL_PROMPT_RULES: Stripe dashboard screenshot (event delivered,
+   signature verified), event id, subscription row, proof rows, any diff +
+   commit, rollback.

@@ -1,0 +1,27 @@
+# REPLIT_PROMPT_004 (v2) — Per-brand ad Page and destination link (remove single-tenant env config)
+**Phase B · Prereqs: 002 (003 recommended first so tests cover the full chain)**
+
+**Objective:** Every launch resolves pageId and linkUrl from the BRAND — never from global env.
+**Reason:** Audit P1-2: FACEBOOK_LINK_URL global in both paths; FACEBOOK_PAGE_ID global in campaignController; gating checks in echoCompanionController.js:455 and setupAgentController.js:730 read env. Multi-tenant blocker.
+**Scope:** brands table (+ ad_link_url), the four cited files, wizard page-selection persistence, a brand-settings field for the link. **Out of scope:** targeting/budgets/creative content; global list.
+**Preflight:** report where page_ref is stored today and every read of the two env vars (grep list).
+**Implementation:** add brands.ad_link_url (backfill from website_url where present); campaignController reads brand page ref (not env); both paths resolve per-brand; missing config ⇒ existing honest 503 pattern with guidance; remove env fallbacks after backfill; the two gating checks gate on brand data.
+**Migration:** additive column + backfill; reversible.
+**Tenant isolation (required test):** two brands launch (mocked graph): each chain used its OWN page id and link — captured and asserted.
+**Security:** per global rules. **Honest state:** unlaunchable brands see guidance, never a broken chain.
+**External proof:** grep output proving zero env reads remain in launch paths.
+**Testing:** two-brand isolation test; missing-config fail-fast test; suite green.
+**Completion evidence:** diff, grep proof, migration, tests, commit, rollback.
+**Definition of Done:** Not done because code exists, tests were mocked, UI shows success, or a DB row exists. Done only when all acceptance criteria pass and required external evidence exists.
+**End-of-Prompt Report:** COMPLETE / PARTIALLY COMPLETE / BLOCKED / FAILED VERIFICATION. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Stop Conditions / global rules:** GLOBAL_PROMPT_RULES.md applies in full.
+**Acceptance criteria:** no FACEBOOK_PAGE_ID/FACEBOOK_LINK_URL reads in launch paths; isolation test green; suite green.
+
+---
+OWNER ADDENDUM FOR THIS EXECUTION (binding, from the continuity record):
+1. Branch flow per D-18: dedicated branch created from the CURRENT staging tip, PR into staging. Main untouched. No force push. Prompt 004 files only. Report branch name, staging base SHA, exact changed-file list.
+2. Migration numbering per D-19: verify the next unused number against the LIVE models/ directory before creating the file (after 003's renumber — state what number you used and prove it's unused). Do not trust any snapshot.
+3. After this lands and is verified on staging, REMOVE the temporary FACEBOOK_LINK_URL env var from Railway staging (added for 003's proof) and confirm launches still work from brand data. Production must never receive that variable.
+4. I-22 (evaluation ONLY, no implementation): while working in these files, assess whether Ad Creative Studio's separate campaign/ad-set/creative assembly path should be unified with the shared launcher. Report a recommendation with reasons. Do not do the unification in this prompt.
+5. Owed items — include in your report: the 003 checkpoint SHA(s) and 002's docs-only checkpoint hash; the corrected 003 migration filename; and a composed test-count statement (how the current suite total decomposes: pre-010 baseline 985 + 010's tests + 003's additions + 004's additions). Unexplained test-count drift will fail review.
+6. The two-brand isolation test must also cover the gating checks (echoCompanion/setupAgent): brand A configured, brand B not — B sees guidance, A launches, no cross-brand leakage of page/link.

@@ -554,7 +554,10 @@ test("transient failure records RETRY_SCHEDULED; the retry claim re-queues; exha
     restore();
   }
   t = await taskOf(postId);
-  assert.equal(t.status, "AUTH_REQUIRED", "hard failure classified by real cause");
+  // Prompt 020: terminal failures now park at MANUAL_REVIEW via the shared
+  // execution gateway (the Approvals Inbox IS the failure queue, D-30 §3);
+  // the feature's later classified transition is a harmless guarded null.
+  assert.equal(t.status, "MANUAL_REVIEW", "hard failure parks for the owner");
   const trail = (await eventsOf(t.task_id)).map((e) => e.to_status);
   assert.deepEqual(trail, [
     "APPROVED",
@@ -563,7 +566,7 @@ test("transient failure records RETRY_SCHEDULED; the retry claim re-queues; exha
     "RETRY_SCHEDULED",
     "QUEUED", // the re-claim's RETRY_SCHEDULED -> QUEUED edge
     "EXECUTING",
-    "AUTH_REQUIRED",
+    "MANUAL_REVIEW",
   ]);
 });
 

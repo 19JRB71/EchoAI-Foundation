@@ -1,0 +1,51 @@
+# REPLIT_PROMPT_019 — Task spine adoption: email sends + unified approvals inbox
+**Phase D · Prereqs: 009**
+
+**Objective:** (a) Outbound email flows (weekly report emails, drip step sends, blasts) create/transition tasks: PROVIDER_ACCEPTED = SMTP accepted + message-ID; EXTERNALLY_VERIFIED = message-ID recorded (delivery webhooks are future work — state this honestly in evidence). (b) ONE approvals inbox lists every pending approval across features (ad launches from 018, autopilot items, growth_actions proposals, pending brand-fact revisions when 011 lands) reading from agent_tasks + a thin adapter for not-yet-migrated sources.
+**Reason:** Gate D: one approvals surface; email traceability. Per-feature approval scatter is the audit's coordination blocker.
+**Scope:** emailMarketing/email send paths task adoption; inbox UI (owner) + adapter. **Out of scope:** migrating every feature to the spine (incremental by design); email deliverability infrastructure; global list.
+**Preflight:** enumerate every current approval surface and every outbound email path; report which are adapter-fed vs spine-native after this prompt.
+**Implementation:** dedup guard — atomic claim before send (lesson pattern) recorded as the QUEUED→EXECUTING transition; failures (SMTP reject) → EXTERNAL_FAILURE with the provider error.
+**Tenant isolation:** inbox shows only the workspace's approvals; test.
+**External proof:** one staging email task trail with real message-ID (may reuse 006's proof inbox).
+**Testing:** flow tests; inbox aggregation test; duplicate-send prevention test; suite green.
+**Completion evidence:** surface inventory, diff, tests, staging trail, commit, rollback.
+**Definition of Done / End-of-Prompt Report / Stop Conditions:** GLOBAL_PROMPT_RULES.md applies in full. COMPLETE only if every criterion passed; undemonstrated = UNVERIFIED.
+**Acceptance criteria:** inbox live and complete per inventory; email trail with message-ID; no duplicate sends possible (test).
+
+---
+OWNER ADDENDUM FOR PROMPT 019 (binding, from the continuity record):
+
+1. INHERITED CONTRACTS: D-24 F–I, D-25, TASK_SPINE_GUIDE.md's checklist (state
+   which step each change satisfies). Email specifics: a successful SMTP accept
+   is NEVER re-sent because a spine write failed (F); source idempotency per
+   send attempt (G) — the duplicate-send prevention test must cover BOTH the
+   atomic-claim race AND the spine-write-failure retry path.
+2. THE GATE-D INBOX QUESTION (carried by D-27 ruling — for OWNER decision, not
+   self-approval): your preflight must argue explicitly against Gate D's actual
+   language ("one approvals inbox live; every pending approval across
+   features"). Enumerate EVERY current approval surface (autopilot review UI,
+   growth_actions proposals, content-calendar approvals, Company Truth review,
+   018's pending ad approvals, future 011 brand-fact revisions). Then either
+   (a) propose the unified inbox per the prompt text (agent_tasks + thin
+   adapters for unmigrated sources), or (b) argue that existing surfaces
+   satisfy Gate D — with the argument laid out for the owner to rule on.
+   STOP after the preflight for that ruling before building the inbox portion.
+3. I-31 ABSORBED HERE: the MANUAL_REVIEW "needs your attention" items get an
+   owner resolution action (from the inbox or Activity tab); the resolution is
+   itself a recorded spine transition with actor = owner — never a bare status
+   edit.
+4. EXTERNALLY_VERIFIED for email uses the explicit verification-unavailable
+   marker (message-ID recorded; true delivery confirmation is future work) —
+   the trail must never imply a delivery check that didn't happen.
+5. Honest-state rule for the inbox: it reads ONLY task state + adapters; no
+   surface may show an approval as pending/handled without the underlying
+   record agreeing.
+6. STAGING PROOF: one real email through an adopted path (may reuse the 006
+   proof inbox and Resend transport) with the full task trail; message-ID
+   captured; D-23 redaction on all persisted evidence. Single-item send only.
+7. D-18 branch flow off the current staging tip (aa5cd2f or later; base SHA,
+   file list, main untouched). D-19: verify migration number against the LIVE
+   models/ dir if one is needed (133 expected).
+8. Test accounting: baseline 1105 — new total + exact decomposition. Cache bump
+   for inbox/Activity UI changes. Report per GLOBAL_PROMPT_RULES.
