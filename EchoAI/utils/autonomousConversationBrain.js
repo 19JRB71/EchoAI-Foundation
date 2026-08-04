@@ -20,6 +20,7 @@
 // ---------------------------------------------------------------------------
 
 const { createCompletion, hermesConfigured } = require("../config/hermes");
+const { newInvocationId, classifyHermesFailure, recordHermesDecision } = require("./hermesMetrics");
 
 const VALID_STATES = new Set(["continue", "stop", "booked", "converted"]);
 const VALID_TEMPERATURES = new Set(["tire_kicker", "warm", "hot"]);
@@ -121,7 +122,21 @@ function parseDecision(raw) {
  * @param {string} ctx.latestInbound  the lead's newest message text
  */
 async function analyzeReply(ctx = {}) {
-  if (!hermesConfigured()) return null;
+  // Prompt 021 telemetry — observational only, recorded after classification.
+  const _inv = newInvocationId();
+  const _t0 = Date.now();
+  const _record = (outcome) =>
+    recordHermesDecision({
+      invocationId: _inv,
+      feature: "autonomous_conversation",
+      brandId: (ctx && ctx.brand && ctx.brand.brand_id) || null,
+      outcome,
+      latencyMs: Date.now() - _t0,
+    });
+  if (!hermesConfigured()) {
+    _record("suppressed");
+    return null;
+  }
   try {
     const raw = await createCompletion(
       {
@@ -136,8 +151,11 @@ async function analyzeReply(ctx = {}) {
         attempts: 1,
       },
     );
-    return parseDecision(raw);
+    const decision = parseDecision(raw);
+    _record(decision ? "non_null" : "null");
+    return decision;
   } catch (err) {
+    _record(classifyHermesFailure(err));
     console.error(
       "Autonomous conversation brain (Hermes) unavailable — falling back:",
       err.message,

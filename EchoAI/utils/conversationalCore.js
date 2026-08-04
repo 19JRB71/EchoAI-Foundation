@@ -18,6 +18,7 @@
 // ---------------------------------------------------------------------------
 
 const { createCompletion, hermesConfigured } = require("../config/hermes");
+const { newInvocationId, classifyHermesFailure, recordHermesDecision } = require("./hermesMetrics");
 const { createMessage, MODEL } = require("../config/anthropic");
 const coreTools = require("./coreLabTools");
 
@@ -312,7 +313,21 @@ function parseIntentDecision(raw) {
 }
 
 async function detectIntent({ text, contextSummary }) {
-  if (!hermesConfigured()) return null;
+  // Prompt 021 telemetry — observational only, recorded after classification.
+  const _inv = newInvocationId();
+  const _t0 = Date.now();
+  const _record = (outcome) =>
+    recordHermesDecision({
+      invocationId: _inv,
+      feature: "conversational_core_intent",
+      brandId: null,
+      outcome,
+      latencyMs: Date.now() - _t0,
+    });
+  if (!hermesConfigured()) {
+    _record("suppressed");
+    return null;
+  }
   try {
     const raw = await createCompletion(
       {
@@ -337,8 +352,11 @@ async function detectIntent({ text, contextSummary }) {
         attempts: 1,
       },
     );
-    return parseIntentDecision(raw);
+    const decision = parseIntentDecision(raw);
+    _record(decision ? "non_null" : "null");
+    return decision;
   } catch (err) {
+    _record(classifyHermesFailure(err));
     console.error("Conversational Core intent detection failed:", err.message);
     return null;
   }

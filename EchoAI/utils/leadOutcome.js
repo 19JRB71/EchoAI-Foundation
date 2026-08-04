@@ -219,9 +219,24 @@ function outcomeAskLeadId(context) {
  */
 async function parseOutcomeAnswer(answer) {
   const { createCompletion, hermesConfigured } = require("../config/hermes");
-  if (!hermesConfigured()) return null;
+  const { newInvocationId, classifyHermesFailure, recordHermesDecision } = require("./hermesMetrics");
   const text = String(answer || "").trim();
-  if (!text) return null;
+  if (!text) return null; // no invocation attempted — nothing to measure
+  // Prompt 021 telemetry — observational only, recorded after classification.
+  const _inv = newInvocationId();
+  const _t0 = Date.now();
+  const _record = (outcome) =>
+    recordHermesDecision({
+      invocationId: _inv,
+      feature: "lead_outcome_parse",
+      brandId: null,
+      outcome,
+      latencyMs: Date.now() - _t0,
+    });
+  if (!hermesConfigured()) {
+    _record("suppressed");
+    return null;
+  }
   try {
     const raw = await createCompletion(
       {
@@ -241,9 +256,22 @@ async function parseOutcomeAnswer(answer) {
     );
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
-    if (start === -1 || end <= start) return null;
-    const obj = JSON.parse(raw.slice(start, end + 1));
-    if (!obj || !OUTCOMES.includes(obj.outcome)) return null; // "unclear" fails closed here
+    if (start === -1 || end <= start) {
+      _record("null");
+      return null;
+    }
+    let obj;
+    try {
+      obj = JSON.parse(raw.slice(start, end + 1));
+    } catch {
+      _record("null");
+      return null;
+    }
+    if (!obj || !OUTCOMES.includes(obj.outcome)) {
+      _record("null");
+      return null; // "unclear" fails closed here
+    }
+    _record("non_null");
     let dealValueCents = null;
     if (typeof obj.dealValueDollars === "number" && Number.isFinite(obj.dealValueDollars) && obj.dealValueDollars >= 0) {
       dealValueCents = Math.round(obj.dealValueDollars * 100);
@@ -254,6 +282,7 @@ async function parseOutcomeAnswer(answer) {
       dealValueCents,
     };
   } catch (err) {
+    _record(classifyHermesFailure(err));
     console.error("leadOutcome: Hermes outcome parse failed (fail closed):", err.message);
     return null;
   }
