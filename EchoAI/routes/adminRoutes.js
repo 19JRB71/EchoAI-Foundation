@@ -11,6 +11,7 @@ const diagnosticsController = require("../controllers/diagnosticsController");
 const selfReviewAdminController = require("../controllers/selfReviewAdminController");
 const aiControlAdminController = require("../controllers/aiControlAdminController");
 const economicsAdminController = require("../controllers/economicsAdminController");
+const opsDashboardController = require("../controllers/opsDashboardController");
 
 const router = express.Router();
 
@@ -77,6 +78,12 @@ router.post("/ai/resume", aiControlAdminController.resumeAi);
 // AI cost, margins, per-customer/business breakdowns, workflow drill-down.
 router.get("/economics", economicsAdminController.getEconomics);
 router.get("/economics/workflow/:workflowId", economicsAdminController.getWorkflow);
+
+// Prompt 021 — Platform ops dashboard. PROJECTION ONLY (Owner Stage-2 §3):
+// this group is GET-only; no mutation endpoint may ever be added here.
+// Approval resolution stays in the Approvals Inbox (Task Spine transition).
+router.get("/ops-dashboard", opsDashboardController.getDashboard);
+router.get("/ops-dashboard/probe/:brandId", opsDashboardController.probeBrandIntegrations);
 
 // Demo Account & Sales Presentation Mode.
 router.get("/demo/status", demoController.getStatus);

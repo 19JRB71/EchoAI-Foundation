@@ -18,6 +18,7 @@
 // ---------------------------------------------------------------------------
 
 const { createCompletion, hermesConfigured } = require("../config/hermes");
+const { newInvocationId, classifyHermesFailure, recordHermesDecision } = require("./hermesMetrics");
 
 const VALID_LEVELS = new Set(["none", "watch", "aggressive"]);
 
@@ -107,8 +108,22 @@ function parseClassification(raw) {
  * @param {Array}  ads   normalized ads from competitorAdLibrary
  */
 async function classifyNewAds(brand, ads) {
-  if (!hermesConfigured()) return null;
-  if (!Array.isArray(ads) || ads.length === 0) return {};
+  if (!Array.isArray(ads) || ads.length === 0) return hermesConfigured() ? {} : null;
+  // Prompt 021 telemetry — observational only, recorded after classification.
+  const _inv = newInvocationId();
+  const _t0 = Date.now();
+  const _record = (outcome) =>
+    recordHermesDecision({
+      invocationId: _inv,
+      feature: "competitor_ad_brain",
+      brandId: (brand && brand.brand_id) || null,
+      outcome,
+      latencyMs: Date.now() - _t0,
+    });
+  if (!hermesConfigured()) {
+    _record("suppressed");
+    return null;
+  }
   const batch = ads.slice(0, 20);
   try {
     const raw = await createCompletion(
@@ -124,8 +139,11 @@ async function classifyNewAds(brand, ads) {
         attempts: 1,
       },
     );
-    return parseClassification(raw);
+    const decision = parseClassification(raw);
+    _record(decision ? "non_null" : "null");
+    return decision;
   } catch (err) {
+    _record(classifyHermesFailure(err));
     console.error(
       "Competitor ad brain (Hermes) unavailable — recording ads unclassified:",
       err.message,

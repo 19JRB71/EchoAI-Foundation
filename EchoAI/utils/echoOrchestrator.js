@@ -14,6 +14,7 @@
 // ---------------------------------------------------------------------------
 
 const { createCompletion, hermesConfigured } = require("../config/hermes");
+const { newInvocationId, classifyHermesFailure, recordHermesDecision } = require("./hermesMetrics");
 
 // The nine AI teammates and the kind of request each one owns. Kept aligned
 // with client/src/lib/departments.js (agent roster + tool cards).
@@ -123,7 +124,22 @@ function parseDecision(raw) {
  * behavior). NEVER throws.
  */
 async function decide(ctx = {}) {
-  if (!hermesConfigured()) return null;
+  // Prompt 021 telemetry: one invocation id, one classified row, recorded
+  // fire-and-forget AFTER classification. Never alters behavior (§4/§5).
+  const _inv = newInvocationId();
+  const _t0 = Date.now();
+  const _record = (outcome) =>
+    recordHermesDecision({
+      invocationId: _inv,
+      feature: "echo_orchestrator",
+      brandId: (ctx && (ctx.brandId || ctx.brand_id)) || null,
+      outcome,
+      latencyMs: Date.now() - _t0,
+    });
+  if (!hermesConfigured()) {
+    _record("suppressed");
+    return null;
+  }
   try {
     const raw = await createCompletion(
       {
@@ -141,8 +157,11 @@ async function decide(ctx = {}) {
         attempts: 1,
       },
     );
-    return parseDecision(raw);
+    const decision = parseDecision(raw);
+    _record(decision ? "non_null" : "null");
+    return decision;
   } catch (err) {
+    _record(classifyHermesFailure(err));
     console.error("Echo orchestrator (Hermes) unavailable — falling back:", err.message);
     return null;
   }

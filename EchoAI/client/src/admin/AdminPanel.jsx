@@ -1,5 +1,6 @@
 import { useState } from "react";
 import AdminOverview from "./AdminOverview.jsx";
+import AdminOpsDashboard from "./AdminOpsDashboard.jsx";
 import AdminCustomers from "./AdminCustomers.jsx";
 import AdminCustomerDetail from "./AdminCustomerDetail.jsx";
 import AdminHealth from "./AdminHealth.jsx";
@@ -15,6 +16,7 @@ import AdminEconomics from "./AdminEconomics.jsx";
 
 const TABS = [
   { key: "overview", label: "Overview" },
+  { key: "ops", label: "Ops Dashboard" },
   { key: "customers", label: "Customers" },
   { key: "economics", label: "AI Economics" },
   { key: "beta", label: "Beta Program" },
@@ -67,6 +69,7 @@ export default function AdminPanel() {
       </div>
 
       {tab === "overview" && <AdminOverview />}
+      {tab === "ops" && <AdminOpsDashboard />}
       {tab === "customers" && <AdminCustomers onView={viewCustomer} />}
       {tab === "detail" && (
         <AdminCustomerDetail

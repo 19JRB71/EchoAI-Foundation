@@ -1997,6 +1997,10 @@ export const api = {
       body: { description, screenshot },
     }),
   adminGetAccountsHealth: () => request("/api/admin/health/accounts"),
+  // Prompt 021 — read-only ops dashboard (GET only; projection of records).
+  adminGetOpsDashboard: () => request("/api/admin/ops-dashboard"),
+  adminProbeBrandIntegrations: (brandId) =>
+    request(`/api/admin/ops-dashboard/probe/${brandId}`),
 
   // --- AI Sales Agent (admin only) ---
   salesGetConfig: () => request("/api/sales-agent/config"),
