@@ -156,6 +156,8 @@ async function tileApprovals() {
          JOIN brands b ON b.brand_id = r.brand_id AND b.is_demo IS NOT TRUE
         WHERE r.status = 'pending_approval'`,
     ),
+    // Email drafts are user-scoped by design (no brand column — see the
+    // Approvals Inbox); there is no brand dimension to exclude demo data by.
     db.query(
       `SELECT COUNT(*)::int AS n, MAX(created_at) AS ts FROM email_drafts WHERE status = 'pending'`,
     ),
@@ -184,6 +186,8 @@ async function tileApprovals() {
 
 // 4. Integration status — CACHED state only on the summary (labeled as such);
 //    live probes run only per-brand via the drill-down endpoint below.
+//    Connections are USER-scoped by design (api_integrations user_id+platform),
+//    so there is no brand dimension here — demo brands don't own connections.
 async function tileIntegrations() {
   const [fb, google, email] = await Promise.all([
     db.query(
@@ -220,22 +224,41 @@ async function tileIntegrations() {
 }
 
 // 5. External actions — ledger projection (all-time metrics + 24h/7d windows).
+//    Demo brands excluded at the data-gathering layer (brand_id NULL rows are
+//    platform-level and kept).
+const NON_DEMO_ACTION = `(ea.brand_id IS NULL OR EXISTS (
+  SELECT 1 FROM brands nb WHERE nb.brand_id = ea.brand_id AND nb.is_demo IS NOT TRUE))`;
+
 async function tileExternalActions() {
   const [metrics, windows] = await Promise.all([
-    getExecutionMetrics(),
+    // Same shape as utils/executeExternal.getExecutionMetrics, re-scoped to
+    // exclude demo brands (the shared helper stays untouched — Prompt 020).
     db.query(
       `SELECT
-         COUNT(*) FILTER (WHERE started_at >= now() - interval '24 hours')::int AS attempts_24h,
-         COUNT(*) FILTER (WHERE started_at >= now() - interval '7 days')::int   AS attempts_7d,
-         COUNT(*) FILTER (WHERE status = 'failed' AND started_at >= now() - interval '24 hours')::int AS failed_24h,
-         COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress_now,
-         MAX(started_at) AS newest
-        FROM external_actions`,
+         COUNT(*)::int                                                   AS total_attempts,
+         COUNT(*) FILTER (WHERE ea.attempt > 1)::int                     AS retries,
+         COALESCE(SUM(ea.dedup_count), 0)::int                           AS deduplicated_executions,
+         COUNT(*) FILTER (WHERE ea.status = 'failed'
+                            AND ea.classification = 'terminal')::int     AS terminal_failures,
+         COUNT(*) FILTER (WHERE ea.reconciled_at IS NOT NULL)::int       AS reconciliations,
+         COUNT(*) FILTER (WHERE ea.alerted_at IS NOT NULL)::int          AS alerts_sent
+        FROM external_actions ea
+       WHERE ${NON_DEMO_ACTION}`,
+    ),
+    db.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE ea.started_at >= now() - interval '24 hours')::int AS attempts_24h,
+         COUNT(*) FILTER (WHERE ea.started_at >= now() - interval '7 days')::int   AS attempts_7d,
+         COUNT(*) FILTER (WHERE ea.status = 'failed' AND ea.started_at >= now() - interval '24 hours')::int AS failed_24h,
+         COUNT(*) FILTER (WHERE ea.status = 'in_progress')::int AS in_progress_now,
+         MAX(ea.started_at) AS newest
+        FROM external_actions ea
+       WHERE ${NON_DEMO_ACTION}`,
     ),
   ]);
   const w = windows.rows[0];
   return tile({
-    data: { all_time: metrics, window: w },
+    data: { all_time: metrics.rows[0], window: w },
     asOf: w.newest,
     staleAfterSeconds: null, // event-driven ledger — age shown, not alarmed
     hasData: w.newest != null,
@@ -269,19 +292,23 @@ async function tileAiCost() {
   const [totals, byFeature] = await Promise.all([
     db.query(
       `SELECT
-         COALESCE(SUM(estimated_cost_usd) FILTER (WHERE at >= date_trunc('day', now())), 0) AS cost_today,
-         COALESCE(SUM(estimated_cost_usd), 0) AS cost_7d,
+         COALESCE(SUM(u.estimated_cost_usd) FILTER (WHERE u.at >= date_trunc('day', now())), 0) AS cost_today,
+         COALESCE(SUM(u.estimated_cost_usd), 0) AS cost_7d,
          COUNT(*)::int AS calls_7d,
-         MAX(at) AS newest
-        FROM ai_usage_log
-       WHERE at >= now() - interval '7 days'`,
+         MAX(u.at) AS newest
+        FROM ai_usage_log u
+       WHERE u.at >= now() - interval '7 days'
+         AND (u.brand_id IS NULL OR EXISTS (
+              SELECT 1 FROM brands nb WHERE nb.brand_id = u.brand_id AND nb.is_demo IS NOT TRUE))`,
     ),
     db.query(
-      `SELECT feature, provider, COUNT(*)::int AS calls,
-              COALESCE(SUM(estimated_cost_usd), 0) AS cost
-         FROM ai_usage_log
-        WHERE at >= now() - interval '7 days'
-        GROUP BY feature, provider
+      `SELECT u.feature, u.provider, COUNT(*)::int AS calls,
+              COALESCE(SUM(u.estimated_cost_usd), 0) AS cost
+         FROM ai_usage_log u
+        WHERE u.at >= now() - interval '7 days'
+          AND (u.brand_id IS NULL OR EXISTS (
+               SELECT 1 FROM brands nb WHERE nb.brand_id = u.brand_id AND nb.is_demo IS NOT TRUE))
+        GROUP BY u.feature, u.provider
         ORDER BY cost DESC
         LIMIT 10`,
     ),
@@ -300,12 +327,17 @@ async function tileAiCost() {
 async function tileProofFreshness() {
   const [latest, count7d] = await Promise.all([
     db.query(
-      `SELECT DISTINCT ON (provider, action) provider, action, verified_at
-         FROM external_proofs ORDER BY provider, action, verified_at DESC`,
+      `SELECT DISTINCT ON (p.provider, p.action) p.provider, p.action, p.verified_at
+         FROM external_proofs p
+        WHERE (p.brand_id IS NULL OR EXISTS (
+               SELECT 1 FROM brands nb WHERE nb.brand_id = p.brand_id AND nb.is_demo IS NOT TRUE))
+        ORDER BY p.provider, p.action, p.verified_at DESC`,
     ),
     db.query(
-      `SELECT COUNT(*)::int AS n FROM external_proofs
-        WHERE verified_at >= now() - interval '7 days'`,
+      `SELECT COUNT(*)::int AS n FROM external_proofs p
+        WHERE p.verified_at >= now() - interval '7 days'
+          AND (p.brand_id IS NULL OR EXISTS (
+               SELECT 1 FROM brands nb WHERE nb.brand_id = p.brand_id AND nb.is_demo IS NOT TRUE))`,
     ),
   ]);
   return tile({
