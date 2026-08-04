@@ -324,7 +324,7 @@ async function tileVersion() {
     as_of: new Date().toISOString(), // response time IS the observation time
     data: {
       deploy_version: DEPLOY_VERSION || null,
-      environment: (ENVIRONMENT && ENVIRONMENT.name) || "unknown",
+      environment: ENVIRONMENT || "unknown",
       server_started_at: SERVER_STARTED_AT,
     },
   };
@@ -431,7 +431,7 @@ async function tileHermes() {
           AND (brand_id IS NULL OR EXISTS (
                 SELECT 1 FROM brands b WHERE b.brand_id = hermes_decisions.brand_id AND b.is_demo IS NOT TRUE))
         GROUP BY outcome`,
-      [(ENVIRONMENT && ENVIRONMENT.name) || "unknown"],
+      [ENVIRONMENT || "unknown"],
     );
     const c = { non_null: 0, null: 0, error: 0, timeout: 0, suppressed: 0 };
     for (const r of rows) {
@@ -449,7 +449,7 @@ async function tileHermes() {
   const empty = await db.query(`SELECT EXISTS (SELECT 1 FROM hermes_decisions) AS any`);
   const instrumented = empty.rows[0].any;
   return tile({
-    data: { ...data, environment_filter: (ENVIRONMENT && ENVIRONMENT.name) || "unknown" },
+    data: { ...data, environment_filter: ENVIRONMENT || "unknown" },
     asOf,
     staleAfterSeconds: null,
     hasData: anyRows,

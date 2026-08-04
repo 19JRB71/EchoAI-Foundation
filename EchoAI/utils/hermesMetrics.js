@@ -59,7 +59,7 @@ async function recordHermesDecision({ invocationId, feature, brandId, outcome, l
        ON CONFLICT (invocation_id) DO NOTHING`,
       [
         invocationId,
-        (ENVIRONMENT && ENVIRONMENT.name) || "unknown",
+        ENVIRONMENT || "unknown",
         String(feature || "unknown").slice(0, 100),
         brandId || null,
         outcome,
