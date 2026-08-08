@@ -57,6 +57,11 @@ async function createBrand(userId, name = "BK Test Brand") {
 }
 
 async function deleteUser(userId) {
+  // Migration 139: brand_knowledge_versions.approved_by is ON DELETE RESTRICT,
+  // so a user with approved knowledge history cannot be deleted directly.
+  // Test cleanup removes the brands first (brand_id CASCADE clears the
+  // brand-scoped history), then the user.
+  await db.query("DELETE FROM brands WHERE user_id = $1", [userId]);
   await db.query("DELETE FROM users WHERE user_id = $1", [userId]);
 }
 
