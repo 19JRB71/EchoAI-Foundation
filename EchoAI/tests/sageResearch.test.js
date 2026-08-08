@@ -471,6 +471,40 @@ test("stop_reason enumeration is the fixed contract set", () => {
   );
 });
 
+test("endpoints: owner-scoped brand lookup runs against the real schema (start 202, poll, foreign brand 404)", async () => {
+  // Regression for a staging 500: the controller must only select columns
+  // that actually exist (industry lives on users, not brands).
+  const controller = require("../controllers/sageResearchController");
+  stubSeams();
+  const call = (fn, params, user) =>
+    new Promise((resolve, reject) => {
+      const res = {
+        statusCode: 200,
+        status(c) { this.statusCode = c; return this; },
+        json(body) { resolve({ status: this.statusCode, body }); },
+      };
+      fn({ params, user }, res, reject);
+    });
+
+  const started = await call(controller.startResearch, { brandId }, { userId });
+  assert.equal(started.status, 202);
+  assert.ok(started.body.runId);
+  await controller.lastRunPromise;
+
+  const polled = await call(controller.getResearch, { brandId }, { userId });
+  assert.equal(polled.status, 200);
+  assert.equal(polled.body.draft.status, "empty");
+
+  // Another user's token must not see or start research on this brand.
+  const stranger = await createTestUser();
+  try {
+    const denied = await call(controller.startResearch, { brandId }, { userId: stranger });
+    assert.equal(denied.status, 404);
+  } finally {
+    await deleteUser(stranger);
+  }
+});
+
 test("facebook page ref extraction handles usernames, profile.php and rejects non-facebook", () => {
   assert.equal(sage.pageRefFromUrl("https://facebook.com/southdixiestorage"), "southdixiestorage");
   assert.equal(sage.pageRefFromUrl("https://www.facebook.com/profile.php?id=12345"), "12345");
