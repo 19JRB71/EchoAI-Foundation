@@ -136,8 +136,18 @@ function assertProvenance(provenance, sourceKind) {
     for (const key of ["url", "source_url"]) {
       const u = s[key];
       if (u === undefined || u === null) continue;
-      if (typeof u !== "string" || !/^https?:\/\//i.test(u)) {
-        throw httpError(400, `${key} must be an http(s) URL`, "bad_provenance");
+      // Strict standards-compliant parse: the value must BE a valid http(s)
+      // URL, not merely start with a scheme.
+      let parsed = null;
+      if (typeof u === "string") {
+        try {
+          parsed = new URL(u);
+        } catch {
+          parsed = null;
+        }
+      }
+      if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) {
+        throw httpError(400, `${key} must be a valid http(s) URL`, "bad_provenance");
       }
       if (urlHasCredentials(u)) {
         throw httpError(400, `${key} must not contain credentials or tokens`, "bad_provenance");

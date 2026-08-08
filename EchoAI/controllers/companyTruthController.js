@@ -49,6 +49,19 @@ function sendError(res, err, fallbackMsg) {
  */
 const STALE_CLAIM_MINUTES = 10;
 
+/**
+ * Exact audit constant recorded on a pending CT revision that a NEWER
+ * regeneration retired (system supersession — reviewed_by stays NULL).
+ * Owner decisions always record reviewed_by; this note makes system
+ * retirement visibly distinct in history.
+ */
+const SUPERSEDED_BY_REGENERATION = "superseded_by_regeneration";
+
+// Seam for the corrective race regressions: lets tests replace the slow AI
+// phase so an owner approval can be interleaved deterministically between
+// runGeneration's pre-read and its promote transaction.
+const aiPhase = { gatherCompanyData, generateCompanyReport };
+
 function isFreshClaim(row) {
   return (
     row.status === "generating" &&
@@ -113,8 +126,8 @@ async function runGeneration(brand, claimId, researchNote) {
     );
     const researchRequest = pendingQ.rows[0]?.research_request || researchNote || null;
 
-    const gathered = await gatherCompanyData(brand);
-    const report = await generateCompanyReport(brand, gathered, researchRequest);
+    const gathered = await aiPhase.gatherCompanyData(brand);
+    const report = await aiPhase.generateCompanyReport(brand, gathered, researchRequest);
 
     // Atomically retire the old pending draft and promote the fresh one.
     const client = await db.pool.connect();
@@ -155,11 +168,18 @@ async function runGeneration(brand, claimId, researchNote) {
         // Prompt 011 (B3): pair the pending report with its authoritative
         // approval record. Same transaction — the mirror can never be born
         // out of sync. Any prior pending CT revision is retired first.
+        //
+        // SYSTEM retirement convention (corrective fix): a revision retired
+        // because a NEWER regeneration superseded it carries
+        // review_note = SUPERSEDED_BY_REGENERATION and reviewed_by stays
+        // NULL — visibly distinct in history from an owner decision (which
+        // always records reviewed_by).
         await client.query(
           `UPDATE brand_knowledge_revisions
-              SET status = 'base_superseded', reviewed_at = NOW()
+              SET status = 'base_superseded', reviewed_at = NOW(),
+                  reviewed_by = NULL, review_note = $2
             WHERE brand_id = $1 AND kind = 'company_truth_report' AND status = 'pending'`,
-          [brand.brand_id],
+          [brand.brand_id, SUPERSEDED_BY_REGENERATION],
         );
         await brandKnowledge.proposeRevision({
           brandId: brand.brand_id,
@@ -400,4 +420,9 @@ module.exports = {
   editSection,
   requestResearch,
   getApprovedCompanyTruth,
+  SUPERSEDED_BY_REGENERATION,
+  // Test hooks (corrective race regressions): the internal generation runner
+  // and its AI-phase seam. Not used by any production caller.
+  _runGeneration: runGeneration,
+  _aiPhase: aiPhase,
 };

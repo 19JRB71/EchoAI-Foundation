@@ -33,7 +33,11 @@ async function createSetupSession(userId, overrides = {}) {
 }
 
 async function deleteUser(userId) {
-  // ON DELETE CASCADE removes the user's setup_sessions rows too.
+  // Migration 139: brand_knowledge_versions.approved_by is ON DELETE
+  // RESTRICT, so clear the user's brands first (brand_id CASCADE removes
+  // the brand-scoped knowledge history), then delete the user (CASCADE
+  // removes setup_sessions rows too).
+  await db.query("DELETE FROM brands WHERE user_id = $1", [userId]);
   await db.query("DELETE FROM users WHERE user_id = $1", [userId]);
 }
 

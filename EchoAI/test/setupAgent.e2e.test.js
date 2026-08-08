@@ -354,6 +354,9 @@ test.after(async () => {
   restoreAiStub();
   if (server) await new Promise((resolve) => server.close(resolve));
   if (createdUserIds.length) {
+    // Migration 139: approved_by is ON DELETE RESTRICT — clear the brands
+    // (brand_id CASCADE removes knowledge history) before deleting users.
+    await db.query(`DELETE FROM brands WHERE user_id = ANY($1::uuid[])`, [createdUserIds]);
     await db.query(`DELETE FROM users WHERE user_id = ANY($1::uuid[])`, [createdUserIds]);
   }
   await db.pool.end();
