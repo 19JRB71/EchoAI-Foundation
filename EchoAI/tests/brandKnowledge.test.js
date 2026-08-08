@@ -696,7 +696,7 @@ test("inbox: native knowledge_revision items, CONTESTED marker, tenancy, adapter
       provenance: {
         sources: [
           { source: "website", url: "https://a.example.com", excerpt: "A" },
-          { source: "social_profile", url: "https://b.example.com", excerpt: "B" },
+          { source: "public_web", url: "https://b.example.com", excerpt: "B" },
         ],
         conflict: true,
       },
