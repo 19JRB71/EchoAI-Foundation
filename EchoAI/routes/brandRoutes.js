@@ -27,6 +27,16 @@ router.put("/active/selection", brandController.setActiveBrand);
 router.post("/:brandId/research", sageResearchController.startResearch);
 router.get("/:brandId/research", sageResearchController.getResearch);
 
+// Versioned brand knowledge (Prompt 011) — registered before /:brandId's
+// sibling verbs stay unambiguous.
+const brandKnowledgeController = require("../controllers/brandKnowledgeController");
+router.get("/:brandId/knowledge", brandKnowledgeController.getKnowledge);
+router.get("/:brandId/knowledge/history/:fieldKey", brandKnowledgeController.getHistory);
+router.post("/:brandId/knowledge/adopt", brandKnowledgeController.adoptFromDraft);
+router.post("/:brandId/knowledge/revisions/:revisionId/approve", brandKnowledgeController.approve);
+router.post("/:brandId/knowledge/revisions/:revisionId/reject", brandKnowledgeController.reject);
+router.put("/:brandId/knowledge/fields", brandKnowledgeController.ownerEdit);
+
 router.get("/:brandId", brandController.getBrandProfile);
 router.put("/:brandId", brandController.updateBrand);
 router.delete("/:brandId", brandController.deleteBrand);

@@ -37,6 +37,7 @@ const {
   geoAllowed,
 } = require("../utils/growthGuardrails");
 const { textMentionsExcluded } = require("../utils/geoTargeting");
+const brandKnowledge = require("../utils/brandKnowledge");
 const { verifyCampaignStatus } = require("../utils/campaignVerification");
 
 let sendAutonomousSummaryEmail = null;
@@ -474,17 +475,36 @@ async function runAudienceUpdate(brand, settings, counts) {
     }
   }
 
-  // Persist the learned insight so it informs future content/targeting prompts.
+  // Persist the learned insight so it informs future content/targeting
+  // prompts. audience_notes is OPERATIONAL bookkeeping and stays a direct
+  // write; the owner-facing target_audience knowledge field is approval-
+  // locked (Prompt 011, ruling B2): the silent overwrite path is removed —
+  // the insight is filed as a PENDING revision the owner decides on.
+  // Duplicate daily proposals collapse into an idempotent no-op.
   await upsertBrandState(brand.brand_id, { audience_notes: note });
   try {
     const current = brand.target_audience && typeof brand.target_audience === "object" ? brand.target_audience : {};
     const merged = { ...current, autonomousInsight: note, autonomousInsightAt: new Date().toISOString() };
-    await db.query("UPDATE brands SET target_audience = $1 WHERE brand_id = $2", [
-      JSON.stringify(merged),
-      brand.brand_id,
-    ]);
+    await brandKnowledge.proposeRevision({
+      brandId: brand.brand_id,
+      fieldKey: "target_audience",
+      proposedValue: merged,
+      provenance: {
+        sources: [
+          {
+            source: "inferred",
+            basis: `Derived from the last 30 days of this brand's own lead data: ${converted} of ${total} leads converted (${pct}%).`,
+          },
+        ],
+        confidence: "medium",
+        conflict: false,
+        alternatives: [],
+      },
+      sourceKind: "inferred",
+      proposedBy: "autonomous_growth",
+    });
   } catch (e) {
-    console.error("autonomous audience note persist failed:", e.message);
+    console.error("autonomous audience proposal failed:", e.message);
   }
 
   await logAction(brand.user_id, brand.brand_id, {
@@ -761,6 +781,7 @@ module.exports = {
   approveAction,
   declineAction,
   // exported for unit tests
+  _runAudienceUpdate: runAudienceUpdate,
   classifyCampaigns,
   isFatigued,
   buildSummaryText,

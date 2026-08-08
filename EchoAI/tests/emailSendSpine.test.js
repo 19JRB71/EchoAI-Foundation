@@ -344,10 +344,19 @@ test("inbox aggregates spine + adapter items with class badges and tenant isolat
     lastError: "needs a look",
     meta: {},
   });
-  // Adapter item: a pending Company Truth report for our brand.
+  // Native item (Prompt 011): a pending Company Truth report paired with its
+  // authoritative brand_knowledge_revisions row — the inbox projects the
+  // revision, not the report.
   await db.query(
     `INSERT INTO company_truth_reports (brand_id, version, status, plain_summary)
      VALUES ($1, 999, 'pending_approval', 'test summary')`,
+    [brandId]
+  );
+  await db.query(
+    `INSERT INTO brand_knowledge_revisions
+       (brand_id, field_key, kind, proposed_value, provenance, source_kind, proposed_by, status)
+     VALUES ($1, 'company_truth_report', 'company_truth_report', '{"version":999}'::jsonb,
+             '{"sources":[{"source":"inferred","basis":"test"}]}'::jsonb, 'inferred', 'company_truth', 'pending')`,
     [brandId]
   );
   // Foreign items that must NOT appear.
@@ -374,10 +383,12 @@ test("inbox aggregates spine + adapter items with class badges and tenant isolat
   assert.ok(!ids.includes(`task:${foreignTask}`), "tenant isolation");
   const spineItem = res.body.items.find((i) => i.id === `task:${mrTask}`);
   assert.equal(spineItem.source, "spine");
-  const truthItem = res.body.items.find((i) => i.kind === "company_truth");
-  assert.ok(truthItem);
-  assert.equal(truthItem.source, "adapter");
-  assert.ok(Array.isArray(res.body.adapterInventory) && res.body.adapterInventory.length === 4);
+  const truthItem = res.body.items.find((i) => i.kind === "knowledge_revision");
+  assert.ok(truthItem, "native knowledge_revision item projected");
+  assert.equal(truthItem.source, "native");
+  assert.ok(!res.body.items.some((i) => i.kind === "company_truth"), "CT adapter retired");
+  assert.ok(Array.isArray(res.body.adapterInventory) && res.body.adapterInventory.length === 3);
+  assert.ok(!res.body.adapterInventory.some((a) => a.key === "company_truth"));
 
   // Deterministic projection: an identical second read returns the same items.
   const res2 = mockRes();
@@ -423,6 +434,10 @@ test("inbox aggregates spine + adapter items with class badges and tenant isolat
   );
   assert.equal(again.statusCode, 409);
 
+  await db.query(
+    "DELETE FROM brand_knowledge_revisions WHERE brand_id = $1 AND kind = 'company_truth_report'",
+    [brandId]
+  );
   await db.query("DELETE FROM company_truth_reports WHERE brand_id = $1 AND version = 999", [brandId]);
 });
 

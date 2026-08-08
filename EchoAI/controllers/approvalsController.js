@@ -35,11 +35,9 @@ const ADAPTERS = [
     feature: "Autonomous Growth Mode proposals",
     retirement: "Retires with the Autopilot/growth spine adoption wave (020-series)",
   },
-  {
-    key: "company_truth",
-    feature: "Company Truth report approval",
-    retirement: "Retires when Company Truth generation adopts the spine (011-series follow-up)",
-  },
+  // Prompt 011: the company_truth adapter is RETIRED (ratchet 4 -> 3) —
+  // Company Truth approvals now project natively from
+  // brand_knowledge_revisions (the authoritative approval record).
   {
     key: "email_draft",
     feature: "Email Assistant reply drafts",
@@ -59,7 +57,7 @@ async function getInbox(req, res) {
   const params = brandId ? [userId, brandId] : [userId];
 
   try {
-    const [manualReview, autopilot, growth, truth, drafts] = await Promise.all([
+    const [manualReview, autopilot, growth, revisions, drafts] = await Promise.all([
       db.query(
         `SELECT t.task_id, t.task_type, t.source_type, t.source_id, t.attempt,
                 t.title, t.last_error, t.updated_at, t.created_at, t.brand_id,
@@ -101,13 +99,16 @@ async function getInbox(req, res) {
               LIMIT 100`,
             [userId]
           ),
+      // Prompt 011 NATIVE class: pending brand-knowledge revisions (fields +
+      // Company Truth). Joined through brands for tenant isolation.
       db.query(
-        `SELECT r.report_id, r.version, r.created_at, r.brand_id, b.brand_name
-           FROM company_truth_reports r
+        `SELECT r.revision_id, r.field_key, r.kind, r.proposed_value, r.provenance,
+                r.source_kind, r.proposed_by, r.created_at, r.brand_id, b.brand_name
+           FROM brand_knowledge_revisions r
            JOIN brands b ON b.brand_id = r.brand_id
-          WHERE b.user_id = $1 AND r.status = 'pending_approval'${brandFilter}
+          WHERE b.user_id = $1 AND r.status = 'pending'${brandFilter}
           ORDER BY r.created_at DESC
-          LIMIT 20`,
+          LIMIT 100`,
         params
       ),
       // Email drafts are user-scoped (no brand column) — never brand-filtered.
@@ -162,16 +163,26 @@ async function getInbox(req, res) {
         createdAt: g.created_at,
         goToSection: "echogrowth",
       })),
-      ...truth.rows.map((r) => ({
-        id: `truth:${r.report_id}`,
-        source: "adapter",
-        kind: "company_truth",
-        feature: "Company Truth",
-        title: `Company Truth report v${r.version} awaiting your approval`,
-        detail: null,
+      ...revisions.rows.map((r) => ({
+        id: `revision:${r.revision_id}`,
+        source: "native",
+        kind: "knowledge_revision",
+        feature: r.kind === "company_truth_report" ? "Company Truth" : "Business Profile",
+        title:
+          r.kind === "company_truth_report"
+            ? `Company Truth report v${(r.proposed_value && r.proposed_value.version) || "?"} awaiting your approval`
+            : `Proposed update to ${String(r.field_key).replace(/_/g, " ")} (${String(r.proposed_by).replace(/_/g, " ")})`,
+        detail:
+          r.provenance && r.provenance.conflict === true
+            ? "CONTESTED — sources disagree; review the provenance before deciding."
+            : null,
         brandId: r.brand_id,
         brandName: r.brand_name,
         createdAt: r.created_at,
+        revisionId: r.revision_id,
+        fieldKey: r.field_key,
+        sourceKind: r.source_kind,
+        actions: ["approve", "reject"],
         goToSection: "sage",
       })),
       ...drafts.rows.map((d) => ({
@@ -193,7 +204,8 @@ async function getInbox(req, res) {
       counts: {
         total: items.length,
         spine: manualReview.rows.length,
-        adapter: items.length - manualReview.rows.length,
+        native: revisions.rows.length,
+        adapter: items.length - manualReview.rows.length - revisions.rows.length,
       },
       adapterInventory: ADAPTERS,
     });
