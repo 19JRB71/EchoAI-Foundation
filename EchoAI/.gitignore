@@ -7,3 +7,7 @@ node_modules/
 # which crashes on Railway's builder ("npm error Exit handler never called!").
 !client/dist/
 !client/dist/**
+
+# Agent-local working artifacts must never be committed
+proofs/
+verify/
