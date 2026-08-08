@@ -174,6 +174,7 @@ function HistoryDrawer({ brandId, fieldKey }) {
 function FieldCard({ brandId, field, onDecide, onOwnerSave, busy }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [jsonError, setJsonError] = useState("");
   const pending = field.pending || null;
   const approved = field.approved || null;
   const legacy = field.legacy || null;
@@ -289,11 +290,28 @@ function FieldCard({ brandId, field, onDecide, onOwnerSave, busy }) {
             Your edit is authoritative and takes effect immediately.
             {pending ? " It also retires the pending proposal above (kept in history)." : ""}
           </p>
+          {jsonError && <p className="mt-1 text-xs text-red-300">{jsonError}</p>}
           <div className="mt-2 flex gap-2">
             <button
               disabled={busy || !draft.trim()}
               onClick={async () => {
-                const ok = await onOwnerSave(field.fieldKey, draft.trim());
+                // JSON-valued fields (e.g. target_audience) must round-trip as
+                // objects, not as a JSON string typed into a textarea.
+                let value = draft.trim();
+                const wasObject = currentValue !== null && typeof currentValue === "object";
+                if (wasObject || /^[[{]/.test(value)) {
+                  try {
+                    value = JSON.parse(value);
+                  } catch {
+                    if (wasObject) {
+                      setJsonError("This field holds structured data — the edit must stay valid JSON.");
+                      return;
+                    }
+                    // Plain text that merely starts with { or [ stays text.
+                  }
+                }
+                setJsonError("");
+                const ok = await onOwnerSave(field.fieldKey, value);
                 if (ok) setEditing(false);
               }}
               className="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-600 disabled:opacity-50"

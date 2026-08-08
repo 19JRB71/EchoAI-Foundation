@@ -121,9 +121,16 @@ async function runGeneration(brand, claimId, researchNote) {
     try {
       await client.query("BEGIN");
       if (pendingQ.rows[0]) {
-        await client.query("DELETE FROM company_truth_reports WHERE report_id = $1", [
-          pendingQ.rows[0].report_id,
-        ]);
+        // Status-guarded retire: the pre-read happened before the (long) AI
+        // generation, so the owner may have approved or rejected this draft
+        // in the meantime. Only a report that is STILL pending_approval may
+        // be retired — an approved report must never be deleted out from
+        // under its authoritative approved revision.
+        await client.query(
+          `DELETE FROM company_truth_reports
+            WHERE report_id = $1 AND status = 'pending_approval'`,
+          [pendingQ.rows[0].report_id],
+        );
       }
       const updated = await client.query(
         `UPDATE company_truth_reports
