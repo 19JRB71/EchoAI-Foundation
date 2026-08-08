@@ -45,16 +45,23 @@ function textOf(resp) {
 }
 
 function extractJson(text) {
-  if (!text) throw aiInvalid("AI returned an empty response");
+  const fail = (msg) => {
+    const err = aiInvalid(msg);
+    // Carry the raw text (bounded) so the orchestrator can run its single
+    // tool-free corrective re-parse call instead of re-running the phase.
+    if (text) err.rawText = String(text).slice(0, 6000);
+    return err;
+  };
+  if (!text) throw fail("AI returned an empty response");
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) {
-    throw aiInvalid("AI response contained no JSON object");
+    throw fail("AI response contained no JSON object");
   }
   try {
     return JSON.parse(text.slice(start, end + 1));
   } catch (_e) {
-    throw aiInvalid("AI response was not valid JSON");
+    throw fail("AI response was not valid JSON");
   }
 }
 
@@ -90,9 +97,9 @@ async function researchWebsite(brand, websiteUrl, { timeout } = {}) {
   const resp = await createMessage(
     {
       model: MODEL,
-      max_tokens: 1500,
+      max_tokens: 1000,
       system: WEBSITE_SYSTEM,
-      tools: [{ type: "web_fetch_20250910", name: "web_fetch", max_uses: 3 }],
+      tools: [{ type: "web_fetch_20250910", name: "web_fetch", max_uses: 2 }],
       messages: [
         {
           role: "user",
@@ -129,9 +136,9 @@ async function researchPublicWeb(brand, hints, { timeout } = {}) {
   const resp = await createMessage(
     {
       model: MODEL,
-      max_tokens: 1500,
+      max_tokens: 1000,
       system: PUBLIC_WEB_SYSTEM,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
       messages: [
         {
           role: "user",
@@ -151,11 +158,37 @@ async function researchPublicWeb(brand, hints, { timeout } = {}) {
   return extractJson(textOf(resp));
 }
 
+/**
+ * Bounded corrective re-parse: a TOOL-FREE call (so pause_turn cannot occur —
+ * exactly one provider request) that extracts the findings JSON from a
+ * malformed earlier response. Never sees URLs or fetches anything.
+ */
+async function reparseJson(brand, rawText, { timeout } = {}) {
+  const resp = await createMessage(
+    {
+      model: MODEL,
+      max_tokens: 800,
+      system: `Extract the single JSON object of research findings from the text below. Output ONLY the corrected JSON object — same schema: {"found": boolean, "reason"?, "findings"?: [{"field","value","excerpt","url"}]}. Allowed field keys: ${FIELD_LIST}. Drop any finding that lacks a verbatim excerpt or URL. If no usable findings exist, output {"found": false, "reason": "unusable earlier output"}.`,
+      messages: [{ role: "user", content: String(rawText).slice(0, 6000) }],
+    },
+    {
+      label: "Sage pre-interview research re-parse",
+      feature: FEATURE_LABEL,
+      brandId: brand.brand_id,
+      userId: brand.user_id,
+      timeout,
+      attempts: 1,
+    },
+  );
+  return extractJson(textOf(resp));
+}
+
 module.exports = {
   FIELD_KEYS,
   FEATURE_LABEL,
   researchWebsite,
   researchPublicWeb,
+  reparseJson,
   extractJson,
   textOf,
 };

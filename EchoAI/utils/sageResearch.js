@@ -61,14 +61,22 @@ const ADMISSION_FLOOR_MS = Number(process.env.SAGE_RESEARCH_FLOOR_MS) || 10_000;
 const FINALIZE_RESERVE_MS = Number(process.env.SAGE_RESEARCH_FINALIZE_RESERVE_MS) || 5_000;
 const STALE_CLAIM_MINUTES = 10;
 
-// Conservative worst-case reservation per AI phase (single issued call,
-// attempts:1). Input allowance covers prompt + server-tool ingestion across
-// the bounded pause_turn rounds (<=5 continuations); output allowance is
-// max_tokens(1500) x 6 possible rounds; web_search fee per bounded max_uses.
+// Conservative worst-case reservation per AI phase (attempts:1, so exactly one
+// createMessage invocation — which may internally span up to 5 bounded
+// pause_turn continuations, i.e. <= 6 provider requests). Reservations bound
+// the WHOLE invocation:
+//   - inputTokens: total billed input across all 6 possible requests
+//     (tiny prompt + server-tool ingestion + re-sent context each round);
+//   - outputTokens: max_tokens(1000) x 6 possible requests;
+//   - webSearches: tool max_uses x 6 possible requests (each continuation
+//     request carries the tool config again), $0.01 each. The website phase
+//     uses web_fetch, which has no per-use fee.
+// The re-parse call carries NO server tools, so pause_turn cannot occur:
+// exactly one request (6k-char raw text in, max_tokens 800 out).
 const RESERVATIONS = Object.freeze({
-  website: { inputTokens: 24_000, outputTokens: 9_000, webSearches: 0 },
-  public_web: { inputTokens: 24_000, outputTokens: 9_000, webSearches: 3 },
-  reparse: { inputTokens: 8_000, outputTokens: 1_500, webSearches: 0 },
+  website: { inputTokens: 36_000, outputTokens: 6_000, webSearches: 0 },
+  public_web: { inputTokens: 36_000, outputTokens: 6_000, webSearches: 6 },
+  reparse: { inputTokens: 6_000, outputTokens: 800, webSearches: 0 },
 });
 
 function reservationUsd(name) {
@@ -456,14 +464,19 @@ async function runResearch(brand, { runId }) {
         notes.push(`${name}: AI is currently unavailable`);
         return;
       }
-      if (err && err.aiInvalid && !reparseUsed) {
-        // ONE bounded re-parse attempt across the whole run, re-admitted.
+      if (err && err.aiInvalid && err.rawText && !reparseUsed) {
+        // ONE bounded corrective re-parse across the whole run: a tool-free
+        // JSON-extraction call over the malformed raw text, separately
+        // admitted under the (cheaper) reparse reservation.
         reparseUsed = true;
-        slot = admit(reservationName);
+        slot = admit("reparse");
         if (!slot) return;
         reservedSpentUsd += slot.reserve;
         try {
-          return await raceDeadline(call(slot.timeout), remaining() - FINALIZE_RESERVE_MS);
+          return await raceDeadline(
+            module.exports._reparseJson(brand, err.rawText, { timeout: slot.timeout }),
+            remaining() - FINALIZE_RESERVE_MS,
+          );
         } catch (err2) {
           if (err2 && err2.runDeadline) stopReason = stopReason || STOP_REASONS.TIME_BUDGET;
           else if (err2 && err2.aiInvalid) sawMalformed = true;
@@ -607,5 +620,6 @@ module.exports = {
   // Seams (stubbed by tests; production values below).
   _researchWebsite: research.researchWebsite,
   _researchPublicWeb: research.researchPublicWeb,
+  _reparseJson: research.reparseJson,
   _facebookPhase: facebookPhase,
 };

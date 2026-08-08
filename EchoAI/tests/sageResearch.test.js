@@ -37,6 +37,7 @@ let brandId;
 const PROD_SEAMS = {
   website: sage._researchWebsite,
   publicWeb: sage._researchPublicWeb,
+  reparse: sage._reparseJson,
   facebook: sage._facebookPhase,
 };
 
@@ -251,6 +252,40 @@ test("reservation refusal: unaffordable call is never issued (zero provider call
   } finally {
     PRICING.anthropic.inputPerM = origInput;
     PRICING.anthropic.outputPerM = origOutput;
+  }
+});
+
+test("re-parse: malformed output triggers ONE tool-free corrective call under the reparse reservation", async () => {
+  let reparseCalls = 0;
+  let reparseArgs = null;
+  stubSeams({
+    website: async () => {
+      const e = new Error("AI response was not valid JSON");
+      e.aiInvalid = true;
+      e.rawText = 'garbage before {"found": true maybe...';
+      throw e;
+    },
+  });
+  sage._reparseJson = async (_brand, rawText, opts) => {
+    reparseCalls += 1;
+    reparseArgs = { rawText, opts };
+    return {
+      found: true,
+      findings: [
+        { field: "phone", value: "555-0100", excerpt: "Call 555-0100", url: "https://example.com/contact" },
+      ],
+    };
+  };
+  try {
+    const claim = await sage.claimRun(brandId, userId);
+    await sage.runResearch(await loadBrand(), { runId: claim.runId });
+    assert.equal(reparseCalls, 1);
+    assert.match(reparseArgs.rawText, /garbage before/);
+    const draft = await draftByRun(claim.runId);
+    assert.equal(draft.status, "complete");
+    assert.equal(draft.fields.phone.value, "555-0100");
+  } finally {
+    sage._reparseJson = PROD_SEAMS.reparse;
   }
 });
 
