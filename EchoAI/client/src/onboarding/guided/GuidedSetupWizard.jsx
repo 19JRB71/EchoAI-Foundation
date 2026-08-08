@@ -18,6 +18,7 @@ import StepTeam from "../steps/StepTeam.jsx";
 import ConnectionsStep from "./ConnectionsStep.jsx";
 import FirstWinStep from "./FirstWinStep.jsx";
 import OnlineLinksPanel from "./OnlineLinksPanel.jsx";
+import SageResearchPanel from "./SageResearchPanel.jsx";
 import { CONNECTION_CATALOG } from "./connectionCatalog.jsx";
 import { translateConnectionError } from "./connectionErrors.js";
 import { useEchoSpeak } from "./useEchoSpeak.js";
@@ -361,6 +362,7 @@ export default function GuidedSetupWizard({ onComplete }) {
                 />
               </div>
               <OnlineLinksPanel />
+              <SageResearchPanel />
             </div>
           )}
 

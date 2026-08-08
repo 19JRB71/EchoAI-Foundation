@@ -810,6 +810,11 @@ export const api = {
   discovery: (payload) =>
     request("/api/brands/discovery", { method: "POST", body: payload }),
 
+  // Sage pre-interview public research (UNAPPROVED drafts).
+  startBrandResearch: (brandId) =>
+    request(`/api/brands/${brandId}/research`, { method: "POST" }),
+  getBrandResearch: (brandId) => request(`/api/brands/${brandId}/research`),
+
   // Leads
   createLead: ({ brandId, name, email, phone, city, state, zip }) =>
     request("/api/leads", {
