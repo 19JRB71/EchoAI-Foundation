@@ -43,7 +43,7 @@ const FIELD_KEYS = [
   "service_area",
 ];
 
-const SOURCE_KINDS = ["stated", "website", "document", "social_profile", "inferred", "imported"];
+const SOURCE_KINDS = ["website", "facebook", "public_web", "inferred", "stated", "connected"];
 
 // Legacy brands columns materialized from the current version. Fields absent
 // here are column-less: they exist only in the version history.
