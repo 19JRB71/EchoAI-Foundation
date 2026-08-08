@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { toJsonbParam } = require("../utils/jsonb");
 const { isValidBrandType } = require("../config/goals");
 const { normalizeWebsiteUrl, normalizeFacebookPageUrl, normalizeSocialUrl } = require("../utils/onlinePresence");
+const brandKnowledge = require("../utils/brandKnowledge");
 
 /**
  * POST /api/brands
@@ -15,18 +16,33 @@ async function createBrand(req, res) {
     return res.status(400).json({ error: "name is required" });
   }
 
+  const client = await db.pool.connect();
   try {
-    const result = await db.query(
+    await client.query("BEGIN");
+    // Enumerated exception to the knowledge write boundary: the brand row
+    // must exist before version 1 of business_name can reference it.
+    const result = await client.query(
       `INSERT INTO brands (user_id, brand_name)
        VALUES ($1, $2)
        RETURNING brand_id, user_id, brand_name, created_at`,
       [userId, name]
     );
-
+    // Prompt 011: every brand is born with version 1 of business_name.
+    await brandKnowledge.ownerEditFields({
+      brandId: result.rows[0].brand_id,
+      userId,
+      fields: [{ fieldKey: "business_name", value: name }],
+      client,
+    });
+    await client.query("COMMIT");
     return res.status(201).json(result.rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error("Create brand error:", err.message);
     return res.status(500).json({ error: "Failed to create brand" });
+  } finally {
+    client.release();
   }
 }
 
@@ -93,7 +109,20 @@ async function getBrandProfile(req, res) {
 async function updateBrand(req, res) {
   const userId = req.user.userId;
   const { brandId } = req.params;
-  const { name, personality, voiceDescription, visualStylePreferences, targetAudience } = req.body;
+  const { name, tagline, personality, voiceDescription, visualStylePreferences, targetAudience } = req.body;
+
+  // Prompt 011 split: knowledge fields route through the versioned write
+  // boundary (immediate-effect owner edit, recorded in the history);
+  // operational fields keep their direct column writes. Both halves commit in
+  // ONE transaction — a failing knowledge write aborts the operational write.
+  const knowledgeFields = [];
+  if (name !== undefined) knowledgeFields.push({ fieldKey: "business_name", value: name });
+  if (tagline !== undefined) knowledgeFields.push({ fieldKey: "tagline", value: tagline });
+  if (personality !== undefined) knowledgeFields.push({ fieldKey: "brand_personality", value: personality });
+  if (voiceDescription !== undefined)
+    knowledgeFields.push({ fieldKey: "voice_description", value: voiceDescription });
+  if (targetAudience !== undefined)
+    knowledgeFields.push({ fieldKey: "target_audience", value: targetAudience });
   // Accept both camelCase and snake_case for brand type: clients (goal editor +
   // setup wizard) post `brand_type`, but keep `brandType` for compatibility.
   const brandType = req.body.brandType !== undefined ? req.body.brandType : req.body.brand_type;
@@ -102,10 +131,6 @@ async function updateBrand(req, res) {
   const values = [];
   let idx = 1;
 
-  if (name !== undefined) {
-    fields.push(`brand_name = $${idx++}`);
-    values.push(name);
-  }
   if (brandType !== undefined) {
     if (!isValidBrandType(brandType)) {
       return res.status(400).json({ error: "Invalid brandType" });
@@ -113,21 +138,9 @@ async function updateBrand(req, res) {
     fields.push(`brand_type = $${idx++}`);
     values.push(brandType);
   }
-  if (personality !== undefined) {
-    fields.push(`brand_personality = $${idx++}`);
-    values.push(personality);
-  }
-  if (voiceDescription !== undefined) {
-    fields.push(`voice_description = $${idx++}`);
-    values.push(voiceDescription);
-  }
   if (visualStylePreferences !== undefined) {
     fields.push(`visual_style_preferences = $${idx++}::jsonb`);
     values.push(toJsonbParam(visualStylePreferences));
-  }
-  if (targetAudience !== undefined) {
-    fields.push(`target_audience = $${idx++}::jsonb`);
-    values.push(toJsonbParam(targetAudience));
   }
   // Online presence: manual owner edit is authoritative — a blank value clears
   // the field on purpose; a malformed value is a 400, never silently dropped.
@@ -210,33 +223,59 @@ async function updateBrand(req, res) {
     values.push(norm.value);
   }
 
-  if (fields.length === 0) {
+  if (fields.length === 0 && knowledgeFields.length === 0) {
     return res.status(400).json({ error: "No fields provided to update" });
   }
 
-  values.push(brandId, userId);
-
+  const client = await db.pool.connect();
   try {
-    const result = await db.query(
-      `UPDATE brands
-         SET ${fields.join(", ")}
-       WHERE brand_id = $${idx++} AND user_id = $${idx}
-       RETURNING brand_id, brand_name, brand_personality, voice_description,
-                 visual_style_preferences, target_audience, brand_type,
-                 website_url, facebook_page_url, instagram_url, linkedin_url,
-                 youtube_url, tiktok_url, google_business_url,
-                 facebook_page_id, ad_link_url, updated_at`,
-      values
+    await client.query("BEGIN");
+    if (fields.length > 0) {
+      const opValues = [...values, brandId, userId];
+      const updated = await client.query(
+        `UPDATE brands
+           SET ${fields.join(", ")}
+         WHERE brand_id = $${idx++} AND user_id = $${idx}
+         RETURNING brand_id`,
+        opValues
+      );
+      if (updated.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Brand not found" });
+      }
+    }
+    if (knowledgeFields.length > 0) {
+      // Versioned write boundary — records the edit in the immutable history
+      // and materializes the legacy columns. 404s for a foreign brand.
+      await brandKnowledge.ownerEditFields({
+        brandId,
+        userId,
+        fields: knowledgeFields,
+        client,
+      });
+    }
+    const result = await client.query(
+      `SELECT brand_id, brand_name, tagline, brand_personality, voice_description,
+              visual_style_preferences, target_audience, brand_type,
+              website_url, facebook_page_url, instagram_url, linkedin_url,
+              youtube_url, tiktok_url, google_business_url,
+              facebook_page_id, ad_link_url, updated_at
+         FROM brands WHERE brand_id = $1 AND user_id = $2`,
+      [brandId, userId]
     );
-
     if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Brand not found" });
     }
-
+    await client.query("COMMIT");
     return res.json(result.rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error("Update brand error:", err.message);
     return res.status(500).json({ error: "Failed to update brand" });
+  } finally {
+    client.release();
   }
 }
 

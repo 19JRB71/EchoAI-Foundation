@@ -3,9 +3,11 @@ import { api } from "../api.js";
 import Spinner from "../components/Spinner.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import { OpportunitiesTab, KnowledgeTab } from "./SageOpportunities.jsx";
+import ProfileReview from "../components/ProfileReview.jsx";
 
 const TABS = [
   { key: "truth", label: "Company Truth" },
+  { key: "profile", label: "Business Profile" },
   { key: "brief", label: "Industry Brief" },
   { key: "feed", label: "Latest Intelligence" },
   { key: "competitors", label: "Competitor Watch" },
@@ -160,6 +162,7 @@ export default function Sage({ brandId, initialTab }) {
       </div>
 
       {tab === "truth" && <CompanyTruthTab brandId={brandId} />}
+      {tab === "profile" && <ProfileReview brandId={brandId} />}
       {tab === "brief" && <BriefTab brandId={brandId} />}
       {tab === "feed" && <FeedTab brandId={brandId} />}
       {tab === "competitors" && <CompetitorsTab brandId={brandId} />}

@@ -810,6 +810,22 @@ export const api = {
   discovery: (payload) =>
     request("/api/brands/discovery", { method: "POST", body: payload }),
 
+  // Prompt 011 — versioned brand knowledge (approval-locked business profile).
+  getBrandKnowledge: (brandId) => request(`/api/brands/${brandId}/knowledge`),
+  getKnowledgeHistory: (brandId, fieldKey) =>
+    request(`/api/brands/${brandId}/knowledge/history/${encodeURIComponent(fieldKey)}`),
+  adoptKnowledgeFromDraft: (brandId, fieldKey) =>
+    request(`/api/brands/${brandId}/knowledge/adopt`, { method: "POST", body: { fieldKey } }),
+  approveKnowledgeRevision: (brandId, revisionId) =>
+    request(`/api/brands/${brandId}/knowledge/revisions/${revisionId}/approve`, { method: "POST" }),
+  rejectKnowledgeRevision: (brandId, revisionId, note) =>
+    request(`/api/brands/${brandId}/knowledge/revisions/${revisionId}/reject`, {
+      method: "POST",
+      body: { note },
+    }),
+  ownerEditKnowledge: (brandId, fields) =>
+    request(`/api/brands/${brandId}/knowledge/fields`, { method: "PUT", body: { fields } }),
+
   // Sage pre-interview public research (UNAPPROVED drafts).
   startBrandResearch: (brandId) =>
     request(`/api/brands/${brandId}/research`, { method: "POST" }),

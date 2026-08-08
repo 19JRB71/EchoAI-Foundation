@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { anthropic, MODEL } = require("../config/anthropic");
+const brandKnowledge = require("../utils/brandKnowledge");
 const {
   BRAND_DISCOVERY_SYSTEM_PROMPT,
   BRAND_PROFILE_SYNTHESIS_PROMPT,
@@ -73,44 +74,109 @@ async function synthesizeProfile(messages) {
  * Saves a synthesized brand profile to the brands table. Updates an existing
  * brand when brandId is provided, otherwise creates a new one.
  */
-async function saveProfile(userId, brandId, profile) {
+async function saveProfile(userId, brandId, profile, sessionId = null) {
   const brandName = profile.brand_name || "Untitled Brand";
-  const personality = profile.brand_personality || null;
-  const voice = profile.voice_description || null;
   const visualStyle =
     profile.visual_style_preferences != null ? JSON.stringify(profile.visual_style_preferences) : null;
-  const audience =
-    profile.target_audience != null ? JSON.stringify(profile.target_audience) : null;
 
-  if (brandId) {
-    const updated = await db.query(
-      `UPDATE brands
-         SET brand_name = $1,
-             brand_personality = $2,
-             voice_description = $3,
-             visual_style_preferences = $4::jsonb,
-             target_audience = $5::jsonb
-       WHERE brand_id = $6 AND user_id = $7
-       RETURNING brand_id, brand_name, brand_personality, voice_description,
-                 visual_style_preferences, target_audience, updated_at`,
-      [brandName, personality, voice, visualStyle, audience, brandId, userId]
-    );
-    if (updated.rows.length > 0) {
-      return updated.rows[0];
-    }
+  // Prompt 011 ruling B5: the owner's end-of-interview confirmation IS the
+  // approval — the synthesized profile lands as approved knowledge versions
+  // with source 'inferred', an interview basis, and session lineage.
+  // visual_style_preferences stays an OPERATIONAL column write (ruling B1).
+  const knowledgeFields = [];
+  const interviewProvenance = (label) => ({
+    sources: [
+      {
+        source: "inferred",
+        basis:
+          `Synthesized by AI from the owner's answers in the brand discovery interview (${label}); ` +
+          "confirmed by the owner at the end of the conversation.",
+      },
+    ],
+    confidence: "high",
+    conflict: false,
+    alternatives: [],
+    ...(sessionId ? { discovery_session_id: sessionId } : {}),
+  });
+  knowledgeFields.push({
+    fieldKey: "business_name",
+    value: brandName,
+    sourceKind: "inferred",
+    provenance: interviewProvenance("business name"),
+  });
+  if (profile.brand_personality) {
+    knowledgeFields.push({
+      fieldKey: "brand_personality",
+      value: profile.brand_personality,
+      sourceKind: "inferred",
+      provenance: interviewProvenance("brand personality"),
+    });
+  }
+  if (profile.voice_description) {
+    knowledgeFields.push({
+      fieldKey: "voice_description",
+      value: profile.voice_description,
+      sourceKind: "inferred",
+      provenance: interviewProvenance("voice description"),
+    });
+  }
+  if (profile.target_audience != null) {
+    knowledgeFields.push({
+      fieldKey: "target_audience",
+      value: profile.target_audience,
+      sourceKind: "inferred",
+      provenance: interviewProvenance("target audience"),
+    });
   }
 
-  const inserted = await db.query(
-    `INSERT INTO brands
-       (user_id, brand_name, brand_personality, voice_description,
-        visual_style_preferences, target_audience)
-     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)
-     RETURNING brand_id, brand_name, brand_personality, voice_description,
-               visual_style_preferences, target_audience, created_at`,
-    [userId, brandName, personality, voice, visualStyle, audience]
-  );
-
-  return inserted.rows[0];
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    let effectiveBrandId = null;
+    if (brandId) {
+      const existing = await client.query(
+        "SELECT brand_id FROM brands WHERE brand_id = $1 AND user_id = $2",
+        [brandId, userId]
+      );
+      if (existing.rows.length > 0) effectiveBrandId = existing.rows[0].brand_id;
+    }
+    if (!effectiveBrandId) {
+      // Enumerated exception to the knowledge write boundary: the brand row
+      // must exist before its version rows can reference it.
+      const inserted = await client.query(
+        `INSERT INTO brands (user_id, brand_name) VALUES ($1, $2) RETURNING brand_id`,
+        [userId, brandName]
+      );
+      effectiveBrandId = inserted.rows[0].brand_id;
+    }
+    if (visualStyle != null) {
+      await client.query(
+        `UPDATE brands SET visual_style_preferences = $1::jsonb WHERE brand_id = $2`,
+        [visualStyle, effectiveBrandId]
+      );
+    }
+    await brandKnowledge.ownerEditFields({
+      brandId: effectiveBrandId,
+      userId,
+      fields: knowledgeFields,
+      proposedBy: "brand_discovery",
+      refId: sessionId,
+      client,
+    });
+    const row = await client.query(
+      `SELECT brand_id, brand_name, brand_personality, voice_description,
+              visual_style_preferences, target_audience, created_at, updated_at
+         FROM brands WHERE brand_id = $1`,
+      [effectiveBrandId]
+    );
+    await client.query("COMMIT");
+    return row.rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -177,7 +243,7 @@ async function discovery(req, res) {
         return res.status(400).json({ error: "Cannot confirm an empty conversation" });
       }
       const profile = await synthesizeProfile(messages);
-      const savedBrand = await saveProfile(userId, session.brand_id, profile);
+      const savedBrand = await saveProfile(userId, session.brand_id, profile, session.session_id);
 
       await db.query(
         `UPDATE brand_discovery_sessions
@@ -221,7 +287,7 @@ async function discovery(req, res) {
     if (confirmed) {
       try {
         const profile = await synthesizeProfile(messages);
-        const savedBrand = await saveProfile(userId, session.brand_id, profile);
+        const savedBrand = await saveProfile(userId, session.brand_id, profile, session.session_id);
         await db.query(
           `UPDATE brand_discovery_sessions
              SET status = 'completed', draft_profile = $1::jsonb, brand_id = $2

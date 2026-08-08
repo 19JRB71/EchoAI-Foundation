@@ -21,24 +21,28 @@ const KIND_LABELS = {
   manual_review: "Needs your review",
   autopilot_item: "Autopilot approval",
   growth_action: "Growth proposal",
-  company_truth: "Company Truth approval",
+  knowledge_revision: "Business profile proposal",
   email_draft: "Email draft approval",
 };
 
 function SourceBadge({ source }) {
-  const isSpine = source === "spine";
+  const styles = {
+    spine: "bg-teal-900/60 text-teal-300",
+    native: "bg-sky-900/60 text-sky-300",
+    adapter: "bg-amber-900/60 text-amber-300",
+  };
+  const titles = {
+    spine: "Tracked end-to-end on the task audit trail",
+    native: "Approved or rejected right here — recorded in the versioned knowledge history",
+    adapter: "Transitional adapter — this feature has not adopted the audit trail yet",
+  };
+  const labels = { spine: "Spine", native: "Native", adapter: "Adapter" };
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-        isSpine ? "bg-teal-900/60 text-teal-300" : "bg-amber-900/60 text-amber-300"
-      }`}
-      title={
-        isSpine
-          ? "Tracked end-to-end on the task audit trail"
-          : "Transitional adapter — this feature has not adopted the audit trail yet"
-      }
+      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles[source] || styles.adapter}`}
+      title={titles[source] || titles.adapter}
     >
-      {isSpine ? "Spine" : "Adapter"}
+      {labels[source] || "Adapter"}
     </span>
   );
 }
@@ -67,6 +71,27 @@ export default function ApprovalsInbox({ brandId, onSelectSection }) {
   useEffect(() => {
     load(true);
   }, [load]);
+
+  async function decideRevision(item, decision) {
+    setBusyId(item.id);
+    setError("");
+    setNotice("");
+    try {
+      if (decision === "approve") {
+        await api.approveKnowledgeRevision(item.brandId, item.revisionId);
+        setNotice("Approved — recorded as a new version in the knowledge history.");
+      } else {
+        await api.rejectKnowledgeRevision(item.brandId, item.revisionId);
+        setNotice("Rejected — the proposal is kept in history; nothing changed.");
+      }
+      await load(false);
+    } catch (err) {
+      setError(err.message || "Failed to record your decision");
+      await load(false);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function resolve(item, resolution) {
     setBusyId(item.id);
@@ -164,6 +189,29 @@ export default function ApprovalsInbox({ brandId, onSelectSection }) {
                         className="rounded-lg bg-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-gray-600 disabled:opacity-50"
                       >
                         Dismiss
+                      </button>
+                    </>
+                  ) : item.source === "native" ? (
+                    <>
+                      <button
+                        disabled={busyId === item.id}
+                        onClick={() => decideRevision(item, "approve")}
+                        className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        disabled={busyId === item.id}
+                        onClick={() => decideRevision(item, "reject")}
+                        className="rounded-lg bg-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-gray-600 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => onSelectSection && onSelectSection(item.goToSection)}
+                        className="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-600"
+                      >
+                        Details
                       </button>
                     </>
                   ) : (
