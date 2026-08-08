@@ -15,9 +15,13 @@ const sageResearch = require("../utils/sageResearch");
 let lastRunPromise = Promise.resolve();
 
 async function getOwnedBrand(brandId, userId) {
+  // NOTE: industry lives on users, not brands — join it in (it's only a
+  // search hint for the public-web fallback phase).
   const { rows } = await db.query(
-    `SELECT brand_id, user_id, brand_name, website_url, facebook_page_url, industry
-       FROM brands WHERE brand_id = $1 AND user_id = $2`,
+    `SELECT b.brand_id, b.user_id, b.brand_name, b.website_url, b.facebook_page_url,
+            u.industry
+       FROM brands b JOIN users u ON u.user_id = b.user_id
+      WHERE b.brand_id = $1 AND b.user_id = $2`,
     [brandId, userId],
   );
   return rows[0] || null;
