@@ -398,7 +398,18 @@ export default function ProfileReview({ brandId }) {
       </div>
     );
   }
-  const fields = (data && data.fields) || [];
+  // Assemble the per-field cards from the server shape:
+  // { fieldKeys: [...], approved: {key: version}, legacy: {key: value},
+  //   pending: [revision rows] }.
+  const pendingList = (data && data.pending) || [];
+  const fields = ((data && data.fieldKeys) || []).map((fieldKey) => ({
+    fieldKey,
+    approved: (data && data.approved && data.approved[fieldKey]) || null,
+    legacy: (data && data.legacy && data.legacy[fieldKey]) || null,
+    pending:
+      pendingList.find((p) => (p.field_key || p.fieldKey) === fieldKey && (p.kind || "field") === "field") ||
+      null,
+  }));
 
   return (
     <div className="space-y-4">
