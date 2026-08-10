@@ -111,8 +111,8 @@ export const api = {
   // AI Setup Agent — conversational onboarding that configures the account
   getSetupLatest: () => request("/api/setup-agent/latest"),
   startSetupSession: () => request("/api/setup-agent/session", { method: "POST" }),
-  submitSetupAnswer: (sessionId, answer) =>
-    request("/api/setup-agent/answer", { method: "POST", body: { sessionId, answer } }),
+  submitSetupAnswer: (sessionId, answer, extras = {}) =>
+    request("/api/setup-agent/answer", { method: "POST", body: { sessionId, answer, ...extras } }),
   grantSetupConsent: (sessionId) =>
     request("/api/setup-agent/consent", { method: "POST", body: { sessionId } }),
   runSetupAction: (sessionId, skip = false) =>

@@ -415,7 +415,30 @@ function raceDeadline(promise, ms) {
  * finalizes honestly. All evidence accumulates here in memory and lands in
  * one guarded write.
  */
-async function runResearch(brand, { runId }) {
+// ---------------------------------------------------------------------------
+// Prompt 023 (I-38a) — optional owner-supplied disambiguation hint.
+//
+// "A disambiguation hint may improve candidate retrieval; it does not elevate confidence or establish source ownership by itself."
+//
+// The hint (e.g. a city/state) is threaded ONLY into public-web QUERY
+// construction — it never touches confidence scoring, merge ordering, source
+// kinds, or field provenance. When used, the run records that fact honestly
+// as a run-level note (which lands verbatim in the draft's summary — the
+// existing run-level record of phase behavior); it is NEVER written into any
+// field's sources/provenance, because the hint is not evidence.
+// ---------------------------------------------------------------------------
+const HINT_MAX_LENGTH = 120;
+
+/** Sanitize an owner-supplied disambiguation hint; null when unusable. */
+function normalizeLocationHint(raw) {
+  if (typeof raw !== "string") return null;
+  const s = raw.replace(/\s+/g, " ").trim();
+  if (s === "" || s.length > HINT_MAX_LENGTH) return null;
+  return s;
+}
+
+async function runResearch(brand, { runId, locationHint = null } = {}) {
+  const hint = normalizeLocationHint(locationHint);
   const startedAt = Date.now();
   const deadline = startedAt + RUN_BUDGET_MS;
   let reservedSpentUsd = 0; // reserved worst-case counted as spent (upper bound)
@@ -526,6 +549,11 @@ async function runResearch(brand, { runId }) {
     // Phase 3 — public-web fallback, only when evidence is still thin.
     const fieldsSoFar = new Set(candidates.map((c) => c.field)).size;
     if (fieldsSoFar < 3) {
+      if (hint) {
+        // Recorded at USE time so the persisted summary honestly shows this
+        // run's retrieval was context-hinted (run-level metadata, not evidence).
+        notes.push(`public web: owner-supplied location hint used ("${hint}")`);
+      }
       const result = await aiPhase("public web", "public_web", (timeout) =>
         module.exports._researchPublicWeb(
           brand,
@@ -533,6 +561,7 @@ async function runResearch(brand, { runId }) {
             websiteUrl: brand.website_url,
             facebookPageUrl: brand.facebook_page_url,
             industry: brand.industry,
+            locationHint: hint,
           },
           { timeout },
         ),

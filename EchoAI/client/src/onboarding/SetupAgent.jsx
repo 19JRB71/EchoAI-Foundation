@@ -310,13 +310,17 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
   // value lets voice auto-submit pass its transcript directly, avoiding a race
   // with the async `answer` state update.
   const doSubmit = useCallback(
-    async (raw) => {
+    async (raw, extras) => {
       const value = (raw != null ? raw : answer).trim();
       if (!value || busy) return;
       setBusy(true);
       setError("");
       try {
-        const data = await api.submitSetupAnswer(sessionId, value);
+        // Only pass structured extras when a button supplied them, so plain
+        // typed/voice answers keep the exact pre-023 call shape.
+        const data = extras
+          ? await api.submitSetupAnswer(sessionId, value, extras)
+          : await api.submitSetupAnswer(sessionId, value);
         setSession(data.session);
         setAnswer("");
         if (data.question && data.question.complete) {
@@ -695,6 +699,78 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
             </p>
             {question && question.suggestion ? (
               <p className="mt-3 text-sm text-teal-300/80">{question.suggestion}</p>
+            ) : null}
+            {/* Prompt 023 — engine-selected confirm/arbitrate affordances. The
+                candidate value is UNCONFIRMED until the owner acts; buttons send
+                an explicit structured resolution so nothing is inferred. */}
+            {question && question.action === "confirm" && question.candidate ? (
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    doSubmit("Yes, that's correct.", {
+                      resolution: {
+                        kind: "confirm",
+                        revisionId: question.candidate.revisionId || undefined,
+                      },
+                    })
+                  }
+                  className="rounded-xl bg-teal-500 px-4 py-2 text-sm font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+                >
+                  Yes, that&apos;s right
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => doSubmit("Skip this one for now.", { resolution: { kind: "defer" } })}
+                  className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white/70 hover:border-white/40 disabled:opacity-50"
+                >
+                  Skip for now
+                </button>
+              </div>
+            ) : null}
+            {question && question.action === "arbitrate" && Array.isArray(question.candidates) ? (
+              <div className="mt-5 flex flex-wrap gap-3">
+                {question.candidates
+                  .filter((c) => c && c.value !== null && c.value !== undefined && String(c.value).trim() !== "")
+                  .map((c, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        doSubmit(typeof c.value === "string" ? c.value : JSON.stringify(c.value), {
+                          resolution: { kind: "choose" },
+                        })
+                      }
+                      className="rounded-xl border border-teal-400/40 bg-teal-400/10 px-4 py-2 text-sm text-teal-200 hover:bg-teal-400/20 disabled:opacity-50"
+                    >
+                      {typeof c.value === "string" ? c.value : JSON.stringify(c.value)}
+                    </button>
+                  ))}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => doSubmit("Skip this one for now.", { resolution: { kind: "defer" } })}
+                  className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white/70 hover:border-white/40 disabled:opacity-50"
+                >
+                  Skip for now
+                </button>
+              </div>
+            ) : null}
+            {question && (question.action === "confirm" || question.action === "arbitrate" || question.action === "ask") ? (
+              <p className="mt-4 text-xs text-white/40">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => doSubmit("Let's continue with setup anyway.", { continueAnyway: true })}
+                  className="underline hover:text-white/70 disabled:opacity-50"
+                >
+                  Continue setup with what we have
+                </button>{" "}
+                — anything skipped stays honestly marked as unanswered.
+              </p>
             ) : null}
             {voice.supported ? (
               <p className="mt-3 text-sm text-white/50">

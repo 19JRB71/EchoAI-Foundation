@@ -1,8 +1,10 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
-const { anthropic, MODEL } = require("../config/anthropic");
+const { createMessage, MODEL } = require("../config/anthropic");
 const { SETUP_AGENT_SYSTEM_PROMPT } = require("../prompts/setupAgentPrompt");
+const gapEngine = require("../utils/interviewGapEngine");
+const knowledge = require("../utils/brandKnowledge");
 const { getUserTier } = require("../middleware/featureGate");
 const { FEATURES, meetsTier } = require("../config/tiers");
 const { geoSummaryText } = require("../utils/geoTargeting");
@@ -45,16 +47,36 @@ function upstreamError(message) {
  * completion signal). Returns a validated { message, suggestion, collects,
  * complete } object.
  */
-async function askInterview(messages) {
+async function askInterview(messages, { userId = null, brandId = null } = {}) {
   let response;
   try {
-    response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      system: SETUP_AGENT_SYSTEM_PROMPT,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    });
+    // Prompt 023 (D-36 F): the interview call runs through the governed
+    // config/anthropic.createMessage chokepoint — aiGate admission (emergency
+    // switches, environment policy, rate limits, budgets) + ai_usage_log
+    // accounting under feature 'setup_interview'. Never the raw SDK.
+    response = await module.exports._createMessage(
+      {
+        model: MODEL,
+        max_tokens: 1024,
+        system: SETUP_AGENT_SYSTEM_PROMPT,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      },
+      {
+        label: "Setup interview",
+        feature: "setup_interview",
+        userId,
+        brandId,
+        attempts: 1,
+      },
+    );
   } catch (err) {
+    // An aiGate admission block is an honest, deliberate 503 with its own
+    // owner-readable message — surface it as-is, never masked as a 502.
+    if (err && err.aiBlocked) {
+      const blocked = new Error(err.message);
+      blocked.statusCode = err.statusCode || 503;
+      throw blocked;
+    }
     // Log the REAL upstream failure (status + message) so operators can
     // diagnose from server logs; the user still gets the generic 502 below.
     console.error(
@@ -1012,6 +1034,291 @@ function actionMeta() {
 }
 
 // ---------------------------------------------------------------------------
+// Prompt 023 — adaptive interview over the four-state knowledge projection.
+//
+// "Interview action precedence is question selection, not an authority ranking."
+//
+// The pure gap engine (utils/interviewGapEngine) decides which knowledge field
+// to surface and why; the AI only phrases the question. All owner resolutions
+// write through the canonical Prompt-011 boundary (utils/brandKnowledge) —
+// this controller NEVER writes brands knowledge columns directly.
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the brand an interview session is about: the session's brand when
+ * set, else the user's single existing brand (a brand-new user has none —
+ * every field is honestly "missing" and the engine runs in sparse mode).
+ */
+async function resolveInterviewBrand(userId, sessionBrandId) {
+  if (sessionBrandId) {
+    const r = await db.query("SELECT * FROM brands WHERE brand_id = $1 AND user_id = $2", [
+      sessionBrandId,
+      userId,
+    ]);
+    if (r.rows.length) return r.rows[0];
+  }
+  const r = await db.query(
+    "SELECT * FROM brands WHERE user_id = $1 AND (is_demo IS NOT TRUE) ORDER BY created_at ASC",
+    [userId],
+  );
+  return r.rows.length === 1 ? r.rows[0] : null;
+}
+
+/**
+ * Assemble the four-state projection (approved / pending / legacy / draft)
+ * for the gap engine. Returns { brandId, draftId, inventory } or, when the
+ * knowledge read fails, { readFailure: true } — a read failure is NEVER
+ * treated as "all fields missing" (D-36 A7): the interview degrades to the
+ * plain adaptive interview for that turn instead of re-interrogating truth.
+ */
+async function loadInterviewInventory(userId, sessionBrandId) {
+  try {
+    const brand = await resolveInterviewBrand(userId, sessionBrandId);
+    if (!brand) {
+      // Brand-new user: sparse mode — every field is honestly "missing" (the
+      // engine still runs; answers stay in the session until the discovery
+      // step creates the brand and writes them through the boundary).
+      return { brandId: null, draftId: null, inventory: { approved: {}, pending: {}, legacy: {}, draft: {} } };
+    }
+
+    const approvedRaw = await knowledge.getApprovedKnowledge(brand.brand_id);
+    const approved = {};
+    for (const [k, v] of Object.entries(approvedRaw || {})) approved[k] = v;
+
+    // Latest pending revision per field (unapproved proposals only).
+    const pend = await db.query(
+      `SELECT DISTINCT ON (field_key) *
+         FROM brand_knowledge_revisions
+        WHERE brand_id = $1 AND status = 'pending' AND kind = 'field'
+        ORDER BY field_key, created_at DESC`,
+      [brand.brand_id],
+    );
+    const pending = {};
+    for (const r of pend.rows) {
+      pending[r.field_key] = {
+        revisionId: r.revision_id,
+        proposedValue: r.proposed_value,
+        provenance: r.provenance,
+        sourceKind: r.source_kind,
+      };
+    }
+
+    // Legacy unversioned brands values (only where no approved version exists).
+    const legacy = {};
+    for (const [fieldKey, col] of Object.entries(knowledge.FIELD_COLUMNS)) {
+      if (approved[fieldKey]) continue;
+      const raw = brand[col.column];
+      if (raw === null || raw === undefined || raw === "") continue;
+      legacy[fieldKey] = { value: raw };
+    }
+
+    // Latest usable research draft (unapproved evidence; complete/partial only).
+    const d = await db.query(
+      `SELECT draft_id, fields FROM sage_research_drafts
+        WHERE brand_id = $1 AND status IN ('complete','partial')
+        ORDER BY created_at DESC LIMIT 1`,
+      [brand.brand_id],
+    );
+    const draft = {};
+    let draftId = null;
+    if (d.rows.length) {
+      draftId = d.rows[0].draft_id;
+      const fields = d.rows[0].fields || {};
+      for (const [k, f] of Object.entries(fields)) {
+        if (!f || typeof f !== "object") continue;
+        draft[k] = {
+          value: f.value,
+          confidence: f.confidence,
+          sources: f.sources,
+          conflict: f.conflict === true,
+          alternatives: f.alternatives,
+        };
+      }
+    }
+
+    return { brandId: brand.brand_id, draftId, inventory: { approved, pending, legacy, draft } };
+  } catch (err) {
+    console.error("Interview knowledge read failed (degrading to plain interview):", err.message);
+    return { readFailure: true };
+  }
+}
+
+/** Interview bookkeeping stored under the reserved answers key `_interview`. */
+function interviewState(answers) {
+  const raw = answers && typeof answers._interview === "object" && answers._interview !== null ? answers._interview : {};
+  return {
+    surfaces: raw.surfaces && typeof raw.surfaces === "object" ? raw.surfaces : {},
+    resolved: raw.resolved && typeof raw.resolved === "object" ? raw.resolved : {},
+    deferred: raw.deferred && typeof raw.deferred === "object" ? raw.deferred : {},
+    premiseChanged: raw.premiseChanged && typeof raw.premiseChanged === "object" ? raw.premiseChanged : {},
+    noticesShown: raw.noticesShown && typeof raw.noticesShown === "object" ? raw.noticesShown : {},
+    continueAnyway: raw.continueAnyway === true,
+    knowledgeReadFailed: raw.knowledgeReadFailed === true,
+  };
+}
+
+function evidencePreview(value) {
+  if (value === null || value === undefined) return "";
+  const s = typeof value === "string" ? value : JSON.stringify(value);
+  return s.length > 300 ? `${s.slice(0, 300)}…` : s;
+}
+
+/**
+ * Build the per-turn director note the AI receives. The ENGINE selected the
+ * field and action; the AI only phrases it. Returns { note, target } where
+ * target is the plan entry being surfaced (or null for a free operational
+ * turn once all knowledge fields are settled).
+ */
+function buildDirectorNote(plan, state) {
+  const target = gapEngine.nextField(plan, state);
+
+  // Approved-field notices (closed vocabulary) are acknowledged honestly the
+  // first time they arise; the approved value stays authoritative and only
+  // the owner may choose to revisit it (never the engine, never the AI).
+  const noticeLines = [];
+  for (const entry of plan) {
+    if (entry.notice === gapEngine.NOTICES.NONE) continue;
+    if (state.noticesShown[entry.fieldKey]) continue;
+    if (entry.notice === gapEngine.NOTICES.PENDING_REVIEW_EXISTS) {
+      noticeLines.push(
+        `NOTICE for "${entry.fieldKey}": the approved value is being used, but an unreviewed change proposal is waiting in Brand Knowledge review. Briefly mention this once; do NOT re-ask the field unless the owner asks to revisit it.`,
+      );
+    } else if (entry.notice === gapEngine.NOTICES.DRAFT_DIFFERS) {
+      noticeLines.push(
+        `NOTICE for "${entry.fieldKey}": public research found a value that differs from the approved one (research says: "${evidencePreview(entry.evidence.draftValue)}"). The approved value remains in use. Briefly mention this once; do NOT re-ask the field unless the owner asks to revisit it.`,
+      );
+    }
+  }
+
+  if (!target) {
+    const note = [
+      "INTERVIEW DIRECTOR (system-generated; not from the user):",
+      "All brand-knowledge fields are settled. Continue the normal operational interview (account type, budgets, platforms, working style, etc.). Do not re-ask settled brand fields.",
+      ...noticeLines,
+    ].join("\n");
+    return { note, target: null, noticeFields: noticeLines.length ? plan.filter((e) => e.notice !== "none" && !state.noticesShown[e.fieldKey]).map((e) => e.fieldKey) : [] };
+  }
+
+  const lines = [
+    "INTERVIEW DIRECTOR (system-generated; not from the user):",
+    "Interview action precedence is question selection, not an authority ranking.",
+    `Target brand field THIS TURN: "${target.fieldKey}" — action: ${target.action} (reason: ${state.premiseChanged[target.fieldKey] ? gapEngine.REASONS.PREMISE_CHANGED : target.reason}).`,
+  ];
+  if (target.action === gapEngine.ACTIONS.CONFIRM) {
+    const val =
+      target.evidence.pendingValue !== undefined
+        ? target.evidence.pendingValue
+        : target.evidence.draftValue !== undefined
+          ? target.evidence.draftValue
+          : target.evidence.legacyValue;
+    lines.push(
+      `Present this UNCONFIRMED candidate value honestly (say where it came from; it is NOT saved as truth until they confirm): "${evidencePreview(val)}". Ask them to confirm it, correct it, or skip it. Set "collects" to "${target.fieldKey}".`,
+    );
+  } else if (target.action === gapEngine.ACTIONS.ARBITRATE) {
+    const cands = (target.evidence.candidates || [])
+      .map((c, i) => `${i + 1}) "${evidencePreview(c && c.value)}"`)
+      .join("  ");
+    lines.push(
+      `Two or more UNCONFIRMED candidate values were found: ${cands}. Present them honestly, ask which is right (or for the correct value). Set "collects" to "${target.fieldKey}".`,
+    );
+  } else {
+    lines.push(`Ask for this field conversationally. Set "collects" to "${target.fieldKey}".`);
+  }
+  lines.push("Ask ONE question. Do not decide precedence or claim anything unconfirmed is saved.");
+  lines.push(...noticeLines);
+  return {
+    note: lines.join("\n"),
+    target,
+    noticeFields: plan.filter((e) => e.notice !== "none" && !state.noticesShown[e.fieldKey]).map((e) => e.fieldKey),
+  };
+}
+
+/**
+ * Apply an owner's answer for an engine-targeted knowledge field through the
+ * canonical boundary. Returns { resolvedKind, premiseChanged } — on a 409
+ * stale-base the field is re-presented (premise_changed), never force-written.
+ */
+async function resolveKnowledgeAnswer({ userId, brandId, draftId, target, answerText, resolution }) {
+  const fieldKey = target.fieldKey;
+  const kind = resolution && typeof resolution === "object" ? resolution.kind : null;
+
+  // Owner defers: recorded honestly, nothing written, never fabricated.
+  if (kind === "defer") return { resolvedKind: "deferred" };
+
+  if (!brandId) {
+    // No brand exists yet: the answer stays in session.answers and flows
+    // through the existing discovery step (which writes via ownerEditFields).
+    return { resolvedKind: "session_only" };
+  }
+
+  // Explicit confirmation of a pending revision → canonical approve.
+  if (kind === "confirm" && target.evidence && target.evidence.pendingValue !== undefined && resolution.revisionId) {
+    try {
+      await knowledge.approveRevision({ brandId, userId, revisionId: resolution.revisionId });
+      return { resolvedKind: "approved_pending" };
+    } catch (err) {
+      if (err.statusCode === 409) return { resolvedKind: "premise_changed", message: err.message };
+      throw err;
+    }
+  }
+
+  // Explicit confirmation of a research-draft candidate → adopt (propose with
+  // the draft's REAL provenance, server-re-read) then approve. Mirrors
+  // brandKnowledgeController.adoptFromDraft's honesty rules.
+  if (kind === "confirm" && target.evidence && target.evidence.draftValue !== undefined && draftId) {
+    const d = await db.query(
+      `SELECT fields FROM sage_research_drafts WHERE draft_id = $1 AND brand_id = $2`,
+      [draftId, brandId],
+    );
+    const f = d.rows.length ? (d.rows[0].fields || {})[fieldKey] : null;
+    if (f && f.value !== undefined) {
+      const srcKind = Array.isArray(f.sources) && f.sources[0] && f.sources[0].source ? f.sources[0].source : "public_web";
+      const proposed = await knowledge.proposeRevision({
+        brandId,
+        fieldKey,
+        proposedValue: f.value,
+        provenance: { sources: f.sources || [], confidence: f.confidence || "medium", conflict: f.conflict === true, alternatives: f.alternatives || [] },
+        sourceKind: srcKind === "facebook" ? "facebook" : srcKind === "website" ? "website" : "public_web",
+        proposedBy: "setup_interview",
+        refId: draftId,
+      });
+      // One-pending dedup: an identical pending proposal already exists —
+      // the owner just confirmed that value, so approve the existing one.
+      const revisionRow = proposed.duplicate ? proposed.existing : proposed.revision;
+      try {
+        await knowledge.approveRevision({ brandId, userId, revisionId: revisionRow.revision_id });
+        return { resolvedKind: "approved_draft" };
+      } catch (err) {
+        if (err.statusCode === 409) return { resolvedKind: "premise_changed", message: err.message };
+        throw err;
+      }
+    }
+    // Draft row vanished under us — fall through to the stated-value path.
+  }
+
+  // Confirmation of a legacy unversioned value, or a typed/spoken owner value
+  // (including arbitration picks): the owner STATED it → canonical owner edit.
+  const value =
+    kind === "confirm"
+      ? target.evidence.legacyValue !== undefined
+        ? target.evidence.legacyValue
+        : answerText
+      : resolution && resolution.value !== undefined
+        ? resolution.value
+        : answerText;
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return { resolvedKind: "deferred" };
+  }
+  await knowledge.ownerEditFields({
+    brandId,
+    userId,
+    fields: [{ fieldKey, value: typeof value === "string" ? value.trim() : value }],
+    proposedBy: "setup_interview",
+  });
+  return { resolvedKind: "owner_stated" };
+}
+
+// ---------------------------------------------------------------------------
 // Session serialization
 // ---------------------------------------------------------------------------
 
@@ -1075,18 +1382,43 @@ async function initiateSession(req, res) {
       });
     }
 
-    // New session — seed a kickoff turn and get the opening question.
+    // New session — assemble the four-state knowledge projection so the very
+    // first turn is already gap-driven (Prompt 023). The interview always
+    // still OPENS with account type (that shapes everything downstream); the
+    // engine's plan takes over question selection for brand fields after.
+    const inv = await loadInterviewInventory(userId, null);
+    const state = interviewState({});
+    if (inv.readFailure) state.knowledgeReadFailed = true;
+    const plan = inv.inventory ? gapEngine.buildPlan(inv.inventory) : null;
+
     const kickoff = [
       { role: "user", content: "Please begin the setup interview with your first question." },
     ];
-    const decision = await askInterview(kickoff);
+    if (plan) {
+      const skips = plan.filter((e) => e.action === gapEngine.ACTIONS.SKIP).map((e) => e.fieldKey);
+      if (skips.length) {
+        kickoff.push({
+          role: "user",
+          content: `INTERVIEW DIRECTOR (system-generated; not from the user):\nInterview action precedence is question selection, not an authority ranking.\nThese brand fields already have APPROVED owner-reviewed values — do NOT re-ask them: ${skips.join(", ")}. Still open by asking what they are setting up (account type).`,
+        });
+      }
+    }
+    const decision = await askInterview(kickoff, { userId, brandId: inv.brandId || null });
     const messages = kickoff.concat([{ role: "assistant", content: JSON.stringify(decision) }]);
 
+    const answers = { _interview: state };
     const inserted = await db.query(
-      `INSERT INTO setup_sessions (user_id, messages, current_field, interview_complete)
-       VALUES ($1, $2::jsonb, $3, $4)
+      `INSERT INTO setup_sessions (user_id, messages, answers, current_field, interview_complete, brand_id)
+       VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6)
        RETURNING *`,
-      [userId, JSON.stringify(messages), decision.collects || null, decision.complete],
+      [
+        userId,
+        JSON.stringify(messages),
+        JSON.stringify(answers),
+        decision.collects || null,
+        false, // completion is engine-decided; the AI's boolean is advisory
+        inv.brandId || null,
+      ],
     );
     const session = inserted.rows[0];
     return res.json({ session: serializeSession(session), question: decision, resumed: false });
@@ -1125,6 +1457,12 @@ async function submitAnswer(req, res) {
 
     const messages = Array.isArray(session.messages) ? session.messages : [];
     const answers = session.answers && typeof session.answers === "object" ? session.answers : {};
+    const state = interviewState(answers);
+    const resolution =
+      req.body && req.body.resolution && typeof req.body.resolution === "object"
+        ? req.body.resolution
+        : null;
+    const continueRequested = req.body && req.body.continueAnyway === true;
 
     if (session.current_field) {
       answers[session.current_field] = answer.trim();
@@ -1132,17 +1470,90 @@ async function submitAnswer(req, res) {
       answers[`answer_${Object.keys(answers).length + 1}`] = answer.trim();
     }
 
+    // Re-read the knowledge projection IMMEDIATELY before acting on the answer
+    // (D-36 A3) — approvals/edits made elsewhere mid-interview change premises.
+    const inv = await loadInterviewInventory(userId, session.brand_id);
+    if (inv.readFailure) state.knowledgeReadFailed = true;
+    const plan = !inv.readFailure && inv.inventory ? gapEngine.buildPlan(inv.inventory) : null;
+
+    let premiseNote = null;
+    const answeredField = session.current_field;
+    const planEntry =
+      plan && answeredField ? plan.find((e) => e.fieldKey === answeredField) || null : null;
+
+    if (planEntry && planEntry.action !== gapEngine.ACTIONS.SKIP) {
+      // Engine-targeted knowledge field: resolve through the canonical boundary.
+      const result = await resolveKnowledgeAnswer({
+        userId,
+        brandId: inv.brandId || session.brand_id || null,
+        draftId: inv.draftId || null,
+        target: planEntry,
+        answerText: answer.trim(),
+        resolution,
+      });
+      if (result.resolvedKind === "premise_changed") {
+        // Stale base (409): never force-written. Re-present the field once
+        // with the changed premise acknowledged honestly.
+        state.premiseChanged[answeredField] = true;
+        premiseNote = `The stored value for "${answeredField}" changed while we were talking (${result.message || "it was updated elsewhere"}). Re-present this field against its CURRENT state; do not assume the earlier premise.`;
+      } else if (result.resolvedKind === "deferred") {
+        state.deferred[answeredField] = true;
+      } else {
+        state.resolved[answeredField] = true;
+      }
+    } else if (planEntry == null && answeredField && plan) {
+      // Operational (non-knowledge) field — nothing to write here.
+    }
+
+    // Owner chose to continue onboarding with open gaps: honest exit — the
+    // remaining gaps are recorded as deferred_by_owner, never fabricated.
+    if (continueRequested && plan) {
+      const exit = gapEngine.continueAnyway(plan, state);
+      for (const d of exit.deferred) state.deferred[d.fieldKey] = true;
+      state.continueAnyway = true;
+    }
+
     messages.push({ role: "user", content: answer.trim() });
-    const decision = await askInterview(messages);
+
+    // Engine-directed next turn (question selection, not authority ranking).
+    let director = null;
+    if (plan) {
+      director = buildDirectorNote(plan, state);
+      if (premiseNote) director.note += `\n${premiseNote}`;
+      messages.push({ role: "user", content: director.note });
+      if (director.target) {
+        state.surfaces[director.target.fieldKey] =
+          (state.surfaces[director.target.fieldKey] || 0) + 1;
+      }
+      for (const fk of director.noticeFields || []) state.noticesShown[fk] = true;
+    }
+
+    const decision = await askInterview(messages, {
+      userId,
+      brandId: inv.brandId || session.brand_id || null,
+    });
+    // The engine selected the field; the AI only phrased it. Enforce collects.
+    if (director && director.target) decision.collects = director.target.fieldKey;
     messages.push({ role: "assistant", content: JSON.stringify(decision) });
 
-    if (decision.complete) {
+    // Completion is ENGINE-decided (D-36 A6): the AI's `complete` boolean is
+    // advisory. With a plan: all knowledge fields settled AND the AI considers
+    // the operational interview done (or the owner chose to continue anyway).
+    // Without a plan (knowledge read failed / no brand): legacy AI signal.
+    const engineSettled = plan ? gapEngine.interviewComplete(plan, state) : true;
+    const complete = plan
+      ? engineSettled && (decision.complete || state.continueAnyway)
+      : decision.complete || state.continueAnyway;
+    decision.complete = complete;
+
+    if (complete) {
       // Interview finished — persist the owner's working-style preferences
       // (involvement mode, briefing, alerts, detail level) so every Echo
       // surface can honor them. Best-effort: a save failure never blocks setup.
       await echoContext.saveWorkingStyle(userId, extractWorkingStyle(answers)).catch(() => {});
     }
 
+    answers._interview = state;
     const updated = await db.query(
       `UPDATE setup_sessions
          SET messages = $1::jsonb, answers = $2::jsonb, current_field = $3,
@@ -1152,13 +1563,38 @@ async function submitAnswer(req, res) {
       [
         JSON.stringify(messages),
         JSON.stringify(answers),
-        decision.complete ? null : decision.collects || null,
-        decision.complete,
+        complete ? null : decision.collects || null,
+        complete,
         sessionId,
       ],
     );
 
-    return res.json({ session: serializeSession(updated.rows[0]), question: decision });
+    // Surface the engine's decision context so the client can render honest
+    // confirm/arbitrate affordances (buttons) instead of guessing from text.
+    const questionOut = { ...decision };
+    if (!complete && director && director.target) {
+      const t = director.target;
+      questionOut.targetField = t.fieldKey;
+      questionOut.action = t.action;
+      questionOut.reason = state.premiseChanged[t.fieldKey] ? gapEngine.REASONS.PREMISE_CHANGED : t.reason;
+      if (t.action === gapEngine.ACTIONS.CONFIRM) {
+        questionOut.candidate =
+          t.evidence.pendingValue !== undefined
+            ? { value: t.evidence.pendingValue, origin: "pending_revision", revisionId: (inv.inventory.pending[t.fieldKey] || {}).revisionId }
+            : t.evidence.draftValue !== undefined
+              ? { value: t.evidence.draftValue, origin: "research_draft" }
+              : { value: t.evidence.legacyValue, origin: "legacy_unreviewed" };
+      }
+      if (t.action === gapEngine.ACTIONS.ARBITRATE) {
+        questionOut.candidates = (t.evidence.candidates || []).map((c) => ({
+          value: c.value,
+          origin: c.origin,
+          revisionId: c.origin === "pending_revision" ? (inv.inventory.pending[t.fieldKey] || {}).revisionId : undefined,
+        }));
+      }
+    }
+
+    return res.json({ session: serializeSession(updated.rows[0]), question: questionOut });
   } catch (err) {
     const status = err.statusCode || 500;
     console.error("Setup agent answer error:", err.message);
@@ -1587,4 +2023,11 @@ module.exports = {
   releaseExecution,
   EXECUTION_LEASE_SECONDS,
   EXECUTION_HEARTBEAT_MS,
+  // Prompt 023 seams/exports for tests. _createMessage is the governed AI
+  // chokepoint (config/anthropic.createMessage) — stubbed by interview tests.
+  _createMessage: createMessage,
+  loadInterviewInventory,
+  resolveKnowledgeAnswer,
+  buildDirectorNote,
+  interviewState,
 };
