@@ -248,6 +248,7 @@ async function oauthCallback(req, res) {
       const claim = await onboardingFirstWin.claimArmedAuthorization({
         userId,
         connectedPageId: selectedPageRef,
+        connectedPageName: pages.length ? pages[0].name || null : null,
       });
       if (claim.claimed) {
         setImmediate(() => {

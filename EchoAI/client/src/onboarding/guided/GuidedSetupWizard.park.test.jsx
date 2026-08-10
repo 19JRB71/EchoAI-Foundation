@@ -70,6 +70,19 @@ describe("GuidedSetupWizard — park / resume / celebration (Prompt 024)", () =>
     expect(screen.getByText(/Setup isn't finished yet/)).toBeInTheDocument();
   });
 
+  it("restores a persisted park checkpoint on reload — parked screen, not the welcome flow", async () => {
+    api.getGuidedSetupState.mockResolvedValue({
+      progress: {
+        currentStep: "plan",
+        connections: { parked: { parked: true, at: "2026-08-09T12:00:00Z" } },
+      },
+      connectionStatus: {},
+    });
+    render(<GuidedSetupWizard onComplete={vi.fn()} />);
+    expect(await screen.findByText(/Your place is saved, Sir\./)).toBeInTheDocument();
+    expect(api.updateOnboarding).not.toHaveBeenCalled();
+  });
+
   it("the parked screen offers resume back into the flow", async () => {
     render(<GuidedSetupWizard onComplete={vi.fn()} />);
     fireEvent.click(await screen.findByText("Do this later — save my place"));

@@ -375,11 +375,33 @@ function PostWin({ brand, done, onDone, onChangeMind }) {
 
   return (
     <WinShell title="Your first social post" error={error} onChangeMind={onChangeMind} done={done}>
-      {prepared && prepared.status && prepared.status !== "prepared" ? (
+      {prepared && prepared.status === "failed" ? (
+        <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4">
+          <p className="text-sm font-bold text-amber-200">
+            The publish attempt didn&apos;t go through.
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-amber-100/90">
+            Nothing was celebrated because nothing was verified as published.
+            You&apos;ll find the post and what went wrong in your dashboard&apos;s
+            content calendar, where you can fix and reschedule it.
+          </p>
+        </div>
+      ) : prepared && prepared.status === "published" ? (
         <Celebrate
-          heading="Your first post has been handed to the publishing system."
-          body="You authorized it, Facebook was connected, and the post is publishing (or already live). You'll see the confirmation on your dashboard."
+          heading="Your first post is live."
+          body="You authorized it, Facebook was connected, and the post published. The confirmation is on your dashboard."
         />
+      ) : prepared && prepared.status && prepared.status !== "prepared" ? (
+        <div className="mt-4 rounded-xl border border-sky-500/25 bg-sky-500/10 p-4">
+          <p className="text-sm font-bold text-sky-200">
+            Your first post has been handed to the publishing system.
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-sky-100/90">
+            You authorized it and Facebook is connected — it&apos;s in the publish
+            queue now. I&apos;ll only call it a win once Facebook confirms it
+            actually went live; you&apos;ll see that on your dashboard.
+          </p>
+        </div>
       ) : prepared && authActive ? (
         <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4">
           <p className="text-sm font-bold text-emerald-200">

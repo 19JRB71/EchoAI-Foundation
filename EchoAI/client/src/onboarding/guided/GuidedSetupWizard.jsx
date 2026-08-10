@@ -164,6 +164,13 @@ export default function GuidedSetupWizard({ onComplete }) {
       setReadiness(state.providerReadiness || null);
       setVerification(state.providerVerification || null);
 
+      // Prompt 024: honor a persisted park checkpoint across reloads. The
+      // parked screen stays up until the owner explicitly resumes (which
+      // clears the flag); an OAuth return means they acted, so it wins below.
+      if (!oauth && nextFlags.parked?.parked) {
+        setParked(true);
+      }
+
       // Prompt 024: one status projection drives the armed banner and the
       // exactly-once celebration. If a real, externally verified first win
       // exists and hasn't been celebrated anywhere, claim it here — the

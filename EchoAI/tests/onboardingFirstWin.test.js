@@ -337,6 +337,92 @@ test("J: a valid claim atomically flips armed→claimed, binds the destination, 
   }
 });
 
+test("J: a claim for a brand with NO facebook social account creates the executable Page binding in the same tx", async () => {
+  const userId = await createUser();
+  try {
+    const brandId = await createBrand(userId);
+    const post = await preparePost(userId, brandId);
+    await armPost(userId, post.postId);
+    const result = await firstWin.claimArmedAuthorization({
+      userId,
+      connectedPageId: "page-exec-1",
+      connectedPageName: "Exec Page",
+    });
+    assert.equal(result.claimed, true);
+    // The canonical publisher's destination row now exists and points at the
+    // EXACT consented Page — consent destination === executable destination.
+    const { rows } = await db.query(
+      `SELECT platform_username, credentials_encrypted, connection_status
+         FROM social_accounts WHERE brand_id = $1 AND platform = 'facebook'`,
+      [brandId],
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].connection_status, "connected");
+    assert.equal(rows[0].platform_username, "Exec Page");
+    const { decrypt } = require("../utils/encryption");
+    assert.equal(JSON.parse(decrypt(rows[0].credentials_encrypted)).pageId, "page-exec-1");
+  } finally {
+    await deleteUser(userId);
+  }
+});
+
+test("J: a claim NEVER fires when the brand's existing facebook account points at a DIFFERENT Page (page_switched)", async () => {
+  const userId = await createUser();
+  try {
+    const brandId = await createBrand(userId);
+    const { encrypt } = require("../utils/encryption");
+    await db.query(
+      `INSERT INTO social_accounts (brand_id, platform, platform_username, credentials_encrypted, connection_status)
+       VALUES ($1, 'facebook', 'Old Page', $2, 'connected')`,
+      [brandId, encrypt(JSON.stringify({ pageId: "page-OLD" }))],
+    );
+    const post = await preparePost(userId, brandId);
+    const armRes = await armPost(userId, post.postId);
+    const result = await firstWin.claimArmedAuthorization({
+      userId,
+      connectedPageId: "page-NEW",
+    });
+    assert.equal(result.claimed, false);
+    assert.equal(result.reason, "page_switched");
+    const auth = await authRow(armRes.body.authorization.authorizationId);
+    assert.equal(auth.status, "invalidated");
+    assert.equal(auth.invalidation_reason, "page_switched");
+    assert.equal((await postRow(post.postId)).status, "prepared"); // never handed off
+    // The pre-existing binding is untouched — we never silently repoint it.
+    const { rows } = await db.query(
+      `SELECT credentials_encrypted FROM social_accounts WHERE brand_id = $1 AND platform = 'facebook'`,
+      [brandId],
+    );
+    const { decrypt } = require("../utils/encryption");
+    assert.equal(JSON.parse(decrypt(rows[0].credentials_encrypted)).pageId, "page-OLD");
+  } finally {
+    await deleteUser(userId);
+  }
+});
+
+test("J: a claim proceeds when the brand's existing facebook account already points at the SAME Page", async () => {
+  const userId = await createUser();
+  try {
+    const brandId = await createBrand(userId);
+    const { encrypt } = require("../utils/encryption");
+    await db.query(
+      `INSERT INTO social_accounts (brand_id, platform, platform_username, credentials_encrypted, connection_status)
+       VALUES ($1, 'facebook', 'Same Page', $2, 'connected')`,
+      [brandId, encrypt(JSON.stringify({ pageId: "page-SAME" }))],
+    );
+    const post = await preparePost(userId, brandId);
+    await armPost(userId, post.postId);
+    const result = await firstWin.claimArmedAuthorization({
+      userId,
+      connectedPageId: "page-SAME",
+    });
+    assert.equal(result.claimed, true);
+    assert.equal((await postRow(post.postId)).status, "scheduled");
+  } finally {
+    await deleteUser(userId);
+  }
+});
+
 test("J: claim with no armed authorization is a clean no-op", async () => {
   const userId = await createUser();
   try {

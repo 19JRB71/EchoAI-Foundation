@@ -216,5 +216,32 @@ describe("PostWin (Prompt 024 honest flow)", () => {
     ).toBeInTheDocument();
     // No Cancel — a claimed authorization can no longer be disarmed here.
     expect(screen.queryByText("Cancel this authorization")).not.toBeInTheDocument();
+    // Honest: the queue state never claims the post is live.
+    expect(screen.queryByText(/already live/i)).not.toBeInTheDocument();
+  });
+
+  it("a FAILED post is never celebrated — it renders the honest failure notice", async () => {
+    api.getOnboardingStatus.mockResolvedValue({
+      firstWin: { postId: "p1", postContent: "Failed post", status: "failed" },
+      authorization: { authorizationId: "a1", status: "execution_failed" },
+    });
+    renderStep({ done: true });
+
+    const notice = await screen.findByText(/didn't go through/i);
+    expect(notice).toBeInTheDocument();
+    expect(
+      screen.getByText(/nothing was verified as published/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/is live/i)).not.toBeInTheDocument();
+  });
+
+  it("a PUBLISHED post renders the live celebration", async () => {
+    api.getOnboardingStatus.mockResolvedValue({
+      firstWin: { postId: "p1", postContent: "Live post", status: "published" },
+      authorization: { authorizationId: "a1", status: "consumed" },
+    });
+    renderStep({ done: true });
+
+    expect(await screen.findByText(/Your first post is live/i)).toBeInTheDocument();
   });
 });
