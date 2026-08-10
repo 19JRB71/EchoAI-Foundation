@@ -55,7 +55,14 @@ async function startResearch(req, res, next) {
       throw err;
     }
 
-    lastRunPromise = sageResearch.runResearch(brand, { runId: claim.runId });
+    // Prompt 023 (I-38a): optional owner-supplied disambiguation hint —
+    // retrieval input only, sanitized in utils/sageResearch. "A disambiguation
+    // hint may improve candidate retrieval; it does not elevate confidence or
+    // establish source ownership by itself."
+    const locationHint =
+      req.body && typeof req.body.locationHint === "string" ? req.body.locationHint : null;
+
+    lastRunPromise = sageResearch.runResearch(brand, { runId: claim.runId, locationHint });
     return res.status(202).json({ runId: claim.runId, draftId: claim.draftId, status: "running" });
   } catch (err) {
     return next(err);

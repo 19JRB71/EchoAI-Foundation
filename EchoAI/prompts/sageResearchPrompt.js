@@ -129,6 +129,10 @@ async function researchPublicWeb(brand, hints, { timeout } = {}) {
     hints.websiteUrl ? `Website (may be unreachable): ${hints.websiteUrl}` : null,
     hints.facebookPageUrl ? `Facebook page: ${hints.facebookPageUrl}` : null,
     hints.industry ? `Industry: ${hints.industry}` : null,
+    // Prompt 023 (I-38a): optional owner-supplied location context, threaded
+    // into RETRIEVAL INPUT only (sanitized upstream in utils/sageResearch).
+    // "A disambiguation hint may improve candidate retrieval; it does not elevate confidence or establish source ownership by itself."
+    hints.locationHint ? `Business location context (owner-supplied): ${hints.locationHint}` : null,
   ]
     .filter(Boolean)
     .join("\n");
