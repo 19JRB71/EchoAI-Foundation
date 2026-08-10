@@ -28,6 +28,7 @@
 
 const crypto = require("crypto");
 const db = require("../config/db");
+const { encrypt, decrypt } = require("./encryption");
 
 // The one first-win source slot (second idempotency belt via the existing
 // uq_social_posts_brand_platform_source partial unique index, migration 078).
@@ -99,7 +100,7 @@ async function afterClaimWrite(/* client */) {}
  * Returns { claimed, postId?, authorizationId?, reason? }. Never throws to
  * the caller for expected non-claims; genuine errors roll back and rethrow.
  */
-async function claimArmedAuthorization({ userId, connectedPageId }) {
+async function claimArmedAuthorization({ userId, connectedPageId, connectedPageName }) {
   if (!userId) return { claimed: false, reason: "no_user" };
   const client = await db.getClient();
   try {
@@ -176,6 +177,56 @@ async function claimArmedAuthorization({ userId, connectedPageId }) {
       );
       await client.query("COMMIT");
       return { claimed: false, reason: "page_switched" };
+    }
+
+    // Predicate + binding: the EXECUTABLE destination (A7 hardening). The
+    // canonical publisher posts to the brand's social_accounts facebook row
+    // (pageId, token resolved live from api_integrations). The consented
+    // destination and the executable destination must be the SAME Page:
+    //   - no brand row yet (the normal brand-new onboarding case): create it
+    //     here, inside the claim transaction, bound to the connected Page;
+    //   - existing row already bound to this Page: fine;
+    //   - existing row bound to a DIFFERENT Page (or one whose destination
+    //     cannot be verified): invalidate as page_switched — never publish to
+    //     a destination the owner did not consent to.
+    const acct = await client.query(
+      `SELECT account_id, credentials_encrypted
+         FROM social_accounts
+        WHERE brand_id = $1 AND platform = 'facebook'
+        FOR UPDATE`,
+      [auth.brand_id],
+    );
+    if (acct.rows.length > 0) {
+      let executablePageId = null;
+      try {
+        executablePageId =
+          JSON.parse(decrypt(acct.rows[0].credentials_encrypted)).pageId || null;
+      } catch {
+        executablePageId = null;
+      }
+      if (executablePageId !== String(connectedPageId)) {
+        await client.query(
+          `UPDATE armed_publish_authorizations
+              SET status = 'invalidated', invalidation_reason = 'page_switched'
+            WHERE authorization_id = $1 AND status = 'armed'`,
+          [auth.authorization_id],
+        );
+        await client.query("COMMIT");
+        return { claimed: false, reason: "page_switched" };
+      }
+    } else {
+      await client.query(
+        `INSERT INTO social_accounts
+           (brand_id, platform, platform_username, credentials_encrypted, connection_status)
+         VALUES ($1, 'facebook', $2, $3, 'connected')
+         ON CONFLICT (brand_id, platform)
+         DO NOTHING`,
+        [
+          auth.brand_id,
+          connectedPageName || String(connectedPageId),
+          encrypt(JSON.stringify({ pageId: String(connectedPageId) })),
+        ],
+      );
     }
 
     // Claim: armed -> claimed, binding the destination in the SAME statement
