@@ -332,6 +332,25 @@ test("continueAnyway exits honestly: gaps recorded deferred, interview completes
   assert.ok(deferredCount > 0, "open gaps must be recorded as deferred, never fabricated as resolved");
 });
 
+test("engine settled + AI complete=false → complete: the AI boolean never vetoes the engine", async () => {
+  const userId = await newUser();
+  stubAi();
+  const started = await startSession(userId);
+  const sid = started.session.sessionId;
+  // Owner defers everything (continue-anyway = engine reaches settled via
+  // deferral) while the AI stubbornly claims the interview is NOT complete.
+  controller._createMessage = async () => ({
+    content: [
+      { type: "text", text: JSON.stringify({ message: "But wait, I have more questions!", suggestion: "", collects: "business_name", complete: false }) },
+    ],
+  });
+  const res = await answer(userId, sid, "Just continue with what we have.", { continueAnyway: true });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(res.body.question.complete, true, "engine-settled must complete even when AI says complete=false");
+  const s = await db.query("SELECT interview_complete FROM setup_sessions WHERE session_id = $1", [sid]);
+  assert.equal(s.rows[0].interview_complete, true);
+});
+
 test("knowledge-read failure degrades to the plain interview — never 'all missing'", async () => {
   const userId = await newUser();
   stubAi();
