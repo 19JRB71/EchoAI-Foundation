@@ -1537,12 +1537,14 @@ async function submitAnswer(req, res) {
     messages.push({ role: "assistant", content: JSON.stringify(decision) });
 
     // Completion is ENGINE-decided (D-36 A6): the AI's `complete` boolean is
-    // advisory. With a plan: all knowledge fields settled AND the AI considers
-    // the operational interview done (or the owner chose to continue anyway).
-    // Without a plan (knowledge read failed / no brand): legacy AI signal.
+    // advisory — it may influence conversational wrap-up wording only, never
+    // completion state in either direction. With a plan: complete exactly when
+    // the engine is settled (continue-anyway is one way the engine reaches
+    // settled, via deferral). Without a plan (knowledge read failed / no
+    // brand): legacy AI signal.
     const engineSettled = plan ? gapEngine.interviewComplete(plan, state) : true;
     const complete = plan
-      ? engineSettled && (decision.complete || state.continueAnyway)
+      ? engineSettled
       : decision.complete || state.continueAnyway;
     decision.complete = complete;
 

@@ -138,6 +138,21 @@ test("hint does not alter confidence, source classification, or proposal orderin
   assert.deepEqual([...sage.PROPOSAL_ORDER], ["website", "facebook", "public_web", "inferred"]);
 });
 
+test("hinted EMPTY run persists the hint note on the draft (I-38a: every terminal status)", async () => {
+  // Public web runs (hint used) but finds nothing → fieldCount 0 → empty.
+  const calls = stubPhases(async () => ({ found: false, reason: "nothing found" }));
+  const claim = await sage.claimRun(brandId, userId);
+  await sage.runResearch(await loadBrand(), { runId: claim.runId, locationHint: "Kalona, Iowa" });
+  assert.equal(calls.length, 1);
+  const draft = await draftByRun(claim.runId);
+  assert.equal(draft.status, "empty");
+  assert.match(
+    draft.summary,
+    /owner-supplied location hint used \("Kalona, Iowa"\)/,
+    "an empty run must still record that the hint was used",
+  );
+});
+
 test("the governing sentence is present verbatim in the research source", () => {
   const fs = require("node:fs");
   const src = fs.readFileSync(require.resolve("../utils/sageResearch.js"), "utf8");

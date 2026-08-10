@@ -591,10 +591,13 @@ async function runResearch(brand, { runId, locationHint = null } = {}) {
       status = "complete";
     }
 
+    // Run notes persist on EVERY terminal status (I-38a): a hinted-but-
+    // fruitless run must still record that the hint was used.
+    const noteSuffix = notes.length ? ` (${notes.join("; ")})` : "";
     const summary =
       fieldCount === 0
-        ? "I could not find much publicly; I will ask a few more questions."
-        : `Sage found ${fieldCount} thing${fieldCount === 1 ? "" : "s"} about your business publicly. Nothing is saved to your profile until you confirm it.${notes.length ? ` (${notes.join("; ")})` : ""}`;
+        ? `I could not find much publicly; I will ask a few more questions.${noteSuffix}`
+        : `Sage found ${fieldCount} thing${fieldCount === 1 ? "" : "s"} about your business publicly. Nothing is saved to your profile until you confirm it.${noteSuffix}`;
 
     await module.exports.finalizeRun({
       runId,
