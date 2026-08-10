@@ -4,6 +4,8 @@ const db = require("../config/db");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { GRAPH_VERSION, appId, appSecret } = require("../config/facebook");
 const { graphGet, verifyAdAccount } = require("../utils/facebookApi");
+// Prompt 024: armed first-win claim + handoff (atomic, in one transaction).
+const onboardingFirstWin = require("../utils/onboardingFirstWin");
 
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
@@ -235,6 +237,31 @@ async function oauthCallback(req, res) {
         encryptedPageTokens,
       ],
     );
+
+    // Prompt 024 (Section B): the connection callback is the ONLY trigger for
+    // an armed first-win authorization. The claim + prepared->scheduled
+    // handoff commit atomically inside claimArmedAuthorization; on success the
+    // EXISTING canonical publisher executes on its next sweep — we kick one
+    // sweep immediately so the win lands in seconds, not a minute. Entirely
+    // best-effort: a claim failure must never break the connection redirect.
+    try {
+      const claim = await onboardingFirstWin.claimArmedAuthorization({
+        userId,
+        connectedPageId: selectedPageRef,
+      });
+      if (claim.claimed) {
+        setImmediate(() => {
+          const socialController = require("./socialController");
+          socialController
+            .publishDuePosts()
+            .catch((e) =>
+              console.error("First-win publish sweep failed:", e.message),
+            );
+        });
+      }
+    } catch (claimErr) {
+      console.error("First-win claim after Facebook connect failed:", claimErr.message);
+    }
 
     return res.redirect(dashboardRedirect("connected"));
   } catch (err) {

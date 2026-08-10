@@ -122,11 +122,18 @@ export default function ConnectionsStep({
         To automate this, I need your accounts.
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-gray-400">
-        Each one you connect unlocks another ability — you&apos;re not filling out forms,
-        you&apos;re turning on your AI team. All of them are optional and can be done later.
+        Nothing here is required to finish setup. Connecting{" "}
+        <span className="font-semibold text-gray-300">one</span> of the accounts below is
+        the recommended next step — it&apos;s what turns your first win into something
+        real — and everything else can wait until you actually need it.
       </p>
 
-      <div className="mt-6 space-y-4">
+      {/* Prompt 024 (Section G): progressive tiers — Required now: none. */}
+      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.15em] text-emerald-300/80">
+        Recommended next — pick one to start
+      </p>
+
+      <div className="mt-3 space-y-4">
         {CONNECTION_CATALOG.map((connection) => {
           const status = statuses?.[connection.key] || "unknown";
           const flag = flags?.[connection.key] || {};
@@ -152,12 +159,25 @@ export default function ConnectionsStep({
           );
         })}
 
+        <p className="pt-2 text-xs font-semibold uppercase tracking-[0.15em] text-gray-500">
+          Optional — whenever you&apos;re ready, from Settings too
+        </p>
+
         <EmailConnectCard
           status={statuses?.email || "unknown"}
           flag={flags?.email || {}}
           updateFlags={updateFlags}
           speak={speak}
         />
+
+        <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+          <p className="text-sm text-gray-400">
+            Later, when you need them: text messaging (Twilio), field-service sync
+            (Jobber), and your Facebook ad account all connect from{" "}
+            <span className="font-semibold text-gray-300">Settings → Connections</span> —
+            I&apos;ll point you there the moment one would help.
+          </p>
+        </div>
       </div>
 
       <div className="mt-8 flex items-center justify-between">

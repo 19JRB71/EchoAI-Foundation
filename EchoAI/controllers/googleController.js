@@ -14,6 +14,8 @@ const {
   oauthConfigured,
   adsConfigured,
 } = require("../config/google");
+// Prompt 024: Google first-win = durable GA4 read-back proof (Section D1).
+const { recordExternalProof } = require("../utils/externalProofs");
 
 /**
  * Resolves the public OAuth redirect_uri for this deployment. Prefers the stable
@@ -268,6 +270,22 @@ async function oauthCallback(req, res) {
       );
     }
 
+    // Prompt 024 (Section D1): a Google connection during onboarding earns a
+    // FIRST WIN only when real GA4 data comes back. Best-effort — a probe
+    // failure must never break the connection redirect, and NO WIN is ever
+    // recorded from OAuth success alone.
+    try {
+      const u = await db.query(
+        `SELECT onboarding_completed FROM users WHERE user_id = $1`,
+        [userId],
+      );
+      if (u.rows[0] && u.rows[0].onboarding_completed === false) {
+        await module.exports.runGa4FirstWinProbe(userId);
+      }
+    } catch (probeErr) {
+      console.error("GA4 first-win probe failed:", probeErr.message);
+    }
+
     return res.redirect(dashboardRedirect("connected"));
   } catch (err) {
     console.error("Google OAuth callback error:", err.message);
@@ -275,6 +293,52 @@ async function oauthCallback(req, res) {
       dashboardRedirect("error", `Google connection failed: ${err.message}`),
     );
   }
+}
+
+/**
+ * Prompt 024 — the Google first-win probe (Section D1). Runs the SAME proven
+ * GA4 pull path as GET /api/google/analytics (fetchAnalyticsSummary) and
+ * records a durable external proof ONLY when the account qualifies:
+ * a GA4 property exists AND the report returned at least one nonzero core
+ * metric OR at least one traffic-source row. OAuth-only, no-property, empty
+ * data, and API errors record NOTHING — no proof, no win, no celebration.
+ * GBP is explicitly excluded from first-win qualification.
+ *
+ * Idempotent per user: run_key `onboarding-ga4-{userId}` (recordExternalProof
+ * is insert-once on run_key/provider/action). Evidence is the redacted
+ * SUMMARY only (D-23): property id, aggregate metrics, source count, date
+ * range — never tokens, never raw API responses.
+ */
+async function runGa4FirstWinProbe(userId) {
+  const summary = await module.exports.fetchAnalyticsSummary(userId);
+  if (!summary || !summary.property) return { won: false, reason: "no_property" };
+  const m = summary.metrics || {};
+  const hasNonzeroMetric =
+    Number(m.sessions) > 0 || Number(m.pageviews) > 0 || Number(m.bounceRate) > 0;
+  const hasSources = Array.isArray(summary.topSources) && summary.topSources.length > 0;
+  if (!hasNonzeroMetric && !hasSources) {
+    return { won: false, reason: "no_data" };
+  }
+  const { row, created } = await recordExternalProof({
+    runKey: `onboarding-ga4-${userId}`,
+    provider: "google",
+    action: "ga4_first_win_readback",
+    externalId: summary.property,
+    userId,
+    environment:
+      process.env.APP_ENV || process.env.NODE_ENV || "development",
+    evidence: {
+      property: summary.property,
+      dateRange: summary.dateRange,
+      metrics: {
+        sessions: Number(m.sessions) || 0,
+        pageviews: Number(m.pageviews) || 0,
+        bounceRate: Number(m.bounceRate) || 0,
+      },
+      topSourceCount: hasSources ? summary.topSources.length : 0,
+    },
+  });
+  return { won: true, proofId: row ? row.proof_id : null, created };
 }
 
 /**
@@ -647,4 +711,7 @@ module.exports = {
   googleFetch,
   // Reused by the staging proof runner so the proof exercises the real pull path.
   fetchAnalyticsSummary,
+  // Prompt 024: Google first-win probe (runs from the OAuth callback; also a
+  // test seam — it calls fetchAnalyticsSummary via module.exports).
+  runGa4FirstWinProbe,
 };

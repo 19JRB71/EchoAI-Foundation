@@ -700,6 +700,26 @@ export const api = {
   updateOnboarding: (payload) =>
     request("/api/auth/profile/onboarding", { method: "PUT", body: payload }),
 
+  // Onboarding first win (Prompt 024) — honest prepared/armed flow.
+  getOnboardingStatus: () => request("/api/onboarding/status"),
+  prepareFirstWinPost: ({ brandId, postContent }) =>
+    request("/api/onboarding/first-win/prepare", {
+      method: "POST",
+      body: { brandId, postContent },
+    }),
+  armFirstWinPost: ({ postId, consentCopyVersion, destinationPageId }) =>
+    request("/api/onboarding/first-win/arm", {
+      method: "POST",
+      body: { postId, consentCopyVersion, destinationPageId },
+    }),
+  disarmFirstWinPost: (authorizationId) =>
+    request("/api/onboarding/first-win/disarm", {
+      method: "POST",
+      body: { authorizationId },
+    }),
+  claimFirstWinCelebration: () =>
+    request("/api/onboarding/celebration/claim", { method: "POST" }),
+
   // Guided Setup wizard (new-customer front door)
   getGuidedSetupState: () => request("/api/guided-setup/state"),
   getSetupChecklist: () => request("/api/guided-setup/checklist"),

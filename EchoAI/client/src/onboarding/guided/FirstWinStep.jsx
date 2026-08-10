@@ -9,20 +9,17 @@ import { api } from "../../api.js";
 import Spinner from "../../components/Spinner.jsx";
 import { meetsTier } from "../../lib/tiers.js";
 
-// Tomorrow at 10:00 in the customer's local time, as an ISO string.
-function tomorrowAtTen() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  d.setHours(10, 0, 0, 0);
-  return d.toISOString();
-}
+// Prompt 024: the consent copy version captured when arming an unbound
+// destination ("the Facebook Page you connect during onboarding"). Must match
+// the server's CONSENT_COPY_VERSIONS whitelist.
+export const CONSENT_COPY_UNBOUND = "p024-v1-destination-unbound";
 
 const WIN_CHOICES = [
   {
     key: "post",
     icon: "📣",
     title: "Publish my first social post",
-    detail: "Tell Echo a topic — he'll write it and put it on your calendar.",
+    detail: "Tell Echo a topic — he'll write it and stage it, ready for your say-so.",
     minTier: null,
   },
   {
@@ -253,12 +250,46 @@ const primaryBtn =
 
 // --- First social post ------------------------------------------------------
 
+// Prompt 024: the honest first-post flow. The post is PREPARED (written and
+// staged), never claimed to be "on the calendar". Publishing happens only
+// after the owner ARMS it with explicit, artifact-bound consent AND connects
+// Facebook — the connection callback fires the armed authorization.
 function PostWin({ brand, done, onDone, onChangeMind }) {
   const [topic, setTopic] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [variations, setVariations] = useState(null);
-  const [scheduled, setScheduled] = useState(done);
+  // prepared post + authorization state (loaded from the status projection
+  // so a returning owner sees the truth, not stale local state).
+  const [prepared, setPrepared] = useState(null); // {postId, postContent}
+  const [auth, setAuth] = useState(null); // authorization from /status or /arm
+  const [loadingState, setLoadingState] = useState(done);
+
+  useEffect(() => {
+    if (!done) return;
+    let active = true;
+    (async () => {
+      try {
+        const s = await api.getOnboardingStatus();
+        if (!active) return;
+        if (s.firstWin) {
+          setPrepared({
+            postId: s.firstWin.postId,
+            postContent: s.firstWin.postContent,
+            status: s.firstWin.status,
+          });
+        }
+        setAuth(s.authorization || null);
+      } catch {
+        /* the step still renders; actions surface their own errors */
+      } finally {
+        if (active) setLoadingState(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [done]);
 
   async function generate() {
     if (!topic.trim() || busy) return;
@@ -274,33 +305,152 @@ function PostWin({ brand, done, onDone, onChangeMind }) {
     }
   }
 
-  async function schedule(postContent) {
+  async function prepare(postContent) {
     if (busy) return;
     setBusy(true);
     setError("");
     try {
-      await api.scheduleSocial({
+      const res = await api.prepareFirstWinPost({
         brandId: brand.brand_id,
-        platform: "facebook",
         postContent,
-        scheduledTime: tomorrowAtTen(),
       });
-      setScheduled(true);
-      onDone();
+      setPrepared({
+        postId: res.post.postId,
+        postContent: res.post.postContent,
+        status: res.post.status,
+      });
+      setAuth(null);
     } catch (err) {
-      setError(err.message || "Couldn't schedule the post — please try again.");
+      setError(err.message || "Couldn't save the post — please try again.");
     } finally {
       setBusy(false);
     }
   }
 
+  async function arm() {
+    if (busy || !prepared) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await api.armFirstWinPost({
+        postId: prepared.postId,
+        consentCopyVersion: CONSENT_COPY_UNBOUND,
+      });
+      setAuth(res.authorization);
+      onDone();
+    } catch (err) {
+      setError(err.message || "Couldn't record your authorization — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disarm() {
+    if (busy || !auth) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.disarmFirstWinPost(auth.authorizationId);
+      setAuth(null);
+    } catch (err) {
+      // Honest failure: a claimed authorization can no longer be cancelled.
+      setError(err.message || "Couldn't cancel — it may already be publishing.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loadingState) {
+    return (
+      <WinShell title="Your first social post" onChangeMind={onChangeMind} done={done}>
+        <div className="mt-4 flex justify-center">
+          <Spinner label="Checking your post…" />
+        </div>
+      </WinShell>
+    );
+  }
+
+  const authActive = auth && auth.status === "armed" && !auth.expired && !auth.reconfirmationRequired;
+  const authNeedsReconfirm = auth && (auth.expired || auth.reconfirmationRequired);
+
   return (
     <WinShell title="Your first social post" error={error} onChangeMind={onChangeMind} done={done}>
-      {scheduled ? (
+      {prepared && prepared.status && prepared.status !== "prepared" ? (
         <Celebrate
-          heading="Your first post is written and on the calendar."
-          body="It's set for tomorrow at 10 AM. In the next milestone we'll connect Facebook so it publishes automatically."
+          heading="Your first post has been handed to the publishing system."
+          body="You authorized it, Facebook was connected, and the post is publishing (or already live). You'll see the confirmation on your dashboard."
         />
+      ) : prepared && authActive ? (
+        <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4">
+          <p className="text-sm font-bold text-emerald-200">
+            ✅ Ready to publish the moment you connect Facebook.
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-emerald-100/90">
+            {prepared.postContent}
+          </p>
+          <p className="mt-3 text-xs leading-relaxed text-emerald-100/80">
+            Your authorization covers exactly this post, published once to the
+            Facebook Page you connect during onboarding. It lasts 7 days
+            {auth.expiresAt ? ` (until ${new Date(auth.expiresAt).toLocaleDateString()})` : ""} —
+            after that I&apos;ll ask you to confirm again. Saving your setup for
+            later does NOT cancel it; the Cancel button below does.
+          </p>
+          <button
+            type="button"
+            onClick={disarm}
+            disabled={busy}
+            className="mt-3 rounded-lg border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+          >
+            {busy ? "Cancelling…" : "Cancel this authorization"}
+          </button>
+        </div>
+      ) : prepared ? (
+        <div className="mt-4">
+          <div className="rounded-xl border border-gray-800 bg-gray-950 p-3">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
+              {prepared.postContent}
+            </p>
+          </div>
+          {authNeedsReconfirm && (
+            <div className="mt-3 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
+              <p className="text-sm leading-relaxed text-amber-100">
+                {auth.expired || auth.invalidationReason === "expired"
+                  ? "Your earlier authorization expired (they last 7 days), so nothing was published."
+                  : auth.invalidationReason === "content_changed"
+                    ? "The post changed after you authorized it, so the earlier authorization no longer applies and nothing was published."
+                    : auth.invalidationReason === "page_switched"
+                      ? "The Facebook Page changed after you authorized it, so the earlier authorization no longer applies and nothing was published."
+                      : auth.status === "execution_failed"
+                        ? "The publish attempt failed before anything reached Facebook — nothing was posted."
+                        : "Your earlier authorization is no longer active and nothing was published."}
+                {" "}If you still want this post published, please confirm again below.
+              </p>
+            </div>
+          )}
+          <div className="mt-4 rounded-xl border border-amber-500/25 bg-gray-950 p-4">
+            <p className="text-sm font-semibold text-gray-100">
+              Publish this automatically when I connect Facebook?
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-gray-400">
+              If you authorize it, this exact post — shown above, and nothing
+              else — will be published ONCE to the Facebook Page you connect
+              during onboarding, immediately after you connect it. The
+              authorization lasts 7 days; if you haven&apos;t connected by then,
+              nothing publishes and I&apos;ll ask you again. Saving your setup for
+              later does NOT cancel it. You can cancel any time before you
+              connect with the Cancel button that appears here.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <button type="button" onClick={arm} disabled={busy} className={primaryBtn}>
+                {busy ? "Recording…" : "Yes — publish it when I connect Facebook"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Not ready? That&apos;s fine — your post stays saved either way, and
+              nothing is ever published without this authorization.
+            </p>
+          </div>
+        </div>
       ) : !variations ? (
         <div className="mt-4">
           <label className="text-sm font-medium text-gray-300">
@@ -320,8 +470,8 @@ function PostWin({ brand, done, onDone, onChangeMind }) {
       ) : (
         <div className="mt-4 space-y-3">
           <p className="text-sm text-gray-400">
-            Echo wrote {variations.length} versions — pick your favorite and I&apos;ll put it on
-            the calendar for tomorrow at 10 AM:
+            Echo wrote {variations.length} versions — pick your favorite and I&apos;ll
+            save it, ready for your say-so:
           </p>
           {variations.map((v, i) => (
             <div key={i} className="rounded-xl border border-gray-800 bg-gray-950 p-3">
@@ -330,11 +480,11 @@ function PostWin({ brand, done, onDone, onChangeMind }) {
               </p>
               <button
                 type="button"
-                onClick={() => schedule(typeof v === "string" ? v : v.content || v.text || "")}
+                onClick={() => prepare(typeof v === "string" ? v : v.content || v.text || "")}
                 disabled={busy}
                 className={`${primaryBtn} mt-2`}
               >
-                {busy ? "Scheduling…" : "Use this one"}
+                {busy ? "Saving…" : "Use this one"}
               </button>
             </div>
           ))}

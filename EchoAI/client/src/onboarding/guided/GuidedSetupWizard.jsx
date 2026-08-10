@@ -102,6 +102,12 @@ export default function GuidedSetupWizard({ onComplete }) {
   const [oauthNotice, setOauthNotice] = useState(null); // { tone, text } after an OAuth return
   const [error, setError] = useState("");
   const [finishing, setFinishing] = useState(false);
+  // Prompt 024: parked = "do this later" checkpoint (never completes
+  // onboarding); fwStatus = the one onboarding status projection (armed
+  // authorization banner + celebration state).
+  const [parked, setParked] = useState(false);
+  const [fwStatus, setFwStatus] = useState(null);
+  const [celebration, setCelebration] = useState(null); // {celebrate, provider}
   const { speak, stop } = useEchoSpeak();
 
   const stepRef = useRef(step);
@@ -157,6 +163,24 @@ export default function GuidedSetupWizard({ onComplete }) {
       setStatuses(state.connectionStatus || {});
       setReadiness(state.providerReadiness || null);
       setVerification(state.providerVerification || null);
+
+      // Prompt 024: one status projection drives the armed banner and the
+      // exactly-once celebration. If a real, externally verified first win
+      // exists and hasn't been celebrated anywhere, claim it here — the
+      // insert-once server claim guarantees no second surface repeats it.
+      try {
+        const status = await api.getOnboardingStatus();
+        if (active) setFwStatus(status);
+        if (status?.won && !status.celebrated) {
+          const claim = await api.claimFirstWinCelebration();
+          if (active && claim?.celebrate) {
+            setCelebration({ celebrate: true, provider: claim.provider });
+          }
+        }
+      } catch {
+        /* projection is best-effort here; steps load their own state */
+      }
+      if (!active) return;
 
       if (oauth && savedStep === "connections") {
         // We just came back from a provider while on the connections step.
@@ -297,6 +321,22 @@ export default function GuidedSetupWizard({ onComplete }) {
     }
   }
 
+  // Prompt 024 (Section E): "Do this later" PARKS the setup — the checkpoint
+  // is saved, onboarding is NOT completed, and an armed authorization stays
+  // armed (parking never disarms). The owner stays in the wizard's resume
+  // experience rather than being dropped on an empty dashboard.
+  function park() {
+    const current = flagsRef.current;
+    const merged = {
+      ...current,
+      parked: { parked: true, at: new Date().toISOString() },
+    };
+    setFlags(merged);
+    api.saveGuidedSetupProgress(stepRef.current, merged).catch(() => {});
+    stop();
+    setParked(true);
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
@@ -319,10 +359,38 @@ export default function GuidedSetupWizard({ onComplete }) {
         <div className={`w-full ${step === "profile" ? "max-w-4xl" : "max-w-2xl"}`}>
           <ErrorBanner message={error} />
 
-          {step === "welcome" && (
+          {celebration?.celebrate && (
+            <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <p className="text-sm font-bold text-emerald-200">
+                🎉 Your first win is real, Sir —{" "}
+                {celebration.provider === "google"
+                  ? "your Google Analytics data is flowing into Zorecho."
+                  : "your first post is verified live on Facebook."}
+              </p>
+            </div>
+          )}
+
+          {step === "welcome" && parked && (
+            <ParkedScreen
+              armed={fwStatus?.authorization}
+              firstWin={fwStatus?.firstWin}
+              onResume={() => {
+                setParked(false);
+                const target = resume || fwStatus?.wizard?.currentStep;
+                setResume(null);
+                if (target && target !== "welcome" && target !== "done") {
+                  gotoStep(target, { resumed: true });
+                } else {
+                  gotoStep("plan");
+                }
+              }}
+            />
+          )}
+
+          {step === "welcome" && !parked && (
             <WelcomeScreen
               resume={resume}
-              finishing={finishing}
+              armed={fwStatus?.authorization}
               onStart={() => {
                 setResume(null);
                 gotoStep("plan");
@@ -332,7 +400,7 @@ export default function GuidedSetupWizard({ onComplete }) {
                 setResume(null);
                 gotoStep(target, { resumed: true });
               }}
-              onLater={finish}
+              onLater={park}
               speak={speak}
             />
           )}
@@ -422,7 +490,64 @@ export default function GuidedSetupWizard({ onComplete }) {
 
 // ---------------------------------------------------------------------------
 
-function WelcomeScreen({ resume, finishing, onStart, onResume, onLater, speak }) {
+// Prompt 024: the shared armed-authorization banner. Shown wherever a parked
+// or resuming owner lands, so an armed post is never a surprise: it names the
+// content, the destination semantics, the expiry, and how to cancel.
+function ArmedBanner({ armed, firstWin }) {
+  if (!armed || armed.status !== "armed" || armed.expired) return null;
+  return (
+    <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left">
+      <p className="text-sm font-bold text-amber-200">
+        ⚡ You have a post authorized and waiting.
+      </p>
+      <p className="mt-1 text-xs leading-relaxed text-amber-100/90">
+        Your first post
+        {firstWin?.postContent ? ` (“${String(firstWin.postContent).slice(0, 80)}…”)` : ""} will
+        publish automatically, once, to{" "}
+        {armed.destinationPageId
+          ? "your selected Facebook Page"
+          : "the Facebook Page you connect during onboarding"}
+        {armed.expiresAt
+          ? ` — the authorization lasts until ${new Date(armed.expiresAt).toLocaleDateString()}`
+          : ""}
+        . Saving setup for later does not cancel it; you can cancel it any time
+        from the first-win step before you connect.
+      </p>
+    </div>
+  );
+}
+
+// Prompt 024 (Section E): the parked state. Onboarding is NOT completed —
+// the owner simply saved their place and can pick up any time.
+function ParkedScreen({ armed, firstWin, onResume }) {
+  return (
+    <div className="mx-auto max-w-xl pt-8 text-center">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/15 text-4xl">
+        📌
+      </div>
+      <h1 className="mt-6 text-3xl font-extrabold text-gray-100">
+        Your place is saved, Sir.
+      </h1>
+      <p className="mt-4 text-base leading-relaxed text-gray-300">
+        Setup isn&apos;t finished yet — I&apos;ve simply saved where we left off. Come
+        back any time and we&apos;ll pick up exactly here. Your business isn&apos;t live
+        with Zorecho until we finish together.
+      </p>
+      <ArmedBanner armed={armed} firstWin={firstWin} />
+      <div className="mt-8 flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={onResume}
+          className="w-full max-w-xs rounded-xl bg-amber-500 px-6 py-3 text-base font-bold text-gray-900 hover:bg-amber-600"
+        >
+          Continue my setup
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WelcomeScreen({ resume, armed, onStart, onResume, onLater, speak }) {
   const freshLine =
     "Hi, I'm Echo — your new marketing team. I'll take care of the setup; you just answer a few easy questions. It takes about ten minutes, and you can stop any time.";
   const resumeLine = resume
@@ -446,6 +571,7 @@ function WelcomeScreen({ resume, finishing, onStart, onResume, onLater, speak })
       <p className="mt-4 text-base leading-relaxed text-gray-300">
         {resume ? resumeLine : freshLine}
       </p>
+      <ArmedBanner armed={armed} />
 
       <div className="mt-8 flex flex-col items-center gap-3">
         {resume ? (
@@ -477,10 +603,9 @@ function WelcomeScreen({ resume, finishing, onStart, onResume, onLater, speak })
         <button
           type="button"
           onClick={onLater}
-          disabled={finishing}
-          className="text-sm font-medium text-gray-500 underline-offset-2 hover:text-gray-300 hover:underline disabled:opacity-50"
+          className="text-sm font-medium text-gray-500 underline-offset-2 hover:text-gray-300 hover:underline"
         >
-          {finishing ? "One moment…" : "Do this later — take me to my dashboard"}
+          Do this later — save my place
         </button>
       </div>
     </div>
@@ -491,7 +616,9 @@ function WelcomeScreen({ resume, finishing, onStart, onResume, onLater, speak })
 // customer unlocked, and points at the one big ability still waiting (the AI
 // phone agent lives in the Phone department — too involved for the wizard).
 const FIRST_WIN_RECAP = {
-  post: "Your first social post is written and on the calendar.",
+  // Prompt 024: honest copy — a prepared/armed post is staged, not scheduled;
+  // it publishes only through the armed authorization + Facebook connection.
+  post: "Your first social post is written and staged — it publishes through your authorization once Facebook is connected.",
   lead: "Your first lead is in your CRM, with Echo watching over it.",
   ad: "Your first ad creatives are drafted in the Ad Studio.",
   email: "Your first campaign email is written and waiting in Email Marketing.",
