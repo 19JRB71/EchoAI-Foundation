@@ -221,6 +221,17 @@ function sanitizeConnections(input) {
     if (typeof fw.skipped === "boolean") entry.skipped = fw.skipped;
     if (Object.keys(entry).length > 0) out.firstwin = entry;
   }
+  // Prompt 024 PARK checkpoint (Section E): "Do this later" now saves the
+  // owner's place WITHOUT completing onboarding. {parked, at} only.
+  const pk = input.parked;
+  if (pk && typeof pk === "object" && !Array.isArray(pk)) {
+    const entry = {};
+    if (typeof pk.parked === "boolean") entry.parked = pk.parked;
+    if (typeof pk.at === "string" && pk.at.trim()) {
+      entry.at = pk.at.trim().slice(0, 40);
+    }
+    if (Object.keys(entry).length > 0) out.parked = entry;
+  }
   return out;
 }
 
@@ -405,4 +416,9 @@ module.exports = {
   GUIDED_STEPS,
   CONNECTION_KEYS,
   sanitizeConnections,
+  // Prompt 024: the onboarding status projection reuses the SAME live probes
+  // the wizard checklist uses — one source of connection truth.
+  probeFacebook,
+  probeGoogle,
+  probeEmail,
 };

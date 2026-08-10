@@ -16,6 +16,9 @@ const { getPublicBaseUrl } = require("../config/twilio");
 const taskSpine = require("../utils/taskSpine");
 const { executeExternal, isTransientProviderError } = require("../utils/executeExternal");
 const { recordExternalProof } = require("../utils/externalProofs");
+// Prompt 024: first-win authorization bookkeeping (guarded no-op for
+// ordinary posts).
+const onboardingFirstWin = require("../utils/onboardingFirstWin");
 
 // Starter accounts may connect at most this many distinct social platforms.
 // Professional and above are unlimited (all 6 platforms).
@@ -783,7 +786,16 @@ async function getPostPerformance(req, res) {
  * Used by the scheduler. Throws on failure so the caller can mark it failed.
  */
 async function publishStoredPost(post, { taskId = null, userId = null, allowTransientRetry = false } = {}) {
-  const account = await loadConnectedAccount(post.brand_id, post.platform);
+  // Prompt 024 (C4): errors thrown BEFORE the execution gateway runs carry
+  // `preProvider = true` — definitive evidence that no provider call was
+  // made, the only evidence that permits authorization 'execution_failed'.
+  let account;
+  try {
+    account = await loadConnectedAccount(post.brand_id, post.platform);
+  } catch (err) {
+    err.preProvider = true;
+    throw err;
+  }
   // Posts drafted with a visual store a relative /uploads/images/... path;
   // platforms fetch the image themselves so they need an absolute public URL.
   let imageUrl;
@@ -805,9 +817,11 @@ async function publishStoredPost(post, { taskId = null, userId = null, allowTran
     } else {
       const base = getPublicBaseUrl();
       if (!base) {
-        throw new Error(
+        const err = new Error(
           "Cannot publish the video: the server's public URL is not configured"
         );
+        err.preProvider = true; // raised before the execution gateway (C4)
+        throw err;
       }
       videoUrl = `${base}${post.video_url}`;
     }
@@ -858,6 +872,10 @@ async function publishStoredPost(post, { taskId = null, userId = null, allowTran
      WHERE post_id = $2`,
     [result.externalId, post.post_id]
   );
+  // Prompt 024 (C5): a first-win claimed authorization is consumed on
+  // provider success. Guarded on status='claimed' — a no-op for every
+  // ordinary post. Never throws.
+  await onboardingFirstWin.resolveAuthorizationAfterPublish(post.post_id, "consumed");
   return result;
 }
 
@@ -1214,6 +1232,14 @@ async function publishDuePosts() {
          WHERE post_id = $2 AND status = 'publishing'
          RETURNING post_id`,
         [JSON.stringify({ error: err.message }), post.post_id]
+      );
+      // Prompt 024 (C4): resolve a first-win claimed authorization only with
+      // definitive no-side-effect evidence (`err.preProvider` — raised before
+      // the execution gateway ran). Anything else is 'uncertain', a deliberate
+      // no-op: the row stays claimed while MANUAL_REVIEW holds the truth.
+      await onboardingFirstWin.resolveAuthorizationAfterPublish(
+        post.post_id,
+        err.preProvider === true ? "execution_failed" : "uncertain"
       );
       if (marked.rows.length > 0) {
         // Prompt 020: terminal provider failures already alerted the owner
