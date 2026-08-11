@@ -269,6 +269,37 @@ async function forFirstWin({ userId, brandId = null }) {
     if (armed) {
       return { outcome: OUTCOMES.IN_PROGRESS_OR_PREPARED, basis: "authorization_armed", verifiedAt: null, celebrated: false };
     }
+
+    // Retained-evidence lineage (owner corrective package): the accepted
+    // Prompt-024 cleanup deleted the consumed authorization rows, but the
+    // first-win celebration + its proof are the RETAINED records of the
+    // event. celebration.proof_id → external_proofs.verified_at is still a
+    // deterministic per-row correlation (never a brand-level heuristic), so
+    // a verified proof reached this way may be narrated affirmatively.
+    // Nothing is resurrected: absent celebration rows still yield
+    // "no verified first-win evidence".
+    const celebs = await db.query(
+      `SELECT c.celebration_claim_id, c.provider, c.claimed_at,
+              p.proof_id, p.external_id, p.verified_at
+         FROM onboarding_first_win_celebrations c
+         JOIN external_proofs p ON p.proof_id = c.proof_id
+        WHERE c.user_id = $1 ${brandId ? "AND c.brand_id = $2" : ""}
+        ORDER BY c.claimed_at ASC
+        LIMIT 1`,
+      params
+    );
+    const retained = celebs.rows[0] || null;
+    if (retained && retained.verified_at) {
+      return {
+        outcome: OUTCOMES.VERIFIED_SUCCESS,
+        basis: "celebration_proof_lineage",
+        proofId: retained.proof_id,
+        externalId: retained.external_id,
+        verifiedAt: retained.verified_at,
+        celebrated: true,
+        celebrationId: retained.celebration_claim_id,
+      };
+    }
     return { outcome: OUTCOMES.IN_PROGRESS_OR_PREPARED, basis: "no_authorization", recordedOnly: true, verifiedAt: null, celebrated: false };
   } catch (err) {
     console.error("honestStatus.forFirstWin read failed:", err.message);
