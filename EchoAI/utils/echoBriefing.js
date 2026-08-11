@@ -271,7 +271,7 @@ async function gatherBriefingData(userId, since, brandId = null) {
         [brandIds, sinceParam]
       ),
       safeRows(
-        `SELECT c.campaign_name, c.status, c.cost_per_lead, c.conversion_rate, b.brand_name
+        `SELECT c.campaign_name, c.status, c.last_verified_at, c.cost_per_lead, c.conversion_rate, b.brand_name
            FROM campaigns c JOIN brands b ON b.brand_id = c.brand_id
           WHERE c.brand_id = ANY($1) AND c.status IN ('created_paused', 'live')
           ORDER BY c.updated_at DESC LIMIT 10`,
@@ -735,7 +735,7 @@ async function gatherWeeklyData(userId, brandId = null) {
       [brandIds, weekAgo]
     ),
     safeRows(
-      `SELECT c.campaign_name, c.status, c.cost_per_lead, c.conversion_rate, b.brand_name
+      `SELECT c.campaign_name, c.status, c.last_verified_at, c.cost_per_lead, c.conversion_rate, b.brand_name
          FROM campaigns c JOIN brands b ON b.brand_id = c.brand_id
         WHERE c.brand_id = ANY($1) AND c.status IN ('created_paused', 'live')
         ORDER BY c.updated_at DESC LIMIT 25`,

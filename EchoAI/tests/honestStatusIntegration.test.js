@@ -116,6 +116,19 @@ test("attempt isolation: older verified attempt is historical; latest failed att
   assert.equal(r.olderVerifiedAttempts[0].attempt, 1);
 });
 
+test("dangling proof_id on a success-shaped task is capped, never verified", async () => {
+  const postId = await insertPost("published");
+  // proof_id references a proof row that does not exist.
+  await db.query(
+    `INSERT INTO agent_tasks (brand_id, user_id, task_type, source_type, source_id, attempt, status, title, proof_id)
+     VALUES ($1, $2, 'social_publish', 'social_post', $3, 1, 'COMPLETED', 'hs dangling', gen_random_uuid())`,
+    [brandId, userId, String(postId)],
+  );
+  const r = await hs.forSocialPublish({ brandId, postId });
+  assert.equal(r.outcome, hs.OUTCOMES.IN_PROGRESS_OR_PREPARED);
+  assert.equal(r.basis, "spine_success_without_proof");
+});
+
 // ---- forFirstWin -------------------------------------------------------------
 
 async function insertAuthorization(postId, status, extra = {}) {
@@ -153,16 +166,11 @@ test("first-win ladder: armed is never won; consumed without proof is not publis
 });
 
 test("first-win verified: proof through the consumed authorization's post lineage + celebration flag", async () => {
-  // Reuse the consumed authorization's post from the previous test row set:
-  const auth = (
-    await db.query(
-      `SELECT post_id FROM armed_publish_authorizations
-        WHERE user_id = $1 AND status = 'consumed' ORDER BY created_at DESC LIMIT 1`,
-      [userId],
-    )
-  ).rows[0];
-  const proof = await insertProof(`hs-fw-${auth.post_id}`, "page_post_firstwin");
-  await insertTask(auth.post_id, "EXTERNALLY_VERIFIED", { proofId: proof.proof_id });
+  // Self-contained fixture (no dependence on prior tests' rows):
+  const postId = await insertPost("published");
+  await insertAuthorization(postId, "consumed", { consumedAt: new Date().toISOString() });
+  const proof = await insertProof(`hs-fw-${postId}`, "page_post_firstwin");
+  await insertTask(postId, "EXTERNALLY_VERIFIED", { proofId: proof.proof_id });
 
   let r = await hs.forFirstWin({ userId, brandId });
   assert.equal(r.outcome, hs.OUTCOMES.VERIFIED_SUCCESS);

@@ -178,10 +178,11 @@ async function computeAgents(userId, brand) {
   // only verified/completed social_publish attempts count as published truth.
   const postsScheduled = bid ? await n("SELECT COUNT(*)::int AS n FROM social_posts WHERE brand_id = $1 AND status = 'scheduled'", [bid]) : 0;
   const postsVerifiedWeek = bid ? await n(
-    `SELECT COUNT(*)::int AS n FROM agent_tasks
-      WHERE brand_id = $1 AND task_type = 'social_publish'
-        AND status IN ('EXTERNALLY_VERIFIED','REPORTED','COMPLETED')
-        AND updated_at > NOW() - INTERVAL '7 days'`, [bid]) : 0;
+    `SELECT COUNT(*)::int AS n FROM agent_tasks t
+       JOIN external_proofs p ON p.proof_id = t.proof_id AND p.verified_at IS NOT NULL
+      WHERE t.brand_id = $1 AND t.task_type = 'social_publish'
+        AND t.status IN ('EXTERNALLY_VERIFIED','REPORTED','COMPLETED')
+        AND t.updated_at > NOW() - INTERVAL '7 days'`, [bid]) : 0;
   const activeCal = bid ? await n("SELECT COUNT(*)::int AS n FROM content_calendars WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
 
   // Pulse — CRM.
@@ -244,7 +245,7 @@ async function computeAgents(userId, brand) {
       currentTask: fbConnected === 0
         ? "Needs Facebook connected to run ads"
         : liveCampaigns > 0
-          ? `Managing ${liveCampaigns} live campaign${liveCampaigns === 1 ? "" : "s"}${preparedCampaigns > 0 ? ` (+${preparedCampaigns} created, paused — not spending)` : ""}`
+          ? `Managing ${liveCampaigns} campaign${liveCampaigns === 1 ? "" : "s"} live per our records${preparedCampaigns > 0 ? ` (+${preparedCampaigns} created, paused — not spending)` : ""}`
           : preparedCampaigns > 0
             ? `${preparedCampaigns} campaign${preparedCampaigns === 1 ? "" : "s"} created, paused — not spending`
             : "Ready to launch your first campaign",
@@ -477,7 +478,7 @@ async function getMissionControl(req, res) {
     // — Mission Control must never say "Good morning" in the afternoon.
     const tod = await userPartOfDay(userId);
     const briefing =
-      `${greetingBare(tod.part)} ${leadsWeek} new lead${leadsWeek === 1 ? "" : "s"} this week and ${liveCampaigns} live campaign${liveCampaigns === 1 ? "" : "s"}${preparedCampaigns > 0 ? ` (plus ${preparedCampaigns} created, paused — not spending)` : ""}. ` +
+      `${greetingBare(tod.part)} ${leadsWeek} new lead${leadsWeek === 1 ? "" : "s"} this week and ${liveCampaigns} campaign${liveCampaigns === 1 ? "" : "s"} live per our records${preparedCampaigns > 0 ? ` (plus ${preparedCampaigns} created, paused — not spending)` : ""}. ` +
       (attention.length ? `${attention.join(" and ")} need${attention.length === 1 ? "s" : ""} your attention. ` : "The whole team is running smoothly. ") +
       (sentinelFixes ? `Sentinel auto-fixed ${sentinelFixes} issue${sentinelFixes === 1 ? "" : "s"} this week.` : "No problems detected.");
 

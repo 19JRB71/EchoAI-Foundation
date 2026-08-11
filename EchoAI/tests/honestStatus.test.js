@@ -61,6 +61,21 @@ test("case 3b: success-shaped spine status WITHOUT proof lineage is capped", () 
   assert.strictEqual(r.basis, "spine_success_without_proof");
 });
 
+test("case 3c: a dangling proof_id (no retrieved proof row) is NOT proof lineage", () => {
+  // proof_id set, but the external_proofs row could not be retrieved.
+  const r = hs.resolve({ task: { task_id: "t", status: "COMPLETED", proof_id: "dead-beef" }, proof: null });
+  assert.strictEqual(r.outcome, OUTCOMES.IN_PROGRESS_OR_PREPARED);
+  assert.strictEqual(r.basis, "spine_success_without_proof");
+});
+
+test("case 3d: a proof row without verified_at never upgrades the claim", () => {
+  const r = hs.resolve({
+    task: { task_id: "t", status: "COMPLETED", proof_id: "p1" },
+    proof: { proof_id: "p1", external_id: "x", verified_at: null },
+  });
+  assert.strictEqual(r.outcome, OUTCOMES.IN_PROGRESS_OR_PREPARED);
+});
+
 test("case 5: verified proof beats a stale feature/spine pending state", () => {
   const r = hs.resolve({
     task: { task_id: "t", status: "EXECUTING" },
@@ -111,7 +126,7 @@ test("live without recorded verification is recorded-only, not bare 'running'", 
 
 test("live with recorded verification narrates as-of timestamp (no TTL cutoff)", () => {
   const old = "2026-01-01T00:00:00.000Z"; // months old — still narrated honestly
-  const s = hs.describeCampaignState({ status: "live", status_verified_at: old });
+  const s = hs.describeCampaignState({ status: "live", last_verified_at: old });
   assert.ok(s.text.includes("as of"));
   assert.ok(s.text.includes("2026-01-01"));
 });
@@ -137,6 +152,29 @@ test("count sentence separates live from created_paused and never says 'running'
   assert.ok(sentence.includes("1 campaign is live"));
   assert.ok(sentence.includes("1 campaign is created, paused — not spending"));
   assert.ok(!/created, paused[^;]*running/.test(sentence));
+});
+
+test("count sentence: unverified live rows are qualified 'per our records'", () => {
+  const sentence = hs.campaignCountSentence([{ status: "live" }]);
+  assert.ok(sentence.includes("per our records"));
+});
+
+test("count sentence: all-verified live rows narrate 'verified as of' the latest read-back", () => {
+  const sentence = hs.campaignCountSentence([
+    { status: "live", last_verified_at: "2026-08-01T00:00:00Z" },
+    { status: "live", last_verified_at: "2026-08-10T00:00:00Z" },
+  ]);
+  assert.ok(sentence.includes("verified as of"));
+  assert.ok(sentence.includes("2026-08-10"));
+});
+
+test("count sentence: one unverified live row downgrades the aggregate to recorded-only", () => {
+  const sentence = hs.campaignCountSentence([
+    { status: "live", last_verified_at: "2026-08-10T00:00:00Z" },
+    { status: "live" },
+  ]);
+  assert.ok(sentence.includes("per our records"));
+  assert.ok(!sentence.includes("verified as of"));
 });
 
 test("count sentence with only created_paused campaigns claims nothing live", () => {

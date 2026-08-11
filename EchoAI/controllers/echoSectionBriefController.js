@@ -123,7 +123,7 @@ async function leadsBrief(brandIds) {
 async function campaignRows(userId, brandIds) {
   if (brandIds.length === 0) return [];
   const r = await db.query(
-    `SELECT campaign_name, status, budget, cost_per_lead, conversion_rate, launch_date
+    `SELECT campaign_name, status, last_verified_at, budget, cost_per_lead, conversion_rate, launch_date
        FROM campaigns
       WHERE user_id = $1 AND brand_id = ANY($2)
       ORDER BY created_at DESC

@@ -125,8 +125,10 @@ function resolve({ task = null, proof = null, feature = null, readFailed = false
       // Unclassifiable authoritative status — refuse to guess.
       return { outcome: OUTCOMES.MANUAL_REVIEW_UNCERTAIN, basis: "unknown_spine_status", verifiedAt: null };
     }
-    if (mapped === OUTCOMES.VERIFIED_SUCCESS && !proof && !task.proof_id) {
-      // Success-shaped status without proof lineage: cap the claim (case 3).
+    if (mapped === OUTCOMES.VERIFIED_SUCCESS) {
+      // Success-shaped status: a proof_id ALONE is not proof lineage — only a
+      // retrieved external_proofs row with verified_at upgrades the claim
+      // (handled above). Dangling/unreadable proof references are capped too.
       return { outcome: OUTCOMES.IN_PROGRESS_OR_PREPARED, basis: "spine_success_without_proof", verifiedAt: null };
     }
     return {
@@ -173,11 +175,24 @@ async function forSocialPublish({ brandId, postId }) {
       proof = proofs.rows[0] || null;
     }
     // Case 6/7: attempts are isolated; an older attempt's verification is a
-    // historical fact, never transplanted onto the latest attempt.
-    const olderVerified = tasks.rows
+    // historical fact, never transplanted onto the latest attempt. "Verified"
+    // requires a retrieved proof row with verified_at — status + a dangling
+    // proof_id is NOT verification.
+    const olderCandidates = tasks.rows
       .slice(1)
-      .filter((t) => SPINE_SUCCESS_STATES.includes(t.status) && t.proof_id)
-      .map((t) => ({ taskId: t.task_id, attempt: t.attempt }));
+      .filter((t) => SPINE_SUCCESS_STATES.includes(t.status) && t.proof_id);
+    let olderVerified = [];
+    if (olderCandidates.length > 0) {
+      const olderProofs = await db.query(
+        `SELECT proof_id FROM external_proofs
+          WHERE proof_id = ANY($1) AND verified_at IS NOT NULL`,
+        [olderCandidates.map((t) => t.proof_id)]
+      );
+      const verifiedIds = new Set(olderProofs.rows.map((r) => r.proof_id));
+      olderVerified = olderCandidates
+        .filter((t) => verifiedIds.has(t.proof_id))
+        .map((t) => ({ taskId: t.task_id, attempt: t.attempt }));
+    }
     return {
       ...resolve({ task: latest, proof, feature }),
       attempts: tasks.rows.length,
@@ -203,7 +218,8 @@ async function forFirstWin({ userId, brandId = null }) {
         WHERE user_id = $1 ${brandId ? "AND brand_id = $2" : ""}
         ORDER BY created_at DESC`,
       params
-    ).catch(() => ({ rows: [] }));
+    ); // No swallow: a failed authorization read must propagate to the outer
+    // catch and narrate temporarily_unverifiable — never "no authorization".
     const consumed = auths.rows.find((a) => a.status === "consumed") || null;
     const armed = auths.rows.find((a) => a.status === "armed") || null;
 
@@ -273,7 +289,9 @@ function campaignCountsAsRunning(status) {
 
 /**
  * One campaign's honest state sentence fragment.
- * @param {object} c campaigns row: { status, status_verified_at? }
+ * @param {object} c campaigns row: { status, last_verified_at? }
+ *                   (last_verified_at is the schema's recorded Graph
+ *                   read-back timestamp — models/128.)
  */
 function describeCampaignState(c) {
   const status = c && c.status;
@@ -282,7 +300,7 @@ function describeCampaignState(c) {
     return { text: "created, paused — not spending", running: false };
   }
   if (status === "live") {
-    const ts = c.status_verified_at || c.verified_at || null;
+    const ts = c.last_verified_at || c.status_verified_at || c.verified_at || null;
     if (ts) {
       return { text: `verified live as of ${new Date(ts).toISOString()}`, running: true, verifiedAt: ts };
     }
@@ -313,7 +331,16 @@ function campaignCountSentence(rows) {
   const { running, createdPaused } = campaignBuckets(rows);
   const parts = [];
   if (running.length) {
-    parts.push(`${running.length} campaign${running.length === 1 ? " is" : "s are"} live`);
+    // Freshness honesty: a bare "live" claim needs recorded verification on
+    // every live row; otherwise the count is qualified as recorded-only.
+    const timestamps = running
+      .map((c) => c.last_verified_at || c.status_verified_at || c.verified_at || null)
+      .filter(Boolean);
+    const qualifier =
+      timestamps.length === running.length
+        ? ` (verified as of ${new Date(Math.max(...timestamps.map((t) => new Date(t).getTime()))).toISOString()})`
+        : " per our records";
+    parts.push(`${running.length} campaign${running.length === 1 ? " is" : "s are"} live${qualifier}`);
   }
   if (createdPaused.length) {
     parts.push(
