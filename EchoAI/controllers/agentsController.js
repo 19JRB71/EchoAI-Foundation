@@ -10,6 +10,7 @@ const db = require("../config/db");
 const { parseGeo, geoSummaryText } = require("../utils/geoTargeting");
 const { userPartOfDay, greetingBare } = require("../utils/timeOfDay");
 const intelStore = require("../utils/intelStore");
+const honestStatus = require("../utils/honestStatus");
 
 // ---------------------------------------------------------------------------
 // Team roster (static metadata). `section` links a card into the existing feature
@@ -167,12 +168,20 @@ async function computeAgents(userId, brand) {
     "SELECT COUNT(*)::int AS n FROM api_integrations WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected'",
     [userId],
   );
-  const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status IN ('created_paused', 'live')", [bid]) : 0;
+  // Honest narration (D-39): created_paused is never "live"/"running". Count
+  // the buckets separately; narration below never merges them.
+  const liveCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status = 'live'", [bid]) : 0;
+  const preparedCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status = 'created_paused'", [bid]) : 0;
   const campaignsWeek = bid ? await n(`SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND ${WEEK}`, [bid]) : 0;
 
-  // Nova — social.
+  // Nova — social. Published counts come from the task spine (Section F):
+  // only verified/completed social_publish attempts count as published truth.
   const postsScheduled = bid ? await n("SELECT COUNT(*)::int AS n FROM social_posts WHERE brand_id = $1 AND status = 'scheduled'", [bid]) : 0;
-  const postsWeek = bid ? await n("SELECT COUNT(*)::int AS n FROM social_posts WHERE brand_id = $1 AND published_time > NOW() - INTERVAL '7 days'", [bid]) : 0;
+  const postsVerifiedWeek = bid ? await n(
+    `SELECT COUNT(*)::int AS n FROM agent_tasks
+      WHERE brand_id = $1 AND task_type = 'social_publish'
+        AND status IN ('EXTERNALLY_VERIFIED','REPORTED','COMPLETED')
+        AND updated_at > NOW() - INTERVAL '7 days'`, [bid]) : 0;
   const activeCal = bid ? await n("SELECT COUNT(*)::int AS n FROM content_calendars WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
 
   // Pulse — CRM.
@@ -231,19 +240,27 @@ async function computeAgents(userId, brand) {
       ],
     },
     atlas: {
-      status: fbConnected === 0 ? "attention" : activeCampaigns > 0 ? "active" : "working",
-      currentTask: fbConnected === 0 ? "Needs Facebook connected to run ads" : activeCampaigns > 0 ? `Managing ${activeCampaigns} live campaign${activeCampaigns === 1 ? "" : "s"}` : "Ready to launch your first campaign",
+      status: fbConnected === 0 ? "attention" : liveCampaigns > 0 || preparedCampaigns > 0 ? "active" : "working",
+      currentTask: fbConnected === 0
+        ? "Needs Facebook connected to run ads"
+        : liveCampaigns > 0
+          ? `Managing ${liveCampaigns} live campaign${liveCampaigns === 1 ? "" : "s"}${preparedCampaigns > 0 ? ` (+${preparedCampaigns} created, paused — not spending)` : ""}`
+          : preparedCampaigns > 0
+            ? `${preparedCampaigns} campaign${preparedCampaigns === 1 ? "" : "s"} created, paused — not spending`
+            : "Ready to launch your first campaign",
       weekly: [
-        { label: "Active campaigns", value: activeCampaigns },
-        { label: "Launched (7d)", value: campaignsWeek },
+        { label: "Live campaigns", value: liveCampaigns, sourceClass: "feature" },
+        { label: "Created, paused", value: preparedCampaigns, sourceClass: "feature" },
+        { label: "Launched (7d)", value: campaignsWeek, sourceClass: "feature" },
       ],
     },
     nova: {
       status: activeCal > 0 || postsScheduled > 0 ? "active" : "working",
       currentTask: postsScheduled > 0 ? `${postsScheduled} post${postsScheduled === 1 ? "" : "s"} scheduled` : "Ready to build your content calendar",
       weekly: [
-        { label: "Published (7d)", value: postsWeek },
-        { label: "Scheduled", value: postsScheduled },
+        // Spine truth: verified publish attempts, not feature-table rows.
+        { label: "Published (7d, verified)", value: postsVerifiedWeek, sourceClass: "spine" },
+        { label: "Scheduled", value: postsScheduled, sourceClass: "feature" },
       ],
     },
     pulse: {
@@ -281,12 +298,14 @@ async function computeAgents(userId, brand) {
       ],
     },
     sage: {
-      // Sage never stops researching — its identity status is always Active,
-      // regardless of urgent-signal count (urgent signals surface in currentTask).
-      status: "active",
+      // Honest status (Section F): derived from recorded activity, never
+      // hard-coded "active". Recent findings = active; none = working.
+      status: sageFindingsWeek > 0 || sageUrgent > 0 ? "active" : "working",
       currentTask: sageUrgent > 0
         ? `${sageUrgent} urgent industry signal${sageUrgent === 1 ? "" : "s"} for you`
-        : "Studying your industry and competitors around the clock",
+        : sageFindingsWeek > 0
+          ? `${sageFindingsWeek} new industry finding${sageFindingsWeek === 1 ? "" : "s"} this week`
+          : "No new findings recorded this week",
       weekly: [
         { label: "Findings (7d)", value: sageFindingsWeek },
         { label: "Urgent (7d)", value: sageUrgent },
@@ -294,10 +313,11 @@ async function computeAgents(userId, brand) {
       ],
     },
     vision: {
-      status: "active",
+      // Honest status (Section F): recorded studies/knowledge only.
+      status: visionStudiesWeek > 0 ? "active" : "working",
       currentTask: visionRow
         ? `Visual knowledge v${visionRow.version} — ${visionRow.confidence}% confidence`
-        : "Preparing to study your industry's visual landscape",
+        : "No visual study recorded yet",
       weekly: [
         { label: "Studies (7d)", value: visionStudiesWeek },
         { label: "Forge consults (7d)", value: visionConsultsWeek },
@@ -390,7 +410,10 @@ async function getMissionControl(req, res) {
     const agents = filterAgentsFor(req, await computeAgents(userId, brand));
 
     const leadsWeek = bid ? await n(`SELECT COUNT(*)::int AS n FROM leads WHERE brand_id = $1 AND ${WEEK}`, [bid]) : 0;
-    const activeCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status IN ('created_paused', 'live')", [bid]) : 0;
+    // Honest narration (D-39): live and created_paused reported separately —
+    // a created-paused campaign is never presented as running/active spend.
+    const liveCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status = 'live'", [bid]) : 0;
+    const preparedCampaigns = bid ? await n("SELECT COUNT(*)::int AS n FROM campaigns WHERE brand_id = $1 AND status = 'created_paused'", [bid]) : 0;
     const activeCal = bid ? await n("SELECT COUNT(*)::int AS n FROM content_calendars WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
     const seqActive = bid ? await n("SELECT COUNT(*)::int AS n FROM follow_up_sequences WHERE brand_id = $1 AND status = 'active'", [bid]) : 0;
     const postsToday = bid ? await n("SELECT COUNT(*)::int AS n FROM social_posts WHERE brand_id = $1 AND published_time::date = CURRENT_DATE", [bid]) : 0;
@@ -454,7 +477,7 @@ async function getMissionControl(req, res) {
     // — Mission Control must never say "Good morning" in the afternoon.
     const tod = await userPartOfDay(userId);
     const briefing =
-      `${greetingBare(tod.part)} ${leadsWeek} new lead${leadsWeek === 1 ? "" : "s"} this week and ${activeCampaigns} live campaign${activeCampaigns === 1 ? "" : "s"}. ` +
+      `${greetingBare(tod.part)} ${leadsWeek} new lead${leadsWeek === 1 ? "" : "s"} this week and ${liveCampaigns} live campaign${liveCampaigns === 1 ? "" : "s"}${preparedCampaigns > 0 ? ` (plus ${preparedCampaigns} created, paused — not spending)` : ""}. ` +
       (attention.length ? `${attention.join(" and ")} need${attention.length === 1 ? "s" : ""} your attention. ` : "The whole team is running smoothly. ") +
       (sentinelFixes ? `Sentinel auto-fixed ${sentinelFixes} issue${sentinelFixes === 1 ? "" : "s"} this week.` : "No problems detected.");
 
@@ -476,8 +499,12 @@ async function getMissionControl(req, res) {
       agents,
       stats: {
         leadsThisWeek: leadsWeek,
-        activeCampaigns,
-        tasksRunning: activeCampaigns + activeCal + seqActive,
+        // Honest split (D-39): activeCampaigns keeps its legacy meaning for
+        // older clients but now counts ONLY live; created_paused is separate.
+        activeCampaigns: liveCampaigns,
+        liveCampaigns,
+        preparedCampaigns,
+        tasksRunning: liveCampaigns + activeCal + seqActive,
         completedToday: postsToday + leadsToday + callsToday,
         sentinelFixes,
         revenueEstimate: roi && roi.total_revenue != null ? Number(roi.total_revenue) : null,
