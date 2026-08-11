@@ -498,11 +498,11 @@ function PostWin({ brand, done, onDone, onChangeMind }) {
           {variations.map((v, i) => (
             <div key={i} className="rounded-xl border border-gray-800 bg-gray-950 p-3">
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
-                {typeof v === "string" ? v : v.content || v.text || ""}
+                {typeof v === "string" ? v : v.postText || v.content || v.text || ""}
               </p>
               <button
                 type="button"
-                onClick={() => prepare(typeof v === "string" ? v : v.content || v.text || "")}
+                onClick={() => prepare(typeof v === "string" ? v : v.postText || v.content || v.text || "")}
                 disabled={busy}
                 className={`${primaryBtn} mt-2`}
               >

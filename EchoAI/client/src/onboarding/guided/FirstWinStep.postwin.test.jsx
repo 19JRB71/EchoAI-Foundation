@@ -89,6 +89,48 @@ describe("PostWin (Prompt 024 honest flow)", () => {
     expect(screen.queryByText(/scheduled for tomorrow/i)).not.toBeInTheDocument();
   });
 
+  it("renders and prepares object variations via the server's literal postText field", async () => {
+    // Regression: /api/social/generate returns objects shaped
+    // { postText, hashtags, ... }. The client previously read v.content/v.text
+    // only, so every variation card rendered blank and "Use this one" would
+    // have submitted an empty post. Bind the client to the literal field name.
+    api.generateSocial.mockResolvedValue({
+      variations: [
+        {
+          postText: "Five-star job wrapped today — thank you!",
+          hashtags: ["#FiveStar"],
+          visualIdea: "before/after photo",
+        },
+      ],
+    });
+    api.prepareFirstWinPost.mockResolvedValue({
+      post: {
+        postId: "p1",
+        postContent: "Five-star job wrapped today — thank you!",
+        status: "prepared",
+      },
+    });
+    renderStep();
+
+    fireEvent.click(await screen.findByText("Publish my first social post"));
+    const input = await screen.findByPlaceholderText(/summer special/i);
+    fireEvent.change(input, { target: { value: "a five-star job" } });
+    fireEvent.click(screen.getByText("Write my post"));
+
+    // The variation text must be visible — a blank card is the bug.
+    expect(
+      await screen.findByText("Five-star job wrapped today — thank you!"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Use this one"));
+    await waitFor(() =>
+      expect(api.prepareFirstWinPost).toHaveBeenCalledWith({
+        brandId: "b1",
+        postContent: "Five-star job wrapped today — thank you!",
+      }),
+    );
+  });
+
   it("arms with the unbound consent copy version and shows the armed banner with Cancel", async () => {
     api.generateSocial.mockResolvedValue({ variations: ["Post A"] });
     api.prepareFirstWinPost.mockResolvedValue({
