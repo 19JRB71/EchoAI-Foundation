@@ -1,0 +1,1137 @@
+# PROMPT 024 FINAL ACCEPTANCE + CLEANUP
+# THEN PROMPT 025 STAGE 2 — COMPLETE CONSOLIDATED AUTHORIZATION
+
+Prompt 024 is ACCEPTED COMPLETE under the owner ruling dated 2026-08-11.
+Evidence E-30 is filed.
+
+PHASE F IS CLOSED.
+Project status: 25 of 30 complete.
+
+Prompt 025 Stage 2 is now UNBLOCKED.
+
+This single authorization supersedes the need to combine any earlier
+Prompt-025 Stage-2 message with a separate Prompt-024 cleanup instruction.
+
+Standing rules remain in force, including D-18, D-23, D-29, D-30,
+D-32, D-34, D-37, D-38, D-39, D-9 and GLOBAL_PROMPT_RULES.
+
+Do not begin Prompt 033 or Prompt 026 during Prompt-025 implementation.
+
+======================================================================
+PART I — PROMPT 024 FINAL CLEANUP
+======================================================================
+
+Prompt 024 is COMPLETE.
+
+Do not reopen it for its non-blocking findings.
+
+I-46 is filed for the FirstWinStep restore issue.
+I-44 and I-45 remain unchanged.
+
+Complete ONLY the following cleanup, in this order.
+
+
+1. DELETE THE LIVE FACEBOOK PROOF POST
+
+Delete:
+
+    140006069194366_122255667812056707
+
+from the South Dixie Storage Facebook Page using the existing deletion
+path.
+
+Evidence has already been captured, so deletion is now due under the
+evidence-before-cleanup rule.
+
+Record the provider deletion response separately.
+
+Do not delete unrelated real business posts.
+
+
+2. DELETE THE LIVE PROMPT-024 PROOF USER / BRAND
+
+Delete:
+
+    p024-live-1786459757@staging.zorecho.com
+
+and its proof brand:
+
+    e7119cf5...
+
+Use the canonical/admin deletion path.
+
+Associated proof-only brand-scoped artifacts may cascade where that is
+already the designed deletion behavior.
+
+
+3. DELETE THE EARLIER ORPHANED PROMPT-024 PROOF USER
+
+Delete:
+
+    p024-proof-1786388124...
+
+and its associated proof-only artifacts using the appropriate
+canonical/admin cleanup path.
+
+
+4. READ-ONLY CLEANUP VERIFICATION
+
+After cleanup verify read-only that:
+
+- the Facebook proof post is gone;
+- the live Prompt-024 proof user is gone;
+- its proof brand is gone;
+- the orphaned earlier proof user/artifacts are gone;
+- no unrelated staging records were removed.
+
+Return one-line confirmation for each cleanup item.
+
+Do not clean up unrelated evidence/history.
+
+
+======================================================================
+PART II — PROMPT 025 STAGE 2 AUTHORIZATION
+======================================================================
+
+# PROMPT 025 — STAGE 2
+# Agent operating model registry + Echo honest reporting
+
+Prepared under owner ruling D-39.
+
+Prompt 025 Stage-1 preflight is ACCEPTED WITH RULINGS.
+
+Prompt 024 is now FORMALLY COMPLETE, so the former issue gate is
+SATISFIED.
+
+BEGIN Prompt 025 Stage 2 immediately after the Prompt-024 cleanup above
+has been verified.
+
+Where this document conflicts with the Prompt-025 Stage-1 report,
+THIS DOCUMENT WINS.
+
+The consolidated issue package and its two governing invariants remain
+binding.
+
+The governing invariants must appear verbatim in code/docs:
+
+"The Prompt 025 registry documents and tests the operating model; it does
+not itself grant runtime authority."
+
+"Echo's evidence precedence selects what may be claimed; it does not
+rewrite underlying records."
+
+Master rule:
+
+Prompt 025 documents reality honestly, while Echo claims only what
+authoritative evidence actually proves.
+
+
+======================================================================
+SECTION A — ACCEPTED AS PREFLIGHTED
+======================================================================
+
+A1. ECHO SOURCE INVENTORY / honestStatus
+
+Implement the Echo source-inventory dispositions from Stage-1 F1 and the
+honestStatus call-site swap list from F10.
+
+Identity-only reads may remain where they currently live.
+
+Every OUTCOME read identified for replacement moves to:
+
+    utils/honestStatus.js
+
+Authoritative records supply outcome.
+
+Feature tables may supply identity, names, labels, or quantities where
+appropriate, but may not manufacture an externally verified outcome.
+
+Binding distinction:
+
+    "I cannot verify that it published"
+
+is NOT equivalent to:
+
+    "It failed to publish."
+
+Absence of proof is never proof of failure.
+
+If an authoritative source cannot be read, Echo reports that it cannot
+verify the outcome right now.
+
+It must never:
+
+- fall back to optimistic feature-table success;
+- convert a read failure into failure of the external action.
+
+
+A2. OPERATING-ENTITY REGISTRY
+
+Implement:
+
+    config/agentRegistry.js
+
+and:
+
+    AGENT_OPERATING_MODEL.md
+
+for every operating entity actually proven by the current tree.
+
+Registry entries must distinguish at minimum:
+
+- id
+- display name
+- roleClasses
+- current status
+- permittedTools
+- prohibitedActions
+- observedExecutionPaths
+- triggers
+- inputs
+- outputs
+- workQueue where applicable
+- escalation
+- approvalRequirements
+- proofRequirements
+- successCriteria
+- adapterBacked where applicable
+- knowledgeAuthority where applicable
+- discrepancies
+
+PERMITTED is not the same thing as CURRENTLY USED.
+
+An observed execution path does NOT become permitted merely because
+legacy code currently uses it.
+
+Observed legacy behavior that exceeds the intended operating model must
+be reported honestly.
+
+Never legitimize a discrepancy by broadening permittedTools.
+
+
+A3. REGISTRY IS DESCRIPTIVE, NOT A NEW ENFORCEMENT LAYER
+
+The registry documents and tests the operating model.
+
+It does not itself grant runtime authority.
+
+No tool call becomes authorized merely because agentRegistry.js lists the
+tool as permitted unless an existing enforcement boundary independently
+authorizes it.
+
+A registry mismatch causes a test/report failure.
+
+It is never "fixed" by broadening permissions to match implementation.
+
+Runtime enforcement gaps remain separate owner-authorized work.
+
+
+A4. DERIVED REGISTRY COMPLETENESS
+
+Completeness must be independently derived from the actual current tree.
+
+Do NOT maintain a second hand-written expected roster.
+
+At minimum compare both directions against:
+
+1. AGENTS keys from agentsController;
+2. task-type vocabulary parsed from migrations 131/132/133;
+3. scheduler job names parsed from utils/scheduler.js;
+4. other independently discovered runtime registration/dispatch surfaces
+   identified during Stage 1;
+5. Hermes as its own operating-entity class.
+
+A discovered current runtime operating entity absent from the registry
+must fail validation.
+
+A registry entry that has no corresponding current-tree entity must also
+be surfaced unless explicitly classified historical/dark under an approved
+rule.
+
+
+A5. OPERATING-ENTITY ONTOLOGY — D-39
+
+Do NOT call everything an "agent."
+
+This is a registry of OPERATING ENTITIES.
+
+Stage 1 derived a candidate composition of:
+
+    10 named agent identities
+    + 44 scheduled automations
+    + 1 Hermes decision-brain entity
+
+but these numbers MUST NOT be copied as constants.
+
+Derive the final composition from the Stage-2 current tree.
+
+Documentation must report composition by role class.
+
+Never write:
+
+    "55 agents"
+
+unless the actual product ontology somehow changes under explicit owner
+approval, which is NOT authorized here.
+
+
+A6. PER-FLOW EXECUTION CLASSIFICATION
+
+Classify flows honestly as applicable:
+
+- spine / executeExternal
+- adapter-backed
+- feature-only
+- dark
+- gated AI
+- ungated AI
+
+Current adopted external-side-effect flows expected to remain spine-native
+include:
+
+- social publish
+- Autopilot ad launch
+- marketing/report email
+- Prompt-024 first-win Facebook publish
+
+Verify rather than assume.
+
+Adapter-backed workflows must name the adapter and declared retirement
+prompt where already established.
+
+Preserve D-29.7's adapter ratchet.
+
+Feature-only flows must explicitly carry language equivalent to:
+
+    cannot support verified-success claims
+
+unless deterministic authoritative evidence actually exists.
+
+
+A7. AI-CALL ACCOUNTING HONESTY — I-42
+
+Registry entries must truthfully show which observed AI execution paths use:
+
+    createMessage
+    aiGate
+    ai_usage_log
+
+and which are among I-42's known ungated direct-provider call sites.
+
+I-42 IS DESCRIPTION-ONLY IN PROMPT 025.
+
+Do not migrate or repair the 37 ungated AI call sites under this prompt.
+
+Do not make registry entries appear gated if observed implementation is not.
+
+
+A8. HERMES
+
+Hermes receives a descriptive registry entry only.
+
+D-9 remains binding.
+
+Do NOT modify:
+
+- Hermes behavior
+- wrapper
+- prompt
+- timeout
+- telemetry
+- hermes_decisions
+- decision policy
+
+
+A9. KNOWLEDGE AUTHORITY
+
+Fact-proposing agents/workflows such as:
+
+- Sage research
+- autonomous growth
+- discovery
+- Prompt-023 interview
+
+must be represented as PROPOSERS through the brandKnowledge boundary.
+
+They do not become authoritative profile writers.
+
+Approved/versioned brand knowledge is distinct from:
+
+- unapproved proposals;
+- draft research;
+- legacy unversioned values.
+
+Proposal ordering is candidate/question selection.
+
+It is not authority.
+
+
+======================================================================
+SECTION B — ECHO EVIDENCE / CLAIM ARCHITECTURE
+======================================================================
+
+B1. EVIDENCE PRECEDENCE
+
+Implement the deterministic evidence-precedence table from Stage 1.
+
+At minimum cover these conflict cases:
+
+1. feature row says active while spine says MANUAL_REVIEW;
+
+2. provider accepted exists but no verified read-back;
+
+3. feature row says published but proof is absent;
+
+4. Prompt-024 authorization claimed + post scheduled/publishing but no
+   proof;
+
+5. proof exists but a stale feature row still says pending;
+
+6. multiple attempts exist for one logical operation;
+
+7. older attempt is verified while the newer attempt is pending or failed.
+
+The evidence precedence controls NARRATION ONLY.
+
+It does not rewrite records.
+
+Required rule:
+
+    Absence of proof is NEVER proof of failure.
+
+
+B2. UNKNOWN IS NOT NEGATIVE
+
+Use a closed outcome vocabulary:
+
+    verified_success
+    in_progress_or_prepared
+    known_failure
+    manual_review_uncertain
+    temporarily_unverifiable
+
+Read-source failure must yield:
+
+    temporarily_unverifiable
+
+with language equivalent to:
+
+    "I can't verify that right now."
+
+It must yield neither:
+
+- optimistic success;
+- nor invented failure.
+
+
+B3. DETERMINISTIC ATTEMPT / PROOF CORRELATION
+
+Verified-success narration requires deterministic correlation through the
+actual execution lineage.
+
+No effective query of:
+
+    "Does this brand have any proof somewhere?"
+
+may support a verified-success claim.
+
+Use the actual relationships/keys linking:
+
+logical operation
+→ task/attempt
+→ external action
+→ proof.
+
+For Prompt-024 first win, authorization/proof/celebration must correlate to
+the same proof identity.
+
+If a flow cannot be correlated deterministically:
+
+do not heuristically join it.
+
+Cap its language at:
+
+    "per our records — not externally verified"
+
+or another equally honest formulation.
+
+
+B4. FRESHNESS IS PART OF HONESTY
+
+Historical external proof establishes a historical verified event.
+
+It does NOT automatically establish present state.
+
+DO NOT implement the Stage-1 candidate 24-hour TTL.
+
+NO arbitrary TTL is authorized.
+
+Campaign narration follows this rule:
+
+- if a successful verification timestamp exists:
+      "verified live on/as of [timestamp]"
+
+- bare:
+      "currently running"
+
+  is allowed ONLY if an existing authoritative source actually proves a
+  current state strongly enough to support that wording;
+
+- otherwise use timestamped/as-of wording.
+
+Do not create a new freshness policy in Prompt 025.
+
+
+B5. ATTRIBUTION HONESTY
+
+Echo may attribute an outcome to a named agent/workflow only if the
+authoritative lineage proves BOTH:
+
+1. the event/outcome;
+2. the actor attribution.
+
+Examples Stage 1 considered supportable:
+
+- Autopilot / Atlas ad launches where actor/task lineage exists;
+- Sage findings where provenance supports Sage attribution;
+- Growth actions where growth_action lineage exists.
+
+Example not currently supportable:
+
+    "Nova published X"
+
+when social_publish lineage does not record Nova.
+
+In that case Echo reports the verified event without invented agent credit.
+
+Do NOT add agent_id or another new lineage column in Prompt 025.
+
+
+B6. ECHO CLAIM MATRIX
+
+Implement and maintain the Stage-1 Echo Claim Matrix as the design
+contract for honestStatus.
+
+At minimum it includes:
+
+- external social publish
+- Prompt-024 first win
+- campaign current state
+- ad launch outcome
+- email/report delivery
+- SMS send
+- brand fact
+- setup/gap nudge
+- inbox/lead counts
+- agent activity rollup
+
+If implementation discovers another claim class:
+
+add a row plus tests.
+
+Do not add ad-hoc status narration outside this discipline.
+
+
+======================================================================
+SECTION C — D-39 CREATED_PAUSED RULING
+======================================================================
+
+created_paused NARRATION FIX IS IN SCOPE.
+
+Every discovered reporting/narration instance where created_paused is:
+
+- described as running;
+- counted as running;
+- described as spending;
+
+must be corrected to the established truthful semantics:
+
+    "created, paused — not spending"
+
+Known locations from Stage 1 include:
+
+- echoBriefing.js around 273–277;
+- echoBriefing.js around 1016–1019;
+- agentsController.js around 170;
+
+plus any further REPORTING/NARRATION occurrences discovered during the
+authorized call-site conversion.
+
+DO NOT alter:
+
+- campaign state machine;
+- provider behavior;
+- campaign execution behavior.
+
+This is narration/reporting only.
+
+Required regression:
+
+    created_paused can NEVER appear in a running count or running/spending
+    sentence.
+
+
+======================================================================
+SECTION D — JOBBER INVESTIGATION — MANDATORY
+======================================================================
+
+Before finalizing the registry, perform a targeted Jobber investigation
+from a D-37-compliant fresh GitHub clone.
+
+Accepted historical record indicates a Jobber execution path involving:
+
+    clientCreate
+
+under a per-lead advisory lock.
+
+IF FOUND:
+
+- identify the exact current path;
+- classify it honestly;
+- record its current idempotency/gating/execution reality.
+
+IF ABSENT:
+
+- do not recreate it;
+- do not invent an active entry;
+- inspect git history;
+- determine whether it was:
+    removed;
+    renamed;
+    moved;
+    never merged;
+    or otherwise explained.
+
+Classify according to the actual current tree.
+
+IF THE HISTORY SHOWS AN UNEXPLAINED REMOVAL OR CLOBBER:
+
+    STOP AND REPORT IMMEDIATELY.
+
+Do not repair it without owner authorization.
+
+Final report requires a named:
+
+    JOBBER INVESTIGATION
+
+section.
+
+
+======================================================================
+SECTION E — honestStatus CALL-SITE SWAPS
+======================================================================
+
+Implement utils/honestStatus.js and move the identified OUTCOME narration
+through it.
+
+Stage-1 identified likely/current swap sites including:
+
+- utils/echoBriefing.js campaign/outcome narration;
+- echo briefing Data(JSON) outcome fields;
+- controllers/echoCompanionController.js status context;
+- controllers/echoSectionBriefController.js campaign narration;
+- controllers/agentsController.js computeAgents status;
+- generation-time voice notifications where external outcome language is
+  composed;
+- failed-send spoken/notification generation where applicable.
+
+Identity-only reads may remain.
+
+If additional outcome narration sites are discovered during the authorized
+tree work:
+
+classify and route them through the same honestStatus discipline where this
+is purely reporting semantics.
+
+If making a path honest requires changing the underlying agent/provider
+behavior:
+
+    STOP AND REPORT.
+
+
+======================================================================
+SECTION F — computeAgents
+======================================================================
+
+Where adopted spine truth exists:
+
+use it.
+
+Expected examples:
+
+- Atlas campaign activity → ad_launch task/lifecycle truth;
+- Nova/social publishing activity → social_publish outcome records;
+- email-related activity → email_send task truth.
+
+Feature-sourced activity that remains feature-sourced must be labeled
+honestly, e.g.:
+
+    sourceClass: 'feature'
+
+Sage and Vision must no longer be hard-coded `active`.
+
+Use:
+
+- real recorded recency where supported;
+- or honest language equivalent to:
+      "no recent recorded activity"
+
+Do not fabricate activity.
+
+
+======================================================================
+SECTION G — PROMPT-024 FIRST-WIN NARRATION
+======================================================================
+
+Prompt-024 onboarding status remains a projection.
+
+It is NOT a new authority for Echo.
+
+For first-win narration, honestStatus.forFirstWin must ultimately use the
+actual:
+
+- authorization;
+- external proof;
+- celebration claim
+
+records.
+
+Prepared is never narrated as published.
+
+Armed is never narrated as won.
+
+Claimed/unverified is narrated as in-progress/unverified.
+
+Provider accepted without read-back is not a first win.
+
+Verified proof establishes the event.
+
+Celebration claim establishes whether celebration was already emitted.
+
+
+======================================================================
+SECTION H — REGISTRY VALIDATION / FAIL CLOSED
+======================================================================
+
+Implement deterministic fail-closed validation including:
+
+- unique operating-entity IDs;
+- closed role-class vocabulary;
+- valid workQueue/task filters;
+- recognized execution-path classes;
+- permitted/prohibited contradiction detection;
+- independently derived registry completeness BOTH directions;
+- no nonexistent/retired active entry unless explicitly historical/dark;
+- feature-only verified-success limitation marker;
+- adapter-backed entries naming retirement prompt where established.
+
+Malformed registry data must fail tests.
+
+It must not be ignored.
+
+
+======================================================================
+SECTION I — QUERY / TENANT SAFETY
+======================================================================
+
+New rollup/status reads must be:
+
+- tenant/brand bounded;
+- batched where possible;
+- free of N+1 behavior;
+- free of unbounded scans;
+- free of per-row provider calls.
+
+honestStatus does not make provider calls to establish freshness.
+
+Use recorded authoritative evidence only.
+
+Tenant isolation remains unchanged.
+
+
+======================================================================
+SECTION J — REQUIRED TESTING
+======================================================================
+
+At minimum include:
+
+1. fake-success:
+   optimistic feature row + no proof
+   ⇒ no verified-success claim;
+
+2. briefing-source trace:
+   outcome sentences trace to authoritative sources;
+
+3. one regression per evidence-precedence table case;
+
+4. correlation-key tests:
+   cross-attempt isolation;
+   no brand-level any-proof join;
+
+5. freshness:
+   historical "verified live as of" vs unsupported "currently running";
+
+6. no arbitrary TTL behavior;
+
+7. closed outcome vocabulary;
+
+8. unknown != negative;
+
+9. source read failure:
+   neither success nor failure invented;
+
+10. attribution:
+    proof without actor lineage ⇒ event without agent credit;
+
+11. created_paused never appears in running counts;
+
+12. registry completeness both directions against derived current-tree
+    inventory;
+
+13. fail-closed registry schema validation;
+
+14. unmigrated / feature-only flow phrasing;
+
+15. Prompt-024:
+    prepared/armed/claimed cannot become published/won narration without
+    proof;
+
+16. approved brand fact vs legacy/unapproved phrasing;
+
+17. safe contradiction scenario:
+    optimistic feature row + MANUAL_REVIEW/non-success lifecycle
+    ⇒ authoritative lifecycle narration wins;
+
+18. DB-backed endpoint coverage for every touched endpoint;
+
+19. client tests if any UI state changes.
+
+Do not repeat the flat-client-count problem from Prompts 011 and 023.
+
+
+======================================================================
+SECTION K — FIVE STAGING TRANSCRIPTS
+======================================================================
+
+Produce five D-23-redacted staging transcripts.
+
+Every answer must be traced to its authoritative evidence.
+
+TRANSCRIPT 1 — CREATED_PAUSED
+
+Ask Echo about a created_paused campaign.
+
+Required narration:
+
+    paused / not spending
+
+It must not count as running.
+
+
+TRANSCRIPT 2 — VERIFIED PUBLISH
+
+Ask Echo about a verified social publish.
+
+Echo must cite/use the real correlated post/proof identity.
+
+A social_posts feature row alone cannot establish success.
+
+
+TRANSCRIPT 3 — PROMPT-024 FIRST WIN
+
+Ask Echo about the Prompt-024 first-win evidence.
+
+Narration must match the actual:
+
+authorization
+→ proof
+→ celebration
+
+records exactly as they exist at transcript time.
+
+
+TRANSCRIPT 4 — FAKE SUCCESS
+
+Create/use a safe internal staging condition where an optimistic feature
+state exists without authoritative verification.
+
+Echo must use language equivalent to:
+
+    "created / recorded, but not externally verified."
+
+
+TRANSCRIPT 5 — CONTRADICTION PROOF
+
+Create/use a safe internal contradiction:
+
+optimistic feature-table state
++
+non-success authoritative lifecycle state
+
+Echo must follow authoritative lifecycle evidence.
+
+Do NOT manufacture a real external provider failure.
+
+Evidence before cleanup.
+
+
+======================================================================
+SECTION L — PROCESS / D-18 / D-32 / D-37
+======================================================================
+
+FIRST ACT:
+
+1. Obtain CURRENT origin/staging SHA.
+2. Create a BRAND-NEW GitHub clone.
+3. Verify clone HEAD equals the intended staging SHA.
+4. Do not use a .local clone as the audit/counting truth surface.
+5. Re-establish canonical baselines from that fresh clone.
+
+Last observed post-024 totals:
+
+    server 1287 / 1287
+    client 430 / 430
+
+REFERENCE ONLY.
+
+Verify actual totals.
+
+No snapshot commits.
+
+Branch under D-18 from the verified current staging tip.
+
+Main untouched.
+
+No migration expected or authorized.
+
+If a migration/schema need emerges:
+
+    STOP AND REPORT.
+
+After merge:
+
+- fresh GitHub clone of merged staging tip;
+- canonical server suite;
+- canonical client suite;
+- exact accounting;
+- build;
+- SENTINELS recheck on the D-37 surface;
+- deletion/rename audit from actual git diff;
+- SW/app-shell bump only if client changed.
+
+
+======================================================================
+SECTION M — SENTINELS
+======================================================================
+
+The current known manifest is:
+
+    SENTINELS.md
+
+at repository root.
+
+Audit it only from a D-37-compliant fresh GitHub clone.
+
+Report:
+
+MATCH =
+MISSING =
+CLOBBERED =
+
+Trace legitimately evolved blobs to accepted commits.
+
+Do not classify:
+
+    "file wasn't where I looked"
+
+as:
+
+    "no regressions."
+
+
+======================================================================
+SECTION N — I-29 CALENDAR VERIFICATION
+======================================================================
+
+I-29 is detached under D-38.
+
+It does NOT gate Prompt 025.
+
+The standalone Google refresh-token survival check is due ON OR AFTER:
+
+    2026-08-14
+
+Do not run it early.
+
+If Prompt-025's final report is the first project report on/after that date
+and the standalone check is not already recorded:
+
+perform/carry the one-line read-only result as required.
+
+Otherwise report that the standalone result is already on record.
+
+Do not reconnect or rotate Google merely to make the evidence pass.
+
+
+======================================================================
+SECTION O — D-34 FOLLOW-UP DISCIPLINE
+======================================================================
+
+You MAY discover risks, defects, or technical debt.
+
+You MUST NOT:
+
+- self-authorize;
+- implement unrelated findings;
+- schedule them;
+- reserve prompt numbers;
+- expand Prompt 025.
+
+Report findings once in the final report under:
+
+    Findings / Potential Follow-ups — Owner Decision Required
+
+Do not repeatedly announce this rule while working.
+
+
+======================================================================
+SECTION P — FINAL REPORT REQUIREMENTS
+======================================================================
+
+Return ONE consolidated Prompt-025 report containing at minimum:
+
+1. base staging SHA;
+2. fresh-clone verification;
+3. branch;
+4. commit SHA(s);
+5. PR;
+6. merge SHA;
+7. deployed staging SHA;
+8. health verification;
+9. starting server/client totals as actually observed;
+10. final exact test accounting;
+11. per-file test decomposition where changed;
+12. final fresh-clone suite totals;
+13. JOBBER INVESTIGATION section;
+14. derived operating-entity composition;
+15. explicit statement that operating entities are not all called agents;
+16. registry schema as merged;
+17. registry completeness evidence;
+18. registry validation suite;
+19. permitted-vs-observed discrepancies;
+20. I-42 ungated-AI reality annotations;
+21. adapter inventory;
+22. dark-flow inventory;
+23. created_paused fix inventory;
+24. explicit statement campaign lifecycle was untouched;
+25. implemented evidence-precedence table;
+26. per-case regression names;
+27. final Echo Claim Matrix;
+28. honestStatus API and call-site swap list;
+29. closed outcome vocabulary;
+30. unknown != negative evidence;
+31. source-read failure evidence;
+32. deterministic correlation evidence;
+33. proof that no heuristic brand-level proof join establishes success;
+34. freshness/as-of evidence;
+35. proof no arbitrary TTL was introduced;
+36. attribution evidence;
+37. brand-fact approved/unapproved phrasing evidence;
+38. Prompt-024 first-win narration evidence;
+39. all five staging transcripts;
+40. contradiction transcript called out separately;
+41. query-safety statement;
+42. DB-backed endpoint test accounting where applicable;
+43. client-test accounting if applicable;
+44. explicit statement Hermes untouched;
+45. explicit statement no migration/schema change;
+46. SENTINELS MATCH/MISSING/CLOBBERED result;
+47. deletion/rename review;
+48. build result;
+49. SW cache result;
+50. rollback procedure;
+51. I-29 carrier line if applicable;
+52. deviations / UNVERIFIED items;
+53. Findings / Potential Follow-ups — Owner Decision Required.
+
+
+Required governing statements:
+
+"The Prompt 025 registry documents and tests the operating model; it does
+not itself grant runtime authority."
+
+"Echo's evidence precedence selects what may be claimed; it does not
+rewrite underlying records."
+
+"Absence of proof is never proof of failure."
+
+"The registry describes operating entities by role; it does not redefine
+every runtime automation as an agent."
+
+
+======================================================================
+STOP-AND-REPORT CONDITIONS
+======================================================================
+
+STOP and return to the owner if:
+
+1. any permission must be broadened merely to match observed legacy behavior;
+
+2. any verified-success claim requires heuristic proof correlation;
+
+3. any actual agent/entity behavior change becomes necessary;
+
+4. any Hermes change becomes necessary;
+
+5. any schema or migration becomes necessary;
+
+6. the Jobber investigation reveals an unexplained removal/clobber;
+
+7. a narration path cannot be made honest without changing underlying
+   behavior;
+
+8. an authoritative status source cannot be classified;
+
+9. registry completeness cannot be independently derived from the tree;
+
+10. an arbitrary current-state TTL/policy becomes necessary;
+
+11. deterministic proof-attempt correlation cannot be established for a flow
+    that would otherwise claim verified success;
+
+12. adding agent_id or new lineage schema becomes necessary;
+
+13. unexpected out-of-scope deletion/rename appears;
+
+14. anything contradicts D-39 or the governing invariants.
+
+Do not improvise around a STOP condition.
+
+
+======================================================================
+FINAL INSTRUCTION
+======================================================================
+
+Prompt 024 is COMPLETE.
+
+Phase F is CLOSED.
+
+Perform the authorized Prompt-024 cleanup first.
+
+Verify that cleanup.
+
+Then begin Prompt 025 Stage 2 immediately from a D-37 fresh GitHub clone
+of the current staging tip.
+
+No additional waiting period is required.
+
+Do not start Prompt 033 or Prompt 026 during Prompt-025 implementation.
+
+Implement, deploy under D-18, perform the required staging proofs, and
+return:
+
+    PROMPT 025 — FINAL EVIDENCE DELIVERED; AWAITING OWNER ACCEPTANCE
+
+Do not self-mark Prompt 025 COMPLETE.
+
+— END COMPLETE CONSOLIDATED AUTHORIZATION —
