@@ -41,6 +41,31 @@ class, derived at validation time from:
 Role classes (closed vocabulary): `director`, `specialist_agent`,
 `scheduled_automation`, `decision_brain`.
 
+### Role-class mapping — authorized 8-class vocabulary → implemented 4
+
+The authorized registry contract described an 8-class closed vocabulary. The
+implementation consolidates it to 4 role classes; the remaining distinctions
+are carried by orthogonal registry fields, not lost. Deterministic mapping
+(validated by `tests/registryContractMapping.test.js`):
+
+| Authorized class | Implemented representation |
+|---|---|
+| `interface_personality` | role class `director` (Echo — the only owner-facing personality) |
+| `department_head` | role class `specialist_agent` (each named identity heads its department) |
+| `worker` | role class `specialist_agent` — the same named identities execute their own department's work; the tree has no separate worker entities to classify |
+| `tool` | not a role class: capability inventory lives in each entry's `permittedTools` |
+| `automation` | role class `scheduled_automation` |
+| `scheduled_job` | role class `scheduled_automation` (the per-job `JOB_META` entries) |
+| `approval_authority` | not an agent class by design: approval authority rests with the **owner** only; encoded as `prohibitedActions` ("never self-approve") on every entry |
+| `execution_service` | not a role class: execution mechanics are the execution-path classes below (`spine_executeExternal`, `gated_ai`, …) |
+
+`decision_brain` (Hermes) is an implemented class outside the original 8 —
+required because Hermes is neither a personality, a department, nor a job
+(descriptive-only entry, D-9). No operating-model distinction required by
+Prompt 025 is expressible in the 8-class vocabulary but not in this scheme;
+the consolidation is equivalence under D-39's "operating entities" ontology,
+made explicit here rather than silently changed.
+
 The registry validation suite (`tests/agentRegistry.test.js`) derives the
 expected inventory from those sources **both directions**: a runtime entity
 missing from the registry fails validation, and a registry entry with no
@@ -56,6 +81,17 @@ current-tree counterpart fails validation unless explicitly `historical`/`dark`.
 | `dark` | built, flag-off |
 | `gated_ai` | AI via `config/anthropic.createMessage` + aiGate + `ai_usage_log` |
 | `ungated_ai` | I-42 direct-provider call sites — **description-only in Prompt 025**; not migrated, not dressed up as gated |
+
+I-42 ungated-AI liability — two baselines are kept so it can never silently
+shrink: **historical acceptance baseline 22 files / 37 direct
+`anthropic.messages.create` sites** (narrow literal pattern of that audit),
+and **current observed liability 30 files / 43 direct `*.messages.create(`
+sites** (broad basis: any client variable name; excludes tests and the gated
+chokepoint `config/anthropic.js`). The delta is a counting-basis correction —
+the earlier 16-file registry list omitted the 14 `prompts/*.js` modules —
+not a migration; nothing has been repaired or gated. The full file list is
+`config/agentRegistry.js` `UNGATED_AI_FILES`, re-derived from the tree by
+`tests/registryContractMapping.test.js` (fail-closed).
 | `none` | no external side effects / no AI |
 
 Current adopted spine-native external-side-effect flows (verified in tree):

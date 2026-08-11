@@ -46,6 +46,20 @@ const FEATURE_ONLY_LIMITATION = "cannot support verified-success claims";
 // I-42 reality (description-only in Prompt 025): files with direct provider
 // calls that bypass config/anthropic.createMessage + aiGate + ai_usage_log.
 // Derived from the current tree; do not "fix" entries to look gated.
+//
+// Counting basis (owner corrective package, 2026-08-11): a file is listed if
+// it contains any direct `<client>.messages.create(` call, excluding tests
+// and the gated chokepoint config/anthropic.js itself. Two baselines are
+// preserved so the liability can never silently shrink:
+//   - HISTORICAL I-42 baseline (as recorded at acceptance): 22 files /
+//     37 direct sites, counted on the narrower literal
+//     `anthropic.messages.create` pattern of that audit.
+//   - CURRENT observed liability (this tree, broad basis): 30 files /
+//     43 direct sites — the earlier registry list of 16 omitted the 14
+//     prompts/*.js modules, which also call the provider directly. Nothing
+//     was migrated; the earlier 16-file list was an undercount, corrected
+//     here. tests/registryContractMapping.test.js re-derives this list from
+//     the tree so any drift fails the suite (fail-closed inventory).
 // ---------------------------------------------------------------------------
 const UNGATED_AI_FILES = Object.freeze([
   "utils/echoPersonal.js",
@@ -64,7 +78,24 @@ const UNGATED_AI_FILES = Object.freeze([
   "controllers/salesAgentController.js",
   "controllers/smsMarketingController.js",
   "controllers/websiteChatbotController.js",
+  "prompts/customerIntelligencePrompt.js",
+  "prompts/emailCampaignPrompt.js",
+  "prompts/emailMarketingPrompt.js",
+  "prompts/followUpSequencePrompt.js",
+  "prompts/healthMonitorPrompt.js",
+  "prompts/imagePromptEngineerPrompt.js",
+  "prompts/reputationPrompt.js",
+  "prompts/roiAnalystPrompt.js",
+  "prompts/roiReportPrompt.js",
+  "prompts/salesScriptPrompt.js",
+  "prompts/seoContentPrompt.js",
+  "prompts/smsMarketingPrompt.js",
+  "prompts/socialContentPrompt.js",
+  "prompts/videoContentPrompt.js",
 ]);
+
+// Historical I-42 acceptance baseline — never edit (see counting-basis note).
+const I42_HISTORICAL_BASELINE = Object.freeze({ files: 22, sites: 37 });
 
 // ---------------------------------------------------------------------------
 // Named agent identities (roster mirrors controllers/agentsController.js —
@@ -435,6 +466,7 @@ module.exports = {
   STATUSES,
   FEATURE_ONLY_LIMITATION,
   UNGATED_AI_FILES,
+  I42_HISTORICAL_BASELINE,
   AGENT_ENTRIES,
   HERMES_ENTRY,
   JOB_META,
