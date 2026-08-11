@@ -75,3 +75,22 @@ All other deletions/renames in the history are `EchoAI/client/dist/assets/index-
 4. Any deletion outside prompt scope is an automatic STOP AND REPORT.
 5. Test baselines are valid only when run from the merged staging tree.
 6. This file must be rechecked after every future merge.
+
+---
+
+# Retroactive Sentinel Audit — 2026-08-11 (Prompt 025 Stage 2, Section M)
+
+**Audit date:** 2026-08-11 (UTC)
+**Audit tree:** fresh clone of staging tip — SHA `9a33e4dd75405cff52914c27941413465e56c2b6` (verified against the live staging health endpoint and `git ls-remote`). The dev workspace was NOT used as a source of truth.
+**Method:** identical to the 2026-08-04 audit — blob-hash comparison of every sentinel artifact at the current tip against its accepted expected blob, with commit-history inspection wherever hashes drifted since the last audit.
+
+**Sentinels checked: 41. Verdict summary: 41 MATCH · 0 MISSING · 0 CLOBBERED.**
+
+Drift since the 2026-08-04 audit (all other 39 artifacts are blob-identical to that audit's verified state):
+
+| Sentinel | Artifact path | 2026-08-04 blob | Current blob | Verdict |
+|---|---|---|---|---|
+| P019 emailSendSpine tests | EchoAI/tests/emailSendSpine.test.js | d2b67003 | 7bf65a08 | MATCH (evolved: only `332207d`, accepted Prompt 011 Stage 2; 9 spine tests intact, suite green at tip — 1287/1287 baseline) |
+| P019 unified Approvals Inbox | EchoAI/controllers/approvalsController.js | 05094f1c | 10a19618 | MATCH (evolved: only `332207d`, accepted Prompt 011 Stage 2 — Company Truth approvals now project natively from `brand_knowledge_revisions`; inbox routes and ownership checks intact) |
+
+No sentinel artifact was removed or clobbered by any commit between `ee7ce28` and `9a33e4dd`.

@@ -16,6 +16,7 @@
 // Demo brands are excluded from every query (real data only).
 
 const db = require("../config/db");
+const honestStatus = require("../utils/honestStatus");
 
 const SECTIONS = new Set(["leads", "campaigns", "sage"]);
 
@@ -122,7 +123,7 @@ async function leadsBrief(brandIds) {
 async function campaignRows(userId, brandIds) {
   if (brandIds.length === 0) return [];
   const r = await db.query(
-    `SELECT campaign_name, budget, cost_per_lead, conversion_rate, launch_date
+    `SELECT campaign_name, status, last_verified_at, budget, cost_per_lead, conversion_rate, launch_date
        FROM campaigns
       WHERE user_id = $1 AND brand_id = ANY($2)
       ORDER BY created_at DESC
@@ -152,6 +153,10 @@ function campaignsBriefText(rows) {
   }
   const lines = rows.map((c) => {
     const parts = [c.campaign_name];
+    // Honest narration (D-39): state each campaign's real status; a
+    // created-paused campaign is never described as running or spending.
+    const state = honestStatus.describeCampaignState(c);
+    if (state && state.text) parts.push(state.text);
     const b = money(c.budget);
     if (b) parts.push(`budget ${b}`);
     const cpl = money(c.cost_per_lead);

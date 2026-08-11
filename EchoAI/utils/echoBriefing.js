@@ -18,6 +18,7 @@ const { buildBriefingSystem } = require("../prompts/echoPersona");
 const { computeSuggestions } = require("./echoSuggestions");
 const { getMetric } = require("../config/goals");
 const { computeBrandGoals, monthWindow } = require("./goalMetrics");
+const honestStatus = require("./honestStatus");
 const { greetingFor } = require("./timeOfDay");
 const intelStore = require("./intelStore");
 
@@ -270,7 +271,7 @@ async function gatherBriefingData(userId, since, brandId = null) {
         [brandIds, sinceParam]
       ),
       safeRows(
-        `SELECT c.campaign_name, c.status, c.cost_per_lead, c.conversion_rate, b.brand_name
+        `SELECT c.campaign_name, c.status, c.last_verified_at, c.cost_per_lead, c.conversion_rate, b.brand_name
            FROM campaigns c JOIN brands b ON b.brand_id = c.brand_id
           WHERE c.brand_id = ANY($1) AND c.status IN ('created_paused', 'live')
           ORDER BY c.updated_at DESC LIMIT 10`,
@@ -734,7 +735,7 @@ async function gatherWeeklyData(userId, brandId = null) {
       [brandIds, weekAgo]
     ),
     safeRows(
-      `SELECT c.campaign_name, c.cost_per_lead, c.conversion_rate, b.brand_name
+      `SELECT c.campaign_name, c.status, c.last_verified_at, c.cost_per_lead, c.conversion_rate, b.brand_name
          FROM campaigns c JOIN brands b ON b.brand_id = c.brand_id
         WHERE c.brand_id = ANY($1) AND c.status IN ('created_paused', 'live')
         ORDER BY c.updated_at DESC LIMIT 25`,
@@ -852,8 +853,16 @@ async function gatherWeeklyData(userId, brandId = null) {
   }
 
   const risks = [];
-  if (campaigns.length === 0) {
-    risks.push("No campaigns are running right now, so the lead pipeline will dry up without them");
+  // Honest narration (D-39): created_paused is never "running". A brand with
+  // only created-paused campaigns has NO campaigns spending.
+  const liveCampaignRows = campaigns.filter((c) => honestStatus.campaignCountsAsRunning(c.status));
+  if (liveCampaignRows.length === 0) {
+    const prepared = campaigns.filter((c) => c.status === "created_paused").length;
+    risks.push(
+      prepared > 0
+        ? `No campaigns are live right now (${prepared} ${prepared === 1 ? "is" : "are"} created, paused — not spending), so the lead pipeline will dry up without them`
+        : "No campaigns are live right now, so the lead pipeline will dry up without them"
+    );
   }
   if (worstCampaign && (!bestCampaign || worstCampaign.name !== bestCampaign.name)) {
     risks.push(
@@ -1014,7 +1023,10 @@ function templateMorning(firstName, data, part = "morning") {
     );
   }
   if (data.campaigns.length) {
-    parts.push(`${data.campaigns.length} campaign${data.campaigns.length === 1 ? " is" : "s are"} running.`);
+    // Honest narration (D-39): split live vs created_paused; never call a
+    // created-paused campaign "running".
+    const sentence = honestStatus.campaignCountSentence(data.campaigns);
+    if (sentence) parts.push(`${sentence}.`);
   }
   if (data.sentinelFixes.length) {
     parts.push(`Sentinel automatically fixed ${data.sentinelFixes.length} issue${data.sentinelFixes.length === 1 ? "" : "s"} overnight.`);
