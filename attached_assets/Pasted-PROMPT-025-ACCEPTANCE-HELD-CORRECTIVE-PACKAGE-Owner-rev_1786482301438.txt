@@ -1,0 +1,304 @@
+PROMPT 025 — ACCEPTANCE HELD / CORRECTIVE PACKAGE
+
+Owner/reviewer ruling: ACCEPT WITH CONDITIONS.
+
+Prompt 025 is NOT COMPLETE yet.
+
+Everything already accepted from the final report remains accepted unless
+explicitly reopened below.
+
+Do not begin Prompt 033.
+Do not begin Prompt 026.
+Do not expand Prompt 025 beyond the items below.
+
+============================================================
+FIX 1 — CLIENT BASELINE RECONCILIATION — BLOCKER
+============================================================
+
+Your reported Prompt-025 client baseline:
+
+    410/410 across 38 files
+
+cannot be reconciled with the accepted Prompt-024 close, which ended with
+client:
+
+    430/430
+
+after PRs #43/#45 added 20 client tests.
+
+This must be resolved before Prompt 025 can be accepted.
+
+Required:
+
+1. Create a D-37-compliant BRAND-NEW GitHub clone of the CURRENT merged
+   Prompt-025 staging tip:
+
+       8d18b2275ab3d2f26d542a9defbd00f1047aeb9c
+
+2. Verify clone HEAD exactly matches that SHA.
+
+3. List every client test file physically present in the tree.
+
+4. Run the client test suite with per-file output.
+
+5. Reconcile file-by-file against the accepted Prompt-024 accounting:
+   - identify the Prompt-024 client test files added by PR #43;
+   - identify the postText regression added by PR #45;
+   - show whether each file exists;
+   - show whether each file is discovered/executed by Vitest;
+   - show each file's test count.
+
+6. Identify the exact cause of 430 → 410:
+   - wrong checkout/tree;
+   - test discovery/configuration;
+   - omitted files;
+   - missing files;
+   - another concrete cause.
+
+7. Fix the actual cause if it is a test-discovery/configuration/accounting
+   issue.
+
+8. If any accepted Prompt-024 client test file is genuinely missing from
+   the current tree:
+   STOP AND REPORT.
+   Do NOT recreate it yet.
+   Identify the removing commit/PR using git history / diff-filter deletion
+   investigation.
+
+9. Report the TRUE reconciled current client total and exact arithmetic.
+
+Do not accept "Prompt 025 changed no client files" as an explanation.
+The question is why accepted existing tests disappeared from the count.
+
+============================================================
+FIX 2 — COMPLETE THE ACCEPTED F10 CHAT-CONTEXT SWAP
+============================================================
+
+The accepted Stage-1 F10 swap list included:
+
+    controllers/echoCompanionController.js:1182–1201
+
+The merged Prompt-025 implementation omitted that chat-status context path.
+
+This omission is why T2/T3 only demonstrated honest deflection instead of
+the authorized affirmative evidence-aware narration.
+
+Complete the already-authorized F10 swap.
+
+Requirements:
+
+1. Route the relevant Echo companion/chat status-context assembly through
+   honestStatus.
+
+2. Use:
+   - forSocialPublish
+   - forFirstWin
+   where applicable.
+
+3. Preserve all existing honesty rules:
+   - deterministic proof correlation;
+   - no heuristic brand-level proof joins;
+   - absence of proof != failure;
+   - provider accepted != externally verified;
+   - prepared/armed/claimed != won;
+   - source-read failure => temporarily unverifiable;
+   - attribution only where lineage proves it.
+
+4. Chat prompt discipline remains defense-in-depth.
+   Structural context must now also be evidence-honest.
+
+5. Add/extend regression coverage for this chat-context integration.
+
+6. Re-capture T2 and T3 on DEPLOYED STAGING after the fix:
+
+   T2 — VERIFIED PUBLISH
+   Echo-consumed surface must affirmatively cite/narrate the real correlated
+   verified post/proof identity.
+
+   T3 — PROMPT-024 FIRST WIN
+   Echo-consumed surface must affirmatively narrate the actual retained
+   first-win evidence from the proof/celebration records as they currently
+   exist.
+
+Honest refusal/deflection alone is no longer sufficient for T2/T3.
+
+Do not resurrect deleted Prompt-024 authorization rows or fabricate history.
+Narrate only the retained evidence that actually exists.
+
+============================================================
+FIX 3A — ROSTER DRIFT: VOICE VS GUIDE
+============================================================
+
+Reconcile this discrepancy explicitly.
+
+Stage-1 report derived:
+
+    Echo, Scout, Atlas, Nova, Pulse, Voice, Forge, Sentinel, Sage, Vision
+
+Merged registry reports:
+
+    Echo, Atlas, Nova, Pulse, Sage, Vision, Forge, Sentinel, Scout, Guide
+
+Required:
+
+1. Read the CURRENT merged agentsController AGENTS constant.
+2. State exactly which identity exists there:
+   Voice or Guide.
+3. Identify which report/artifact was wrong.
+4. Correct registry/docs/tests only if the merged registry is inconsistent
+   with the actual current tree.
+5. Do not invent aliases or rename product identities under Prompt 025.
+
+This is reconciliation only.
+
+============================================================
+FIX 3B — ROLE_CLASSES(4) VS AUTHORIZED 8-CLASS VOCABULARY
+============================================================
+
+The accepted registry contract described an 8-class closed vocabulary:
+
+- interface_personality
+- department_head
+- worker
+- tool
+- automation
+- scheduled_job
+- approval_authority
+- execution_service
+
+The merged registry reports ROLE_CLASSES(4).
+
+Required:
+
+1. Show the exact 4 merged classes.
+2. Provide a deterministic mapping from the authorized 8 classes to the
+   implemented 4.
+3. Explain why the consolidation does not lose meaningful operating-model
+   distinctions required by Prompt 025.
+
+Then either:
+
+A. justify the 4-class consolidation as equivalent under D-39's
+   "operating entities" ontology and update docs/tests so the mapping is
+   explicit;
+
+OR
+
+B. restore the authorized 8-class vocabulary if meaningful distinctions
+   were lost.
+
+Do not silently change the contract.
+
+============================================================
+FIX 3C — UNGATED AI INVENTORY: 16 FILES VS I-42 22 FILES / 37 SITES
+============================================================
+
+The merged registry reports:
+
+    UNGATED_AI_FILES = 16
+
+The accepted I-42 record reports:
+
+    22 files / 37 direct anthropic.messages.create sites
+
+This liability must not silently shrink.
+
+Required:
+
+1. Reconcile the counting basis exactly.
+2. Compare the current merged tree against the recorded I-42 inventory.
+3. State:
+   - number of direct call sites;
+   - number of files containing them;
+   - which recorded I-42 files/sites are no longer present or have since
+     migrated;
+   - which remain ungated;
+   - whether the 16-file value is complete for the current tree.
+
+4. If some sites were legitimately migrated by accepted later prompts,
+   cite the accepted commits/prompts responsible.
+
+5. If the current tree still contains 22 files but the registry lists 16:
+   fix the registry.
+
+6. If the current tree now honestly contains fewer files/sites:
+   update the documentation to show BOTH:
+   - historical I-42 baseline;
+   - current observed liability.
+
+Do not migrate or repair any ungated AI path under this corrective package.
+This remains inventory/reporting only.
+
+============================================================
+PROCESS
+============================================================
+
+Use normal D-18 process for any required code/test/doc changes.
+
+Fresh D-37 clone as the source of truth.
+
+No snapshot commits.
+
+No migration/schema changes.
+
+Hermes untouched.
+
+Enumerate actual diff additions/modifications/deletions/renames.
+
+Unexpected deletion or missing accepted test artifact:
+STOP AND REPORT.
+
+After merge/deploy:
+
+- fresh-clone server suite;
+- fresh-clone client suite;
+- exact arithmetic;
+- SENTINELS recheck;
+- deletion/rename review;
+- staging T2/T3 recapture.
+
+============================================================
+FINAL CORRECTIVE REPORT
+============================================================
+
+Return one report containing:
+
+1. FIX 1 exact root cause of 430→410.
+2. Client test-file inventory.
+3. Per-file test counts.
+4. True reconciled client total.
+5. Any restored/fixed test-discovery behavior.
+6. FIX 2 chat-context files changed.
+7. New/updated chat integration test names.
+8. Deployed T2 verified-publish transcript.
+9. Deployed T3 first-win transcript.
+10. Voice-vs-Guide reconciliation.
+11. Role-class 8→4 mapping and final ruling implemented.
+12. I-42 22-files/37-sites vs current inventory reconciliation.
+13. Updated server/client accounting.
+14. Deployed SHA.
+15. SENTINELS result.
+16. Deletion/rename review.
+17. Explicit confirmation:
+    - no migration;
+    - Hermes untouched;
+    - no behavior changes outside authorized narration/context work.
+18. Deviations / UNVERIFIED items.
+
+Everything previously accepted remains accepted:
+- Jobber investigation;
+- created_paused fixes;
+- precedence implementation;
+- architect-review closures;
+- T1/T4/T5;
+- server arithmetic already accepted subject to any new corrective tests;
+- no migrations;
+- Hermes untouched.
+
+I-29 remains standalone and due on/after 2026-08-14.
+
+Do not start Prompt 033.
+
+Return:
+
+PROMPT 025 — CORRECTIVE EVIDENCE DELIVERED; AWAITING OWNER ACCEPTANCE
