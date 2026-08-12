@@ -1,0 +1,592 @@
+PROMPT 033 — STAGE-1 ISSUE PACKAGE
+Autopilot Launch Idempotency — I-32
+
+OWNER AUTHORIZATION — ISSUE TO REPLIT NOW
+
+This is the complete consolidated Prompt 033 Stage-1 package. It supersedes prior drafts or partial instructions for Prompt 033.
+
+Stage 1 is READ-ONLY. No implementation is authorized. No code changes, migrations, dependency changes, provider-side mutations, or Prompt 026 work may begin during this stage. Deliver the Stage-1 design report required below, then STOP for owner review and Stage-2 authorization. Implementing during Stage 1 = FAILED VERIFICATION. This matches the governing two-stage protocol.
+
+Prompt 033 is reserved by D-27 with a HARD DEADLINE before Prompt 026. Phases A–G are complete. Prompt 033 is the only engineering prompt currently in flight under D-38(3).
+
+The purpose is deliberately narrow and surgical:
+
+Close I-32's Autopilot double-launch / partial-chain window, OR prove honestly that the Prompt-020-era architecture already closed it and only regression coverage remains.
+
+SECTION A — THE RISK AND GOVERNING INVARIANT
+A1. I-32 as recorded
+
+I-32 was recorded on 2026-08-02.
+
+The Autopilot approve path wrapped the Facebook launch inside its claim transaction. This created a narrow failure window:
+
+provider succeeds → local transaction/commit subsequently fails → retry occurs → second Facebook launch may occur.
+
+The known consequence was bounded:
+
+duplicate launch remains PAUSED/$0 under 015;
+no public content is created;
+since 018, source-uniqueness can detect the collision and route it to MANUAL_REVIEW.
+
+Those protections reduce damage and provide detection, but they do not constitute exactly-once execution.
+
+D-27 reserved the actual repair.
+
+A2. EXACTLY-ONCE IS PROVIDER-OBJECT LEVEL
+
+A Facebook launch is not one atomic provider action.
+
+It creates four provider objects:
+
+campaign → ad set → creative → ad
+
+Therefore, the governing invariant for Prompt 033 is:
+
+For one approved launch intent, no provider object that was successfully created may be created a second time because local persistence, transaction commit, task transition, process execution, worker execution, or bookkeeping subsequently failed.
+
+The bound applies independently:
+
+campaign create ≤ 1 per approved launch intent
+ad-set create ≤ 1
+creative create ≤ 1
+ad create ≤ 1
+
+A retry may finish a genuinely missing later object.
+
+A retry must never recreate an earlier provider object that already succeeded.
+
+SECTION B — FIRST STAGE-1 DUTY: RE-DERIVE CURRENT REALITY
+
+I-32 predates Prompt 020.
+
+The current architecture has since gained executeExternal and DB-level active-key idempotency under D-30, and Prompt 025's audit mapped the launch as spine-adopted through approximately:
+
+adLaunchSpine.js:157–329
+invoked from autopilotController.js:1162–1171
+
+Those are references from the prior audit, not permission to assume the current lines or behavior remain identical.
+
+Perform all analysis against the current tree on a D-37-compliant audit surface.
+
+Determine whether I-32 is now:
+
+LIVE / NARROWED / ALREADY CLOSED
+
+Do not assume the old issue description is still correct.
+
+B1. FLOW MAP
+
+Map the complete current flow:
+
+approve → claim → task → executeExternal → Facebook
+
+Provide file:line references.
+
+Identify exact transaction boundaries, including:
+
+where the claim transaction begins;
+where it commits;
+where the task is created/claimed;
+where executeExternal enters;
+where each Facebook provider call occurs;
+where each provider result becomes durable locally;
+where task-spine transitions commit;
+where feature/bookkeeping writes occur.
+
+The report must make it visually and technically obvious which operations happen inside versus outside transactions.
+
+B2. DURABLE LAUNCH-INTENT IDENTITY
+
+Do not merely report that "the idempotency key is stable."
+
+Identify exactly what represents one approved launch intent.
+
+Report:
+
+the durable launch-intent identity;
+where that identity originates;
+how its idempotency key is derived;
+where that key is stored;
+how retries recover it;
+whether any retry path can mint a fresh key for the same intent, including:
+HTTP retry;
+concurrent approval;
+worker retry;
+process restart;
+task retry;
+reconciliation;
+bookkeeping repair;
+what distinguishes a genuinely NEW owner-approved launch from a retry of an existing launch intent.
+
+Two invariants govern:
+
+SAME INTENT → SAME DURABLE IDENTITY / SAME IDEMPOTENCY KEY
+
+and:
+
+NEW OWNER-APPROVED INTENT → NEW DURABLE IDENTITY / NEW KEY
+
+The inverse invariant is mandatory.
+
+A legitimate later owner-approved launch must never be suppressed because it accidentally inherits an earlier launch's key.
+
+B3. PER-OBJECT CHAIN ANALYSIS
+
+Perform the analysis independently for:
+
+campaign
+ad set
+creative
+ad
+
+For each provider object, report:
+
+Provider create call — exact file:line.
+Exact first durable local write proving that provider operation succeeded.
+Transaction containing that acknowledgement.
+Whether any later rollback/failure can erase that acknowledgement.
+What durable evidence survives if Facebook succeeds but the process dies before the acknowledgement commits.
+What a retry/restart sees in that state.
+Whether the retry could call Facebook again and create a duplicate.
+Mandatory hardest-window analysis
+
+For every provider object, explicitly walk this sequence:
+
+FACEBOOK SUCCESS
+→ PROCESS DEATH / LOCAL FAILURE
+→ NO DURABLE LOCAL ACKNOWLEDGEMENT
+→ RETRY
+
+Do not assume executeExternal solves this simply because it maintains a local idempotency record.
+
+Establish exactly what survives the failure boundary.
+
+If Facebook successfully creates an object but Zorco has no durable evidence of it after rollback/process death, identify that plainly as a remaining I-32 window unless another proven control prevents duplicate provider creation.
+
+Map the compensating re-pause behavior from D-22.10 alongside this analysis.
+
+B4. LOCAL IDEMPOTENCY ≠ PROVIDER IDEMPOTENCY
+
+For each of the four Facebook creation operations, report:
+
+Does Meta/Facebook expose a usable provider-side idempotency/request mechanism for this operation?
+Does Zorco currently use it?
+If not, what local mechanism prevents duplicates?
+executeExternal
+DB uniqueness
+source uniqueness
+task identity
+claim guards
+another identified mechanism
+Does that mechanism survive the provider-success / acknowledgement-loss crash window from B3?
+
+Do not describe local DB or executeExternal idempotency as provider-side idempotency.
+
+Facebook is not participating in that guarantee unless evidence establishes that it actually is.
+
+If repository evidence cannot establish provider behavior, write:
+
+NOT ESTABLISHED FROM REPOSITORY EVIDENCE
+
+Do not guess.
+
+B5. FULL FAILURE MATRIX
+
+Produce a table covering at minimum:
+
+Failure point	Today's actual outcome	Duplicate possible?	Post-fix required outcome
+Claim commit failure			
+Crash before first provider call			
+Campaign success + acknowledgement lost			
+Ad-set success + acknowledgement lost			
+Creative success + acknowledgement lost			
+Ad success + acknowledgement lost			
+Process death between campaign and ad set			
+Process death between ad set and creative			
+Process death between creative and ad			
+Task-transition persistence failure			
+Feature/bookkeeping write failure			
+Retry/restart			
+Concurrent approval			
+Reconciliation			
+
+Classify today's actual result using honest categories such as:
+
+safely resumes
+local dedup
+provider dedup
+DUPLICATE POSSIBLE
+MANUAL_REVIEW
+stuck/uncertain
+
+Do not collapse multiple failure windows into a generic "retry safe."
+
+B6. HONEST CONCLUSION
+
+Conclude exactly one:
+
+I-32 LIVE
+
+A real double-create/partial-chain duplication window remains.
+
+I-32 NARROWED
+
+Prompt 020 or later architecture eliminated some original windows, but at least one remains.
+
+I-32 ALREADY CLOSED
+
+Current architecture prevents duplicate provider objects across the relevant failure windows, and the remaining work is regression proof.
+
+If already closed, say so plainly.
+
+Do not invent implementation work to justify Prompt 033.
+
+Regression-only closure is an acceptable outcome.
+
+SECTION C — DESIGN CONSTRAINTS
+C1. CHOOSE THE NARROWEST SUFFICIENT DESIGN
+
+Based entirely on B1–B6, recommend:
+
+A — Claim commits before provider execution
+
+or
+
+B — Stable idempotency across commit failure
+
+or
+
+A+B — Minimal hybrid
+
+or
+
+REGRESSION-ONLY
+
+Do not choose A merely because Prompt 024 used claim-before-execution.
+
+Claim-first solves an ownership problem.
+
+It does not automatically solve partial external execution.
+
+Example:
+
+claim commits
+→ campaign created
+→ process dies
+→ recovery starts
+
+The architecture must still know whether to reuse the existing campaign or create another one.
+
+Design A is sufficient only if Stage 1 proves that after every partial-chain/process-death window, recovery resumes without recreating any already-successful provider object.
+
+Otherwise recommend B or the narrowest sufficient A+B hybrid.
+
+Provide a transaction/recovery diagram for the recommendation.
+
+C2. PRESERVED INVARIANTS
+
+The following are binding.
+
+Violation means STOP AND REPORT, not improvise.
+
+Provider outcome remains authoritative.
+Bookkeeping failure NEVER causes provider re-execution — D-30.12.
+Reconciliation repairs records only and NEVER invokes a provider — D-30.14.
+Source-uniqueness → MANUAL_REVIEW remains as defense-in-depth.
+015 caps/approval semantics remain untouched.
+005 verification semantics remain untouched.
+Launches remain PAUSED-only/$0.
+No spend-path change.
+Recorder-not-controller principle remains.
+No spine schema change expected.
+No legal-transition-table change without STOP.
+Compensating re-pause behavior remains and must be regression-tested.
+I-24 / Prompt 031 remains out of scope.
+I-44 remains out of scope.
+Hermes untouched.
+No unrelated autopilotController refactoring.
+C3. MIGRATION
+
+NONE expected.
+
+If a genuinely durable acknowledgement or launch-intent marker is required and has no honest existing home:
+
+STOP AND REPORT THE EXACT SCHEMA NEED.
+
+Do not create a migration under this Stage-1 authorization.
+
+D-19 applies if a migration is subsequently authorized.
+
+SECTION D — STAGE-2 REGRESSION CLASS
+
+This section defines the required Stage-2 test design.
+
+Do not implement these tests during Stage 1.
+
+Tests must be DB-backed through the real spine and executeExternal seams with a MOCKED provider.
+
+Never inject failures against real Facebook objects.
+
+Provider call counts must be asserted independently for campaign, ad set, creative, and ad.
+
+D1. INJECTED-FAILURE SUITE
+
+For every B5 failure point:
+
+inject failure;
+retry/recover;
+assert:
+campaign create ≤ 1;
+ad-set create ≤ 1;
+creative create ≤ 1;
+ad create ≤ 1;
+verify correct terminal bookkeeping after reconciliation;
+verify no stuck undisarmable state.
+
+The provider-success/acknowledgement-loss window gets its own named test for each provider object.
+
+D2. SAME INTENT VS NEW INTENT
+
+Two directions must be tested.
+
+Same intent
+
+Retry / concurrency / restart:
+
+one intent → one provider-object chain
+
+New owner-approved intent
+
+A genuinely new approved launch:
+
+new intent → new durable identity → new key → permitted new chain
+
+The fix must not trade a double-launch defect for a silent no-launch defect.
+
+D3. CONCURRENT APPROVAL
+
+Parallel approval attempts against one item:
+
+one winner → one launch chain
+
+Re-prove the 018/020 layered-idempotency behavior against whatever boundary 033 establishes.
+
+D4. PARTIAL-CHAIN RECOVERY
+
+Inject failure between:
+
+campaign → ad set;
+ad set → creative;
+creative → ad.
+
+On recovery:
+
+missing later objects may be created;
+previously successful objects must not be recreated.
+
+Compensating re-pause behavior must remain intact.
+
+D5. DETECTION BACKSTOP
+
+Force a duplicate attempt and verify source-uniqueness still produces:
+
+MANUAL_REVIEW
+
+The primary fix must prevent duplication.
+
+The existing detection mechanism remains defense-in-depth and must not be weakened.
+
+SECTION E — EXTERNAL PROOF MUST BE PROPORTIONAL
+
+Absolute rule:
+
+NEVER inject artificial commit/process failures against real Facebook provider objects.
+
+Stage 1 must recommend one of these two proof cases.
+
+CASE 1 — Runtime behavior changes
+
+If Stage 2 will alter:
+
+execution boundaries;
+retry behavior;
+key lifecycle;
+partial-chain recovery;
+or other runtime provider behavior,
+
+then Stage 2 requires one controlled PAUSED/$0 staging launch through the fixed path.
+
+Capture:
+
+full task trail;
+authoritative provider evidence;
+EXTERNALLY_VERIFIED;
+provider object IDs;
+relevant bookkeeping.
+
+Capture evidence before cleanup.
+
+Then delete the test chain under D-24 I.
+
+The staging run proves only the happy path.
+
+Injected failure testing remains mocked.
+
+CASE 2 — Regression-only closure
+
+If Stage 1 proves the window is already closed and Stage 2 changes only regression coverage:
+
+DO NOT manufacture another Facebook campaign merely to satisfy paperwork.
+
+Use:
+
+existing accepted external evidence where applicable;
+DB-backed injected-failure suite;
+mocked-provider per-object call-count regressions;
+transaction analysis;
+key-lifecycle analysis.
+
+Explicitly disclose:
+
+No new provider object was created because runtime execution behavior did not change.
+
+External side effects exist to prove function, never to decorate paperwork.
+
+Stage 1 recommends Case 1 or Case 2.
+
+Owner decides at Stage-2 authorization.
+
+SECTION F — PROCESS
+
+All standing rules remain in force.
+
+D-18
+
+Branch/PR discipline from then-current staging tip.
+
+D-19
+
+Live-tree verification for anything tree-dependent.
+
+D-32
+
+Deletion review + SENTINELS recheck.
+
+D-37 — clarified audit-surface rule
+
+ALL counts/rechecks must come from an audit clone satisfying all three:
+
+fresh clone directly from GitHub;
+located outside .local and outside checkpoint-managed workspace paths;
+HEAD verified at the target SHA immediately before checks.
+D-23
+
+Redact evidence appropriately.
+
+D-34
+
+Findings appear only in the report under:
+
+Findings / Potential Follow-ups — Owner Decision Required
+
+Do not expand scope to fix them.
+
+Test accounting
+
+DB-backed tests for touched server behavior.
+
+No client changes are expected.
+
+Any client change requires explicit justification and full client test accounting under the flat-count lesson.
+
+SW bump only if client behavior actually changes.
+
+One implementation in flight
+
+Prompt 033 only.
+
+PROMPT 026 DOES NOT START UNDER THIS AUTHORIZATION.
+
+I-29
+
+Standalone read-only check is due on/after 2026-08-14.
+
+Run it on the due date under its existing standing instruction and append the one-line result to I-29.
+
+It is a carrier, never a gate.
+
+If a Prompt-033 report is the first report after the I-29 check, reference the recorded result.
+
+SECTION G — STAGE-1 REPORT REQUIRED
+
+Return one consolidated Stage-1 report containing at minimum:
+
+B1 flow map — approve → claim → task → executeExternal → Facebook; file:line; exact transaction boundaries.
+B2 durable launch-intent identity — complete key lifecycle and both invariant directions:
+same intent → same key;
+new intent → new key.
+B3 per-object chain analysis — all seven questions independently for campaign, ad set, creative, and ad, including provider-success/acknowledgement-loss.
+B4 provider-side vs local idempotency table — four operations, with honest limitations where repository evidence cannot establish provider behavior.
+B5 failure matrix — every required failure point and today's actual result.
+B6 conclusion — LIVE / NARROWED / ALREADY CLOSED.
+C1 design recommendation — A / B / minimal hybrid / regression-only, including transaction/recovery diagram and explanation of why it is the narrowest sufficient approach.
+Two-direction intent/key proof plan — same intent remains same; genuinely new intent remains new.
+Stage-2 regression plan — map every D1–D5 requirement to named proposed tests, including independent provider-object call-count assertions.
+External-proof recommendation — Section E Case 1 or Case 2 and why.
+C2 invariant confirmation — every invariant explicitly confirmed, or STOP.
+Migration statement — NONE, or STOP under C3.
+Expected changed-file list — expected surface is:
+autopilotController.js and/or
+adLaunchSpine.js
+tests
+
+Anything beyond that requires explicit justification.
+
+Baseline re-derivation from D-37-compliant audit surface.
+
+Reference values only:
+
+server: 1351/1351
+client: 430/430 across 41 files
+
+Re-derive them.
+
+Never assume them.
+
+Anything unsafe, impossible, contradictory, or not provable — STOP AND REPORT.
+STOP CONDITIONS
+
+Immediately STOP AND REPORT if Stage 1 discovers:
+
+a design requiring spine schema changes;
+a legal-transition-table change;
+reconciliation that could invoke a provider;
+weakening of source-uniqueness → MANUAL_REVIEW;
+weakening of 015 caps;
+weakening of 005 verification;
+a retry path that can mint a fresh key for the same intent where key stability is the control;
+a design that could suppress a genuinely new approved launch by reusing an old intent/key;
+a migration requirement;
+unexplained scope growth beyond the expected file surface;
+any proposal to inject artificial failures against real Facebook objects;
+anything contradicting D-30, D-27, D-37, D-38, or GLOBAL_PROMPT_RULES.
+
+Do not improvise around a STOP condition.
+
+AUTHORIZATION
+
+PROMPT 033 — STAGE 1 IS AUTHORIZED NOW.
+
+Perform the read-only investigation.
+
+NO CODE.
+NO MIGRATIONS.
+NO DEPENDENCY CHANGES.
+NO PROVIDER MUTATIONS.
+NO PROMPT 026.
+
+Deliver the complete Section G Stage-1 report.
+
+Then:
+
+STOP AND WAIT FOR OWNER REVIEW AND STAGE-2 AUTHORIZATION.
