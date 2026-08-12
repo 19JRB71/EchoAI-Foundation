@@ -1,0 +1,978 @@
+# PROMPT 033 — STAGE 2 RESUME AUTHORIZATION
+
+## Autopilot Launch Idempotency — Close I-32's Modern Window
+
+Prepared 2026-08-12 under owner rulings **D-40 + D-41**.
+
+Stage-1 verdict remains:
+
+**I-32 = NARROWED**
+
+The A+B design direction remains accepted, but the original D-40 storage mechanism is **SUPERSEDED** by D-41 after the Stage-2 STOP correctly discovered that:
+
+`autopilot_batch_items.campaign_id`
+
+has a live FK to:
+
+`campaigns(campaign_id)`
+
+and therefore cannot hold a pre-execution/dangling launch-intent ID.
+
+The STOP was correct.
+
+No migration or FK weakening is authorized.
+
+This document is the **complete revised Stage-2 authorization**.
+
+Where this document conflicts with:
+
+* the Stage-1 report;
+* the original D-40 Stage-2 authorization;
+* the stopped implementation draft;
+
+**THIS DOCUMENT WINS.**
+
+All unaffected D-40 requirements remain binding.
+
+Prompt 033 is the only implementation prompt in flight.
+
+**Prompt 026 DOES NOT START.**
+
+---
+
+# GOVERNING RE-EXECUTION RULE
+
+This corrected D-41 version supersedes all earlier wording.
+
+Place this rule verbatim in the designated code comment/documentation and bind it with the required source-grep regression:
+
+> **For an Autopilot launch intent, automatic provider execution is permitted only when durable evidence proves zero provider side effects across every prior attempt AND no campaigns row exists for the derived intent ID. Evidence is CLEAN only when either (a) no prior execution attempt exists, or (b) every prior attempt terminated before any provider call and contains no partial provider IDs; in both cases, no campaigns row may exist for the intent. Any prior `in_progress`, `interrupted`, `succeeded`, provider-accepted/manual-review state, any recorded partial provider ID, or any campaigns row for the intent makes the launch EVIDENCE-DIRTY and MUST NOT trigger provider execution automatically.**
+
+Companion invariant remains unchanged:
+
+For one approved launch intent:
+
+* campaign create ≤ 1
+* ad-set create ≤ 1
+* creative create ≤ 1
+* ad create ≤ 1
+
+A partial provider chain is never automatically resumed.
+
+Partial chains remain:
+
+**MANUAL_REVIEW + owner-mediated resolution**
+
+Prompt 031 owns any future relaunch/reset workflow.
+
+---
+
+# SECTION A — D-41 DESIGN RULING
+
+## A1. DURABLE INTENT ID IS DERIVED — NOT STORED
+
+The immutable durable identity already exists:
+
+`autopilot_batch_items.item_id`
+
+For Autopilot Facebook launch only, derive the launch-intent ID deterministically from that immutable item ID.
+
+Conceptually:
+
+`item_id → deterministic intentId → ad_launch:<intentId>`
+
+Required invariant:
+
+**SAME ITEM / SAME INTENT → SAME DERIVED ID → SAME KEY**
+
+across:
+
+* HTTP retry;
+* concurrent approval;
+* worker retry;
+* process restart;
+* task retry;
+* already-approved re-entry;
+* bookkeeping repair;
+* reconciliation inspection.
+
+Inverse invariant:
+
+**NEW OWNER-APPROVED ITEM → NEW DERIVED ID → NEW KEY → PERMITTED NEW CHAIN**
+
+Do not store the derived intent ID in `autopilot_batch_items.campaign_id` before execution.
+
+Do not create a new column.
+
+Do not weaken or remove the FK.
+
+---
+
+## A2. DETERMINISTIC-ID IMPLEMENTATION
+
+FIRST inspect the current dependency tree.
+
+### Preferred implementation
+
+If the repository already provides a standards-based UUID v5 helper through its existing dependencies, use that helper.
+
+Use:
+
+* a fixed project-specific namespace UUID;
+* immutable `item_id` as the name/input;
+* standard RFC UUID v5 semantics.
+
+The namespace UUID becomes load-bearing.
+
+It must be:
+
+* documented;
+* fixed;
+* test-pinned;
+* never generated dynamically.
+
+Using SHA-1 through standards-compliant UUID v5 is acceptable here because the input is an internally generated non-adversarial UUID; this mechanism requires deterministic namespacing, not collision-resistant password hashing.
+
+### If no existing UUID-v5 helper is available
+
+Do NOT add a dependency merely for this prompt.
+
+A small local deterministic UUID derivation is permitted only if all of the following are explicitly specified and regression-locked:
+
+* fixed namespace;
+* input bytes;
+* hash algorithm;
+* UUID byte construction;
+* version bits;
+* variant bits;
+* output formatting.
+
+Do not call a custom SHA-256-derived implementation "UUIDv5."
+
+### Frozen regression vectors are mandatory
+
+Commit fixed test vectors such as:
+
+`known item_id → exact expected intent UUID`
+
+for multiple fixed item IDs.
+
+The test must fail if:
+
+* the namespace changes;
+* the derivation algorithm changes;
+* byte ordering changes;
+* UUID formatting changes.
+
+The derivation function is part of the idempotency contract.
+
+A silent derivation change would retroactively create new keys for existing items and reopen I-32.
+
+---
+
+# SECTION B — TX1 FINAL SHAPE
+
+The prior D-40 TX1 is superseded.
+
+TX1 now contains **only the claim and already-existing claim-side bookkeeping/budget persistence necessary for approval**.
+
+Conceptually:
+
+`pending item`
+→ `TX1 BEGIN`
+→ guarded `pending → approved`
+→ persist authorized budget/claim data already belonging to that transaction
+→ `COMMIT`
+→ derive intent ID from immutable `item_id`
+→ evaluate evidence gate
+→ provider execution OUTSIDE transaction
+
+TX1 MUST NOT persist a pre-execution value into `campaign_id`.
+
+Provider execution happens strictly outside any open claim transaction.
+
+This preserves the original purpose of Design A:
+
+**provider execution can never succeed inside a transaction whose later rollback makes the item appear unclaimed/pending again.**
+
+---
+
+# SECTION C — `campaign_id` SEMANTICS REMAIN UNCHANGED
+
+`autopilot_batch_items.campaign_id` retains its existing meaning:
+
+**the ID of an actual local campaigns row after launch creation has progressed far enough for that row to exist.**
+
+It is NOT the launch-intent store.
+
+It is NOT written in TX1.
+
+It continues to satisfy its existing FK.
+
+After the campaigns row exists successfully, write the item’s `campaign_id` through the normal post-success/post-creation bookkeeping path.
+
+The final report must identify the exact merged `file:line` where this post-success write occurs.
+
+If the item-level `campaign_id` write fails after provider side effects or campaigns-row creation:
+
+* record the honest persistence/bookkeeping failure;
+* route to the existing provider-accepted/manual-review safety behavior as applicable;
+* NEVER re-execute the provider merely to repair this field.
+
+D-30.12 remains absolute:
+
+**Bookkeeping failure never causes provider re-execution.**
+
+---
+
+# SECTION D — CAMPAIGNS-ROW EVIDENCE GATE
+
+D-41 adds a conservative mandatory condition.
+
+Automatic execution is permitted only when:
+
+1. durable attempt history proves zero provider side effects; AND
+2. **no `campaigns` row exists for the derived intent ID.**
+
+Before provider execution, inspect the current durable evidence for:
+
+`ad_launch:<derivedIntentId>`
+
+and the corresponding source/task identity.
+
+Evidence sources include, as applicable:
+
+* `external_actions`;
+* canonical task state;
+* task metadata;
+* partial provider IDs;
+* `campaigns` row for the derived ID.
+
+## EVIDENCE-CLEAN
+
+Automatic provider execution is permitted only in these cases:
+
+### Clean Case A — no previous attempt
+
+Examples:
+
+* TX1 committed;
+* process died before task/ledger/provider execution began.
+
+Conditions:
+
+* no attempt history capable of containing provider effects;
+* no partial IDs;
+* no campaigns row.
+
+Execution may proceed once using the same derived ID/key.
+
+### Clean Case B — terminal pre-provider failure
+
+A prior attempt may be retried automatically only if durable evidence proves:
+
+* failure occurred before any provider call;
+* no partial provider ID exists;
+* no campaigns row exists for the intent.
+
+If the failure path created a `launch_failed` campaigns row:
+
+**IT IS NOT EVIDENCE-CLEAN.**
+
+It must not auto-relaunch.
+
+It waits for Prompt 031's future owner-mediated retry/reset semantics.
+
+---
+
+# SECTION E — EVIDENCE-DIRTY CONDITIONS
+
+Any of the following makes the intent EVIDENCE-DIRTY:
+
+* prior `in_progress` external action;
+* reconciled `interrupted`;
+* `succeeded`;
+* provider-accepted state;
+* MANUAL_REVIEW state associated with possible provider execution;
+* any recorded Facebook campaign ID;
+* any recorded Facebook ad-set ID;
+* any recorded Facebook creative ID;
+* any recorded Facebook ad ID;
+* any partial-chain provider ID in durable task/failure metadata;
+* **any `campaigns` row whose primary key is the derived intent ID**.
+
+EVIDENCE-DIRTY means:
+
+**ZERO automatic Facebook provider calls.**
+
+Return an honest visible state such as:
+
+**already executed / under review**
+
+as appropriate.
+
+The active-key unique index remains a concurrency backstop.
+
+It is **not** the side-effect memory.
+
+Do not change the index predicate.
+
+A reconciled `interrupted` row vacating the active-key index does NOT reopen execution.
+
+---
+
+# SECTION F — ALREADY-APPROVED RE-ENTRY
+
+The claim-first design creates a deliberate re-entry case.
+
+If an item is already:
+
+`approved`
+
+then ordinary pending→approved claim semantics will not win again.
+
+The handler must distinguish:
+
+### Approved + deterministic intent + CLEAN evidence
+
+Re-derive the SAME intent ID from immutable `item_id`.
+
+Evaluate the evidence gate.
+
+If CLEAN:
+
+* use the same intent;
+* use the same `ad_launch:<intentId>` key;
+* create/increment the appropriate task attempt under D-24 G;
+* execute exactly once.
+
+This closes:
+
+**TX1 COMMITTED → PROCESS DIED BEFORE LEDGER INSERT**
+
+without generating a new launch identity.
+
+### Approved + DIRTY evidence
+
+Return an honest already-executed / under-review result.
+
+**ZERO provider calls.**
+
+Do not invent a retry/reset action.
+
+Prompt 031 owns post-review relaunch.
+
+---
+
+# SECTION G — TASK ATTEMPT SEMANTICS
+
+The derived intent ID becomes the stable canonical source identity for the Autopilot launch.
+
+Source identity remains constant:
+
+`task_type = ad_launch`
+`source_type = campaign`
+`source_id = <derived intent id>`
+
+If an evidence-clean subsequent execution attempt is legitimate under this prompt:
+
+* increment the task `attempt` under existing D-24 G semantics;
+* same source ID;
+* new attempt number.
+
+Never:
+
+* mint a new source ID for the same item;
+* create a second canonical source identity;
+* collide with attempt 1 by pretending the new execution is the original attempt.
+
+Required proof:
+
+**same source + incremented attempt**
+
+not:
+
+**new source + attempt 1**
+
+---
+
+# SECTION H — `campaign_id` CONSUMER INVENTORY
+
+The Stage-2 STOP investigation already found the inventory favorable, but it must be re-verified and included in the final report.
+
+Verify every current server/client reader of:
+
+`autopilot_batch_items.campaign_id`
+
+The stopped investigation reported:
+
+* server `itemView` passthrough;
+* approve path itself;
+* no approvals/ops-dashboard/briefing/Forge join relying on it;
+* no client component reading an Autopilot-item `campaignId`.
+
+Re-verify against the current implementation tree.
+
+Because D-41 preserves `campaign_id`'s current post-success semantics, broad consumer changes should not be necessary.
+
+If a current consumer would interpret the field incorrectly under the revised implementation:
+
+* correct it only if narrow and directly required;
+* otherwise STOP AND REPORT if scope materially expands.
+
+Owner-visible state requirement remains:
+
+An item that is:
+
+**approved + MANUAL_REVIEW + no campaigns row**
+
+must visibly/semantically remain:
+
+**launch under review / not verified as a live campaign**
+
+It must never imply that a Facebook campaign exists merely because the item is approved.
+
+---
+
+# SECTION I — PROVIDER-OBJECT EXACTLY-ONCE INVARIANT
+
+All existing D-40 object-level guarantees remain mandatory.
+
+For one Autopilot approved launch item:
+
+* campaign create ≤ 1
+* ad-set create ≤ 1
+* creative create ≤ 1
+* ad create ≤ 1
+
+If a partial chain exists:
+
+* do not recreate earlier objects;
+* do not automatically finish later objects;
+* transition/remain in MANUAL_REVIEW as already designed;
+* leave owner-mediated cleanup/relaunch to the appropriate later workflow.
+
+Never treat the four-call Facebook chain as one atomic mock count.
+
+Assert each object independently.
+
+---
+
+# SECTION J — REQUIRED TEST PLAN
+
+All injected-failure tests:
+
+* DB-backed;
+* through real spine/`executeExternal` seams;
+* provider MOCKED;
+* NEVER real Graph calls.
+
+## J1. Frozen deterministic-ID vectors
+
+Multiple fixed:
+
+`item_id → exact expected derived intent UUID`
+
+Assert:
+
+* same input always same output;
+* namespace fixed;
+* algorithm fixed;
+* output exact.
+
+## J2. Same intent stability
+
+Same item across:
+
+* HTTP retry;
+* process restart;
+* already-approved re-entry;
+* concurrent request;
+* task retry where applicable;
+
+must derive:
+
+* same intent ID;
+* same external-action key.
+
+## J3. New-intent inverse
+
+New batch item:
+
+* new `item_id`;
+* new derived intent ID;
+* new key;
+* legitimate new Facebook chain permitted.
+
+No accidental suppression.
+
+## J4. Claim committed, zero execution evidence
+
+TX1 committed.
+
+No ledger row.
+No task/provider evidence.
+No campaigns row.
+
+Re-entry:
+
+* derives same ID/key;
+* execution permitted exactly once.
+
+## J5. Pre-provider terminal failure
+
+Case A:
+
+* failure before provider;
+* no provider IDs;
+* no campaigns row.
+
+Re-entry:
+
+* same key;
+* automatic execution permitted.
+
+Case B:
+
+* failure path left `campaigns` row.
+
+Re-entry:
+
+* ZERO provider calls;
+* honest state;
+* Prompt 031 boundary preserved.
+
+## J6. Campaigns-row-present gate
+
+For derived intent:
+
+`campaigns` row exists.
+
+Regardless of active-key-index availability:
+
+re-entry → **0 provider calls**.
+
+## J7. Interrupted-row regression
+
+Prior action:
+
+`in_progress → reconciliation → interrupted`
+
+Then re-entry:
+
+* same derived key;
+* zero provider calls;
+* honest under-review state.
+
+This proves vacating the active-key index does not reopen provider execution.
+
+## J8. Partial provider IDs
+
+For each recorded partial state:
+
+* campaign ID only;
+* campaign + ad-set;
+* campaign + ad-set + creative;
+* all four objects but incomplete bookkeeping;
+
+re-entry:
+
+**ZERO provider calls.**
+
+## J9. Provider-object acknowledgement-loss suite
+
+Inject failure after successful mock creation independently for:
+
+* campaign;
+* ad set;
+* creative;
+* ad.
+
+For same item/re-entry:
+
+assert provider counts independently:
+
+* campaign ≤ 1
+* ad set ≤ 1
+* creative ≤ 1
+* ad ≤ 1
+
+No successfully created provider object may be recreated.
+
+## J10. Claim/commit regression
+
+Reproduce the original I-32 failure class around claim/commit.
+
+The new TX1 boundary must ensure provider execution cannot succeed and then be made replayable merely because claim transaction persistence fails.
+
+Assert per-object counts remain one.
+
+## J11. Concurrent approval
+
+Parallel attempts:
+
+* one claim/execution winner;
+* stable derived key;
+* one provider-object chain.
+
+## J12. Task-attempt semantics
+
+Stable source ID.
+
+Evidence-clean second attempt where legally permitted:
+
+* task attempt increments;
+* source ID unchanged;
+* no collision;
+* no new source identity.
+
+## J13. Source-uniqueness backstop
+
+Forced duplicate condition still reaches:
+
+`MANUAL_REVIEW`
+
+where the existing backstop applies.
+
+The backstop must not be weakened.
+
+## J14. Consumer safety
+
+Re-verify/report that preserving post-success `campaign_id` semantics keeps current consumers safe.
+
+Where targeted executable tests already exist, extend them as necessary.
+
+No broad client changes expected.
+
+## J15. Governing-rule source test
+
+Assert the D-41 governing re-execution rule appears verbatim in its designated source/docs location.
+
+The old ambiguous D-40 text must not remain as the active rule.
+
+---
+
+# SECTION K — EXPECTED IMPLEMENTATION SURFACE
+
+Authorized expected production-code surface:
+
+* `autopilotController.js`
+* `adLaunchSpine.js`
+* `campaignController.js`
+* necessary server tests
+* narrowly necessary existing documentation for the governing rule
+
+The stopped local draft may be reused **only after re-validating it against this D-41 authorization**.
+
+Specifically remove/replace any stopped-draft logic that:
+
+* persists intent ID into `autopilot_batch_items.campaign_id` during TX1;
+* assumes `campaign_id` is the intent store;
+* uses the superseded D-40 evidence-clean wording.
+
+Anything beyond the expected surface:
+
+**JUSTIFY OR STOP.**
+
+No unrelated refactor.
+
+---
+
+# SECTION L — MIGRATION / SCHEMA
+
+**NONE.**
+
+Explicitly prohibited:
+
+* dropping the `campaign_id` FK;
+* relaxing that FK;
+* repurposing the column;
+* adding a launch-intent column;
+* changing the active-key partial unique index;
+* altering spine schema;
+* altering legal transition tables.
+
+If implementation cannot satisfy D-41 without any of those:
+
+**STOP AND REPORT.**
+
+---
+
+# SECTION M — CASE-1 STAGING PROOF
+
+Runtime behavior changes, therefore one real happy-path proof remains required.
+
+After code/tests/merge/deploy:
+
+Perform ONE controlled Autopilot Facebook launch through the fixed path.
+
+Required:
+
+* approved through the normal path;
+* deterministic derived intent key demonstrated;
+* Facebook campaign PAUSED;
+* $0 spend;
+* all four provider object IDs captured;
+* task trail reaches `EXTERNALLY_VERIFIED`;
+* proof row captured;
+* bookkeeping captured;
+* item-level post-success `campaign_id` shown only after the campaigns row exists;
+* evidence captured before cleanup.
+
+Then delete the test provider chain under D-24 I.
+
+Record deletion response.
+
+### Absolute prohibition
+
+Do NOT inject:
+
+* commit failure;
+* process death;
+* acknowledgement loss;
+* reconciliation race;
+* duplicate launch;
+
+against real Facebook.
+
+All adversarial failure testing remains mocked.
+
+---
+
+# SECTION N — PRESERVED D-40 / PRIOR INVARIANTS
+
+All remain binding:
+
+* provider outcome authoritative;
+* bookkeeping failure never re-executes provider — D-30.12;
+* caller intent produces stable key — D-30.13;
+* reconciliation never executes provider — D-30.14;
+* source-uniqueness → MANUAL_REVIEW remains defense-in-depth;
+* 015 caps and approval semantics unchanged;
+* 005 verification semantics unchanged;
+* Facebook launch PAUSED-only/$0;
+* no spend-path change;
+* compensating re-pause preserved;
+* I-24 / Prompt 031 out of scope;
+* I-44 out of scope;
+* Hermes untouched.
+
+Out-of-scope known same-class finding must be filed in the final report:
+
+Other launch entry points including:
+
+* `adCreativeStudioController`
+* Echo
+* Setup Wizard
+
+still mint per-invocation launch keys.
+
+Do not fix them in 033.
+
+---
+
+# SECTION O — PROCESS
+
+D-18 branch/PR discipline.
+
+Before resuming implementation, confirm:
+
+* current staging tip;
+* D-37-compliant clone outside `.local` and checkpoint-managed paths;
+* HEAD verified.
+
+The currently held `/tmp/p033stage2` work may be used only if:
+
+* it remains outside checkpoint-managed paths;
+* its base/current git state is verified;
+* no unreviewed workspace mutation occurred;
+* the actual D-18 branch/diff is enumerated before commit.
+
+Otherwise create a fresh `/tmp` clone and port only the authorized draft changes.
+
+Re-derive canonical baselines.
+
+Reference only:
+
+* server 1351/1351
+* client 430/430 across 41 files
+
+Never assume.
+
+After merge:
+
+* fresh D-37-compliant audit clone;
+* HEAD verified at merged staging tip;
+* canonical server suite;
+* canonical client suite;
+* exact arithmetic;
+* SENTINELS blob recheck;
+* actual deletion/rename diff;
+* build;
+* staging health SHA;
+* proof;
+* cleanup.
+
+No client change expected.
+
+If client changes:
+
+* explain why;
+* add required client regressions;
+* reconcile counts;
+* bump shell cache if applicable.
+
+---
+
+# SECTION P — I-29
+
+I-29 remains separate.
+
+Due on or after:
+
+**2026-08-14**
+
+Run only when honestly due.
+
+Append its one-line result to the I-29 record.
+
+It is not a Prompt-033 gate.
+
+If the 033 report lands after I-29 has been completed, reference the result.
+
+---
+
+# SECTION Q — FINAL REPORT
+
+Return one consolidated report containing at minimum:
+
+1. D-37 audit clone/base SHA.
+2. Branch and PR.
+3. Commit SHA(s).
+4. Merge SHA.
+5. Deployed staging SHA.
+6. Health verification.
+7. Starting baselines as re-derived.
+8. Final server/client arithmetic.
+9. Deterministic derivation implementation:
+
+   * helper/library used;
+   * namespace UUID;
+   * why standards/custom choice was made;
+   * frozen regression vectors.
+10. Exact source location of:
+
+    * derived intent function;
+    * governing rule;
+    * evidence gate;
+    * already-approved re-entry branch.
+11. TX1 final implementation.
+12. Explicit proof TX1 no longer writes pre-execution `campaign_id`.
+13. Post-success `campaign_id` write location and failure behavior.
+14. `campaign_id` consumer inventory and disposition.
+15. Evidence-clean vs evidence-dirty implementation table.
+16. Mapping of failure classes that create `campaigns` rows.
+17. Explicit proof:
+
+    * `launch_failed` campaigns row blocks automatic re-execution;
+    * Prompt 031 owner-mediated edge untouched.
+18. Task-attempt semantics.
+19. Every J-test by exact name/result.
+20. Per-object mock provider counts for relevant tests.
+21. Interrupted-row regression.
+22. Campaigns-row-present regression.
+23. Crash-before-ledger regression.
+24. Same-intent regression.
+25. New-intent inverse regression.
+26. Partial-ID regressions.
+27. Source-uniqueness backstop regression.
+28. Case-1 live staging proof:
+
+    * PAUSED/$0;
+    * all four provider IDs;
+    * task trail;
+    * EXTERNALLY_VERIFIED;
+    * proof ID;
+    * bookkeeping;
+    * evidence-before-cleanup.
+29. Provider-chain deletion response.
+30. Explicit confirmation:
+
+    * FK untouched;
+    * active-key index untouched;
+    * no migration;
+    * no spine schema change;
+    * no legal-transition-table change;
+    * Hermes untouched.
+31. SENTINELS:
+
+    * MATCH;
+    * MISSING;
+    * CLOBBERED.
+32. Actual file additions/modifications/deletions/renames.
+33. Build result.
+34. Rollback:
+
+    * revert merge;
+    * no schema rollback.
+35. I-29 reference if applicable.
+36. Out-of-scope same-class launch-entry-point finding filed.
+37. Stage-1 checklist lesson:
+    any future design repurposing an existing DB column must inspect both repository DDL and live constraints during preflight.
+38. Deviations / UNVERIFIED items.
+39. Findings / Potential Follow-ups — Owner Decision Required.
+
+Do not self-declare Prompt 033 COMPLETE.
+
+Owner acceptance remains separate.
+
+---
+
+# STOP-AND-REPORT CONDITIONS
+
+STOP immediately if implementation requires:
+
+* FK removal/weakening;
+* schema/index migration;
+* new launch-intent persistence column;
+* active-key-index predicate modification;
+* spine schema change;
+* legal-transition-table change;
+* provider execution from reconciliation;
+* automatic execution when any campaigns row exists for the intent;
+* automatic execution against evidence-dirty history;
+* automatic execution after partial provider IDs;
+* a fresh derived ID/key for the same immutable item;
+* reuse of the same derived ID/key for a genuinely new item;
+* consuming the `launch_failed → approved` owner-mediated edge reserved to Prompt 031;
+* retry/relaunch/reset UI;
+* injected failures against real Facebook;
+* material scope outside Section K;
+* inability to implement deterministic ID without changing dependencies or violating this authorization;
+* anything contradicting D-41, D-40, D-30, or prior accepted invariants.
+
+Do not improvise around a STOP.
+
+---
+
+# AUTHORIZATION TO RESUME
+
+**OPTION 1 IS APPROVED UNDER D-41.**
+
+Resume Prompt 033 Stage 2 using:
+
+**immutable item_id → deterministic intent ID → stable ad_launch key**
+
+Do NOT use `autopilot_batch_items.campaign_id` as pre-execution intent storage.
+
+Do NOT migrate.
+
+Do NOT weaken the FK.
+
+Implement the D-41 campaigns-row gate and all tests above.
+
+Then deploy, perform the single controlled happy-path staging proof, clean up after evidence capture, and return:
+
+# PROMPT 033 — FINAL EVIDENCE DELIVERED; AWAITING OWNER ACCEPTANCE
+
+Prompt 026 DOES NOT START.
