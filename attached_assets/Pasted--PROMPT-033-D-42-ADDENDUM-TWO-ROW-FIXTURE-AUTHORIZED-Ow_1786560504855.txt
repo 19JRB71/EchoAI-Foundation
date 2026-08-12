@@ -1,0 +1,404 @@
+# PROMPT 033 — D-42 ADDENDUM: TWO-ROW FIXTURE AUTHORIZED
+
+Owner + reviewer aligned.
+
+This extends the one-time Prompt-033 Case-1 staging proof exception to
+EXACTLY TWO related fixture INSERTs.
+
+This does NOT authorize:
+- restoring Autopilot ads as a product feature;
+- changing the posts-only decision;
+- running the normal Autopilot generation job;
+- schema changes;
+- migrations;
+- direct campaign/task/external_action/proof inserts;
+- fault injection against Facebook;
+- Prompt 026.
+
+Everything not expressly authorized below remains prohibited.
+
+======================================================================
+PREFLIGHT — READ ONLY, BEFORE ANY WRITE
+======================================================================
+
+P1. LIVE FK TOPOLOGY — MANDATORY
+
+From the live staging database catalog, enumerate EVERY foreign-key
+constraint:
+
+1. referencing autopilot_batches; and
+2. referencing autopilot_batch_items.
+
+For every constraint report:
+- constraint name;
+- child table/column(s);
+- parent table/column(s);
+- exact ON DELETE action.
+
+Before inserting anything, verify that deleting the synthetic
+autopilot_batches row will:
+
+- cascade only to its synthetic autopilot_batch_items child row;
+- NOT cascade into agent_tasks;
+- NOT cascade into external_actions;
+- NOT cascade into external_proofs;
+- NOT cascade into campaigns;
+- NOT delete any unrelated staging row.
+
+Also verify whether deleting the synthetic item itself has any cascading
+children.
+
+If ANY unexpected cascade exists, or cleanup would remove any history that
+D-42 intends to retain:
+
+STOP BEFORE INSERTING.
+REPORT THE ACTUAL TOPOLOGY.
+DO NOT IMPROVISE.
+
+P2. RE-CONFIRM PRIOR D-42 PRECONDITIONS
+
+Re-confirm read-only:
+
+- Pole Barn Kits exact brand/user IDs;
+- Facebook connection healthy;
+- executable Page/destination available;
+- ad_link_url present;
+- Prompt-015 spend/cap gates naturally admit the $1/day PAUSED proof;
+- pre-proof Autopilot settings recorded;
+- zero existing item_type='ad' proof rows that could collide;
+- no existing Prompt-033 synthetic batch/item fixture.
+
+If any prior assumption changed:
+STOP AND REPORT.
+
+======================================================================
+FIXTURE — EXACTLY TWO INSERTS, ONE TRANSACTION
+======================================================================
+
+Create the two synthetic rows in ONE transaction:
+
+BEGIN
+
+F1. Insert ONE minimal autopilot_batches parent row for Pole Barn Kits.
+
+Use only the minimum fields required by:
+- the ownership join;
+- the normal approve endpoint;
+- current live schema constraints.
+
+Expected core fields include:
+- brand_id;
+- user_id;
+- week_start;
+- status;
+
+plus only genuinely required schema fields.
+
+Document the provenance of EVERY inserted value.
+
+Proof tagging may be used only in non-behavioral fields where the existing
+schema legitimately permits it.
+
+Use:
+
+INSERT ... RETURNING
+
+Record the exact statement and complete returned row.
+
+F2. Insert ONE autopilot_batch_items child row under that exact returned
+batch_id.
+
+Required:
+- item_type = 'ad';
+- status = 'pending';
+- $1/day configured proof budget;
+- content visibly marked:
+  PROMPT033 CASE-1 PROOF
+
+Derive the row shape from:
+- the dormant legitimate generation branch; and
+- the live schema.
+
+Document the provenance of EVERY inserted value.
+
+Any value that is merely a fixture-specific placeholder must be disclosed.
+
+Use:
+
+INSERT ... RETURNING
+
+Record the exact statement and complete returned row.
+
+COMMIT
+
+No direct INSERT may be made into:
+- campaigns;
+- agent_tasks;
+- external_actions;
+- external_proofs;
+- any provider bookkeeping table.
+
+The two fixture rows are the ONLY synthetic state allowed.
+
+Record both fixture primary keys verbatim before execution.
+
+======================================================================
+EXECUTION — REAL DEPLOYED MACHINERY ONLY
+======================================================================
+
+Approve the synthetic ad item through the REAL deployed Autopilot approval
+endpoint.
+
+After that request, hands off.
+
+The deployed system must perform:
+
+pending item
+→ claim
+→ deterministic intent derived from immutable item_id
+→ stable ad_launch:<intentId> key
+→ evidence gate
+→ task spine
+→ executeExternal
+→ Facebook provider chain
+→ campaigns bookkeeping
+→ verification
+→ proof
+→ EXTERNALLY_VERIFIED
+
+Requirements:
+
+- campaign PAUSED;
+- $0 spend;
+- no cap bypass;
+- no fault injection;
+- no direct DB repair;
+- no manual task/action/proof creation.
+
+SINGLE LIVE ATTEMPT ONLY.
+
+If the launch fails:
+- record the honest state;
+- STOP;
+- do not retry without a new explicit owner ruling.
+
+======================================================================
+EVIDENCE — CAPTURE BEFORE CLEANUP
+======================================================================
+
+Before any deletion, record:
+
+1. synthetic batch_id;
+2. synthetic item_id;
+3. derived intent ID;
+4. explicit assertion:
+   derivedIntentId = deriveAutopilotLaunchIntentId(item_id);
+5. fixed UUID-v5 namespace/helper reference;
+6. executeExternal key:
+   ad_launch:<derivedIntentId>;
+7. task source_type;
+8. task source_id;
+9. task attempt;
+10. full task lifecycle trail;
+11. Facebook campaign ID;
+12. Facebook ad-set ID;
+13. Facebook creative ID;
+14. Facebook ad ID;
+15. PAUSED provider state;
+16. evidence supporting $0/non-spending state;
+17. campaigns row;
+18. assertion that campaigns.campaign_id matches the canonical derived
+    intent relationship used by the deployed D-41 implementation;
+19. autopilot_batch_items.campaign_id before launch;
+20. autopilot_batch_items.campaign_id after successful launch;
+21. proof that the item campaign_id was populated only after the campaigns
+    row existed and the FK could be satisfied;
+22. external_actions row(s);
+23. external_proof row/id;
+24. EXTERNALLY_VERIFIED state;
+25. any normal REPORTED/COMPLETED state;
+26. timestamps;
+27. D-23-redacted screenshots/evidence where useful.
+
+Both fixture PKs and the item_id→derivedIntentId assertion MUST be captured
+before deleting the fixture.
+
+======================================================================
+LIVE D-41 GATE DEMONSTRATION
+======================================================================
+
+After the first launch has fully succeeded and evidence is captured:
+
+Call the REAL deployed approve endpoint again for the SAME synthetic item.
+
+This does NOT authorize a second launch.
+
+Expected:
+
+- same item_id;
+- same derived intent ID;
+- same stable key;
+- history classified EVIDENCE-DIRTY;
+- honest blocked / already-executed / under-review response;
+- ZERO new Facebook campaign;
+- ZERO new ad set;
+- ZERO new creative;
+- ZERO new ad.
+
+Verify through:
+- durable DB records;
+- task/action history;
+- available provider state/readback.
+
+If the second approve produces ANY provider object:
+
+STOP IMMEDIATELY.
+REPORT.
+DO NOT RETRY OR FIX.
+
+======================================================================
+CLEANUP — ONLY AFTER EVIDENCE IS SECURED
+======================================================================
+
+C1. Delete the real Facebook proof chain FIRST through the existing
+authorized provider deletion path.
+
+Record provider deletion responses separately.
+
+Verify provider-side absence using the available supported verification
+method.
+
+C2. Delete the synthetic autopilot_batches row with ONE exact-PK DELETE.
+
+Use:
+
+DELETE ... RETURNING
+
+Record:
+- exact DELETE statement;
+- returned batch row;
+- affected row count.
+
+The synthetic item may cascade ONLY because P1 verified that exact cleanup
+topology beforehand.
+
+Do not issue a separate child delete unless the verified FK topology
+requires it and owner authorization is obtained.
+
+C3. POST-CLEANUP SURVIVORSHIP CHECK — READ ONLY
+
+After the batch deletion, verify that the following retained historical
+records STILL EXIST:
+
+- canonical task trail;
+- external_actions / ledger rows;
+- external_proof row;
+- campaigns history row.
+
+Report identifiers and counts.
+
+This is mandatory.
+
+Do not assume soft-reference architecture worked.
+Prove that it did.
+
+C4. Confirm:
+- synthetic batch gone;
+- synthetic item gone;
+- provider proof chain gone;
+- retained history intact;
+- Autopilot settings exactly equal pre-proof values;
+- unrelated staging data unchanged.
+
+One line each.
+
+======================================================================
+H1 / H2 / H3 — ALREADY CLOSED
+======================================================================
+
+H1 CLOSED:
+FAILURE_STATE → CANCELLED uses a pre-existing Prompt-018/019 legal edge.
+Prompt 033 changed no legal-transition edge.
+
+H2 CLOSED:
+Full D-37 SENTINELS result:
+41 MATCH / 0 MISSING / 0 CLOBBERED.
+
+H3 CLOSED:
+The shared launchFacebookCampaign dedup-loser-records-nothing change is
+accepted adjacent scope, covered by J11/J13, and does not broaden provider
+execution authority.
+
+Do not reopen H1/H2/H3 unless new evidence contradicts them.
+
+======================================================================
+I-29
+======================================================================
+
+I-29 remains standalone.
+
+Due on or after:
+2026-08-14
+
+Do not run early.
+
+Not a Prompt-033 gate.
+
+If due and already performed under the standing instruction, reference the
+recorded one-line result.
+
+======================================================================
+FINAL REPORT
+======================================================================
+
+Return one consolidated D-42 proof closeout containing:
+
+1. live FK catalog topology for autopilot_batches;
+2. live FK catalog topology for autopilot_batch_items;
+3. explicit cleanup-safety conclusion;
+4. exact preflight state;
+5. exact batch INSERT;
+6. returned batch row;
+7. per-column provenance for batch fixture;
+8. exact item INSERT;
+9. returned item row;
+10. per-column provenance for item fixture;
+11. both fixture PKs;
+12. real approval endpoint request/result;
+13. derived intent ID;
+14. item_id→derivedIntentId assertion;
+15. executeExternal key;
+16. task source/attempt/lifecycle;
+17. all four Facebook object IDs;
+18. PAUSED/$0 evidence;
+19. campaigns row;
+20. campaign/item FK-safe ordering proof;
+21. external_actions evidence;
+22. external_proof evidence;
+23. EXTERNALLY_VERIFIED evidence;
+24. same-item second-approval result;
+25. explicit zero-second-provider-object proof;
+26. evidence-before-cleanup confirmation;
+27. Facebook deletion responses;
+28. provider absence verification;
+29. synthetic batch DELETE statement;
+30. DELETE ... RETURNING result;
+31. proof the synthetic item cascaded exactly as expected;
+32. post-delete task survivorship;
+33. post-delete ledger survivorship;
+34. post-delete proof survivorship;
+35. post-delete campaigns-row survivorship;
+36. Autopilot settings restoration confirmation;
+37. unrelated staging data unchanged confirmation;
+38. current deployed SHA;
+39. H1/H2/H3 reference;
+40. I-29 status/reference if applicable;
+41. deviations / UNVERIFIED items;
+42. Findings / Potential Follow-ups — Owner Decision Required.
+
+If successful, return:
+
+# PROMPT 033 — CASE-1 LIVE PROOF COMPLETE; AWAITING FINAL OWNER ACCEPTANCE
+
+Do NOT self-declare Prompt 033 COMPLETE.
+Do NOT start Prompt 026.
