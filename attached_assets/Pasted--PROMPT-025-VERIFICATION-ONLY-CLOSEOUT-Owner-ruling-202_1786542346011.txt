@@ -1,0 +1,174 @@
+# PROMPT 025 — VERIFICATION-ONLY CLOSEOUT
+
+Owner ruling 2026-08-12.
+
+Prompt 025 corrective work is **ACCEPTED WITH CONDITIONS**. One verification-only closeout remains before final acceptance.
+
+**NO implementation work is authorized by this instruction.**
+
+## RULINGS ALREADY SETTLED
+
+### 1. T3 orphaned-evidence deviation — ACCEPTED
+
+Do **not** manufacture ownership of orphaned evidence and do **not** perform another external Facebook publish merely to improve a transcript.
+
+The retained celebration → proof lineage regression satisfies T3.
+
+The orphaned rows remain untouched. Immutable audit evidence outliving its former tenant is accepted as correct D-25 architecture.
+
+No first-win re-run is authorized.
+
+### 2. Development workspace — RETIRED FROM ACCOUNTING
+
+The workspace and all `.local/*` clones are permanently retired as acceptance/accounting surfaces.
+
+Per clarified D-37, an acceptance/audit clone must satisfy **all three** requirements:
+
+1. Fresh clone directly from GitHub.
+2. Located outside `.local` and outside any checkpoint-managed workspace path.
+3. HEAD verified at the exact target SHA immediately before verification begins.
+
+A development workspace may still be used for ordinary development convenience, but its test totals, file counts, SENTINELS results, or git state must never be used as acceptance evidence.
+
+### 3. Standing Option-1 merge authorization
+
+Remains unchanged.
+
+---
+
+# AUTHORIZED CLOSEOUT
+
+Perform exactly the following verification. Nothing else is authorized.
+
+## STEP 1 — CREATE A CLEAN D-37 AUDIT SURFACE
+
+Create a **brand-new GitHub clone outside the workspace/checkpoint-managed paths**, for example:
+
+`/tmp/p025closeout`
+
+Checkout and verify the exact target:
+
+`c6fa62c3f0095c0695aa284e95ca0f0296d94d0a`
+
+Before running any acceptance check, report the output proving:
+
+`HEAD = c6fa62c3f0095c0695aa284e95ca0f0296d94d0a`
+
+If the SHA does not match exactly:
+
+**STOP AND REPORT. DO NOT FIX ANYTHING.**
+
+## STEP 2 — SERVER SUITE
+
+From that exact fresh clone, run the complete server test suite.
+
+Expected result:
+
+**1351/1351**
+
+Report the actual result.
+
+If it differs:
+
+**STOP AND REPORT. DO NOT FIX ANYTHING.**
+
+## STEP 3 — CLIENT SUITE
+
+From the same exact fresh clone, run the complete client suite with sufficient per-file output to establish both the test total and discovered test-file total.
+
+Expected result:
+
+**430/430 tests across 41 client test files**
+
+Report:
+
+* tests passed / total;
+* discovered client test-file count;
+* confirmation that the Prompt 024 regression files, including the `postText` field-contract regression, are present and actually discovered by the suite.
+
+If any expected file is absent, undiscovered, or the totals diverge:
+
+**STOP AND REPORT. DO NOT FIX ANYTHING.**
+
+## STEP 4 — SENTINELS
+
+From the same D-37-compliant clone, perform the real SENTINELS blob-hash recheck at the target SHA.
+
+Expected:
+
+**41 MATCH / 0 MISSING / 0 CLOBBERED**
+
+Report the actual MATCH / MISSING / CLOBBERED counts.
+
+Do not use a `.local` clone or development workspace for this check.
+
+If anything is MISSING or CLOBBERED:
+
+**STOP AND REPORT. DO NOT FIX ANYTHING.**
+
+## STEP 5 — EXACT DIFF ACCOUNTING
+
+Run and include the **verbatim output** of:
+
+`git diff --name-status 8d18b227..c6fa62c3`
+
+Then reconcile the accounting into **one authoritative changed-file total**.
+
+The prior report used mutually inconsistent descriptions ("3 modified," "4 modified total," and "only 5 files"). Do not repeat those numbers without deriving them from the actual diff.
+
+Report:
+
+* added files;
+* modified files;
+* deleted files;
+* renamed files;
+* total unique changed files.
+
+The arithmetic must reconcile exactly with the verbatim diff.
+
+If the diff reveals an unexpected deletion, rename, or other unexplained change:
+
+**STOP AND REPORT. DO NOT FIX ANYTHING.**
+
+---
+
+# FINAL CLOSEOUT REPORT
+
+If — and only if — all verification passes, return one concise report containing:
+
+1. Audit clone location.
+2. Exact verified HEAD SHA.
+3. Server result.
+4. Client result and test-file count.
+5. Confirmation that the Prompt 024 client regression tests are present and discovered, including the `postText` contract regression.
+6. SENTINELS result.
+7. Verbatim `git diff --name-status 8d18b227..c6fa62c3`.
+8. Reconciled changed-file accounting.
+9. Explicit statement:
+
+**"No implementation work was performed during this closeout."**
+
+10. Any deviation or discrepancy discovered, stated plainly.
+
+## SCOPE LOCK
+
+This is verification only.
+
+Do **NOT**:
+
+* modify code;
+* modify tests;
+* modify documentation;
+* create a migration;
+* alter staging data;
+* perform another external publish;
+* modify orphaned T3 evidence;
+* start Prompt 033;
+* begin any new corrective work;
+* repair a discrepancy discovered during this verification.
+
+If anything diverges from the expected evidence, **STOP AND REPORT IT TO THE OWNER**.
+
+I-29 remains a separate read-only check due on/after **2026-08-14** and is not part of this closeout.
+
+Deliver the verification report for owner review. Do not declare Prompt 025 COMPLETE yourself; final acceptance remains an owner ruling.
