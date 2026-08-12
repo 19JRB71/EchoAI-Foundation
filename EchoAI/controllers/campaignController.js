@@ -210,6 +210,11 @@ async function launchFacebookCampaign(p) {
     actor: spineActor,
     origin: spineOrigin,
     title: `Launch Facebook campaign: ${campaignName}`,
+    // Prompt 033 (D-41): Autopilot passes its deterministically derived,
+    // durable launch-intent id so every re-entry uses the SAME campaign id
+    // and SAME ad_launch:<id> idempotency key (D-30.13). Absent for manual
+    // launches — each createCampaign request is a genuinely new intent.
+    campaignId: p.preassignedCampaignId || null,
   });
 
   // Track every Facebook object id as it is created so a mid-chain failure can
@@ -354,6 +359,16 @@ async function launchFacebookCampaign(p) {
       throw dedupErr;
     }
   } catch (err) {
+    // Prompt 033 (D-41): a deduplicated outcome means ANOTHER execution of
+    // this SAME intent already owns the ledger row (concurrent re-entry
+    // serialized by the active-key backstop). The winner owns the launch
+    // trail — recording a failure here would insert a launch_failed campaigns
+    // row under the shared intent id and poison the winner's success insert.
+    // Surface the honest state; record nothing.
+    if (err.deduplicated) {
+      if (!err.statusCode) err.statusCode = 409;
+      throw err;
+    }
     // Honest partial-chain handling: record whatever was created for cleanup,
     // then surface the failure — never report success on a partial chain.
     await recordFailedLaunch({

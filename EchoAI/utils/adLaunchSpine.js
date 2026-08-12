@@ -26,6 +26,7 @@ require("dotenv").config();
  */
 
 const crypto = require("crypto");
+const { v5: uuidv5 } = require("uuid");
 const db = require("../config/db");
 const taskSpine = require("./taskSpine");
 const { recordExternalProof } = require("./externalProofs");
@@ -34,6 +35,127 @@ const { verifyCampaignStatus } = require("./campaignVerification");
 const TASK_TYPE = "ad_launch";
 const SOURCE_TYPE = "campaign";
 const SYSTEM_ACTOR = "system:ad-launch";
+
+// ---------------------------------------------------------------------------
+// Prompt 033 (I-32, owner rulings D-40 + D-41) — GOVERNING RE-EXECUTION RULE.
+// This wording is binding and regression-locked by a verbatim source test
+// (tests/adLaunchIdempotency.test.js); do not edit it without a new owner
+// ruling. The same text lives in TASK_SPINE_GUIDE.md.
+//
+// For an Autopilot launch intent, automatic provider execution is permitted only when durable evidence proves zero provider side effects across every prior attempt AND no campaigns row exists for the derived intent ID. Evidence is CLEAN only when either (a) no prior execution attempt exists, or (b) every prior attempt terminated before any provider call and contains no partial provider IDs; in both cases, no campaigns row may exist for the intent. Any prior `in_progress`, `interrupted`, `succeeded`, provider-accepted/manual-review state, any recorded partial provider ID, or any campaigns row for the intent makes the launch EVIDENCE-DIRTY and MUST NOT trigger provider execution automatically.
+//
+// Companion invariant: for one approved launch intent, campaign create <= 1,
+// ad-set create <= 1, creative create <= 1, ad create <= 1. A partial provider
+// chain is never automatically resumed — it stays MANUAL_REVIEW for
+// owner-mediated resolution (Prompt 031 owns any relaunch/reset workflow).
+// Re-execution is EVIDENCE-GATED, never index-gated: the active-key unique
+// index remains a concurrency backstop only, NOT the side-effect memory — a
+// reconciled 'interrupted' row vacating that index does NOT reopen execution.
+// ---------------------------------------------------------------------------
+
+// D-41: fixed, load-bearing namespace for deriving an Autopilot launch-intent
+// UUID from the immutable autopilot_batch_items.item_id via standards-based
+// RFC 4122 UUID v5 (uuid@8 already in the dependency tree). NEVER change this
+// constant: a silent change would retroactively mint new idempotency keys for
+// existing items and reopen I-32. Test-pinned by frozen vectors in
+// tests/adLaunchIdempotency.test.js.
+const AUTOPILOT_LAUNCH_INTENT_NAMESPACE = "c95d9b57-9a42-4e1b-8f6a-033a1e32d41b";
+
+/**
+ * D-41 A1/A2 — deterministic launch-intent id for an Autopilot batch item.
+ * SAME ITEM → SAME DERIVED ID → SAME ad_launch:<id> KEY across HTTP retry,
+ * concurrent approval, process restart, task retry, already-approved
+ * re-entry, bookkeeping repair, and reconciliation inspection. A NEW
+ * owner-approved item (new item_id) derives a NEW id/key. The id is never
+ * stored pre-execution (autopilot_batch_items.campaign_id keeps its FK and
+ * its post-success semantics).
+ */
+function deriveAutopilotLaunchIntentId(itemId) {
+  if (!itemId) throw new Error("deriveAutopilotLaunchIntentId requires an item id");
+  return uuidv5(String(itemId), AUTOPILOT_LAUNCH_INTENT_NAMESPACE);
+}
+
+// Task states that imply possible provider execution (evidence-DIRTY when
+// found for an intent): provider-accepted and beyond, plus review/retry
+// states associated with possible provider side effects.
+const EVIDENCE_DIRTY_TASK_STATES = [
+  "PROVIDER_ACCEPTED",
+  "EXTERNALLY_VERIFIED",
+  "REPORTED",
+  "COMPLETED",
+  "MANUAL_REVIEW",
+  "RETRY_SCHEDULED",
+];
+
+/** Any Facebook object id present in a meta bag? */
+function metaHasPartialIds(meta) {
+  if (!meta || typeof meta !== "object") return false;
+  const bags = [meta.partialChain, meta.facebook];
+  return bags.some(
+    (b) => b && typeof b === "object" && Object.values(b).some((v) => v !== null && v !== undefined && v !== "")
+  );
+}
+
+/**
+ * D-41 evidence gate. Classifies the durable history of one derived launch
+ * intent as CLEAN (automatic execution permitted, exactly once, same key) or
+ * DIRTY (ZERO automatic provider calls). Consults, fail-CLOSED on any read
+ * error:
+ *   1. external_actions rows for ad_launch:<intentId> — ANY row of ANY
+ *      status (in_progress, succeeded, failed, reconciled 'interrupted')
+ *      is DIRTY. Only a total absence of ledger rows can be CLEAN, with one
+ *      exception: rows that are provably pre-provider terminal failures do
+ *      not exist by construction (the ledger row is inserted BEFORE the
+ *      provider call), so any row means the provider MAY have been reached.
+ *   2. campaigns row under the derived intent id — ANY row (including
+ *      launch_failed) is DIRTY; launch_failed re-approval is Prompt 031's
+ *      owner-mediated edge, never automatic.
+ *   3. canonical task (ad_launch/campaign/<intentId>): dirty states,
+ *      external_ref, or partial provider ids in task meta / event meta.
+ * CLEAN therefore covers exactly: no history at all, or a task-only trail
+ * that provably terminated before any provider call (no ledger row, no ids,
+ * no campaigns row) — D-41 Clean Cases A and B.
+ *
+ * @returns {Promise<{clean:boolean, reasons:string[], task:object|null}>}
+ */
+async function classifyLaunchEvidence({ intentId }) {
+  const reasons = [];
+  let task = null;
+  try {
+    const ledger = await db.query(
+      "SELECT status, classification FROM external_actions WHERE idempotency_key = $1",
+      [`ad_launch:${intentId}`]
+    );
+    for (const r of ledger.rows) {
+      reasons.push(`ledger_row_${r.status}${r.classification ? `_${r.classification}` : ""}`);
+    }
+
+    const camp = await db.query("SELECT status FROM campaigns WHERE campaign_id = $1", [intentId]);
+    if (camp.rows[0]) reasons.push(`campaigns_row_${camp.rows[0].status}`);
+
+    task = await taskSpine.findTaskBySource({
+      taskType: TASK_TYPE,
+      sourceType: SOURCE_TYPE,
+      sourceId: String(intentId),
+    });
+    if (task) {
+      if (EVIDENCE_DIRTY_TASK_STATES.includes(task.status)) reasons.push(`task_state_${task.status}`);
+      if (task.external_ref) reasons.push("task_external_ref");
+      if (metaHasPartialIds(task.meta)) reasons.push("task_meta_partial_ids");
+      const events = await db.query(
+        "SELECT meta FROM agent_task_events WHERE task_id = $1",
+        [task.task_id]
+      );
+      if (events.rows.some((e) => metaHasPartialIds(e.meta))) reasons.push("event_meta_partial_ids");
+    }
+  } catch (err) {
+    // Fail CLOSED: if the durable evidence cannot be read, execution is not
+    // provably safe — treat as DIRTY and say so honestly.
+    reasons.push(`evidence_read_failed:${String(err.message || err)}`);
+    return { clean: false, reasons, task };
+  }
+  return { clean: reasons.length === 0, reasons, task };
+}
 
 /** Environment tag for proof rows (same rule as the publish adopter). */
 function proofEnvironment() {
@@ -152,9 +274,46 @@ async function enforceStateAgreement({ campaignId, brandId, userId, campaignStat
  * ALWAYS returns a usable campaignId even if recording fails (recorder rule):
  * { campaignId, taskId|null }.
  */
-async function beginLaunch({ brandId, userId, actor, origin = "manual", title }) {
-  const campaignId = crypto.randomUUID();
+async function beginLaunch({ brandId, userId, actor, origin = "manual", title, campaignId: preassigned = null }) {
+  // Prompt 033 (D-41): callers with a DURABLE launch intent (Autopilot's
+  // derived intent id) pass it here so every re-entry records under the SAME
+  // source identity and the SAME ad_launch:<id> idempotency key (D-30.13).
+  // Callers without one keep per-request minting — each manual createCampaign
+  // request IS a new intent.
+  const campaignId = preassigned || crypto.randomUUID();
   const taskId = await taskSpine.safeSpine(async () => {
+    if (preassigned) {
+      // D-41 Section G / D-24 G: stable source id, INCREMENTED attempt for a
+      // legitimate evidence-clean re-attempt. createTask only mints a new
+      // attempt when the latest prior task is terminal; a prior FAILURE_STATE
+      // task (pre-provider terminal failure — Clean Case B) is therefore
+      // CANCELLED first (legal from FAILURE_STATES) so the re-attempt gets
+      // attempt+1 under the same source — never a new source identity, never
+      // a collision with attempt 1. A prior APPROVED/QUEUED/EXECUTING task
+      // (crash-before-ledger — Clean Case A) is RESUMED as the same attempt.
+      const prior = await taskSpine.findTaskBySource({
+        taskType: TASK_TYPE,
+        sourceType: SOURCE_TYPE,
+        sourceId: String(campaignId),
+      });
+      if (prior && taskSpine.FAILURE_STATES.includes(prior.status)) {
+        await taskSpine.transition({
+          taskId: prior.task_id,
+          to: "CANCELLED",
+          actor: SYSTEM_ACTOR,
+          meta: { reason: "superseded_by_evidence_clean_reattempt", origin },
+        });
+      } else if (prior && !taskSpine.TERMINAL_STATES.includes(prior.status)) {
+        // Resume the in-flight attempt through its remaining legal states.
+        if (prior.status === "APPROVED") {
+          await taskSpine.transition({ taskId: prior.task_id, to: "QUEUED", actor, meta: { origin } });
+        }
+        if (prior.status === "APPROVED" || prior.status === "QUEUED") {
+          await taskSpine.transition({ taskId: prior.task_id, to: "EXECUTING", actor: SYSTEM_ACTOR, meta: { origin } });
+        }
+        return prior.task_id;
+      }
+    }
     const { task } = await taskSpine.createTask({
       brandId,
       userId,
@@ -344,6 +503,10 @@ module.exports = {
   AGREEMENT,
   classifyLaunchFailure,
   chainComplete,
+  AUTOPILOT_LAUNCH_INTENT_NAMESPACE,
+  deriveAutopilotLaunchIntentId,
+  EVIDENCE_DIRTY_TASK_STATES,
+  classifyLaunchEvidence,
   statesAgree,
   enforceStateAgreement,
   beginLaunch,

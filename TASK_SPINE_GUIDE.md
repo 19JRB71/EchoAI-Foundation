@@ -55,3 +55,11 @@ Write-time recording is the fast path. Safety net: `scanForMissingTasks` (schedu
 ## Owner-facing surface
 
 Read-only endpoints `GET /api/tasks/activity?brandId=` and `GET /api/tasks/:taskId/events` (owner-scoped) feed the Activity tab (`client/src/sections/social/ActivityPanel.jsx`). UI derives ONLY from the spine — it renders what happened, it never infers.
+
+## Autopilot launch idempotency — governing re-execution rule (Prompt 033, D-40 + D-41)
+
+This rule is binding and regression-locked verbatim (tests/adLaunchIdempotency.test.js); the same text lives as the code comment in `EchoAI/utils/adLaunchSpine.js`. Do not edit either copy without a new owner ruling.
+
+For an Autopilot launch intent, automatic provider execution is permitted only when durable evidence proves zero provider side effects across every prior attempt AND no campaigns row exists for the derived intent ID. Evidence is CLEAN only when either (a) no prior execution attempt exists, or (b) every prior attempt terminated before any provider call and contains no partial provider IDs; in both cases, no campaigns row may exist for the intent. Any prior `in_progress`, `interrupted`, `succeeded`, provider-accepted/manual-review state, any recorded partial provider ID, or any campaigns row for the intent makes the launch EVIDENCE-DIRTY and MUST NOT trigger provider execution automatically.
+
+The launch-intent id is derived deterministically from the immutable `autopilot_batch_items.item_id` (RFC 4122 UUID v5, fixed namespace `c95d9b57-9a42-4e1b-8f6a-033a1e32d41b` — see `deriveAutopilotLaunchIntentId`). Same item → same id → same `ad_launch:<id>` key; a new owner-approved item derives a new id/key. The id is never stored pre-execution; `autopilot_batch_items.campaign_id` keeps its FK and its post-success semantics. The active-key unique index remains a concurrency backstop only — never the side-effect memory.

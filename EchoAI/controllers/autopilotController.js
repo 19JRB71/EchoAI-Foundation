@@ -22,6 +22,7 @@
  */
 
 const db = require("../config/db");
+const adLaunchSpine = require("../utils/adLaunchSpine");
 const { generateWeeklyBatch, reviseAdDraft, draftInstantPost } = require("../prompts/autopilotPrompt");
 const forgeDirector = require("../utils/forgeDirector");
 const { zonedWallTimeToUtc } = require("../utils/timezone");
@@ -1218,66 +1219,121 @@ async function approveItem(req, res) {
     const brand = await getOwnedBrand(userId, item.brand_id);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
-    const client = await db.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const claimed = await client.query(
-        `UPDATE autopilot_batch_items SET status = 'approved'
+    // ------------------------------------------------------------------
+    // Prompt 033 (I-32) — owner rulings D-40 + D-41.
+    //
+    // TX1 contains ONLY the claim (guarded pending→approved) plus the
+    // claim-side budget persistence — implemented as one atomic guarded
+    // UPDATE, committed BEFORE any provider work. Provider execution then
+    // happens strictly OUTSIDE any open transaction, so it can never
+    // succeed inside a transaction whose later rollback makes the item
+    // look unclaimed again (the original I-32 window).
+    //
+    // The durable launch-intent id is DERIVED from the immutable item_id
+    // (deriveAutopilotLaunchIntentId — same item, same id, same
+    // ad_launch:<id> key on every re-entry). It is NEVER written to
+    // autopilot_batch_items.campaign_id pre-execution: that column keeps
+    // its FK to campaigns and its post-success semantics.
+    // ------------------------------------------------------------------
+    let claimedRow;
+    if (item.status === "pending") {
+      const claimed = await db.query(
+        `UPDATE autopilot_batch_items
+            SET status = 'approved', ad_daily_budget = $2
           WHERE item_id = $1 AND status = 'pending'
           RETURNING *`,
-        [itemId]
+        [itemId, dailyBudget]
       );
       if (claimed.rows.length === 0) {
-        await client.query("ROLLBACK");
         return res.status(409).json({ error: "This item was already handled" });
       }
-
-      const launched = await launchFacebookCampaign({
-        userId,
-        brand,
-        name: `${brand.brand_name} - Autopilot test: ${item.ad_headline || "ad"}`,
-        goal: "leads",
-        budget: dailyBudget,
-        spineActor: `owner:${userId}`,
-        spineOrigin: "autopilot",
-        creativeOverride: {
-          headline: item.ad_headline || brand.brand_name,
-          primaryText: item.post_content,
-        },
-      });
-
-      await client.query(
-        "UPDATE autopilot_batch_items SET campaign_id = $1, ad_daily_budget = $2 WHERE item_id = $3",
-        [launched.campaignId, dailyBudget, itemId]
-      );
-      await client.query("COMMIT");
-      recordSignal({
-        brandId: item.brand_id,
-        userId,
-        source: "autopilot",
-        itemType: "ad",
-        platform: "facebook",
-        action: "approve",
-        content: item.post_content,
-      });
-      return res.json({
-        ...itemView({
-          ...claimed.rows[0],
-          status: "approved",
-          campaign_id: launched.campaignId,
-          ad_daily_budget: dailyBudget,
-        }),
-        launch: launched,
-        spendCheck: verdict.reason,
-      });
-    } catch (e) {
-      try {
-        await client.query("ROLLBACK");
-      } catch {}
-      throw e;
-    } finally {
-      client.release();
+      claimedRow = claimed.rows[0];
+    } else if (item.status === "approved" && !item.campaign_id) {
+      // Deliberate re-entry (D-41 Section F): the claim committed but no
+      // campaigns row was ever persisted. The evidence gate below decides
+      // whether execution may proceed — this is the recovery path for the
+      // "TX1 committed, process died before ledger insert" crash window.
+      claimedRow = item;
+    } else {
+      // pending was raced away, or approved with a campaigns row already
+      // linked, or declined — nothing to execute automatically.
+      return res.status(409).json({ error: "This item was already handled" });
     }
+
+    const intentId = adLaunchSpine.deriveAutopilotLaunchIntentId(itemId);
+
+    // D-41 evidence gate (see the governing re-execution rule in
+    // utils/adLaunchSpine.js): automatic execution only on provably clean
+    // history AND no campaigns row for the derived intent; fail-closed.
+    const evidence = await adLaunchSpine.classifyLaunchEvidence({ intentId });
+    if (!evidence.clean) {
+      return res.status(409).json({
+        error: "already_executed",
+        message:
+          "This launch was already executed or is under review — Echo won't create Facebook objects for it again. " +
+          "If it needs attention, it's in the Approvals Inbox.",
+        evidence: evidence.reasons,
+      });
+    }
+
+    // EVIDENCE-CLEAN: execute exactly once with the derived intent id/key.
+    // Concurrent clean re-entries are serialized by the active-key insert
+    // (concurrency backstop only — never the side-effect memory); the loser
+    // surfaces an honest 409 with zero recording.
+    const launched = await launchFacebookCampaign({
+      userId,
+      brand,
+      name: `${brand.brand_name} - Autopilot test: ${item.ad_headline || "ad"}`,
+      goal: "leads",
+      budget: dailyBudget,
+      spineActor: `owner:${userId}`,
+      spineOrigin: "autopilot",
+      preassignedCampaignId: intentId,
+      creativeOverride: {
+        headline: item.ad_headline || brand.brand_name,
+        primaryText: item.post_content,
+      },
+    });
+
+    // Post-success bookkeeping (D-41 Section C): campaign_id is written ONLY
+    // now, after the campaigns row exists, so its FK and post-success
+    // semantics are untouched. If this write fails, record the honest
+    // bookkeeping failure and NEVER re-execute the provider (D-30.12) — the
+    // launch trail already carries every Facebook id.
+    try {
+      await db.query(
+        "UPDATE autopilot_batch_items SET campaign_id = $1 WHERE item_id = $2",
+        [launched.campaignId, itemId]
+      );
+    } catch (bkErr) {
+      console.error(
+        `Autopilot approve: launch ${launched.campaignId} succeeded but linking item ${itemId} failed (no re-execution): ${bkErr.message}`
+      );
+    }
+    recordSignal({
+      brandId: item.brand_id,
+      userId,
+      source: "autopilot",
+      itemType: "ad",
+      platform: "facebook",
+      action: "approve",
+      content: item.post_content,
+    });
+    return res.json({
+      ...itemView({
+        ...claimedRow,
+        status: "approved",
+        campaign_id: launched.campaignId,
+        ad_daily_budget: dailyBudget,
+      }),
+      launch: launched,
+      spendCheck: verdict.reason,
+    });
+    // If launchFacebookCampaign threw above, the TX1 claim deliberately stays
+    // committed: the item remains approved, the derived intent id is
+    // recoverable from item_id, and the next approve request lands in the
+    // re-entry branch where the evidence gate decides (clean → one more
+    // execution with the SAME key; dirty → honest already-executed 409).
   } catch (err) {
     console.error("Autopilot approve error:", err.message);
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
