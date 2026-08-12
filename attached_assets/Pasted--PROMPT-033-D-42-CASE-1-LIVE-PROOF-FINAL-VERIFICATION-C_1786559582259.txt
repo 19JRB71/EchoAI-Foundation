@@ -1,0 +1,626 @@
+# PROMPT 033 — D-42 CASE-1 LIVE PROOF + FINAL VERIFICATION CLOSEOUT
+
+Prompt 033 Stage-2 implementation under D-41 has already been completed,
+merged, deployed, and tested.
+
+Current deployed staging SHA:
+
+bd73b013104f959e8ef2e99b564cf2885448f832
+
+PR #50 is merged.
+
+Current verified implementation evidence going into this closeout:
+
+- server: 1370/1370
+- client: 430/430 across 41 files
+- no client changes
+- no migration/schema change
+- FK untouched
+- active-key partial unique index untouched
+- Hermes untouched
+- 19/19 Prompt-033 idempotency tests passing
+- deterministic Autopilot intent identity uses standards-based UUID v5
+  derived from immutable item_id
+- namespace is fixed/test-pinned
+- interrupted rows block automatic execution
+- campaigns-row-present blocks automatic execution
+- partial provider IDs block automatic execution
+- crash-before-ledger recovery uses the same derived key
+- launch_failed remains owner-mediated Prompt-031 territory
+- provider-object counts are independently protected
+- Prompt 026 remains NOT authorized
+
+The Stage-2 report is provisionally accepted except for the live Case-1
+proof and three verification one-liners below.
+
+Owner/reviewer ruling D-42 authorizes ONLY the work in this document.
+
+======================================================================
+SECTION A — WHY A ONE-TIME FIXTURE IS AUTHORIZED
+======================================================================
+
+Autopilot is currently posts-only by product decision.
+
+The normal production API no longer creates pending Autopilot ad items,
+which means the already-deployed hardened ad approval path cannot naturally
+be exercised on staging.
+
+The runtime implementation DID change under Prompt 033, including:
+
+- claim/execution boundary;
+- deterministic launch-intent key derivation;
+- evidence-gated re-entry;
+- shared launchFacebookCampaign threading;
+- dedup-loser-records-nothing behavior.
+
+Therefore the previously authorized Case-1 real happy-path proof still has
+real evidentiary value.
+
+A one-time staging fixture is authorized solely to recreate the minimum
+precondition required for that proof.
+
+THIS DOES NOT:
+
+- restore Autopilot ads as a product feature;
+- change the posts-only product decision;
+- authorize ad generation generally;
+- authorize new scaffolding;
+- authorize schema changes;
+- authorize fault injection against Facebook.
+
+======================================================================
+SECTION B — PRE-FLIGHT: READ ONLY FIRST
+======================================================================
+
+Before ANY write, perform and record read-only checks.
+
+Target proof brand:
+
+Pole Barn Kits
+
+Verify:
+
+1. The exact target brand/user IDs.
+
+2. Facebook connection is healthy enough for the existing real launch
+   path.
+
+3. The executable Facebook Page/destination required by the launch path is
+   available.
+
+4. ad_link_url / destination data required by the existing path exists.
+
+5. Spend/approval gates under Prompt 015 admit a $1/day PAUSED campaign
+   naturally.
+
+6. Existing Autopilot settings/pre-state are recorded.
+
+7. There is no existing synthetic Prompt-033 proof item that could collide
+   with this run.
+
+8. The pending ad-item row shape is derived from the dormant/current
+   generation code and actual schema.
+
+If any required value would have to be guessed in a way that changes
+business meaning, STOP AND REPORT.
+
+Do not bypass any Prompt-015 cap, approval, or PAUSED-only control merely to
+make the proof pass.
+
+======================================================================
+SECTION C — ONE-TIME SYNTHETIC FIXTURE
+======================================================================
+
+Owner explicitly authorizes exactly ONE staging database INSERT.
+
+Insert exactly ONE:
+
+autopilot_batch_items row
+
+with:
+
+item_type = 'ad'
+status = 'pending'
+
+for the target Pole Barn Kits proof brand.
+
+Requirements:
+
+1. Use only the minimum columns required by the normal deployed approve
+   path.
+
+2. Derive the row shape from the dormant/current legitimate generation
+   branch and actual live schema.
+
+3. Document the provenance of EVERY inserted value.
+
+4. Any value supplied solely because this is a proof fixture must be
+   explicitly labeled as such in the report.
+
+5. Human-readable content must include:
+
+   PROMPT033 CASE-1 PROOF
+
+   so the fixture is unmistakable.
+
+6. Record the exact INSERT statement.
+
+7. Use INSERT ... RETURNING and record the returned row.
+
+8. Scope the INSERT to exact IDs.
+
+9. Do NOT directly create:
+
+   - campaigns rows;
+   - agent_tasks rows;
+   - external_actions rows;
+   - external_proofs rows;
+   - Facebook provider objects;
+   - derived intent IDs in DB fields;
+   - any other execution bookkeeping.
+
+The fixture supplies ONLY the pending Autopilot ad item.
+
+Everything after that must occur through real deployed machinery.
+
+This is a one-time owner-authorized staging-write exception for this exact
+proof only.
+
+======================================================================
+SECTION D — REAL DEPLOYED EXECUTION
+======================================================================
+
+After the single fixture exists:
+
+1. Approve that item through the REAL deployed Autopilot approval endpoint.
+
+2. After the approval request is issued, do not manually manufacture or
+   repair any execution state.
+
+The real deployed system must perform:
+
+pending item
+→ claim
+→ deterministic UUID-v5 launch intent derived from immutable item_id
+→ stable ad_launch:<intentId> key
+→ evidence gate
+→ real task spine
+→ executeExternal
+→ Facebook launch
+→ campaigns bookkeeping
+→ verification
+→ external proof
+→ EXTERNALLY_VERIFIED
+
+The campaign must remain:
+
+PAUSED
+
+and spend must remain:
+
+$0
+
+The configured daily budget for the proof may be $1/day, but the provider
+object must be PAUSED and therefore not spending.
+
+NO fault injection.
+
+NO retry if the live launch fails.
+
+If execution fails:
+
+record the exact honest state and STOP.
+
+Do not retry the provider operation without a new explicit owner ruling.
+
+======================================================================
+SECTION E — REQUIRED EVIDENCE BEFORE CLEANUP
+======================================================================
+
+BEFORE deleting anything, capture and record:
+
+1. Synthetic item_id.
+
+2. Exact derived launch intent ID.
+
+3. Proof that:
+
+   deriveAutopilotLaunchIntentId(item_id)
+
+   equals the intent ID actually used.
+
+4. executeExternal key:
+
+   ad_launch:<derivedIntentId>
+
+5. Canonical task:
+
+   - source type;
+   - source id;
+   - attempt;
+   - lifecycle trail.
+
+6. All four real Facebook object IDs:
+
+   - campaign ID;
+   - ad-set ID;
+   - creative ID;
+   - ad ID.
+
+7. Proof that each provider object is associated with this single launch
+   intent.
+
+8. Campaign status proving PAUSED.
+
+9. Evidence supporting $0 spend / non-spending posture.
+
+10. campaigns row.
+
+11. Proof that:
+
+    campaigns.campaign_id = derived intent ID
+
+    if that is the deployed D-41 implementation's canonical relationship.
+
+12. autopilot_batch_items.campaign_id AFTER successful launch.
+
+13. Proof that the item-level campaign_id was NULL before successful launch
+    and was populated only after the campaigns row existed, satisfying the
+    FK.
+
+14. external_actions row(s).
+
+15. external_proofs row.
+
+16. Task trail reaching:
+
+    EXTERNALLY_VERIFIED
+
+17. Any REPORTED/COMPLETED states produced normally.
+
+18. Relevant timestamps.
+
+19. D-23-redacted evidence/screenshots where useful.
+
+Evidence must be captured BEFORE cleanup.
+
+======================================================================
+SECTION F — LIVE D-41 EVIDENCE-GATE DEMONSTRATION
+======================================================================
+
+After the successful first launch is fully evidenced:
+
+call the REAL deployed approve endpoint for the SAME Autopilot item one
+additional time.
+
+This is NOT permission for another launch.
+
+Expected behavior:
+
+- same immutable item_id;
+- same derived intent ID;
+- same stable key;
+- history is EVIDENCE-DIRTY;
+- honest blocked/already-executed/under-review response;
+- ZERO new Facebook provider calls;
+- ZERO second campaign;
+- ZERO second ad set;
+- ZERO second creative;
+- ZERO second ad.
+
+Verify using the durable records and provider state.
+
+This is the required live demonstration that D-41's core evidence gate
+refuses to execute a proven intent twice.
+
+If the second approval causes ANY provider creation:
+
+STOP IMMEDIATELY AND REPORT.
+
+Do not attempt to clean up the defect or retry.
+
+======================================================================
+SECTION G — CLEANUP AFTER EVIDENCE
+======================================================================
+
+Only after Sections E and F are completely captured:
+
+1. Delete the real Facebook proof chain through the EXISTING authorized
+   provider deletion path.
+
+2. Record provider deletion responses separately.
+
+3. Verify the Facebook proof objects are gone as supported by the available
+   provider verification path.
+
+4. Delete ONLY the synthetic Prompt-033 autopilot_batch_items fixture row.
+
+5. Record the exact cleanup statement and DELETE ... RETURNING result.
+
+6. Retain immutable audit/history that is designed to survive:
+
+   - canonical task trail;
+   - external proof;
+   - campaigns/history rows where retention is part of the accepted
+     architecture.
+
+Do not edit history to make cleanup look cleaner.
+
+7. Restore Autopilot settings exactly to the pre-proof state.
+
+8. Verify:
+
+   - synthetic proof item gone;
+   - real provider proof chain gone;
+   - pre-proof Autopilot settings restored;
+   - unrelated staging data unchanged.
+
+Return each confirmation explicitly.
+
+======================================================================
+SECTION H — THREE REQUIRED CLOSEOUT VERIFICATIONS
+======================================================================
+
+These are acceptance requirements in addition to the live proof.
+
+----------------------------------------------------------------------
+H1 — FAILURE_STATE -> CANCELLED LEGAL TRANSITION
+----------------------------------------------------------------------
+
+Prompt-033 item 18 reports that an existing pre-provider FAILURE_STATE task
+is moved to:
+
+CANCELLED
+
+with reason:
+
+superseded_by_evidence_clean_reattempt
+
+before createTask mints attempt+1.
+
+Verify against the PRE-PROMPT-033 legal transition table/tree:
+
+1. Identify the exact existing legal transition that permits:
+
+   FAILURE_STATE -> CANCELLED
+
+2. Cite file:line / transition definition.
+
+3. State whether Prompt 033 added or modified ANY legal transition edge.
+
+Expected acceptable outcome:
+
+the transition already existed and Prompt 033 merely uses it.
+
+If Prompt 033 added/changed a legal-transition edge:
+
+STOP AND REPORT.
+
+That would be an undisclosed authorization violation and requires a separate
+owner ruling.
+
+----------------------------------------------------------------------
+H2 — FULL SENTINELS MANIFEST
+----------------------------------------------------------------------
+
+The previous final report said:
+
+"Recheck on the touched surfaces"
+
+That is insufficiently precise under D-32/D-37.
+
+Run the FULL SENTINELS.md manifest from a D-37-compliant fresh GitHub clone:
+
+- outside .local;
+- outside checkpoint-managed workspace;
+- HEAD verified at deployed/merged SHA immediately before the check.
+
+Report exactly:
+
+MATCH =
+MISSING =
+CLOBBERED =
+
+Expected:
+
+41 MATCH
+0 MISSING
+0 CLOBBERED
+
+If anything is missing or clobbered:
+
+STOP AND REPORT.
+
+Do not repair.
+
+----------------------------------------------------------------------
+H3 — DEDUP-LOSER SHARED-LAUNCHER FIX
+----------------------------------------------------------------------
+
+Formally document as ACCEPTED ADJACENT SCOPE:
+
+The Prompt-033 implementation changed the shared launchFacebookCampaign
+behavior so a deduplicated loser records NOTHING rather than poisoning the
+winner's bookkeeping.
+
+State:
+
+1. exact file:line;
+2. old behavior;
+3. new behavior;
+4. why it was necessary for Prompt-033 correctness;
+5. tests covering it, including J11/J13 as applicable;
+6. confirmation it does not broaden provider execution authority or change
+   legitimate first-fire launch behavior.
+
+This behavior fix is accepted under D-42.
+
+No further work is required unless verification reveals another issue.
+
+======================================================================
+SECTION I — I-29
+======================================================================
+
+I-29 remains standalone.
+
+Due on or after:
+
+2026-08-14
+
+Do not run it early.
+
+It is NOT a Prompt-033 gate.
+
+If this closeout happens before the due date:
+
+report:
+
+I-29 NOT YET DUE
+
+If the check has already become honestly due and has been performed under
+the standing instruction, reference its one-line recorded result.
+
+Do not reconnect/rotate Google merely to produce evidence.
+
+======================================================================
+SECTION J — SCOPE LOCK
+======================================================================
+
+This authorization permits ONLY:
+
+- the read-only preflight;
+- one exact pending Autopilot ad fixture INSERT;
+- one real approval through the deployed endpoint;
+- one blocked same-item re-approval for the evidence-gate demonstration;
+- evidence capture;
+- provider-chain cleanup;
+- deletion of the synthetic fixture;
+- restoration of the exact pre-proof Autopilot setting state;
+- the three verification one-liners.
+
+It does NOT authorize:
+
+- restoring Autopilot ads as a product feature;
+- changing posts-only behavior;
+- new API/test scaffolding;
+- migrations;
+- schema changes;
+- FK changes;
+- active-key-index changes;
+- task transition changes;
+- Prompt-031 retry behavior;
+- direct campaigns/task/action/proof inserts;
+- another Facebook launch after failure;
+- injected provider failures;
+- fixes to other per-invocation-key launch entry points;
+- Prompt 026.
+
+If the fixture cannot exercise the deployed path without violating these
+constraints:
+
+STOP AND REPORT.
+
+======================================================================
+SECTION K — CLOSEOUT REPORT
+======================================================================
+
+Return ONE consolidated Prompt-033 proof closeout containing:
+
+1. D-42 ruling acknowledged.
+
+2. Preflight:
+   - brand;
+   - IDs;
+   - FB connection/destination status;
+   - spend-cap status;
+   - pre-proof Autopilot settings.
+
+3. Verbatim fixture INSERT.
+
+4. INSERT ... RETURNING result.
+
+5. Provenance for every fixture field.
+
+6. Real approval endpoint request/result.
+
+7. Synthetic item_id.
+
+8. Derived intent ID.
+
+9. Fixed namespace/helper reference.
+
+10. Proof item_id derives to the exact live intent ID.
+
+11. executeExternal key.
+
+12. Task/source/attempt trail.
+
+13. Facebook campaign ID.
+
+14. Facebook ad-set ID.
+
+15. Facebook creative ID.
+
+16. Facebook ad ID.
+
+17. PAUSED proof.
+
+18. $0/non-spending evidence.
+
+19. campaigns row.
+
+20. Proof campaigns PK / intent relationship.
+
+21. Item campaign_id pre/post proof and FK-safe ordering.
+
+22. external_actions evidence.
+
+23. external_proof ID.
+
+24. EXTERNALLY_VERIFIED evidence.
+
+25. Same-item second approval result.
+
+26. Explicit proof second approval made ZERO provider calls.
+
+27. Explicit proof no second campaign/ad-set/creative/ad exists.
+
+28. Evidence-before-cleanup confirmation.
+
+29. Facebook deletion response(s).
+
+30. Provider absence verification.
+
+31. Synthetic fixture DELETE statement.
+
+32. DELETE ... RETURNING result.
+
+33. Retained immutable history statement.
+
+34. Autopilot settings restoration confirmation.
+
+35. Unrelated staging data unchanged confirmation.
+
+36. H1 legal-transition citation and determination.
+
+37. H2 full SENTINELS counts.
+
+38. H3 dedup-loser fix formal adjacent-scope note.
+
+39. Current deployed SHA.
+
+40. Current server/client totals if re-run for closeout.
+
+41. I-29 status/result if applicable.
+
+42. Deviations / UNVERIFIED items.
+
+43. Findings / Potential Follow-ups — Owner Decision Required.
+
+If everything passes, return:
+
+# PROMPT 033 — CASE-1 LIVE PROOF COMPLETE; AWAITING FINAL OWNER ACCEPTANCE
+
+Do NOT self-declare Prompt 033 COMPLETE.
+
+Do NOT begin Prompt 026.
