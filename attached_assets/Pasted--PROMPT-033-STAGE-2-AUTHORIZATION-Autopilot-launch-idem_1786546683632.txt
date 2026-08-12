@@ -1,0 +1,626 @@
+# PROMPT 033 — STAGE 2 AUTHORIZATION
+
+Autopilot launch idempotency — close I-32's modern window
+
+Prepared 2026-08-12 under owner ruling D-40. Stage-1 preflight:
+ACCEPTED (verdict I-32 = NARROWED confirmed); A+B minimal-hybrid design
+ACCEPTED WITH THE AMENDMENTS IN SECTION B.
+
+Where this document conflicts with the Stage-1 report, THIS DOCUMENT WINS.
+
+The consolidated issue package and all prior rules (D-30, D-27, D-32,
+D-34, D-37 clarified, D-38, D-23, D-18, D-19,
+GLOBAL_PROMPT_RULES) remain in force.
+
+033 is the only implementation prompt in flight.
+Prompt 026 does NOT start.
+
+
+## THE GOVERNING RE-EXECUTION RULE
+## (verbatim, into code comment + docs + tests)
+
+"For a persisted launch intent, automatic provider execution is permitted
+only when durable evidence proves zero provider side effects across every
+prior attempt.
+
+Evidence is CLEAN only when either:
+
+(a) no prior execution attempt exists; or
+
+(b) every prior attempt terminated before any provider call and contains
+no partial provider IDs.
+
+Any prior in_progress, interrupted, succeeded,
+provider-accepted/manual-review state, or any recorded partial provider
+ID makes the intent EVIDENCE-DIRTY and MUST NOT trigger provider execution
+automatically."
+
+Companion invariant (Stage-1 A2, unchanged):
+
+For one approved launch intent:
+
+campaign create <= 1
+ad-set create <= 1
+creative create <= 1
+ad create <= 1
+
+A retry may complete a genuinely missing later object only where the design
+permits it (it does not — partial chains go to MANUAL_REVIEW); it must
+never recreate an earlier successful object.
+
+
+## SECTION A — ACCEPTED AS PREFLIGHTED
+## (implement exactly as designed)
+
+A1. THE A+B HYBRID
+
+approveItem's ad branch pre-generates the durable launch-intent id.
+
+ONE short transaction (TX1):
+
+- claims the item (pending -> approved, row-count guarded); AND
+- persists campaign_id = <intent id> on the item row.
+
+COMMIT.
+
+Provider execution happens strictly OUTSIDE any open transaction.
+
+beginLaunch accepts the optional pre-assigned campaignId.
+
+The executeExternal key:
+
+    ad_launch:<intent id>
+
+is recovered from the item row on every re-entry.
+
+No retry path may mint a fresh key for the same intent
+(D-30.13 finally true for ad launches).
+
+
+A2. TWO-DIRECTION INTENT/KEY INVARIANTS
+
+SAME item
+= same intent
+= same persisted id
+= same key
+
+across:
+
+- HTTP retry
+- concurrent approval
+- worker retry
+- process restart
+- task retry
+- reconciliation
+
+NEW owner-approved intent
+(new batch item; each manual createCampaign request)
+
+= new id
+= new key
+= a PERMITTED new chain.
+
+No legitimate launch is ever suppressed silently.
+
+Blocked re-entries return visible honest states.
+
+
+A3. RECOVERY HONESTY
+
+Partial chains remain:
+
+    MANUAL_REVIEW + owner cleanup
+
+No partial-chain auto-resume.
+
+Reconciliation repairs records only and NEVER invokes a provider
+(D-30.14; throws on executables).
+
+source-uniqueness -> MANUAL_REVIEW remains defense-in-depth and must be
+regression-covered.
+
+It is a detection backstop, not the primary exactly-once control.
+
+
+A4. EXPECTED CHANGED-FILE SURFACE
+
+Expected:
+
+- autopilotController.js
+- adLaunchSpine.js
+  (optional pre-assigned id)
+- campaignController.js
+  (threading the id through the shared launcher — justified,
+   no unrelated refactor)
+- tests
+
+Manual createCampaign keeps per-request minting:
+each request = a new intent.
+
+Anything beyond this surface:
+JUSTIFY OR STOP.
+
+
+A5. MIGRATION: NONE
+
+The evidence-clean gate is CODE-LEVEL.
+
+DO NOT modify:
+
+- the active-key partial unique index predicate;
+- spine schema;
+- any other schema.
+
+A discovered schema need = STOP AND REPORT.
+
+
+A6. ALL PRESERVED INVARIANTS
+
+As confirmed in Stage 1:
+
+- provider outcome is authoritative;
+- bookkeeping failure never causes provider re-execution (D-30.12);
+- 015 caps + approval semantics untouched;
+- 005 verification semantics untouched;
+- launches remain PAUSED-only / $0;
+- facebookApi PAUSED assertion remains intact;
+- no spend-path change;
+- no spine schema change;
+- no legal-transition-table change;
+- compensating re-pause behavior preserved and regression-covered;
+- I-24 / Prompt 031 remains out of scope;
+- I-44 remains out of scope;
+- Hermes untouched.
+
+
+## SECTION B — BINDING AMENDMENTS
+## (D-40; review findings, owner-concurred)
+
+
+B1. INTERRUPTED ROWS MUST NOT REOPEN EXECUTION
+
+The active-key index guarantees dedup only while a row is:
+
+    in_progress | succeeded
+
+Reconciliation closing an in_progress row as interrupted VACATES the
+index.
+
+Therefore, under an index-gated design, a later same-key re-entry could
+re-execute against provider objects that may already exist.
+
+Therefore:
+
+RE-EXECUTION IS EVIDENCE-GATED, NOT INDEX-GATED.
+
+Before ANY executeExternal invocation for a persisted intent, the code
+consults the durable history for that key, including:
+
+- ledger rows;
+- task state;
+- partial-chain/provider IDs.
+
+It then applies the governing rule verbatim.
+
+A reconciled interrupted row for the intent is evidence of possible
+provider side effects and BLOCKS automatic execution even though the
+active-key index no longer covers it.
+
+The index remains the concurrency backstop.
+
+THE INDEX IS NEVER THE SIDE-EFFECT MEMORY.
+
+Do NOT "fix" this by adding interrupted to the index predicate.
+That is a schema/index change and therefore a STOP condition.
+
+
+B2. ALREADY-APPROVED RE-ENTRY BRANCH
+
+TX1 commits before execution.
+
+Therefore the claim guard 409s every ordinary re-approve.
+
+The deliberate re-entry branch is:
+
+If the item is already approved AND has a persisted intent id:
+
+1. Recover the SAME intent id.
+2. Recover the SAME idempotency key.
+3. Inspect the durable history.
+4. Classify that history using the governing evidence-clean/evidence-dirty
+   rule.
+
+EVIDENCE-CLEAN:
+
+- no prior execution attempt exists
+  (for example, crash between TX1 commit and ledger insert); OR
+
+- every prior attempt terminated before any provider call and has no
+  partial provider IDs.
+
+Then:
+
+execution MAY proceed ONCE using the SAME intent/key.
+
+Concurrent evidence-clean re-entries are serialized by the active-key
+insert.
+
+Exactly one executes.
+
+
+EVIDENCE-DIRTY:
+
+Any prior:
+
+- in_progress;
+- interrupted;
+- succeeded;
+- provider-accepted/manual-review state; OR
+- recorded partial provider ID
+
+means:
+
+ZERO provider calls.
+
+Return an honest:
+
+    already executed / under review
+
+outcome as appropriate.
+
+No stuck approved-but-never-attempted state may be unreachable.
+
+The evidence-clean branch is precisely the recovery mechanism for the
+TX1-committed / execution-never-started crash window.
+
+
+B3. POST-MANUAL_REVIEW RELAUNCH REMAINS OUT OF SCOPE
+
+Prompt 031 owns owner-mediated retry/reset after launch failure/review.
+
+Prompt 033 MUST NOT invent:
+
+- retry UI;
+- relaunch UI;
+- reset workflow;
+- owner-mediated relaunch behavior.
+
+The honest visible "under review" state is the Prompt-033 boundary.
+
+
+B4. TASK ATTEMPT SEMANTICS
+
+A stable intent/source id means a later evidence-clean execution attempt
+uses an INCREMENTED task attempt number under the existing D-24 G attempt
+semantics.
+
+Same source.
+New attempt.
+
+Never:
+
+- a new source id;
+- a collision;
+- a second canonical identity for one intent.
+
+Specify this in the design, enforce it in code, and test it.
+
+
+B5. campaign_id CONSUMER MINI-INVENTORY
+
+Stage 2 changes:
+
+    autopilot_batch_items.campaign_id
+
+from a POST-SUCCESS value into a PRE-EXECUTION durable intent id.
+
+That means it may be:
+
+- present before a campaigns row exists;
+- temporarily dangling during execution;
+- indefinitely dangling after a failed/manual-review launch.
+
+Inventory EVERY current reader/join of that column.
+
+For each consumer, classify whether it assumes that a corresponding
+campaigns row already exists.
+
+Any consumer that would misinterpret a pre-execution/dangling id must be:
+
+- corrected within the narrow Prompt-033 scope; OR
+- STOP AND REPORT if the required correction expands materially beyond
+  Prompt 033.
+
+The final report must include the owner-visible wording/state for:
+
+    approved + MANUAL_REVIEW + no campaign row
+
+Nothing silent.
+
+Nothing may imply that a live Facebook campaign exists when it does not.
+
+
+## SECTION C — STAGE-2 TEST PLAN
+
+All tests are DB-backed through the REAL spine + executeExternal seams
+with a MOCKED provider.
+
+Per-object provider call counters asserted independently.
+
+NEVER make a real Graph call in failure-injection tests.
+
+
+C1. STAGE-1 SUITE AS ACCEPTED
+
+Required:
+
+1. adLaunchIdempotency.claimCommit
+
+   commit failure post-launch ->
+   per-object counts = 1.
+
+2. Four acknowledgement-loss tests:
+
+   ackLoss.campaign
+   ackLoss.adset
+   ackLoss.creative
+   ackLoss.ad
+
+3. adLaunchIntentIdentity
+
+   same-intent retry/restart/concurrent ->
+   one chain.
+
+   new intent ->
+   new key ->
+   permitted new chain.
+
+4. adLaunchConcurrentApproval
+
+   parallel attempts ->
+   one winner ->
+   one chain.
+
+5. adLaunchPartialChain
+
+   failures between provider objects ->
+   never recreate earlier objects ->
+   MANUAL_REVIEW.
+
+   compensating re-pause behavior preserved.
+
+6. adLaunchDetectionBackstop
+
+   forced duplicate ->
+   source-uniqueness collision ->
+   MANUAL_REVIEW.
+
+
+C2. REQUIRED D-40 AMENDMENT TESTS
+
+All are mandatory:
+
+TEST 1:
+Reconciled interrupted prior attempt + re-entry
+-> ZERO provider calls.
+
+TEST 2:
+Claim committed + NO ledger row + re-entry
+-> SAME key
+-> execution allowed exactly once.
+
+TEST 3:
+Pre-provider terminal failure + no partial provider IDs
+-> same-key re-execution permitted.
+
+TEST 4:
+ANY partial provider ID recorded
+-> re-entry blocked
+-> ZERO provider calls.
+
+TEST 5:
+Stable source id + new evidence-clean execution
+-> INCREMENTED task attempt
+-> no new source
+-> no collision.
+
+TEST 6:
+Every campaign_id consumer remains safe when the intent id exists before
+any campaigns row exists.
+
+This test coverage follows the B5 consumer inventory.
+
+
+C3. GOVERNING-RULE REGRESSION
+
+The corrected governing re-execution rule text above must be asserted
+present VERBATIM in the intended code/doc location using the established
+source-grep / ORDERING_NOTE pattern.
+
+This corrected wording supersedes the earlier ambiguous version.
+
+The test must bind to THIS exact rule, not the superseded wording.
+
+
+## SECTION D — EXTERNAL PROOF: CASE 1
+
+Runtime behavior changes:
+
+- execution boundary;
+- key lifecycle;
+- re-entry behavior;
+- evidence gate.
+
+Therefore perform ONE controlled staging launch through the fixed path.
+
+Requirements:
+
+- Facebook campaign remains PAUSED;
+- $0 spend;
+- full task trail to EXTERNALLY_VERIFIED;
+- capture all four provider object IDs:
+  - campaign;
+  - ad set;
+  - creative;
+  - ad;
+- capture proof row;
+- capture bookkeeping/evidence;
+- capture evidence BEFORE cleanup;
+- delete the chain afterward under D-24 I;
+- record the provider deletion response.
+
+NEVER inject commit/process/provider-ack failures against real Facebook
+objects.
+
+The entire failure matrix lives in the mocked test suite.
+
+D-23 redaction throughout.
+
+
+## SECTION E — PROCESS
+
+D-18 branch/PR from the then-current staging tip.
+
+FIRST ACT of branch setup:
+
+Use a D-37-compliant audit surface:
+
+- fresh GitHub clone;
+- OUTSIDE .local;
+- OUTSIDE checkpoint-managed workspace paths;
+- HEAD verified immediately before checks.
+
+Re-derive baselines there.
+
+Reference only:
+
+- server 1351/1351;
+- client 430/430 across 41 files.
+
+VERIFY.
+NEVER ASSUME.
+
+Also required:
+
+- D-32 deletion review;
+- SENTINELS recheck on the same compliant class of surface;
+- D-34 findings only in report;
+- DB-backed tests for any touched endpoint.
+
+CLIENT:
+
+No client changes expected.
+
+Any client change requires:
+
+- explicit justification;
+- test accounting.
+
+SW bump only if client changes.
+
+
+I-29:
+
+Standalone read-only check is due 2026-08-14.
+
+Run it on the due date per the standing instruction and report one line to
+the I-29 record independently of Prompt 033's progress.
+
+I-29 is a carrier/observation item, NEVER a gate.
+
+
+## SECTION F — FINAL REPORT MUST INCLUDE
+
+1. Governing rule code/doc locations.
+
+2. TX1 and already-approved re-entry branch as merged, file:line.
+
+3. B5 campaign_id consumer inventory:
+   - every consumer;
+   - classification;
+   - disposition;
+   - owner-visible state wording.
+
+4. Task-attempt semantics as implemented.
+
+5. Every C1/C2 test:
+   - exact name;
+   - result.
+
+6. Per-object provider call-count evidence.
+
+7. Case-1 staging proof:
+   - PAUSED/$0;
+   - task trail;
+   - EXTERNALLY_VERIFIED;
+   - campaign/ad-set/creative/ad IDs;
+   - proof row;
+   - evidence captured before cleanup;
+   - deletion response.
+
+8. Confirmation that:
+   - active-key index is untouched;
+   - all schema is untouched;
+   - no migration exists.
+
+9. Baselines from a D-37-compliant audit surface.
+
+10. SENTINELS recheck.
+
+11. Deletions review.
+
+12. Rollback statement:
+
+    revert the merge;
+    no data rollback;
+    no schema change.
+
+13. OUT-OF-SCOPE FINDING MUST BE FILED:
+
+Other launch entry points:
+
+- adCreativeStudioController;
+- Echo;
+- Setup Wizard
+
+retain per-invocation key minting.
+
+Report this for the issue register.
+
+DO NOT fix those entry points in Prompt 033.
+
+14. I-29 result reference if available/on record.
+
+15. Every deviation stated plainly.
+    Never paper over a discrepancy.
+
+
+## STOP-AND-REPORT CONDITIONS
+
+STOP immediately for any of the following:
+
+- schema/index/migration need;
+- touching the active-key index predicate;
+- spine schema change;
+- legal-transition-table change;
+- reconciliation path that could invoke a provider;
+- automatic execution against EVIDENCE-DIRTY history;
+- retry path that can mint a fresh key for a persisted intent;
+- design that suppresses a genuinely new approved launch;
+- retry UI/relaunch/reset workflow (Prompt 031 territory);
+- injected failures against real provider objects;
+- scope beyond the A4 file surface without justification;
+- campaign_id consumer correction that materially expands scope beyond
+  Prompt 033;
+- inability to distinguish evidence-clean from evidence-dirty without
+  guessing;
+- anything contradicting the governing rule, D-40, D-30, or prior
+  decisions.
+
+
+— PROMPT 033 STAGE 2 AUTHORIZED. —
+
+Implement, deploy per D-18, and deliver the complete final report for
+owner review before acceptance.
+
+Prompt 026 DOES NOT START.
