@@ -1,0 +1,162 @@
+# PROMPT 026 — STAGE-1 ISSUE PACKAGE (FINAL — AUTHORIZED FOR ISSUE 2026-08-13)
+
+Own-business internal testing protocol — Phase H
+
+Consolidated under owner ruling D-43 (P-1 = Option C ratified; P-3 = South Dixie Storage + Blacor Homes ratified; zero live spend; TEST-by-default content policy; strict I-48 single-attempt rule; production smoke gate; narrow blocking-bug definition), with the I-29 consistency correction applied per the final review pass. Base = REPLIT_PROMPT_026 v2, reconciled with everything through Prompt 033. Prereqs: Gates A–G closed with evidence rows ✓ · 033 COMPLETE / I-32 CLOSED (E-32) ✓ · I-30 SUBMITTED 2026-08-13, pending Google review · I-29 governed by the Section-5 rule: independent, NON-GATING.
+
+### PROTOCOL — TWO-STAGE, WITH IN-STAGE-2 GATES
+
+STAGE 1 is READ-ONLY: no code, no config changes, no provider calls, no DB writes, no runbook execution, no external proof of any kind. Deliver the Stage-1 report (Section 15) and STOP for owner authorization.
+
+STAGE 2 (only when later authorized) is itself gated: H1 (staging protocol) → OWNER CHECKPOINT → H2 production read-only preflight → PRODUCTION SMOKE GATE (Section 6A) → full H2 production matrix. H2 never begins on H1's authorization alone; the production matrix never begins on the audit alone.
+
+### 1. WHAT PROMPT 026 PROVES
+
+The COMPLETE workflow, on real businesses the owner controls, with zero customer risk (D-7): business identified → Sage researches it with provenance (022) → owner reviews/corrects/approves knowledge (011) → adaptive interview fills real gaps (023) → real first win via the armed publish chain (024) → ongoing work proposed → approved via the unified inbox (019) → external actions execute through the canonical spine/executeExternal machinery (009/018/020/033) → provider confirms via read-back → evidence lands in external_proofs → Echo narrates the outcome and ONLY what the evidence supports (025). Workflows, not screens. The filled runbooks + proof rows ARE the deliverable.
+
+### 2. SCOPE / NON-SCOPE
+
+IN SCOPE: a written runbook (OWN_BUSINESS_TEST_RUNBOOK.md, one instance per business per environment) executed by the OWNER as operator with Replit observing/verifying read-only; blocking-bug fixes ONLY, via the Section-14 mini-cycle under the D-43(7) narrow definition; evidence capture; the H1 → checkpoint → smoke → H2 sequence.
+
+OUT OF SCOPE (explicitly): new features · any fix for I-47 (ad-chain deletion tooling), I-48 (other-caller intent keys), I-44, I-45, I-46, I-40, I-41, I-42, I-43 · Prompt 031's retry workflow · Prompt 027's scripted/automated E2E (026 is HUMAN-driven by design; building automation for the flow is a STOP) · any non-owned business or customer data · billing/Stripe beyond existing test-mode state (029's domain) · SMS/voice external sends (D-11 deferral; SMS is feature-only per 025 — could not honestly claim verified success) · Hermes changes (D-9; its passive measurement continues and 026's real traffic feeds the D-9 revisit trigger) · I-21 credential cleanup (separate hygiene item, D-43(10)).
+
+### 3. PARTICIPATING BUSINESSES (P-3, RATIFIED by D-43(2))
+
+SOUTH DIXIE STORAGE — deep-wired anchor: connected FB Page (140006069194366), ad account (act_818682760732833), GA4 property (473906255), real GBP listing (the I-30 test case), accumulated platform history.
+
+BLACOR HOMES — the discriminating second: real-estate vertical (exercises brand_type gating and 023's RE interview branch on a real business), fresh onboarding end-to-end, and the first real two-brands-one-owner isolation rehearsal (D-20/014).
+
+TournamentOne: HELD for a later cycle. Testimony: OUT of this cycle.
+
+### 4. ENVIRONMENT BOUNDARIES (P-1 = OPTION C, RATIFIED by D-43(1))
+
+H1 — STAGING PROTOCOL: both businesses run the full runbook on staging. SDS exists on staging with history → SDS-H1 exercises ongoing-operation workflows on the existing brand (content, publish, ad chain, email, Echo). Blacor-H1 is a FRESH full onboarding (research → review → interview → first win) — the complete Phase-F machinery on a real second business.
+
+H2 — PRODUCTION, INTERNAL BRANDS ONLY: after the owner checkpoint, the production read-only preflight (Section 13b), and a CLEAN SMOKE-GATE PASS (Section 6A), the runbook repeats on production, where BOTH businesses onboard fresh as the first real production tenants. Production has had ZERO live verification passes during this turnaround; H2 treats it as unproven territory, never as staging's twin.
+
+### 5. INTEGRATIONS THAT MAY BE EXERCISED
+
+Facebook: OAuth connect, Page selection, organic publish via the spine, and the ad chain per the Section-7 R6 single-attempt rule. Google: OAuth + GA4 pull (016's proven path), governed by the I-29 RULE below. Email: real sends via the spine ONLY to owner-controlled inboxes. Sage research (022) with the 023 locationHint where the interview supplies context. The full knowledge / interview / first-win / inbox / Echo surfaces.
+
+GOVERNING I-29 RULE (applies package-wide): "I-29 is independent and NON-GATING for Prompt 026. Its due-date check runs on or after 2026-08-14 and its result is carried into the record when available. A pending I-29 result does not delay Stage 1, Stage-2 H1, or unrelated 026 work. If I-29 FAILS and thereby establishes a real Google OAuth/refresh-token defect, STOP AND REPORT the Google-dependent runbook rows affected by that defect; do not fake or bypass them. Unrelated 026 work continues unless the discovered defect independently demonstrates a broader platform safety/integrity problem requiring STOP."
+
+### 6. SKIPPED / SIMULATED / HONESTLY UNAVAILABLE
+
+GBP (reviews pull; any review reply): CONDITIONAL ON I-30 (submitted 2026-08-13, pending Google). Stage 1 and each phase preflight re-check grant status read-only. Granted → GBP runbook items run (read-only pulls first; a review REPLY is a provider write requiring Section-8 approval + Section-7 classification). Not granted → items recorded UNVERIFIED-PENDING-I30, never simulated, never faked; GBP cannot block any non-GBP work.
+
+SMS/Twilio: SKIPPED (D-11; no spine correlation exists). Voice external actions: SKIPPED. Stripe live billing: OUT (029).
+
+Anything Echo cannot verify (025's feature-only ceilings): may be exercised in-app, but its runbook row records the honest "per our records" ceiling — the runbook never upgrades a claim beyond what 025's narration rules allow.
+
+### 6A. PRODUCTION FIRST-CONTACT SMOKE GATE (D-43(6) — MANDATORY)
+
+The read-only production audit alone is NOT sufficient entry to the full production matrix. After the Section-13b audit passes and BEFORE any production runbook step: execute ONE minimal, reversible, NON-SPEND smoke action through real deployed production machinery.
+
+Requirements: explicit owner authorization for the selected action · no advertising spend · preferably no public-content persistence · the real production path and real provider where applicable · authoritative evidence/read-back captured · the complete internal task/proof/ledger trail wherever that machinery applies · TEST-classified artifact cleaned up after evidence per Section 10 · unrelated production data untouched.
+
+STAGE-1 DUTY: the Stage-1 report must RECOMMEND the safest useful smoke action based on the actual current production capabilities found by the 13b audit, and explain why (candidates to evaluate honestly — e.g. a spine email send to an owner inbox with Message-ID proof; an organic FB post to an owner Page classified TEST with publish → read-back → proof → delete; a GA4 read-only pull with proof row — the report argues the choice, the owner rules at Stage-2 authorization).
+
+GATE RULE: Stage 2 may not proceed from the smoke test into the broader production matrix unless the smoke gate passes CLEANLY. Smoke failure or an ambiguous provider outcome = STOP AND REPORT with authoritative evidence state — never a workaround, never a retry improvisation.
+
+### 7. RULES FOR REAL EXTERNAL SIDE EFFECTS
+
+R1. ZERO LIVE SPEND (D-43(3)): no intentional advertising spend in either environment. All ad objects PAUSED/$0 under the existing 015 protections at all times. The first intentional live dollar requires separate owner authorization OUTSIDE this prompt. No live-spend window exists in 026.
+
+R2. CLASSIFICATION BEFORE EXECUTION (D-43(4)): every external/public artifact is classified in the runbook BEFORE the write executes. DEFAULT = TEST (cleanup after evidence per Section 10). KEEP requires EXPLICIT owner designation recorded before the write. Nothing becomes permanent marketing content because cleanup was omitted or the run succeeded — an unclassified write is a runbook violation; a TEST artifact left behind is a deviation to report.
+
+R3. Content standards: KEEP-designated content is real, owner-approved marketing (the value half of D-7). TEST-designated public content on live business properties should be brief and non-damaging; H1 staging-connected surfaces may use neutral copy.
+
+R4. ONE ATTEMPT per external action, all providers: failures recorded honestly and STOPPED for owner decision — no retry improvisation (the 024/033 discipline).
+
+R5. Every external write flows through Section-8 approval. No exceptions.
+
+R6. THE AD CHAIN — STRICT I-48 RULE (D-43(5)): 026 may exercise AT MOST ONE PAUSED/$0 owner-driven ad chain per environment, and only where the proof matrix genuinely requires it. Because the owner-driven launcher does NOT carry Prompt 033's evidence-gated idempotency (I-48, filed, NOT fixed here), the chain is STRICTLY SINGLE-ATTEMPT: no automatic retry; no second owner click; no retry after timeout; no retry after network failure; no retry after ambiguous provider acknowledgment; no retry merely because the local response is uncertain. ANY ambiguous outcome = STOP AND REPORT, then inspect authoritative provider/evidence state (Ads Manager + ledger + task + proofs) before anything further happens. Ad-chain cleanup is owner-performed in Ads Manager (I-47's documented manual path), deletion responses recorded.
+
+### 8. APPROVAL BEFORE EACH EXTERNAL SIDE EFFECT
+
+Every provider write flows through the product's own approval surfaces — the unified inbox (019) or the surface's explicit owner action (e.g. first-win consent, 024) — with the OWNER as the approving actor in every case. Each runbook row for a write records: what was approved, on which surface, the approval record/actor, the R2 classification, and the resulting task/proof identity. Replit never approves, never triggers a provider write, never acts as the owner. A write with no in-product approval surface is a FINDING (the product lacks an approval path), not a workaround opportunity — STOP AND REPORT.
+
+### 9. EVIDENCE REQUIREMENTS
+
+Authoritative sources per 025's Claim Matrix: task-spine states + external_proofs for external outcomes; brand_knowledge_versions / approved Company Truth for facts; armed-authorization/proof/celebration records for the first win; ai_usage_log for AI spend. Every runbook step records: actor, system behavior, evidence reference (row ids), and — where applicable — the ECHO CROSS-CHECK: ask Echo about the step's outcome and record whether its narration matches the evidence exactly (the live 025 acceptance criterion, per business). NO step may be marked passed without its evidence reference. Deviations → 06_OPEN_ISSUES with severity per D-15. D-23 redaction on all captured material.
+
+### 10. CLEANUP + SURVIVORSHIP
+
+TEST-classified artifacts: provider-side deletion via existing paths where they exist, deletion responses recorded separately (D-24 I); ad chains have NO in-app deletion path (I-47) — owner-performed Ads Manager deletion, recorded verbatim (documented workaround, not a fix). KEEP artifacts: remain, each listed with its designation record in the final report. INTERNAL HISTORY SURVIVES CLEANUP ALWAYS: tasks, events, ledger rows, proofs, knowledge versions, campaigns history — after every cleanup batch, run the 033-pattern SURVIVORSHIP CHECK (read-only confirmation the immutable trail is intact) and record it. Real business knowledge created during 026 is REAL DATA and is never cleaned up.
+
+### 11. SPEND PROTECTIONS
+
+Before any launch step: 015 caps configured and verified per brand (brand daily caps + the $25/day platform pilot row), recorded read-only before/after. PAUSED/$0 enforced by the existing facebookApi assertion; committed spend counts live-only (005/D-21(5)); R1 means no unpause authorization exists anywhere in 026 — 015's no-cap-no-unpause machinery is the enforcement. Any cap bypass of any kind = STOP.
+
+### 12. TEST DATA vs REAL BUSINESS DATA
+
+These runs create REAL tenants with REAL business data — that is the test. Rules: NO synthetic/fixture rows in production, ever (the D-42 fixture pattern was staging-only and requires fresh owner ruling even there); H1 creates no new synthetic fixtures either — everything enters through product surfaces; earlier proof-run leftovers (Pole Barn Kits etc.) are not part of 026 and are not cleaned up by it; the two businesses' separation is itself under test — the runbook includes cross-brand negative checks (brand A's surfaces show nothing of brand B) in BOTH environments, a live 014/D-20 rehearsal.
+
+### 13. PREFLIGHT (Stage-1 read-only duties)
+
+a) GATE AUDIT: confirm every Gate A–G evidence row exists in 07_TEST_EVIDENCE_INDEX (list them); confirm 033/E-32; record I-29 status per the Section-5 governing I-29 rule (result if on record, pending status if not — NON-GATING either way); re-check GBP grant status read-only (I-30).
+
+b) PRODUCTION ENVIRONMENT AUDIT (read-only; the highest-value Stage-1 deliverable): production env config vs staging — verify NO global FACEBOOK_LINK_URL / FACEBOOK_PAGE_ID (I-5/D-20: production must never receive them); migration head parity; WHICH Railway config is live (finally answering I-14); build/SW state; scheduler/replica posture (010); 015 platform cap row seed state; OAuth app configurations and production callback URLs (Facebook + Google); email transport configuration. Every discrepancy is a Stage-1 FINDING with a proposed disposition — nothing silently fixed.
+
+c) ASSET INVENTORY: SDS + Blacor real assets (websites, FB Pages, ad account, GA4, GBP listings); what exists on staging today vs what H2 creates fresh; the owner-credential checklist (Blacor FB Page admin + ad-account access; GA4 if any exists — its absence is honest data, do NOT create one for the test).
+
+d) RUNBOOK DRAFT: the complete OWN_BUSINESS_TEST_RUNBOOK.md template — every step with actor / expected behavior / evidence source / pass criterion / R2 classification field — covering the Section-16 matrix, including the smoke-gate step and the strict R6 ad-chain language verbatim. DRAFTING the runbook is Stage-1 work; EXECUTING any step is not.
+
+e) SMOKE-ACTION RECOMMENDATION per Section 6A, argued from the 13b findings.
+
+f) D-37 baselines from a compliant surface (fresh GitHub clone OUTSIDE checkpoint-managed paths, HEAD verified; reference 1370/1370 server + 430/430 client ×41 — re-derive, never assume).
+
+### 14. STOP-AND-REPORT + THE BLOCKING-BUG MINI-CYCLE
+
+STOP CONDITIONS: any non-owned business/customer data touched · any provider write without its Section-8 approval record or R2 classification · any spend, unpause, or cap bypass (R1/11) · a second attempt on the ad chain (R6) · smoke-gate failure or ambiguity (6A) · a runbook step whose evidence cannot be captured · any production config discrepancy encountered DURING H2 that 13b missed · any need to build features/automation (incl. 027's scripts, I-47 tooling, I-48 adoption) · any synthetic data in production · anything contradicting standing rules.
+
+BLOCKING-BUG MINI-CYCLE (the only code path in 026): "blocking bug" is defined NARROWLY per D-43(7): a defect that prevents an authorized 026 proof from proceeding safely or truthfully, OR causes deployed behavior to violate an existing accepted invariant. A missing convenience, enhancement, UX improvement, unrelated defect, or capability already marked unavailable/non-gating is NOT a blocking bug — it goes to Findings only. NO FIX IS SELF-AUTHORIZING merely because it blocks 026. Process: runbook blocked → STOP the runbook · report the defect (severity, evidence, why it meets the narrow definition) · OWNER authorizes the fix · fix ships as its own D-18 PR with regression test + D-32 review · suites green · deploy verified · runbook RESUMES on the deployed fix (the 024 witnessed-session precedent, formalized). Each fix individually reported in the final report.
+
+### 15. STAGE-1 REPORT MUST ANSWER
+
+1. Gate audit (13a) incl. I-29 status per the Section-5 governing rule (non-gating in every state) + I-30/GBP status.
+2. Production environment audit (13b) — full findings table with dispositions.
+3. Asset inventory + owner-credential checklist (13c).
+4. THE COMPLETE DRAFTED RUNBOOK (13d) — the central Stage-1 artifact; the owner edits/approves it before Stage 2.
+5. The Section-16 proof matrix instantiated per business per environment, incl. the smoke gate and the single R6 ad-chain row per environment.
+6. The smoke-action recommendation with rationale (13e / 6A).
+7. Integration availability table: available / conditional (GBP, pending I-30) / skipped — with honest-ceiling notes per Section 6.
+8. Confirmation of every scope guard (Section 2), spend protection (Section 11), and content rule (Section 7), or STOP.
+9. Baselines (13f).
+10. Expected Stage-2 change surface: OWN_BUSINESS_TEST_RUNBOOK.md + filled runbook instances + narrowly-authorized mini-cycle fixes only. Migration: NONE expected (a schema need = STOP AND REPORT).
+11. Anything unsafe/impossible/unanswerable → STOP AND REPORT.
+
+### 16. PROPOSED STAGE-2 PROOF MATRIX (designed now; execution NOT authorized)
+
+Per business × per environment; each row = runbook step with {actor, surface, evidence source, pass criterion, R2 classification}:
+
+ONBOARD (Blacor-H1; both businesses in H2): Sage research draft with field provenance + hint persistence · review screen approve/correct (versions with frozen provenance) · interview gap-only behavior with reason codes (RE branch live for Blacor) · first win: arm/consent → connect → auto-publish → EXTERNALLY_VERIFIED → exactly-one celebration.
+
+OPERATE (all): organic post via inbox approval → spine → read-back proof · AT MOST ONE PAUSED/$0 ad chain per environment via the owner-driven launcher under R6 → all four object ids → verify read-back → proof · email send → Message-ID proof (owner inbox) · GA4 pull evidence · GBP items conditional per I-30.
+
+VERIFY (all): Echo narration cross-checks per step (matches evidence exactly; created_paused never "running"; unverified never claimed verified) · cross-brand negative checks (both environments) · ops dashboard tiles reflect the runs (021) · registry/agent surfaces honest (025).
+
+PRODUCTION ENTRY (H2 only): 13b audit findings resolved → SMOKE GATE (6A) clean pass → owner go/no-go → full H2 matrix.
+
+CLOSE (per environment): cleanup per R2 classification + survivorship check (Section 10) · deviations register · owner sign-off.
+
+### 17. THE 027 BOUNDARY
+
+026 proves the workflows WITH a human driving and evidence captured by hand; 027 proves the golden path SCRIPTED with zero developer intervention. 026 must not write E2E automation, seeding scripts, or scheduled harnesses for the flow — if a runbook step feels like it should be a script, that is a NOTE FOR 027, recorded, not built. 026's outputs (the approved runbook, the proof matrix results, the deviations register) become 027's input specification.
+
+### 18. DECISION STATUS (all pre-issue gates resolved by D-43)
+
+P-1: RATIFIED — Option C staged sequence with the production go/no-go.
+P-3: RATIFIED — SDS + Blacor Homes; TournamentOne later; Testimony out.
+Live spend: ZERO in 026 (D-43(3)).
+Content policy: TEST-by-default / explicit-KEEP (D-43(4)).
+I-48 rule: strict single-attempt, one chain max per environment (D-43(5)).
+Smoke gate: mandatory (D-43(6)).
+Blocking-bug definition: narrow (D-43(7)).
+I-30: conditional, pending Google.
+I-29: governed by the Section-5 rule — independent, NON-GATING in every state; a failure stops only the affected Google-dependent rows unless it independently demonstrates a broader platform problem requiring STOP.
+I-21: separate hygiene item.
+
+NO FURTHER OWNER DECISIONS BLOCK ISSUE of this Stage-1 package.
+
+— STAGE 1 ONLY when issued: READ-ONLY throughout; no staging or production writes are authorized by this package; no external proof execution; no fixes; no Prompt 027 work. Deliver the Section-15 report and STOP for owner authorization. Stage 2, when separately authorized, remains gated internally: H1 → owner checkpoint → production preflight → smoke gate → H2 matrix. —
