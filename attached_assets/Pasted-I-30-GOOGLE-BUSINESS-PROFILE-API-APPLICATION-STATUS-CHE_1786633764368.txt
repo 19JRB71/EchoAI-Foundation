@@ -1,0 +1,73 @@
+I-30 — GOOGLE BUSINESS PROFILE API APPLICATION STATUS CHECK
+
+Before I do anything else with Google, I need you to reconstruct exactly
+where we currently stand with the Google Business Profile API application.
+
+READ-ONLY / INFORMATIONAL ONLY.
+
+Do NOT change code, credentials, integrations, Google Cloud configuration,
+OAuth settings, database records, or production/staging settings.
+Do NOT submit an application or form on my behalf.
+Do NOT begin Prompt 026 or any other implementation work.
+
+Please review the existing project records, prior work, configuration,
+documentation, and anything already recorded concerning:
+
+- I-30
+- Google Business Profile / GBP
+- Google Business Profile API access
+- Google Cloud project setup
+- OAuth consent/configuration
+- Google Business Profile account/location access
+- any application or access-request link previously given to me
+- anything I may already have completed for this application
+
+Then give me a concise OWNER ACTION REPORT containing:
+
+1. What I-30 specifically requires us to accomplish.
+
+2. Everything that has ALREADY been completed.
+
+3. Everything that is STILL outstanding.
+
+4. The exact Google Cloud project currently associated with this work,
+   including project name/project ID/project number if those are already
+   recorded. Do not expose secrets.
+
+5. Whether the required Google APIs are already enabled and which ones.
+
+6. Whether OAuth configuration relevant to GBP is already complete.
+
+7. Whether our Google/GBP connection in staging is currently functioning,
+   based only on existing evidence. Do not perform tomorrow's I-29 check
+   early.
+
+8. The exact official Google URL/form you previously instructed me to use
+   for I-30, and explain what that page/form is for.
+
+9. If I previously completed part of the Google application process,
+   identify what I completed and where the process stopped.
+
+10. Tell me EXACTLY what I need to do manually in Google now, step by
+    step, starting from the correct URL.
+
+11. For every form field I am likely to encounter, tell me what information
+    from our project belongs there when that information is already known.
+    If something requires an owner decision or information you do not know,
+    mark it clearly rather than guessing.
+
+12. State whether I-30 is currently a hard gate for Prompt 026, a future
+    capability dependency, or neither, citing the project record/ruling
+    that establishes that status.
+
+IMPORTANT:
+I have been given more than one Google link and I do NOT want to restart
+the process, duplicate an application, create another Cloud project, or
+change something that is already correctly configured.
+
+Your job right now is to RECONSTRUCT THE CURRENT STATE and guide me back
+to the exact point where I should continue.
+
+No writes. No fixes. No implementation. No new prompt work.
+
+Return the report and STOP for owner review.
