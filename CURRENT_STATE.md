@@ -24,6 +24,19 @@
 - Mobile push (legacy FCM): **honestly disabled** (Decision D-12, Prompt 008) — retired endpoint unreachable; sends no-op with `reason: 'legacy_endpoint_disabled'`; token registration retained; re-enable only via `FCM_LEGACY_ENABLED=true` (emergency rollback only). Web push unaffected. Client suite: 385/385 passing. Client production build: green.
 - Evidence index: `TEST_EVIDENCE_INDEX.md`.
 
+## I-30 — Google Business Profile API access application (recorded 2026-08-13, owner-authorized documentation)
+
+- **Status: SUBMITTED / PENDING GOOGLE REVIEW.**
+- Application submitted: **2026-08-13** (by the owner, signed in as the owner's primary Google account).
+- Google support case ID: **4-9287000040750**.
+- Google Cloud project: **echoai** (project ID `echoai-501600`), Project number: **512879708312** — this is the project that holds the "Zorecho Web" OAuth client used by staging (client ID prefix matches the project number).
+- Business used for the application: **South Dixie Storage** (verified Google Business Profile, active ~2 years).
+- Company website given: **zorecho.com**.
+- Google's stated review time: **7–10 business days** from submission; a follow-up email will arrive at the applying account.
+- Application path (for any future re-application): https://developers.google.com/my-business/content/prereqs#request-access-to-the-apis → step 3 "GBP API contact form" → drop-down "Application for Basic API Access". The applying Google account must be an owner/manager of a verified GBP that is 60+ days old.
+- **Objective completion evidence for I-30:** Google approval email, and/or the Business Profile API quota on project echoai going 0 → 300 QPM, and the existing read-only `google-preflight` check reporting businessProfile `reachable: true`.
+- No credentials, tokens, or OAuth secrets are recorded here by design.
+
 ## Open operational follow-ups (not blockers)
 
 1. Restore drill against a real Railway staging backup (needs the staging DB public URL in Secrets).
