@@ -1,0 +1,271 @@
+PROMPT 026 — H1-F1 OWNER RULING / H1 RESUME AUTHORIZATION
+
+Owner ruling: OPTION 1 APPROVED — use one fresh staging account per
+business.
+
+This ruling follows adversarial review of H1-F1. Replit's STOP was
+correct. The finding is real, but it does NOT qualify for the D-43(7)
+blocking-bug mini-cycle because an authorized product-surface path exists:
+fresh account signup.
+
+Therefore DO NOT implement an add-business feature during Prompt 026.
+
+The purpose of 026 is testing the product through supported surfaces,
+not expanding product scope whenever testing discovers a missing feature.
+
+============================================================
+1. H1-F1 FINDING — FILE IT, DO NOT FIX IT
+============================================================
+
+Record H1-F1 as a real product finding:
+
+- an existing Zorecho account with an existing business currently has no
+  exposed product surface for adding/onboarding a second business;
+- the Setup Agent can bind a newly-started setup session to the existing
+  brand, consistent with / compounding the previously observed I-43
+  resume behavior;
+- the attempted SDS setup session bound to Pole Barn Kits rather than
+  creating a new South Dixie Storage business;
+- no setup actions executed, consent was not granted, and no new brand
+  was created.
+
+This finding is FUTURE OWNER-SCOPED WORK.
+
+Do NOT:
+- implement an Add Business surface;
+- modify Setup Agent brand-binding/resume behavior;
+- modify the business switcher;
+- modify account architecture;
+- change schema;
+- refactor onboarding;
+- fix I-43;
+- make any related code change under 026.
+
+File the finding for the issue register with the I-43 relationship and
+the D-20 testing consequence described below.
+
+============================================================
+2. WHY THIS IS NOT A D-43(7) BLOCKING-BUG MINI-CYCLE
+============================================================
+
+The missing second-business surface does not prevent H1 from proceeding
+through a genuine supported product surface.
+
+Fresh signup is a legitimate product onboarding path and is representative
+of how a new customer enters the platform.
+
+Therefore H1 continues without a code mini-cycle.
+
+This is NOT permission to conceal the reduced coverage caused by that
+decision.
+
+============================================================
+3. IMPORTANT COVERAGE CHANGE — RECORD HONESTLY
+============================================================
+
+The original H1 design included a two-business / one-owner-account
+isolation rehearsal.
+
+That scenario will NOT be exercised under this ruling.
+
+Instead:
+
+- SDS-H1 uses its own fresh staging account.
+- BLACOR-H1 uses its own fresh staging account.
+- Phase 3.2 becomes CROSS-ACCOUNT negative isolation verification in BOTH
+  directions.
+
+The final H1 report MUST state explicitly:
+
+"D-20's two-brands-one-user scenario was NOT exercised by Prompt 026 H1."
+
+Do not claim that cross-account isolation proves the same thing.
+
+Cross-account isolation is valuable and customer-relevant, but it is a
+different test.
+
+The unexercised D-20 scenario must remain attached to the H1-F1 future
+work finding so it is not lost.
+
+============================================================
+4. SDS-H1 PATH
+============================================================
+
+SDS-H1 proceeds first, consistent with the owner's prior ruling.
+
+Create/use a NEW staging account controlled by the owner through the
+normal Zorecho signup product surface.
+
+South Dixie Storage then receives FULL FRESH ONBOARDING through the
+authorized runbook.
+
+During Phase 1, reconnect through the normal product surfaces as required:
+
+- South Dixie Storage Facebook Page;
+- South Dixie Storage Google connection;
+- GA4 property 473906255.
+
+GBP remains governed by D-44:
+read-only availability/preflight probes are authorized; while I-30 quota
+approval remains pending, affected GBP rows remain
+UNVERIFIED-PENDING-I30. Never simulate or bypass GBP.
+
+SDS-H1 retains authorization for the ONE staging R6 PAUSED/$0 ad chain
+under the exact D-44 single-attempt rule.
+
+============================================================
+5. BLACOR-H1 PATH
+============================================================
+
+After SDS-H1 completes its authorized H1 sequence, BLACOR-H1 proceeds
+SEQUENTIALLY on its own NEW owner-controlled staging account through
+normal signup and full fresh onboarding.
+
+All previous Blacor bindings remain:
+
+- website: blacorhomes.com;
+- Facebook Page: 61560734440780;
+- no H1 ad chain;
+- no GA4 property is to be created merely for this test;
+- owner-confirmed GA4 absence is recorded honestly;
+- GBP n/a unless an actual listing exists.
+
+Do not begin Blacor until SDS-H1 reaches the point permitted by the
+sequential-execution rule.
+
+============================================================
+6. ACCIDENTAL PAUSED SESSION HYGIENE
+============================================================
+
+The accidental setup session is:
+
+e0dc7f81-...
+
+It is evidence of H1-F1.
+
+BEFORE dismissing or mutating it:
+
+1. Capture/read-only record its identifying evidence and current state,
+   including:
+   - session id;
+   - bound brand id;
+   - status;
+   - completed_steps;
+   - consent_granted;
+   - sufficient evidence to show it attached to Pole Barn Kits.
+
+Do not expose secrets or credentials.
+
+AFTER that evidence is secured:
+
+2. Use ONLY the product's legitimate dismiss/cancel surface to dismiss
+   the paused session.
+
+No direct DB mutation for cleanup.
+
+3. Read-only verify afterward:
+   - the session is safely dismissed/closed as the product specifies;
+   - Pole Barn Kits remains unchanged;
+   - no setup steps executed;
+   - no consent was granted;
+   - no new brand was created.
+
+Record the cleanup evidence in the H1 report.
+
+If no legitimate product dismiss/cancel surface exists, STOP AND REPORT.
+Do not invent a cleanup path.
+
+============================================================
+7. CROSS-ACCOUNT ISOLATION
+============================================================
+
+Once BOTH fresh-account H1 instances exist, execute Phase 3.2 negative
+checks in BOTH directions:
+
+SDS account -> must not expose Blacor data/artifacts.
+
+Blacor account -> must not expose SDS data/artifacts.
+
+Use the authoritative surfaces and evidence requirements already defined
+by D-44/runbook.
+
+Do not weaken this into a superficial UI-only check if the runbook calls
+for deeper evidence.
+
+Again: record this as CROSS-ACCOUNT isolation, not D-20
+two-brands-one-user isolation.
+
+============================================================
+8. ALL OTHER D-44 RULES REMAIN IN FORCE
+============================================================
+
+Nothing in this ruling changes:
+
+- H1 STAGING ONLY;
+- H2 NOT AUTHORIZED;
+- production untouched;
+- owner operates writes;
+- Replit observes/records/read-only checks;
+- ONE STEP AT A TIME;
+- R1 zero live spend;
+- R2 TEST-by-default / explicit KEEP;
+- R4 one attempt per external action;
+- R5 product surfaces only;
+- R6 ad chain STRICTLY SINGLE-ATTEMPT;
+- evidence references required;
+- Echo cross-check requirements;
+- D-23 redaction;
+- cleanup + survivorship requirements;
+- blocking-bug mini-cycle rules for any genuinely qualifying future
+  blocker;
+- no synthetic fixtures;
+- no 027 automation;
+- no unrelated issue fixes;
+- no Hermes changes;
+- GBP D-44 rule;
+- sequential SDS then Blacor execution under this owner ruling.
+
+============================================================
+9. OPERATOR MODE — ONE STEP AT A TIME
+============================================================
+
+Continue using the owner's required operating mode.
+
+Do NOT give the owner a long checklist of actions.
+
+You may perform authorized READ-ONLY checks yourself.
+
+Whenever owner action is required:
+
+1. Give the owner EXACTLY ONE action.
+2. Say exactly where to click / what to enter.
+3. Say what result should appear.
+4. STOP.
+5. WAIT for the owner's response or screenshot.
+6. Verify and record the result before issuing the next action.
+
+If the observed result differs materially from expectation:
+STOP AND EXPLAIN before continuing.
+
+============================================================
+10. RESUME POINT
+============================================================
+
+First:
+
+- preserve the H1-F1 session evidence;
+- dismiss it through the legitimate product surface;
+- verify Pole Barn Kits/no-new-brand/no-consent state read-only.
+
+Then resume SDS-H1 using a NEW owner-controlled staging account through
+the normal signup surface.
+
+Do not start implementation of any H1-F1 fix.
+
+Do not start Blacor yet.
+
+Do not start H2.
+
+Do not touch production.
+
+Proceed now under this ruling, ONE STEP AT A TIME.
