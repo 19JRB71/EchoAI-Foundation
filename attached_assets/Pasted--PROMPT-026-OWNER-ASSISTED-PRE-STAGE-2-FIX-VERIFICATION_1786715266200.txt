@@ -1,0 +1,247 @@
+# PROMPT 026 — OWNER-ASSISTED PRE-STAGE-2 FIX / VERIFICATION SESSION
+
+Prompt 026 Stage 1 is complete.
+
+Stage 2 is NOT authorized.
+
+The purpose of this session is ONLY to resolve or verify the OWNER-ASSISTED
+items identified by the Stage-1 report so that the later Stage-2
+authorization can be written correctly.
+
+CRITICAL OPERATING RULE:
+
+GIVE ME ONE STEP AT A TIME.
+
+Do NOT give me the whole procedure at once.
+
+For every owner-assisted action:
+
+1. Tell me exactly ONE thing to click/open/check.
+2. Tell me what I should expect to see.
+3. Ask me to send you a screenshot or tell you the result.
+4. WAIT for my response.
+5. Review what I send you.
+6. Only then give me the next step.
+
+Do not jump ahead.
+Do not assume what I see.
+Do not make me interpret Railway, GoDaddy, Meta, Google, or production
+configuration by myself.
+
+If a screenshot reveals something unexpected, STOP and explain it before
+giving another action.
+
+======================================================================
+PRIORITY 1 — PRODUCTION DOMAIN / DNS
+======================================================================
+
+Stage 1 found:
+
+F-1:
+app.zorecho.com currently returns NXDOMAIN.
+
+F-2:
+zorecho.com currently serves a GoDaddy parking page rather than the
+Zorecho application.
+
+The documented production URL is app.zorecho.com.
+
+We need to establish the CURRENT intended architecture before changing
+anything.
+
+FIRST determine, using the project record where possible:
+
+- What Railway service is intended to be production.
+- Whether app.zorecho.com is intended to point to that Railway service.
+- Whether zorecho.com apex is intended to be:
+  a) the application,
+  b) a marketing/landing site,
+  c) redirected to app.zorecho.com,
+  d) or something else already established in the record.
+
+Do NOT guess and do NOT silently redefine the production URL.
+
+Then walk the owner through the verification/fix ONE STEP AT A TIME.
+
+Expected owner-assisted surfaces may include:
+
+- Railway production service → Networking / Domains.
+- GoDaddy → DNS records for zorecho.com.
+
+But do not tell the owner to change a DNS record until you have first seen
+or been told the current Railway custom-domain configuration.
+
+Do not create duplicate domains or duplicate Railway services.
+
+Do not delete an existing DNS record merely because it looks unfamiliar.
+Report conflicts first.
+
+After any DNS change:
+- wait for the actual DNS state to become observable;
+- verify app.zorecho.com resolves;
+- verify HTTPS works;
+- verify /api/health reaches the intended production service;
+- record the production environment/version returned.
+
+Do not begin H2 or any provider write as part of this work.
+
+======================================================================
+PRIORITY 2 — PRODUCTION CONFIG READ-ONLY VERIFICATION
+======================================================================
+
+Only after the production domain is understood/resolved, walk me through
+the remaining owner-assisted Stage-1 findings ONE STEP AT A TIME.
+
+Verify, without exposing secret VALUES:
+
+F-6:
+Production environment must NOT contain global:
+- FACEBOOK_LINK_URL
+- FACEBOOK_PAGE_ID
+
+Show me how to inspect the production Railway variable NAMES.
+Do not ask me to paste secret values into chat.
+
+F-7:
+Production/staging migration parity.
+
+Use the safest existing read-only method.
+Do not run migrations.
+If production DB access cannot be verified safely, report UNVERIFIED
+rather than improvising.
+
+F-8:
+Identify exactly which Railway production service/config is live,
+including build/deployed SHA and service identity.
+
+F-9:
+Verify Facebook and Google production OAuth callback configuration.
+
+Walk me through Meta and Google only if owner-side screenshots are actually
+needed.
+
+Do not alter OAuth configuration without a separate explicit ruling if a
+problem is found.
+
+F-10:
+Verify production email transport configuration safely.
+
+Do not send an email yet.
+The eventual production smoke email is Stage-2 work and remains
+unauthorized.
+
+======================================================================
+PRIORITY 3 — SDS-H1 OWNER RULING
+======================================================================
+
+Stage 1 found that staging does NOT currently contain a genuine
+"South Dixie Storage" brand row.
+
+The existing historical brand is Pole Barn Kits even though its connected
+Facebook and Google assets are South Dixie Storage flavored.
+
+OWNER RULING FOR PREPARATION:
+
+Use the conservative Stage-1 recommendation:
+
+SDS-H1 = FRESH SOUTH DIXIE STORAGE ONBOARDING THROUGH PRODUCT SURFACES.
+
+Do NOT use Pole Barn Kits as though it were the real SDS tenant.
+
+Pole Barn Kits remains historical proof data and is not part of Prompt 026.
+
+This ruling is for the future Stage-2 package.
+Do NOT create SDS today under this pre-Stage-2 session.
+
+======================================================================
+PRIORITY 4 — BLACOR HOMES OWNER CHECKLIST
+======================================================================
+
+After the production checks are complete, help me identify the minimum
+Blacor Homes information/credentials I need before Stage 2.
+
+Again: ONE STEP AT A TIME.
+
+We need to establish:
+
+1. Blacor Homes website URL.
+2. Facebook Page, if one exists.
+3. Whether my Facebook account has admin/control access to that Page.
+4. Blacor ad-account access, if one exists.
+5. Whether a Blacor GA4 property already exists.
+
+Do NOT create missing integrations merely for the test.
+
+If Blacor has no GA4:
+record HONEST ABSENCE.
+
+If Blacor has no ad account or the owner lacks access:
+record that and recommend whether SDS carries the single Prompt-026 ad
+chain instead.
+
+No provider connections are authorized yet.
+
+======================================================================
+PRIORITY 5 — I-29
+======================================================================
+
+Today is on/after 2026-08-14, so the previously authorized I-29 standalone
+READ-ONLY Google refresh-token survival check is now due.
+
+It is independent and NON-GATING for Prompt 026.
+
+You MAY run ONLY the already-authorized read-only I-29 check and report:
+
+- PASS or FAIL;
+- whether the 2026-08-07 Google refresh token survived past day 7;
+- the evidence used;
+- no secrets/tokens displayed.
+
+Do not reconnect Google or rotate credentials merely to make the check pass.
+
+If I-29 fails:
+report the actual Google-dependent impact.
+Do not stop unrelated Prompt-026 preparation unless the result establishes
+a broader platform safety/integrity issue.
+
+======================================================================
+NO IMPLEMENTATION AUTHORIZATION
+======================================================================
+
+This session does NOT authorize:
+
+- Prompt 026 Stage 2;
+- H1 execution;
+- H2 execution;
+- production smoke test;
+- creation of SDS or Blacor tenants;
+- provider writes;
+- Facebook posts;
+- ads;
+- emails;
+- OAuth connections;
+- DB writes;
+- code changes;
+- DNS changes without owner confirmation at the exact step;
+- migrations;
+- fixes to I-47/I-48 or any other issue.
+
+Owner-side configuration changes required to restore the intended
+production domain may be performed ONLY one explicit step at a time with
+the owner's confirmation.
+
+If a discovered issue requires code, schema, migration, provider-side OAuth
+change, or anything beyond the narrow owner configuration work above:
+
+STOP AND REPORT.
+
+======================================================================
+START NOW
+======================================================================
+
+Begin with PRIORITY 1 only.
+
+Tell me the FIRST single step I need to perform to determine the intended
+Railway production custom-domain state.
+
+Do not give me Step 2 until I show/tell you the result of Step 1.
