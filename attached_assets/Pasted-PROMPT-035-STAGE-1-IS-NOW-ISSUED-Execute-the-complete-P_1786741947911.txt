@@ -1,0 +1,889 @@
+PROMPT 035 — STAGE 1 IS NOW ISSUED.
+
+Execute the complete Prompt 035 Stage-1 Issue Package below exactly as written.
+
+This is STAGE 1 ONLY and READ-ONLY.
+
+Do not implement.
+Do not fix anything.
+Do not change code, configuration, schema, migrations, database state, or provider state.
+Do not begin Stage 2.
+Do not resume Prompt 026 H1.
+Do not begin Prompt 027.
+
+Perform the investigation and design work required by the package and return
+the COMPLETE Section-G Stage-1 report, including all 20 required deliverables
+and the D-37 baseline evidence.
+
+If a STOP-AND-REPORT condition is encountered, stop rather than improvising
+around it.
+
+When the Stage-1 report is complete, STOP and return it to me for owner +
+ChatGPT + Claude review before any implementation is authorized.
+
+BEGIN PROMPT 035 STAGE 1.
+
+======================================================================
+PROMPT 035 — STAGE-1 ISSUE PACKAGE
+======================================================================
+
+Onboarding Rebuild: PI-Model Orchestration, Owner-Fact Handoff,
+and Second-Business Entry
+
+Drafted 2026-08-14 under insertion ruling D-46
+(RESERVED 035 activated via its own exception clause; five review amendments
+bound at ratification; three further amendments consolidated in this final).
+
+Placement:
+inserted INSIDE Prompt 026 — H1 is PAUSED at the current safe checkpoint;
+after 035 acceptance, H1 restarts fresh, 026 completes, and the ladder resumes
+with 027.
+
+This is a bounded insertion, not a reprioritization.
+
+======================================================================
+PROTOCOL — TWO-STAGE
+======================================================================
+
+STAGE 1 is READ-ONLY:
+
+- no code;
+- no config;
+- no migrations;
+- no provider calls beyond existing read-only preflight endpoints;
+- no DB writes;
+- no fixes;
+- no rename work.
+
+Deliver the Stage-1 report in Section G, then STOP for owner + ChatGPT review.
+
+Implementing during Stage 1 = FAILED VERIFICATION.
+
+Explicitly NOT started under this package:
+
+- Prompt 027;
+- H2;
+- production work;
+- Stripe live activation;
+- Echo → Boz rename
+  (use "Boz" conceptually only);
+- graphics/navigation cleanup;
+- every parked issue not explicitly named in scope.
+
+======================================================================
+SECTION A — THE ROOT PROBLEM
+ONE SYSTEM, THREE SYMPTOMS
+======================================================================
+
+Onboarding, research, persistence, and downstream intelligence are not
+orchestrated as one coherent system.
+
+Prompt 026 H1 proved it three ways:
+
+H1-F1:
+An existing owner cannot truthfully start a SECOND business.
+New setup sessions silently bind to the current brand
+(I-49; I-43 compounding).
+
+H1-F2:
+Onboarding collects research anchors, then leaves the owner to rediscover Sage
+and click "Build my report" — although async generation, one-in-flight
+protection, bounded web research, and separate approval ALL already exist.
+
+The delay is orchestration, not safety.
+
+H1-F3:
+HONESTY DEFECT, not merely UX.
+
+Owner-provided facts are stranded or silently overridden:
+
+- phone collected in setup_sessions.answers but Company Truth reads users.phone,
+  so Sage said NOT PROVIDED;
+- address collected, unconsumed, then rediscovered from the website by luck;
+- EXPLICIT 8–5 HOURS SILENTLY REPLACED BY THE 9–5 DEFAULT.
+
+This is the silent-substitution class Prompt 011 made impossible for AI writes,
+still alive in the collection layer.
+
+Prompt 035 succeeds only if it fixes the ROOT workflow — not the three symptoms
+individually.
+
+======================================================================
+SECTION B — GOVERNING PRINCIPLES
+VERBATIM INTO DESIGN + CODE + DOCS
+======================================================================
+
+B1.
+
+"Automatic research initiation is NOT automatic approval. Sage may investigate
+automatically; findings remain proposed/unapproved with provenance attached
+and conflicts visible; nothing becomes trusted Company Truth until explicit
+owner review, correction, and approval."
+
+B2.
+
+"AN EXPLICIT OWNER FACT MUST NEVER BE SILENTLY REPLACED BY A DEFAULT. If an
+external source disagrees with an owner fact, surface the conflict for review;
+never silently overwrite either side."
+
+B3.
+
+"If Zorecho already has enough information or authority to perform the next
+safe internal action, why is it asking the owner for another click?"
+
+Owner action concentrates on:
+
+- identity/discovery inputs;
+- OAuth/consent;
+- corrections;
+- approvals;
+- business judgment;
+- external-action authorization.
+
+Safe background internal work begins automatically when prerequisites exist.
+
+B4. REUSE, NOT REWRITE.
+
+The accepted substrate is:
+
+- Prompt 022 research orchestrator;
+- Company Truth lifecycle;
+- Prompt 011 knowledge boundary;
+- Prompt 023 gap engine;
+- Prompt 024 armed-consent flow.
+
+Their accepted test suites are guard rails.
+
+The rebuild feeds them.
+
+It does NOT reopen them.
+
+======================================================================
+SECTION C — THE WORKSTREAMS
+======================================================================
+
+----------------------------------------------------------------------
+W1 — PI-MODEL INCREMENTAL RESEARCH ORCHESTRATION
+H1-F2
+----------------------------------------------------------------------
+
+The five discovery anchors are a UX target, NOT a rigid required form:
+
+1. business name;
+2. website
+   ("I don't have one" is valid);
+3. Facebook / primary social
+   (none is valid);
+4. location + service area;
+5. the owner's own words:
+   what the business sells/does and who its main customers are.
+
+These are LEADS that open the case.
+
+They are not intended to teach Sage the entire business.
+
+Behavior:
+
+As each anchor arrives, investigation begins/enriches in the background while
+the owner keeps moving.
+
+By the time the owner reaches Company Truth:
+
+- the dossier should be substantially ready; or
+- the investigation should visibly be in progress.
+
+No owner action may exist whose only purpose is:
+
+"click so Sage starts researching what you just told her."
+
+----------------------------------------------------------------------
+W1-A — ONE EVOLVING INVESTIGATION, NOT FIVE FULL RUNS
+----------------------------------------------------------------------
+
+Stage 1 designs bounded, debounced incremental enrichment on the EXISTING
+022 / Company Truth machinery.
+
+Preserve:
+
+- one-in-flight protection;
+- bounded AI spend;
+- run-snapshot honesty;
+- per-step provenance showing WHICH anchors were available to each research
+  step;
+- abandoned-signup budget protection;
+- no research storm when anchors arrive seconds/minutes apart.
+
+The owner should see useful background progress.
+
+INVESTIGATION-SNAPSHOT RULE:
+
+"Incremental enrichment must preserve an immutable record of each material
+investigation step, including the anchor set/evidence available at that time.
+A later anchor may enrich, supersede, or conflict with an earlier conclusion
+but must never rewrite what Sage knew during the earlier step.
+
+The evolving dossier may be derived from those steps; the evidence history
+must remain auditable.
+
+Stage 1 must determine whether the existing 022/Company Truth machinery
+already satisfies this requirement. Do not assume a new table or schema is
+necessary."
+
+The Stage-1 report must explicitly answer:
+
+- what constitutes a material investigation step;
+- what is frozen per step;
+- how anchor availability is recorded;
+- how later enrichment supersedes/conflicts without rewriting history;
+- whether existing records are sufficient.
+
+No migration is prescribed unless the audit proves one is required.
+
+----------------------------------------------------------------------
+W1-B — ENTITY CONFIDENCE / WRONG-BUSINESS PROTECTION
+----------------------------------------------------------------------
+
+Business-name-only discovery is TENTATIVE.
+
+A business name by itself is NEVER sufficient evidence that Sage identified
+the correct entity.
+
+Stage 1 designs an identity-confidence/disambiguation rule using available
+anchors such as:
+
+- domain;
+- social Page;
+- location;
+- service area;
+- connected-provider identity;
+- owner confirmation where needed.
+
+Early research may populate a PROVISIONAL case file.
+
+It must NEVER:
+
+- become approved Company Truth by itself;
+- silently attach facts from a same-name business.
+
+Conflicting anchors are surfaced, never silently resolved.
+
+Wrong-entity contamination requires explicit regression coverage.
+
+ENTITY-CONFIDENCE DECISION TABLE:
+
+The Stage-1 report may NOT return vague language such as:
+
+"Sage uses multiple signals."
+
+It must return an explicit, auditable DECISION TABLE mapping:
+
+- anchor combinations;
+- missing anchors;
+- conflicting anchors;
+
+to:
+
+- permitted research depth;
+- identity state.
+
+At minimum cover:
+
+- business name only;
+- name + location;
+- matching website/domain;
+- matching Facebook/social Page;
+- connected-provider identity;
+- conflicting website/social/location/provider anchors;
+- no website;
+- no social profile.
+
+The design must distinguish:
+
+- tentative/provisional discovery;
+- identity-established research;
+- conflicted/disambiguation-required state;
+
+using existing terminology where possible.
+
+It must identify what evidence is sufficient to associate discovered facts
+with the owner's actual business.
+
+No undefined AI "confidence" language is acceptable.
+
+If a numeric score is proposed, its:
+
+- inputs;
+- thresholds;
+- permitted behaviors;
+
+must be deterministic and auditable.
+
+----------------------------------------------------------------------
+W1-C — SUFFICIENCY
+----------------------------------------------------------------------
+
+Sage determines whether identity confidence supports deeper research.
+
+Businesses without external anchors remain fully onboardable.
+
+Do NOT create fake/missing assets merely to satisfy the wizard.
+
+======================================================================
+W2 — OWNER-FACT STRUCTURED HANDOFF
+H1-F3
+======================================================================
+
+----------------------------------------------------------------------
+W2-A — THE FIELD MATRIX
+THE AUDIT CORE
+----------------------------------------------------------------------
+
+Audit EVERY question onboarding asks today:
+
+question
+→ where answer is stored
+→ transformations/synthesis
+→ every downstream consumer
+→ or documented ABSENCE.
+
+The matrix must be exhaustive and include file:line references.
+
+Phone, address, and hours are the known seeds.
+
+The matrix must find the rest.
+
+FIELD-MATRIX COMPLETENESS PROOF:
+
+"The matrix must be derived from an enumerated inspection of EVERY current
+onboarding collection surface and its persistence paths.
+
+It must NOT be reconstructed from:
+
+- the owner's memory;
+- H1-F1/F2/F3 alone;
+- the known phone/address/hours defects;
+- a hand-written expected-field list.
+
+Stage 1 must state the enumeration method and reconcile the number of
+questions/collected fields discovered in code against the rows in the final
+matrix.
+
+For each collected field:
+
+- collection surface/file:line;
+- storage destination;
+- transformation/synthesis, if any;
+- downstream consumers;
+- default behavior;
+- provenance handling;
+- missing consumer or storage path.
+
+Any field whose storage or downstream consumer cannot be proven is marked
+UNVERIFIED rather than assumed."
+
+The report must explain how completeness was mechanically or systematically
+validated.
+
+----------------------------------------------------------------------
+W2-B — DURABLE HANDOFF
+----------------------------------------------------------------------
+
+Once the owner gives Zorecho a fact, downstream systems should consume it
+without forcing the owner to repeat it.
+
+Use a consistent durable handoff into the EXISTING knowledge substrate from
+Prompt 011.
+
+Do NOT create a new parallel store.
+
+----------------------------------------------------------------------
+W2-C — PROVENANCE MAPPING
+----------------------------------------------------------------------
+
+Map the owner's desired distinctions:
+
+- owner-provided;
+- website;
+- social;
+- other public;
+- connected-provider;
+- inference;
+- conflicting;
+- unknown/unverified;
+
+onto the EXISTING accepted substrate:
+
+SOURCE enum:
+
+- stated;
+- website;
+- facebook;
+- public_web;
+- inferred;
+- connected;
+
+plus the EXISTING:
+
+- conflict states;
+- approval states;
+- verification states.
+
+Extend only through the previously authorized additive mechanism
+(D-34 C2) where genuinely necessary.
+
+NEVER create a second parallel provenance taxonomy.
+
+Conflict/verification STATE must never be confused with SOURCE type.
+
+----------------------------------------------------------------------
+W2-D — OWNER-FACT AUTHORITY
+----------------------------------------------------------------------
+
+Defaults must remain visibly distinct from explicit owner answers everywhere.
+
+The proven regression:
+
+OWNER = 8–5
+must NEVER silently become
+DEFAULT = 9–5.
+
+Owner-vs-web disagreement must surface as a conflict for review.
+
+Do not silently overwrite either source.
+
+======================================================================
+W3 — SECOND-BUSINESS ENTRY
+H1-F1 / I-49 — NARROW
+======================================================================
+
+Authorized objective:
+
+An existing owner receives an explicit truthful choice between:
+
+- resume / set up THIS business;
+- set up ANOTHER business.
+
+A new setup session must bind to the intended business/context.
+
+It must NEVER silently attach to the currently selected business.
+
+Resume-existing behavior must continue working.
+
+OUT OF SCOPE:
+
+- organization/team architecture;
+- billing ownership;
+- permissions redesign;
+- generalized business-switcher redesign beyond what the narrow entry point
+  genuinely requires;
+- navigation cleanup;
+- multi-user enterprise work.
+
+======================================================================
+W4 — BOZ-TARGETED FOLLOW-UPS
+CROSS-CUTTING
+======================================================================
+
+After research, targeted questions should be asked ONLY for:
+
+- facts Sage could not determine;
+- conflicts between sources;
+- owner preference/judgment;
+- unclear positioning;
+- required approvals;
+- genuinely private knowledge.
+
+Preferred form:
+
+"I found X on your website but Y on Facebook — which is current?"
+
+Not:
+
+"Tell me all your business information again."
+
+Implement this as a CONSUMER of Prompt 023's EXISTING gap engine:
+
+- actions;
+- reason codes;
+- notices;
+
+pointed at the post-research state.
+
+Reuse.
+
+Do NOT rewrite the engine.
+
+No second generic intake form.
+
+"Boz" is conceptual only.
+
+Echo → Boz rename remains separately authorized future work.
+
+======================================================================
+W5 — TIMING / FRICTION INSTRUMENTATION
+CROSS-CUTTING
+======================================================================
+
+Design THREE distinct measurements BEFORE implementation:
+
+A. WALL-CLOCK ELAPSED
+
+signup
+→ defined campaign-ready milestone.
+
+B. ACTIVE OWNER INTERACTION TIME
+
+time actually spent:
+
+- entering;
+- reviewing;
+- correcting;
+- consenting;
+- approving;
+- connecting.
+
+C. SYSTEM / EXTERNAL WAIT
+
+time spent waiting on:
+
+- research;
+- AI processing;
+- provider/OAuth/network;
+- other system waits where owner is not actively working.
+
+TARGETS:
+
+Wall-clock:
+≤ approximately 2 hours for the instrumented SDS-H1 rerun.
+
+This is HARD subject to clearly identified external-provider delays.
+
+Active-owner time:
+must be measured and reported.
+
+30–45 minutes active-owner remains the initial ASPIRATION.
+
+Do NOT falsify it into a hard threshold until real instrumented runs establish
+what is achievable.
+
+"CAMPAIGN-READY" MUST BE DEFINED IN STAGE 1 BEFORE instrumentation and before
+seeing timing results.
+
+Do not choose the definition after the result is known.
+
+======================================================================
+SECTION D — H1 PRESERVATION
+BEFORE ANY STAGE-2 IMPLEMENTATION
+======================================================================
+
+Preserve the partial SDS-H1 runbook instance as:
+
+SUPERSEDED-BY-035.
+
+That means:
+
+- not failed;
+- never counted as a pass.
+
+Preserve:
+
+- all H1-F1 evidence;
+- all H1-F2 evidence;
+- all H1-F3 evidence;
+- row IDs;
+- read-only traces;
+- Phase-0 snapshots;
+- deviations register.
+
+These are part of the current-flow audit.
+
+They are already-paid-for evidence.
+
+Enumerate ALL partial-run state/artifacts.
+
+Retain internal history.
+
+Clean ONLY external TEST artifacts, if any exist, under existing
+evidence-first cleanup rules with a survivorship check afterward.
+
+Freeze the partial account.
+
+EXCLUDE it from future Prompt-026 acceptance evidence.
+
+Do not rewrite its history.
+
+The partial run is the BEFORE specimen for friction/timing comparison.
+
+Do NOT delete evidence just to create a clean rerun.
+
+======================================================================
+SECTION E — SCOPE GUARDS
+======================================================================
+
+OUT beyond the Section-C boundaries:
+
+- Prompt 027 automation;
+- H2;
+- production;
+- Stripe live;
+- Echo → Boz rename;
+- graphics/navigation cleanup;
+- I-47/I-48 unless Stage 1 proves one is a HARD dependency
+  (report; do not assume);
+- every other parked issue;
+- rewriting Prompt-022 orchestrator core;
+- rewriting Prompt-023 gap engine;
+- rewriting Prompt-024 armed-consent flow;
+- rewriting Prompt-011 boundary;
+- new research stack;
+- new knowledge store.
+
+Use extension points only.
+
+Accepted suites must remain green.
+
+======================================================================
+SECTION F — STOP-AND-REPORT CONDITIONS
+======================================================================
+
+STOP AND REPORT for:
+
+- any design requiring a parallel provenance taxonomy;
+- any path where provisional/wrong-entity research could reach approved
+  Company Truth;
+- any surviving silent default over explicit owner input;
+- any second full research run where enrichment was possible, unless the
+  design specifically justifies that rerun;
+- any schema need beyond additive
+  (report exact DDL; do not migrate);
+- any W3 scope growth beyond the narrow second-business entry objective;
+- any change that breaks an accepted 011/022/023/024/025 suite;
+- anything contradicting D-46 or standing rules.
+
+======================================================================
+SECTION G — STAGE-1 REPORT MUST DELIVER
+THE 20 REQUIRED ITEMS
+======================================================================
+
+1. CURRENT-FLOW AUDIT
+
+Complete as-is onboarding sequence with timing/friction map, incorporating
+the preserved H1 evidence.
+
+2. FIELD MATRIX
+
+Exhaustive collection → storage → consumer table, file:line, with documented
+absences.
+
+Must include the field-matrix completeness proof:
+
+- enumeration method;
+- code-vs-matrix reconciliation;
+- unprovable fields marked UNVERIFIED.
+
+3. PROVENANCE MAPPING
+
+Owner concepts → existing provenance substrate.
+
+Any genuinely necessary additive extension named and justified.
+
+4. PI-MODEL DESIGN
+
+Per-anchor trigger architecture on existing machinery with exact reuse points
+for:
+
+- Prompt 022 claim/supersede;
+- Company Truth lifecycle states;
+
+cited file:line.
+
+Also answer the investigation-snapshot rule:
+
+- material step definition;
+- per-step freeze;
+- anchor recording;
+- supersede-without-rewrite;
+- existing-records sufficiency.
+
+5. ENTITY-CONFIDENCE MODEL
+
+Return the explicit DECISION TABLE required by W1-B.
+
+Include:
+
+- provisional case-file semantics;
+- wrong-entity containment.
+
+6. DEBOUNCE / ENRICHMENT + AI-BUDGET DESIGN
+
+Include:
+
+- anchor-arrival handling;
+- enrichment vs full-run criteria;
+- per-account budget gate;
+- abandoned-signup behavior;
+- spend arithmetic.
+
+7. ASYNC PROGRESS UX
+
+Define what the owner sees while research runs.
+
+Define Company Truth:
+
+- ready state;
+- in-progress state.
+
+8. OWNER-FACT AUTHORITY RULES
+
+Include:
+
+- default-vs-owner distinction;
+- conflict surfacing;
+- named 8–5 regression.
+
+9. SECOND-BUSINESS ENTRY DESIGN
+
+Include:
+
+- explicit choice surface;
+- session/brand binding;
+- resume-existing behavior preservation.
+
+10. BOZ FOLLOW-UP INTEGRATION
+
+Explain how post-research gaps/conflicts feed the existing Prompt-023 engine.
+
+State exactly:
+
+- what changes;
+- what remains reused untouched.
+
+11. INSTRUMENTATION DESIGN
+
+Event schema for:
+
+- wall-clock;
+- active-owner;
+- system/external wait.
+
+Define active-vs-wait attribution rules.
+
+12. CAMPAIGN-READY DEFINITION
+
+Precise and pre-committed.
+
+13. H1 PRESERVATION / CLEANUP PLAN
+
+Include the complete partial-run artifact enumeration.
+
+14. EXPECTED CHANGED-FILE / SCHEMA SURFACE
+
+Honest and complete.
+
+15. MIGRATION STATEMENT
+
+Either:
+
+NONE
+
+or:
+
+ADDITIVE-ONLY, with exact DDL sketch.
+
+Anything structural = STOP.
+
+16. COMPLETE REGRESSION PLAN
+
+At minimum, one named test for EACH:
+
+- per-anchor background initiation;
+- wrong-business cannot contaminate Company Truth;
+- repeated anchors do not cause redundant full runs;
+- owner facts reach downstream consumers;
+- PHONE regression;
+- ADDRESS regression;
+- HOURS/no-silent-default regression;
+- owner fact vs conflicting web fact surfaced;
+- research auto-starts but approval remains explicit;
+- no Company Truth trusted before owner approval;
+- second-business setup cannot silently bind to existing brand;
+- resume-existing still works;
+- no-website honest path;
+- no-social honest path;
+- Prompt 011 suite green;
+- Prompt 022 suite green;
+- Prompt 023 suite green;
+- Prompt 024 suite green;
+- Prompt 025 suite green;
+- AI spend bounded;
+- instrumentation measures all three timing categories separately.
+
+17. STOP CONDITIONS
+
+Restate Section F and add any new Stage-1-discovered STOP conditions.
+
+18. ACCEPTANCE CRITERIA
+
+Derived from Section C plus regression plan.
+
+Include the instrumented-rerun timing terms.
+
+19. EXACT PROMPT-026 H1 RESTART PROCEDURE
+
+After Prompt 035 acceptance:
+
+new fresh SDS account
+→ redesigned onboarding
+→ instrumented timing
+→ complete SDS-H1
+→ BLACOR-H1
+→ cross-account isolation checks
+→ H1 report
+→ owner checkpoint.
+
+20. ORIGINAL-LADDER RESUME POINT
+
+Use this verbatim:
+
+"After 035 acceptance and the completed 026 (H1 restart through close, then
+the existing E1–E5 H2 gates), the project resumes at Prompt 027 exactly as
+planned. Nothing else in the ladder moves."
+
+PLUS REQUIRED VERIFICATION:
+
+D-37 baselines from a compliant audit surface.
+
+Reference values only:
+
+- server 1370/1370;
+- client 430/430 across 41 files.
+
+Re-derive them.
+
+Never assume them.
+
+Anything unsafe, impossible, or unanswerable:
+
+STOP AND REPORT.
+
+======================================================================
+FINAL STAGE-1 BOUNDARY
+======================================================================
+
+STAGE 1 ONLY.
+
+READ-ONLY.
+
+Deliver the complete Section-G report.
+
+Then STOP for owner + ChatGPT + Claude review.
+
+Stage 2 requires separate authorization.
+
+Do not resume Prompt 026 H1.
+
+Do not begin Prompt 027.
+
+Do not touch production.
+
+Do not implement any part of Prompt 035 during Stage 1.
