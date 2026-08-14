@@ -1,0 +1,563 @@
+REPLIT OPERATOR INSTRUCTION — PROMPT 026 H1
+
+Execute the authorization below exactly as written.
+
+IMPORTANT OWNER-ASSISTED EXECUTION RULE:
+Walk me through H1 ONE STEP AT A TIME.
+
+Whenever an action requires me, the owner, to click something, approve
+something, connect an account, classify an artifact KEEP/TEST, inspect a
+provider UI, perform provider-side cleanup, or make any other owner
+decision:
+
+1. STOP.
+2. Tell me exactly ONE action to perform.
+3. Give me the exact screen/path/button/value needed for that one action.
+4. Do not give me the next owner action yet.
+5. WAIT for my confirmation, screenshot, or result.
+6. Verify/record the result before proceeding.
+
+Do not batch owner instructions.
+
+Do not perform an owner action on my behalf.
+
+Do not improvise around a missing product surface, failed step, ambiguous
+provider response, or STOP condition.
+
+If a STOP condition occurs, STOP AND REPORT. Do not fix it unless and
+until I explicitly authorize the applicable blocking-bug mini-cycle.
+
+Do not start H2.
+
+============================================================
+PROMPT 026 — STAGE 2 AUTHORIZATION: PHASE H1 ONLY
+============================================================
+
+Own-business internal testing protocol — staging execution.
+
+Issued 2026-08-14 under owner ruling D-44 (final: two consistency
+amendments applied per the closing review pass — GBP read-only probes
+authorized explicitly; sequential instance execution — plus the Facebook
+TEST-post cleanup rule).
+
+Stage-1 report: ACCEPTED.
+
+Pre-Stage-2 owner-assisted session: accepted and recorded
+(production domain/OAuth/transport/APP_ENV fixes; apex Option C;
+Stripe live-mode DEFER ruling).
+
+I-29: CLOSED — PASSED 2026-08-14.
+
+⛔ SCOPE OF THIS AUTHORIZATION:
+
+PHASE H1 (STAGING) ONLY — the SDS-H1 and BLACOR-H1 runbook instances.
+
+NOTHING in this document authorizes any production action.
+
+H2 remains gated under Section E.
+
+Where this document conflicts with any earlier text, THIS DOCUMENT WINS.
+
+The FINAL Stage-1 issue package (D-43) and all standing rules remain in
+force.
+
+
+============================================================
+SECTION A — THE BINDING SCRIPT
+============================================================
+
+A1. OWN_BUSINESS_TEST_RUNBOOK.md as delivered in Stage 1 is the BINDING
+SCRIPT, owner-approved with exactly the amendments in this authorization.
+
+Stage 2 executes it; it does not improvise around it.
+
+Deviations are deviations — recorded per D-15.
+
+
+A2. A-1 RULING APPLIED (owner):
+
+SDS-H1 = FRESH onboarding through product surfaces
+(the runbook's conservative default stands).
+
+BOTH H1 instances are therefore fresh onboardings running:
+
+Phases 0 → 1 → 2 → 3 → C.
+
+Pole Barn Kits remains historical, outside 026, untouched.
+
+
+A3. INSTANCE-SPECIFIC BINDINGS
+
+SDS-H1:
+
+- website: southdixiestorage.com
+- Facebook Page: 140006069194366
+- ad account: act_818682760732833
+- GA4: 473906255
+- GBP rows: UNVERIFIED-PENDING-I30
+- re-check GBP availability at Phase 0.2
+- SDS carries the ONE staging R6 ad chain
+
+
+BLACOR-H1:
+
+- website: blacorhomes.com
+- Facebook Page: 61560734440780
+- owner is admin
+- the Page's prior Zorecho connection is recorded honestly at connect
+  time as PRE-EXISTING STATE; do not conceal it
+- NO ad chain in H1
+- R6 permits at most one per environment and SDS carries it
+- Blacor ad account act_1694378501604002 is recorded for a future cycle,
+  NOT used in H1
+- NO GA4
+- owner-confirmed GA4 absence is honest data
+- GA4 runbook rows record honest absence
+- do NOT create a GA4 property for this test
+- GBP: N/A unless a Blacor listing exists; record the actual result
+
+
+A4. Phase 0.3 in EACH instance records:
+
+I-29 CLOSED-PASS (2026-08-14).
+
+
+============================================================
+SECTION B — INVARIANTS
+D-43 RESTATED AS BINDING; R6 VERBATIM
+============================================================
+
+B1. R1 — ZERO LIVE SPEND
+
+No intentional advertising spend.
+
+All ad objects remain PAUSED/$0 under Prompt 015 at all times.
+
+No unpause authorization exists anywhere in Prompt 026.
+
+Caps are snapshotted READ-ONLY before and after the launch step
+(Phase 0.4).
+
+ANY cap bypass = STOP.
+
+
+B2. R2 — TEST / KEEP CLASSIFICATION
+
+Every external/public artifact is classified BEFORE the write.
+
+DEFAULT = TEST.
+
+KEEP requires explicit owner designation recorded BEFORE the write.
+
+Unclassified write = runbook violation.
+
+TEST artifact left behind = deviation.
+
+
+B3. R4 + R5 — ATTEMPTS AND OWNER AUTHORITY
+
+R4:
+
+ONE ATTEMPT per external action, all providers.
+
+R5:
+
+Every write occurs through the product's own approval surfaces with the
+OWNER as the approving actor.
+
+Replit NEVER:
+
+- approves on the owner's behalf;
+- triggers a provider write on the owner's behalf;
+- acts as the owner.
+
+A missing approval surface = FINDING + STOP.
+
+Never work around it.
+
+
+B4. R6 — VERBATIM
+
+"026 may exercise AT MOST ONE PAUSED/$0 owner-driven ad chain per
+environment, and only where the proof matrix genuinely requires it.
+Because the owner-driven launcher does NOT carry Prompt 033's
+evidence-gated idempotency (I-48, filed, NOT fixed here), the chain is
+STRICTLY SINGLE-ATTEMPT: no automatic retry; no second owner click; no
+retry after timeout; no retry after network failure; no retry after
+ambiguous provider acknowledgment; no retry merely because the local
+response is uncertain. ANY ambiguous outcome = STOP AND REPORT, then
+inspect authoritative provider/evidence state (Ads Manager + ledger +
+task + proofs) before anything further happens. Ad-chain cleanup is
+owner-performed in Ads Manager (I-47's documented manual path), deletion
+responses recorded."
+
+
+B5. EVIDENCE
+
+No step PASSES without its evidence reference:
+
+- row IDs and/or
+- provider IDs.
+
+Echo cross-checks are recorded where applicable and MUST match the
+evidence exactly.
+
+Use authoritative sources per Prompt 025's Claim Matrix.
+
+D-23 redaction applies throughout.
+
+Feature-only capabilities are capped at:
+
+"per our records"
+
+language.
+
+
+B6. CLEANUP + SURVIVORSHIP
+
+TEST artifacts are cleaned through existing paths with deletion responses
+recorded under D-24 I.
+
+Ad-chain cleanup = OWNER-performed Ads Manager deletion.
+
+Run the Prompt-033-pattern survivorship check after EVERY cleanup batch.
+
+Internal history ALWAYS survives, including:
+
+- tasks;
+- task events;
+- ledger;
+- proofs;
+- knowledge versions;
+- campaigns history.
+
+Real business knowledge created during Prompt 026 is REAL DATA and is
+NEVER cleaned merely because the test run ends.
+
+
+FACEBOOK TEST-POST CLEANUP
+
+This applies to:
+
+- first-win Facebook TEST posts produced during H1; AND
+- ordinary organic Facebook TEST posts produced during H1.
+
+Where the deployed product has an existing, authorized provider-side
+deletion path for the exact post, use it and record the deletion response.
+
+Where no such usable path exists — including the known
+first-win/manual-cleanup class established in Prompt 024 — the OWNER is
+authorized to delete the specific TEST post manually through Facebook/Meta
+AFTER all required evidence has been captured.
+
+Replit does NOT perform the provider write.
+
+Replit verifies absence READ-ONLY afterward using the safest available
+provider/public evidence and records the verification method.
+
+Manual deletion is cleanup only.
+
+It does NOT authorize deletion of:
+
+- KEEP content; or
+- unrelated Page content.
+
+If a deletion target cannot be identified UNAMBIGUOUSLY by its captured
+provider post ID:
+
+STOP.
+
+Do not risk deleting the wrong content.
+
+KEEP-designated posts remain untouched.
+
+
+B7. BLOCKING-BUG MINI-CYCLE
+
+Use ONLY the narrow D-43(7) definition.
+
+No fix is self-authorizing.
+
+If H1 is blocked by a qualifying bug:
+
+1. STOP.
+2. Report the blocking bug and evidence.
+3. OWNER decides whether to authorize a mini-cycle.
+4. If authorized, the fix gets its own D-18 PR.
+5. Add the appropriate regression.
+6. Perform D-32 review.
+7. Deploy and verify the authorized fix.
+8. Only then resume H1 on the deployed fix.
+
+Every fix is individually reported.
+
+Do NOT convert ordinary findings, inconveniences, missing optional
+capabilities, or out-of-scope improvements into self-authorized work.
+
+
+B8. OTHER HARD BOUNDARIES
+
+NO synthetic fixtures anywhere.
+
+Everything enters through product surfaces.
+
+NO Prompt-027 automation work.
+
+Script-shaped steps discovered during H1 go into the Notes-for-027
+register.
+
+Do NOT fix:
+
+- I-47
+- I-48
+- I-44
+- I-45
+- I-46
+- I-40 through I-43
+
+No Hermes changes.
+
+GBP items remain honestly:
+
+UNVERIFIED-PENDING-I30
+(case 4-9287000040750)
+
+unless the quota actually flips.
+
+GBP availability is re-checked READ-ONLY at each Phase 0.2.
+
+Never simulate GBP.
+
+
+============================================================
+SECTION C — CONDUCT OF H1
+============================================================
+
+C1. EXECUTION ORDER
+
+SDS-H1 and BLACOR-H1 may run in either order.
+
+However, the OWNER executes the instances SEQUENTIALLY rather than
+interleaving their onboarding/operate steps.
+
+Complete the active instance through its authorized H1 runbook sequence
+before beginning the second instance, except for the final cross-brand
+negative verification that necessarily requires both brands to exist.
+
+Once BOTH instances exist:
+
+run Phase 3.2 in BOTH directions.
+
+Rationale:
+
+This is the first real two-brand isolation rehearsal.
+
+Evidence, provider artifacts, cleanup, and any STOP condition must remain
+clearly attributable to one business at a time.
+
+
+C2. OWNER-OPERATED EXECUTION
+
+The OWNER operates.
+
+Replit:
+
+- observes read-only;
+- records evidence;
+- runs authorized read-only Phase-0 checks;
+- performs Echo cross-checks.
+
+ONE STEP AT A TIME.
+
+The owner sees each step's result before the next step proceeds.
+
+This requirement also incorporates the operator instruction at the top of
+this prompt: whenever the next step requires owner interaction, Replit
+gives exactly ONE owner action and WAITS.
+
+
+C3. AI SPEND
+
+AI spend for research/interview flows remains within existing aiGate
+budgets.
+
+Prompt 022's bounded research budget applies per run.
+
+Usage lands in ai_usage_log as always.
+
+
+============================================================
+SECTION D — H1 COMPLETION + REPORT
+============================================================
+
+The H1 report must deliver:
+
+1. BOTH filled runbook instances.
+
+2. EVERY runbook row containing:
+   - result; and
+   - evidence reference(s).
+
+3. Deviations register.
+
+4. Any blocking-bug mini-cycle fixes, each individually showing:
+   - owner authorization;
+   - PR;
+   - regression;
+   - D-32 review;
+   - deploy evidence;
+   - resume point.
+
+5. KEEP/TEST artifact ledger.
+
+6. Cleanup evidence.
+
+7. Survivorship checks.
+
+8. Echo cross-check transcript excerpts, D-23-redacted.
+
+9. Notes-for-027 register.
+
+10. Updated GBP/I-30 status.
+
+11. D-37 statement for any counting performed.
+
+12. All deviations stated plainly and never papered over.
+
+The report ENDS at the OWNER CHECKPOINT.
+
+It MUST NOT roll into H2 preparation or execution beyond restating the
+gates in Section E.
+
+
+============================================================
+SECTION E — H2 GATES
+ENUMERATED ONLY — NOT AUTHORIZED
+============================================================
+
+H2 requires ALL of the following, IN ORDER, with each owner-ruled when
+reached.
+
+
+E1. OWNER CHECKPOINT
+
+Owner reviews and rules on the H1 report.
+
+
+E2. THE PROMOTION DECISION
+
+Production currently serves pre-turnaround:
+
+main @ 592c5144
+
+Running the Prompt-026 matrix in production requires promoting staging
+(bd73b013 or later) to main/production.
+
+That is a separate deployment decision requiring:
+
+- D-18 PR discipline;
+- D-32 deletion review;
+- full SENTINELS recheck;
+- deployment verification.
+
+It is NOT assumed.
+
+It must NOT be folded silently into H2.
+
+
+E3. PRODUCTION AUDIT RE-RUN
+
+Re-run P.2 including:
+
+- F-7 migration parity, currently UNVERIFIED;
+- a valid read-only production database access path must exist by then;
+- re-verification of the 2026-08-14 production fixes:
+  - domain;
+  - APP_ENV;
+  - Google OAuth callback;
+  - Meta OAuth callback;
+  - RESEND production transport.
+
+
+E4. THE SMOKE GATE — 6A
+
+Recommendation ACCEPTED:
+
+ONE spine email send to an OWNER-CONTROLLED inbox with Message-ID proof.
+
+This doubles as the live verification of the newly installed production
+email transport.
+
+This action is NOT authorized by H1.
+
+It requires separate owner authorization when H2 gates are reached.
+
+Clean PASS required.
+
+Failure or ambiguity = STOP.
+
+
+E5. OWNER GO / NO-GO
+
+Only after E1-E4 are satisfied does the OWNER rule on whether the full H2
+matrix may begin.
+
+
+============================================================
+STOP-AND-REPORT
+============================================================
+
+Section 14 of the FINAL Stage-1 package applies IN FULL.
+
+Additionally, specific to H1, STOP for:
+
+- ANY action that would touch production;
+- ANY second ad-chain attempt;
+- ANY creation of a GA4 property or other provider asset merely
+  "for the test";
+- ANY onboarding step that bypasses a product surface;
+- ANY missing required owner approval surface;
+- ANY ambiguous ad-chain provider outcome;
+- ANY cap bypass;
+- ANY ambiguous Facebook TEST-post deletion target;
+- ANY condition covered by the governing Stage-1 STOP rules.
+
+
+GBP RULE — SUPERSEDES ANY NARROWER READING
+
+"Read-only GBP availability/preflight probes are authorized. While GBP
+quota remains blocked, no GBP runbook execution may be represented as
+successful and no GBP provider write/review reply is authorized. Record
+the affected row UNVERIFIED-PENDING-I30 and continue unrelated H1 work.
+Never simulate or bypass GBP."
+
+A quota-blocked READ-ONLY probe is NOT itself a STOP.
+
+
+============================================================
+FINAL EXECUTION BOUNDARY
+============================================================
+
+PHASE H1 IS AUTHORIZED.
+
+Execute the binding runbook with the OWNER as operator.
+
+Walk the owner through the process ONE STEP AT A TIME.
+
+When owner interaction is required:
+
+STOP → give ONE action → WAIT → verify/record → continue.
+
+Complete the two businesses sequentially.
+
+Deliver the complete H1 report.
+
+Then:
+
+STOP AT THE OWNER CHECKPOINT.
+
+H2 IS NOT AUTHORIZED.
+
+PROMPT 027 IS NOT AUTHORIZED.
+
+NO PRODUCTION ACTION IS AUTHORIZED BY THIS PROMPT.
