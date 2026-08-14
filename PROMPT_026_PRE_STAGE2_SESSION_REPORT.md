@@ -67,3 +67,17 @@ Read-only preflight run 2026-08-14 (day 7+ after the 2026-08-07 grant), owner JW
 - Staging DB touched read-only once (I-29); a first query failed on a nonexistent column name and was abandoned in favor of the preflight endpoint — no writes at any point.
 - Workspace/staging/production code untouched.
 - One step at a time maintained throughout; both unexpected findings (production health reporting "staging"; GoDaddy save error) were STOP-explained before proceeding.
+
+---
+
+## ADDENDUM — Owner-assisted fix session rulings & closures (2026-08-14, later same day)
+
+1. **APP_ENV** — FIXED (owner edit to `production`); verified: health reports `environment: "production"`, stable over 5 checks.
+2. **Google OAuth callback** — FIXED (owner added `https://app.zorecho.com/api/google/oauth/callback` to client "Zorecho Web"; staging URI retained).
+3. **Meta OAuth callback** — FIXED (owner added `https://app.zorecho.com/api/facebook/oauth/callback` to Zorecho app Valid OAuth Redirect URIs; "Changes saved" confirmed; staging URI retained).
+4. **Email transport** — FIXED (owner created new Resend API key `zorecho-production`, sending-only, and set `RESEND_API_KEY` on the production Railway service; redeploy verified healthy over 4 checks). No email sent — smoke email remains Stage 2.
+5. **STRIPE_WEBHOOK_SECRET** — **OWNER RULING: DEFER (verbatim recorded).** Discovery: Stripe account "IGOTIT" live mode was never activated; all Stripe artifacts to date are sandbox/test-mode. Per ruling: beta-phase intentional deferral, not a defect; live payments NOT production-ready; current Stripe credentials/price IDs on production must not be assumed live without later verification; full live-payment readiness check required before accepting real customer payments. Non-gating for Stage 2 unless another governing requirement establishes it as a gate (none known in the 026 record).
+6. **Dev-flavored variables** — CLOSED, NO ACTION. Code review (`config/aiControls.js`, `utils/aiGate.js`, `utils/aiBudget.js`): `DEVELOPMENT_AI_ENABLED` and `AI_BUDGET_DEV_DAILY_USD` are consulted only when NOT production; inert now that APP_ENV=production. Left in place intentionally.
+7. **Apex zorecho.com** — **OWNER RULING: OPTION C (verbatim recorded).** Reserved for future marketing/landing site; stays parked during beta; no forwarding, no apex DNS changes; app.zorecho.com remains the product domain; intentional decision, not a defect; not a Stage-2 blocker.
+
+**Remaining open (all previously recorded, none newly gating):** F-7 migration parity UNVERIFIED (no read-only prod-DB path); I-30 GBP quota (case 4-9287000040750) → GBP rows stay UNVERIFIED-PENDING-I30; production runs older `main` SHA 592c5144 (Stage-2 scope question: whether staging (bd73b013) must be promoted to `main` is a deployment/promotion decision, not part of this session).
