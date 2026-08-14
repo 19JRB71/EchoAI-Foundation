@@ -1,0 +1,108 @@
+STOP BEFORE APPROVAL — POSSIBLE H1 DATA-FLOW FINDING.
+
+Do not change anything.
+Do not fix anything.
+Do not edit or approve the Company Truth report.
+Read-only investigation only.
+
+I am looking at the newly generated South Dixie Storage Company Truth
+report.
+
+The report says:
+
+"Phone: NOT PROVIDED — must be supplied by owner"
+
+However, I specifically remember supplying my phone number during the
+fresh setup/onboarding wizard for this account.
+
+This may indicate that information collected during onboarding is not
+being passed into Sage / Company Truth correctly.
+
+Before we continue H1, investigate this read-only.
+
+I want you to trace the phone number end to end:
+
+1. Determine exactly where the setup wizard asked for the phone number.
+
+2. Determine whether the value I entered was actually persisted.
+
+3. If persisted, identify:
+   - table/record/field where it was stored;
+   - the new SDS account/user/brand it belongs to;
+   - whether it still exists now.
+
+4. Trace Company Truth's gatherCompanyData() (or current equivalent) and
+determine every source/field it checks when trying to obtain the company's
+phone number.
+
+5. Explain why Company Truth produced:
+   "Phone: NOT PROVIDED — must be supplied by owner"
+   despite the onboarding wizard having collected the phone number.
+
+6. Check for the SAME CLASS OF PROBLEM across the other information the
+onboarding wizard collected.
+
+Do not limit the investigation to phone number.
+
+Compare the information collected during this fresh SDS onboarding against
+the information Sage/Company Truth actually received.
+
+Produce a small reconciliation table:
+
+ONBOARDING FIELD
+VALUE COLLECTED?
+WHERE STORED
+READ BY SAGE?
+VALUE IN COMPANY TRUTH
+MATCH / MISSING / CONFLICT
+
+Include, where applicable:
+- owner first name
+- owner last name
+- phone
+- email
+- business name
+- business description
+- products/services
+- customer/audience information
+- website
+- Facebook page
+- Google Business Profile
+- location/service area
+- any other meaningful business fact collected during this onboarding.
+
+Also distinguish between:
+
+A. information the owner actually supplied;
+B. information Sage independently discovered;
+C. information that was never supplied or discovered.
+
+This matters because Sage must never say "NOT PROVIDED" when Zorecho
+already collected the information from the owner.
+
+CLASSIFICATION:
+
+Treat this as a potential Prompt-026 H1 finding.
+
+This investigation is READ-ONLY.
+
+Do NOT repair the data.
+Do NOT alter Company Truth.
+Do NOT regenerate the report.
+Do NOT approve the report.
+Do NOT implement a fix.
+Do NOT advance the runbook.
+
+If confirmed, record the finding and STOP for owner/reviewer ruling under
+the existing blocking-bug rules.
+
+Return:
+1. root cause;
+2. exact code/data path;
+3. reconciliation table;
+4. whether this is isolated to phone or systemic;
+5. whether any data was lost versus merely not consumed;
+6. narrowest possible future fix, WITHOUT implementing it;
+7. whether H1 can safely continue without the fix.
+
+Then STOP.
