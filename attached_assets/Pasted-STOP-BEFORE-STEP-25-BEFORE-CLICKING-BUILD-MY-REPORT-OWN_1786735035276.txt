@@ -1,0 +1,144 @@
+STOP BEFORE STEP 25 / BEFORE CLICKING "BUILD MY REPORT."
+
+OWNER H1 OBSERVATION — SAGE RESEARCH ORCHESTRATION / ONBOARDING UX FINDING
+
+The current screen provides direct evidence of another onboarding issue.
+
+During fresh onboarding, the owner already supplied business discovery
+anchors, including:
+
+- business website;
+- Facebook Page;
+- Google Business reference;
+- business/interview information collected during setup.
+
+Those values were persisted successfully and are now displayed inside
+Sage > Company Truth.
+
+However, Sage has performed no Company Truth investigation yet. The UI
+states:
+
+"Sage hasn't built your Company Intelligence Report yet."
+
+and requires another owner action:
+
+"Build my report."
+
+OWNER PRODUCT DIRECTION:
+
+This appears backwards for an AI-agent onboarding experience.
+
+Once fresh onboarding has collected sufficient business identity and
+research anchors, Sage should normally begin the Company Truth
+investigation automatically rather than waiting for the owner to later
+discover Sage and manually start the obvious next operation.
+
+The intended mental model is:
+
+OWNER PROVIDES LEADS
+    ->
+SAGE INVESTIGATES
+    ->
+OWNER CONTINUES SETUP WHILE RESEARCH RUNS
+    ->
+SAGE PRESENTS EVIDENCE-BACKED COMPANY TRUTH
+    ->
+OWNER CORRECTS / ANSWERS TARGETED GAPS
+    ->
+OWNER APPROVES
+    ->
+APPROVED KNOWLEDGE BECOMES TRUSTED DOWNSTREAM CONTEXT
+
+Automatic RESEARCH does NOT mean automatic APPROVAL.
+
+Owner review/approval of Sage's conclusions must remain explicit.
+
+READ-ONLY INVESTIGATION ONLY FOR NOW.
+
+Determine:
+
+1. What exact event currently starts Company Truth research.
+
+2. Confirm whether clicking "Build my report" is currently the only
+   product trigger.
+
+3. Determine whether fresh onboarding intentionally collects the website,
+   Facebook Page, Google Business reference, and interview information
+   without starting research.
+
+4. Determine whether an existing mechanism/job/task can start Company
+   Truth research automatically once sufficient onboarding anchors are
+   persisted.
+
+5. Trace whether research is synchronous or asynchronous and whether it
+   can safely run while the owner continues onboarding.
+
+6. Determine what minimum information Company Truth actually requires
+   before research can begin.
+
+7. Identify exactly what data Sage receives when Company Truth research
+   starts:
+   - website;
+   - Facebook;
+   - Google Business reference;
+   - business name/location;
+   - setup interview answers;
+   - other approved/persisted context.
+
+8. Determine whether automatically STARTING research would create any
+   external/public write or merely perform bounded research/internal
+   knowledge generation.
+
+9. Determine what currently prevents research from starting immediately
+   after the necessary onboarding information is saved.
+
+10. Compare the existing implementation against this proposed future
+    onboarding model:
+
+    approximately five high-information discovery questions
+        ->
+    sufficient identity anchors established
+        ->
+    Sage investigation automatically starts
+        ->
+    owner continues onboarding
+        ->
+    Sage presents sourced findings
+        ->
+    Sage asks only targeted questions about missing/conflicting facts
+        ->
+    owner reviews/corrects
+        ->
+    explicit owner approval.
+
+IMPORTANT:
+
+Do NOT implement this redesign.
+
+Do NOT click or programmatically trigger "Build my report."
+
+Do NOT advance Phase 1.2 yet.
+
+Do NOT modify code or database state.
+
+Do NOT start a blocking-bug mini-cycle.
+
+Do NOT treat the owner's proposed five-question model as an already
+authorized specification. It is product direction for later review.
+
+Return:
+
+A. the evidence-backed current data flow with file:line references;
+B. why research currently waits for "Build my report";
+C. whether automatic research initiation is technically compatible with
+   the existing architecture;
+D. whether this is a UX/orchestration gap, deeper architectural issue,
+   or intentional safety boundary;
+E. the narrowest future change that could implement the owner's desired
+   behavior, WITHOUT implementing it;
+F. whether the current H1 run can safely continue by using the existing
+   "Build my report" product surface after owner/reviewer ruling.
+
+Then STOP for owner/reviewer ruling.
+
+All existing Prompt-026 / D-44 / D-45 restrictions remain in force.
