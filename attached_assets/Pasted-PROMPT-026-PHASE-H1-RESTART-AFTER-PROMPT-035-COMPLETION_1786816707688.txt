@@ -1,0 +1,850 @@
+PROMPT 026 — PHASE H1 RESTART AFTER PROMPT 035 COMPLETION
+G-19 RESTART AUTHORIZATION — SDS-H1 FIRST, STAGING ONLY
+
+Date: 2026-08-15
+
+OWNER / REVIEWER RULING:
+
+PROMPT 035 IS COMPLETE.
+
+Binding completion wording:
+
+"PROMPT 035 COMPLETE — PI-model orchestration delivered for the structured
+path; conversational path delivered for early brand creation (C1),
+owner-fact handoff, verbatim whole-answer URL capture, and
+confirmation-gated embedded-URL capture (C2); conversational ANCHOR
+SOLICITATION remains open as I-50, timing decision at checkpoint E1."
+
+I-51:
+RESOLVED by 035-C2.
+
+I-50:
+OPEN — solicitation/timing only.
+Do NOT fix it during H1.
+
+I-52:
+OPEN — repeated onAnchorArrival invocation from aliases-present reporting;
+benign under sameAnchors/claimRun and directly regression-bound.
+Do NOT fix it during H1.
+
+The explicit gate in front of Prompt 026 H1 restart is SATISFIED.
+
+This authorization resumes PROMPT 026 PHASE H1 ONLY.
+
+H2 IS NOT AUTHORIZED.
+Production is NOT authorized.
+Prompt 027 is NOT authorized.
+
+==================================================
+1. OWNER-OPERATOR RULE
+==================================================
+
+Continue the standing owner-operated protocol.
+
+Give the owner EXACTLY ONE MANUAL ACTION AT A TIME.
+
+For every owner action:
+
+1. tell the owner exactly what to click/type/do;
+2. tell the owner what result to expect;
+3. STOP and wait for the result/screenshot;
+4. verify it;
+5. only then give the next action.
+
+Do not provide a batch of owner steps.
+
+Replit may perform authorized read-only checks itself without making the
+owner manually do them.
+
+Replit must NEVER approve, consent, publish, launch, connect, or perform an
+owner-authority action on the owner's behalf.
+
+==================================================
+2. EXECUTION ORDER
+==================================================
+
+Run sequentially:
+
+FIRST:
+SDS-H1 — South Dixie Storage
+
+AFTER SDS-H1 completes its authorized H1 sequence:
+BLACOR-H1 — Blacor Homes
+
+Do not interleave them.
+
+After both exist, perform the previously authorized cross-account Phase 3.2
+negative-isolation checks in BOTH directions.
+
+==================================================
+3. SDS-H1 MUST BE A FRESH AFTER SPECIMEN
+==================================================
+
+The prior partial SDS-H1 run is preserved as:
+
+SUPERSEDED-BY-035
+
+It is the BEFORE specimen.
+
+Do not reopen it.
+Do not edit its historical evidence.
+Do not convert it into the new run.
+Do not count it as a pass.
+
+Start SDS-H1 on a BRAND-NEW fresh staging account through the redesigned
+product flow.
+
+The new run is the AFTER specimen for Prompt 035.
+
+All Prompt-035 onboarding behavior must be exercised naturally through the
+product.
+
+No synthetic fixtures.
+
+==================================================
+4. PQ1 MANDATORY READ-ONLY PREAMBLE
+BEFORE ANY NEW H1 EVIDENCE BEGINS
+==================================================
+
+Claude accepted the C2 smoke beta-slot write as a verification deviation but
+attached a mandatory evidence preamble to the first 026-H1 report.
+
+Before starting the new SDS owner flow, perform these THREE READ-ONLY checks.
+
+PQ1-A:
+Query and show the actual current:
+
+beta_settings.max_slots
+
+Expected:
+10
+
+Do not merely state it.
+Record the query result.
+
+PQ1-B:
+Read the current used beta-slot count and compare it to the cap.
+
+The expected consequence of retaining the Prompt-035 TEST accounts may be:
+
+used slots = 11
+cap = 10
+
+If so:
+state that honestly.
+
+Do not change the cap.
+Do not delete TEST accounts to make the arithmetic look clean.
+
+If the actual numbers differ:
+report the actual values.
+
+PQ1-C:
+Determine whether any NON-TEST registration:
+
+- occurred,
+- failed,
+- or was blocked
+
+during the short C2 smoke window in which max_slots was temporarily 11.
+
+Return an affirmative evidence-backed statement.
+
+If all three are clean/understood:
+continue.
+
+If any result indicates an unrelated real-user impact or unexpected config
+state:
+STOP AND REPORT before H1.
+
+NEW STANDING PROCESS RULES:
+
+1. Multi-identity smoke/test plans must preflight capacity and prerequisites
+   before beginning.
+
+2. ANY unplanned DB write during verification is STOP-FIRST, even on staging
+   and even if reversible.
+
+3. Future Stage-2 diff-bound rule:
+   if mid-work evidence shows implementation will exceed the PADDED authorized
+   diff bound by >25%, STOP AND REPORT BEFORE writing further.
+
+==================================================
+5. D-37 / ENVIRONMENT PRE-FLIGHT
+==================================================
+
+Before H1 execution begins, confirm read-only:
+
+- correct staging service:
+  https://staging.zorecho.com
+
+- /api/health:
+  environment = staging
+
+- deployed version:
+  5dcf8fc1ecd1a2bf719d9ec6d68928715a3b71b7
+  unless an authorized later staging-only commit has legitimately changed it.
+
+If SHA differs and no authorized staging change explains it:
+STOP AND REPORT.
+
+Do NOT use the retired stale Railway domain from old notes.
+
+Production/main remains untouched.
+
+==================================================
+6. H1-F1 / ACCOUNT ENTRY BINDING
+==================================================
+
+The old workaround of one fresh account per business remains the Prompt-026
+H1 execution model.
+
+SDS-H1:
+fresh staging account.
+
+BLACOR-H1:
+its own fresh staging account later.
+
+Prompt 035 delivered the narrow second-business entry behavior, but this H1
+run remains the accepted fresh-account rehearsal.
+
+Record what the redesigned product presents for:
+
+- existing-business/resume;
+- new-business/setup;
+
+where applicable.
+
+Do not broaden this into account-management testing.
+
+==================================================
+7. REDESIGNED ONBOARDING — WHAT WE ARE MEASURING
+==================================================
+
+This H1 rerun is not merely "does setup finish."
+
+It must evaluate whether the new onboarding actually feels and behaves like
+the intended PI-model.
+
+The target product model:
+
+OWNER PROVIDES HIGH-VALUE DISCOVERY ANCHORS
+→ SAGE BEGINS INVESTIGATING INCREMENTALLY
+→ OWNER KEEPS MOVING
+→ RESEARCH ENRICHES AS ANCHOR STATE CHANGES
+→ COMPANY TRUTH BECOMES READY/IN-PROGRESS WITHOUT REDUNDANT START CLICKS
+→ OWNER REVIEWS/CORRECTS
+→ TARGETED FOLLOW-UP FOR GAPS/CONFLICTS
+→ OWNER APPROVES
+→ FIRST WIN / CAMPAIGN-READY PATH CONTINUES.
+
+Canonical research-run rule:
+
+"At most one NEW research run per ANCHOR-STATE CHANGE; zero new runs without
+an anchor-state change; prior runs from earlier anchor states are superseded,
+never duplicated."
+
+Use this wording in H1 evidence.
+
+A business-name-only run followed later by a website-enriched run is VALID.
+
+Duplicate runs from the SAME unchanged anchor state are NOT valid.
+
+==================================================
+8. I-50 — OBSERVE, DO NOT FIX
+==================================================
+
+I-50 remains OPEN.
+
+Prompt 035 deliberately did NOT decide when the conversational interview
+should explicitly ask for website/Facebook anchors.
+
+During H1, OBSERVE and RECORD:
+
+- whether business name is asked;
+- whether website is explicitly solicited;
+- when it is solicited;
+- whether Facebook/social is explicitly solicited;
+- when it is solicited;
+- whether the owner naturally volunteers either one;
+- whether volunteered embedded URLs are now captured correctly under C2;
+- whether whole-answer URLs continue working;
+- how much additional owner friction results from solicitation being absent,
+  late, duplicated, or unnecessary.
+
+Do NOT change the question catalog.
+
+Do NOT fix I-50 during H1.
+
+The I-50 timing/product decision is made at owner checkpoint E1 using the H1
+friction evidence.
+
+==================================================
+9. OWNER-FACT HANDOFF — LIVE F3 VERDICT
+==================================================
+
+The new SDS run must explicitly live-check the known H1-F3 classes.
+
+When the owner provides information, record whether it reaches the correct
+downstream system.
+
+At minimum observe:
+
+- phone;
+- address;
+- business hours;
+- email;
+- business name;
+- description/services;
+- service area;
+- website;
+- Facebook/social;
+- owner audience/context answers.
+
+Known acceptance principle:
+
+AN EXPLICIT OWNER FACT MUST NEVER BE SILENTLY REPLACED BY A DEFAULT.
+
+Specifically live-check the previously proven defect:
+
+owner supplies 8–5
+→ downstream must NOT silently become 9–5.
+
+If the owner fact conflicts with external evidence:
+surface/record the conflict.
+
+Do not silently overwrite either side.
+
+==================================================
+10. COMPANY TRUTH / SAGE
+==================================================
+
+Observe whether Company Truth now behaves as the redesigned orchestration
+intends.
+
+We expect research to begin from incoming anchors without requiring the owner
+to later discover Sage and manually click a redundant "Build my report"
+button.
+
+Record:
+
+- initial research trigger;
+- anchor snapshot;
+- each material anchor-state change;
+- resulting research run;
+- supersede behavior;
+- one-new-run-per-anchor-state-change arithmetic;
+- AI cost;
+- elapsed research time;
+- whether Company Truth is ready/in-progress when owner reaches it.
+
+Research remains separate from APPROVAL.
+
+Do not approve Company Truth for the owner.
+
+The owner reviews/corrects/approves.
+
+==================================================
+11. PROVENANCE / TRUTH CHECKS
+==================================================
+
+Continue to distinguish:
+
+- owner-stated;
+- website;
+- Facebook/social;
+- public web;
+- connected-provider;
+- inferred;
+- conflict state;
+- unknown/unverified.
+
+Do not invent another taxonomy.
+
+Check that owner-supplied facts reach the accepted substrate/consumers
+appropriately.
+
+Do not represent independently rediscovered data as if it were the owner fact
+when the distinction matters.
+
+==================================================
+12. TARGETED FOLLOW-UP / GAP EXPERIENCE
+==================================================
+
+Observe whether post-research questioning behaves like the desired targeted
+follow-up model.
+
+The desired experience is:
+
+"I found X on your website but Y somewhere else — which is current?"
+
+rather than:
+
+"Tell me all your business information again."
+
+Do not perform the Echo→Boz rename.
+
+Use the currently deployed product identity.
+
+Record redundant re-asking as friction evidence.
+
+==================================================
+13. TIMING INSTRUMENTATION — REQUIRED
+==================================================
+
+The new SDS-H1 run is the first instrumented AFTER run.
+
+Track separately:
+
+A. WALL-CLOCK ELAPSED TIME
+
+signup
+→ campaign-ready milestone.
+
+B. ACTIVE OWNER INTERACTION TIME
+
+Time the owner actively spends:
+
+- typing;
+- clicking;
+- reviewing;
+- correcting;
+- connecting;
+- consenting;
+- approving;
+- making decisions.
+
+C. SYSTEM / EXTERNAL WAIT TIME
+
+Time consumed by:
+
+- Sage research;
+- AI processing;
+- OAuth/provider waits;
+- network;
+- other background work where owner input is not required.
+
+Do not collapse these into one number.
+
+==================================================
+14. CAMPAIGN-READY
+==================================================
+
+Use the Prompt-035 Stage-1 pre-committed campaign-ready definition from the
+accepted design/report.
+
+Do not redefine campaign-ready after seeing the timing.
+
+Report whether SDS reaches that milestone.
+
+Target:
+
+approximately <= 2 hours wall-clock elapsed,
+subject to clearly identified external-provider delays.
+
+Active-owner target:
+
+MEASURE ACTUAL.
+
+30–45 minutes remains the aspiration, not a falsified pass/fail threshold.
+
+==================================================
+15. EVENT-COVERAGE DISCLOSURE
+==================================================
+
+Prompt 035's smoke live-proved server-side system_wait timing rows.
+
+The full four-figure timing coverage has NOT yet been live-proven.
+
+The H1 report must state exactly which timing categories were:
+
+- recorded by server instrumentation;
+- recorded by client instrumentation;
+- inferred;
+- unavailable.
+
+Do not fill missing timing categories with guesses.
+
+If active-owner timing instrumentation is incomplete:
+record the gap honestly.
+
+Do not silently construct a "30 minute" result from partial telemetry.
+
+==================================================
+16. PHASE-0 CONNECTION / PROVIDER RULES
+==================================================
+
+Reapply the existing Prompt-026 H1 runbook bindings.
+
+SDS-H1 known business anchors:
+
+website:
+southdixiestorage.com
+
+Facebook Page:
+140006069194366
+
+ad account:
+act_818682760732833
+
+GA4:
+473906255
+
+GBP:
+I-30 still pending Google unless current read-only preflight proves otherwise.
+
+At Phase 0.2:
+
+READ-ONLY recheck GBP availability.
+
+A quota-blocked read-only probe is NOT a STOP.
+
+If still blocked:
+record affected rows:
+
+UNVERIFIED-PENDING-I30
+
+and continue unrelated H1 work.
+
+No GBP provider write is authorized while quota-blocked.
+
+==================================================
+17. I-29
+==================================================
+
+Record:
+
+I-29 CLOSED — PASS
+2026-08-14
+
+No need to rerun it merely for H1.
+
+==================================================
+18. EXTERNAL-ACTION RULES REMAIN BINDING
+==================================================
+
+R1:
+ZERO intentional live ad spend.
+
+R2:
+classify every external/public artifact BEFORE write.
+
+DEFAULT:
+TEST
+
+KEEP:
+requires explicit owner designation before write.
+
+R4:
+ONE ATTEMPT per external action.
+
+R5:
+OWNER remains the approving actor.
+
+Replit never approves for the owner.
+
+==================================================
+19. AD CHAIN — R6 REMAINS VERBATIM
+==================================================
+
+SDS-H1 carries the one staging H1 ad chain.
+
+BLACOR-H1 does NOT launch an ad chain.
+
+R6 remains:
+
+"026 may exercise AT MOST ONE PAUSED/$0 owner-driven ad chain per environment,
+and only where the proof matrix genuinely requires it. Because the
+owner-driven launcher does NOT carry Prompt 033's evidence-gated idempotency
+(I-48, filed, NOT fixed here), the chain is STRICTLY SINGLE-ATTEMPT: no
+automatic retry; no second owner click; no retry after timeout; no retry
+after network failure; no retry after ambiguous provider acknowledgment; no
+retry merely because the local response is uncertain. ANY ambiguous outcome
+= STOP AND REPORT, then inspect authoritative provider/evidence state
+(Ads Manager + ledger + task + proofs) before anything further happens.
+Ad-chain cleanup is owner-performed in Ads Manager (I-47's documented manual
+path), deletion responses recorded."
+
+Do not weaken or paraphrase this rule operationally.
+
+==================================================
+20. FIRST WIN / EXTERNAL WRITES
+==================================================
+
+Do not skip ahead to First Win.
+
+Follow the accepted H1 runbook sequence.
+
+Every external/public action remains:
+
+- owner-approved;
+- classified TEST/KEEP first;
+- single-attempt;
+- evidence-backed;
+- cleaned if TEST under existing rules.
+
+No synthetic fixture.
+
+==================================================
+21. CLEANUP + SURVIVORSHIP
+==================================================
+
+TEST artifacts:
+clean through existing authorized paths.
+
+Record deletion responses.
+
+After each cleanup batch:
+perform the 033-pattern survivorship check.
+
+Internal history survives:
+
+- tasks;
+- events;
+- ledger;
+- proofs;
+- knowledge versions;
+- campaigns history;
+- accepted immutable evidence.
+
+Real business knowledge created during H1 is REAL DATA and is not deleted
+merely because the test ends.
+
+==================================================
+22. BLOCKING BUG MINI-CYCLE
+==================================================
+
+The original D-43 narrow blocking-bug mini-cycle rule remains.
+
+Do NOT self-authorize fixes.
+
+If H1 hits a true blocking bug:
+
+STOP.
+
+Report:
+
+- exact blocker;
+- evidence;
+- why no supported product-surface path exists;
+- proposed narrow fix if known.
+
+OWNER must authorize any mini-cycle.
+
+Do not turn friction or a non-blocking finding into automatic implementation.
+
+==================================================
+23. NO MORE MID-H1 REDESIGN WITHOUT RULING
+==================================================
+
+Prompt 035 is complete.
+
+Do not use the H1 run to quietly continue redesigning onboarding.
+
+New observations are findings.
+
+If they do not block the run:
+record and continue.
+
+If they genuinely block the authorized proof:
+STOP and obtain owner ruling.
+
+No self-authorized feature work.
+
+==================================================
+24. SDS-H1 COMPLETION
+==================================================
+
+Complete SDS-H1 through its authorized H1 runbook sequence.
+
+Before beginning BLACOR-H1, produce a concise SDS checkpoint including:
+
+- redesigned onboarding result;
+- H1-F1 live verdict;
+- H1-F2 live verdict;
+- H1-F3 live verdict;
+- I-50 observational evidence;
+- timing:
+  wall-clock / active-owner / system-external wait;
+- campaign-ready result;
+- Company Truth evidence;
+- provenance/conflict observations;
+- external-action ledger;
+- ad-chain evidence if reached;
+- cleanup/survivorship status;
+- deviations/findings.
+
+Then continue to BLACOR-H1 only if no STOP condition is outstanding.
+
+==================================================
+25. BLACOR-H1
+==================================================
+
+After SDS-H1 checkpoint clears:
+
+Run BLACOR-H1 fresh on its own staging account.
+
+Bindings remain:
+
+website:
+blacorhomes.com
+
+Facebook Page:
+61560734440780
+
+Owner is admin.
+
+Prior Zorecho Page connection:
+record honestly as pre-existing state when encountered.
+
+NO H1 ad chain for Blacor.
+
+Known Blacor ad account:
+act_1694378501604002
+
+Record only.
+Do not use it during H1.
+
+NO GA4:
+owner-confirmed absence is honest data.
+
+Do not create a GA4 property for the test.
+
+GBP:
+n/a unless a real listing exists; record honestly.
+
+==================================================
+26. CROSS-ACCOUNT PHASE 3.2
+==================================================
+
+After BOTH H1 accounts exist:
+
+run negative isolation checks BOTH directions.
+
+Account A must not expose Account B's:
+
+- business knowledge;
+- setup state;
+- provider context;
+- approvals;
+- tasks;
+- campaigns;
+- content;
+- research;
+- other tenant-scoped state.
+
+Account B must likewise expose nothing from Account A.
+
+Record evidence.
+
+Also state honestly:
+
+the D-20 TWO-BRANDS-ONE-USER scenario remains UNEXERCISED in Prompt 026
+because H1 uses separate fresh accounts under the earlier H1-F1 ruling.
+
+Do not silently substitute cross-account isolation for that scenario.
+
+==================================================
+27. H1 FINAL REPORT
+==================================================
+
+After SDS + Blacor + cross-account verification, return ONE:
+
+PROMPT 026 — PHASE H1 REPORT
+
+Include:
+
+1. PQ1 beta-slot evidence preamble.
+2. Both completed H1 runbook instances.
+3. BEFORE vs AFTER onboarding-friction comparison.
+4. Wall-clock timing.
+5. Active-owner timing.
+6. System/external wait timing.
+7. Timing coverage disclosure.
+8. Campaign-ready result.
+9. Live H1-F1 verdict.
+10. Live H1-F2 verdict.
+11. Live H1-F3 verdict.
+12. I-50 observational evidence and owner-decision material.
+13. I-52 remains open/non-blocking.
+14. Company Truth / Sage research evidence.
+15. Anchor-state/run arithmetic using the canonical rule.
+16. Owner-fact/provenance reconciliation.
+17. Targeted-follow-up observations.
+18. KEEP/TEST artifact ledger.
+19. Cleanup evidence.
+20. Survivorship checks.
+21. External-action evidence.
+22. SDS R6 ad-chain evidence if reached.
+23. Echo cross-checks required by the runbook.
+24. Cross-account Phase 3.2 evidence both directions.
+25. Explicit D-20 two-brands-one-user UNEXERCISED note.
+26. GBP/I-30 status.
+27. Notes-for-027 register.
+28. Deviations/findings.
+29. Any blocking-bug mini-cycles separately documented if owner-authorized.
+30. D-23 redaction confirmation.
+31. D-37 statement for any counts.
+32. Production untouched confirmation.
+
+==================================================
+28. E1 OWNER CHECKPOINT
+==================================================
+
+At completion of the H1 report:
+
+STOP.
+
+The report feeds OWNER CHECKPOINT E1.
+
+At E1 the owner/reviewers will decide, among other things:
+
+- I-50 solicitation timing/product direction;
+- whether H1 evidence is sufficient;
+- whether the onboarding AFTER experience meets the intended friction target;
+- whether any finding requires work before H2;
+- whether to proceed toward H2 gates E2–E5.
+
+H2 remains NOT authorized.
+
+==================================================
+29. H2 REMAINS LOCKED
+==================================================
+
+Do NOT:
+
+- promote staging to production;
+- merge staging into main;
+- run production tests;
+- run production smoke;
+- authorize production writes;
+- begin E2/E3/E4/E5;
+- begin Prompt 027.
+
+Those require later owner rulings.
+
+==================================================
+30. IMMEDIATE NEXT ACTION
+==================================================
+
+Start with:
+
+PQ1 READ-ONLY PREAMBLE
+
+and the D-37/staging identity checks.
+
+Perform those yourself.
+
+If clean, begin the new SDS-H1 owner flow.
+
+Then give the owner EXACTLY ONE MANUAL STEP.
+
+Tell the owner:
+
+- what to do;
+- what to expect;
+- then WAIT.
+
+ONE OWNER ACTION AT A TIME.
+
+BEGIN PROMPT 026 H1 RESTART.
