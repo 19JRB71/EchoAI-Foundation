@@ -1,0 +1,510 @@
+PROMPT 035 — PRE-MERGE HOLD: PR #51 RECONCILIATION
+
+Owner/ChatGPT/Claude pre-merge review is complete.
+
+RULING: B — HOLD.
+
+PR #51 is NOT authorized to merge yet.
+
+This is NOT a STOP condition.
+The accepted Prompt-035 Stage-2 design is NOT reopened.
+The accepted C1 architecture is NOT reopened.
+The accepted migration design is NOT reopened.
+
+The purpose of this hold is to produce seven exact reconciliation items
+(H-1 through H-7) that the pre-merge report asserted but did not fully
+demonstrate.
+
+CURRENT KNOWN STATE
+
+PR:
+https://github.com/19JRB71/EchoAI-Foundation/pull/51
+
+PR head:
+89146004178f9adf7082e0fc75c77ee27c5818d8
+
+Staging base:
+bd73b013104f959e8ef2e99b564cf2885448f832
+
+Reported current tests before H-5:
+server 1418/1418
+client 440/440
+
+Reported migrations:
+141 + 142
+
+Production remains untouched.
+Prompt 026 H1 remains paused.
+The frozen SDS specimen remains untouched.
+
+======================================================================
+AUTHORITY / SCOPE
+======================================================================
+
+Perform the reconciliation on a D-37-compliant audit surface using the
+actual PR head and staging base.
+
+NO MERGE.
+NO DEPLOY.
+NO PRODUCTION ACTION.
+NO STAGING DB WRITE.
+NO PROVIDER WRITE.
+NO PROMPT-026 H1 RESUMPTION.
+NO PROMPT-027 WORK.
+
+No implementation is authorized EXCEPT the single narrow H-5 regression
+test described below if required.
+
+Do not use this hold to refactor, clean up unrelated code, redesign accepted
+035 behavior, alter migrations, or expand scope.
+
+Return ALL H-1 through H-7 in ONE reconciliation document.
+
+If an H-item exposes a governing violation rather than merely missing
+evidence, STOP AND REPORT instead of correcting it silently.
+
+======================================================================
+H-1 — COMPLETE CHANGED-FILE ACCOUNTING
+======================================================================
+
+Return the VERBATIM output of:
+
+git diff --name-status bd73b01..8914600
+
+Then produce a table assigning EVERY named changed file to EXACTLY ONE of:
+
+A. originally authorized Prompt-035 Stage-2 implementation;
+B. accepted C1 corrective;
+C. migrations 141/142;
+D. tests;
+E. instrumentation;
+F. bundle / service-worker / dist output;
+G. cleanup-only correction.
+
+Requirements:
+
+1. C1 must account for exactly the two accepted C1 files unless the returned
+   evidence proves otherwise.
+
+2. Dist paths may be grouped for explanation, but every changed dist path
+   must still be enumerated.
+
+3. Explicitly identify the removed stage2.diff artifact in the cleanup-only
+   accounting.
+
+4. Reconcile the reported:
+   33 source files
+   +3,010 / -102 excluding client/dist
+   against this enumeration.
+
+5. State affirmatively whether EVERY changed file is accounted for.
+
+ANY file that cannot truthfully fit an authorized bucket is a STOP
+condition, not a footnote.
+
+======================================================================
+H-2 — TEST ARITHMETIC AND TEST-FILE RECONCILIATION
+======================================================================
+
+Reconcile the COMPLETE progression from the accepted pre-035 baseline.
+
+SERVER:
+
+1370
++
+original Stage-2 additions, with EVERY added test file named and its
+individual test count, summing to +44
+=
+1414
+
+then:
+
+1414
++
+the four accepted C1 tests in:
+test/p035.c1.earlyBrand.test.js
+
+c1.brandCreatedAtNameConfirmation
+c1.anchorsFireMidInterview
+c1.abandonedResumeReusesBrand
+c1.entryChoiceWithIncompleteBrand
+
+=
+1418
+
+If H-5 adds the required G1 regression:
+
+1418 + 1 = 1419
+
+Re-run and report the actual final result rather than merely projecting it.
+
+CLIENT:
+
+430
++
+EVERY Stage-2 client test addition, with named file and count,
+summing to +10
+=
+440
+
+Also state the client test-file-count progression:
+
+41 -> final N
+
+Explicitly enumerate ANY test that was:
+
+- removed;
+- renamed;
+- merged;
+- replaced;
+
+anywhere on the branch.
+
+If none were removed/renamed/merged/replaced, state that affirmatively.
+
+A rising total does not prove no test disappeared.
+
+======================================================================
+H-3 — FULL SENTINELS ACCOUNTING
+======================================================================
+
+Reconcile the reported:
+
+40/40 blob-identical
++
+"migration set as the 41st audit item"
+
+against the established full-manifest 41/0/0 convention.
+
+State exactly:
+
+1. Total entries in the authoritative SENTINELS manifest.
+2. Number that are individual file/blob sentinels.
+3. How the migration set is represented IN that manifest.
+4. Whether the migration set is:
+   - one manifest entry,
+   - multiple entries,
+   - or external to the manifest.
+5. Quote or otherwise reproduce enough of the manifest definition to prove
+   the counting basis.
+6. Explicitly affirm whether ANY entry present in the last accepted
+   41/0/0 run has been:
+   - dropped,
+   - reclassified,
+   - re-scoped,
+   - omitted.
+
+If the authoritative manifest genuinely consists of:
+
+40 blob entries + 1 migration-set entry,
+
+state that clearly and report the equivalent full-manifest result.
+
+If it actually contains 41 blob entries, the prior report under-counted:
+re-run the complete manifest before proceeding.
+
+No changed counting convention may silently reduce coverage.
+
+======================================================================
+H-4 — MIGRATIONS 141 / 142 IDENTITY AND DRIFT PROOF
+======================================================================
+
+The migration DESIGN is already accepted.
+
+Do NOT redesign it.
+
+We now need proof that the migrations at PR head are the migrations that
+were reviewed.
+
+Return the EXACT DDL of migrations 141 and 142 as they exist at PR head,
+OR provide content hashes tied unambiguously to the Stage-2-reviewed text.
+
+Then affirm each of these separately:
+
+1. No DROP of an existing object.
+2. No ALTER changing an existing object's semantics.
+3. No destructive DDL.
+4. No unexpected default.
+5. No unexpected constraint.
+6. No unexpected trigger.
+7. No semantic change to an existing table.
+8. Both migrations are ADDITIVE-ONLY.
+
+Verify from the branch tree:
+
+- 140 is the immediate predecessor;
+- 141 follows 140;
+- 142 follows 141;
+- no numbering gap relevant to these migrations;
+- no competing 141 exists.
+
+State the revert posture.
+
+Expected if the accepted design is unchanged:
+
+both migrations create new tables only and are mechanically reversible by
+dropping those newly created tables.
+
+If that is NOT true, explain exactly why and STOP if it represents drift from
+the accepted design.
+
+D-19's live-tree/schema-migrations verification remains a POST-DEPLOY check;
+do not perform a staging DB write during this reconciliation.
+
+======================================================================
+H-5 — G1 LOSING-RACE ATOMIC-ROLLBACK REGRESSION
+======================================================================
+
+This is the one substantive coverage gap found in review.
+
+G1 requires:
+
+if ensureInterviewBrand has proceeded far enough that the transaction has
+created the candidate brand/stated-version state, but the session-binding
+UPDATE then affects ZERO rows because another binding won the race, the
+ENTIRE transaction must ROLLBACK.
+
+No orphan brand may commit.
+No dangling stated-version row may commit.
+The winning session binding must remain unchanged.
+
+The current four C1 tests do NOT deterministically bind this exact path.
+
+Therefore authorize ONE additional deterministic regression test for G1.
+
+Preferred approach:
+
+Use a test seam to arrange the losing-race state AFTER ensureInterviewBrand
+passes its initial early check but BEFORE the binding UPDATE, OR invoke the
+relevant transaction body directly against a deliberately pre-bound session
+in a way that bypasses the early-return guard.
+
+Do NOT add production behavior merely to make the test convenient unless
+absolutely unavoidable.
+
+The regression must assert after the attempted losing transaction:
+
+- zero newly committed orphan brand rows;
+- zero newly committed dangling stated-version rows;
+- session brand binding remains the winning/pre-existing value;
+- transaction abort/rollback is observed.
+
+No real concurrency is required if the race can be reproduced
+deterministically.
+
+If this path truly cannot be exercised deterministically without changing
+production code, STOP THIS H-ITEM and demonstrate why. Do not invent a broad
+test hook silently. Owner may then rule on a waiver.
+
+If the test is added:
+
+- run it independently;
+- run the complete server suite;
+- expected total becomes 1419 if no other counts change;
+- update H-2 with the real arithmetic.
+
+ALSO return the exact six removed lines from setupAgentController.js with
+enough BEFORE/AFTER context to prove that the C1 restructure did not remove
+accepted behavior.
+
+Explain the behavior equivalence rather than merely saying:
+"no behavior removed."
+
+======================================================================
+H-6 — SOURCE / DIST / SERVICE-WORKER CORRESPONDENCE
+======================================================================
+
+The v171 -> v172 service-worker correction is ACCEPTED.
+
+The disclosed omission/correction is not scope creep.
+
+Now prove the shipping bundle corresponds to the tested source.
+
+On the D-37 audit clone at PR head:
+
+1. Perform a clean production client rebuild using the project's accepted
+   build procedure.
+
+2. Compare the newly built output to the committed client/dist.
+
+3. Report:
+   - comparison method;
+   - relevant artifact hashes;
+   - whether output is byte-identical.
+
+4. If it is not byte-identical solely because of known nondeterministic build
+   elements, identify those elements and demonstrate content equivalence.
+
+5. Confirm echoai-shell-v172 appears in the BUILT service worker, not merely
+   in the previously committed artifact.
+
+6. Inspect the client caching mechanisms and state affirmatively whether the
+   SW shell cache is the ONLY client-side cache/version layer requiring a
+   Prompt-035 bump.
+
+7. If another precache/manifest/cache layer exists, report its status and
+   whether it still pins v171-era assets.
+
+Do not silently change anything during this verification.
+
+If the clean rebuild proves committed dist is stale, STOP AND REPORT before
+making another correction.
+
+======================================================================
+H-7 — PRE-COMMIT THE POST-DEPLOY SMOKE BOUNDS
+======================================================================
+
+I-50 remains OPEN.
+
+Its live staging observation belongs in the bounded post-deploy smoke and is
+NOT required before merge.
+
+Before merge authorization, however, define the Section-O smoke precisely.
+
+The smoke plan must state:
+
+A. TEST IDENTITY
+
+Specify the exact designated TEST brand/business identity or naming
+convention.
+
+It must be clearly TEST-prefixed under the existing D-43 convention.
+
+State in advance whether the anchors are deliberately chosen so:
+
+1. research fires against no real business/entity;
+
+OR
+
+2. bounded outbound research reads are expected.
+
+Do not decide after observing the result.
+
+B. RESEARCH BOUNDS
+
+If research is expected:
+
+- existing 022 budget limits apply;
+- one-running-per-brand protection applies;
+- no uncontrolled repeated research runs;
+- expected read behavior is stated in advance.
+
+C. NO EXTERNAL WRITES
+
+The smoke must not invoke:
+
+- executeExternal;
+- email send;
+- provider write;
+- Facebook/Meta object creation;
+- Google provider write;
+- OAuth mutation;
+- advertising spend;
+- any other external/public write.
+
+Outbound bounded research READS are not classified as writes and must be
+recorded honestly if they occur.
+
+During the smoke, VERIFY the no-external-write condition from evidence;
+do not merely assume it from code structure.
+
+D. STAGING RESIDUE INVENTORY
+
+Before running the future smoke, enumerate every staging DB row class expected
+to be created, including as applicable:
+
+- brand;
+- setup session;
+- investigation/anchor snapshot;
+- timing events;
+- research rows;
+- knowledge/provenance rows;
+- any other row class the actual flow creates.
+
+State expected cleanup/retention disposition for each under EXISTING
+TEST-artifact, evidence-retention, I-27/029, and D-32 rules.
+
+Do NOT invent a new deletion path merely for this smoke.
+
+E. I-50 OBSERVATION
+
+State exactly what live staging engine-mode behavior will be observed to
+resolve or advance I-50.
+
+The observation must remain read/evidence-focused and must not expand the
+smoke into another feature test.
+
+======================================================================
+ACCEPTED ITEMS — DO NOT REOPEN
+======================================================================
+
+The following are accepted and are not reasons for additional work:
+
+1. Removal of accidental stage2.diff from shipping state.
+2. v171 -> v172 SW bump as the required Prompt-035 client cache bump.
+3. D-32 shipping-state conclusion that no snapshot artifact ships.
+4. G2 equal-value/no-version-churn inspection.
+5. G3 brand_id-only reconciliation/no name matching inspection.
+6. Staging base SHA verification.
+7. Frozen SDS specimen untouched.
+8. No staging DB writes during prior verification.
+9. Migration DESIGN for 141/142.
+10. Leaving I-50's live observation to the post-deploy smoke.
+
+H-5 exists because G1 needs a deterministic regression, not because the
+accepted transaction design is being reopened.
+
+======================================================================
+RETURN FORMAT
+======================================================================
+
+Return ONE document titled:
+
+PROMPT 035 — PR #51 PRE-MERGE HOLD RECONCILIATION
+
+It must contain, in order:
+
+H-1 — changed-file enumeration
+H-2 — complete test arithmetic
+H-3 — SENTINELS reconciliation
+H-4 — migrations 141/142 identity
+H-5 — G1 regression + six-line C1 deletion context
+H-6 — clean-build/dist/SW correspondence
+H-7 — bounded post-deploy smoke plan
+
+Then finish with:
+
+FINAL PRE-MERGE STATUS
+
+Choose exactly one:
+
+READY FOR MERGE REVIEW
+or
+STOP CONDITION FOUND
+
+Do NOT self-authorize the merge.
+
+Even if all seven H-items pass, return READY FOR MERGE REVIEW and STOP.
+
+======================================================================
+AFTER A CLEAN RETURN — NOT YET AUTHORIZED
+======================================================================
+
+If owner/ChatGPT/Claude subsequently authorize merge, the intended sequence
+remains:
+
+1. merge PR #51 to staging ONLY;
+2. verify Railway staging deploys the exact merged SHA through the live
+   health endpoint;
+3. verify migrations 141/142 are applied in schema_migrations/live schema;
+4. verify v172 is actually served to staging clients;
+5. execute ONLY the bounded Section-O smoke as precommitted in H-7,
+   including the I-50 live observation;
+6. return the single Section-P deployment report;
+7. STOP.
+
+Production remains untouched.
+Prompt 026 H1 remains paused until Prompt 035 is accepted.
+Prompt 027 remains not started.
+
+BEGIN THE SEVEN-ITEM PRE-MERGE RECONCILIATION NOW.
