@@ -793,6 +793,13 @@ async function activateCalendar(req, res) {
     // 026-C1 consent echo: the spine task is the existing approval-provenance
     // record for each activated post, so the confirmed digest and artifact
     // counts are echoed into its meta JSONB (zero DDL). Evidence, not authority.
+    // 026-C1-PM1 (Condition 1): the destination summary lists ONLY the
+    // platforms that actually had a post activated in this confirmation —
+    // it must never imply an excluded/unbound destination was activated.
+    const destinationSummary = {};
+    for (const post of activated) {
+      destinationSummary[post.platform] = artifact.destinations[post.platform] || null;
+    }
     for (const post of activated) {
       await taskSpine.safeSpine(async () => {
         const { task } = await taskSpine.createTask({
@@ -808,11 +815,16 @@ async function activateCalendar(req, res) {
             platform: post.platform,
             consent: {
               digest: confirmDigest,
+              // 026-C1-PM1 (Condition 1): durable readable audit evidence —
+              // the digest remains the cryptographic binding; these fields
+              // are the human-readable record of what was approved.
+              approver: `owner:${userId}`,
               confirmedAt,
               activatedCount: activated.length,
               excludedStaleCount: artifact.excludedStaleCount,
               excludedUnboundCount: artifact.excludedUnboundCount,
               destination: artifact.destinations[post.platform] || null,
+              destinationSummary,
             },
           },
         });

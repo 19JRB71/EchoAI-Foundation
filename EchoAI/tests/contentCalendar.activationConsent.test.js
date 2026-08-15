@@ -137,6 +137,16 @@ test("the consent echo lands in each activated post's spine task meta", async ()
   assert.equal(consent.activatedCount, 2);
   assert.equal(consent.excludedStaleCount, 1);
   assert.equal(consent.destination, "page-777");
+  // 026-C1-PM1 (Condition 1): the echo is complete, durable, readable audit
+  // evidence of the activation that ACTUALLY occurred.
+  assert.equal(consent.approver, `owner:${userId}`);
+  assert.ok(consent.confirmedAt, "confirmedAt must be persisted");
+  assert.ok(!Number.isNaN(Date.parse(consent.confirmedAt)), "confirmedAt must be a real timestamp");
+  assert.equal(typeof consent.excludedUnboundCount, "number");
+  // The destination summary covers ONLY platforms with an activated post —
+  // it never implies an excluded/unbound destination was activated. This
+  // calendar activated facebook posts only.
+  assert.deepEqual(consent.destinationSummary, { facebook: "page-777" });
 });
 
 test("drafts with no eligible post fail closed (nothingEligible), and empty calendars may re-activate", async () => {
