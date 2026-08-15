@@ -398,6 +398,71 @@ async function applyStatedFacts(userId, brandId, answers) {
   return fields.map((f) => f.fieldKey);
 }
 
+/**
+ * P035-C1 — conversational-path early brand creation.
+ *
+ * Called at the business-name confirmation boundary: the FIRST interview turn
+ * where the gap engine targeted `business_name` and the owner's answer
+ * resolved it (state.resolved.business_name), while the session has no brand.
+ * That is the narrowest existing owner-confirmed identity point in the flow —
+ * the engine only marks business_name resolved on an owner-stated or
+ * owner-confirmed value, never on arbitrary partial text.
+ *
+ * Reuses the EXISTING creation write (the same enumerated brands-INSERT +
+ * ownerEditFields(business_name) pair the discovery saveProfile path uses) —
+ * no new substrate, no new schema, no second engine. The end-of-interview
+ * create_brand_profile action then seeds its discovery session WITH this
+ * brand id, so the accepted synthesis pipeline UPDATES this same brand.
+ *
+ * Best-effort: on any failure the interview continues unharmed and the brand
+ * is created at execution time exactly as before (honest fallback, logged).
+ * The setup_sessions bind is guarded (`brand_id IS NULL`) so a concurrent
+ * writer can never leave a second, orphaned brand bound nowhere — if the
+ * guard loses, the transaction rolls back and no brand row survives.
+ */
+async function ensureInterviewBrand(userId, session, name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed || trimmed.length > 200) return null;
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query(
+      `INSERT INTO brands (user_id, brand_name) VALUES ($1, $2) RETURNING brand_id`,
+      [userId, trimmed],
+    );
+    const brandId = inserted.rows[0].brand_id;
+    await knowledge.ownerEditFields({
+      brandId,
+      userId,
+      fields: [{ fieldKey: "business_name", value: trimmed }],
+      proposedBy: "setup_interview",
+      refId: session.session_id,
+      client,
+    });
+    const bound = await client.query(
+      `UPDATE setup_sessions SET brand_id = $1, updated_at = NOW()
+        WHERE session_id = $2 AND brand_id IS NULL
+        RETURNING session_id`,
+      [brandId, session.session_id],
+    );
+    if (bound.rows.length === 0) {
+      // Raced: something else bound a brand first. Roll back so no orphan
+      // brand row exists; the already-bound brand wins.
+      await client.query("ROLLBACK");
+      return null;
+    }
+    await client.query("COMMIT");
+    session.brand_id = brandId;
+    return brandId;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("P035-C1 early brand creation failed (interview continues):", err.message);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
 // When the interview identified a real-estate agent, mark the brand as the
 // 'real_estate' brand type and persist the profile. Idempotent — re-runs
 // simply rewrite the same values. Returns true when the brand was marked.
@@ -530,15 +595,28 @@ const ACTIONS = [
     label: "Creating your brand & profile",
     feature: null,
     async run({ userId, session, answers }) {
-      if (session.brand_id) {
-        return { status: "done", detail: "Your brand is already set up." };
+      // P035-C1: an early interview-created brand no longer short-circuits
+      // this step — the synthesis pipeline must still run, UPDATING that same
+      // brand (saveProfile updates in place when the discovery session
+      // carries a brand id). A brand bound WITH a completed discovery session
+      // is a true re-run and stays idempotent.
+      if (session.brand_id && session.discovery_session_id) {
+        const done = await db.query(
+          "SELECT status FROM brand_discovery_sessions WHERE session_id = $1 AND user_id = $2",
+          [session.discovery_session_id, userId],
+        );
+        if (done.rows.length && done.rows[0].status === "completed") {
+          return { status: "done", detail: "Your brand is already set up." };
+        }
+        // Crash between seed and confirm: fall through and confirm again —
+        // the discovery row is bound to this brand, so saveProfile updates it.
       }
       // Crash-replay safety: this is the first action and it has an external side
       // effect (brand creation). We persist the brand-discovery session id BEFORE
       // confirming, so a retry after a crash can recover the already-created brand
       // (via the discovery row's brand_id) instead of creating a duplicate.
       let discoverySessionId = session.discovery_session_id || null;
-      if (discoverySessionId) {
+      if (discoverySessionId && !session.brand_id) {
         const prior = await db.query(
           "SELECT brand_id FROM brand_discovery_sessions WHERE session_id = $1 AND user_id = $2",
           [discoverySessionId, userId],
@@ -566,16 +644,19 @@ const ACTIONS = [
           });
           return { status: "done", detail: "Your brand profile is already set up." };
         }
-      } else {
+      } else if (!discoverySessionId) {
         // Seed a brand-discovery session with the interview answers, then run the
         // existing discovery confirm path so the brand + full profile are created
         // through the exact same synthesis pipeline the UI uses.
+        // P035-C1: when the interview already created the onboarding brand,
+        // the discovery session is seeded WITH that brand id so the accepted
+        // synthesis pipeline UPDATES it instead of inserting a duplicate.
         const seeded = [{ role: "user", content: compiledBusinessSummary(answers) }];
         const { rows } = await db.query(
           `INSERT INTO brand_discovery_sessions (user_id, brand_id, messages)
-           VALUES ($1, NULL, $2::jsonb)
+           VALUES ($1, $2, $3::jsonb)
            RETURNING session_id`,
-          [userId, JSON.stringify(seeded)],
+          [userId, session.brand_id || null, JSON.stringify(seeded)],
         );
         discoverySessionId = rows[0].session_id;
         await db.query(
@@ -1620,6 +1701,7 @@ async function submitAnswer(req, res) {
     const planEntry =
       plan && answeredField ? plan.find((e) => e.fieldKey === answeredField) || null : null;
 
+    let resolvedKind = null;
     if (planEntry && planEntry.action !== gapEngine.ACTIONS.SKIP) {
       // Engine-targeted knowledge field: resolve through the canonical boundary.
       const result = await resolveKnowledgeAnswer({
@@ -1630,6 +1712,7 @@ async function submitAnswer(req, res) {
         answerText: answer.trim(),
         resolution,
       });
+      resolvedKind = result.resolvedKind;
       if (result.resolvedKind === "premise_changed") {
         // Stale base (409): never force-written. Re-present the field once
         // with the changed premise acknowledged honestly.
@@ -1642,6 +1725,75 @@ async function submitAnswer(req, res) {
       }
     } else if (planEntry == null && answeredField && plan) {
       // Operational (non-knowledge) field — nothing to write here.
+    }
+
+    // P035-C1 — verbatim URL answers are identity anchors wherever they land
+    // in the conversation (the engine has no website/facebook slot, so the
+    // owner supplies them as free answers). STRICT whole-answer detection
+    // through the existing deterministic normalizers only — never text
+    // mining inside prose. The raw answer is stored under the canonical
+    // presence alias key in session.answers (JSONB — no schema), which is
+    // exactly what applyOnlinePresence already reads, both mid-interview and
+    // at execution time.
+    {
+      const rawAnswer = answer.trim();
+      if (/^(https?:\/\/)?[\w][\w.-]*\.[a-z]{2,}([/?#]\S*)?$/i.test(rawAnswer)) {
+        const fb = normalizeFacebookPageUrl(rawAnswer);
+        if (fb.ok && fb.value) {
+          answers.facebook_page = rawAnswer;
+        } else {
+          const site = normalizeWebsiteUrl(rawAnswer);
+          if (site.ok && site.value) answers.business_website = rawAnswer;
+        }
+      }
+    }
+
+    // P035-C1 — early brand creation at the business-name confirmation
+    // boundary. Fires ONLY when: the ENGINE targeted business_name this turn
+    // (never arbitrary utterances), the owner's answer RESOLVED it
+    // (stated/confirmed — deferrals, refusals and premise changes never
+    // create), it resolved as session_only (no brand is bound anywhere; a
+    // resolution against an existing bound brand must never spawn a second
+    // brand), and the session has no brand. With no plan (knowledge read
+    // failure) creation fails closed to the accepted end-of-interview path.
+    let brandJustCreated = false;
+    if (
+      !session.brand_id &&
+      answeredField === "business_name" &&
+      resolvedKind === "session_only" &&
+      state.resolved.business_name === true &&
+      !isRefusalAnswer(answer.trim())
+    ) {
+      const statedName =
+        resolution && resolution.value !== undefined && String(resolution.value).trim()
+          ? String(resolution.value).trim()
+          : answer.trim();
+      const createdId = await ensureInterviewBrand(userId, session, statedName);
+      brandJustCreated = Boolean(createdId);
+    }
+
+    // P035-C1 — mid-interview anchor handoff. Once the onboarding brand
+    // exists, every later verbatim fact and identity anchor collected in this
+    // SAME conversation persists to the brand through the accepted Prompt-035
+    // paths immediately (both helpers are idempotent — unchanged values are
+    // skipped), and the existing anchor machinery fires so Tier-A research
+    // proceeds WHILE the owner keeps talking. Best-effort: instrumentation of
+    // the brand must never break the interview turn.
+    if (session.brand_id) {
+      let presenceChanged = false;
+      try {
+        presenceChanged = await applyOnlinePresence(userId, session.brand_id, answers);
+        await applyStatedFacts(userId, session.brand_id, answers);
+      } catch (err) {
+        console.error("P035-C1 mid-interview handoff failed (interview continues):", err.message);
+      }
+      if (brandJustCreated || presenceChanged) {
+        anchorOrchestrator.onAnchorArrival({
+          userId,
+          brandId: session.brand_id,
+          reason: "setup_interview",
+        });
+      }
     }
 
     // Owner chose to continue onboarding with open gaps: honest exit — the
