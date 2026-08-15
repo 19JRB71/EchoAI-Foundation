@@ -1,0 +1,182 @@
+SDS-H1 STOP RULING — HALT SPECIMEN AND PREPARE BLOCKING-BUG REVIEW
+
+OWNER RULING:
+
+Do NOT continue SDS-H1 post-setup.
+
+The SDS-H1 AFTER specimen is HALTED at the current STOP condition.
+
+Do NOT proceed to:
+- Sage findings approval;
+- Company Truth approval;
+- any additional onboarding or campaign action;
+- BLACOR-H1;
+- H2;
+- Prompt 027.
+
+Do NOT retry the failed Facebook post.
+Do NOT publish it.
+Do NOT delete or modify it yet.
+Do NOT repair database state manually.
+Do NOT change code yet.
+Do NOT touch production.
+
+Preserve the current failed post and associated state as evidence unless a later
+owner-authorized cleanup step explicitly directs otherwise.
+
+REASON FOR HALT
+
+The owner rules that the findings have crossed the threshold from ordinary H1
+observations into a potential blocking safety/customer-journey defect cluster.
+
+The record currently contains:
+
+1. connect_social Continue silently failed to advance;
+2. the existing Skip surface truthfully showed "Skipped" to the owner, but the
+   durable setup record places connect_social in completed_steps without an
+   equivalent durable skipped marker;
+3. the Skip action caused the remaining automatic setup sequence to run through
+   completion without further owner checkpoints;
+4. at least one generated Facebook post received a scheduled time already in
+   the past when scheduling occurred;
+5. the publisher subsequently attempted a REAL publish against the owner's
+   actual South Dixie Storage Facebook Page;
+6. that publish was not owner-authorized under the Prompt-026 R2 TEST/KEEP
+   classification requirement;
+7. the attempted publish failed, and current evidence indicates no completed
+   external Facebook write occurred;
+8. the attempted provider action appears to have produced zero corresponding
+   external_actions ledger rows.
+
+The owner does NOT authorize treating these as unrelated minor findings and
+continuing the specimen.
+
+NEXT PHASE: READ-ONLY DIAGNOSIS ONLY
+
+Before requesting any implementation authorization, perform a bounded,
+READ-ONLY diagnosis of this defect cluster.
+
+Return ONE report answering:
+
+A. CONTINUE FAILURE
+- Why did the connect_social Continue request touch the server but fail to
+  advance?
+- What exact client/server path handled it?
+- Was an error swallowed?
+- Why was no actionable error shown to the owner?
+
+B. SKIP / DURABLE STATE
+- What exact path handled "Skip this step"?
+- Where does the UI obtain the truthful "Skipped" state?
+- Why does durable completed_steps contain connect_social?
+- Is skipped state actually persisted somewhere else, or is the UI deriving it?
+- Identify every downstream consumer that could incorrectly interpret
+  completed_steps as successful social connection.
+
+C. CASCADE / OWNER CONTROL
+- Why did one Skip action cause social_schedule, email_preferences, and
+  create_survey to execute through completion?
+- Is that behavior intentional in the current runner?
+- Which of those actions are internal-only versus capable of external effects?
+- Determine whether the redesigned onboarding should have paused for owner
+  visibility/approval before any action capable of external effect.
+
+D. PAST-DATED SOCIAL POST
+- Trace exactly how the failed Facebook post received its scheduled_time.
+- Record:
+  generated time,
+  timezone assumptions,
+  persistence time,
+  scheduler evaluation time,
+  publisher attempt time.
+- Determine why a time already in the past was accepted.
+- Determine whether other scheduled posts can enter the same state.
+- Identify the narrow invariant required to make past-dated scheduling
+  impossible or fail closed.
+
+E. UNAUTHORIZED PUBLISH ATTEMPT
+- Trace the complete path from scheduled post to provider publish attempt.
+- Identify every authorization / consent / TEST-KEEP / approval gate on that
+  path.
+- Explain exactly why this attempt was able to occur despite Prompt-026's
+  owner-approval requirements.
+- Determine whether this is isolated to onboarding-created social posts or
+  affects other publisher paths.
+
+F. LEDGER GAP
+- Confirm authoritatively whether the Facebook attempt created any
+  external_actions, external_proofs, or equivalent provider-attempt evidence.
+- If not, identify why this publisher path bypasses the existing ledger.
+- Identify what evidence DOES exist proving the attempt occurred.
+- Do not repair the ledger.
+
+G. BLAST-RADIUS CHECK
+READ-ONLY ONLY:
+- determine whether any other staging scheduled post is currently past-dated
+  and eligible for automatic publishing;
+- distinguish TEST/H1 objects from unrelated objects;
+- do not publish, reschedule, pause, delete, or modify anything;
+- if evidence suggests another unauthorized provider action is imminent,
+  STOP AND REPORT THAT IMMEDIATELY before continuing diagnosis.
+
+H. BLOCKING-BUG QUALIFICATION
+Evaluate this cluster against the narrow D-43(7) blocking-bug definition.
+
+Do not self-authorize a fix.
+
+Recommend the smallest coherent corrective boundary necessary to restore:
+- explicit owner control;
+- honest skip persistence;
+- fail-closed scheduling;
+- authorization/classification before provider writes;
+- complete attempt evidence/ledgering;
+- visible errors instead of silent failure.
+
+Separate REQUIRED corrections from desirable UX improvements.
+
+I. TEST PLAN
+Provide the exact regressions required before H1 can resume, including at
+minimum:
+- Continue success/failure behavior;
+- visible error on failed Continue;
+- Skip persists as skipped, not completed;
+- downstream consumers distinguish skipped from completed;
+- Skip cannot silently cause an unauthorized external action;
+- past-dated social schedule fails closed;
+- owner authorization/classification gate before publish;
+- provider ATTEMPT is ledgered even when the provider call fails;
+- no duplicate provider attempt after ambiguous/failure state;
+- existing future-dated scheduling remains functional.
+
+J. SPECIMEN DISPOSITION
+Preserve the current SDS-H1 specimen as HALTED-BY-BLOCKING-FINDING.
+Do not call it PASS or completed H1 evidence merely because setup_sessions says
+completed.
+
+Report what evidence should be retained through a corrective mini-cycle and
+whether SDS-H1 must restart fresh after the fix.
+
+IMPORTANT:
+This prompt authorizes READ-ONLY DIAGNOSIS ONLY.
+
+It does NOT authorize:
+- implementation;
+- PR creation;
+- code changes;
+- database repair;
+- provider cleanup;
+- retry;
+- Facebook publishing;
+- scheduling changes;
+- BLACOR-H1;
+- production;
+- H2;
+- Prompt 027.
+
+If an imminent external-write hazard is discovered during the read-only blast
+radius check, STOP immediately and report it rather than modifying state.
+
+Return the complete diagnosis to the owner for owner + ChatGPT review before
+any corrective implementation is authorized.
+
+BEGIN READ-ONLY DIAGNOSIS.
