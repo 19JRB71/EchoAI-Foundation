@@ -1,0 +1,480 @@
+PROMPT 035-C2 — STAGE 1 DESIGN AUTHORIZATION
+Volunteered-Anchor Capture Corrective
+
+Owner ruling: Claude's Prompt 035 Section-P final acceptance ruling is
+ACCEPTED and CONSOLIDATED.
+
+Prompt 035 status is now:
+
+CONDITIONALLY ACCEPTED — NOT YET COMPLETE.
+
+035-C2 is the sole remaining condition before Prompt 035 may convert to
+COMPLETE and before Prompt 026 H1 may restart.
+
+This authorization is for 035-C2 STAGE 1 DESIGN ONLY.
+
+DO NOT IMPLEMENT.
+DO NOT MODIFY CODE.
+DO NOT MODIFY SCHEMA OR MIGRATIONS.
+DO NOT MODIFY DATABASE STATE.
+DO NOT DEPLOY.
+DO NOT TOUCH PRODUCTION.
+DO NOT RESUME PROMPT 026 H1.
+DO NOT START PROMPT 027.
+DO NOT FIX I-50'S SOLICITATION/TIMING QUESTION.
+
+Use the authoritative fresh staging code surface under the standing D-37
+rules. Do not rely on the stale workspace tree.
+
+==================================================
+1. WHY C2 EXISTS
+==================================================
+
+The Prompt 035 Section-P live smoke exposed this behavior:
+
+- During the onboarding interview, the owner volunteered a website URL
+  naturally inside a free-text answer.
+- Echo verbally acknowledged the website.
+- The URL was NOT captured into brands.website_url.
+- It was NOT captured into anchor_snapshot.website_url.
+- It survived only inside the free-text interview answer.
+- Therefore Sage did not receive that website as a structured discovery
+  anchor.
+
+Claude ruled that this does NOT invalidate the already-accepted Prompt 035
+implementation because embedded/free-text URL extraction was outside the
+previously accepted capture boundary.
+
+However, it DOES invalidate restarting H1 right now because H1 is supposed
+to measure the redesigned AFTER experience, and we already know a natural
+owner behavior can cause the flagship website anchor to be missed.
+
+Therefore one narrow corrective, 035-C2, must be designed, reviewed,
+implemented, deployed, and live-verified before H1 restarts.
+
+==================================================
+2. BINDING C2 SCOPE
+==================================================
+
+C2 is CONVERSATIONAL CAPTURE ONLY.
+
+Design the narrowest safe change that provides:
+
+A. Deterministic URL candidate extraction
+
+Detect literal URL candidates embedded inside free-text onboarding interview
+answers.
+
+This must be deterministic/non-AI extraction.
+
+Do not infer a URL.
+Do not paraphrase one.
+Do not invent one.
+Do not convert ordinary company text into a guessed domain.
+
+Only a literal URL candidate actually supplied by the owner may enter this
+flow.
+
+B. Confirmation before structured capture
+
+Detection alone MUST NOT create an owner-stated fact.
+
+When an embedded URL candidate is detected, use the existing 023-style
+confirmation pattern and ask the owner an explicit question such as:
+
+"Is <url> your website?"
+
+The design must preserve the distinction between:
+
+DETECTED
+and
+OWNER-CONFIRMED.
+
+Only owner confirmation may promote the candidate into the existing
+structured owner-fact/anchor machinery.
+
+C. YES path
+
+After explicit owner confirmation, reuse the SAME accepted handoff used by
+the existing whole-answer URL path:
+
+- ownerEditFields / existing stated-fact machinery;
+- existing provenance vocabulary;
+- owner-provided/stated provenance under the already accepted mapping;
+- anchor snapshot;
+- onAnchorArrival;
+- existing Tier-A research trigger;
+- existing one-in-flight / budget / supersede behavior.
+
+Do not create a second anchor pipeline.
+
+D. NO / CORRECTION path
+
+If the owner rejects the candidate:
+
+- do not capture it as a stated fact;
+- do not put it into the structured website anchor;
+- do not trigger research from it.
+
+If the owner supplies a corrected URL, that corrected literal URL follows
+the same confirmation path before capture.
+
+E. Honest acknowledgment
+
+The Section-P smoke recorded Echo saying:
+
+"thanks for sharing the website!"
+
+when the website had not actually been structurally captured.
+
+C2 must eliminate that misleading implication.
+
+Echo must not narrate an embedded URL as successfully received/captured in
+the structured system until the owner has confirmed it and the capture path
+has succeeded.
+
+The confirmation question itself should provide the honest acknowledgment,
+for example:
+
+"I noticed https://example.com in your answer. Is that your business
+website?"
+
+Exact wording may be designed in Stage 1, but the truth requirement is
+binding.
+
+F. Multiple URLs
+
+Design bounded behavior when one free-text answer contains multiple literal
+URL candidates.
+
+At minimum:
+
+- do not silently discard additional candidates;
+- do not automatically classify all candidates as the business website;
+- confirm candidates in a bounded, deterministic manner;
+- prevent duplicate research triggers;
+- preserve one-in-flight/budget controls.
+
+Stage 1 must recommend the narrowest UX that satisfies these requirements.
+
+==================================================
+3. HARD OUT-OF-SCOPE FENCE
+==================================================
+
+DO NOT use C2 to redesign onboarding again.
+
+Specifically OUT OF SCOPE:
+
+- asking new website questions;
+- asking new Facebook questions;
+- changing the onboarding question catalog;
+- changing I-50 solicitation timing;
+- changing the PI-model orchestration architecture;
+- rewriting Sage research;
+- rewriting the 023 gap engine;
+- changing approval architecture;
+- changing provenance taxonomy;
+- new schema;
+- new migrations;
+- production changes;
+- H1 execution;
+- H2;
+- Prompt 027;
+- Echo-to-Boz rename;
+- navigation/backend graphics work;
+- Stripe live mode;
+- unrelated parked issues.
+
+I-50 remains OPEN.
+
+Its remaining solicitation question — WHEN and HOW the wizard should
+explicitly ask for website/Facebook anchors — remains an E1/H1 timing
+decision.
+
+C2 solves only:
+
+OWNER VOLUNTEERS AN ANCHOR NATURALLY
+→ SYSTEM DETECTS IT
+→ OWNER CONFIRMS IT
+→ EXISTING ANCHOR MACHINERY RECEIVES IT.
+
+==================================================
+4. REQUIRED STAGE-1 INVESTIGATION
+==================================================
+
+Before proposing implementation, inspect the authoritative staging code and
+return:
+
+1. Exact current whole-answer URL capture path.
+
+Show:
+- where it detects the whole-answer URL;
+- where confirmation occurs, if applicable;
+- where ownerEditFields is called;
+- where the stated fact is written;
+- where the anchor snapshot is updated;
+- where onAnchorArrival is invoked;
+- where research is triggered.
+
+2. Exact free-text interview answer path.
+
+Show where an answer such as:
+
+"We sell custom cakes and our website is https://example.com"
+
+currently travels and why the URL remains only embedded in the answer.
+
+3. Existing confirmation machinery.
+
+Identify the exact 023 confirmation pattern that C2 should reuse.
+
+Do not create parallel confirmation architecture if the existing mechanism
+can safely support this case.
+
+4. URL parsing options already present in the repository.
+
+Search for existing URL parsing/normalization helpers before proposing a new
+one.
+
+Prefer reuse.
+
+If a new helper is actually required, specify exactly why.
+
+5. State-machine implications.
+
+Determine how an embedded-URL confirmation question fits into the interview
+without:
+
+- marking a catalog field complete incorrectly;
+- skipping the next real interview question;
+- asking the same confirmation repeatedly;
+- corrupting resume behavior;
+- changing interviewComplete incorrectly;
+- breaking C1 early-brand creation;
+- interfering with the existing gap engine.
+
+6. Multiple-URL behavior.
+
+Recommend the narrowest deterministic handling and explain the tradeoffs.
+
+7. Idempotency.
+
+Explain how repeated identical answers, browser refresh/resume, repeated
+confirmation messages, or duplicate URL appearances avoid:
+
+- duplicate stated-fact versions;
+- duplicate anchor arrival;
+- duplicate Sage research runs;
+- duplicate confirmation loops.
+
+8. Provenance.
+
+Confirm that C2 uses the EXISTING provenance architecture and does not create
+a parallel taxonomy.
+
+9. Security/input handling.
+
+Describe URL normalization and validation boundaries.
+
+C2 must not turn arbitrary owner text into an unsafe fetch mechanism or
+broaden research permissions beyond the already accepted Sage architecture.
+
+10. Expected file diff.
+
+List EVERY file expected to change in Stage 2 and why.
+
+If investigation shows another file must change, disclose it before
+implementation.
+
+11. Schema assessment.
+
+Expected answer: NO schema / NO migration.
+
+If you determine schema or migration work is required:
+
+STOP AND REPORT.
+
+Do not design around that discovery without owner review.
+
+==================================================
+5. MANDATORY REGRESSION PLAN
+==================================================
+
+Stage 1 must design tests for at least these cases:
+
+TEST C2-1
+Embedded URL in free text
+→ URL candidate detected
+→ explicit confirmation asked
+→ owner YES
+→ existing stated-fact path used
+→ anchor snapshot contains URL
+→ exactly one appropriate research trigger.
+
+TEST C2-2
+Embedded URL
+→ confirmation asked
+→ owner NO
+→ no stated website fact
+→ no website anchor
+→ no research trigger from that rejected URL.
+
+TEST C2-3
+Embedded URL
+→ owner corrects it
+→ corrected URL requires/receives appropriate confirmation
+→ only corrected URL becomes the structured fact/anchor.
+
+TEST C2-4
+Existing whole-answer URL path
+→ remains unchanged and green.
+
+TEST C2-5
+Ordinary answer containing no URL
+→ no confirmation
+→ no false positive
+→ normal interview continues.
+
+TEST C2-6
+Multiple URLs in one answer
+→ bounded handling
+→ none silently misclassified
+→ no duplicate trigger.
+
+TEST C2-7
+Same URL repeated
+→ no duplicate stated-version churn
+→ no duplicate research run.
+
+TEST C2-8
+Refresh/resume during pending URL confirmation
+→ state remains truthful
+→ no duplicate capture
+→ no skipped interview field.
+
+TEST C2-9
+Echo acknowledgment honesty
+→ before confirmation it does NOT imply successful structured capture;
+→ after successful confirmation/capture, any acknowledgment accurately
+  reflects what occurred.
+
+TEST C2-10
+C1 regression
+→ early brand creation after business_name remains intact.
+
+Also identify all existing suites that must remain green.
+
+Current accepted baselines before C2:
+
+SERVER: 1419 passing.
+CLIENT: 440 passing.
+
+Stage-2 verification must reconcile additions exactly from those baselines
+under D-37.
+
+==================================================
+6. LIVE VERIFICATION DESIGN
+==================================================
+
+Design the post-deploy focused staging re-smoke now, but DO NOT execute it
+in Stage 1.
+
+It must use a fresh TEST-prefixed identity and remain within the existing
+H-7 safety bounds.
+
+The re-smoke must live-prove BOTH:
+
+PATH A — EMBEDDED URL
+
+Owner gives a URL naturally inside a free-text answer.
+
+Expected:
+
+detect
+→ confirm
+→ owner YES
+→ structured capture
+→ stated provenance
+→ anchor snapshot
+→ exactly one research trigger.
+
+PATH B — WHOLE-ANSWER URL
+
+Owner provides a URL in the already-supported whole-answer form.
+
+Expected:
+
+existing capture path remains operational live.
+
+For both paths, define exact evidence to collect.
+
+Also define evidence proving:
+
+- zero unintended external writes;
+- no duplicate research run;
+- no approval boundary change;
+- no production touch.
+
+==================================================
+7. REQUIRED STAGE-1 RETURN
+==================================================
+
+Return one concise but complete:
+
+PROMPT 035-C2 — STAGE-1 DESIGN NOTE
+
+containing:
+
+1. current-path findings;
+2. root cause;
+3. proposed deterministic extraction rule;
+4. confirmation-state design;
+5. YES/NO/correction behavior;
+6. multiple-URL behavior;
+7. idempotency/resume behavior;
+8. provenance mapping;
+9. security/normalization boundaries;
+10. exact expected file list;
+11. exact test additions/changes;
+12. existing suites affected;
+13. expected diff bounds;
+14. explicit NO-SCHEMA/NO-MIGRATION confirmation;
+15. focused live re-smoke plan;
+16. risks/STOP conditions;
+17. recommendation: GO / REVISE / STOP.
+
+==================================================
+8. STOP CONDITIONS
+==================================================
+
+STOP rather than improvising if investigation shows C2 requires:
+
+- schema or migration work;
+- provenance-taxonomy changes;
+- research-orchestrator redesign;
+- question-catalog redesign;
+- I-50 solicitation changes;
+- production work;
+- broad setup-agent rewrite;
+- bypass of owner confirmation;
+- weakening of approval boundaries;
+- materially broader scope than this corrective.
+
+==================================================
+9. FINAL STOP
+==================================================
+
+This is STAGE 1 DESIGN ONLY.
+
+When the design note is complete:
+
+STOP.
+
+Do not implement it.
+Do not create a PR.
+Do not deploy it.
+Do not resume H1.
+
+Return the design note to the owner for owner + ChatGPT + Claude review.
+
+BEGIN PROMPT 035-C2 STAGE 1.
