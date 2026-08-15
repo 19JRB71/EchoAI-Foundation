@@ -1,0 +1,712 @@
+PROMPT 035 — FINAL COMMIT / PR / STAGING-DEPLOYMENT
+VERIFICATION AUTHORIZATION
+
+Owner authorization following:
+
+- Prompt 035 Stage-2 review;
+- 035-C1 correction;
+- Replit's complete 035-C1 Correction Report;
+- Claude's FINAL ADVERSARIAL ACCEPTANCE ruling dated 2026-08-15;
+- ChatGPT's reconciliation and acceptance of that ruling.
+
+PROMPT 035 IS ACCEPTED AS SCOPED AT THE CODE-REVIEW LEVEL.
+
+This authorization is ONLY for the controlled commit / PR /
+verification / merge-to-staging / staging-deployment sequence below.
+
+PRODUCTION IS NOT AUTHORIZED.
+PROMPT 026 H2 IS NOT AUTHORIZED.
+PROMPT 027 IS NOT AUTHORIZED.
+DO NOT CHANGE MAIN/PRODUCTION.
+DO NOT BEGIN THE SDS-H1 RESTART UNTIL THIS PACKAGE COMPLETES AND
+THE OWNER REVIEWS THE DEPLOYMENT REPORT.
+
+============================================================
+SECTION A — CONTROLLING ACCEPTANCE RULING
+============================================================
+
+035-C1 received FINAL ACCEPTANCE.
+
+The accepted correction includes:
+
+1. Early creation of the REAL onboarding brand at the accepted
+   business-name confirmation boundary.
+
+2. Existing brand-creation architecture reused.
+
+3. setup_sessions.brand_id bound transactionally with the
+   brand_id IS NULL race guard.
+
+4. Mid-interview owner-fact and online-presence handoff through
+   the existing architecture.
+
+5. Existing onAnchorArrival / Tier-A research machinery reused.
+
+6. No second research engine.
+
+7. No pre-brand substrate.
+
+8. No provenance-vocabulary fork.
+
+9. No schema or migration added by C1.
+
+10. Research may begin automatically.
+
+11. Approval NEVER becomes automatic.
+
+12. Existing second-business behavior and abandonment/resume
+    behavior preserved.
+
+Reported C1 evidence:
+
+- server 1418/1418;
+- client 440/440;
+- production client build green;
+- four mandatory C1 regressions passing;
+- C1 delta exactly 2 files, +477/-6;
+- no C1 schema/migration change;
+- frozen SDS specimen untouched.
+
+These are REPORTED results until independently re-derived on the
+D-37-compliant audit surface required below.
+
+============================================================
+SECTION B — I-50 / SCOPE-HONEST COMPLETION
+============================================================
+
+Claude sustained one important structural finding:
+
+I-50:
+
+"Engine-mode conversational interviews cannot solicit
+website/social anchors; 2 of the owner directive's 5 mandatory
+discovery leads are unreachable in conversational onboarding."
+
+This is NOT a blocker to this deployment package.
+
+It IS a real open issue.
+
+Therefore Prompt 035 must NOT be described without qualification
+as:
+
+"PI-model onboarding redesign complete."
+
+The binding completion wording is:
+
+"COMPLETE as scoped — PI-model orchestration delivered for the
+structured path; conversational path delivered for early brand
+creation, owner-fact handoff, and verbatim URL-anchor capture;
+conversational ANCHOR SOLICITATION (website/social questions) not
+delivered — open as I-50, timing decision at checkpoint E1."
+
+Record I-50 in the open-issues register if not already recorded.
+
+DO NOT FIX I-50 in this package.
+
+During the post-deploy smoke, independently observe whether an
+engine-mode conversational sequence actually asks for a
+website/social anchor.
+
+If it DOES, record evidence and report that the current I-50
+premise may be wrong.
+
+If it DOES NOT, confirm I-50 with live staging evidence.
+
+Either result is evidence.
+
+Neither result authorizes an I-50 fix here.
+
+============================================================
+SECTION C — D-37 AUDIT SURFACE
+============================================================
+
+Before commit/merge/deployment verification:
+
+Use a FRESH GitHub clone of the real repository.
+
+It MUST be outside:
+
+.local
+
+and outside all checkpoint-managed/workspace paths.
+
+The development workspace is NOT an acceptable accounting surface.
+
+Immediately record:
+
+- repository;
+- branch;
+- HEAD SHA;
+- verified staging tip;
+- intended Prompt-035 PR head;
+- clean/dirty status.
+
+All authoritative accounting in Sections D-H must use this
+D-37-compliant surface.
+
+If the repository/branch/SHA does not match the expected Prompt-035
+implementation lineage:
+
+STOP AND REPORT.
+
+Do not reconcile by guessing.
+
+============================================================
+SECTION D — TIP AND FULL-DIFF VERIFICATION
+============================================================
+
+Confirm the Prompt-035 implementation is based on the accepted
+lineage, including preserved commit e9fa793 plus the accepted
+Stage-2 and C1 changes.
+
+Record the exact SHA that will become the PR head.
+
+Then perform FULL DIFF RECONCILIATION:
+
+Prompt-035 branch
+vs.
+verified staging tip.
+
+Enumerate EVERY changed file.
+
+Attribute every changed file to:
+
+- accepted Prompt-035 Stage-2 work;
+- 035-C1;
+- migrations 141/142;
+- accepted tests/instrumentation;
+- other explicitly accepted Prompt-035 work.
+
+No unexplained file is allowed.
+
+ANY UNATTRIBUTED FILE = STOP AND REPORT.
+
+Do not merge.
+
+============================================================
+SECTION E — SENTINELS
+============================================================
+
+Run the complete standing SENTINELS suite/check on the D-37
+surface.
+
+Report:
+
+- sentinel name/category;
+- count;
+- expected baseline;
+- any delta;
+- explanation for every delta.
+
+Any unexplained new sentinel:
+
+STOP AND REPORT.
+
+Do not paper over it.
+
+============================================================
+SECTION F — D-32 DELETION REVIEW
+============================================================
+
+Perform the full D-32 deletion review across the ENTIRE Prompt-035
+branch diff, not merely C1.
+
+Enumerate:
+
+- every deleted file;
+- every deleted block/line category;
+- the C1 -6 lines;
+- every Stage-2 deletion.
+
+For each deletion state:
+
+- file;
+- purpose;
+- why deletion is safe;
+- what replaced it, if applicable;
+- whether behavior was intentionally removed.
+
+No snapshot commits.
+
+No unexplained deletion.
+
+Any unexplained or suspicious deletion:
+
+STOP AND REPORT.
+
+============================================================
+SECTION G — C1 VERIFICATION HOOKS
+============================================================
+
+During PR/diff review, explicitly inspect and report these three
+Claude-required verification hooks.
+
+G1 — ZERO-ROW BINDING ABORT
+
+Confirm that if:
+
+UPDATE setup_sessions
+...
+WHERE brand_id IS NULL
+
+matches zero rows because another writer already bound the
+session, the transaction ABORTS/ROLLS BACK or otherwise guarantees
+that the losing brand INSERT and stated-version write cannot
+commit as an orphan.
+
+Do not infer this merely from the presence of the WHERE clause.
+
+Verify the actual row-count/equivalent handling.
+
+If a zero-row binding can commit an orphan brand:
+
+STOP AND REPORT.
+
+G2 — EQUAL-VALUE NO-OP
+
+Confirm that repeated identical owner-stated facts do NOT generate
+a new knowledge version on every interview turn.
+
+Verify the actual equal-value/no-op guard.
+
+If identical repeated answers create uncontrolled version churn:
+
+STOP AND REPORT.
+
+G3 — BRAND-ID REUSE
+
+Confirm create_brand_profile reconciliation uses the session's
+BOUND brand_id.
+
+It must NOT reuse a brand by fuzzy/exact NAME MATCHING.
+
+If brand reuse depends on business-name matching rather than the
+bound brand_id:
+
+STOP AND REPORT.
+
+This would reopen the H1-F1 wrong-business-binding class.
+
+============================================================
+SECTION H — TEST ACCOUNTING OF RECORD
+============================================================
+
+On the D-37-compliant fresh clone, independently run the complete
+required test accounting.
+
+Expected reported result:
+
+SERVER:
+1418/1418
+0 fail
+0 skip
+
+CLIENT:
+440/440
+
+PRODUCTION CLIENT BUILD:
+GREEN
+
+The four C1 tests must be identified individually:
+
+1. c1.brandCreatedAtNameConfirmation
+2. c1.anchorsFireMidInterview
+3. c1.abandonedResumeReusesBrand
+4. c1.entryChoiceWithIncompleteBrand
+
+Do NOT report only flat totals.
+
+Provide per-file accounting sufficient to establish where the
+1418 server tests come from and specifically identify the +4 C1
+tests.
+
+If counts differ:
+
+STOP AND REPORT before merge unless the difference is completely
+explained by the verified branch state and is presented to the
+owner for ruling.
+
+Do not silently update the expected baseline.
+
+============================================================
+SECTION I — FROZEN SDS SPECIMEN
+============================================================
+
+Verify the frozen partial SDS-H1 specimen remains untouched.
+
+Specifically:
+
+- no SDS-scoped path appears unexpectedly in the full branch diff;
+- no staging SDS data is altered during pre-deployment
+  verification;
+- no frozen specimen is reused as final H1 evidence;
+- no attempt is made to "clean up" history merely to make the
+  rerun look fresh.
+
+The frozen partial account is historical BEFORE evidence.
+
+It remains excluded from final Prompt-026 H1 PASS evidence.
+
+============================================================
+SECTION J — PR DISCIPLINE
+============================================================
+
+After Sections C-I pass:
+
+Create the clean Prompt-035 commit/branch/PR under D-18 discipline.
+
+Requirements:
+
+- branch from verified staging lineage;
+- PR references Prompt 035;
+- PR references 035-C1;
+- PR references the final acceptance ruling;
+- PR states I-50 remains OPEN;
+- PR states production is untouched;
+- PR includes exact test evidence;
+- PR includes full diff accounting;
+- PR includes deletion-review result.
+
+MAIN remains untouched.
+
+DO NOT merge merely because tests pass.
+
+Before merge, present the owner with a concise PRE-MERGE
+RECONCILIATION containing:
+
+1. PR URL/identifier;
+2. PR head SHA;
+3. staging base SHA;
+4. complete changed-file count;
+5. any deletions;
+6. SENTINELS result;
+7. server test result;
+8. client test result;
+9. build result;
+10. G1/G2/G3 verification results;
+11. migrations present;
+12. frozen-SDS verification;
+13. I-50 status;
+14. any deviation.
+
+Then STOP for owner authorization to merge if standing project
+rules require that owner checkpoint.
+
+Do not treat this package as permission to bypass an existing
+owner-required pre-merge checkpoint.
+
+============================================================
+SECTION K — MERGE AND STAGING DEPLOYMENT
+============================================================
+
+Once the required owner merge authorization/checkpoint is
+satisfied:
+
+MERGE TO STAGING ONLY.
+
+Do not merge/deploy to production.
+
+Deploy the merged staging revision.
+
+Record:
+
+- merge SHA;
+- staging deployment SHA;
+- deployment timestamp;
+- service/environment identity.
+
+============================================================
+SECTION L — DEPLOYED SHA
+============================================================
+
+Query the REAL staging health endpoint.
+
+Verify that the deployed service reports the expected merged SHA.
+
+Do not rely only on Railway/Replit/GitHub UI status.
+
+The application health surface is the deployment evidence.
+
+If health reports a different SHA:
+
+STOP AND REPORT.
+
+============================================================
+SECTION M — MIGRATION VERIFICATION
+============================================================
+
+Verify on the live STAGING tree/database:
+
+schema_migrations contains:
+
+141
+142
+
+and contains NO unexpected new Prompt-035 migration rows.
+
+Do not modify migration history manually.
+
+If migration state differs from the accepted design:
+
+STOP AND REPORT.
+
+============================================================
+SECTION N — SERVICE WORKER / CLIENT CACHE
+============================================================
+
+Prompt-035 Stage 2 changed client code.
+
+Verify the accepted service-worker/cache-version bump exists and
+that an actual staging client receives the NEW bundle rather than
+a stale cached version.
+
+Evidence should establish:
+
+- deployed client version/bundle;
+- cache/service-worker version;
+- refreshed client actually running it.
+
+A deployment that serves the old cached onboarding client is NOT
+a successful Prompt-035 staging deployment.
+
+============================================================
+SECTION O — POST-DEPLOY STAGING SMOKE
+============================================================
+
+Perform a bounded staging smoke.
+
+This smoke is NOT the full Prompt-026 H1 rerun.
+
+Do not consume the future fresh SDS-H1 account as the smoke
+specimen unless specifically required by the accepted design.
+
+Verify:
+
+O1. Onboarding surfaces load.
+
+O2. Both accepted entry modes can be reached.
+
+O3. Run the minimum safe engine-mode conversational sequence
+needed to verify C1:
+
+business-name resolution
+    ->
+real early brand created
+    ->
+setup session bound to that brand
+    ->
+interview remains in progress.
+
+O4. Provide a later safe website anchor through the accepted
+test/smoke path and verify:
+
+website persists to the correct brand
+    ->
+existing onAnchorArrival path receives it
+    ->
+no duplicate brand created.
+
+O5. Observe whether engine-mode conversational onboarding itself
+ever ASKS for website/social.
+
+Record the result as the staging evidence for I-50.
+
+DO NOT modify the question engine to influence the result.
+
+O6. Verify the four accepted onboarding timing events are observed
+emitting.
+
+Record event coverage honestly.
+
+O7. Check for console/network/server errors associated with the
+smoke.
+
+O8. Verify no external/public/provider write occurred merely from
+early brand creation or automatic research initiation.
+
+Research initiation is permitted.
+
+Automatic approval is NOT.
+
+No Facebook post.
+No ad.
+No email.
+No external provider write.
+No public artifact.
+
+O9. Verify owner-stated authority remains intact through the smoke.
+
+O10. Apply D-23 redaction to all evidence.
+
+If any smoke result indicates wrong-brand binding, duplicate brand
+creation, provenance corruption, automatic approval, external
+write, or a consent-boundary violation:
+
+STOP AND REPORT.
+
+Do not begin H1.
+
+============================================================
+SECTION P — DEPLOYMENT REPORT
+============================================================
+
+Return ONE complete deployment report containing:
+
+1. verified original staging tip;
+2. Prompt-035 PR head SHA;
+3. merge SHA;
+4. deployed staging SHA;
+5. health-endpoint SHA proof;
+6. complete branch changed-file reconciliation;
+7. D-32 deletion review;
+8. SENTINELS accounting;
+9. server per-file test accounting;
+10. client test accounting;
+11. production build result;
+12. C1 four-regression results;
+13. G1 zero-row-binding verification;
+14. G2 equal-value-no-op verification;
+15. G3 bound-brand-id reuse verification;
+16. migrations 141/142 staging proof;
+17. service-worker/cache/bundle proof;
+18. frozen SDS specimen proof;
+19. staging smoke evidence;
+20. timing-event emission evidence;
+21. I-50 live staging observation;
+22. confirmation research != approval;
+23. confirmation no external/public/provider write occurred;
+24. all deviations/findings;
+25. explicit confirmation PRODUCTION WAS UNTOUCHED.
+
+Then STOP.
+
+DO NOT BEGIN PROMPT 026 H1 automatically.
+
+Return the report to the owner for review.
+
+============================================================
+SECTION Q — WHAT HAPPENS AFTER THIS PASSES
+============================================================
+
+If and only if the owner accepts the deployment report, the next
+step will be a SEPARATE authorization to restart Prompt 026 H1.
+
+Expected sequence:
+
+NEW fresh SDS staging account
+    ->
+instrumented redesigned onboarding
+    ->
+Sage incremental research
+    ->
+Company Truth review/approval
+    ->
+campaign-ready timing
+    ->
+complete SDS-H1
+    ->
+BLACOR-H1
+    ->
+cross-account Phase 3.2 both directions
+    ->
+H1 final report
+    ->
+owner checkpoint E1.
+
+The future H1 report must distinguish CODE-LEVEL status from LIVE
+proof for:
+
+H1-F1
+H1-F2
+H1-F3
+
+and must include:
+
+- BEFORE/AFTER onboarding-friction evidence;
+- wall-clock elapsed;
+- active-owner time;
+- system/background time;
+- owner-idle time;
+- expected-vs-received timing-event coverage;
+- heartbeat continuity;
+- instrumentation gaps/degradation;
+- I-50 observation.
+
+No flattering timing number may be reported without its event
+coverage context.
+
+============================================================
+SECTION R — OPEN ITEMS THAT REMAIN OUTSIDE THIS PACKAGE
+============================================================
+
+Do NOT fix or advance:
+
+- I-50 conversational website/social anchor solicitation;
+- I-43 session-resume issue;
+- abandoned-brand deletion design except recording it in the
+  I-27/029 inventory;
+- I-47;
+- I-48;
+- Stripe live activation;
+- production promotion;
+- production H2;
+- F-7 production migration parity;
+- production smoke gate;
+- Prompt 027;
+- Prompt 034;
+- Prompt 028+;
+- Echo -> Boz rename;
+- backend/admin graphic redesign;
+- unrelated navigation cleanup;
+- other parked issues.
+
+I-30 GBP remains governed by its existing pending-Google status.
+
+============================================================
+SECTION S — STOP CONDITIONS
+============================================================
+
+STOP rather than improvise if:
+
+- audit surface is not D-37 compliant;
+- expected repository/SHA lineage cannot be established;
+- unexplained file exists in diff;
+- unexplained deletion exists;
+- SENTINELS produce unexplained delta;
+- server/client accounting cannot be reconciled;
+- G1 race guard is unsafe;
+- G2 repeated facts cause uncontrolled version churn;
+- G3 brand reuse is name-based rather than bound-brand-id based;
+- unexpected schema/migration appears;
+- frozen SDS specimen was modified;
+- deployed staging SHA does not match;
+- stale client bundle remains active;
+- wrong-brand binding occurs;
+- duplicate brand occurs;
+- owner-stated provenance is corrupted;
+- research causes automatic approval;
+- early brand creation causes an unauthorized external write;
+- production would need to be touched;
+- any action would require expanding Prompt-035 scope.
+
+Report the evidence and await owner ruling.
+
+============================================================
+SECTION T — AUTHORIZATION
+============================================================
+
+You are authorized to execute ONLY this Prompt-035 final
+commit/PR/verification/staging-deployment package, subject to all
+standing owner checkpoints.
+
+You are NOT authorized to touch production.
+
+You are NOT authorized to begin Prompt 026 H1 automatically.
+
+You are NOT authorized to begin H2.
+
+You are NOT authorized to begin Prompt 027.
+
+Execute carefully, preserve evidence, use D-37-compliant
+accounting, and STOP with the complete deployment report for owner
+review.
