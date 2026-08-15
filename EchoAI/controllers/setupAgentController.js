@@ -2326,4 +2326,8 @@ module.exports = {
   // Prompt 035 Stage 2 seams for tests.
   applyStatedFacts,
   STATED_FACT_MAP,
+  // 035-C1 H-5 seam: exposes the early-brand transaction body so the G1
+  // losing-race rollback can be exercised deterministically. Export only —
+  // no behavior change.
+  _ensureInterviewBrand: ensureInterviewBrand,
 };
