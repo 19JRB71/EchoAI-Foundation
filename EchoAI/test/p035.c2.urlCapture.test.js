@@ -398,17 +398,88 @@ test("C2-7: repeated identical URL never re-prompts and never re-triggers resear
   // Same URL embedded again → decided map suppresses any new confirmation.
   const again = await answer(token, sessionId, `as I said ${url} is our site`);
   assert.notEqual(again.question.targetField, SENTINEL);
-  // "No second research run" is enforced by the UNMODIFIED downstream
-  // sameAnchors dedup (anchor arrivals with identical anchors are no-ops):
-  // any repeat arrival from the existing C1 mid-interview handoff carries
-  // the SAME brand/reason and the brands row is byte-identical — no new
-  // anchor exists to research.
+  // Repeat arrivals may occur (I-52 — benign, out of scope here); they carry
+  // the SAME brand/reason and the brands row is byte-identical.
   assert.equal((await brandRow(brandId)).website_url, norm(url));
   assert.ok(arrivals.length >= 1);
   for (const a of arrivals) {
     assert.equal(a.brandId, brandId);
     assert.equal(a.reason, "setup_interview");
   }
+
+  // C2-PM1(a) — DIRECT one-research-run invariant against the test DB.
+  // Replay every recorded arrival through the REAL orchestrator (dedup path
+  // exercised for real; only the research EXECUTION is stubbed so no network
+  // work runs — sameAnchors/claimRun/autoRunsToday untouched). The load-
+  // bearing property: repeated identical arrival MAY occur, but EXACTLY ONE
+  // research run row may exist.
+  const sageResearch = require("../utils/sageResearch");
+  const originalRunResearch = sageResearch.runResearch;
+  const originalTierBFire = anchorOrchestrator._tierBFire;
+  sageResearch.runResearch = async () => ({ stubbed: true });
+  anchorOrchestrator._tierBFire = async () => ({ stubbed: true });
+  try {
+    for (const a of arrivals) {
+      const out = await originalArrival(a);
+      assert.notEqual(out && out.skipped, "error");
+    }
+    // And once more for good measure — an extra identical arrival.
+    await originalArrival(arrivals[0]);
+    const { rows } = await db.query(
+      `SELECT COUNT(*)::int AS n FROM sage_research_drafts WHERE brand_id = $1`,
+      [brandId],
+    );
+    assert.equal(rows[0].n, 1, "exactly ONE Sage research run row must exist");
+  } finally {
+    sageResearch.runResearch = originalRunResearch;
+    anchorOrchestrator._tierBFire = originalTierBFire;
+    for (const t of anchorOrchestrator._timers.tierBTimers.values()) clearTimeout(t);
+    anchorOrchestrator._timers.tierBTimers.clear();
+    for (const r of anchorOrchestrator._timers.tierARetries.values()) if (r.timer) clearTimeout(r.timer);
+    anchorOrchestrator._timers.tierARetries.clear();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// C2-PM1(b) — fail-honest exchange-log bounds
+// ---------------------------------------------------------------------------
+
+test("PM1(b)-1: >500-char confirmation reply is bounded WITH truncation marker + original length", async () => {
+  const { userId, token } = await createUser();
+  const { sessionId } = await startSession(token, userId);
+  const url = "https://c2-longreply.example";
+
+  await answer(token, sessionId, `find us at ${url} thanks`);
+  // Ambiguous reply longer than 500 chars on the confirmation turn.
+  const longReply = `well maybe perhaps ${"x".repeat(560)}`;
+  await answer(token, sessionId, longReply);
+
+  const uc = urlConfirmOf(await sessionRow(sessionId));
+  const entry = uc.exchangeLog.find((e) => e.role === "owner" && e.truncated === true);
+  assert.ok(entry, "truncated owner entry must be recorded");
+  assert.equal(entry.text.length, 500);
+  assert.equal(entry.originalLength, longReply.length);
+  // Short entries carry no truncation noise.
+  const short = uc.exchangeLog.find((e) => e.role === "echo");
+  assert.ok(short && short.truncated === undefined && short.originalLength === undefined);
+});
+
+test("PM1(b)-2: 20-entry cap holds and the dropped count is recorded accurately", () => {
+  const { _c2LogPush } = require("../controllers/setupAgentController");
+  const uc = { exchangeLog: [], logDroppedCount: 0 };
+  for (let i = 0; i < 27; i++) _c2LogPush(uc, i % 2 ? "owner" : "echo", `entry ${i}`);
+  assert.equal(uc.exchangeLog.length, 20);
+  assert.equal(uc.logDroppedCount, 7, "dropped count must equal entries pushed beyond the cap");
+  // Oldest entries were the ones dropped; the newest survive intact.
+  assert.equal(uc.exchangeLog[0].text, "entry 7");
+  assert.equal(uc.exchangeLog[19].text, "entry 26");
+  // A >500-char push through the same helper is marked, never silent.
+  _c2LogPush(uc, "owner", "y".repeat(777));
+  const last = uc.exchangeLog[uc.exchangeLog.length - 1];
+  assert.equal(last.truncated, true);
+  assert.equal(last.originalLength, 777);
+  assert.equal(last.text.length, 500);
+  assert.equal(uc.logDroppedCount, 8);
 });
 
 // ---------------------------------------------------------------------------

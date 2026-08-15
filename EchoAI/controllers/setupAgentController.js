@@ -1353,6 +1353,9 @@ function normalizeUrlConfirm(raw) {
     decided: uc.decided && typeof uc.decided === "object" ? uc.decided : {},
     exchangeLog: Array.isArray(uc.exchangeLog) ? uc.exchangeLog : [],
     pendingOverflow: typeof uc.pendingOverflow === "number" ? uc.pendingOverflow : 0,
+    // C2-PM1(b) — fail-honest bound accounting: how many exchange entries the
+    // 20-entry cap has dropped from this log (never silently discarded).
+    logDroppedCount: typeof uc.logDroppedCount === "number" ? uc.logDroppedCount : 0,
   };
 }
 
@@ -1702,9 +1705,21 @@ function c2Question(cand, { reask = false } = {}) {
 // AM-3 — bounded confirmation-exchange record: what the owner actually said
 // during a consumed confirmation turn is preserved, never reinterpreted.
 function c2LogPush(uc, role, text) {
-  uc.exchangeLog.push({ role, text: String(text).slice(0, 500), at: new Date().toISOString() });
+  // C2-PM1(b) — fail-honest bounds: caps stay (20 entries / 500 chars) but
+  // the record must REVEAL what the caps cut. Truncated entries carry a
+  // marker + the original length; entries dropped by the 20-entry cap are
+  // counted in uc.logDroppedCount. Nothing routes elsewhere, nothing infers.
+  const full = String(text);
+  const entry = { role, text: full.slice(0, 500), at: new Date().toISOString() };
+  if (full.length > 500) {
+    entry.truncated = true;
+    entry.originalLength = full.length;
+  }
+  uc.exchangeLog.push(entry);
   if (uc.exchangeLog.length > C2_LOG_MAX) {
-    uc.exchangeLog.splice(0, uc.exchangeLog.length - C2_LOG_MAX);
+    const dropped = uc.exchangeLog.length - C2_LOG_MAX;
+    uc.exchangeLog.splice(0, dropped);
+    uc.logDroppedCount = (typeof uc.logDroppedCount === "number" ? uc.logDroppedCount : 0) + dropped;
   }
 }
 
@@ -2567,4 +2582,5 @@ module.exports = {
   // losing-race rollback can be exercised deterministically. Export only —
   // no behavior change.
   _ensureInterviewBrand: ensureInterviewBrand,
+  _c2LogPush: c2LogPush,
 };
