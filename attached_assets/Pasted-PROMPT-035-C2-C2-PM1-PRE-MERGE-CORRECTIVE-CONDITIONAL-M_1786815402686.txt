@@ -1,0 +1,601 @@
+PROMPT 035-C2 — C2-PM1 PRE-MERGE CORRECTIVE + CONDITIONAL MERGE AUTHORIZATION
+
+Owner/ChatGPT/Claude review of PR #52 is complete.
+
+CURRENT RULING:
+
+ACCEPT WITH PRE-MERGE CORRECTIVE.
+
+PR #52 is NOT authorized to merge at its current head:
+
+a502d7648064a2f8890f379060e3348737a71a96
+
+One narrow corrective commit, C2-PM1, is authorized.
+
+After C2-PM1 is committed and verified exactly as described below,
+the merge is AUTHORIZED UNDER THIS RULING without another owner/Claude
+review round, provided the new PR head differs from a502d76 ONLY by the
+authorized C2-PM1 changes.
+
+Staging only.
+Production/main remains untouched.
+Prompt 026 H1 remains paused.
+Prompt 027 remains not started.
+
+==================================================
+A. C2-PM1(a) — DIRECTLY BIND THE ONE-RESEARCH-RUN INVARIANT
+==================================================
+
+Strengthen C2-7 in:
+
+EchoAI/test/p035.c2.urlCapture.test.js
+
+The existing test already proves:
+
+- no repeated confirmation churn;
+- the brands row remains unchanged;
+- repeat onAnchorArrival invocations carry identical brand/reason;
+- downstream sameAnchors is expected to deduplicate.
+
+That is not enough by itself.
+
+Add a DIRECT assertion against the test DB that after the repeated
+onAnchorArrival path:
+
+EXACTLY ONE Sage research draft/run row exists for the test brand.
+
+The load-bearing acceptance property is:
+
+REPEATED IDENTICAL ARRIVAL MAY OCCUR
+BUT
+EXACTLY ONE RESEARCH EXECUTION/RUN MAY EXIST.
+
+Do not modify:
+
+- anchorOrchestrator;
+- sage research machinery;
+- applyOnlinePresence semantics;
+- sameAnchors;
+- claimRun;
+- autoRunsToday.
+
+This corrective is TEST-ONLY for item (a).
+
+The existing repeated onAnchorArrival behavior is NOT a C2 bug.
+
+It is now filed as:
+
+I-52 — repeated onAnchorArrival invocation from aliases-present reporting;
+benign under sameAnchors/claimRun; orchestration inefficiency; future
+maintenance candidate.
+
+Do NOT fix I-52 here.
+
+==================================================
+B. C2-PM1(b) — FAIL-HONEST EXCHANGE-LOG BOUNDS
+==================================================
+
+The existing exchangeLog bounds are accepted:
+
+- max 20 entries;
+- max 500 chars per logged reply.
+
+However, silent truncation/drop is NOT acceptable.
+
+Modify the existing exchange-log behavior in:
+
+EchoAI/controllers/setupAgentController.js
+
+so that:
+
+1. If an owner confirmation-turn reply exceeds 500 chars:
+   - the stored text may remain capped at 500 chars;
+   - BUT the log entry must visibly indicate truncation;
+   - AND record the original character length.
+
+Example shape conceptually:
+
+{
+  text: "<first 500 chars>…[truncated]",
+  originalLength: 847,
+  truncated: true
+}
+
+Use local conventions; exact property names are not prescribed.
+
+The invariant is:
+THE RECORD MUST REVEAL THAT CONTENT WAS TRUNCATED.
+
+2. If the 20-entry exchangeLog cap is exceeded:
+   - do not grow the log unbounded;
+   - but record how many entries were omitted/dropped.
+
+Example conceptually:
+
+droppedCount: N
+
+Again, exact local naming may follow existing conventions.
+
+The invariant is:
+THE RECORD MUST REVEAL THAT ADDITIONAL OWNER UTTERANCES WERE OMITTED
+FROM THE BOUNDED LOG.
+
+Do not route omitted/truncated material elsewhere.
+Do not infer facts from it.
+Do not create a new table.
+Do not create another persistence layer.
+
+This remains inside:
+setup_sessions.answers._interview.urlConfirm
+
+==================================================
+C. TEST ASSERTIONS FOR PM1(b)
+==================================================
+
+Extend the existing C2 test suite to prove:
+
+1. >500-char confirmation reply:
+   - stored entry is bounded;
+   - truncation marker/state is present;
+   - original length is recorded.
+
+2. >20 exchange entries:
+   - stored log stays bounded;
+   - dropped/overflow count is recorded accurately.
+
+Do not create broad new test files unless impossible.
+
+Preferred:
+extend the existing:
+
+EchoAI/test/p035.c2.urlCapture.test.js
+
+==================================================
+D. FILE BOUNDARY
+==================================================
+
+C2-PM1 is expected to touch ONLY:
+
+1. EchoAI/test/p035.c2.urlCapture.test.js
+2. EchoAI/controllers/setupAgentController.js
+
+No change is expected to:
+
+EchoAI/utils/onlinePresence.js
+
+unless there is a genuine PM1 dependency, which is not anticipated.
+
+ABSOLUTELY NO:
+
+- fourth file;
+- schema;
+- migration;
+- client file;
+- route;
+- config;
+- anchorOrchestrator change;
+- research-machinery change;
+- question-catalog change;
+- I-50 solicitation change;
+- production change.
+
+If anything beyond the two expected files becomes necessary:
+
+STOP AND REPORT.
+
+Do not use the already-accepted controller diff overage as permission for
+further expansion.
+
+==================================================
+E. UPDATED TEST ACCOUNTING
+==================================================
+
+Current accepted pre-PM1 baseline:
+
+SERVER:
+1435/1435
+
+CLIENT:
+440/440
+
+After PM1:
+
+Report exact server arithmetic:
+
+1435
++
+number of newly added PM1 tests
+=
+new exact total
+
+Run the full server suite.
+
+Run the full client suite.
+
+Client must remain:
+
+440/440
+
+with zero client changes.
+
+Also state explicitly:
+
+- no old test removed;
+- no old test renamed;
+- no old test merged away;
+- no old test replaced.
+
+==================================================
+F. PRECEDENTIAL DIFF-BOUND RULE
+==================================================
+
+Claude accepted the prior controller-size overage as a DISCLOSED PROCEDURAL
+DEVIATION because the scope itself did not expand.
+
+That acceptance does NOT create a precedent allowing future overruns to be
+reported only after implementation.
+
+NEW STANDING RULE FOR FUTURE IMPLEMENTATION AUTHORIZATIONS:
+
+If mid-work evidence shows the running implementation will exceed the padded
+authorized diff bound by MORE THAN 25%:
+
+STOP AND REPORT BEFORE WRITING FURTHER.
+
+Do not self-judge a >25% overage after completion.
+
+Record this rule in the appropriate project decision/process record if the
+existing owner process permits documentation of reviewer rulings.
+
+Do not perform unrelated documentation work.
+
+==================================================
+G. IMPLEMENT PM1 AND RETURN THE NEW HEAD
+==================================================
+
+After implementing PM1:
+
+1. Run the targeted PM1/C2 tests.
+2. Run full server suite.
+3. Run full client suite.
+4. Confirm only the authorized files changed.
+5. Commit C2-PM1 to the existing PR #52 branch.
+6. Push PR #52.
+7. Return:
+
+- new PR head SHA;
+- commit SHA/message;
+- exact files changed by C2-PM1;
+- exact insertions/deletions in C2-PM1;
+- updated server test arithmetic;
+- client result;
+- direct one-research-run assertion result;
+- truncation-marker/original-length assertion result;
+- exchange-log overflow/drop-count assertion result.
+
+==================================================
+H. CONDITIONAL MERGE AUTHORIZATION
+==================================================
+
+After pushing C2-PM1, BEFORE merging:
+
+Run and record:
+
+git diff a502d7648064a2f8890f379060e3348737a71a96..<NEW_HEAD>
+
+This delta MUST contain ONLY:
+
+1. C2-7 direct one-research-run test strengthening; and
+2. exchangeLog fail-honest truncation/overflow handling + its tests.
+
+If anything else appears:
+
+STOP AND REPORT.
+DO NOT MERGE.
+
+If the delta is clean and all tests pass:
+
+MERGE PR #52 TO STAGING ONLY.
+
+Use pinned-head merge discipline.
+
+If the PR head moves again after the verified C2-PM1 head:
+
+STOP.
+Authorization is void for the moved head.
+
+Production/main untouched.
+
+==================================================
+I. POST-MERGE DEPLOYMENT VERIFICATION
+==================================================
+
+After merge:
+
+1. Record resulting staging merge SHA.
+2. Verify Railway staging deployment on the correct service:
+   staging.zorecho.com
+3. Verify:
+
+https://staging.zorecho.com/api/health
+
+reports:
+
+environment = staging
+
+and version = exact resulting merge SHA.
+
+Do NOT use the retired stale Railway domain from prior notes.
+
+==================================================
+J. NO-MIGRATION PROOF
+==================================================
+
+C2 creates NO migration.
+
+After staging deploy, read-only verify:
+
+schema_migrations total remains exactly:
+
+148
+
+and no C2 migration exists.
+
+Any new migration/DDL:
+
+STOP AND REPORT.
+
+==================================================
+K. CLIENT / SW
+==================================================
+
+No client file changed.
+
+Therefore:
+
+NO new service-worker cache bump is expected.
+
+Do not bump the SW merely because a server change deployed.
+
+Verify staging still serves the previously accepted client normally.
+
+If a client change unexpectedly appears:
+
+STOP AND REPORT.
+
+==================================================
+L. FOCUSED C2 LIVE RE-SMOKE
+==================================================
+
+After deployment verification, run the already-approved focused C2 re-smoke.
+
+STAGING ONLY.
+
+Use TWO fresh D-43 TEST identities.
+
+No consent.
+No /execute.
+No production.
+.invalid anchors only.
+
+--------------------------------------------------
+PATH A — EMBEDDED URL
+--------------------------------------------------
+
+Fresh TEST identity + TEST brand.
+
+In a normal free-text answer embed:
+
+https://test-p035c2a-smoke.invalid
+
+Expected:
+
+1. literal URL candidate detected;
+2. server-templated confirmation names exact URL;
+3. no premature saved/captured/research claim;
+4. owner YES;
+5. brands.website_url populated;
+6. anchor snapshot website_url populated;
+7. exactly ONE Sage research RUN exists;
+8. expected result empty/no_public_info;
+9. timing evidence exists.
+
+Also perform ONE rejected embedded candidate in the same TEST interview:
+
+second .invalid URL
+→ confirmation
+→ owner NO
+→ no structured capture
+→ no research run from rejected candidate.
+
+Do not create a second accepted website merely to test rejection.
+
+--------------------------------------------------
+PATH B — WHOLE-ANSWER URL
+--------------------------------------------------
+
+Use a SECOND fresh TEST identity + TEST brand.
+
+Provide as an entire answer:
+
+https://test-p035c2b-smoke.invalid
+
+Expected:
+
+1. existing whole-answer path;
+2. NO C2 confirmation;
+3. website captured;
+4. anchor snapshot populated;
+5. exactly ONE Sage research run.
+
+==================================================
+M. GLOBAL ZERO-EXTERNAL-WRITE VERIFICATION
+==================================================
+
+For both TEST identities/time windows, read:
+
+external_actions
+external_proofs
+email_messages
+sms_messages
+
+Expected:
+
+0
+0
+0
+0
+
+Also verify:
+
+consent_granted = false
+
+/execute never called
+
+no Meta write
+no Google write
+no OAuth mutation
+no ad spend
+no provider object creation
+
+If ANY external-action/email/SMS/proof row exists:
+
+REPORT IT AS A DEVIATION.
+
+Do not silently redefine it as expected.
+
+If it represents an unauthorized external write:
+
+STOP AND REPORT.
+
+==================================================
+N. RESIDUE
+==================================================
+
+Inventory all staging rows created by the two TEST sessions.
+
+Retain according to existing evidence/TEST-artifact rules.
+
+Do not invent a cleanup path.
+
+Do not delete immutable evidence.
+
+==================================================
+O. SECTION-Q FINAL REPORT
+==================================================
+
+Return ONE report titled:
+
+PROMPT 035-C2 — SECTION-Q DEPLOYMENT + LIVE VERIFICATION REPORT
+
+Include:
+
+Q1. old approved PR head:
+    a502d7648064a2f8890f379060e3348737a71a96
+
+Q2. C2-PM1 commit SHA.
+
+Q3. new pinned PR head SHA.
+
+Q4. verbatim inter-head diff proving ONLY PM1 changes.
+
+Q5. PM1 changed-file accounting.
+
+Q6. server arithmetic from 1435 to final total.
+
+Q7. full server result.
+
+Q8. client 440/440 result.
+
+Q9. one-research-run regression evidence.
+
+Q10. fail-honest truncation evidence.
+
+Q11. exchange-log overflow/drop-count evidence.
+
+Q12. PR #52 merge evidence.
+
+Q13. resulting staging merge SHA.
+
+Q14. live /api/health SHA match.
+
+Q15. schema_migrations = 148, no C2 migration.
+
+Q16. PATH-A live embedded capture evidence.
+
+Q17. PATH-A rejected candidate evidence.
+
+Q18. PATH-A exactly-one research RUN evidence.
+
+Q19. PATH-B whole-answer live evidence.
+
+Q20. zero-external-write evidence.
+
+Q21. staging residue inventory.
+
+Q22. I-52 disposition:
+     OPEN, out of scope, repeated arrival benign under sameAnchors/claimRun.
+
+Q23. I-50 disposition:
+     OPEN, solicitation timing unchanged.
+
+Q24. diff-bound procedural deviation record + future >25% STOP rule.
+
+Q25. all deviations.
+
+Q26. production/main untouched.
+
+Q27. frozen SDS specimen untouched.
+
+Q28. Prompt 026 H1 still paused during verification.
+
+Q29. final status exactly one of:
+
+PROMPT 035-C2 VERIFICATION COMPLETE — AWAITING OWNER REVIEW
+
+or
+
+STOP CONDITION FOUND
+
+==================================================
+P. HARD STOP AFTER SECTION-Q
+==================================================
+
+After the Section-Q report:
+
+STOP.
+
+Do NOT self-accept Prompt 035.
+
+Do NOT restart Prompt 026 H1.
+
+Do NOT start SDS-H1.
+
+Do NOT start BLACOR-H1.
+
+Do NOT begin Prompt 027.
+
+Do NOT touch production/main.
+
+Do NOT fix I-52.
+
+Do NOT fix I-50.
+
+Owner + ChatGPT + Claude will review Section Q and issue the final Prompt-035
+completion ruling.
+
+==================================================
+FINAL AUTHORIZATION
+==================================================
+
+C2-PM1 IS AUTHORIZED.
+
+After C2-PM1 passes and the inter-head diff proves ONLY the two authorized
+PM1 items, PR #52 IS AUTHORIZED TO MERGE TO STAGING ONLY under this ruling.
+
+No additional pre-merge review round is required if those conditions are met.
+
+Then perform the exact deployment + focused re-smoke sequence above and
+return Section Q.
+
+BEGIN C2-PM1 NOW.
