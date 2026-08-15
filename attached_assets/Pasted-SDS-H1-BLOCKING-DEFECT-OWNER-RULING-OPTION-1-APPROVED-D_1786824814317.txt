@@ -1,0 +1,60 @@
+SDS-H1 BLOCKING DEFECT — OWNER RULING: OPTION 1 APPROVED
+
+Do NOT fix or modify the continue handler during this SDS-H1 specimen.
+
+Record the social-accounts Continue failure exactly as observed:
+- first attempt produced no observable advance;
+- second attempt reached/touched server state (updated_at changed);
+- connect_social did not complete;
+- runner acquired no lease;
+- UI presented no visible error;
+- onboarding remained at 7 of 11 steps.
+
+Classify and preserve this as an H1 blocking-severity product finding.
+Do not minimize or paper over the silent-failure behavior.
+
+OWNER AUTHORIZES use of the EXISTING on-screen "Skip this step" product surface
+for this step only.
+
+This is NOT authorization to:
+- fix code;
+- change configuration;
+- change database state manually;
+- mark the step complete manually;
+- bypass the product surface;
+- alter the runbook;
+- suppress the finding;
+- touch production;
+- begin BLACOR-H1;
+- begin H2 or Prompt 027.
+
+Continue the SDS-H1 specimen through the existing product surface.
+
+IMPORTANT: ONE OWNER ACTION AT A TIME.
+
+Give me exactly ONE manual instruction:
+click the existing "Skip this step" control.
+
+After I click it, STOP and verify read-only what actually happened before giving
+me another action.
+
+Verify:
+1. whether the skip was recorded;
+2. whether the runner advanced beyond step 8;
+3. what exact state/status was persisted;
+4. whether any unexpected external write occurred;
+5. whether the remaining onboarding steps became available;
+6. whether the original Continue failure evidence remains preserved.
+
+If "Skip this step" fails, silently advances incorrectly, causes an unexpected
+write, marks connect_social as successfully completed rather than honestly
+skipped, or produces any ambiguous state:
+
+STOP AND REPORT. Do not attempt another click, workaround, repair, or retry.
+
+If the skip behaves correctly, continue SDS-H1 under the existing authorization,
+giving the owner ONE step at a time.
+
+The defect remains an H1 finding regardless of whether Skip succeeds.
+
+BEGIN BY GIVING ME ONLY THE SINGLE SKIP ACTION.
