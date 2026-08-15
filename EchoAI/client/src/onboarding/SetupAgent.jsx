@@ -135,6 +135,12 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
   resultsRef.current = results;
   const stepsRef = useRef([]);
   stepsRef.current = steps;
+  // 026-C1: one-shot artifact-bound confirmation for the next execute call
+  // ({ step, digest }); consumed and cleared on the loop's first iteration.
+  const confirmRef = useRef(null);
+  // 026-C1: the step key of the last needs_connection pause, to detect a
+  // repeated pause on the same step ("nothing has been scheduled yet").
+  const lastNeedsRef = useRef(null);
 
   const sessionId = session && session.sessionId;
 
@@ -220,7 +226,12 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         setRunningKey(pending ? pending.key : null);
         let res;
         try {
-          res = await api.runSetupAction(sid);
+          // 026-C1: a one-shot artifact-bound confirmation (set by
+          // approveActivation) rides on the FIRST execute of this loop only —
+          // it approves exactly one artifact, never a category of actions.
+          const confirmOnce = confirmRef.current;
+          confirmRef.current = null;
+          res = await api.runSetupAction(sid, false, confirmOnce);
         } catch (err) {
           setRunningKey(null);
           // A 409 carrying the real session means a user-initiated pause/dismiss
@@ -248,9 +259,22 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         setResults((prev) => ({ ...prev, [step.key]: { status, detail, label: step.label } }));
         if (status === "needs_connection") {
           setRunningKey(null);
-          setNeedsConnection({ key: step.key, connect: res.connect, detail, label: step.label });
+          // 026-C1: detect a REPEATED pause on the same step so the panel can
+          // say plainly that nothing has been scheduled yet. A changed
+          // artifact (connect.changed) is a fresh review, not a repeat.
+          const repeated =
+            lastNeedsRef.current === step.key && !(res.connect && res.connect.changed);
+          lastNeedsRef.current = step.key;
+          setNeedsConnection({
+            key: step.key,
+            connect: res.connect,
+            detail,
+            label: step.label,
+            repeated,
+          });
           return; // wait for the user to connect or skip
         }
+        lastNeedsRef.current = null;
         done.add(step.key);
       }
     },
@@ -279,9 +303,17 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         setSession(s);
         setSteps(s.steps || []);
         // Pre-seed already-completed steps so a resumed run shows prior progress.
+        // 026-C1: honor the per-step outcome — a skipped step reloads as
+        // "Skipped.", never as a lying "Done.".
         if (Array.isArray(s.completedSteps) && s.completedSteps.length > 0) {
+          const outcomes = s.stepOutcomes && typeof s.stepOutcomes === "object" ? s.stepOutcomes : {};
           const seeded = {};
-          for (const key of s.completedSteps) seeded[key] = { status: "done", detail: "Done." };
+          for (const key of s.completedSteps) {
+            seeded[key] =
+              outcomes[key] === "skipped"
+                ? { status: "skipped", detail: "Skipped." }
+                : { status: "done", detail: "Done." };
+          }
           setResults(seeded);
         }
 
@@ -553,6 +585,23 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
     }
   }
 
+  // 026-C1 Ruling A: the owner approved the exact posting schedule shown in
+  // the activate_calendar panel. The approval is bound to that artifact's
+  // digest and consumed by exactly one execute call — if the calendar changed
+  // meanwhile, the server refuses and pauses again with a fresh preview.
+  async function approveActivation(digest) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      confirmRef.current = { step: "social_schedule", digest };
+      setNeedsConnection(null);
+      await runLoop(sessionId);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // ---- Resume (after a mid-step pause) ---------------------------------------
 
   async function resumeSetup() {
@@ -568,8 +617,16 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       setSession(s);
       setSteps(s.steps || []);
       if (Array.isArray(s.completedSteps) && s.completedSteps.length > 0) {
+        // 026-C1: outcome-aware, same as the bootstrap seeding — a skipped
+        // step resumes as "Skipped.", never as a lying "Done.".
+        const outcomes = s.stepOutcomes && typeof s.stepOutcomes === "object" ? s.stepOutcomes : {};
         const seeded = {};
-        for (const key of s.completedSteps) seeded[key] = { status: "done", detail: "Done." };
+        for (const key of s.completedSteps) {
+          seeded[key] =
+            outcomes[key] === "skipped"
+              ? { status: "skipped", detail: "Skipped." }
+              : { status: "done", detail: "Done." };
+        }
         setResults(seeded);
       }
       await runLoop(s.sessionId);
@@ -1038,6 +1095,114 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         {needsConnection
           ? (() => {
               const kind = connectKind(needsConnection.connect);
+              const primaryBtnTeal =
+                "rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50";
+              const ghostBtn =
+                "rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50";
+              // 026-C1 Ruling A: the posting-schedule approval panel. Shows the
+              // exact artifact (count, window, destinations, exclusions) and
+              // binds the approve action to its digest.
+              if (kind === "activate_calendar") {
+                const preview = needsConnection.connect?.preview || {};
+                const fmt = (iso) =>
+                  iso
+                    ? new Date(iso).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })
+                    : null;
+                const destLines = Object.entries(preview.destinations || {});
+                return (
+                  <div className="mt-6 rounded-2xl border border-teal-500/30 bg-teal-500/5 p-6">
+                    <h3 className="font-semibold text-teal-200">Approve your posting schedule</h3>
+                    <p className="mt-1 text-sm text-white/70">{needsConnection.detail}</p>
+                    <div className="mt-3 space-y-1 text-sm text-white/80">
+                      <p>
+                        <span className="font-semibold">{preview.eligibleCount ?? 0}</span> post
+                        {(preview.eligibleCount ?? 0) === 1 ? "" : "s"} will be scheduled
+                        {preview.firstScheduledTime
+                          ? ` from ${fmt(preview.firstScheduledTime)} to ${fmt(preview.lastScheduledTime)}`
+                          : ""}
+                        .
+                      </p>
+                      {destLines.map(([platform, destination]) => (
+                        <p key={platform} className="capitalize">
+                          {platform} → <span className="normal-case">{destination || "connected account"}</span>
+                        </p>
+                      ))}
+                      {preview.excludedStaleCount > 0 ? (
+                        <p className="text-amber-300/90">
+                          {preview.excludedStaleCount} post
+                          {preview.excludedStaleCount === 1 ? "" : "s"} will stay as drafts — their
+                          times have already passed.
+                        </p>
+                      ) : null}
+                      {preview.excludedUnboundCount > 0 ? (
+                        <p className="text-amber-300/90">
+                          {preview.excludedUnboundCount} post
+                          {preview.excludedUnboundCount === 1 ? "" : "s"} will stay as drafts — their
+                          platform has no connected destination.
+                        </p>
+                      ) : null}
+                      {needsConnection.repeated ? (
+                        <p className="text-white/50">
+                          This is the same approval as before — nothing has been scheduled yet.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        onClick={() => approveActivation(preview.digest)}
+                        disabled={busy || !preview.digest}
+                        className={primaryBtnTeal}
+                      >
+                        Approve &amp; schedule
+                      </button>
+                      <button onClick={skipConnection} disabled={busy} className={ghostBtn}>
+                        Skip — keep everything as drafts
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              // 026-C1 AM-C1-1 state B: Facebook login works but this business
+              // has no Page selected — an explicit Page-picker handoff, never a
+              // generic connect that looks already satisfied.
+              if (kind === "social_select_page") {
+                return (
+                  <div className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/5 p-6">
+                    <h3 className="font-semibold text-sky-200">Choose your Facebook Page</h3>
+                    <p className="mt-1 text-sm text-white/70">{needsConnection.detail}</p>
+                    {needsConnection.repeated ? (
+                      <p className="mt-2 text-sm text-white/50">
+                        Still no Page selected for this business — nothing can publish until you
+                        pick one.
+                      </p>
+                    ) : null}
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        onClick={goConnectSocial}
+                        disabled={busy}
+                        className="rounded-lg bg-sky-500 px-5 py-2.5 font-semibold text-black hover:bg-sky-400 disabled:opacity-50"
+                      >
+                        Choose a Page
+                      </button>
+                      <button
+                        onClick={continueAfterConnect}
+                        disabled={busy}
+                        className="rounded-lg bg-white/10 px-5 py-2.5 font-semibold hover:bg-white/20 disabled:opacity-50"
+                      >
+                        I&apos;ve picked one — continue
+                      </button>
+                      <button onClick={skipConnection} disabled={busy} className={ghostBtn}>
+                        Skip this step
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
               const isSocial = kind === "social";
               const platforms =
                 isSocial && Array.isArray(needsConnection.connect?.platforms)
@@ -1055,6 +1220,11 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
                     {isSocial ? "Connect your social accounts" : "One quick approval needed"}
                   </h3>
                   <p className="mt-1 text-sm text-white/70">{needsConnection.detail}</p>
+                  {needsConnection.repeated ? (
+                    <p className="mt-1 text-sm text-white/50">
+                      This step is still waiting on the same connection as before.
+                    </p>
+                  ) : null}
                   {isSocial ? (
                     <p className="mt-2 text-xs text-white/40">
                       We&apos;ll take you to the Social Accounts screen — connect an account there,

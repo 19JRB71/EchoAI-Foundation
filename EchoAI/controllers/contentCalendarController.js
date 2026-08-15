@@ -14,6 +14,8 @@ const { zonedWallTimeToUtc, isValidTimezone } = require("../utils/timezone");
 const { toJsonbParam } = require("../utils/jsonb");
 const taskSpine = require("../utils/taskSpine");
 const socialController = require("./socialController");
+const { decrypt } = require("../utils/encryption");
+const { classifyDrafts, summarizeArtifact } = require("../utils/calendarActivationDigest");
 
 const CALENDAR_DAYS = 30;
 const DEFAULT_TIMEZONE = "America/New_York";
@@ -593,13 +595,80 @@ async function getOwnedCalendar(userId, calendarId) {
 }
 
 /**
- * POST /api/content-calendar/activate
- * Activates a calendar so the scheduler auto-publishes its due posts. Pending
- * (draft) posts are flipped to scheduled; already published/failed posts stay.
+ * 026-C1: build the activation artifact for a calendar — its draft posts
+ * classified against the brand's explicitly-bound destinations. `queryable`
+ * is either the pool (preview) or a transaction client (activation), so both
+ * phases run the exact same reconstruction.
+ */
+async function buildActivationArtifact(queryable, calendarId, brandId) {
+  const drafts = await queryable.query(
+    `SELECT post_id, platform, scheduled_time
+       FROM social_posts
+      WHERE calendar_id = $1 AND status = 'draft'`,
+    [calendarId],
+  );
+  const bound = await queryable.query(
+    `SELECT platform, platform_username, credentials_encrypted
+       FROM social_accounts
+      WHERE brand_id = $1 AND connection_status = 'connected'`,
+    [brandId],
+  );
+  const bindings = bound.rows.map((row) => {
+    let destination = row.platform_username || "";
+    try {
+      const creds = JSON.parse(decrypt(row.credentials_encrypted));
+      if (creds && creds.pageId) destination = String(creds.pageId);
+    } catch (_e) {
+      // The username label still identifies the destination for the preview;
+      // the publisher's own credential handling is the authority at publish.
+    }
+    return { platform: row.platform, destination };
+  });
+  const classified = classifyDrafts({ drafts: drafts.rows, bindings, now: new Date() });
+  return summarizeArtifact(classified);
+}
+
+/**
+ * POST /api/content-calendar/preview-activation  { calendarId }
+ * 026-C1 Ruling A: first phase of the artifact-bound activation consent. Returns
+ * exactly what WOULD be activated (count, date range, platforms, explicit
+ * destinations, stale + unbound exclusions) plus the digest the owner's
+ * confirmation must carry. Client-supplied details are never authority — the
+ * activation transaction recomputes everything server-side.
+ */
+async function previewActivation(req, res) {
+  const userId = req.user.userId;
+  const { calendarId } = req.body;
+  if (!calendarId) {
+    return res.status(400).json({ error: "calendarId is required" });
+  }
+  try {
+    const owned = await getOwnedCalendar(userId, calendarId);
+    if (!owned) return res.status(404).json({ error: "Calendar not found" });
+    const artifact = await buildActivationArtifact(db, calendarId, owned.brand_id);
+    return res.json({ calendarId, ...artifact });
+  } catch (err) {
+    console.error("Preview calendar activation error:", err.message);
+    return res.status(500).json({ error: "Failed to preview calendar activation" });
+  }
+}
+
+/**
+ * POST /api/content-calendar/activate  { calendarId, confirmDigest }
+ * Activates a calendar so the scheduler auto-publishes its due posts.
+ *
+ * 026-C1 (Ruling A + AM-C1-1): activation is the DRAFT -> SCHEDULED
+ * authorization boundary. It requires an artifact-bound owner confirmation:
+ * `confirmDigest` from a preview the owner approved. Inside the transaction the
+ * server independently reconstructs the artifact and recomputes the digest —
+ * any mismatch (edits, regeneration, re-slotting, destination/binding change,
+ * staleness change) rejects the stale confirmation with a fresh preview.
+ * Only FUTURE, explicitly-BOUND drafts flip; stale and unbound drafts remain
+ * drafts and are truthfully reported. Never weakened to hide mismatches.
  */
 async function activateCalendar(req, res) {
   const userId = req.user.userId;
-  const { calendarId } = req.body;
+  const { calendarId, confirmDigest } = req.body;
   if (!calendarId) {
     return res.status(400).json({ error: "calendarId is required" });
   }
@@ -607,6 +676,17 @@ async function activateCalendar(req, res) {
   try {
     const owned = await getOwnedCalendar(userId, calendarId);
     if (!owned) return res.status(404).json({ error: "Calendar not found" });
+
+    // No confirmation yet: never activate. Return the current artifact so the
+    // caller can present it for explicit owner approval (no zero-click path).
+    if (!confirmDigest || typeof confirmDigest !== "string") {
+      const artifact = await buildActivationArtifact(db, calendarId, owned.brand_id);
+      return res.status(409).json({
+        error: "Activating this calendar needs your explicit approval of what will be scheduled.",
+        confirmationRequired: true,
+        preview: { calendarId, ...artifact },
+      });
+    }
 
     // Refuse to flip a month of posts to 'scheduled' when one of the
     // calendar's platforms has a broken stored connection (expired/revoked
@@ -638,19 +718,68 @@ async function activateCalendar(req, res) {
 
     const client = await db.getClient();
     let activated = [];
+    let artifact = null;
+    const confirmedAt = new Date().toISOString();
     try {
       await client.query("BEGIN");
+      // Serialize against concurrent activations/edits of this calendar's
+      // drafts, then reconstruct the artifact from what is NOW true and
+      // recompute the digest. The owner's confirmation binds to an exact
+      // artifact — anything else is a stale confirmation, refused below.
+      await client.query(
+        `SELECT post_id FROM social_posts
+          WHERE calendar_id = $1 AND status = 'draft' FOR UPDATE`,
+        [calendarId],
+      );
+      artifact = await buildActivationArtifact(client, calendarId, owned.brand_id);
+      if (artifact.digest !== confirmDigest) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error:
+            "The calendar changed after you reviewed it — please review the updated schedule and approve again.",
+          digestMismatch: true,
+          preview: { calendarId, ...artifact },
+        });
+      }
+      // Fail closed when there are drafts but nothing can honestly activate:
+      // "active" with zero honored posts would be the silent-authorization lie
+      // this cycle exists to remove. (A calendar with no drafts at all — e.g.
+      // resuming after everything published — may still be set active.)
+      const draftCount =
+        artifact.eligibleCount + artifact.excludedStaleCount + artifact.excludedUnboundCount;
+      if (draftCount > 0 && artifact.eligibleCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error:
+            "None of this calendar's posts can be scheduled: they are in the past or their platform has no connected destination.",
+          nothingEligible: true,
+          preview: { calendarId, ...artifact },
+        });
+      }
       await client.query(
         "UPDATE content_calendars SET status = 'active' WHERE calendar_id = $1",
         [calendarId]
       );
-      const flipped = await client.query(
-        `UPDATE social_posts SET status = 'scheduled'
-          WHERE calendar_id = $1 AND status = 'draft'
-          RETURNING post_id, brand_id, platform, post_content, scheduled_time`,
-        [calendarId]
-      );
-      activated = flipped.rows;
+      // Flip ONLY the confirmed eligible set (future + explicitly bound).
+      // Stale and unbound drafts stay drafts. The row count must equal the
+      // confirmed count exactly — anything else means the state moved under
+      // us despite the lock, and we refuse rather than activate a different
+      // artifact than the one confirmed.
+      const eligibleIds = artifact.eligible.map((e) => e.postId);
+      if (eligibleIds.length > 0) {
+        const flipped = await client.query(
+          `UPDATE social_posts SET status = 'scheduled'
+            WHERE calendar_id = $1 AND status = 'draft' AND post_id = ANY($2::uuid[])
+            RETURNING post_id, brand_id, platform, post_content, scheduled_time`,
+          [calendarId, eligibleIds]
+        );
+        if (flipped.rows.length !== eligibleIds.length) {
+          throw new Error(
+            `Activation flip count ${flipped.rows.length} != confirmed ${eligibleIds.length}`
+          );
+        }
+        activated = flipped.rows;
+      }
       await client.query("COMMIT");
     } catch (txErr) {
       await client.query("ROLLBACK");
@@ -661,6 +790,16 @@ async function activateCalendar(req, res) {
     // Task spine (Prompt 009): each activated post is approved-and-waiting.
     // Re-activation after a pause creates a NEW attempt (the paused task was
     // CANCELLED — Addendum G). Recording only; failures never break activation.
+    // 026-C1 consent echo: the spine task is the existing approval-provenance
+    // record for each activated post, so the confirmed digest and artifact
+    // counts are echoed into its meta JSONB (zero DDL). Evidence, not authority.
+    // 026-C1-PM1 (Condition 1): the destination summary lists ONLY the
+    // platforms that actually had a post activated in this confirmation —
+    // it must never imply an excluded/unbound destination was activated.
+    const destinationSummary = {};
+    for (const post of activated) {
+      destinationSummary[post.platform] = artifact.destinations[post.platform] || null;
+    }
     for (const post of activated) {
       await taskSpine.safeSpine(async () => {
         const { task } = await taskSpine.createTask({
@@ -670,12 +809,38 @@ async function activateCalendar(req, res) {
           title: socialController.publishTaskTitle(post),
           status: "APPROVED",
           actor: `owner:${userId}`,
-          meta: { origin: "calendar_activate", calendarId, platform: post.platform },
+          meta: {
+            origin: "calendar_activate",
+            calendarId,
+            platform: post.platform,
+            consent: {
+              digest: confirmDigest,
+              // 026-C1-PM1 (Condition 1): durable readable audit evidence —
+              // the digest remains the cryptographic binding; these fields
+              // are the human-readable record of what was approved.
+              approver: `owner:${userId}`,
+              confirmedAt,
+              activatedCount: activated.length,
+              excludedStaleCount: artifact.excludedStaleCount,
+              excludedUnboundCount: artifact.excludedUnboundCount,
+              destination: artifact.destinations[post.platform] || null,
+              destinationSummary,
+            },
+          },
         });
         await taskSpine.transition({ taskId: task.task_id, to: "QUEUED", actor: `owner:${userId}`, meta: {} });
       });
     }
-    return res.json({ calendarId, status: "active" });
+    return res.json({
+      calendarId,
+      status: "active",
+      activatedCount: activated.length,
+      digest: artifact.digest,
+      excludedStaleCount: artifact.excludedStaleCount,
+      excludedStale: artifact.excludedStale,
+      excludedUnboundCount: artifact.excludedUnboundCount,
+      excludedUnbound: artifact.excludedUnbound,
+    });
   } catch (err) {
     console.error("Activate content calendar error:", err.message);
     return res.status(500).json({ error: "Failed to activate content calendar" });
@@ -923,6 +1088,10 @@ module.exports = {
   saveCalendar,
   getCalendar,
   activateCalendar,
+  // 026-C1: activation consent preview + the shared artifact builder (the
+  // setup agent's social_schedule step goes through the same boundary).
+  previewActivation,
+  buildActivationArtifact,
   pauseCalendar,
   regeneratePost,
   updatePost,

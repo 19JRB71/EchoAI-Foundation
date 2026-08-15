@@ -564,7 +564,31 @@ async function reloadSession(sessionId) {
 // step is genuinely mid-run; the status guard makes this write a no-op in that
 // case so an in-flight step can never clobber a lifecycle change the user just
 // made. Returns the updated row, or null when the session is no longer runnable.
-async function writeCompletedSteps(sessionId, completed) {
+// 026-C1: alongside completed_steps, the SAME status-guarded UPDATE records
+// HOW each step completed ('completed' | 'skipped') in answers.step_outcomes
+// (zero DDL — answers is existing JSONB). One atomic write, so a reload can
+// never see a completed step without its truthful outcome.
+async function writeCompletedSteps(sessionId, completed, outcomeEntry) {
+  if (outcomeEntry && outcomeEntry.key) {
+    const { rows } = await db.query(
+      `UPDATE setup_sessions
+         SET completed_steps = $1::jsonb,
+             answers = jsonb_set(
+               COALESCE(answers, '{}'::jsonb),
+               '{step_outcomes}',
+               COALESCE(answers->'step_outcomes', '{}'::jsonb) || $3::jsonb
+             ),
+             updated_at = NOW()
+       WHERE session_id = $2 AND status = 'in_progress'
+       RETURNING *`,
+      [
+        JSON.stringify(completed),
+        sessionId,
+        JSON.stringify({ [outcomeEntry.key]: outcomeEntry.outcome }),
+      ],
+    );
+    return rows[0] || null;
+  }
   const { rows } = await db.query(
     `UPDATE setup_sessions SET completed_steps = $1::jsonb, updated_at = NOW()
        WHERE session_id = $2 AND status = 'in_progress'
@@ -1044,7 +1068,7 @@ const ACTIONS = [
     key: "connect_social",
     label: "Connecting your social accounts",
     feature: null,
-    async run({ session, answers }) {
+    async run({ userId, session, answers }) {
       if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
       // Only prompt to connect posting accounts when there's actually a draft
       // calendar to publish — otherwise there's nothing to post yet, so we skip
@@ -1068,6 +1092,13 @@ const ACTIONS = [
       // per-brand credentials (no one-click OAuth), so we hand off to the
       // existing Social Accounts screen. This step is idempotent: once at least
       // one mentioned account is connected, re-running it completes.
+      //
+      // 026-C1 AM-C1-1: three real states, checked honestly (Section D — a
+      // failed lookup is a SYSTEM FAULT, never coerced into "not connected"):
+      //   A) an explicit social_accounts binding exists      => done
+      //   B) Facebook credentials exist (api_integrations)
+      //      but this brand has NO Page binding              => Page picker
+      //   C) nothing at all                                  => generic connect
       const platforms = pickPlatforms(answers);
       let connected = [];
       try {
@@ -1078,13 +1109,41 @@ const ACTIONS = [
         );
         connected = rows.map((r) => r.platform);
       } catch (err) {
-        // treat as none connected → prompt
+        err.systemFault = true;
+        throw err;
       }
       if (connected.length > 0) {
         return {
           status: "done",
           detail: `Connected: ${connected.join(", ")}. Your scheduled posts will publish automatically.`,
         };
+      }
+      // State B: the user's Facebook login works (ads-side credentials are
+      // stored), but this business has no Page selected as a posting
+      // destination — route to the explicit Page picker, never a generic
+      // "connect" that looks already-satisfied.
+      if (platforms.includes("facebook")) {
+        let hasFacebookCreds = false;
+        try {
+          const { rows } = await db.query(
+            `SELECT 1 FROM api_integrations
+             WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected'
+             LIMIT 1`,
+            [userId],
+          );
+          hasFacebookCreds = rows.length > 0;
+        } catch (err) {
+          err.systemFault = true;
+          throw err;
+        }
+        if (hasFacebookCreds) {
+          return {
+            status: "needs_connection",
+            connect: { type: "social_select_page", platforms, connected },
+            detail:
+              "Your Facebook login works, but this business has no Page selected yet — choose the Page your posts should publish to.",
+          };
+        }
       }
       return {
         status: "needs_connection",
@@ -1099,10 +1158,16 @@ const ACTIONS = [
     key: "social_schedule",
     label: "Scheduling your social posts",
     feature: null,
-    async run({ userId, session }) {
+    async run({ userId, session, confirm }) {
       if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
-      // Activate the most recent draft calendar (flips its draft posts to
-      // scheduled). If none exists (lower tier skipped the calendar), skip gracefully.
+      // Activate the most recent draft calendar. If none exists (lower tier
+      // skipped the calendar), skip gracefully.
+      //
+      // 026-C1 Ruling A: activation now requires the owner's artifact-bound
+      // approval. Without a confirmation, this step PAUSES with the preview
+      // (needs_connection type 'activate_calendar') — it never activates on
+      // its own. With a confirmation, it invokes the SAME digest-guarded
+      // activateCalendar boundary as the manual calendar UI (R26).
       let calendarId = null;
       try {
         const { rows } = await db.query(
@@ -1113,7 +1178,8 @@ const ACTIONS = [
         );
         calendarId = rows[0] && rows[0].calendar_id;
       } catch (err) {
-        // fall through to skip
+        err.systemFault = true;
+        throw err;
       }
       if (!calendarId) {
         return {
@@ -1121,11 +1187,55 @@ const ACTIONS = [
           detail: "Add a content calendar (Professional plan) to schedule posts.",
         };
       }
+      const confirmed =
+        confirm && confirm.step === "social_schedule" && typeof confirm.digest === "string"
+          ? confirm.digest
+          : null;
+      if (!confirmed) {
+        const previewResult = await invoke(contentCalendarController.previewActivation, userId, {
+          body: { calendarId },
+        });
+        const preview = ensureOk(previewResult, "Failed to preview your posting schedule.");
+        return {
+          status: "needs_connection",
+          connect: { type: "activate_calendar", calendarId, preview },
+          detail: "Your posting schedule is ready — approve it to start auto-posting.",
+        };
+      }
       const result = await invoke(contentCalendarController.activateCalendar, userId, {
-        body: { calendarId },
+        body: { calendarId, confirmDigest: confirmed },
       });
-      ensureOk(result, "Failed to schedule your posts.");
-      return { status: "done", detail: "Your drafted posts are now scheduled." };
+      if (
+        result.statusCode === 409 &&
+        result.payload &&
+        (result.payload.digestMismatch || result.payload.confirmationRequired)
+      ) {
+        // The calendar changed between review and approval (or the confirm was
+        // malformed): pause again with the FRESH preview — never activate a
+        // different artifact than the one the owner saw.
+        return {
+          status: "needs_connection",
+          connect: {
+            type: "activate_calendar",
+            calendarId,
+            preview: result.payload.preview,
+            changed: true,
+          },
+          detail:
+            "The schedule changed since you reviewed it — please look at the update and approve again.",
+        };
+      }
+      const activation = ensureOk(result, "Failed to schedule your posts.");
+      const parts = [`Scheduled ${activation.activatedCount} post${activation.activatedCount === 1 ? "" : "s"}.`];
+      if (activation.excludedStaleCount > 0) {
+        parts.push(`${activation.excludedStaleCount} stayed as drafts (their times had passed).`);
+      }
+      if (activation.excludedUnboundCount > 0) {
+        parts.push(
+          `${activation.excludedUnboundCount} stayed as drafts (no connected destination).`,
+        );
+      }
+      return { status: "done", detail: parts.join(" ") };
     },
   },
 
@@ -1525,11 +1635,18 @@ async function resolveKnowledgeAnswer({ userId, brandId, draftId, target, answer
 // ---------------------------------------------------------------------------
 
 function serializeSession(session) {
+  const answers = session.answers || {};
   return {
     sessionId: session.session_id,
     status: session.status,
-    answers: session.answers || {},
+    answers,
     completedSteps: session.completed_steps || [],
+    // 026-C1: per-step truthful outcomes ('completed' | 'skipped') so a reload
+    // renders "Skipped." for skipped steps instead of a lying "Done.".
+    stepOutcomes:
+      answers.step_outcomes && typeof answers.step_outcomes === "object"
+        ? answers.step_outcomes
+        : {},
     currentField: session.current_field,
     interviewComplete: session.interview_complete,
     consentGranted: session.consent_granted,
@@ -2256,6 +2373,10 @@ async function executeNextAction(req, res) {
   const userId = req.user.userId;
   const session = req.setupSession; // attached by requireSetupConsent
   const skip = req.body && req.body.skip === true;
+  // 026-C1: an artifact-bound confirmation for a paused consent gate (e.g.
+  // { step: 'social_schedule', digest }). Passed through to the step's run().
+  const confirm =
+    req.body && req.body.confirm && typeof req.body.confirm === "object" ? req.body.confirm : null;
 
   // Claim the renewable execution lease (see helpers above). If another call holds
   // a live lease, refuse with 409; the client retries. The heartbeat keeps a slow
@@ -2300,7 +2421,10 @@ async function executeNextAction(req, res) {
     // Explicit skip of the current pending action (e.g. user declines an OAuth handoff).
     if (skip) {
       completed.push(nextAction.key);
-      const updatedRow = await writeCompletedSteps(session.session_id, completed);
+      const updatedRow = await writeCompletedSteps(session.session_id, completed, {
+        key: nextAction.key,
+        outcome: "skipped",
+      });
       if (!updatedRow) return respondCancelledMidStep(res, session.session_id);
       const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
       return res.json({
@@ -2319,7 +2443,10 @@ async function executeNextAction(req, res) {
       const allowed = isActionAllowed(nextAction, tier, role);
       if (!allowed) {
         completed.push(nextAction.key);
-        const updatedRow = await writeCompletedSteps(session.session_id, completed);
+        const updatedRow = await writeCompletedSteps(session.session_id, completed, {
+          key: nextAction.key,
+          outcome: "skipped",
+        });
         if (!updatedRow) return respondCancelledMidStep(res, session.session_id);
         const feat = FEATURES[nextAction.feature] || { name: nextAction.label, tier: "a higher" };
         const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
@@ -2339,15 +2466,23 @@ async function executeNextAction(req, res) {
     const liveSession = await reloadSession(session.session_id);
     let outcome;
     try {
-      outcome = await nextAction.run({ userId, session: liveSession, answers });
+      outcome = await nextAction.run({ userId, session: liveSession, answers, confirm });
     } catch (stepErr) {
+      // 026-C1 Section D: a SYSTEM FAULT (a lookup the step needed failed) is
+      // not a "step outcome" — coercing it to skipped would tell the owner a
+      // truthful-looking lie. Rethrow to the endpoint's 500; the step stays
+      // pending and retryable.
+      if (stepErr.systemFault === true) throw stepErr;
       // Never block setup completion on a single failed step. If a step throws
       // (e.g. the AI drip designer fails even after its retries), record it as
       // skipped with a friendly message and move on to the next step instead of
       // aborting the whole run. The failure is logged for diagnosis.
       console.error(`Setup agent step "${nextAction.key}" failed (skipping):`, stepErr.message);
       completed.push(nextAction.key);
-      const skippedRow = await writeCompletedSteps(session.session_id, completed);
+      const skippedRow = await writeCompletedSteps(session.session_id, completed, {
+        key: nextAction.key,
+        outcome: "skipped",
+      });
       if (!skippedRow) return respondCancelledMidStep(res, session.session_id);
       const remainingAfterSkip = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
       return res.json({
@@ -2378,7 +2513,10 @@ async function executeNextAction(req, res) {
     }
 
     completed.push(nextAction.key);
-    const updatedRow = await writeCompletedSteps(session.session_id, completed);
+    const updatedRow = await writeCompletedSteps(session.session_id, completed, {
+      key: nextAction.key,
+      outcome: outcome.status === "skipped" ? "skipped" : "completed",
+    });
     if (!updatedRow) return respondCancelledMidStep(res, session.session_id);
     const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
     return res.json({
@@ -2583,4 +2721,8 @@ module.exports = {
   // no behavior change.
   _ensureInterviewBrand: ensureInterviewBrand,
   _c2LogPush: c2LogPush,
+  // 026-C1 seams for tests: the atomic completed_steps + step_outcomes write
+  // and the serializer that surfaces stepOutcomes to the client.
+  writeCompletedSteps,
+  serializeSession,
 };

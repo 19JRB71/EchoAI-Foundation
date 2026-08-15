@@ -20,6 +20,8 @@ router.put("/settings/:brandId", contentCalendarController.updatePostingSettings
 router.post("/generate", contentCalendarController.generateCalendar);
 router.post("/", contentCalendarController.saveCalendar);
 router.get("/:brandId", contentCalendarController.getCalendar);
+// 026-C1 Ruling A: phase one of the artifact-bound activation consent.
+router.post("/preview-activation", contentCalendarController.previewActivation);
 router.post("/activate", contentCalendarController.activateCalendar);
 router.post("/pause", contentCalendarController.pauseCalendar);
 router.post("/regenerate-post", contentCalendarController.regeneratePost);
