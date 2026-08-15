@@ -1,0 +1,517 @@
+PROMPT 026-C1 — PM1 CONDITIONS + PINNED MERGE + SECTION-R VERIFICATION
+
+Claude's Stage-2 pre-merge ruling has been reviewed and ACCEPTED by
+owner + ChatGPT.
+
+DECISION:
+B. MERGE APPROVED WITH CONDITIONS.
+
+DO NOT MERGE YET.
+
+You must first satisfy Conditions 1-3 below exactly.
+
+This authorization is narrow. It does NOT reopen 026-C1 Stage 2.
+
+============================================================
+A. GOVERNING STATE
+============================================================
+
+PR:
+#53
+staging <- c1-stage2-corrective
+
+Currently reviewed head:
+cd15442d756425b2d3b1d2d0e07345fe9047ea0d
+
+Staging base:
+5dcf8fc1ecd1a2bf719d9ec6d68928715a3b71b7
+
+Current accepted baselines before PM1:
+
+Server:
+1460 / 1460
+
+Client:
+448 / 448
+
+No production work is authorized.
+
+Prompt 026 H1 remains paused.
+
+BLACOR-H1 remains paused.
+
+H2 remains unauthorized.
+
+Prompt 027 remains unauthorized.
+
+Frozen SDS-H1 evidence remains untouched.
+
+============================================================
+B. D-37 OWNER + CHATGPT RULING
+============================================================
+
+The following narrow D-37 clarification is RATIFIED:
+
+When /tmp is genuinely unavailable or unreliable because of an
+environment/platform condition, a rebuild clone under .local may be
+used ONLY if:
+
+1. the source remains a fresh GitHub-derived clone;
+2. the exact expected branch/SHA is verified;
+3. HEAD is verified IMMEDIATELY BEFORE EVERY accounting/test/build run
+   that will be cited as evidence;
+4. any HEAD mismatch is an immediate STOP;
+5. the exception is disclosed in the report;
+6. this does NOT establish .local as the preferred D-37 audit surface.
+
+This is an environment-contingency exception, not a relaxation of
+source-authority requirements.
+
+Before doing PM1 work, verify the current audit clone HEAD and report it.
+
+============================================================
+C. CONDITION 1 — CONSENT-ECHO COMPLETENESS
+============================================================
+
+Create one narrow micro-commit:
+
+026-C1-PM1
+
+The existing consent echo in agent_tasks.meta is architecturally
+ACCEPTED.
+
+Do NOT move it.
+Do NOT create a new store.
+Do NOT add DDL.
+
+Extend the existing consent-echo object so durable readable evidence
+includes, at minimum:
+
+- digest
+- approver
+- confirmedAt
+- activatedCount
+- excludedStaleCount
+- excludedUnboundCount
+- destination summary
+
+The destination summary must truthfully represent the destinations
+covered by the confirmed activation artifact.
+
+It must not imply that an excluded/unbound destination was activated.
+
+The digest remains the cryptographic artifact binding.
+
+The additional fields are readable audit evidence; they do not replace
+the digest.
+
+Add/strengthen tests proving the persisted consent echo contains these
+fields and that the values correspond to the activation that actually
+occurred.
+
+Do not broaden the task-spine architecture.
+
+============================================================
+D. CONDITION 2 — SKIP-TRUTH BINDING
+============================================================
+
+Before changing anything for this condition, inspect the delivered
+tests.
+
+We require explicit regression proof of BOTH:
+
+PROPERTY 1:
+step_outcomes records social_schedule = "skipped" ATOMICALLY in the SAME
+persistence UPDATE that advances completed_steps.
+
+PROPERTY 2:
+after a fresh client reload/reconstruction from SERVER STATE, the
+onboarding UI renders the step as "Skipped" rather than "Done" or an
+ambiguous completed state.
+
+If BOTH properties are already directly asserted:
+
+- do not add redundant tests;
+- return exact file names;
+- exact test names;
+- exact assertions/behavior they bind.
+
+If either property is NOT directly bound:
+
+add only the minimum missing regression(s) in PM1.
+
+This condition exists because this was the exact live SDS-H1 defect.
+
+Do not satisfy it with prose or code inspection alone.
+
+============================================================
+E. CONDITION 3 — D-37 AFFIRMATION
+============================================================
+
+Return explicit evidence that:
+
+1. the rebuild clone HEAD was verified immediately before the final
+   Stage-2 accounting runs previously reported, IF that can be supported
+   honestly by existing evidence/logs;
+
+OR, if that historical fact cannot be proven:
+
+2. state that honestly.
+
+Do NOT manufacture retrospective evidence.
+
+For PM1 itself, HEAD verification immediately before each evidence run
+is mandatory under the newly ratified D-37 clarification.
+
+Include the exact SHA observed.
+
+============================================================
+F. PM1 SCOPE FENCE
+============================================================
+
+PM1 may contain ONLY:
+
+1. Condition-1 consent-echo completeness changes;
+2. Condition-1 tests;
+3. Condition-2 tests ONLY if existing tests do not already directly bind
+   the required properties.
+
+No other behavior change is authorized.
+
+Specifically DO NOT touch:
+
+- calendar activation architecture beyond the consent-echo fields;
+- digest algorithm;
+- destination-selection logic;
+- OAuth;
+- connect_social behavior except if absolutely necessary to compile the
+  authorized test;
+- anchor/research machinery;
+- Sage;
+- Company Truth;
+- I-50;
+- I-52 through I-57;
+- 024;
+- 033;
+- executeExternal;
+- D-30 architecture;
+- database schema;
+- migrations;
+- production;
+- frozen SDS evidence.
+
+If PM1 requires anything outside this fence:
+
+STOP AND REPORT.
+
+============================================================
+G. PM1 VERIFICATION
+============================================================
+
+After PM1:
+
+1. Record old head:
+   cd15442d756425b2d3b1d2d0e07345fe9047ea0d
+
+2. Record new PM1 commit SHA.
+
+3. Record new PR head SHA.
+
+4. Show the COMPLETE inter-head diff:
+   cd15442... -> new PM1 head.
+
+5. Account every changed file.
+
+6. Verify no unauthorized file entered.
+
+7. Verify no migration/DDL.
+
+8. Run the directly affected tests.
+
+9. Run full server suite.
+
+Expected arithmetic:
+
+1460 + only genuinely new PM1 tests = NEW EXACT TOTAL.
+
+Do not project the total.
+Observe it.
+
+10. Run full client suite.
+
+Expected baseline:
+448
+
+If no client test was required:
+448 / 448.
+
+If Condition 2 required a new client regression:
+state the exact arithmetic.
+
+11. Verify production client build if any client source/test dependency
+requires it.
+
+12. Re-run D-32 deletion accounting over the PM1 delta.
+
+============================================================
+H. PRE-MERGE CONDITIONS RETURN
+============================================================
+
+Before merging, return a compact CONDITIONS-SATISFIED block containing:
+
+C1:
+Consent-echo fields added + exact test proof.
+
+C2:
+Exact test citations for atomic skip persistence and reload-from-server
+"Skipped" rendering, identifying whether they were pre-existing or
+added by PM1.
+
+C3:
+D-37 historical affirmation or honest inability to prove it, plus the
+new PM1 HEAD-verification evidence.
+
+Then verify:
+
+PR #53 head = exact new PM1 SHA.
+
+Any head movement after this verification:
+STOP.
+
+============================================================
+I. MERGE AUTHORIZATION
+============================================================
+
+IF AND ONLY IF Sections C-H all pass cleanly:
+
+You are authorized to merge PR #53 to STAGING ONLY.
+
+Use a pinned-head merge so unexpected PR movement cannot be merged.
+
+Record:
+
+- pinned PR head;
+- resulting staging merge SHA;
+- merge timestamp/method.
+
+MAIN/PRODUCTION MUST REMAIN UNTOUCHED.
+
+============================================================
+J. POST-MERGE DEPLOYMENT VERIFICATION
+============================================================
+
+After merge, verify the REAL staging service only:
+
+https://staging.zorecho.com
+
+Do not use the retired Railway domain from stale notes.
+
+Verify:
+
+1. /api/health reports environment = staging.
+
+2. /api/health version EXACTLY equals the resulting staging merge SHA.
+
+Mismatch:
+STOP.
+
+3. schema_migrations remains exactly 148.
+
+Any new migration or DDL:
+STOP.
+
+4. v173 is ACTUALLY SERVED by staging.
+
+5. Railway deployment/build evidence shows a CLEAN dependency install
+   from the repository lockfile.
+
+This is mandatory because the pre-merge Replit environment required
+copied node_modules.
+
+The Railway build is the clean-environment closure of that evidence gap.
+
+If the Railway build reused an unverifiable stale dependency tree rather
+than performing the expected clean install:
+
+STOP AND REPORT.
+
+============================================================
+K. FOCUSED LIVE STAGING PASS
+============================================================
+
+Run the bounded live verification from the accepted Stage-1 plan.
+
+Use TEST-prefixed / non-real identities and D-43 rules.
+
+Preflight ALL prerequisites before creating identities or making
+verification writes.
+
+The prior beta-slot incident created a standing rule:
+
+ANY unplanned DB/config write during verification is STOP-FIRST.
+
+Do not alter beta capacity.
+Do not delete evidence accounts.
+Do not improvise around capacity.
+
+The live pass must verify at minimum:
+
+1. Explicit destination binding.
+
+2. Credentials present but no Page binding:
+   pauses honestly for explicit Page selection.
+
+3. No default/first-page implicit binding.
+
+4. Correct Page selection persists.
+
+5. Multi-brand isolation.
+
+6. Calendar preview returns artifact + digest.
+
+7. No digest:
+   no activation.
+
+8. Stale digest:
+   no activation + fresh preview.
+
+9. Matching digest:
+   only eligible, bound, future posts activate.
+
+10. MIXED CALENDAR:
+    - bound eligible posts activate;
+    - stale posts remain drafts;
+    - unbound-platform posts remain drafts;
+    - excludedStaleCount truthful;
+    - excludedUnboundCount truthful;
+    - UI/API disclosure truthful;
+    - no schedule-to-nowhere.
+
+11. Durable consent echo:
+    verify persisted task-spine metadata contains:
+    - digest;
+    - approver;
+    - confirmedAt;
+    - activatedCount;
+    - excludedStaleCount;
+    - excludedUnboundCount;
+    - destination summary.
+
+12. Onboarding social_schedule:
+    pauses for digest-bound approval.
+
+13. APPROVE:
+    uses the SAME real activateCalendar boundary.
+
+14. SKIP:
+    activates zero drafts;
+    leaves drafts unscheduled;
+    persists social_schedule = skipped.
+
+15. Reload/re-entry after Skip:
+    UI reconstructs from server state and displays "Skipped".
+
+16. Continue after Skip:
+    only permitted internal-only setup steps proceed.
+
+17. No silent owner-loss cascade equivalent to the SDS-H1 defect.
+
+18. Pre-provider failure:
+    records failure_stage truthfully.
+
+19. Owner-facing wording:
+    does not claim Facebook/provider rejection if no provider call
+    occurred.
+
+20. External-write ledger:
+    no fabricated external attempt.
+
+21. No unexpected provider writes.
+
+If any real provider write becomes possible unexpectedly:
+
+STOP BEFORE THE WRITE.
+
+============================================================
+L. PQ1 / CAPACITY EVIDENCE
+============================================================
+
+The first subsequent H1 report still owes the previously ruled PQ1
+capacity preamble.
+
+Do not consume that obligation here.
+
+However, preflight capacity before any multi-identity C1 smoke.
+
+If insufficient capacity exists:
+
+STOP AND REPORT.
+
+Do NOT change max_slots without a new owner ruling.
+
+============================================================
+M. SECTION-R REPORT
+============================================================
+
+Return ONE complete:
+
+PROMPT 026-C1 — SECTION-R DEPLOYMENT + LIVE VERIFICATION REPORT
+
+It must include:
+
+R1. old reviewed head
+R2. PM1 commit SHA
+R3. new pinned PR head
+R4. complete PM1 inter-head accounting
+R5. Conditions 1-3 disposition
+R6. server arithmetic/result
+R7. client arithmetic/result
+R8. D-32 review
+R9. merge evidence
+R10. staging merge SHA
+R11. live health/SHA proof
+R12. migration count = 148
+R13. Railway clean-lockfile-install evidence
+R14. v173 served proof
+R15. destination-binding live evidence
+R16. multi-brand isolation evidence
+R17. digest/no-digest/stale-digest evidence
+R18. mixed-calendar stale/unbound evidence
+R19. consent-echo durable evidence
+R20. onboarding approval evidence
+R21. Skip + reload-from-server truth evidence
+R22. failure-stage/provider-wording evidence
+R23. external-write/ledger evidence
+R24. live residue inventory
+R25. deviations/STOPs
+R26. production/main untouched
+R27. frozen SDS specimen untouched
+R28. Prompt 026 H1 still paused
+R29. I-50/I-52-I-57 untouched
+R30. final status
+
+============================================================
+N. HARD STOP
+============================================================
+
+After Section-R:
+
+STOP.
+
+DO NOT restart SDS-H1.
+
+DO NOT start BLACOR-H1.
+
+DO NOT begin H2.
+
+DO NOT begin Prompt 027.
+
+DO NOT touch production.
+
+DO NOT self-accept 026-C1.
+
+Return Section-R to owner + ChatGPT + Claude for final review.
+
+Final line:
+
+PROMPT 026-C1 SECTION-R COMPLETE — AWAITING OWNER REVIEW.
