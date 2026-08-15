@@ -3,6 +3,19 @@ const { toJsonbParam } = require("../utils/jsonb");
 const { isValidBrandType } = require("../config/goals");
 const { normalizeWebsiteUrl, normalizeFacebookPageUrl, normalizeSocialUrl } = require("../utils/onlinePresence");
 const brandKnowledge = require("../utils/brandKnowledge");
+const anchorOrchestrator = require("../utils/anchorOrchestrator");
+
+// Prompt 035 Sections D/E/K — research identity anchors owned by this
+// controller. When any of these change during onboarding, the orchestrator
+// starts a scoped investigation immediately; after onboarding it refuses and
+// the response instead carries researchOffer:true so the client can OFFER a
+// re-investigation (never silently launch one).
+const ANCHOR_BODY_KEYS = [
+  "websiteUrl", "website_url",
+  "facebookPageUrl", "facebook_page_url",
+  "facebookPageId", "facebook_page_id",
+  "name", "brandName", "brand_name",
+];
 
 /**
  * POST /api/brands
@@ -268,7 +281,24 @@ async function updateBrand(req, res) {
       return res.status(404).json({ error: "Brand not found" });
     }
     await client.query("COMMIT");
-    return res.json(result.rows[0]);
+
+    // Prompt 035 — anchor arrival hook (post-commit; never blocks or fails
+    // the save). Only fires when an anchor field was actually in this request.
+    const anchorTouched = ANCHOR_BODY_KEYS.some((k) => req.body[k] !== undefined);
+    let researchOffer = false;
+    if (anchorTouched) {
+      const phase = await db.query(
+        "SELECT onboarding_completed FROM users WHERE user_id = $1",
+        [userId],
+      );
+      const onboarding = phase.rows[0] && phase.rows[0].onboarding_completed !== true;
+      if (onboarding) {
+        anchorOrchestrator.onAnchorArrival({ userId, brandId, reason: "brand_update" });
+      } else {
+        researchOffer = true; // Section K: offer, never silently launch
+      }
+    }
+    return res.json(researchOffer ? { ...result.rows[0], researchOffer: true } : result.rows[0]);
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });

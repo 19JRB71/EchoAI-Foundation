@@ -5,6 +5,7 @@ import Spinner from "../components/Spinner.jsx";
 import { classifyExecuteError } from "./executeError.js";
 import { useVoiceInput, detectIsMobile } from "./useVoiceInput.js";
 import VoiceCalibration from "./VoiceCalibration.jsx";
+import useOnboardingTiming from "./useOnboardingTiming.js";
 
 const VOICE_MODE_KEY = "echoai_setup_voice_mode";
 // Set once the user completes OR skips voice calibration, so we never re-offer
@@ -94,6 +95,10 @@ function connectKind(connect) {
 
 export default function SetupAgent({ onClose, onExitToSection, embedded = false, doneLabel }) {
   const [phase, setPhase] = useState("loading");
+  // Prompt 035 Section L — standalone timing only; when embedded, the wizard's
+  // hook already covers this surface (interval merge would dedup anyway, but
+  // there is no reason to double-post events).
+  useOnboardingTiming(`setup:${phase}`, !embedded);
   const [error, setError] = useState("");
   const [session, setSession] = useState(null);
   const [question, setQuestion] = useState(null);
@@ -254,12 +259,22 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
 
   // ---- Bootstrap / resume ----------------------------------------------------
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
+  // Prompt 035 Section H — second-business entry choice. When the owner
+  // already has a brand AND there is no open session to resume, the very
+  // first thing they see is an explicit choice: continue setting up the
+  // existing business, or set up a DIFFERENT business (fresh session, no
+  // silent binding to the existing brand). The choice is persisted server-
+  // side in the session's _interview bookkeeping and survives restarts.
+  const [entryBrands, setEntryBrands] = useState([]);
+  const activeRef = useRef(true);
+
+  // Start (or resume) a session and route to the right phase. intent is null
+  // (today's resume-or-start behavior) or "new_business" (Section H).
+  const startWith = useCallback(
+    async (intent) => {
       try {
-        const data = await api.startSetupSession();
-        if (!active) return;
+        const data = await api.startSetupSession(intent ? { intent } : undefined);
+        if (!activeRef.current) return;
         const s = data.session;
         setSession(s);
         setSteps(s.steps || []);
@@ -285,7 +300,7 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
           } catch {
             offerCalibration = false;
           }
-          if (!active) return;
+          if (!activeRef.current) return;
           setPhase(offerCalibration ? "calibration" : "interview");
         } else if (!s.consentGranted) {
           setPhase("consent");
@@ -294,15 +309,47 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
           await runLoop(s.sessionId);
         }
       } catch (err) {
-        if (!active) return;
+        if (!activeRef.current) return;
         setError(err.message || "Could not start the setup agent.");
         setPhase("error");
       }
+    },
+    [runLoop],
+  );
+
+  useEffect(() => {
+    activeRef.current = true;
+    (async () => {
+      // Offer the second-business choice only when a real (non-demo) brand
+      // already exists AND there is no open session to resume (an owner
+      // returning mid-setup — e.g. from OAuth — is never interrupted by the
+      // choice). Any probe/read failure degrades to a plain start (setup is
+      // never blocked on the choice surface).
+      let brands = [];
+      let openSession = true;
+      try {
+        const [list, probe] = await Promise.all([
+          api.getBrands(),
+          api.probeSetupSession(),
+        ]);
+        const arr = Array.isArray(list) ? list : list?.brands || [];
+        brands = arr.filter((b) => b && b.is_demo !== true);
+        openSession = Boolean(probe && probe.openSession);
+      } catch {
+        brands = [];
+      }
+      if (!activeRef.current) return;
+      if (brands.length > 0 && !openSession) {
+        setEntryBrands(brands);
+        setPhase("entryChoice");
+        return;
+      }
+      await startWith(null);
     })();
     return () => {
-      active = false;
+      activeRef.current = false;
     };
-  }, [runLoop]);
+  }, [startWith]);
 
   // ---- Interview -------------------------------------------------------------
 
@@ -572,6 +619,41 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
     return shell(
       <div className="flex flex-1 items-center justify-center">
         <Spinner label="Starting your setup agent…" />
+      </div>,
+    );
+  }
+
+  if (phase === "entryChoice") {
+    const first = entryBrands[0];
+    return shell(
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center" data-testid="entry-choice">
+        <h2 className="text-xl font-bold text-white">What would you like to set up?</h2>
+        <p className="max-w-md text-sm text-white/70">
+          You already have {entryBrands.length === 1 ? `"${first.brand_name}"` : `${entryBrands.length} businesses`} here.
+          Pick up where you left off, or start a brand-new business — your existing setup stays untouched.
+        </p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            onClick={() => {
+              setPhase("loading");
+              startWith(null);
+            }}
+            className="rounded-lg bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-500"
+            data-testid="entry-choice-continue"
+          >
+            Continue setting up {first ? `"${first.brand_name}"` : "my business"}
+          </button>
+          <button
+            onClick={() => {
+              setPhase("loading");
+              startWith("new_business");
+            }}
+            className="rounded-lg bg-white/10 px-5 py-2.5 font-semibold text-white hover:bg-white/20"
+            data-testid="entry-choice-new"
+          >
+            Set up a different business
+          </button>
+        </div>
       </div>,
     );
   }

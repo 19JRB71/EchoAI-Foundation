@@ -110,7 +110,22 @@ export const api = {
 
   // AI Setup Agent — conversational onboarding that configures the account
   getSetupLatest: () => request("/api/setup-agent/latest"),
-  startSetupSession: () => request("/api/setup-agent/session", { method: "POST" }),
+  // Prompt 035 Section H: optional { intent: "new_business" } starts a fresh
+  // second-business session (never resumes or binds the existing brand).
+  // Called with no args this is bit-for-bit the old resume-or-start behavior.
+  startSetupSession: (opts) =>
+    request("/api/setup-agent/session", {
+      method: "POST",
+      body: opts && opts.intent ? { intent: opts.intent } : undefined,
+    }),
+  // Read-only: does an open (resumable) setup session exist? Creates nothing.
+  probeSetupSession: () =>
+    request("/api/setup-agent/session", { method: "POST", body: { probe: true } }),
+  // Prompt 035 Section L — append-only timing events + honest summary.
+  recordOnboardingTiming: (events) =>
+    request("/api/onboarding/timing-events", { method: "POST", body: { events } }),
+  getOnboardingTimingSummary: (brandId) =>
+    request(`/api/onboarding/timing-summary${brandId ? `?brandId=${brandId}` : ""}`),
   submitSetupAnswer: (sessionId, answer, extras = {}) =>
     request("/api/setup-agent/answer", { method: "POST", body: { sessionId, answer, ...extras } }),
   grantSetupConsent: (sessionId) =>

@@ -175,10 +175,39 @@ export default function SageResearchPanel({ brandId: brandIdProp = null }) {
     if (draft && draft.status === "running" && !pollRef.current) startPolling();
   }, [draft, startPolling]);
 
+  // Prompt 035 Section D1 — confirm an UNATTRIBUTED candidate: the owner's
+  // click turns a "maybe" into a real anchor (website/facebook saved on the
+  // brand), which the server-side orchestrator picks up as an anchor arrival
+  // and investigates immediately. Nothing is attributed without this click.
+  const [confirming, setConfirming] = useState(null);
+  const confirmCandidate = useCallback(
+    async (cand) => {
+      if (!brandId || confirming) return;
+      setConfirming(cand.url);
+      setError(null);
+      try {
+        const payload =
+          cand.kind === "facebook" ? { facebookPageUrl: cand.url } : { websiteUrl: cand.url };
+        await api.updateBrand(brandId, payload);
+        // The orchestrator starts a fresh anchored run server-side; poll for it.
+        setDraft({ status: "running", fields: {} });
+        startPolling();
+      } catch {
+        setError("Couldn't save that link. You can add it under Business Links instead.");
+      } finally {
+        if (mountedRef.current) setConfirming(null);
+      }
+    },
+    [brandId, confirming, startPolling],
+  );
+
   if (!brandId) return null;
 
   const fields = (draft && draft.fields) || {};
-  const fieldKeys = Object.keys(fields);
+  // Prompt 035: `_candidates` is a reserved non-field key (unattributed
+  // entity leads from a name-only run) — rendered separately, never as facts.
+  const candidates = Array.isArray(fields._candidates) ? fields._candidates : [];
+  const fieldKeys = Object.keys(fields).filter((k) => k !== "_candidates");
 
   return (
     <div className="mt-4 rounded-xl border border-gray-800 bg-gray-950/50 p-4" data-testid="sage-research-panel">
@@ -224,6 +253,34 @@ export default function SageResearchPanel({ brandId: brandIdProp = null }) {
             <p className="text-sm text-gray-300" data-testid="research-summary">
               {draft.summary}
             </p>
+          ) : null}
+          {candidates.length > 0 ? (
+            <div className="mt-2 rounded-lg border border-indigo-900/60 bg-indigo-950/30 p-3" data-testid="research-candidates">
+              <p className="text-xs font-semibold text-indigo-300">
+                Sage found businesses that might be yours — nothing is attributed until you confirm:
+              </p>
+              <div className="mt-2 grid gap-2">
+                {candidates.map((c, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2" data-testid={`research-candidate-${i}`}>
+                    <span className="rounded bg-gray-800 px-1.5 py-0.5 text-[11px] text-gray-300">
+                      {c.kind === "facebook" ? "Facebook Page" : c.kind === "website" ? "Website" : "Source"}
+                    </span>
+                    <span className="max-w-[260px] truncate text-sm text-gray-100">{c.url}</span>
+                    {c.kind === "website" || c.kind === "facebook" ? (
+                      <button
+                        type="button"
+                        onClick={() => confirmCandidate(c)}
+                        disabled={Boolean(confirming)}
+                        className="rounded bg-indigo-700 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-indigo-600 disabled:opacity-50"
+                        data-testid={`research-candidate-confirm-${i}`}
+                      >
+                        {confirming === c.url ? "Saving…" : "Yes, that's mine"}
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : null}
           {fieldKeys.length > 0 ? (
             <div className="mt-2 grid gap-2">

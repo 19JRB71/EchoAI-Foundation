@@ -248,44 +248,58 @@ async function generate(req, res) {
     const brand = await getOwnedBrand(req.user.userId, req.body.brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
 
-    // Sweep prior failed runs (their error was already shown) and rescue any
-    // claim left behind by a killed process (deploy/crash) — without this the
-    // brand's research would be blocked forever with a 409.
-    const rescued = await db.query(
-      `DELETE FROM company_truth_reports
-        WHERE brand_id = $1
-          AND (status = 'failed'
-               OR (status = 'generating'
-                   AND created_at < NOW() - INTERVAL '${STALE_CLAIM_MINUTES} minutes'))`,
-      [brand.brand_id],
-    );
-    if (rescued.rowCount > 0) {
-      console.warn(
-        `Company Truth: swept ${rescued.rowCount} failed/stale claim row(s) for brand ${brand.brand_id}.`,
-      );
+    const started = await claimAndRunGeneration(brand, req.body.researchNote || null);
+    if (started.inProgress) {
+      return res.status(409).json({ error: "Sage is already researching this company. Give it a moment." });
     }
-
-    // Claim the single in-flight generation slot (partial unique index).
-    let claim;
-    try {
-      claim = await db.query(
-        `INSERT INTO company_truth_reports (brand_id, version, status)
-         VALUES ($1, (SELECT COALESCE(MAX(version), 0) + 1 FROM company_truth_reports WHERE brand_id = $1), 'generating')
-         RETURNING report_id, version`,
-        [brand.brand_id],
-      );
-    } catch (e) {
-      if (e.code === "23505") {
-        return res.status(409).json({ error: "Sage is already researching this company. Give it a moment." });
-      }
-      throw e;
-    }
-
-    lastRunPromise = runGeneration(brand, claim.rows[0].report_id, req.body.researchNote || null);
     return res.status(202).json({ generating: true });
   } catch (err) {
     return sendError(res, err, "Failed to start the company research.");
   }
+}
+
+/**
+ * ONE claim path for Company Truth generation — used by the owner's manual
+ * "Build my report" trigger above AND by the Prompt-035 onboarding
+ * orchestrator's Tier-B auto-generation. Reusing this single function is what
+ * keeps "no second competing trigger" true: both entrances share the same
+ * sweep, the same single-in-flight claim (partial unique index) and the same
+ * background runner. Returns { ok:true } or { inProgress:true }.
+ */
+async function claimAndRunGeneration(brand, researchNote) {
+  // Sweep prior failed runs (their error was already shown) and rescue any
+  // claim left behind by a killed process (deploy/crash) — without this the
+  // brand's research would be blocked forever with a 409.
+  const rescued = await db.query(
+    `DELETE FROM company_truth_reports
+      WHERE brand_id = $1
+        AND (status = 'failed'
+             OR (status = 'generating'
+                 AND created_at < NOW() - INTERVAL '${STALE_CLAIM_MINUTES} minutes'))`,
+    [brand.brand_id],
+  );
+  if (rescued.rowCount > 0) {
+    console.warn(
+      `Company Truth: swept ${rescued.rowCount} failed/stale claim row(s) for brand ${brand.brand_id}.`,
+    );
+  }
+
+  // Claim the single in-flight generation slot (partial unique index).
+  let claim;
+  try {
+    claim = await db.query(
+      `INSERT INTO company_truth_reports (brand_id, version, status)
+       VALUES ($1, (SELECT COALESCE(MAX(version), 0) + 1 FROM company_truth_reports WHERE brand_id = $1), 'generating')
+       RETURNING report_id, version`,
+      [brand.brand_id],
+    );
+  } catch (e) {
+    if (e.code === "23505") return { inProgress: true };
+    throw e;
+  }
+
+  lastRunPromise = runGeneration(brand, claim.rows[0].report_id, researchNote || null);
+  return { ok: true };
 }
 
 /** POST /api/company-truth/approve { brandId } — atomic approve + supersede. */
@@ -327,6 +341,11 @@ async function approve(req, res) {
       `SELECT * FROM company_truth_reports WHERE brand_id = $1 AND status = 'approved'`,
       [brand.brand_id],
     );
+    // Prompt 035 Section L — campaign-ready milestone probe (append-only,
+    // exactly-once; never blocks or fails the approval).
+    require("../utils/campaignReady")
+      .maybeRecordCampaignReady(req.user.userId, brand.brand_id)
+      .catch(() => {});
     return res.json({ approved: reportView(approvedRow.rows[0] || null) });
   } catch (err) {
     return sendError(res, err, "Failed to approve the report.");
@@ -415,6 +434,7 @@ function waitForLastRun() {
 module.exports = {
   getState,
   generate,
+  claimAndRunGeneration,
   waitForLastRun,
   approve,
   editSection,

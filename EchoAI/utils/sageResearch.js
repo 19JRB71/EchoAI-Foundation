@@ -246,14 +246,17 @@ async function sweepStaleClaims(brandId) {
  * Claim a research run for the brand. Returns { draftId, runId } or throws
  * err.inProgress=true when another run holds the claim (23505 -> 409).
  */
-async function claimRun(brandId, userId) {
+async function claimRun(brandId, userId, { anchorSnapshot = null } = {}) {
   await module.exports.sweepStaleClaims(brandId);
   const runId = crypto.randomUUID();
   try {
+    // Prompt 035 Section G: anchor_snapshot preserves exactly what identity
+    // anchors Sage knew when this run was claimed — written once, never
+    // rewritten ("what Sage knew when" evidence).
     const { rows } = await db.query(
-      `INSERT INTO sage_research_drafts (brand_id, user_id, run_id, status)
-       VALUES ($1, $2, $3, 'running') RETURNING draft_id, run_id`,
-      [brandId, userId, runId],
+      `INSERT INTO sage_research_drafts (brand_id, user_id, run_id, status, anchor_snapshot)
+       VALUES ($1, $2, $3, 'running', $4::jsonb) RETURNING draft_id, run_id`,
+      [brandId, userId, runId, anchorSnapshot == null ? null : JSON.stringify(anchorSnapshot)],
     );
     return { draftId: rows[0].draft_id, runId: rows[0].run_id };
   } catch (e) {
@@ -340,6 +343,48 @@ function candidatesFromFindings(result, source, fallbackUrl) {
     retrieved_at: retrievedAt,
     excerpt: f && f.excerpt,
   }));
+}
+
+/**
+ * Prompt 035 Section D1 — turn public-web findings into UNATTRIBUTED entity
+ * candidates. Each candidate is a possible match ("a business with this name
+ * may be this website / this Facebook page"), never a fact about the owner's
+ * business. kind: website|facebook|source.
+ */
+function candidateSuggestions(result) {
+  if (!result || result.found !== true || !Array.isArray(result.findings)) return [];
+  const out = [];
+  const retrievedAt = nowIso();
+  for (const f of result.findings) {
+    if (!f) continue;
+    const push = (kind, url) => {
+      if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return;
+      out.push({ kind, url, excerpt: typeof f.excerpt === "string" ? f.excerpt.slice(0, 300) : null, retrieved_at: retrievedAt });
+    };
+    if (f.field === "website_url" || f.field === "website") push("website", f.value);
+    else if (f.field === "facebook_page_url" || f.field === "facebook") push("facebook", f.value);
+    if (f.url) {
+      try {
+        const host = new URL(f.url).hostname;
+        push(/(^|\.)facebook\.com$/i.test(host) ? "facebook" : "source", f.url);
+      } catch { /* unusable url — skip */ }
+    }
+  }
+  return out;
+}
+
+/** Dedup candidates by (kind,url), keep at most 8 — a disambiguation list, not a dossier. */
+function dedupCandidateSuggestions(list) {
+  const seen = new Set();
+  const out = [];
+  for (const c of list) {
+    const key = `${c.kind}|${c.url.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+    if (out.length >= 8) break;
+  }
+  return out;
 }
 
 /** Extract a Facebook Page username/id from a stored page URL. */
@@ -437,7 +482,7 @@ function normalizeLocationHint(raw) {
   return s;
 }
 
-async function runResearch(brand, { runId, locationHint = null } = {}) {
+async function runResearch(brand, { runId, locationHint = null, candidateOnly = false } = {}) {
   const hint = normalizeLocationHint(locationHint);
   const startedAt = Date.now();
   const deadline = startedAt + RUN_BUDGET_MS;
@@ -449,6 +494,7 @@ async function runResearch(brand, { runId, locationHint = null } = {}) {
   let sawMalformed = false;
   let stopReason = null;
   let reparseUsed = false;
+  const candidateFindings = []; // candidateOnly mode: unattributed entity leads
 
   const remaining = () => deadline - Date.now();
 
@@ -547,6 +593,8 @@ async function runResearch(brand, { runId, locationHint = null } = {}) {
     }
 
     // Phase 3 — public-web fallback, only when evidence is still thin.
+    // (candidateOnly runs are name-only by construction — phases 1/2 already
+    // self-skipped for lack of anchors, so this is always reached.)
     const fieldsSoFar = new Set(candidates.map((c) => c.field)).size;
     if (fieldsSoFar < 3) {
       if (hint) {
@@ -567,10 +615,24 @@ async function runResearch(brand, { runId, locationHint = null } = {}) {
         ),
       );
       if (result && result.found === false) notes.push(`public web: ${redactErrorText(result.reason) || "nothing found"}`);
-      candidates.push(...candidatesFromFindings(result, "public_web", null));
+      if (candidateOnly) {
+        // Prompt 035 Section D1 — PI model, name-only state: research may run,
+        // but NOTHING found this way may be attributed to the business. The
+        // findings become UNATTRIBUTED entity candidates (possible website /
+        // Facebook page leads) stored under the reserved `_candidates` key —
+        // which is NOT a Prompt-011 field key, so it can never pass
+        // assertFieldKey into the knowledge substrate. Attribution waits for
+        // the owner to confirm an anchor.
+        candidateFindings.push(...candidateSuggestions(result));
+      } else {
+        candidates.push(...candidatesFromFindings(result, "public_web", null));
+      }
     }
 
-    const fields = mergeCandidates(candidates);
+    let fields = mergeCandidates(candidates);
+    if (candidateOnly && candidateFindings.length) {
+      fields = { _candidates: dedupCandidateSuggestions(candidateFindings) };
+    }
     const fieldCount = Object.keys(fields).length;
 
     let status;
@@ -645,6 +707,8 @@ module.exports = {
   compareCandidates,
   mergeCandidates,
   pageRefFromUrl,
+  candidateSuggestions,
+  dedupCandidateSuggestions,
   sweepStaleClaims,
   claimRun,
   finalizeRun,

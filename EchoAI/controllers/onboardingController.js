@@ -554,8 +554,70 @@ async function claimCelebration(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Prompt 035 Section L — timing instrumentation endpoints.
+// POST /timing-events: append-only client event batches (validated kinds).
+// GET  /timing-summary: the four honest figures + system waits + wall-clock.
+// ---------------------------------------------------------------------------
+
+const onboardingTiming = require("../utils/onboardingTiming");
+const campaignReady = require("../utils/campaignReady");
+
+/** True iff the brand exists AND belongs to the caller. */
+async function ownsBrand(userId, brandId) {
+  const { rows } = await db.query(
+    "SELECT 1 FROM brands WHERE brand_id = $1 AND user_id = $2",
+    [brandId, userId],
+  );
+  return rows.length > 0;
+}
+
+async function recordTimingEvents(req, res) {
+  try {
+    const events = Array.isArray(req.body && req.body.events) ? req.body.events : req.body && req.body.events;
+    // Ownership guard: a caller may only attach events to their OWN brands.
+    // Foreign/unknown brand ids are nulled (user-scoped event, still honest)
+    // rather than rejected — instrumentation must never break onboarding.
+    if (Array.isArray(events)) {
+      const claimed = [...new Set(events.map((e) => e && e.brandId).filter((b) => b && UUID_RE.test(b)))];
+      const owned = new Set();
+      for (const b of claimed) {
+        if (await ownsBrand(req.user.userId, b)) owned.add(b);
+      }
+      for (const e of events) {
+        if (e && e.brandId && !owned.has(e.brandId)) e.brandId = null;
+      }
+    }
+    const count = await onboardingTiming.recordEvents(req.user.userId, events);
+    return res.json({ recorded: count });
+  } catch (err) {
+    const status = err.statusCode || 500;
+    if (status >= 500) console.error("Timing events error:", err.message);
+    return res.status(status).json({ error: err.message || "Failed to record timing events" });
+  }
+}
+
+async function getTimingSummary(req, res) {
+  try {
+    // Lazy campaign-ready probe: milestones from contributing writes can miss
+    // conditions completed elsewhere; this read is cheap and exactly-once.
+    // Ownership-guarded: the probe writes a milestone, so it must never run
+    // against a brand the caller doesn't own.
+    let brandId = req.query.brandId && UUID_RE.test(req.query.brandId) ? req.query.brandId : null;
+    if (brandId && !(await ownsBrand(req.user.userId, brandId))) brandId = null;
+    if (brandId) await campaignReady.maybeRecordCampaignReady(req.user.userId, brandId);
+    const summary = await onboardingTiming.computeSummary(req.user.userId);
+    return res.json(summary);
+  } catch (err) {
+    console.error("Timing summary error:", err.message);
+    return res.status(500).json({ error: "Failed to compute the timing summary" });
+  }
+}
+
 module.exports = {
   getStatus,
+  recordTimingEvents,
+  getTimingSummary,
   prepareFirstWinPost,
   armFirstWinPost,
   disarmFirstWinPost,

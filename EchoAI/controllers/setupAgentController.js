@@ -24,6 +24,8 @@ const feedbackController = require("../controllers/feedbackController");
 const { generateKeywordSuggestions } = require("../prompts/seoContentPrompt");
 const voiceController = require("../controllers/voiceController");
 const echoContext = require("../utils/echoContext");
+const { parseBusinessHours } = require("../utils/hoursParser");
+const anchorOrchestrator = require("../utils/anchorOrchestrator");
 
 // ---------------------------------------------------------------------------
 // AI helpers (real Anthropic; malformed output → 502, never guessed)
@@ -349,6 +351,53 @@ async function applyOnlinePresence(userId, brandId, answers) {
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// Prompt 035 Section C — owner-fact handoff into the Prompt-011 knowledge
+// substrate. VERBATIM-ONLY rule (C1): only the owner's raw interview answer
+// text may enter the instant owner-stated path. Any AI paraphrase, synthesis,
+// or interpretation must go through the pending proposal/revision machinery
+// instead — this function therefore reads ONLY `answers` (raw owner input,
+// stored key→verbatim-string) and never AI-derived values.
+// ---------------------------------------------------------------------------
+
+/** Interview answer aliases → Prompt-011 knowledge field keys (verbatim). */
+const STATED_FACT_MAP = [
+  { fieldKey: "phone", aliases: ["business_phone", "phone_number", "phone", "contact_number"] },
+  { fieldKey: "address", aliases: ["business_address", "street_address", "address"] },
+  { fieldKey: "hours", aliases: ["business_hours", "opening_hours", "hours"] },
+  { fieldKey: "email", aliases: ["business_email", "contact_email"] },
+];
+
+/**
+ * Write explicit interview answers through the existing ownerEditFields path
+ * (source=stated, field-level approved — Prompt 011 semantics for owner
+ * input). Idempotent: a field whose current approved value already equals the
+ * verbatim answer is skipped, so action-runner re-runs never spam versions.
+ * Refusals ("no", "none", "skip") are never written. Returns the list of
+ * field keys written. Failures are surfaced to the caller (the action runner
+ * already records failed steps honestly) — never swallowed silently.
+ */
+async function applyStatedFacts(userId, brandId, answers) {
+  const current = await knowledge.getApprovedKnowledge(brandId);
+  const fields = [];
+  for (const { fieldKey, aliases } of STATED_FACT_MAP) {
+    const raw = firstAnswer(answers, aliases);
+    if (!raw || isRefusalAnswer(raw)) continue;
+    if (raw.length > 8000) continue; // substrate size guard; oversize stays in answers
+    const existing = current && current[fieldKey] ? current[fieldKey].value : null;
+    if (existing === raw) continue; // already current — no duplicate version
+    fields.push({ fieldKey, value: raw });
+  }
+  if (fields.length === 0) return [];
+  await knowledge.ownerEditFields({
+    brandId,
+    userId,
+    fields,
+    proposedBy: "setup_interview",
+  });
+  return fields.map((f) => f.fieldKey);
+}
+
 // When the interview identified a real-estate agent, mark the brand as the
 // 'real_estate' brand type and persist the profile. Idempotent — re-runs
 // simply rewrite the same values. Returns true when the brand was marked.
@@ -506,6 +555,15 @@ const ACTIONS = [
             await applyRealEstateProfile(userId, recoveredBrandId, answers);
           }
           await applyOnlinePresence(userId, recoveredBrandId, answers);
+          // Crash recovery must perform the SAME durable handoff as the normal
+          // path (Section C) — both calls are idempotent (unchanged values are
+          // skipped; identical anchors are a no-op), so a re-run is safe.
+          await applyStatedFacts(userId, recoveredBrandId, answers);
+          anchorOrchestrator.onAnchorArrival({
+            userId,
+            brandId: recoveredBrandId,
+            reason: "setup_interview",
+          });
           return { status: "done", detail: "Your brand profile is already set up." };
         }
       } else {
@@ -546,6 +604,18 @@ const ACTIONS = [
         ? false
         : await applyRealEstateProfile(userId, brand.brand_id, answers);
       await applyOnlinePresence(userId, brand.brand_id, answers);
+      // Prompt 035 Section C — durable owner-fact handoff (verbatim answers →
+      // stated knowledge versions). Runs after online presence so knowledge
+      // and brand anchors land together.
+      await applyStatedFacts(userId, brand.brand_id, answers);
+      // Prompt 035 Sections D/E — anchors just arrived (name, maybe website/
+      // facebook). Kick the onboarding investigation orchestrator; it is
+      // fire-and-forget and never blocks or fails the setup step.
+      anchorOrchestrator.onAnchorArrival({
+        userId,
+        brandId: brand.brand_id,
+        reason: "setup_interview",
+      });
       return {
         status: "done",
         detail: political
@@ -569,20 +639,46 @@ const ACTIONS = [
       const slotDurationMinutes =
         Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 30;
 
+      // Prompt 035 Section C3 — the owner's explicit hours answer is
+      // authoritative. Deterministic parse only (C1-B); the default may fill
+      // ONLY a genuinely unanswered field, and an answered-but-unparseable
+      // value is reported honestly, never silently replaced.
+      const rawHours = firstAnswer(answers, ["business_hours", "opening_hours", "hours"]);
+      const answered = Boolean(rawHours) && !isRefusalAnswer(rawHours);
+      const parsed = answered ? parseBusinessHours(rawHours) : null;
+      if (answered && !parsed) {
+        // The owner DID answer but the deterministic parser can't read it.
+        // Section C3: a default may fill only a genuinely unanswered field —
+        // writing ANY placeholder schedule over explicit input is prohibited,
+        // even disclosed. Leave availability unset and ask for review; the
+        // exact wording is already saved verbatim in the knowledge substrate.
+        return {
+          status: "skipped",
+          detail: `I couldn't read "${rawHours.slice(0, 60)}" as structured hours, so I left your booking availability unset rather than guess. Your exact wording is saved — please set your hours under Appointments.`,
+        };
+      }
+      const weeklyHours = parsed ? parsed.weeklyHours : DEFAULT_WEEKLY_HOURS;
+
       const result = await invoke(appointmentController.saveAvailabilityConfig, userId, {
         params: { brandId: session.brand_id },
         body: {
           timezone,
           slotDurationMinutes,
           bufferMinutes: 0,
-          weeklyHours: DEFAULT_WEEKLY_HOURS,
+          weeklyHours,
         },
       });
       ensureOk(result, "Failed to set your availability.");
-      return {
-        status: "done",
-        detail: `Set weekday hours (9–5) with ${slotDurationMinutes}-minute appointments.`,
-      };
+      let detail;
+      if (parsed) {
+        const first = parsed.weeklyHours[0];
+        detail = `Set your stated hours (${first.start}–${first.end}, ${parsed.weeklyHours.length} day${parsed.weeklyHours.length === 1 ? "" : "s"}/week) with ${slotDurationMinutes}-minute appointments.`;
+      } else if (answered) {
+        detail = `Couldn't read "${rawHours.slice(0, 60)}" as structured hours — set a weekday 9–5 placeholder. Your exact wording is saved; please review it under Appointments.`;
+      } else {
+        detail = `Set weekday hours (9–5) with ${slotDurationMinutes}-minute appointments.`;
+      }
+      return { status: "done", detail };
     },
   },
 
@@ -1154,6 +1250,11 @@ function interviewState(answers) {
     noticesShown: raw.noticesShown && typeof raw.noticesShown === "object" ? raw.noticesShown : {},
     continueAnyway: raw.continueAnyway === true,
     knowledgeReadFailed: raw.knowledgeReadFailed === true,
+    // Prompt 035 Section H — explicit second-business entry intent, persisted
+    // in the reserved answers._interview JSONB bookkeeping (NOT a SQL column;
+    // the entry_intent column is not authorized). Survives pause/reload/
+    // restart because answers is the session's durable JSONB state.
+    entryIntent: raw.entryIntent === "new_business" ? "new_business" : raw.entryIntent === "resume" ? "resume" : null,
   };
 }
 
@@ -1347,6 +1448,12 @@ function serializeSession(session) {
  */
 async function initiateSession(req, res) {
   const userId = req.user.userId;
+  // Prompt 035 Section H — narrow second-business entry. intent is optional:
+  // absent/anything-else preserves today's behavior bit-for-bit. Only the
+  // explicit "new_business" intent changes the path: the fresh session must
+  // NOT resume an open session, must NOT bind the inventory's brand, and
+  // create_brand_profile must NOT crash-recover a prior discovery brand.
+  const intent = req.body && req.body.intent === "new_business" ? "new_business" : null;
   try {
     const existing = await db.query(
       `SELECT * FROM setup_sessions
@@ -1354,6 +1461,23 @@ async function initiateSession(req, res) {
        ORDER BY created_at DESC LIMIT 1`,
       [userId],
     );
+    // Read-only probe (Section H): lets the client decide whether to show the
+    // second-business entry choice WITHOUT creating or resuming anything. An
+    // open session means "resume in progress — don't interrupt with a choice".
+    if (req.body && req.body.probe === true) {
+      return res.json({ openSession: existing.rows.length > 0 });
+    }
+    if (intent === "new_business" && existing.rows.length > 0) {
+      // The open session belongs to the previous business. Pause it (never
+      // delete — the owner can resume it later) so the new-business session
+      // becomes the active one.
+      await db.query(
+        `UPDATE setup_sessions SET status = 'paused', paused_at = NOW(), updated_at = NOW()
+          WHERE user_id = $1 AND status = 'in_progress'`,
+        [userId],
+      );
+      existing.rows.length = 0;
+    }
     if (existing.rows.length > 0) {
       // Resuming an existing run: stamp resumed_at and clear any paused state so
       // the lifecycle (started/paused/resumed) reflects reality.
@@ -1386,8 +1510,17 @@ async function initiateSession(req, res) {
     // first turn is already gap-driven (Prompt 023). The interview always
     // still OPENS with account type (that shapes everything downstream); the
     // engine's plan takes over question selection for brand fields after.
-    const inv = await loadInterviewInventory(userId, null);
+    // Prompt 035 Section H: a new-business session must not inherit the
+    // existing brand's knowledge inventory or brand binding — it starts in
+    // sparse mode exactly like a brand-new user (every field honestly
+    // "missing"), so the gap engine can't skip questions already answered
+    // for the OTHER business.
+    const inv =
+      intent === "new_business"
+        ? { brandId: null, draftId: null, inventory: { approved: {}, pending: {}, legacy: {}, draft: {} } }
+        : await loadInterviewInventory(userId, null);
     const state = interviewState({});
+    if (intent === "new_business") state.entryIntent = "new_business";
     if (inv.readFailure) state.knowledgeReadFailed = true;
     const plan = inv.inventory ? gapEngine.buildPlan(inv.inventory) : null;
 
@@ -1472,7 +1605,13 @@ async function submitAnswer(req, res) {
 
     // Re-read the knowledge projection IMMEDIATELY before acting on the answer
     // (D-36 A3) — approvals/edits made elsewhere mid-interview change premises.
-    const inv = await loadInterviewInventory(userId, session.brand_id);
+    // Prompt 035 Section H: a new-business session with no brand yet must stay
+    // in sparse mode — resolveInterviewBrand's single-brand fallback would
+    // otherwise silently bind the OTHER business's brand and knowledge.
+    const inv =
+      state.entryIntent === "new_business" && !session.brand_id
+        ? { brandId: null, draftId: null, inventory: { approved: {}, pending: {}, legacy: {}, draft: {} } }
+        : await loadInterviewInventory(userId, session.brand_id);
     if (inv.readFailure) state.knowledgeReadFailed = true;
     const plan = !inv.readFailure && inv.inventory ? gapEngine.buildPlan(inv.inventory) : null;
 
@@ -2032,4 +2171,7 @@ module.exports = {
   resolveKnowledgeAnswer,
   buildDirectorNote,
   interviewState,
+  // Prompt 035 Stage 2 seams for tests.
+  applyStatedFacts,
+  STATED_FACT_MAP,
 };
