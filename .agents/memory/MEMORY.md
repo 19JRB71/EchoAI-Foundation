@@ -130,3 +130,5 @@
 - [EchoAI P035 PI orchestration](echoai-p035-pi-orchestration.md) — claim-time onboarding gate, no defaults over explicit input (even disclosed), recovery repeats full handoff, `_createMessage` is the interview stub seam.
 - [EchoAI evidence accounting](echoai-evidence-accounting.md) — owner-report numbers only from the D-37 fresh clone (workspace drifts); forFirstWin falls back to retained celebration→proof lineage; neutralize [[ in any authored text entering the system prompt.
 - [EchoAI volunteered-URL confirm](echoai-c2-url-confirm.md) — detect≠capture w/ _c2_url_confirm sentinel; applyOnlinePresence returns "present" not "changed" (sameAnchors dedups); normalizer href has trailing slash.
+- [EchoAI activation consent](echoai-activation-consent.md) — calendar activation is digest-bound two-phase (preview→approve); every scheduling path uses the SAME guarded boundary; 409 re-previews, never errors.
+- [Package firewall workaround](echoai-package-firewall-workaround.md) — firewall can newly 403 lockfile-pinned versions; lockfile-matched node_modules copy is safe; rebuild clones in .local, never /tmp.

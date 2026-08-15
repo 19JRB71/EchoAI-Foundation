@@ -1,0 +1,814 @@
+PROMPT 026-C1 — STAGE-2 IMPLEMENTATION AUTHORIZATION
+FINAL CONSOLIDATED ISSUE
+
+Owner + ChatGPT + Claude Stage-1 review is COMPLETE.
+
+DECISION:
+STAGE 2 IMPLEMENTATION IS AUTHORIZED subject to every scope boundary,
+amendment, regression, STOP condition, and checkpoint below.
+
+This authorization incorporates:
+
+- Replit's accepted 026-C1 Stage-1 report;
+- ChatGPT's Stage-1 review;
+- Claude's 2026-08-15 Stage-1 review ruling;
+- AM-C1-1 through AM-C1-4;
+- the two requested architectural rulings;
+- all standing D-43 / Prompt-026 constraints.
+
+Where this consolidated authorization conflicts with earlier proposed
+Stage-2 language, THIS DOCUMENT WINS.
+
+============================================================
+0. CURRENT PROJECT STATE / HARD BOUNDARY
+============================================================
+
+Prompt 026 H1 remains PAUSED throughout this implementation and
+verification cycle.
+
+The current SDS-H1 specimen remains:
+
+HALTED-BY-BLOCKING-FINDING
+
+and is FROZEN.
+
+Do not mutate it.
+
+BLACOR-H1 has NOT started.
+
+Prompt 035 / 035-C2 remains COMPLETE.
+
+Production is untouched.
+
+H2 and gates E2-E5 remain UNAUTHORIZED.
+
+Prompt 027 remains NOT STARTED.
+
+No language in this authorization permits any of those states to advance.
+
+============================================================
+1. STAGE-1 ARCHITECTURAL FINDINGS ACCEPTED
+============================================================
+
+The Stage-1 diagnosis is accepted.
+
+The social-connect failure is NOT primarily a missing-store problem.
+
+The explicit Page-selection surface already exists.
+
+The architectural gap is that guided onboarding never routes the owner
+through the explicit brand-to-destination binding step, while OAuth
+credentials and brand destination binding are intentionally separate.
+
+Binding contract remains:
+
+api_integrations
+    = credential authority
+
+social_accounts
+    = explicit brand -> social destination authority
+
+Neither is a projection of the other.
+
+Do not collapse these stores.
+
+Do not infer brand binding from credential presence.
+
+Do not use first-in-list selection.
+
+Do not backfill bindings by guessing.
+
+============================================================
+2. RULING A — DIGEST-BOUND CALENDAR CONSENT
+============================================================
+
+RATIFIED.
+
+Do NOT create a new authorization table.
+
+Do NOT add a migration.
+
+Calendar activation uses:
+
+PREVIEW
+    ->
+OWNER ARTIFACT-BOUND CONFIRMATION
+    ->
+SERVER RECONSTRUCTION
+    ->
+DIGEST RECOMPUTATION
+    ->
+ACTIVATION
+
+The server constructs the activation artifact from authoritative
+server-side state.
+
+The preview/confirmation artifact must identify at minimum:
+
+- eligible post count;
+- date/date range;
+- platform(s);
+- explicit brand destination(s);
+- stale/excluded count;
+- unbound-platform/excluded count.
+
+The digest must be deterministic.
+
+Same logical artifact = same digest.
+
+Input ordering must NOT change the digest.
+
+The owner confirmation must occur under the authenticated owner/session
+and current-brand context.
+
+Client-supplied artifact details are NOT authority.
+
+A client returning a digest is NOT by itself authorization.
+
+Inside the activation transaction, the server must independently
+reconstruct current authoritative state and recompute the digest.
+
+Activation proceeds ONLY when:
+
+1. owner/session/brand context remains valid;
+2. current artifact is activation-eligible;
+3. recomputed digest exactly matches the confirmed digest.
+
+Any edit, regeneration, re-slotting, destination change, stale-state
+change, binding change, or other artifact mutation that changes the
+artifact must invalidate the old confirmation structurally.
+
+Never weaken the digest check to make intermittent failures disappear.
+
+============================================================
+3. ZERO-DDL DURABLE CONSENT ECHO CONDITION
+============================================================
+
+Stage 2 must inspect the accepted current data model for an EXISTING,
+semantically legitimate JSONB/state location on the calendar or
+equivalent owning record capable of retaining a durable consent echo.
+
+IF such a legitimate existing location exists, record at confirmation
+time, at minimum:
+
+{
+  digest,
+  confirmedAt,
+  activatedCount,
+  excludedStaleCount,
+  excludedUnboundCount,
+  destination
+}
+
+or the structurally equivalent representation appropriate to the
+existing store.
+
+This echo is evidence of:
+
+"the owner approved exactly this activation artifact."
+
+It is NOT a new authorization regime and must not become a parallel
+source of authority.
+
+The transaction's server-side reconstruction + digest comparison remains
+the actual structural activation gate.
+
+IF NO semantically legitimate zero-DDL home exists:
+
+DO NOT invent one.
+DO NOT overload unrelated fields.
+DO NOT add schema.
+
+Report that finding in the pre-merge reconciliation.
+
+In that case, the approved transaction records + truthful response are
+sufficient for this cycle and a durable calendar-consent-record issue is
+filed for future adjudication.
+
+ANY proposed DDL or migration:
+
+STOP AND REPORT.
+
+============================================================
+4. RULING B — NINE SCHEDULED-ENTRY PATHS
+============================================================
+
+The Stage-1 nine-path enumeration is ACCEPTED.
+
+It does NOT trigger a STOP condition.
+
+The enumeration requirement was about exhaustive coverage, not a numeric
+cap.
+
+The accepted architectural result is:
+
+- onboarding social_schedule and normal calendar activation share the
+  same bulk activation implementation;
+- that shared activation boundary is corrected once.
+
+Do NOT widen this corrective merely because other accepted paths can
+produce scheduled posts.
+
+Existing authorization regimes remain untouched unless implementation
+discovers a direct contradiction with the accepted Stage-1 model.
+
+In particular, do NOT modify merely because they reach scheduled:
+
+- manual scheduling;
+- rescheduling;
+- autopilot;
+- voice approval;
+- staging-proof machinery;
+- real-estate automation.
+
+Real-estate autonomous behavior is now FILED AS I-57 for later
+adjudication.
+
+I-57 is NOT fixed here.
+
+If implementation proves one of those paths is inseparable from the
+shared corrective in a way that contradicts Stage 1:
+
+STOP AND REPORT.
+
+Do not self-expand scope.
+
+============================================================
+5. AM-C1-1 — UNBOUND-PLATFORM ACTIVATION
+============================================================
+
+This amendment is BINDING.
+
+A calendar may contain draft posts for a platform for which the current
+brand has NO explicit social_accounts destination binding.
+
+Such posts MUST NOT be activated.
+
+Required behavior:
+
+- classify them as excluded-unbound;
+- leave them as drafts;
+- surface the exclusion explicitly in preview;
+- surface the exclusion explicitly in confirmation;
+- surface the exclusion truthfully after activation;
+- never schedule them "to nowhere";
+- never infer a destination;
+- never use first-in-list;
+- never block valid bound-platform posts merely because another
+  platform is unbound.
+
+This follows the same fail-closed philosophy as stale-post exclusion.
+
+Valid bound + future-eligible drafts may activate.
+
+Unbound drafts remain drafts.
+
+Regression required below.
+
+============================================================
+6. AM-C1-2 — SKIP AT CALENDAR CONSENT GATE
+============================================================
+
+This amendment is BINDING.
+
+If the owner selects Skip at the new social_schedule activation/consent
+gate:
+
+- ZERO calendar drafts are activated;
+- ALL drafts remain unscheduled;
+- step_outcomes records social_schedule = skipped;
+- completed_steps must not falsely represent the step as successfully
+  completed;
+- reload must preserve the skipped truth;
+- the runner may continue ONLY into the remaining authorized
+  internal-only setup steps;
+- Skip must never silently mean Approve;
+- Skip must never trigger activation.
+
+Regression required below.
+
+============================================================
+7. IMPLEMENTATION — SOCIAL DESTINATION BINDING
+============================================================
+
+Implement the accepted Stage-1 J18 design.
+
+The guided onboarding journey must use the existing explicit
+owner-selection surface/contract rather than inventing an implicit
+binding.
+
+Required connect_social state model:
+
+STATE A:
+explicit brand/platform destination binding exists.
+
+Result:
+truthfully complete/continue according to existing accepted behavior.
+
+STATE B:
+credentials exist but explicit brand/platform binding does NOT exist.
+
+Result:
+route owner through explicit Page/destination selection.
+
+Do not silently choose a Page.
+
+STATE C:
+credentials absent.
+
+Result:
+route through the existing connection path, followed by explicit
+destination selection where required.
+
+Also implement bounded honest handling of DB/system errors.
+
+Reconnect must be idempotent.
+
+Existing UNIQUE(brand_id, platform) behavior remains authoritative.
+
+No implicit first-page binding.
+
+No guessed historical backfill.
+
+No cross-brand destination leakage.
+
+============================================================
+8. STEP-OUTCOME TRUTH
+============================================================
+
+Use the existing setup_sessions.answers JSONB substrate for atomic
+step_outcomes truth.
+
+No migration.
+
+The Stage-1 identified consumer surface must be updated coherently.
+
+The durable distinction must survive reload:
+
+completed != skipped != failed/deferred where applicable.
+
+completed_steps may remain only as the compatibility/terminal runner
+state required by existing architecture.
+
+It must not remain the authoritative semantic answer to:
+
+"Did this step actually succeed?"
+
+The same-statement/atomic persistence design accepted in Stage 1 must be
+preserved so the stores cannot silently diverge.
+
+Do NOT turn this into a general onboarding-state rewrite.
+
+============================================================
+9. CALENDAR ACTIVATION
+============================================================
+
+Replace the unsafe onboarding auto-activation behavior with the accepted
+shared activation gate.
+
+Required behavior:
+
+draft calendar
+    ->
+server preview
+    ->
+owner artifact-bound confirmation
+    ->
+server-side authoritative reconstruction
+    ->
+digest recomputation
+    ->
+future/bound/stale reconciliation
+    ->
+activation
+
+No zero-click activation.
+
+No inherited generic consent.
+
+No scheduling merely because onboarding reached social_schedule.
+
+The owner must see what is about to be activated.
+
+============================================================
+10. FUTURE-ONLY + STALE RECONCILIATION
+============================================================
+
+Preserve the Stage-1 accepted future-only predicate and safety margin.
+
+Posts outside the eligible future window must NOT activate.
+
+Stale/excluded drafts remain drafts.
+
+They must be explicitly surfaced.
+
+A stale draft must not silently disappear.
+
+A stale draft must not silently activate.
+
+Valid future drafts may activate while stale drafts remain drafts.
+
+No silent partial activation.
+
+If eligible count and actual activated count disagree in a manner not
+explained by the explicit exclusion classes:
+
+ROLL BACK / FAIL CLOSED according to the accepted Stage-1 design.
+
+============================================================
+11. PROVIDER FAILURE / EVIDENCE SEMANTICS
+============================================================
+
+Preserve D-30 semantics.
+
+Pre-provider failures remain OUT of external_actions.
+
+Do not create fake provider-attempt evidence for failures that occurred
+before provider contact.
+
+Extend the accepted owning-post evidence with truthful failure_stage
+where authorized by Stage 1.
+
+Owner-facing surfaces must distinguish failures truthfully.
+
+Never say:
+
+"Facebook rejected the post"
+
+when Facebook was never contacted.
+
+The frozen SDS failed row is EVIDENCE.
+
+Do NOT mutate it.
+
+============================================================
+12. SHARED ACTIVATION BOUNDARY REGRESSION
+============================================================
+
+Add a structural regression binding that BOTH:
+
+- onboarding social_schedule; and
+- normal content-calendar activation
+
+reach the SAME guarded activation implementation.
+
+The regression must make it difficult for either caller to bypass:
+
+- explicit destination binding;
+- future-only eligibility;
+- stale reconciliation;
+- unbound-platform exclusion;
+- server-recomputed digest verification;
+- artifact-bound owner confirmation.
+
+Do NOT satisfy this requirement with two unrelated mocked tests that
+merely happen to assert similar outputs.
+
+Bind the shared boundary itself.
+
+============================================================
+13. REGRESSION MATRIX — R1 THROUGH R27
+============================================================
+
+Implement and run the complete accepted Stage-1 R1-R25 matrix, amended
+as follows.
+
+R26 — UNBOUND PLATFORM / SHARED BOUNDARY
+
+Bind:
+
+A. posts for an unbound platform remain drafts;
+B. exclusion is surfaced in preview/confirmation;
+C. valid posts for bound platforms may still activate;
+D. no inferred destination;
+E. no schedule-to-nowhere;
+F. onboarding and calendar callers reach the same guarded activation
+   implementation.
+
+R27 — SKIP AT CONSENT GATE
+
+Bind:
+
+A. owner Skip activates zero drafts;
+B. all drafts remain unscheduled;
+C. step_outcomes records skipped;
+D. reload preserves skipped truth;
+E. completed_steps does not falsely imply successful activation;
+F. internal-only downstream setup may continue where otherwise
+   authorized.
+
+Additionally strengthen the digest regressions in R14/R15 or their
+accepted equivalent:
+
+- identical logical artifact -> identical digest;
+- digest independent of input ordering;
+- changed artifact -> changed digest;
+- regenerated/edited artifact cannot use old confirmation;
+- destination change invalidates old confirmation.
+
+All relevant 024 regressions remain green.
+
+All relevant provider/external-action regressions remain green.
+
+============================================================
+14. ACCEPTED FILE / DIFF BOUND
+============================================================
+
+Stage-1 file arithmetic is reconciled as follows.
+
+AUTHORIZED CEILING:
+
+<=20 total changed files
+
+and:
+
++1,700 / -250
+
+This is a CEILING, not a target.
+
+The expected coherent surface remains approximately:
+
+- <=10 production implementation files;
+- required regression/test files;
+- client/SW artifacts required by the accepted UI change/build.
+
+Do not create files merely because room exists.
+
+Standing >25% rule applies:
+
+If mid-work evidence shows the running implementation will exceed the
+PADDED authorized diff bound by >25%:
+
+STOP AND REPORT BEFORE writing further.
+
+Do not finish first and rationalize the overage afterward.
+
+Any migration file:
+
+IMMEDIATE STOP.
+
+Any unexpected file indicating scope expansion:
+
+STOP AND REPORT before proceeding.
+
+============================================================
+15. HARD NON-SCOPE
+============================================================
+
+DO NOT implement or fix:
+
+I-50
+I-52
+I-53
+I-54
+I-55
+I-56
+I-57
+
+Do NOT fix the separable OAuth callback pages[0] suggestion.
+
+Do NOT rewrite legacy campaign connection paths.
+
+Do NOT rewrite real-estate automation.
+
+Do NOT modify the accepted autopilot authorization regime.
+
+Do NOT rewrite Prompt 024.
+
+Do NOT rewrite Prompt 033.
+
+Do NOT change spine / executeExternal / D-30 semantics.
+
+Do NOT introduce TEST/KEEP product logic.
+
+Do NOT introduce per-publish approval.
+
+Do NOT backfill existing brand bindings by guessing.
+
+Do NOT alter the question catalog.
+
+Do NOT resume I-50 solicitation work.
+
+Do NOT touch the frozen SDS-H1 specimen.
+
+Do NOT start BLACOR-H1.
+
+Do NOT start H2.
+
+Do NOT start Prompt 027.
+
+Do NOT touch production.
+
+============================================================
+16. IMPLEMENTATION DISCIPLINE
+============================================================
+
+Use D-37 fresh-clone discipline.
+
+Implementation branch starts from the verified staging baseline:
+
+5dcf8fc...
+
+Record the exact full baseline SHA before writing.
+
+Do not use the stale workspace tree as authority.
+
+Implement only the authorized package.
+
+Run the complete required suites from the accepted baselines:
+
+SERVER BASELINE:
+1437
+
+CLIENT BASELINE:
+440
+
+Return exact arithmetic.
+
+No projected counts.
+
+Observed counts only.
+
+Run production client build.
+
+Because client changes are expected, perform the standing SW/cache bump
+and prove that the rebuilt bundle contains the expected new cache
+version.
+
+Perform:
+
+- exact changed-file accounting;
+- D-32 deletion review;
+- regression accounting;
+- no-schema proof;
+- frozen-specimen preservation proof;
+- production-untouched proof.
+
+D-23 redaction remains mandatory.
+
+============================================================
+17. NO-DDL PROOF
+============================================================
+
+Expected schema/migration change:
+
+ZERO.
+
+At pre-merge return, prove:
+
+- no migration files added;
+- no migration files modified;
+- schema_migrations source set unchanged;
+- no DDL in the branch diff.
+
+If implementation encounters a legitimate requirement for schema:
+
+STOP.
+
+Do not improvise.
+
+============================================================
+18. LIVE VERIFICATION — NOT YET AUTHORIZED
+============================================================
+
+Stage 2 ends at PRE-MERGE.
+
+Do NOT merge.
+
+Do NOT deploy.
+
+Do NOT perform live staging smoke.
+
+The Stage-1 live-verification plan is accepted for a later separately
+authorized post-merge step, including the added unbound-platform case.
+
+It is NOT authorized by this document.
+
+============================================================
+19. PRE-MERGE CHECKPOINT RETURN
+============================================================
+
+When implementation and local verification are complete:
+
+HARD STOP BEFORE MERGE.
+
+Return one report titled:
+
+PROMPT 026-C1 — STAGE-2 PRE-MERGE RECONCILIATION
+
+It must contain:
+
+1. implementation branch;
+2. PR number, explicitly marked DO NOT MERGE;
+3. exact staging baseline SHA;
+4. exact PR head SHA;
+5. verbatim changed-file list;
+6. per-file purpose;
+7. exact insertions/deletions;
+8. total changed-file count vs <=20 ceiling;
+9. diff-bound accounting vs +1700/-250;
+10. D-32 deletion review;
+11. server baseline arithmetic from 1437;
+12. full observed server result;
+13. client baseline arithmetic from 440;
+14. full observed client result;
+15. production client build result;
+16. SW/cache bump and built-artifact proof;
+17. R1-R27 individual accounting;
+18. relevant 024 regression results;
+19. relevant external-action/provider-boundary regression results;
+20. exact connect_social three-state behavior;
+21. proof no first-in-list brand binding exists;
+22. explicit owner Page-selection proof;
+23. reconnect/idempotency proof;
+24. multi-brand isolation proof;
+25. step_outcomes persistence proof;
+26. reload/skipped-vs-completed proof;
+27. exact consumer-site changes;
+28. shared activation-boundary structural proof;
+29. artifact preview structure;
+30. authenticated owner/session/brand confirmation binding proof;
+31. deterministic digest proof;
+32. input-order-independent digest proof;
+33. server-side digest recomputation proof;
+34. regeneration/edit/destination-change mismatch rejection proof;
+35. durable consent-echo location and exact representation, OR explicit
+    finding that no semantically legitimate zero-DDL home exists;
+36. future-only activation proof;
+37. stale exclusion/reconciliation proof;
+38. unbound-platform exclusion proof;
+39. mixed bound/unbound activation proof;
+40. Skip-at-consent-gate proof;
+41. pre-provider failure evidence proof;
+42. external_actions D-30 preservation proof;
+43. owner-visible failure-stage truth proof;
+44. schema/migration zero-change proof;
+45. frozen SDS specimen preservation proof;
+46. production/main untouched proof;
+47. BLACOR-H1 untouched proof;
+48. Prompt 026 H1 still paused proof;
+49. all deviations;
+50. all STOP conditions encountered;
+51. any newly discovered architectural contradiction;
+52. final statement:
+
+"026-C1 STAGE-2 IMPLEMENTATION COMPLETE — PRE-MERGE ONLY.
+NO MERGE OR DEPLOYMENT PERFORMED.
+AWAITING OWNER + CHATGPT + CLAUDE REVIEW."
+
+============================================================
+20. STOP CONDITIONS
+============================================================
+
+STOP AND REPORT immediately if:
+
+- any migration/DDL appears necessary;
+- explicit owner Page selection cannot be wired without redesigning the
+  accepted stores;
+- implementation requires implicit/first-in-list binding;
+- shared activation cannot be protected without modifying an
+  out-of-scope accepted authorization regime;
+- durable consent echo would require abusing an unrelated field;
+- future-only reconciliation cannot fail closed;
+- unbound-platform posts cannot remain drafts safely;
+- Skip cannot remain zero-activation;
+- D-30 ledger semantics would need changing;
+- frozen SDS evidence would need mutation;
+- production access/write becomes necessary;
+- running padded diff bound is projected to exceed authorization by
+  >25%;
+- an unexpected file indicates scope expansion;
+- any governing invariant conflicts with implementation.
+
+Do not work around a STOP.
+
+Do not repair adjacent findings.
+
+Report and wait for owner ruling.
+
+============================================================
+21. FINAL EXECUTION ORDER
+============================================================
+
+Implement 026-C1 Stage 2 only.
+
+Then:
+
+TEST
+    ->
+ACCOUNT
+    ->
+PRE-MERGE REPORT
+    ->
+STOP
+
+NO MERGE.
+NO DEPLOY.
+NO LIVE SMOKE.
+NO SDS-H1 RESTART.
+NO BLACOR-H1.
+NO H2.
+NO PROMPT 027.
+NO PRODUCTION CHANGE.
+
+BEGIN PROMPT 026-C1 STAGE 2.
