@@ -1,0 +1,636 @@
+PROMPT 035 — STAGE 2 CONDITIONAL-ACCEPTANCE CORRECTION
+035-C1 — CONVERSATIONAL-PATH EARLY BRAND CREATION
+
+Owner + ChatGPT + Claude acceptance review is complete.
+
+OVERALL RULING:
+
+PROMPT 035 STAGE 2 = CONDITIONAL ACCEPTANCE.
+
+The implementation is NOT rejected.
+
+All reviewed Stage-2 areas are accepted as implemented except for ONE
+bounded acceptance-blocking correction:
+
+035-C1 — conversational-path early brand creation.
+
+There is also ONE non-blocking reporting duty concerning timing-event
+coverage.
+
+Nothing else is authorized.
+
+============================================================
+A. CURRENT AUTHORIZATION
+============================================================
+
+You are authorized ONLY to implement and verify correction 035-C1 as
+defined below.
+
+DO NOT:
+
+- push;
+- merge;
+- deploy;
+- touch production;
+- resume Prompt 026 H1;
+- begin Prompt 026 H2;
+- begin Prompt 027;
+- build a pre-brand research substrate;
+- add schema or migrations;
+- create a second research engine;
+- rewrite Prompt 022;
+- rewrite Prompt 023;
+- rewrite Prompt 024;
+- expand Prompt 035 into unrelated onboarding work;
+- touch Stripe;
+- touch Hermes;
+- perform Echo -> Boz rename work;
+- perform navigation/admin/graphics redesign;
+- fix unrelated backlog items;
+- touch the frozen pre-035 SDS account.
+
+Work only on the existing Prompt-035 implementation branch and preserve
+all already-accepted Stage-2 behavior.
+
+============================================================
+B. WHY THIS CORRECTION IS REQUIRED
+============================================================
+
+Acceptance review confirmed that H1-F2 is only PARTIALLY CLOSED.
+
+The guided-wizard path now behaves correctly:
+
+anchors arrive
+    ->
+Tier-A research begins within seconds
+    ->
+heavier consolidation can coalesce separately.
+
+However, the primary conversational setup path still has a structural
+delay.
+
+Evidence from the live H1 experience indicates that the conversational
+interview can run for approximately 25 minutes before consent/execution.
+
+Under the current Stage-2 implementation, the brand row does not exist
+until that late consent/execution point.
+
+Because the existing research substrate attaches research to a brand,
+Sage therefore cannot perform the new anchor-driven research during those
+~25 minutes.
+
+The result is:
+
+owner supplies business identity
+    ->
+owner supplies more anchors
+    ->
+owner continues answering questions
+    ->
+Sage remains unable to use those anchors
+    ->
+brand finally exists
+    ->
+research begins.
+
+That recreates the core H1-F2 problem on the conversational path.
+
+It also weakens the intended Boz/Sage relationship:
+
+Boz cannot ask increasingly intelligent gap-based questions during the
+interview if Sage has not been allowed to investigate yet.
+
+This is acceptance-blocking because the conversational interview is a
+primary onboarding surface and Prompt 035's central product objective is
+to make setup progressively productive rather than serial.
+
+============================================================
+C. ARCHITECTURAL RULING
+============================================================
+
+DO NOT solve this by creating pre-brand research infrastructure.
+
+Specifically, DO NOT add:
+
+- temporary research identities;
+- pre-brand research tables;
+- new candidate stores;
+- additional migrations;
+- a parallel provenance system;
+- a second research engine;
+- a temporary Company Truth system.
+
+The accepted architecture remains:
+
+ONE real brand
++
+ONE existing research substrate
++
+ONE existing provenance/truth architecture.
+
+The correction is narrower:
+
+MOVE THE EXISTING BRAND-CREATION EVENT EARLIER.
+
+============================================================
+D. REQUIRED BEHAVIOR
+============================================================
+
+In the conversational setup path:
+
+Once the BUSINESS NAME / BUSINESS IDENTITY has been sufficiently confirmed
+by the owner to establish the business being onboarded, create the brand
+row through the EXISTING brand-creation path.
+
+Do not wait until the end-of-interview consent/execution point merely to
+create the brand.
+
+The early-created brand becomes the real onboarding brand for that setup
+session.
+
+After that:
+
+1. The setup session is explicitly bound to that brand.
+
+2. Subsequent identity anchors collected during the interview persist to
+   the correct existing brand fields using the accepted Prompt-035 paths.
+
+3. Existing onAnchorArrival / Tier-A machinery can fire as those anchors
+   arrive.
+
+4. Sage research can therefore proceed asynchronously WHILE the owner
+   continues talking to Boz.
+
+5. Candidate discovery may be used conversationally where appropriate.
+
+Example desired experience:
+
+Owner:
+"South Dixie Storage."
+
+System:
+creates/binds the real onboarding brand once identity confirmation is
+sufficient.
+
+Sage:
+can begin candidate investigation.
+
+Later owner supplies:
+southdixiestorage.com
+
+Existing anchor machinery:
+enriches/confirms against the website.
+
+Later owner supplies:
+Facebook identity.
+
+Existing anchor machinery:
+enriches/confirms against Facebook.
+
+Meanwhile:
+Boz continues setup and may use the existing Prompt-023 gap machinery as
+research produces useful confirmed/gap state.
+
+Research starts automatically.
+
+Approval does NOT.
+
+The sacred approval/truth boundary remains unchanged.
+
+============================================================
+E. BUSINESS-NAME CONFIRMATION BOUNDARY
+============================================================
+
+Do not create brands from arbitrary partial text or every conversational
+utterance.
+
+Identify the narrowest existing point where the conversational setup flow
+has enough owner-confirmed business-name identity to create the brand
+honestly.
+
+Use the existing creation path.
+
+If the current flow already has a clear confirmation step/state, reuse it.
+
+Do not invent an additional broad onboarding subsystem.
+
+Document the exact event/state chosen and why it represents sufficient
+owner confirmation.
+
+============================================================
+F. REQUIRED ABANDONMENT / RESUME BEHAVIOR
+============================================================
+
+Moving brand creation earlier introduces one important lifecycle issue:
+
+the owner may abandon setup after the brand has been created but before
+the interview is complete.
+
+This MUST NOT create duplicate brands or confusing second-business
+behavior.
+
+Required behavior:
+
+If an interview-created brand exists and its setup session remains
+incomplete:
+
+- resume must bind back to THAT SAME brand;
+- the incomplete brand is treated as the resume target for that setup;
+- resuming must NOT create another brand;
+- the second-business entry-choice logic must remain correct;
+- the incomplete brand must not cause the product to misleadingly ask the
+  owner to create another business when what actually exists is an
+  unfinished onboarding;
+- existing brand/session isolation remains intact.
+
+Do not solve abandonment by deleting history.
+
+Do not silently delete the early-created brand.
+
+Use the existing session/brand lifecycle wherever possible.
+
+============================================================
+G. REQUIRED REGRESSIONS — ALL FOUR ARE MANDATORY
+============================================================
+
+Add explicit named regression coverage for:
+
+1. BRAND CREATED AT NAME CONFIRMATION
+
+Prove the conversational path creates the onboarding brand at the chosen
+business-name confirmation boundary rather than waiting until final
+consent/execution.
+
+2. ANCHORS FIRE MID-INTERVIEW
+
+After the brand exists, prove a later website/social/provider anchor
+collected during the SAME ongoing conversational interview reaches the
+existing anchor-arrival machinery and can initiate the correct Tier-A
+research without waiting for interview completion.
+
+3. ABANDONED INTERVIEW RESUME REUSES BRAND — NO DUPLICATE
+
+Create brand early.
+Leave interview incomplete.
+Resume setup.
+Prove the same brand is reused.
+Prove no duplicate brand is created.
+
+4. ENTRY CHOICE REMAINS CORRECT WITH INCOMPLETE BRAND
+
+Prove the Prompt-035 second-business/new-business entry behavior still
+works correctly when an incomplete interview-created brand exists.
+
+The system must distinguish:
+
+resume unfinished onboarding
+
+from
+
+set up another business.
+
+Do not weaken existing H1-F1 regressions to make this pass.
+
+============================================================
+H. PRESERVATION REGRESSIONS
+============================================================
+
+In addition to the four required C1 regressions, rerun the relevant
+existing Prompt-035 tests proving that this change does NOT break:
+
+- intent:"new_business";
+- session/brand binding;
+- cross-brand isolation;
+- candidate-only isolation;
+- owner-stated provenance;
+- phone handoff;
+- address handoff;
+- email handoff;
+- explicit business-hours handling;
+- explicit-but-unparseable hours -> UNSET;
+- owner approval boundary;
+- Tier-A single-flight behavior;
+- Tier-B identity gate;
+- anchor dedupe;
+- AI budget cap;
+- Company Truth approval;
+- Prompt-023 gap behavior;
+- Prompt-024 consent safety;
+- timing instrumentation;
+- ownership validation.
+
+Run the full server and client suites again.
+
+Run the production client build again.
+
+Do not merely run the four new tests.
+
+============================================================
+I. TIMING-EVENT REPORTING DUTY
+============================================================
+
+This is NOT an implementation blocker unless inspection reveals an actual
+bug.
+
+The acceptance review accepted the current best-effort client timing-event
+design, but identified a reporting risk:
+
+lost timing events could undercount active-owner time and therefore make
+onboarding performance look better than it actually was.
+
+Do not redesign the timing system in this correction unless required for
+correctness.
+
+Instead, bind this reporting requirement into the eventual fresh SDS-H1
+rerun:
+
+The timing report MUST disclose event coverage alongside its timing
+figures.
+
+Report, as supported by the implementation:
+
+- expected vs received timing events and/or equivalent coverage evidence;
+- heartbeat continuity where applicable;
+- wall-clock elapsed time;
+- active-owner time;
+- background/system time where measurable;
+- owner-idle time where measurable;
+- any event gaps or instrumentation failures.
+
+A flattering active-time figure may NOT be presented without coverage
+context.
+
+Record this reporting duty now so it survives into the H1 restart.
+
+============================================================
+J. ACCEPTED NON-BLOCKING LIMITATION
+============================================================
+
+The existing in-process coalescing timer limitation is ACCEPTED for the
+current single-node staging/H1 cycle.
+
+Do not redesign it in 035-C1.
+
+Record:
+
+- process restart can drop a pending in-process coalesce window;
+- recovery is honest through subsequent anchor/manual triggering;
+- the DB-backed budget cap survives restart;
+- this cannot silently become an AI-budget bypass.
+
+Also record it as a mandatory H2/production preflight item:
+
+If production architecture is multi-replica or otherwise requires durable
+scheduling, durable coalescing/scheduling must be adjudicated before H2
+production execution.
+
+That future issue is NOT authorized here.
+
+============================================================
+K. STAGE-1 RECORD CORRECTION
+============================================================
+
+Record the acceptance-review finding that Prompt-035 Stage 1 contained one
+partially incorrect headline claim.
+
+Stage 1 stated that real staging already auto-started Sage research in the
+guided wizard.
+
+Stage 2 pre-wiring mapping subsequently established that the
+SageResearchPanel was click-only and no such automatic start existed.
+
+The Stage-2 C6 precondition caught the incorrect assumption before wiring,
+so it did not corrupt the implementation.
+
+Record the correction honestly.
+
+Do not rewrite history to make Stage 1 appear correct.
+
+The lesson is:
+
+the pre-wiring verification worked as intended.
+
+============================================================
+L. DO NOT DISTURB THE ALREADY-ACCEPTED AREAS
+============================================================
+
+The acceptance review PASSED the following Stage-2 areas:
+
+- provenance/truth architecture;
+- candidate structural isolation;
+- Tier-A/Tier-B architecture;
+- AI budget/churn controls;
+- 45-second heavy-work coalescing;
+- in-process timer for current staging scope;
+- H1-F1 second-business implementation;
+- H1-F3 owner-fact handoff;
+- silent-default/hours fix;
+- migrations 141/142;
+- test-integrity explanation;
+- changed-file/scope accounting;
+- all four architect-review corrections;
+- frozen SDS-H1 preservation;
+- security/isolation on current evidence.
+
+Do not reopen or redesign those areas unless 035-C1 directly requires a
+minimal compatibility change.
+
+If C1 unexpectedly requires violating one of those accepted boundaries:
+
+STOP AND REPORT.
+
+Do not improvise.
+
+============================================================
+M. FROZEN SDS-H1 STATE
+============================================================
+
+The frozen pre-035 SDS-H1 specimen remains untouched.
+
+Do not:
+
+- repair it;
+- reuse it as final H1 evidence;
+- delete it;
+- mutate its internal history;
+- treat it as the fresh post-035 run.
+
+The future Prompt-026 H1 restart will use a NEW fresh SDS account after
+Prompt 035 has been accepted, merged, deployed and verified on staging.
+
+Also retain the existing note that the frozen account contains future
+scheduled posts that may claim-and-fail recurringly.
+
+Do not fix those in C1.
+
+The H1 restart preflight will verify that any resulting alert noise is
+bounded.
+
+============================================================
+N. VERIFICATION / D-37
+============================================================
+
+Before editing, preserve/record the current Prompt-035 Stage-2 branch
+baseline.
+
+After the bounded correction:
+
+1. provide the exact changed-file delta attributable ONLY to 035-C1;
+
+2. provide deletion accounting for C1;
+
+3. run the four mandatory C1 regressions;
+
+4. run the relevant preservation regressions;
+
+5. run the complete server suite;
+
+6. run the complete client suite;
+
+7. run the production client build;
+
+8. compare against the accepted Stage-2 result:
+
+   server 1414/1414
+   client 440/440
+   build green
+
+Test totals may legitimately increase because C1 adds regressions.
+
+No unexplained regression, skipped test, weakened assertion, or removed
+sentinel is acceptable.
+
+============================================================
+O. STOP CONDITIONS
+============================================================
+
+STOP AND REPORT immediately if:
+
+- early brand creation requires new schema;
+- early brand creation requires a third migration;
+- pre-brand research infrastructure appears necessary;
+- a second research engine appears necessary;
+- existing provenance vocabulary must be changed;
+- candidate findings would enter approved knowledge;
+- owner approval would need to weaken;
+- H1-F1 second-business behavior cannot coexist safely with early brand
+  creation;
+- abandoned interviews cannot resume without duplicate-brand risk;
+- cross-brand/account isolation is weakened;
+- Prompt-022 single-flight/budget rules must be bypassed;
+- production would need to be touched;
+- the frozen SDS account would need mutation;
+- the correction expands materially beyond the bounded C1 scope.
+
+Do not solve a STOP condition yourself.
+
+Return it for owner + ChatGPT + Claude review.
+
+============================================================
+P. REQUIRED RETURN
+============================================================
+
+When 035-C1 is complete, return a COMPLETE correction report containing:
+
+1. exact implementation summary;
+
+2. exact business-name confirmation boundary chosen;
+
+3. exact early-brand creation path reused;
+
+4. session -> brand binding behavior;
+
+5. mid-interview anchor behavior;
+
+6. abandoned-interview lifecycle behavior;
+
+7. second-business entry behavior after C1;
+
+8. all four mandatory regression results;
+
+9. preservation-regression results;
+
+10. full server-suite result;
+
+11. full client-suite result;
+
+12. production client-build result;
+
+13. before/after D-37 baseline comparison;
+
+14. exact files changed for C1;
+
+15. exact lines added/deleted where available;
+
+16. confirmation no schema/migration was added;
+
+17. confirmation no pre-brand substrate was created;
+
+18. confirmation no second research engine was created;
+
+19. confirmation provenance vocabulary unchanged;
+
+20. confirmation candidate isolation unchanged;
+
+21. confirmation approval boundary unchanged;
+
+22. timing-event coverage reporting duty recorded;
+
+23. in-process timer/H2-preflight limitation recorded;
+
+24. Stage-1 incorrect-auto-start claim correction recorded;
+
+25. frozen SDS specimen status;
+
+26. any deviations or unexpected findings;
+
+27. your recommendation:
+    ACCEPT 035-C1
+    or
+    HOLD.
+
+Then STOP.
+
+============================================================
+Q. WHAT REMAINS UNAUTHORIZED
+============================================================
+
+Even if every test is green:
+
+DO NOT PUSH.
+DO NOT MERGE.
+DO NOT DEPLOY.
+
+The correction evidence returns first for owner + ChatGPT + Claude final
+acceptance.
+
+Only after final acceptance will a separate package authorize, as
+appropriate:
+
+commit
+    ->
+PR under D-18
+    ->
+PR diff review
+    ->
+D-32 deletion review / SENTINELS
+    ->
+merge
+    ->
+STAGING-ONLY deployment
+    ->
+deployed SHA verification
+    ->
+migrations 141/142 verification
+    ->
+service-worker cache bump verification
+    ->
+post-deploy staging regressions/sentinels
+    ->
+fresh SDS-H1 restart.
+
+Production remains unauthorized.
+Prompt 026 H2 remains unauthorized.
+Prompt 027 remains unauthorized.
+
+BEGIN ONLY 035-C1.
