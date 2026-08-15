@@ -1,0 +1,406 @@
+PROMPT 026-C1 — CONDITIONAL ACCEPTANCE + SDS-H1 RESTART AUTHORIZATION
+
+Claude's Section-R ruling has been reviewed by owner + ChatGPT.
+
+OWNER/CHATGPT RULINGS
+
+1. 026-C1 is CONDITIONALLY ACCEPTED.
+
+No further C1 implementation work is authorized.
+
+The remaining live C1 verification is to be performed at the FRONT of
+the fresh SDS-H1 rerun, exactly as classified in Claude's Section-R
+ruling.
+
+2. D-37 clarification is RATIFIED:
+
+When /tmp is unavailable, a fresh .local clone is permissible ONLY when
+HEAD is explicitly verified immediately before every accounting run.
+
+This is a narrow fallback rule, not permission to use stale workspace
+trees.
+
+3. STAGING BETA CAPACITY RULING:
+
+Owner authorizes changing staging beta_settings.max_slots to 15.
+
+This is a deliberate staging capacity decision for the remaining H1
+work, NOT a temporary verification workaround.
+
+Do not alter production capacity.
+
+Do not later reduce or otherwise change this value without a separate
+owner ruling.
+
+4. Locked P035 identities remain LOCKED.
+
+Do not reuse them.
+Do not unlock them.
+Do not add C1/H1 state to them.
+
+Their historical evidence remains preserved.
+
+5. I-58 is accepted as OPEN:
+
+suite-load test flakiness class:
+- sageV2
+- brandKnowledgeCorrective
+
+It does not block the present H1 run and is not authorized for repair
+now.
+
+============================================================
+PHASE A — PREFLIGHT ONLY
+============================================================
+
+Before asking the owner to begin SDS-H1:
+
+A1. Apply ONLY the owner-authorized staging max_slots change:
+
+10 -> 15
+
+A2. Read back and report:
+
+- beta_settings.max_slots
+- current used-slot count
+- available-slot count
+
+A3. Provide the PQ1 evidence preamble required by the prior ruling:
+
+- current max_slots from a read result;
+- current used-slot count vs cap;
+- confirm whether any non-TEST registration occurred or was blocked
+  during the earlier temporary capacity-bump window.
+
+Do not infer the third item. Report only what the available evidence
+actually supports.
+
+A4. Preserve the P035 password-reset caveat in the evidence index:
+
+the retained P035 specimen's users row received a post-hoc
+password_hash change on 2026-08-15; historical setup/research evidence
+was not changed.
+
+A5. Confirm staging still serves:
+
+merge SHA:
+513cab801fe711b92dfb68274d35f81c3222d2e6
+
+and:
+
+schema_migrations = 148
+service worker = v173
+
+A6. RAILWAY CLEAN-INSTALL ITEM
+
+Do not block owner setup waiting for credentials you do not possess.
+
+Ask the owner for ONE manual Railway action at the appropriate point:
+
+open the Railway deployment for staging merge 513cab8 and provide a
+screenshot of the build/install portion of the deployment log showing
+the dependency installation.
+
+Do not ask for tokens or credentials.
+
+If the dashboard cannot expose the requested evidence, record the
+structural-evidence caveat exactly as Claude ruled and continue.
+
+============================================================
+PHASE B — FRESH SDS-H1 IDENTITY
+============================================================
+
+After preflight is clean:
+
+Begin a completely fresh SDS-H1 AFTER specimen.
+
+Requirements:
+
+- fresh D-43 staging identity;
+- brand-new registration;
+- South Dixie Storage is the business under test;
+- do NOT reuse either locked P035 identity;
+- do NOT delete or mutate the frozen previous SDS specimen;
+- do NOT fabricate provider state;
+- do NOT inject Facebook tokens;
+- do NOT create social_accounts fixtures.
+
+Owner performs interactive actions.
+
+Give the owner EXACTLY ONE manual action at a time.
+
+After each consequential action, perform only the bounded/read-only
+evidence checks required by the H1 runbook before giving the next owner
+action.
+
+============================================================
+PHASE C — C1 LIVE CHECKPOINTS AT FRONT OF SDS-H1
+============================================================
+
+The remaining C1 live evidence is part of this H1 specimen and must be
+captured before the journey moves beyond the relevant surfaces.
+
+C1-LIVE-1 — THREE-STATE CONNECTION
+
+Observe the redesigned connection state honestly.
+
+Do not manipulate state merely to force all three states.
+
+Record the naturally reached state and evidence.
+
+C1-LIVE-2 — REAL FACEBOOK CONNECTION
+
+When the journey reaches Facebook connection:
+
+the OWNER performs the real OAuth interaction.
+
+The owner may authenticate their genuine Facebook account.
+
+The owner explicitly chooses the correct South Dixie Storage Facebook
+Page.
+
+Replit does not receive, copy, inject, print, persist outside the
+application, or otherwise handle the owner's Facebook credentials or
+access token.
+
+After the owner completes the product surface, verify read-only:
+
+- correct brand_id;
+- platform = facebook;
+- explicit Page binding exists;
+- bound Page corresponds to the owner's explicit selection;
+- no implicit pages[0] binding occurred;
+- no other brand binding changed.
+
+This satisfies R15 if clean.
+
+C1-LIVE-3 — CONSENT-GATE PAUSE
+
+When social-calendar activation is reached:
+
+STOP before authorization.
+
+Verify the owner is shown the complete preview required by C1,
+including truthful:
+
+- eligible count;
+- stale exclusions;
+- unbound exclusions;
+- destination information;
+- actual effect of approval.
+
+The owner must understand that approval here authorizes scheduling REAL
+future social posts to the selected South Dixie Storage Page.
+
+This is not merely an internal preview button.
+
+Capture evidence for R20.
+
+C1-LIVE-4 — STALE-DIGEST PROBE
+
+Perform the single deliberate stale-digest verification authorized by
+Claude's ruling.
+
+Use the approved product/test path defined by the implementation to
+change the calendar between preview and confirmation WITHOUT publishing
+anything.
+
+Then attempt confirmation using the stale digest.
+
+Expected:
+
+- refusal / 409;
+- fresh preview returned;
+- zero scheduling from stale consent;
+- zero provider/public write.
+
+If behavior differs:
+
+STOP AND REPORT.
+
+Do not repair it mid-session.
+
+C1-LIVE-5 — OWNER PUBLISHING DECISION
+
+After the stale-digest probe has been proven and the owner is presented
+with the CURRENT valid preview:
+
+ASK THE OWNER.
+
+The owner has two legitimate choices:
+
+A. APPROVE:
+   knowingly authorize scheduling the displayed future posts to the
+   owner's genuine South Dixie Storage Facebook Page.
+
+B. SKIP/DEFER:
+   do not activate them.
+
+Do not choose for the owner.
+
+Do not infer consent from previous answers.
+
+Do not reuse the stale confirmation.
+
+If owner skips, preserve that honestly and continue according to the
+product's designed skip behavior.
+
+If owner approves, this is an explicit-KEEP authorization under the
+witnessed-session rules for exactly the displayed activation artifact.
+
+C1-LIVE-6 — CONSENT ECHO, IF APPROVED
+
+If and only if the owner approves activation:
+
+verify read-only that agent_tasks.meta durably records the consent echo:
+
+- digest
+- approver
+- confirmedAt
+- activatedCount
+- excludedStaleCount
+- excludedUnboundCount
+- destinationSummary
+
+Verify the persisted values correspond to the artifact the owner
+actually approved.
+
+This satisfies R19 if clean.
+
+Do not perform a provider publish merely to prove the echo.
+
+============================================================
+BLACOR-H1 — R16 RESERVED
+============================================================
+
+Do NOT begin BLACOR-H1 during this authorization.
+
+Record that C1 R16 multi-brand isolation remains assigned to the later
+BLACOR-H1 run.
+
+When BLACOR-H1 is separately reached/authorized, its binding must prove
+that the SDS binding remains untouched.
+
+============================================================
+H1 JOURNEY
+============================================================
+
+Once the opening C1 checkpoints applicable to SDS-H1 are satisfied,
+continue the fresh SDS-H1 journey under the already-governing G-19/H1
+runbook.
+
+This remains a witnessed evaluation, NOT an implementation session.
+
+One owner action at a time.
+
+We are specifically measuring the redesigned onboarding experience, so
+preserve:
+
+- wall-clock timing;
+- active-owner time;
+- system-wait time;
+- timing-event coverage;
+- First Win timing;
+- campaign-ready timing;
+- owner friction;
+- F1/F2/F3 verdicts;
+- BEFORE vs AFTER comparison.
+
+Do not hide pauses, retries, errors, owner confusion, or product
+friction.
+
+============================================================
+DEFECT POLICY — IMPORTANT OWNER RULING
+============================================================
+
+We are NOT returning to a policy of endlessly deferring small defects.
+
+If H1 exposes a genuine defect:
+
+STOP AND REPORT.
+
+Classify it.
+
+Explain whether it is:
+
+- blocking;
+- honesty/safety boundary;
+- journey-breaking;
+- material friction;
+- cosmetic/non-blocking.
+
+For blocking, honesty/safety, journey-breaking, or materially
+compounding friction defects, recommend whether a bounded mini-cycle
+should be inserted NOW.
+
+Do not automatically defer it merely because H1 is underway.
+
+But equally:
+
+DO NOT FIX ANYTHING MID-RUN WITHOUT OWNER AUTHORIZATION.
+
+Owner + ChatGPT + Claude decide whether the run pauses for a corrective.
+
+============================================================
+HARD BOUNDARIES
+============================================================
+
+No synthetic provider fixtures.
+
+No token injection.
+
+No direct social_accounts fabrication.
+
+No production changes.
+
+No ads.
+
+No ad spend.
+
+No H2.
+
+No E2-E5.
+
+No Prompt 027.
+
+No BLACOR-H1 yet.
+
+No I-50/I-52/I-53/I-54/I-55/I-56/I-57/I-58 repair.
+
+No mutation of the frozen SDS specimen.
+
+No unlocking/reusing the P035 identities.
+
+Any provider/public artifact beyond:
+
+1. the owner's genuine OAuth grant;
+2. the owner's explicit Page binding; and
+3. if the owner explicitly approves it, the exact future-post
+   activation shown in the current consent preview
+
+requires:
+
+STOP AND REPORT.
+
+============================================================
+FIRST RESPONSE
+============================================================
+
+Execute Phase A preflight only.
+
+Then return:
+
+1. capacity evidence;
+2. PQ1 preamble;
+3. staging SHA/migration/v173 evidence;
+4. P035 password-reset caveat recorded;
+5. whether anything blocks creation of the fresh SDS-H1 identity.
+
+Then STOP.
+
+If preflight is clean, give the owner only the FIRST manual action
+required to begin the fresh SDS-H1 registration.
+
+Do not jump ahead.
+
+BEGIN PHASE A.
