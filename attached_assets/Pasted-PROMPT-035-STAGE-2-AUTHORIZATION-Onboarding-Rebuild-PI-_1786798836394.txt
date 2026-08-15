@@ -1,0 +1,737 @@
+PROMPT 035 — STAGE 2 AUTHORIZATION
+Onboarding Rebuild: PI-Model Orchestration, Owner-Fact Handoff,
+and Second-Business Entry
+
+FINAL OWNER/CHATGPT/CLAUDE CONSOLIDATED AUTHORIZATION
+
+Prompt 035 Stage 1 is ACCEPTED WITH RULINGS.
+
+STAGE 2 IS NOW AUTHORIZED under the complete terms below.
+
+This authorization supersedes conflicting Stage-1 design language.
+All standing project rules, D-46 bindings, D-37 accounting requirements,
+D-23 evidence/redaction rules, D-32 review requirements, and the governing
+Prompt-035 invariants remain in force.
+
+IMPORTANT:
+
+Prompt 026 H1 remains PAUSED.
+Prompt 027 remains NOT STARTED.
+H2 remains NOT AUTHORIZED.
+Production remains OUT OF SCOPE.
+
+Prompt 026 H1 may restart only AFTER Prompt 035 Stage 2 is implemented,
+reviewed, and finally accepted.
+
+======================================================================
+SECTION A — MANDATORY IMPLEMENTATION SURFACE
+======================================================================
+
+A1. DO NOT implement against the existing dev workspace.
+
+Stage 1 proved that workspace is 168 files behind/divergent from real
+staging and does not contain the verified staging SHA in its history.
+
+All Prompt-035 Stage-2 work MUST therefore occur on a D-37-compliant
+checkout of REAL STAGING:
+
+1. Fresh GitHub clone of the then-current staging tip.
+2. Clone must be outside checkpoint-managed and .local paths.
+3. Verify HEAD immediately before work.
+4. Create the implementation branch from that verified staging tip.
+5. Re-derive baselines there before implementation.
+6. Reference baseline:
+   - server 1370/1370
+   - client 430/430 across 41 files
+7. All implementation citations, changed-file accounting, test accounting,
+   D-32 review, SENTINELS review, and acceptance evidence must come from
+   compliant surfaces.
+
+The stale dev workspace is PROHIBITED for editing, testing, counting,
+certifying, or acceptance evidence.
+
+If npm registry access remains blocked, the Stage-1 lockfile-identical
+dependency procedure may be used only after re-verifying that the relevant
+lockfiles are byte-identical. Never certify a partially installed tree.
+
+STOP if this surface cannot be established honestly.
+
+A2. The frozen partial SDS-H1 account is evidence.
+
+NO WRITES to it.
+
+It remains SUPERSEDED-BY-035 and preserved as the BEFORE specimen.
+
+======================================================================
+SECTION B — ACCEPTED STAGE-1 DESIGN
+======================================================================
+
+The following Stage-1 findings/designs are accepted unless explicitly
+amended below:
+
+1. G-2 exhaustive field matrix and dispositions.
+2. G-3 existing six-source provenance substrate:
+   stated | website | facebook | public_web | inferred | connected.
+   NO parallel provenance taxonomy.
+3. Existing revision/conflict/unverified states remain the state layer.
+4. G-7 asynchronous/non-blocking research UX.
+5. G-9 narrow second-business entry design.
+6. G-10 Boz follow-up behavior reuses Prompt 023's gap engine.
+7. G-12 campaign-ready definition.
+8. G-13 partial-H1 preservation plan.
+9. G-19 exact Prompt-026 H1 restart procedure.
+10. G-20 ladder-resume statement.
+
+Campaign-ready remains:
+
+- Company Truth approved by owner;
+- Facebook Page connected and verified;
+- at least one future scheduled organic post exists;
+- at least one ad creative draft exists;
+- availability exists and matches owner-stated hours.
+
+No live/armed ad is required.
+
+======================================================================
+SECTION C — OWNER-FACT HANDOFF
+======================================================================
+
+C1. Preserve the existing architectural distinction:
+
+OWNER-STATED FIELD KNOWLEDGE
+is not the same artifact as
+OWNER-APPROVED COMPANY TRUTH DOSSIER.
+
+Interview answers mapping to knowledge fields may use the existing
+ownerEditFields path with source=stated and immediate FIELD-LEVEL approval
+ONLY when the value is:
+
+A. verbatim owner input; or
+B. deterministically parsed without changing its semantic meaning.
+
+Examples:
+
+Owner enters:
+"(352) 244-9331"
+
+The normalized phone representation may be deterministically stored as
+owner-stated.
+
+Owner enters:
+"Monday through Friday, 8 to 5 Eastern"
+
+A deterministic availability parser may convert that into structured hours
+without changing its meaning.
+
+BUT:
+
+Any AI paraphrase, inference, summarization, interpretation, or synthesis
+MUST NOT enter the instant-stated path.
+
+Those values go through the existing pending proposal/revision machinery.
+
+AI interpretation may never be laundered into owner authority.
+
+C2. Company Truth approval remains explicit and unchanged.
+
+Automatic research initiation does NOT approve Company Truth.
+
+Owner-stated field versions may already be authoritative first-party
+knowledge, but the assembled Company Truth dossier still requires its own
+explicit owner review/correction/approval.
+
+The owner must NEVER have to retype an already supplied fact merely to
+approve the dossier.
+
+C3. Fix the named handoff defects:
+
+- phone collected during onboarding must reach downstream knowledge /
+  Company Truth consumers;
+- address collected during onboarding must reach the appropriate durable
+  knowledge path;
+- business hours must consume the owner's explicit answer;
+- explicit owner 8–5 must NEVER silently become default 9–5.
+
+Defaults may only fill genuinely unanswered fields.
+
+Any surviving silent default over explicit owner input is a STOP.
+
+======================================================================
+SECTION D — PRIVATE-INVESTIGATOR RESEARCH MODEL
+======================================================================
+
+Governing rule:
+
+"Research may start immediately; attribution must wait for sufficient
+identity evidence."
+
+Sage should behave like an investigator from the moment useful information
+arrives.
+
+D1. BUSINESS NAME ONLY
+
+Entering the company name starts immediate CANDIDATE DISCOVERY.
+
+Sage may search for:
+
+- candidate websites;
+- candidate social pages;
+- candidate locations;
+- directory/public references;
+- other possible matching entities.
+
+BUT candidate results are UNATTRIBUTED CANDIDATES.
+
+They must NOT become established brand facts.
+They must NOT become approved Company Truth.
+Same-name businesses must never silently be treated as the owner's company.
+
+Candidate discovery should help Boz ask high-value disambiguation questions,
+for example:
+
+"I found southdixiestorage.com. Is that your website?"
+
+A confirmation becomes an identity anchor.
+
+D2. WEBSITE
+
+An owner-entered website establishes a strong identity anchor.
+
+Website-specific acquisition/research begins immediately.
+
+D3. SOCIAL PAGE
+
+An owner-entered Facebook/social page establishes another strong identity
+anchor.
+
+Source-specific acquisition/research begins immediately.
+
+D4. CONNECTED PROVIDER
+
+OAuth/provider-confirmed identity remains the strongest identity anchor.
+
+D5. CONFLICT
+
+If website/social/location/provider identity evidence conflicts:
+
+- do not silently choose;
+- freeze attribution at the last consistent identity state;
+- preserve alternatives;
+- surface the conflict through the existing Prompt-023 arbitrate path;
+- require owner resolution.
+
+======================================================================
+SECTION E — TWO-TIER ORCHESTRATION
+======================================================================
+
+Replace the Stage-1 flat debounce model with a TWO-TIER model.
+
+TIER A — IMMEDIATE DISCOVERY / SOURCE ACQUISITION
+
+Purpose:
+Make Sage visibly begin working within seconds of receiving useful input.
+
+Examples:
+
+business name
+→ candidate discovery
+
+website
+→ immediate website-specific acquisition/research
+
+Facebook/social URL
+→ immediate source-specific acquisition/research
+
+Tier A MUST remain bounded.
+
+CRITICAL FINAL CONSOLIDATION RULE:
+
+Tier A is NOT permission to create a second full research engine.
+
+Reuse the existing Prompt-022 research machinery wherever possible.
+
+If immediate source acquisition can be achieved through the existing
+research system with scoped phases/inputs, use it.
+
+Do not duplicate crawling, provenance, claim/finalize, budget, or
+supersession machinery.
+
+TIER B — EXPENSIVE SYNTHESIS / ENRICHMENT
+
+Cross-source synthesis/full enrichment and Company Truth generation may be
+coalesced behind:
+
+- identity establishment; and
+- a short quiet period allowing anchors arriving close together to settle.
+
+The Stage-1 120-second flat debounce is NOT binding.
+
+Choose and document a short, UX-defensible coalescing interval.
+
+The owner should see visible research activity immediately even while Tier B
+is waiting.
+
+Identical-value re-saves are NO-OPS.
+
+Single-flight behavior remains mandatory.
+
+If a run is already active and a material anchor arrives, preserve the
+existing safe rerun/supersede semantics rather than spawning parallel full
+runs.
+
+======================================================================
+SECTION F — EXISTING AUTO-START MUST BE MAPPED BEFORE NEW WIRING
+======================================================================
+
+Before changing trigger behavior, Stage 2 MUST verify the real staging
+lifecycle discovered during Stage 1.
+
+This is the FIRST section of the Stage-2 implementation report.
+
+Map and record:
+
+1. What exact event causes SageResearchPanel to auto-start.
+2. Which anchors exist at that moment.
+3. Which endpoint/controller/run it invokes.
+4. Whether it starts only once or may restart.
+5. What happens when a website/social/location anchor arrives AFTER the run.
+6. How sage_research_drafts relate to Company Truth.
+7. What "Build my report" actually triggers.
+8. Why the H1 owner encountered "Build my report" even though guided setup
+   already auto-starts Sage research.
+
+The likely architecture is:
+
+SageResearchPanel
+→ Prompt-022 field research / sage_research_drafts
+
+while
+
+Build my report
+→ Company Truth generation.
+
+VERIFY. DO NOT ASSUME.
+
+The Stage-2 change is UNIFICATION, not blindly "adding auto-start."
+
+Desired flow:
+
+anchors arrive
+→ existing Sage investigation starts/enriches
+→ identity becomes established
+→ expensive synthesis coalesces
+→ Company Truth auto-generation may begin
+→ dossier becomes ready for OWNER REVIEW
+→ owner explicitly approves/corrects.
+
+No redundant "Build my report" initiation should remain necessary once
+enough information exists.
+
+A second competing research trigger is prohibited.
+
+======================================================================
+SECTION G — RESEARCH SNAPSHOT / PROVENANCE
+======================================================================
+
+AUTHORIZED ADDITIVE SCHEMA CHANGE:
+
+sage_research_drafts.anchor_snapshot JSONB
+
+Purpose:
+
+Every material research step must preserve the structured set of anchors
+Sage knew when that investigation ran.
+
+This provides immutable "what Sage knew when" evidence.
+
+Existing terminal research rows remain immutable/superseded rather than
+rewritten.
+
+No provenance taxonomy change is authorized.
+
+Candidate discovery must not masquerade as attributed field provenance.
+
+======================================================================
+SECTION H — SECOND-BUSINESS ENTRY
+======================================================================
+
+Implement the narrow H1-F1/I-49 correction.
+
+When an account already has a business and enters setup, explicitly offer:
+
+- Continue setting up [existing business]
+- Set up a different business
+
+Resume behavior must remain correct.
+
+New-business behavior must create/bind a fresh setup context and MUST NOT
+silently attach to the existing brand.
+
+Persist the session intent using the existing reserved:
+
+setup_sessions.answers._interview
+
+bookkeeping mechanism if it safely survives pause/reload/restart.
+
+The proposed setup_sessions.entry_intent column is NOT currently authorized.
+
+It may be escalated only if implementation demonstrates a concrete,
+evidence-backed persistence/query requirement the JSONB mechanism cannot
+safely satisfy.
+
+If that occurs:
+
+STOP AND REPORT.
+
+Do not add the column without authorization.
+
+No broader account-management, organization, billing, business-switcher, or
+team redesign is authorized.
+
+======================================================================
+SECTION I — BOZ FOLLOW-UP BEHAVIOR
+======================================================================
+
+Do NOT rewrite Prompt 023's gap engine.
+
+Use it as the consumer-facing reasoning mechanism after research.
+
+Boz should ask only questions justified by:
+
+- missing information;
+- weak identity;
+- conflicting evidence;
+- owner confirmation needed;
+- information Sage could not reliably determine.
+
+Example:
+
+"I found your website says 8–5, but Facebook says 9–5.
+Which one is current?"
+
+The goal is fewer, smarter questions AFTER Sage has investigated.
+
+Do not create another intake questionnaire.
+
+======================================================================
+SECTION J — ASYNC OWNER EXPERIENCE
+======================================================================
+
+Research must not unnecessarily block onboarding.
+
+The owner should be able to continue while Sage works.
+
+Reuse the existing SageResearchPanel states and extend them where needed.
+
+Owner-visible states should make the work obvious:
+
+"Sage is investigating what you've shared — you can keep going."
+
+As anchors arrive, the UI should communicate what Sage is using.
+
+When the dossier is ready:
+
+"Your Company Truth is ready for review."
+
+Research initiation should disappear as unnecessary owner work.
+
+Review/correction/approval remains explicit owner work.
+
+======================================================================
+SECTION K — ONBOARDING PHASE BOUNDARY
+======================================================================
+
+Auto-investigation is an ONBOARDING behavior.
+
+Define the onboarding phase boundary explicitly in code.
+
+During onboarding:
+
+anchor changes may automatically trigger/enrich investigation.
+
+After onboarding is complete:
+
+changing a website/social/etc. must NOT silently launch new AI research.
+
+Instead surface an offer such as:
+
+"Your business information changed. Want Sage to re-investigate?"
+
+This prevents Prompt 035 from silently creating a permanent steady-state
+auto-research product behavior.
+
+Test this boundary.
+
+======================================================================
+SECTION L — HONEST TIMING INSTRUMENTATION
+======================================================================
+
+AUTHORIZED ADDITIVE SCHEMA:
+
+onboarding_timing_events
+
+Append-only instrumentation.
+
+Do NOT use the Stage-1 five-minute truncation rule.
+
+No elapsed time may be silently erased to make the onboarding KPI look
+better.
+
+Report FOUR separate measurements:
+
+1. SURFACE-OPEN TIME
+   Total duration owner-facing onboarding surfaces were open.
+
+2. FOCUSED-OPEN TIME
+   Time those surfaces were visible and browser/app focus was present.
+
+3. INPUT-ENGAGED TIME
+   Coarse interaction time based on explicitly documented activity/focus
+   heartbeat rules.
+
+4. INFERRED IDLE TIME
+   Time classified as likely idle under the stated measurement assumptions.
+
+Also separately report SYSTEM/EXTERNAL waits where useful.
+
+Every inactivity threshold and heartbeat assumption must be disclosed.
+
+The 30–45 minute active-owner aspiration is evaluated primarily against
+FOCUSED-OPEN TIME.
+
+Do not delete or truncate inconvenient owner-review time.
+
+Wall-clock remains:
+
+signup
+→ campaign_ready milestone.
+
+The SDS-H1 rerun retains the approximately <=2-hour wall-clock acceptance
+goal, with external/provider delays identified separately and honestly.
+
+======================================================================
+SECTION M — AI BUDGET / RUN-STORM PROTECTION
+======================================================================
+
+Preserve all existing aiGate and Prompt-022 budget controls.
+
+Stage 2 must state the revised worst-case spend arithmetic for the TWO-TIER
+model.
+
+Auto-triggered research must remain bounded per brand per onboarding day.
+
+Abandoned onboarding must not create uncontrolled AI spend.
+
+Repeated identical anchors must not trigger new research.
+
+Five anchors arriving minutes apart must not produce five expensive full
+research runs.
+
+Candidate discovery/source-specific acquisition and full synthesis must be
+accounted for separately enough to demonstrate that immediate UX does not
+create runaway cost.
+
+======================================================================
+SECTION N — REQUIRED TEST PLAN
+======================================================================
+
+Implement all 21 tests from Stage-1 G-16 plus these required regressions:
+
+1. handoff.verbatimOnly.statedPath
+2. handoff.paraphrase.goesPending
+3. truth.ctApprovalGateUnchanged
+4. pi.nameOnly.candidateDiscoveryStarts
+5. pi.candidates.neverAttributedWithoutIdentity
+6. pi.tierA.immediatePerAnchor
+7. pi.tierB.coalesced
+8. pi.noDuplicateTriggers
+9. secondBusiness.entryIntent.resumeSurvivesRestart
+10. timing.fourFiguresNoTruncation
+11. orchestration.onboardingPhaseBoundary
+
+Named regressions from Stage 1 remain mandatory, especially:
+
+- phone handoff;
+- address handoff;
+- owner 8–5 never becoming default 9–5;
+- owner-vs-web conflict surfaces;
+- no silent second-business binding;
+- no website honest path;
+- no social honest path;
+- AI spend bounded;
+- Prompt 011 green;
+- Prompt 022 green;
+- Prompt 023 green;
+- Prompt 024 green;
+- Prompt 025 green.
+
+Acceptance requires a D-37-compliant fresh-clone run:
+
+server:
+1370 + legitimate new/updated tests, zero failures
+
+client:
+430 + legitimate new/updated tests, zero failures
+
+All test-count deltas must be explained.
+
+======================================================================
+SECTION O — AUTHORIZED SCHEMA
+======================================================================
+
+AUTHORIZED:
+
+1. sage_research_drafts.anchor_snapshot JSONB
+2. onboarding_timing_events append-only table
+
+NOT AUTHORIZED:
+
+3. setup_sessions.entry_intent column unless separately escalated and
+   owner-authorized after demonstrated necessity.
+
+NO other schema changes are authorized.
+
+Any need for additional schema:
+
+STOP AND REPORT.
+
+======================================================================
+SECTION P — PARTIAL SDS-H1 PRESERVATION
+======================================================================
+
+The existing partial SDS-H1 run remains:
+
+SUPERSEDED-BY-035
+
+It is:
+
+- not failed;
+- not passed;
+- excluded from final 026 acceptance evidence;
+- preserved as BEFORE evidence;
+- frozen against further writes.
+
+Do not delete its internal history.
+
+Stage 1 found no external provider artifacts requiring cleanup.
+
+Before future staging Facebook/provider activity during the H1 restart,
+perform the authorized read-only freeze/noise preflight, including checking
+whether the 21 future scheduled posts on the frozen account are generating
+bounded failed-publish/alert noise.
+
+Observation only.
+
+Do NOT repair or mutate the frozen account under Prompt 035.
+
+======================================================================
+SECTION Q — STOP CONDITIONS
+======================================================================
+
+STOP AND REPORT immediately if any of the following occurs:
+
+1. Stage-2 work is being performed/certified against the stale dev workspace.
+2. A compliant real-staging checkout cannot be established.
+3. Dependency state cannot be established honestly.
+4. Any write would hit the frozen SDS partial account.
+5. A parallel provenance taxonomy appears necessary.
+6. An AI-paraphrased/synthesized value would enter the instant owner-stated
+   path.
+7. Candidate discovery would attribute facts to the business without
+   sufficient identity evidence.
+8. A second competing/full research trigger is being created.
+9. Explicit owner input can still be silently replaced by a default.
+10. Timing instrumentation truncates/discards elapsed owner time.
+11. setup_sessions.entry_intent SQL column appears necessary.
+12. Any schema beyond the two authorized additive items appears necessary.
+13. Auto-research fires outside the onboarding phase.
+14. Prompt-011/022/023/024/025 accepted behavior must be broken or rewritten.
+15. Scope expands into production, H2, 027, Stripe live, graphics/nav,
+    Echo→Boz rename, broader account management, I-47/I-48, or another parked
+    issue.
+16. Any implementation contradicts D-46 or another standing owner ruling.
+
+Do not improvise around a STOP.
+
+======================================================================
+SECTION R — STAGE-2 REPORT
+======================================================================
+
+Return a COMPLETE Stage-2 implementation report.
+
+The FIRST report section must be the Section-F trigger-lifecycle mapping
+against real staging before describing the new wiring.
+
+Then include:
+
+1. verified starting staging SHA;
+2. implementation branch;
+3. D-37 starting baselines;
+4. existing trigger lifecycle mapping;
+5. exact implementation by workstream;
+6. file:line evidence;
+7. owner-fact handoff behavior;
+8. candidate-discovery behavior;
+9. entity-confidence behavior;
+10. explicit Tier-A/Tier-B orchestration timeline table:
+    anchor received
+    → immediate action
+    → debounced/coalesced action
+    → concurrency/single-flight behavior
+    → owner-visible state;
+11. Company Truth auto-generation behavior;
+12. second-business behavior;
+13. Boz/gap-engine integration;
+14. onboarding/steady-state boundary;
+15. revised AI-budget worst-case arithmetic;
+16. four-figure timing instrumentation demonstration;
+17. migrations actually applied;
+18. complete test results and count deltas;
+19. D-32 deletion review;
+20. SENTINELS recheck;
+21. changed-file accounting;
+22. deviations/findings;
+23. confirmation that the frozen partial SDS account was not written;
+24. confirmation that production/H2/027 were untouched.
+
+Do not hide implementation compromises.
+
+======================================================================
+SECTION S — ACCEPTANCE BOUNDARY
+======================================================================
+
+Stage 2 is authorized to IMPLEMENT Prompt 035 under this document.
+
+Stage 2 does NOT authorize Prompt 026 H1 to resume automatically.
+
+When implementation and verification are complete:
+
+STOP.
+
+Return the complete Stage-2 report for:
+
+OWNER + CHATGPT + CLAUDE ACCEPTANCE REVIEW.
+
+Only after Prompt 035 receives final acceptance will we restart:
+
+SDS-H1
+→ BLACOR-H1
+→ cross-account Phase 3.2
+→ H1 report/checkpoint
+→ existing H2 gates
+→ Prompt 026 close
+→ Prompt 027.
+
+Original ladder statement remains:
+
+"After 035 acceptance and the completed 026 (H1 restart through close, then
+the existing E1–E5 H2 gates), the project resumes at Prompt 027 exactly as
+planned. Nothing else in the ladder moves."
+
+======================================================================
+
+PROMPT 035 — STAGE 2 IS AUTHORIZED.
+
+Implement only the scope above.
+
+When complete, return the full Stage-2 report and STOP.

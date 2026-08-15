@@ -1,0 +1,11 @@
+---
+name: EchoAI P035 PI research orchestration
+description: Onboarding anchor orchestrator (Tier A/B), stated-fact handoff, timing events — invariants and traps.
+---
+
+- **Anchor orchestrator** (`utils/anchorOrchestrator.js`): Tier A per-anchor auto research (candidateOnly when no identity anchor), Tier B 45s-coalesced CT generation. Rules: onboarding gate re-checked AT CLAIM TIME (not just entry — TOCTOU), identical anchors vs latest draft's `anchor_snapshot` are a no-op (`skipped:"anchors_unchanged"`), ≤4 auto runs/brand/day, Tier B only when no CT report exists. Timers are in-process; a restart drops the coalesce window (recovered by next anchor/manual trigger).
+- **Stated-fact handoff**: only verbatim/deterministic owner answers (phone/address/hours/email) take `ownerEditFields` source=stated; anything interpretive stays in pending proposals. **Explicit-but-unparseable hours must be left UNSET with honest copy — never a disclosed placeholder either** (owner ruling: any default over explicit input is a stop condition).
+- **Crash-recovery branches must repeat the full idempotent handoff** (stated facts + anchor arrival), not just profile writes — a recovered path that returns early silently drops the knowledge handoff.
+- **Timing endpoints**: client brandIds must be ownership-validated server-side (foreign ids nulled to user-scope, never rejected — instrumentation is best-effort); client hook must guard `api.fn` existence in try/catch or partial api mocks/older bundles throw in React lifecycle.
+- **Test seams**: setupAgentController interview AI is stubbed via `controller._createMessage` (the controller calls `module.exports._createMessage`); patching `config/anthropic.createMessage` does NOT work (destructured at require time).
+- **Why:** architect review found 4 real violations after suites were green — gate TOCTOU, recovery skips, disclosed-default hours, unvalidated brand ids. Green suites ≠ constraint compliance; review vs the authorization text explicitly.

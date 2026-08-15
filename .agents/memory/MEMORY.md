@@ -127,4 +127,5 @@
 - [EchoAI scheduler claims + job_runs](echoai-job-runs-claims.md) — every tick's job_runs INSERT is the cross-replica claim; gated ticks record skipped never success; RUN_SCHEDULER gate; inventory is 42 jobs not 43.
 - [EchoAI provider readiness gate](echoai-provider-readiness-gate.md) — Connect buttons gated by server providerReadiness (provider-keyed!); via-cards (calendar→google, instagram→facebook) gate by meta.oauth, absent map fails open.
 - [EchoAI workspace drift](echoai-workspace-drift.md) — workspace tree ≠ real staging; D-37 evidence must come from a fresh GitHub clone (EchoAI-Foundation, staging); cp -r not cp -al into /tmp.
+- [EchoAI P035 PI orchestration](echoai-p035-pi-orchestration.md) — claim-time onboarding gate, no defaults over explicit input (even disclosed), recovery repeats full handoff, `_createMessage` is the interview stub seam.
 - [EchoAI evidence accounting](echoai-evidence-accounting.md) — owner-report numbers only from the D-37 fresh clone (workspace drifts); forFirstWin falls back to retained celebration→proof lineage; neutralize [[ in any authored text entering the system prompt.
