@@ -1,0 +1,390 @@
+PROMPT 035 — PR #51 MERGE + STAGING DEPLOYMENT AUTHORIZATION
+
+Owner/ChatGPT/Claude review of the complete H-1 through H-7 reconciliation
+is complete.
+
+FINAL PRE-MERGE RULING:
+
+A. MERGE APPROVED
+
+This approval attaches ONLY to:
+
+PR #51
+https://github.com/19JRB71/EchoAI-Foundation/pull/51
+
+Approved PR head:
+833c1a98f42bad67ecce1c8b09ac436de5400f25
+
+Approved target:
+staging ONLY
+
+Any movement of the PR head from that exact SHA VOIDS this authorization.
+If the head has moved for any reason, STOP AND REPORT. Do not merge.
+
+Production/main is NOT authorized.
+
+======================================================================
+1. FINAL PRE-MERGE IDENTITY CHECK
+======================================================================
+
+Immediately before merging:
+
+A. Confirm PR #51 head is EXACTLY:
+
+833c1a98f42bad67ecce1c8b09ac436de5400f25
+
+B. Confirm the staging base is still the expected reviewed base unless normal
+merge mechanics or explicitly recorded staging movement require reconciliation.
+
+C. Run and record:
+
+git diff 8914600..833c1a9
+
+Confirm that the movement from the previously reviewed head to the approved
+head contains ONLY:
+
+1. the H-5 G1 losing-race regression test; and
+2. the narrow _ensureInterviewBrand test-seam export.
+
+Nothing else.
+
+If ANY other change exists:
+
+STOP AND REPORT.
+
+Do not merge.
+
+======================================================================
+2. MERGE PR #51 TO STAGING ONLY
+======================================================================
+
+If Section 1 passes:
+
+Merge PR #51 to staging under the existing D-18 discipline.
+
+Do NOT merge to main.
+
+Do NOT deploy or promote anything to production.
+
+Record:
+
+- PR number;
+- approved head SHA;
+- resulting staging merge SHA;
+- merge timestamp;
+- merge method.
+
+======================================================================
+3. VERIFY RAILWAY STAGING DEPLOYMENT
+======================================================================
+
+Wait for the normal Railway STAGING deployment resulting from the merge.
+
+Do not manually create a production deployment.
+
+Verify through the authoritative live staging health/version surface that
+staging is actually serving the resulting merged code.
+
+Record:
+
+- expected staging SHA;
+- SHA/version reported by the live staging health endpoint;
+- deployment status;
+- deployment timestamp if available.
+
+The deployed SHA must correspond to the merge just authorized.
+
+Mismatch or ambiguous deployment identity:
+
+STOP AND REPORT.
+
+======================================================================
+4. LIVE MIGRATION VERIFICATION — D-19
+======================================================================
+
+After the verified staging deployment, perform the authorized READ-ONLY
+live-tree/schema verification.
+
+Confirm migrations:
+
+141_p035_anchor_snapshot.sql
+142_onboarding_timing_events.sql
+
+are represented in the live staging migration state/schema as expected.
+
+Verify the actual live effects:
+
+141:
+sage_research_drafts contains the additive nullable anchor_snapshot JSONB
+column.
+
+142:
+onboarding_timing_events exists with the reviewed structure/index/FKs.
+
+Do not repair migration state manually.
+
+Do not run ad-hoc DDL.
+
+If the deployment's normal migration mechanism did not apply either migration,
+or live schema differs materially from the reviewed DDL:
+
+STOP AND REPORT.
+
+======================================================================
+5. VERIFY V172 IS ACTUALLY SERVED
+======================================================================
+
+Verify that the deployed staging client is serving the Prompt-035 client
+bundle and that the live service worker contains:
+
+echoai-shell-v172
+
+Do not rely solely on the repository artifact.
+
+Verify against the actually served staging client.
+
+Record evidence.
+
+If staging still serves v171/stale assets after normal deployment convergence:
+
+STOP AND REPORT.
+
+Do not improvise a cache repair.
+
+======================================================================
+6. SECTION-O BOUNDED LIVE STAGING SMOKE
+======================================================================
+
+Only after Sections 1-5 PASS may the bounded Section-O smoke run.
+
+This smoke is restricted to the H-7 plan already reviewed and accepted.
+
+TEST IDENTITY:
+
+Use ONE clearly D-43-prefixed staging-only test identity:
+
+TEST P035 Smoke Bakery
+
+with the staging-only test-user naming convention already specified.
+
+Use deliberately non-real anchors.
+
+Website:
+
+https://test-p035-smoke.invalid
+
+No Facebook Page.
+
+The .invalid RFC-2606 reserved TLD is intentional.
+
+Research must not be redirected toward a real business/entity.
+
+======================================================================
+7. SMOKE RESEARCH BOUNDS
+======================================================================
+
+Existing Prompt-022 research budgets remain binding.
+
+One-running-per-brand protection remains binding.
+
+At most ONE research run for this smoke brand.
+
+Do not re-trigger merely because the result is slow, failed, ambiguous,
+empty, or unexpected.
+
+Expected result declared BEFORE execution:
+
+zero successful external research reads because the supplied anchor cannot
+resolve to a real entity.
+
+If bounded read attempts nevertheless occur, record them honestly from the
+run evidence.
+
+Do not classify a read attempt as a provider write.
+
+======================================================================
+8. ABSOLUTELY NO EXTERNAL/PUBLIC WRITES
+======================================================================
+
+The smoke stops at the interview / anchor / research boundary.
+
+Do NOT grant execution consent.
+
+The smoke must NOT invoke:
+
+- executeExternal;
+- email send;
+- SMS send;
+- Facebook/Meta object creation;
+- Google provider write;
+- OAuth mutation;
+- ad creation;
+- ad launch;
+- advertising spend;
+- any other external/public write.
+
+After the smoke, VERIFY this from evidence.
+
+Read:
+
+- external_actions;
+- external_proofs;
+- applicable sent-email records;
+- applicable sent-SMS records;
+
+for the test user/brand and smoke time window.
+
+EXPECTED:
+
+ZERO rows representing external/public execution.
+
+IMPORTANT DISCLOSURE RULE FROM FINAL REVIEW:
+
+If ANY such row exists — including something that might have been triggered
+automatically such as a signup/welcome email — DO NOT silently redefine it
+as expected.
+
+Record the row and the behavior as a DISCLOSED DEVIATION in the Section-P
+report.
+
+If it represents a governing safety violation or unauthorized provider write,
+STOP immediately and report it.
+
+======================================================================
+9. STAGING RESIDUE
+======================================================================
+
+The accepted smoke intentionally retains its internal TEST evidence under
+existing rules.
+
+Expected row classes may include:
+
+- TEST users row;
+- subscription row;
+- TEST brand;
+- setup session;
+- brand_knowledge_versions stated facts;
+- 0-1 sage_research_drafts row including anchor_snapshot;
+- onboarding_timing_events;
+- other internal rows demonstrated by the actual accepted flow.
+
+Do NOT invent a cleanup path.
+
+Do NOT delete immutable/history evidence merely because the smoke is over.
+
+Record the actual residue against the H-7 precommitted inventory and explain
+any difference.
+
+======================================================================
+10. I-50 LIVE OBSERVATION
+======================================================================
+
+During the live staging engine-mode interview, collect the I-50 evidence
+already authorized.
+
+Record:
+
+1. the complete ordered list of engine-directed fields actually asked;
+2. whether a website solicitation question is asked before engine completion;
+3. whether a Facebook solicitation question is asked before engine completion;
+4. whether a VOLUNTEERED URL supplied mid-interview reaches anchor capture;
+5. the relevant setup_sessions.answers keys;
+6. the resulting anchor snapshot.
+
+This is an OBSERVATION ONLY.
+
+Do not fix I-50.
+
+Do not change interview behavior during the smoke.
+
+Do not expand this into additional feature testing.
+
+The evidence advances I-50 to its E1 timing/design decision for later owner
+review.
+
+======================================================================
+11. PROMPT 035 SECTION-P DEPLOYMENT REPORT
+======================================================================
+
+After the bounded smoke completes, return ONE consolidated report titled:
+
+PROMPT 035 — SECTION-P STAGING DEPLOYMENT + SMOKE REPORT
+
+Include:
+
+P1. Exact PR/head identity before merge.
+P2. Proof the 8914600 -> 833c1a9 delta contained only the authorized H-5
+    regression + seam.
+P3. PR #51 merge evidence and resulting staging merge SHA.
+P4. Railway staging deployment evidence.
+P5. Live staging health/version SHA verification.
+P6. Migration 141 live verification.
+P7. Migration 142 live verification.
+P8. Live served v172 verification.
+P9. TEST smoke identity and exact anchors.
+P10. Research run evidence and bounded-read behavior.
+P11. Explicit zero-external-write evidence, OR every deviation discovered.
+P12. Complete staging residue inventory.
+P13. I-50 live observation.
+P14. Any deviations, ambiguity, failures, or STOP conditions.
+P15. D-23 redaction confirmation.
+P16. D-37 surface/accounting statement where applicable.
+P17. Confirmation that production/main remained untouched.
+P18. Confirmation frozen SDS specimen remained untouched.
+P19. Confirmation Prompt 026 H1 remained paused.
+P20. Final status.
+
+Final status must be exactly one of:
+
+PROMPT 035 STAGING DEPLOYMENT/SMOKE COMPLETE — AWAITING OWNER REVIEW
+
+or
+
+STOP CONDITION FOUND
+
+======================================================================
+12. HARD STOP AFTER REPORT
+======================================================================
+
+After returning Section P:
+
+STOP.
+
+Do NOT self-accept Prompt 035.
+
+Do NOT resume Prompt 026 H1.
+
+Do NOT start BLACOR-H1 or SDS-H1.
+
+Do NOT begin Prompt 027.
+
+Do NOT promote staging to production.
+
+Do NOT merge anything to main.
+
+Do NOT fix I-50.
+
+Do NOT perform follow-up implementation merely because the smoke exposes
+another issue.
+
+Owner + ChatGPT + Claude will review Section P and determine the next action.
+
+======================================================================
+
+Claude's final review correction is also accepted for the record:
+
+Migration 141 being:
+
+ALTER TABLE sage_research_drafts
+ADD COLUMN IF NOT EXISTS anchor_snapshot JSONB;
+
+is NOT implementation drift.
+
+The earlier characterization of both migrations as new-table creates was a
+review-summary error. Migration 141 matches the accepted Prompt-035 Stage-2
+design and remains additive-only.
+
+BEGIN WITH THE FINAL PR-HEAD IDENTITY CHECK.
+
+Give me ONE STEP AT A TIME whenever owner interaction is actually required.
+Do not give me a batch of manual steps.
