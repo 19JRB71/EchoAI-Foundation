@@ -455,6 +455,20 @@ async function selectPage(req, res) {
       [pageId, userId],
     );
 
+    if (brandId) {
+      // Prompt 035 — a connected Facebook Page is a strong identity anchor.
+      // Fire-and-forget; the orchestrator itself enforces the onboarding
+      // phase boundary (post-onboarding this is a silent no-op here — the
+      // client surfaces the offer).
+      require("../utils/anchorOrchestrator").onAnchorArrival({
+        userId,
+        brandId,
+        reason: "facebook_page_connected",
+      });
+      // Campaign-ready milestone probe (Section L) — cheap, exactly-once.
+      require("../utils/campaignReady").maybeRecordCampaignReady(userId, brandId).catch(() => {});
+    }
+
     return res.status(200).json({ selectedPageId: pageId, brandId: brandId || null });
   } catch (err) {
     console.error("Select Facebook page error:", err.message);

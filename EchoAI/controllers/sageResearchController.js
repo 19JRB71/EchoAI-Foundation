@@ -49,7 +49,16 @@ async function startResearch(req, res, next) {
 
     let claim;
     try {
-      claim = await sageResearch.claimRun(brand.brand_id, req.user.userId);
+      // Prompt 035 Section G: manual runs also record what Sage knew when.
+      claim = await sageResearch.claimRun(brand.brand_id, req.user.userId, {
+        anchorSnapshot: {
+          brand_name: brand.brand_name || null,
+          website_url: brand.website_url || null,
+          facebook_page_url: brand.facebook_page_url || null,
+          industry: brand.industry || null,
+          _auto: false,
+        },
+      });
     } catch (err) {
       if (err.inProgress) return res.status(409).json({ error: err.message });
       throw err;

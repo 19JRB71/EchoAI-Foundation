@@ -22,6 +22,7 @@ import SageResearchPanel from "./SageResearchPanel.jsx";
 import { CONNECTION_CATALOG } from "./connectionCatalog.jsx";
 import { translateConnectionError } from "./connectionErrors.js";
 import { useEchoSpeak } from "./useEchoSpeak.js";
+import useOnboardingTiming from "../useOnboardingTiming.js";
 
 // Tracker steps (welcome is the front door, not a tracked step).
 const TRACKED_STEPS = [
@@ -92,6 +93,8 @@ const CONNECTION_SUCCESS_LINE = {
 export default function GuidedSetupWizard({ onComplete }) {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState("welcome");
+  // Prompt 035 Section L — best-effort timing instrumentation (never blocks).
+  useOnboardingTiming(`wizard:${step}`);
   const [flags, setFlags] = useState({});
   const [statuses, setStatuses] = useState({});
   // Server-side provider readiness ("no green button without a green backend").

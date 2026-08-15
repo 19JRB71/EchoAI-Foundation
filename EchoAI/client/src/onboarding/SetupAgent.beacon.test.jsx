@@ -319,8 +319,13 @@ describe("SetupAgent hard-close falls back to keepalive fetch when the Beacon AP
 
     firePageHide();
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, opts] = fetchSpy.mock.calls[0];
+    // The P035 bootstrap also probes /api/brands and the session over fetch;
+    // the hard-close guarantee is about the pause-beacon call specifically.
+    const beaconCalls = fetchSpy.mock.calls.filter(
+      ([u]) => u === "/api/setup-agent/pause-beacon",
+    );
+    expect(beaconCalls).toHaveLength(1);
+    const [url, opts] = beaconCalls[0];
     expect(url).toBe("/api/setup-agent/pause-beacon");
     expect(opts.method).toBe("POST");
     // `keepalive` is what lets the request outlive the closing document.
@@ -355,7 +360,12 @@ describe("SetupAgent hard-close falls back to keepalive fetch when the Beacon AP
 
     firePageHide();
 
-    expect(fetchSpy).not.toHaveBeenCalled();
+    // The P035 bootstrap may fetch /api/brands etc.; the guarantee here is
+    // that NO unauthenticated pause-beacon request ever fires.
+    const beaconCalls = fetchSpy.mock.calls.filter(
+      ([u]) => u === "/api/setup-agent/pause-beacon",
+    );
+    expect(beaconCalls).toHaveLength(0);
 
     vi.unstubAllGlobals();
   });

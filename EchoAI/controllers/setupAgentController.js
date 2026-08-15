@@ -24,6 +24,8 @@ const feedbackController = require("../controllers/feedbackController");
 const { generateKeywordSuggestions } = require("../prompts/seoContentPrompt");
 const voiceController = require("../controllers/voiceController");
 const echoContext = require("../utils/echoContext");
+const { parseBusinessHours } = require("../utils/hoursParser");
+const anchorOrchestrator = require("../utils/anchorOrchestrator");
 
 // ---------------------------------------------------------------------------
 // AI helpers (real Anthropic; malformed output → 502, never guessed)
@@ -349,6 +351,118 @@ async function applyOnlinePresence(userId, brandId, answers) {
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// Prompt 035 Section C — owner-fact handoff into the Prompt-011 knowledge
+// substrate. VERBATIM-ONLY rule (C1): only the owner's raw interview answer
+// text may enter the instant owner-stated path. Any AI paraphrase, synthesis,
+// or interpretation must go through the pending proposal/revision machinery
+// instead — this function therefore reads ONLY `answers` (raw owner input,
+// stored key→verbatim-string) and never AI-derived values.
+// ---------------------------------------------------------------------------
+
+/** Interview answer aliases → Prompt-011 knowledge field keys (verbatim). */
+const STATED_FACT_MAP = [
+  { fieldKey: "phone", aliases: ["business_phone", "phone_number", "phone", "contact_number"] },
+  { fieldKey: "address", aliases: ["business_address", "street_address", "address"] },
+  { fieldKey: "hours", aliases: ["business_hours", "opening_hours", "hours"] },
+  { fieldKey: "email", aliases: ["business_email", "contact_email"] },
+];
+
+/**
+ * Write explicit interview answers through the existing ownerEditFields path
+ * (source=stated, field-level approved — Prompt 011 semantics for owner
+ * input). Idempotent: a field whose current approved value already equals the
+ * verbatim answer is skipped, so action-runner re-runs never spam versions.
+ * Refusals ("no", "none", "skip") are never written. Returns the list of
+ * field keys written. Failures are surfaced to the caller (the action runner
+ * already records failed steps honestly) — never swallowed silently.
+ */
+async function applyStatedFacts(userId, brandId, answers) {
+  const current = await knowledge.getApprovedKnowledge(brandId);
+  const fields = [];
+  for (const { fieldKey, aliases } of STATED_FACT_MAP) {
+    const raw = firstAnswer(answers, aliases);
+    if (!raw || isRefusalAnswer(raw)) continue;
+    if (raw.length > 8000) continue; // substrate size guard; oversize stays in answers
+    const existing = current && current[fieldKey] ? current[fieldKey].value : null;
+    if (existing === raw) continue; // already current — no duplicate version
+    fields.push({ fieldKey, value: raw });
+  }
+  if (fields.length === 0) return [];
+  await knowledge.ownerEditFields({
+    brandId,
+    userId,
+    fields,
+    proposedBy: "setup_interview",
+  });
+  return fields.map((f) => f.fieldKey);
+}
+
+/**
+ * P035-C1 — conversational-path early brand creation.
+ *
+ * Called at the business-name confirmation boundary: the FIRST interview turn
+ * where the gap engine targeted `business_name` and the owner's answer
+ * resolved it (state.resolved.business_name), while the session has no brand.
+ * That is the narrowest existing owner-confirmed identity point in the flow —
+ * the engine only marks business_name resolved on an owner-stated or
+ * owner-confirmed value, never on arbitrary partial text.
+ *
+ * Reuses the EXISTING creation write (the same enumerated brands-INSERT +
+ * ownerEditFields(business_name) pair the discovery saveProfile path uses) —
+ * no new substrate, no new schema, no second engine. The end-of-interview
+ * create_brand_profile action then seeds its discovery session WITH this
+ * brand id, so the accepted synthesis pipeline UPDATES this same brand.
+ *
+ * Best-effort: on any failure the interview continues unharmed and the brand
+ * is created at execution time exactly as before (honest fallback, logged).
+ * The setup_sessions bind is guarded (`brand_id IS NULL`) so a concurrent
+ * writer can never leave a second, orphaned brand bound nowhere — if the
+ * guard loses, the transaction rolls back and no brand row survives.
+ */
+async function ensureInterviewBrand(userId, session, name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed || trimmed.length > 200) return null;
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query(
+      `INSERT INTO brands (user_id, brand_name) VALUES ($1, $2) RETURNING brand_id`,
+      [userId, trimmed],
+    );
+    const brandId = inserted.rows[0].brand_id;
+    await knowledge.ownerEditFields({
+      brandId,
+      userId,
+      fields: [{ fieldKey: "business_name", value: trimmed }],
+      proposedBy: "setup_interview",
+      refId: session.session_id,
+      client,
+    });
+    const bound = await client.query(
+      `UPDATE setup_sessions SET brand_id = $1, updated_at = NOW()
+        WHERE session_id = $2 AND brand_id IS NULL
+        RETURNING session_id`,
+      [brandId, session.session_id],
+    );
+    if (bound.rows.length === 0) {
+      // Raced: something else bound a brand first. Roll back so no orphan
+      // brand row exists; the already-bound brand wins.
+      await client.query("ROLLBACK");
+      return null;
+    }
+    await client.query("COMMIT");
+    session.brand_id = brandId;
+    return brandId;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("P035-C1 early brand creation failed (interview continues):", err.message);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
 // When the interview identified a real-estate agent, mark the brand as the
 // 'real_estate' brand type and persist the profile. Idempotent — re-runs
 // simply rewrite the same values. Returns true when the brand was marked.
@@ -481,15 +595,28 @@ const ACTIONS = [
     label: "Creating your brand & profile",
     feature: null,
     async run({ userId, session, answers }) {
-      if (session.brand_id) {
-        return { status: "done", detail: "Your brand is already set up." };
+      // P035-C1: an early interview-created brand no longer short-circuits
+      // this step — the synthesis pipeline must still run, UPDATING that same
+      // brand (saveProfile updates in place when the discovery session
+      // carries a brand id). A brand bound WITH a completed discovery session
+      // is a true re-run and stays idempotent.
+      if (session.brand_id && session.discovery_session_id) {
+        const done = await db.query(
+          "SELECT status FROM brand_discovery_sessions WHERE session_id = $1 AND user_id = $2",
+          [session.discovery_session_id, userId],
+        );
+        if (done.rows.length && done.rows[0].status === "completed") {
+          return { status: "done", detail: "Your brand is already set up." };
+        }
+        // Crash between seed and confirm: fall through and confirm again —
+        // the discovery row is bound to this brand, so saveProfile updates it.
       }
       // Crash-replay safety: this is the first action and it has an external side
       // effect (brand creation). We persist the brand-discovery session id BEFORE
       // confirming, so a retry after a crash can recover the already-created brand
       // (via the discovery row's brand_id) instead of creating a duplicate.
       let discoverySessionId = session.discovery_session_id || null;
-      if (discoverySessionId) {
+      if (discoverySessionId && !session.brand_id) {
         const prior = await db.query(
           "SELECT brand_id FROM brand_discovery_sessions WHERE session_id = $1 AND user_id = $2",
           [discoverySessionId, userId],
@@ -506,18 +633,30 @@ const ACTIONS = [
             await applyRealEstateProfile(userId, recoveredBrandId, answers);
           }
           await applyOnlinePresence(userId, recoveredBrandId, answers);
+          // Crash recovery must perform the SAME durable handoff as the normal
+          // path (Section C) — both calls are idempotent (unchanged values are
+          // skipped; identical anchors are a no-op), so a re-run is safe.
+          await applyStatedFacts(userId, recoveredBrandId, answers);
+          anchorOrchestrator.onAnchorArrival({
+            userId,
+            brandId: recoveredBrandId,
+            reason: "setup_interview",
+          });
           return { status: "done", detail: "Your brand profile is already set up." };
         }
-      } else {
+      } else if (!discoverySessionId) {
         // Seed a brand-discovery session with the interview answers, then run the
         // existing discovery confirm path so the brand + full profile are created
         // through the exact same synthesis pipeline the UI uses.
+        // P035-C1: when the interview already created the onboarding brand,
+        // the discovery session is seeded WITH that brand id so the accepted
+        // synthesis pipeline UPDATES it instead of inserting a duplicate.
         const seeded = [{ role: "user", content: compiledBusinessSummary(answers) }];
         const { rows } = await db.query(
           `INSERT INTO brand_discovery_sessions (user_id, brand_id, messages)
-           VALUES ($1, NULL, $2::jsonb)
+           VALUES ($1, $2, $3::jsonb)
            RETURNING session_id`,
-          [userId, JSON.stringify(seeded)],
+          [userId, session.brand_id || null, JSON.stringify(seeded)],
         );
         discoverySessionId = rows[0].session_id;
         await db.query(
@@ -546,6 +685,18 @@ const ACTIONS = [
         ? false
         : await applyRealEstateProfile(userId, brand.brand_id, answers);
       await applyOnlinePresence(userId, brand.brand_id, answers);
+      // Prompt 035 Section C — durable owner-fact handoff (verbatim answers →
+      // stated knowledge versions). Runs after online presence so knowledge
+      // and brand anchors land together.
+      await applyStatedFacts(userId, brand.brand_id, answers);
+      // Prompt 035 Sections D/E — anchors just arrived (name, maybe website/
+      // facebook). Kick the onboarding investigation orchestrator; it is
+      // fire-and-forget and never blocks or fails the setup step.
+      anchorOrchestrator.onAnchorArrival({
+        userId,
+        brandId: brand.brand_id,
+        reason: "setup_interview",
+      });
       return {
         status: "done",
         detail: political
@@ -569,20 +720,46 @@ const ACTIONS = [
       const slotDurationMinutes =
         Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 30;
 
+      // Prompt 035 Section C3 — the owner's explicit hours answer is
+      // authoritative. Deterministic parse only (C1-B); the default may fill
+      // ONLY a genuinely unanswered field, and an answered-but-unparseable
+      // value is reported honestly, never silently replaced.
+      const rawHours = firstAnswer(answers, ["business_hours", "opening_hours", "hours"]);
+      const answered = Boolean(rawHours) && !isRefusalAnswer(rawHours);
+      const parsed = answered ? parseBusinessHours(rawHours) : null;
+      if (answered && !parsed) {
+        // The owner DID answer but the deterministic parser can't read it.
+        // Section C3: a default may fill only a genuinely unanswered field —
+        // writing ANY placeholder schedule over explicit input is prohibited,
+        // even disclosed. Leave availability unset and ask for review; the
+        // exact wording is already saved verbatim in the knowledge substrate.
+        return {
+          status: "skipped",
+          detail: `I couldn't read "${rawHours.slice(0, 60)}" as structured hours, so I left your booking availability unset rather than guess. Your exact wording is saved — please set your hours under Appointments.`,
+        };
+      }
+      const weeklyHours = parsed ? parsed.weeklyHours : DEFAULT_WEEKLY_HOURS;
+
       const result = await invoke(appointmentController.saveAvailabilityConfig, userId, {
         params: { brandId: session.brand_id },
         body: {
           timezone,
           slotDurationMinutes,
           bufferMinutes: 0,
-          weeklyHours: DEFAULT_WEEKLY_HOURS,
+          weeklyHours,
         },
       });
       ensureOk(result, "Failed to set your availability.");
-      return {
-        status: "done",
-        detail: `Set weekday hours (9–5) with ${slotDurationMinutes}-minute appointments.`,
-      };
+      let detail;
+      if (parsed) {
+        const first = parsed.weeklyHours[0];
+        detail = `Set your stated hours (${first.start}–${first.end}, ${parsed.weeklyHours.length} day${parsed.weeklyHours.length === 1 ? "" : "s"}/week) with ${slotDurationMinutes}-minute appointments.`;
+      } else if (answered) {
+        detail = `Couldn't read "${rawHours.slice(0, 60)}" as structured hours — set a weekday 9–5 placeholder. Your exact wording is saved; please review it under Appointments.`;
+      } else {
+        detail = `Set weekday hours (9–5) with ${slotDurationMinutes}-minute appointments.`;
+      }
+      return { status: "done", detail };
     },
   },
 
@@ -1154,6 +1331,11 @@ function interviewState(answers) {
     noticesShown: raw.noticesShown && typeof raw.noticesShown === "object" ? raw.noticesShown : {},
     continueAnyway: raw.continueAnyway === true,
     knowledgeReadFailed: raw.knowledgeReadFailed === true,
+    // Prompt 035 Section H — explicit second-business entry intent, persisted
+    // in the reserved answers._interview JSONB bookkeeping (NOT a SQL column;
+    // the entry_intent column is not authorized). Survives pause/reload/
+    // restart because answers is the session's durable JSONB state.
+    entryIntent: raw.entryIntent === "new_business" ? "new_business" : raw.entryIntent === "resume" ? "resume" : null,
   };
 }
 
@@ -1347,6 +1529,12 @@ function serializeSession(session) {
  */
 async function initiateSession(req, res) {
   const userId = req.user.userId;
+  // Prompt 035 Section H — narrow second-business entry. intent is optional:
+  // absent/anything-else preserves today's behavior bit-for-bit. Only the
+  // explicit "new_business" intent changes the path: the fresh session must
+  // NOT resume an open session, must NOT bind the inventory's brand, and
+  // create_brand_profile must NOT crash-recover a prior discovery brand.
+  const intent = req.body && req.body.intent === "new_business" ? "new_business" : null;
   try {
     const existing = await db.query(
       `SELECT * FROM setup_sessions
@@ -1354,6 +1542,23 @@ async function initiateSession(req, res) {
        ORDER BY created_at DESC LIMIT 1`,
       [userId],
     );
+    // Read-only probe (Section H): lets the client decide whether to show the
+    // second-business entry choice WITHOUT creating or resuming anything. An
+    // open session means "resume in progress — don't interrupt with a choice".
+    if (req.body && req.body.probe === true) {
+      return res.json({ openSession: existing.rows.length > 0 });
+    }
+    if (intent === "new_business" && existing.rows.length > 0) {
+      // The open session belongs to the previous business. Pause it (never
+      // delete — the owner can resume it later) so the new-business session
+      // becomes the active one.
+      await db.query(
+        `UPDATE setup_sessions SET status = 'paused', paused_at = NOW(), updated_at = NOW()
+          WHERE user_id = $1 AND status = 'in_progress'`,
+        [userId],
+      );
+      existing.rows.length = 0;
+    }
     if (existing.rows.length > 0) {
       // Resuming an existing run: stamp resumed_at and clear any paused state so
       // the lifecycle (started/paused/resumed) reflects reality.
@@ -1386,8 +1591,17 @@ async function initiateSession(req, res) {
     // first turn is already gap-driven (Prompt 023). The interview always
     // still OPENS with account type (that shapes everything downstream); the
     // engine's plan takes over question selection for brand fields after.
-    const inv = await loadInterviewInventory(userId, null);
+    // Prompt 035 Section H: a new-business session must not inherit the
+    // existing brand's knowledge inventory or brand binding — it starts in
+    // sparse mode exactly like a brand-new user (every field honestly
+    // "missing"), so the gap engine can't skip questions already answered
+    // for the OTHER business.
+    const inv =
+      intent === "new_business"
+        ? { brandId: null, draftId: null, inventory: { approved: {}, pending: {}, legacy: {}, draft: {} } }
+        : await loadInterviewInventory(userId, null);
     const state = interviewState({});
+    if (intent === "new_business") state.entryIntent = "new_business";
     if (inv.readFailure) state.knowledgeReadFailed = true;
     const plan = inv.inventory ? gapEngine.buildPlan(inv.inventory) : null;
 
@@ -1472,7 +1686,13 @@ async function submitAnswer(req, res) {
 
     // Re-read the knowledge projection IMMEDIATELY before acting on the answer
     // (D-36 A3) — approvals/edits made elsewhere mid-interview change premises.
-    const inv = await loadInterviewInventory(userId, session.brand_id);
+    // Prompt 035 Section H: a new-business session with no brand yet must stay
+    // in sparse mode — resolveInterviewBrand's single-brand fallback would
+    // otherwise silently bind the OTHER business's brand and knowledge.
+    const inv =
+      state.entryIntent === "new_business" && !session.brand_id
+        ? { brandId: null, draftId: null, inventory: { approved: {}, pending: {}, legacy: {}, draft: {} } }
+        : await loadInterviewInventory(userId, session.brand_id);
     if (inv.readFailure) state.knowledgeReadFailed = true;
     const plan = !inv.readFailure && inv.inventory ? gapEngine.buildPlan(inv.inventory) : null;
 
@@ -1481,6 +1701,7 @@ async function submitAnswer(req, res) {
     const planEntry =
       plan && answeredField ? plan.find((e) => e.fieldKey === answeredField) || null : null;
 
+    let resolvedKind = null;
     if (planEntry && planEntry.action !== gapEngine.ACTIONS.SKIP) {
       // Engine-targeted knowledge field: resolve through the canonical boundary.
       const result = await resolveKnowledgeAnswer({
@@ -1491,6 +1712,7 @@ async function submitAnswer(req, res) {
         answerText: answer.trim(),
         resolution,
       });
+      resolvedKind = result.resolvedKind;
       if (result.resolvedKind === "premise_changed") {
         // Stale base (409): never force-written. Re-present the field once
         // with the changed premise acknowledged honestly.
@@ -1503,6 +1725,75 @@ async function submitAnswer(req, res) {
       }
     } else if (planEntry == null && answeredField && plan) {
       // Operational (non-knowledge) field — nothing to write here.
+    }
+
+    // P035-C1 — verbatim URL answers are identity anchors wherever they land
+    // in the conversation (the engine has no website/facebook slot, so the
+    // owner supplies them as free answers). STRICT whole-answer detection
+    // through the existing deterministic normalizers only — never text
+    // mining inside prose. The raw answer is stored under the canonical
+    // presence alias key in session.answers (JSONB — no schema), which is
+    // exactly what applyOnlinePresence already reads, both mid-interview and
+    // at execution time.
+    {
+      const rawAnswer = answer.trim();
+      if (/^(https?:\/\/)?[\w][\w.-]*\.[a-z]{2,}([/?#]\S*)?$/i.test(rawAnswer)) {
+        const fb = normalizeFacebookPageUrl(rawAnswer);
+        if (fb.ok && fb.value) {
+          answers.facebook_page = rawAnswer;
+        } else {
+          const site = normalizeWebsiteUrl(rawAnswer);
+          if (site.ok && site.value) answers.business_website = rawAnswer;
+        }
+      }
+    }
+
+    // P035-C1 — early brand creation at the business-name confirmation
+    // boundary. Fires ONLY when: the ENGINE targeted business_name this turn
+    // (never arbitrary utterances), the owner's answer RESOLVED it
+    // (stated/confirmed — deferrals, refusals and premise changes never
+    // create), it resolved as session_only (no brand is bound anywhere; a
+    // resolution against an existing bound brand must never spawn a second
+    // brand), and the session has no brand. With no plan (knowledge read
+    // failure) creation fails closed to the accepted end-of-interview path.
+    let brandJustCreated = false;
+    if (
+      !session.brand_id &&
+      answeredField === "business_name" &&
+      resolvedKind === "session_only" &&
+      state.resolved.business_name === true &&
+      !isRefusalAnswer(answer.trim())
+    ) {
+      const statedName =
+        resolution && resolution.value !== undefined && String(resolution.value).trim()
+          ? String(resolution.value).trim()
+          : answer.trim();
+      const createdId = await ensureInterviewBrand(userId, session, statedName);
+      brandJustCreated = Boolean(createdId);
+    }
+
+    // P035-C1 — mid-interview anchor handoff. Once the onboarding brand
+    // exists, every later verbatim fact and identity anchor collected in this
+    // SAME conversation persists to the brand through the accepted Prompt-035
+    // paths immediately (both helpers are idempotent — unchanged values are
+    // skipped), and the existing anchor machinery fires so Tier-A research
+    // proceeds WHILE the owner keeps talking. Best-effort: instrumentation of
+    // the brand must never break the interview turn.
+    if (session.brand_id) {
+      let presenceChanged = false;
+      try {
+        presenceChanged = await applyOnlinePresence(userId, session.brand_id, answers);
+        await applyStatedFacts(userId, session.brand_id, answers);
+      } catch (err) {
+        console.error("P035-C1 mid-interview handoff failed (interview continues):", err.message);
+      }
+      if (brandJustCreated || presenceChanged) {
+        anchorOrchestrator.onAnchorArrival({
+          userId,
+          brandId: session.brand_id,
+          reason: "setup_interview",
+        });
+      }
     }
 
     // Owner chose to continue onboarding with open gaps: honest exit — the
@@ -2032,4 +2323,11 @@ module.exports = {
   resolveKnowledgeAnswer,
   buildDirectorNote,
   interviewState,
+  // Prompt 035 Stage 2 seams for tests.
+  applyStatedFacts,
+  STATED_FACT_MAP,
+  // 035-C1 H-5 seam: exposes the early-brand transaction body so the G1
+  // losing-race rollback can be exercised deterministically. Export only —
+  // no behavior change.
+  _ensureInterviewBrand: ensureInterviewBrand,
 };

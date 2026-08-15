@@ -31,6 +31,10 @@ export default function OnlineLinksPanel() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
+  // Prompt 035 Section K — post-onboarding anchor change: offer, never auto-run.
+  const [researchOffer, setResearchOffer] = useState(false);
+  const [offerBusy, setOfferBusy] = useState(false);
+  const [offerNote, setOfferNote] = useState("");
 
   useEffect(() => {
     if (!open || values || status === "nobrand") return;
@@ -74,6 +78,9 @@ export default function OnlineLinksPanel() {
       for (const f of LINK_FIELDS) next[f.key] = updated[f.key] || "";
       setValues(next);
       setSaved(true);
+      // Prompt 035 Section K: after onboarding, an anchor change never
+      // silently launches research — the server flags it and we OFFER.
+      setResearchOffer(Boolean(updated.researchOffer));
     } catch (err) {
       setSaveError(err.message || "Failed to save your links.");
     } finally {
@@ -142,6 +149,37 @@ export default function OnlineLinksPanel() {
                   {saving ? "Saving…" : "Save links"}
                 </button>
                 {saved && <span className="text-sm text-emerald-400">Saved.</span>}
+                {researchOffer && (
+                  <span className="flex items-center gap-2 text-sm text-indigo-300" data-testid="research-offer">
+                    Want Sage to re-investigate your business with the new links?
+                    <button
+                      type="button"
+                      disabled={offerBusy}
+                      onClick={async () => {
+                        setOfferBusy(true);
+                        setOfferNote("");
+                        try {
+                          await api.startBrandResearch(brandId);
+                          setOfferNote("Sage is on it — check the Sage tab in a few minutes.");
+                        } catch (err) {
+                          setOfferNote(
+                            err && err.status === 409
+                              ? "Sage is already researching this business."
+                              : "Couldn't start research right now.",
+                          );
+                        } finally {
+                          setOfferBusy(false);
+                          setResearchOffer(false);
+                        }
+                      }}
+                      className="rounded bg-indigo-700 px-2 py-0.5 text-xs font-semibold text-white hover:bg-indigo-600 disabled:opacity-50"
+                      data-testid="research-offer-accept"
+                    >
+                      {offerBusy ? "Starting…" : "Yes, re-investigate"}
+                    </button>
+                  </span>
+                )}
+                {offerNote && <span className="text-xs text-gray-400">{offerNote}</span>}
               </div>
             </>
           )}

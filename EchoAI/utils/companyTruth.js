@@ -127,6 +127,19 @@ async function gatherCompanyData(brand) {
       );
       return rows[0] || null;
     }),
+    // Prompt 035 Section C4 — the owner's APPROVED knowledge facts (phone,
+    // address, hours, email, services, service_area…) now reach Company
+    // Truth. Read through the one canonical Prompt-011 projection; a read
+    // failure is surfaced honestly by probe() (never treated as "no data").
+    probe("approved_owner_facts", async () => {
+      const knowledge = require("./brandKnowledge");
+      const approved = await knowledge.getApprovedKnowledge(brand.brand_id);
+      const out = {};
+      for (const [key, v] of Object.entries(approved || {})) {
+        out[key] = { value: v.value, source: v.sourceKind || v.source_kind || null };
+      }
+      return Object.keys(out).length ? out : null;
+    }),
     probe("brand_profile", async () => ({
       brandName: brand.brand_name,
       brandType: brand.brand_type || null,

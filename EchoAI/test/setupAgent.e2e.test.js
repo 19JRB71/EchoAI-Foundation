@@ -387,7 +387,10 @@ test("Professional user completes the full setup flow end-to-end", async () => {
 
   // Every configuration step ran; baseline + Pro-gated steps all executed.
   assert.equal(byKey.create_brand_profile, "done");
-  assert.equal(byKey.set_availability, "done");
+  // P035 Section C3: the interview harness answers the hours question with an
+  // explicit but unparseable sentence, so availability is honestly left unset
+  // (never silently defaulted over explicit owner input).
+  assert.equal(byKey.set_availability, "skipped");
   assert.equal(byKey.connect_google, "skipped"); // OAuth handoff skipped in test
   assert.equal(byKey.content_calendar, "done");
   assert.equal(byKey.ad_creatives, "done");
@@ -422,7 +425,8 @@ test("Professional user completes the full setup flow end-to-end", async () => {
   assert.ok(creatives.rows.length > 0, "ad creatives row missing");
   assert.ok(series.rows.length > 0, "welcome email series missing");
   assert.ok(scheduled.rows.length > 0, "social posts were not scheduled");
-  assert.ok(avail.rows.length > 0, "availability schedule missing");
+  // P035 C3: hours were explicit-but-unparseable, so NO schedule row exists.
+  assert.equal(avail.rows.length, 0, "no availability row should be written over unparseable explicit hours");
   // Professional is below Enterprise, so no survey was created.
   assert.equal(survey.rows.length, 0, "Professional should not get a survey");
 
@@ -459,7 +463,8 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   // Every configuration step ran; baseline + Pro-gated steps all executed, just
   // like Professional. connect_google is the only OAuth handoff (skipped here).
   assert.equal(byKey.create_brand_profile, "done");
-  assert.equal(byKey.set_availability, "done");
+  // P035 Section C3: explicit-but-unparseable hours → honest skip (see above).
+  assert.equal(byKey.set_availability, "skipped");
   assert.equal(byKey.connect_google, "skipped"); // OAuth handoff skipped in test
   assert.equal(byKey.content_calendar, "done");
   assert.equal(byKey.ad_creatives, "done");
@@ -485,6 +490,9 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
     "create_facebook_campaign",
     "connect_social",
     "setup_google_ads",
+    // P035 C3: honest data-dependent skip (explicit-but-unparseable hours),
+    // not a tier gate.
+    "set_availability",
   ]);
   const gateSkipped = steps.filter((s) => s.status === "skipped" && !CONNECTION_STEPS.has(s.key));
   assert.equal(gateSkipped.length, 0, `Enterprise wrongly skipped: ${JSON.stringify(gateSkipped)}`);
@@ -511,7 +519,8 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   assert.ok(creatives.rows.length > 0, "ad creatives row missing");
   assert.ok(series.rows.length > 0, "welcome email series missing");
   assert.ok(scheduled.rows.length > 0, "social posts were not scheduled");
-  assert.ok(avail.rows.length > 0, "availability schedule missing");
+  // P035 C3: hours were explicit-but-unparseable, so NO schedule row exists.
+  assert.equal(avail.rows.length, 0, "no availability row should be written over unparseable explicit hours");
   // The Enterprise-only survey was really created.
   assert.ok(survey.rows.length > 0, "Enterprise survey row missing");
 
