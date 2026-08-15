@@ -289,10 +289,18 @@ async function computeActivityFeed(userId, bid) {
 function buildAttention({ agents, failedPosts, goalAlerts, sageUrgent }) {
   const items = [];
   for (const p of failedPosts) {
+    // 026-C1 I-51: word the item by WHERE the publish failed. pre_provider
+    // carries definitive nothing-was-sent evidence, so say so plainly;
+    // provider (and legacy rows without a stage) keep the original wording —
+    // the platform call ran, so "failed to publish" is the honest claim.
+    const text =
+      p.failureStage === "pre_provider"
+        ? `A ${p.platform} post couldn't start publishing (nothing was sent) — ${p.reason}`
+        : `A ${p.platform} post failed to publish — ${p.reason}`;
     items.push({
       id: `post-${p.postId}`,
       type: "failed_post",
-      text: `A ${p.platform} post failed to publish — ${p.reason}`,
+      text,
       priority: "high",
       section: "social",
       ts: p.failedAt,
@@ -445,6 +453,7 @@ async function getMissionControlV2(req, res) {
     const failedPostsRaw = await rows(
       `SELECT sp.post_id, sp.platform, sp.scheduled_time, sp.updated_at,
               sp.engagement_metrics->>'error' AS reason,
+              sp.engagement_metrics->>'failure_stage' AS failure_stage,
               b.brand_id, b.brand_name
          FROM social_posts sp
          JOIN brands b ON b.brand_id = sp.brand_id
@@ -460,6 +469,8 @@ async function getMissionControlV2(req, res) {
       brandId: p.brand_id,
       brandName: p.brand_name,
       reason: p.reason || "Unknown error",
+      // 026-C1 I-51: 'pre_provider' | 'provider' | null (legacy rows).
+      failureStage: p.failure_stage || null,
       scheduledTime: p.scheduled_time,
       failedAt: p.updated_at,
     }));

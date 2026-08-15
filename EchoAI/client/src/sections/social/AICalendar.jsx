@@ -72,6 +72,8 @@ export default function AICalendar({ brandId, onReconnect }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  // 026-C1: the activation artifact under review (null = no dialog open).
+  const [activationPreview, setActivationPreview] = useState(null);
 
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -146,17 +148,61 @@ export default function AICalendar({ brandId, onReconnect }) {
     });
   }
 
+  // 026-C1 Ruling A: activation is two-phase. Phase 1 fetches the exact
+  // artifact (what will be scheduled, where, and what stays behind) into
+  // `activationPreview`; phase 2 sends the artifact's digest back. If the
+  // calendar changed between the two, the server refuses and we re-fetch a
+  // fresh preview — the owner never approves something they didn't see.
   async function handleActivate() {
     if (!calendar) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await api.activateContentCalendar(calendar.calendar_id);
-      setNotice("Calendar activated — posts will publish automatically at their scheduled times.");
-      await load();
+      const preview = await api.previewCalendarActivation(calendar.calendar_id);
+      setActivationPreview(preview);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmActivation() {
+    if (!calendar || !activationPreview) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await api.activateContentCalendar(
+        calendar.calendar_id,
+        activationPreview.digest
+      );
+      setActivationPreview(null);
+      const parts = [
+        `Calendar activated — ${result.activatedCount} post${
+          result.activatedCount === 1 ? "" : "s"
+        } scheduled.`,
+      ];
+      if (result.excludedStaleCount > 0) {
+        parts.push(`${result.excludedStaleCount} stayed as drafts (times already passed).`);
+      }
+      if (result.excludedUnboundCount > 0) {
+        parts.push(`${result.excludedUnboundCount} stayed as drafts (no connected destination).`);
+      }
+      setNotice(parts.join(" "));
+      await load();
+    } catch (err) {
+      // A 409 means the schedule changed since the preview (or needs a fresh
+      // approval) — show the updated artifact rather than a dead error.
+      try {
+        const fresh = await api.previewCalendarActivation(calendar.calendar_id);
+        setActivationPreview(fresh);
+        setError("The schedule changed since you reviewed it — please check the update and approve again.");
+      } catch (previewErr) {
+        setActivationPreview(null);
+        setError(err.message);
+      }
     } finally {
       setBusy(false);
     }
@@ -258,6 +304,62 @@ export default function AICalendar({ brandId, onReconnect }) {
       {notice && (
         <div className="rounded-lg border border-green-700 bg-green-900/30 px-4 py-2 text-sm text-green-300">
           {notice}
+        </div>
+      )}
+
+      {activationPreview && (
+        <div
+          data-testid="activation-preview"
+          className="rounded-xl border border-teal-700 bg-teal-900/20 p-4"
+        >
+          <h3 className="text-sm font-semibold text-teal-200">Approve your posting schedule</h3>
+          <div className="mt-2 space-y-1 text-sm text-gray-200">
+            <p>
+              <span className="font-semibold">{activationPreview.eligibleCount ?? 0}</span> post
+              {(activationPreview.eligibleCount ?? 0) === 1 ? "" : "s"} will be scheduled
+              {activationPreview.firstScheduledTime
+                ? ` from ${new Date(activationPreview.firstScheduledTime).toLocaleString()} to ${new Date(
+                    activationPreview.lastScheduledTime
+                  ).toLocaleString()}`
+                : ""}
+              .
+            </p>
+            {Object.entries(activationPreview.destinations || {}).map(([platform, destination]) => (
+              <p key={platform} className="capitalize">
+                {platform} → <span className="normal-case">{destination || "connected account"}</span>
+              </p>
+            ))}
+            {activationPreview.excludedStaleCount > 0 && (
+              <p className="text-amber-300">
+                {activationPreview.excludedStaleCount} post
+                {activationPreview.excludedStaleCount === 1 ? "" : "s"} will stay as drafts — their
+                times have already passed.
+              </p>
+            )}
+            {activationPreview.excludedUnboundCount > 0 && (
+              <p className="text-amber-300">
+                {activationPreview.excludedUnboundCount} post
+                {activationPreview.excludedUnboundCount === 1 ? "" : "s"} will stay as drafts — their
+                platform has no connected destination.
+              </p>
+            )}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={confirmActivation}
+              disabled={busy || !activationPreview.digest}
+              className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              Approve &amp; schedule
+            </button>
+            <button
+              onClick={() => setActivationPreview(null)}
+              disabled={busy}
+              className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm font-semibold text-gray-300 hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 

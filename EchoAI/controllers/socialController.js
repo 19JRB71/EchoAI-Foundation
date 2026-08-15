@@ -1231,7 +1231,18 @@ async function publishDuePosts() {
              publish_attempts = publish_attempts + 1
          WHERE post_id = $2 AND status = 'publishing'
          RETURNING post_id`,
-        [JSON.stringify({ error: err.message }), post.post_id]
+        [
+          // 026-C1 I-51: record WHERE the failure happened. pre_provider =
+          // definitive nothing-was-sent evidence (raised before the execution
+          // gateway); provider = the platform call itself failed. Mission
+          // Control words the two differently so the owner knows whether
+          // anything could have gone out.
+          JSON.stringify({
+            error: err.message,
+            failure_stage: err.preProvider === true ? "pre_provider" : "provider",
+          }),
+          post.post_id,
+        ]
       );
       // Prompt 024 (C4): resolve a first-win claimed authorization only with
       // definitive no-side-effect evidence (`err.preProvider` — raised before
@@ -1351,7 +1362,14 @@ async function publishPostNow(req, res) {
              publish_attempts = publish_attempts + 1
          WHERE post_id = $2 AND status = 'publishing'
          RETURNING post_id`,
-        [JSON.stringify({ error: err.message }), post.post_id]
+        [
+          // 026-C1 I-51: same stage classification as the sweep site.
+          JSON.stringify({
+            error: err.message,
+            failure_stage: err.preProvider === true ? "pre_provider" : "provider",
+          }),
+          post.post_id,
+        ]
       );
       if (marked.rows.length > 0) {
         await spineRecordPublishFailure(post, err, `owner:${userId}`);

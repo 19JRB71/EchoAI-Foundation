@@ -130,8 +130,13 @@ export const api = {
     request("/api/setup-agent/answer", { method: "POST", body: { sessionId, answer, ...extras } }),
   grantSetupConsent: (sessionId) =>
     request("/api/setup-agent/consent", { method: "POST", body: { sessionId } }),
-  runSetupAction: (sessionId, skip = false) =>
-    request("/api/setup-agent/execute", { method: "POST", body: { sessionId, skip } }),
+  // 026-C1: `confirm` carries an artifact-bound approval for a paused consent
+  // gate (e.g. { step: 'social_schedule', digest }). Omitted unless set.
+  runSetupAction: (sessionId, skip = false, confirm = null) =>
+    request("/api/setup-agent/execute", {
+      method: "POST",
+      body: confirm ? { sessionId, skip, confirm } : { sessionId, skip },
+    }),
   pauseSetupSession: (sessionId) =>
     request("/api/setup-agent/pause", { method: "POST", body: { sessionId } }),
   // Fire-and-forget pause used on hard tab/window close, where a normal fetch
@@ -1097,10 +1102,18 @@ export const api = {
       body: { brandId, postingFrequency, contentTheme, posts },
     }),
   getContentCalendar: (brandId) => request(`/api/content-calendar/${brandId}`),
-  activateContentCalendar: (calendarId) =>
-    request("/api/content-calendar/activate", {
+  // 026-C1 Ruling A: two-phase activation. Preview returns the exact artifact
+  // (eligible posts, destinations, exclusions) plus the digest the owner's
+  // approval binds to; activate carries that digest back.
+  previewCalendarActivation: (calendarId) =>
+    request("/api/content-calendar/preview-activation", {
       method: "POST",
       body: { calendarId },
+    }),
+  activateContentCalendar: (calendarId, confirmDigest = null) =>
+    request("/api/content-calendar/activate", {
+      method: "POST",
+      body: confirmDigest ? { calendarId, confirmDigest } : { calendarId },
     }),
   pauseContentCalendar: (calendarId) =>
     request("/api/content-calendar/pause", {

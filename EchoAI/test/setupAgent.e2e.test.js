@@ -395,9 +395,13 @@ test("Professional user completes the full setup flow end-to-end", async () => {
   assert.equal(byKey.content_calendar, "done");
   assert.equal(byKey.ad_creatives, "done");
   // No social account is connected in the test, so the connect handoff is skipped
-  // (same class as connect_google) — the calendar still activates below.
+  // (same class as connect_google).
   assert.equal(byKey.connect_social, "skipped");
-  assert.equal(byKey.social_schedule, "done");
+  // 026-C1 Ruling A: social_schedule is now a consent handoff — it pauses for
+  // the owner's digest-bound approval, and this loop skips handoffs. The old
+  // behavior (auto-activating the calendar with zero owner approval) was the
+  // silent-authorization defect Stage 2 removes.
+  assert.equal(byKey.social_schedule, "skipped");
   assert.equal(byKey.email_preferences, "done");
   // The Enterprise-only survey step is gated above Professional, so it is skipped.
   assert.equal(byKey.create_survey, "skipped");
@@ -424,7 +428,14 @@ test("Professional user completes the full setup flow end-to-end", async () => {
   assert.ok(cal.rows.length > 0, "content calendar row missing");
   assert.ok(creatives.rows.length > 0, "ad creatives row missing");
   assert.ok(series.rows.length > 0, "welcome email series missing");
-  assert.ok(scheduled.rows.length > 0, "social posts were not scheduled");
+  // 026-C1: the consent handoff was skipped, so NOTHING may be scheduled —
+  // the drafts stay drafts until the owner explicitly approves the artifact.
+  assert.equal(scheduled.rows.length, 0, "no post may be scheduled without owner approval");
+  const drafts = await db.query(
+    "SELECT 1 FROM social_posts WHERE brand_id = $1 AND status = 'draft'",
+    [brandId],
+  );
+  assert.ok(drafts.rows.length > 0, "the generated posts should remain as drafts");
   // P035 C3: hours were explicit-but-unparseable, so NO schedule row exists.
   assert.equal(avail.rows.length, 0, "no availability row should be written over unparseable explicit hours");
   // Professional is below Enterprise, so no survey was created.
@@ -469,9 +480,11 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   assert.equal(byKey.content_calendar, "done");
   assert.equal(byKey.ad_creatives, "done");
   // No social account is connected in the test, so the connect handoff is skipped
-  // (same class as connect_google) — the calendar still activates below.
+  // (same class as connect_google).
   assert.equal(byKey.connect_social, "skipped");
-  assert.equal(byKey.social_schedule, "done");
+  // 026-C1 Ruling A: social_schedule pauses for digest-bound owner approval;
+  // the loop skips handoffs, so it ends "skipped" — never a silent activation.
+  assert.equal(byKey.social_schedule, "skipped");
   assert.equal(byKey.email_preferences, "done");
   // The Enterprise-only survey step runs to completion for an Enterprise account.
   assert.equal(byKey.create_survey, "done");
@@ -493,6 +506,9 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
     // P035 C3: honest data-dependent skip (explicit-but-unparseable hours),
     // not a tier gate.
     "set_availability",
+    // 026-C1: the digest-bound activation consent handoff (skipped by the
+    // loop like every other handoff), not a tier gate.
+    "social_schedule",
   ]);
   const gateSkipped = steps.filter((s) => s.status === "skipped" && !CONNECTION_STEPS.has(s.key));
   assert.equal(gateSkipped.length, 0, `Enterprise wrongly skipped: ${JSON.stringify(gateSkipped)}`);
@@ -518,7 +534,8 @@ test("Enterprise user completes every setup step (nothing wrongly gated)", async
   assert.ok(cal.rows.length > 0, "content calendar row missing");
   assert.ok(creatives.rows.length > 0, "ad creatives row missing");
   assert.ok(series.rows.length > 0, "welcome email series missing");
-  assert.ok(scheduled.rows.length > 0, "social posts were not scheduled");
+  // 026-C1: the consent handoff was skipped, so nothing may be scheduled.
+  assert.equal(scheduled.rows.length, 0, "no post may be scheduled without owner approval");
   // P035 C3: hours were explicit-but-unparseable, so NO schedule row exists.
   assert.equal(avail.rows.length, 0, "no availability row should be written over unparseable explicit hours");
   // The Enterprise-only survey was really created.
