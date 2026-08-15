@@ -12,6 +12,7 @@ const {
   normalizeWebsiteUrl,
   normalizeFacebookPageUrl,
   isRefusalAnswer,
+  extractUrlCandidates,
 } = require("../utils/onlinePresence");
 
 const brandDiscoveryController = require("../controllers/brandDiscoveryController");
@@ -1336,6 +1337,25 @@ function interviewState(answers) {
     // the entry_intent column is not authorized). Survives pause/reload/
     // restart because answers is the session's durable JSONB state.
     entryIntent: raw.entryIntent === "new_business" ? "new_business" : raw.entryIntent === "resume" ? "resume" : null,
+    // P035-C2 — volunteered-URL confirmation state (answers._interview JSONB;
+    // no schema). queue: candidates awaiting explicit owner confirmation;
+    // decided: normalized URL → "confirmed" | "rejected" (beyond-cap URLs are
+    // NEVER entered here — AM-1); exchangeLog: bounded confirmation-turn
+    // record (AM-3 — preservation, not inference).
+    urlConfirm: normalizeUrlConfirm(raw.urlConfirm),
+  };
+}
+
+function normalizeUrlConfirm(raw) {
+  const uc = raw && typeof raw === "object" && raw !== null ? raw : {};
+  return {
+    queue: Array.isArray(uc.queue) ? uc.queue : [],
+    decided: uc.decided && typeof uc.decided === "object" ? uc.decided : {},
+    exchangeLog: Array.isArray(uc.exchangeLog) ? uc.exchangeLog : [],
+    pendingOverflow: typeof uc.pendingOverflow === "number" ? uc.pendingOverflow : 0,
+    // C2-PM1(b) — fail-honest bound accounting: how many exchange entries the
+    // 20-entry cap has dropped from this log (never silently discarded).
+    logDroppedCount: typeof uc.logDroppedCount === "number" ? uc.logDroppedCount : 0,
   };
 }
 
@@ -1580,6 +1600,16 @@ async function initiateSession(req, res) {
           firstQuestion = null;
         }
       }
+      // P035-C2 — a pending volunteered-URL confirmation survives refresh/
+      // resume: re-emit the SAME truthful confirmation (never the engine
+      // question, never a duplicate capture; catalog state stays intact).
+      const resumeState = interviewState(
+        session.answers && typeof session.answers === "object" ? session.answers : {},
+      );
+      if (!session.interview_complete && resumeState.urlConfirm.queue.length > 0) {
+        const head = resumeState.urlConfirm.queue[0];
+        firstQuestion = c2Question(head, { reask: head.reasked === true });
+      }
       return res.json({
         session: serializeSession(session),
         question: firstQuestion,
@@ -1643,6 +1673,84 @@ async function initiateSession(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// P035-C2 — volunteered-URL confirmation (deterministic; detection ≠ capture)
+// ---------------------------------------------------------------------------
+
+// Non-catalog sentinel target for the confirmation turn. Deliberately OUTSIDE
+// the knowledge catalog: it is never a knowledge FIELD_KEY, never creates a
+// knowledge version, never resolves through the knowledge-field write path.
+const C2_URL_CONFIRM_SENTINEL = "_c2_url_confirm";
+const C2_QUEUE_CAP = 3;
+const C2_LOG_MAX = 20;
+// Conservative, word-bounded lexicons; anything else is ambiguous (re-ask
+// once, then fail closed). "not…" never matches the NO stem "no\b".
+const C2_YES_RE = /^\s*(yes|yeah|yep|yup|correct|exactly|affirmative|that'?s (right|it|correct|the one)|it is|sure( is)?)\b/i;
+const C2_NO_RE = /^\s*(no|nope|nah|negative|wrong|that'?s not|it'?s not|isn'?t)\b/i;
+
+function c2Question(cand, { reask = false } = {}) {
+  const noun = cand.kind === "facebook" ? "Facebook page" : "business website";
+  return {
+    message: reask
+      ? `Just to be sure — is ${cand.value} your ${noun}? Please answer yes or no.`
+      : `I noticed ${cand.value} in your answer. Is that your ${noun}?`,
+    collects: C2_URL_CONFIRM_SENTINEL,
+    complete: false,
+    action: "confirm",
+    targetField: C2_URL_CONFIRM_SENTINEL,
+    candidate: { value: cand.value, origin: "volunteered_url" },
+  };
+}
+
+// AM-3 — bounded confirmation-exchange record: what the owner actually said
+// during a consumed confirmation turn is preserved, never reinterpreted.
+function c2LogPush(uc, role, text) {
+  // C2-PM1(b) — fail-honest bounds: caps stay (20 entries / 500 chars) but
+  // the record must REVEAL what the caps cut. Truncated entries carry a
+  // marker + the original length; entries dropped by the 20-entry cap are
+  // counted in uc.logDroppedCount. Nothing routes elsewhere, nothing infers.
+  const full = String(text);
+  const entry = { role, text: full.slice(0, 500), at: new Date().toISOString() };
+  if (full.length > 500) {
+    entry.truncated = true;
+    entry.originalLength = full.length;
+  }
+  uc.exchangeLog.push(entry);
+  if (uc.exchangeLog.length > C2_LOG_MAX) {
+    const dropped = uc.exchangeLog.length - C2_LOG_MAX;
+    uc.exchangeLog.splice(0, dropped);
+    uc.logDroppedCount = (typeof uc.logDroppedCount === "number" ? uc.logDroppedCount : 0) + dropped;
+  }
+}
+
+// YES path — the confirmed candidate enters the SAME alias the whole-answer
+// path uses, then the SAME accepted chain (applyOnlinePresence →
+// onAnchorArrival reason "setup_interview"). No second pipeline. Wording is
+// honest: "saved" only once the anchor is actually structured; with no brand
+// yet, the existing later applyOnlinePresence pickup path processes it.
+async function c2CaptureConfirmed(userId, session, answers, cand) {
+  const noun = cand.kind === "facebook" ? "Facebook page" : "website";
+  if (cand.kind === "facebook") answers.facebook_page = cand.value;
+  else answers.business_website = cand.value;
+  if (!session.brand_id) {
+    return `Thanks — I've noted ${cand.value} as your ${noun}; I'll attach it to your business profile as soon as it's created.`;
+  }
+  try {
+    const changed = await applyOnlinePresence(userId, session.brand_id, answers);
+    if (changed) {
+      anchorOrchestrator.onAnchorArrival({
+        userId,
+        brandId: session.brand_id,
+        reason: "setup_interview",
+      });
+    }
+    return `Got it — I've saved ${cand.value} as your ${noun}.`;
+  } catch (err) {
+    console.error("P035-C2 confirmed-URL capture failed (interview continues):", err.message);
+    return `Thanks — I've noted ${cand.value} as your ${noun}; I'll finish attaching it shortly.`;
+  }
+}
+
 /**
  * POST /api/setup-agent/answer  { sessionId, answer }
  * Records the answer, asks the AI for the next question (or completion), and
@@ -1677,6 +1785,79 @@ async function submitAnswer(req, res) {
         ? req.body.resolution
         : null;
     const continueRequested = req.body && req.body.continueAnyway === true;
+
+    // P035-C2 — intercept-first confirmation turn. While a volunteered URL
+    // awaits confirmation, this turn is handled DETERMINISTICALLY before the
+    // engine/AI path: the reply is a confirmation answer, NOT the pending
+    // catalog field's answer (current_field, messages, surfaces untouched).
+    const uc = state.urlConfirm;
+    if (uc.queue.length > 0) {
+      const cand = uc.queue[0];
+      const reply = answer.trim();
+      c2LogPush(uc, "owner", reply);
+      // K — a corrected literal URL wins over yes/no wording: the original is
+      // rejected and the corrected URL must ITSELF be confirmed (never
+      // silently captured). The candidate's own URL echoed back is not a
+      // correction.
+      const corrected = extractUrlCandidates(reply).candidates.filter(
+        (c) => c.value !== cand.value && !uc.decided[c.value] && !uc.queue.some((q) => q.value === c.value),
+      );
+      let ack = null;
+      if (corrected.length > 0) {
+        uc.decided[cand.value] = "rejected";
+        uc.queue.shift();
+        for (const c of corrected.reverse()) {
+          if (uc.queue.length < C2_QUEUE_CAP) uc.queue.unshift(c);
+        }
+      } else if (C2_YES_RE.test(reply)) {
+        uc.decided[cand.value] = "confirmed";
+        uc.queue.shift();
+        ack = await c2CaptureConfirmed(userId, session, answers, cand);
+      } else if (C2_NO_RE.test(reply)) {
+        uc.decided[cand.value] = "rejected";
+        uc.queue.shift();
+        ack = `No problem — I won't use ${cand.value}.`;
+      } else if (cand.reasked === true) {
+        // L — second ambiguous reply: fail closed. Rejected, nothing
+        // captured, no research; the interview resumes.
+        uc.decided[cand.value] = "rejected";
+        uc.queue.shift();
+        ack = `Okay — I'll set ${cand.value} aside for now.`;
+      } else {
+        cand.reasked = true; // re-ask ONCE with explicit yes/no framing
+      }
+      let questionOut;
+      if (uc.queue.length > 0) {
+        questionOut = c2Question(uc.queue[0], { reask: uc.queue[0].reasked === true });
+        if (ack) questionOut.message = `${ack} ${questionOut.message}`;
+      } else {
+        // Queue drained — resume by re-presenting the pending engine question
+        // VERBATIM from messages (current_field and catalog state unchanged).
+        const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+        let pendingQ = null;
+        if (lastAssistant) {
+          try {
+            pendingQ = JSON.parse(lastAssistant.content);
+          } catch {
+            pendingQ = null;
+          }
+        }
+        questionOut = { ...(pendingQ || {}), complete: false };
+        questionOut.message =
+          pendingQ && pendingQ.message
+            ? `${ack ? `${ack} ` : ""}Back to where we were: ${pendingQ.message}`
+            : ack || "Let's continue.";
+        if (session.current_field) questionOut.collects = session.current_field;
+      }
+      c2LogPush(uc, "echo", questionOut.message);
+      answers._interview = state;
+      const updatedC2 = await db.query(
+        `UPDATE setup_sessions SET answers = $1::jsonb, updated_at = NOW()
+          WHERE session_id = $2 RETURNING *`,
+        [JSON.stringify(answers), sessionId],
+      );
+      return res.json({ session: serializeSession(updatedC2.rows[0]), question: questionOut });
+    }
 
     if (session.current_field) {
       answers[session.current_field] = answer.trim();
@@ -1737,7 +1918,8 @@ async function submitAnswer(req, res) {
     // at execution time.
     {
       const rawAnswer = answer.trim();
-      if (/^(https?:\/\/)?[\w][\w.-]*\.[a-z]{2,}([/?#]\S*)?$/i.test(rawAnswer)) {
+      const wholeAnswerUrl = /^(https?:\/\/)?[\w][\w.-]*\.[a-z]{2,}([/?#]\S*)?$/i.test(rawAnswer);
+      if (wholeAnswerUrl) {
         const fb = normalizeFacebookPageUrl(rawAnswer);
         if (fb.ok && fb.value) {
           answers.facebook_page = rawAnswer;
@@ -1745,6 +1927,34 @@ async function submitAnswer(req, res) {
           const site = normalizeWebsiteUrl(rawAnswer);
           if (site.ok && site.value) answers.business_website = rawAnswer;
         }
+      } else {
+        // P035-C2 — embedded literal URL candidates. Detection is NEVER
+        // capture: candidates only QUEUE for explicit owner confirmation.
+        // The whole-answer path above wins first and stays unchanged; a
+        // previously decided URL never re-prompts (idempotency); a URL whose
+        // normalized value is already the captured alias never re-prompts.
+        // Beyond-cap candidates are counted for honest disclosure and are
+        // NEVER entered into decided (AM-1 — re-volunteering stays eligible).
+        const { candidates, overflow } = extractUrlCandidates(rawAnswer);
+        let dropped = overflow;
+        for (const cand of candidates) {
+          if (uc.decided[cand.value]) continue;
+          if (uc.queue.some((q) => q.value === cand.value)) continue;
+          const existing = cand.kind === "facebook" ? answers.facebook_page : answers.business_website;
+          if (existing) {
+            const norm =
+              cand.kind === "facebook"
+                ? normalizeFacebookPageUrl(existing)
+                : normalizeWebsiteUrl(existing);
+            if (norm.ok && norm.value === cand.value) continue;
+          }
+          if (uc.queue.length >= C2_QUEUE_CAP) {
+            dropped += 1;
+            continue;
+          }
+          uc.queue.push({ value: cand.value, kind: cand.kind });
+        }
+        if (dropped > 0) uc.pendingOverflow += dropped;
       }
     }
 
@@ -1810,6 +2020,11 @@ async function submitAnswer(req, res) {
     let director = null;
     if (plan) {
       director = buildDirectorNote(plan, state);
+      // P035-C2 honesty (Section P): the AI must never claim a link was
+      // received/saved unless it is actually present in the structured
+      // setup answers — a link merely mentioned in prose is NOT captured.
+      director.note +=
+        "\nNever claim a website or Facebook link was received, saved, or added to the business profile unless it is already present in the structured setup answers (business_website / facebook_page). A link merely mentioned in conversation is NOT captured.";
       if (premiseNote) director.note += `\n${premiseNote}`;
       messages.push({ role: "user", content: director.note });
       if (director.target) {
@@ -1884,6 +2099,43 @@ async function submitAnswer(req, res) {
           origin: c.origin,
           revisionId: c.origin === "pending_revision" ? (inv.inventory.pending[t.fieldKey] || {}).revisionId : undefined,
         }));
+      }
+    }
+
+    // P035-C2 — a freshly queued volunteered-URL candidate overrides this
+    // turn's OUTGOING question with the server-templated confirmation (the
+    // AI's phrasing never reaches the owner on the detection turn, so a
+    // premature "thanks for sharing the website!" is impossible). The engine
+    // question stays in messages/current_field and is re-presented verbatim
+    // once the confirmation resolves. On a same-turn completion the interview
+    // is never held hostage: honest disclosure only, nothing captured, and
+    // the undecided URLs stay eligible for later re-volunteering (AM-1).
+    if (uc.queue.length > 0) {
+      if (complete) {
+        const links = uc.queue.map((q) => q.value).join(", ");
+        uc.queue = [];
+        uc.pendingOverflow = 0;
+        questionOut.message = `${questionOut.message} One more note: I noticed ${links} in your answers but haven't saved anything — you can add links to your business profile anytime.`;
+        answers._interview = state;
+        await db.query(
+          `UPDATE setup_sessions SET answers = $1::jsonb, updated_at = NOW() WHERE session_id = $2`,
+          [JSON.stringify(answers), sessionId],
+        );
+      } else {
+        const confirmQ = c2Question(uc.queue[0]);
+        const extra = uc.pendingOverflow;
+        if (extra > 0) {
+          confirmQ.message += ` I also spotted ${extra} more link${extra === 1 ? "" : "s"} I haven't queued — re-paste any one you want me to handle.`;
+          uc.pendingOverflow = 0;
+        }
+        c2LogPush(uc, "echo", confirmQ.message);
+        answers._interview = state;
+        const reUpdated = await db.query(
+          `UPDATE setup_sessions SET answers = $1::jsonb, updated_at = NOW()
+            WHERE session_id = $2 RETURNING *`,
+          [JSON.stringify(answers), sessionId],
+        );
+        return res.json({ session: serializeSession(reUpdated.rows[0]), question: confirmQ });
       }
     }
 
@@ -2330,4 +2582,5 @@ module.exports = {
   // losing-race rollback can be exercised deterministically. Export only —
   // no behavior change.
   _ensureInterviewBrand: ensureInterviewBrand,
+  _c2LogPush: c2LogPush,
 };

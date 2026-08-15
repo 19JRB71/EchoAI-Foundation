@@ -107,10 +107,61 @@ function isRefusalAnswer(input) {
   );
 }
 
+// --- P035-C2: deterministic literal URL candidate extraction --------------
+// Finds URL candidates the owner LITERALLY typed inside free-text interview
+// answers. Never AI, never inference, never guessed domains: only whitespace
+// tokens that start with https://, http://, or www. qualify (bare domains in
+// prose are deliberately ignored). AM-2: common literal wrappers/punctuation
+// are stripped deterministically — leading ( [ < " ' ` and trailing wrappers/
+// punctuation iteratively — this is token cleanup, NOT markdown parsing.
+// Validation/classification stays with the existing authoritative
+// normalizers: facebook hosts → {kind:"facebook"}, anything else that
+// normalizes as a website → {kind:"website"}; failures are dropped.
+// Bounds: token ≤ 2048 chars, max 3 candidates per answer (extras counted in
+// `overflow` for honest disclosure — never queued, never decided), dedup by
+// normalized value.
+const C2_MAX_CANDIDATES = 3;
+
+function extractUrlCandidates(text) {
+  if (typeof text !== "string" || !text.trim()) return { candidates: [], overflow: 0 };
+  const candidates = [];
+  const seen = new Set();
+  let overflow = 0;
+  for (const rawToken of text.split(/\s+/)) {
+    if (!rawToken || rawToken.length > 2048) continue;
+    let token = rawToken.replace(/^[(\[<"'`]+/, "");
+    for (;;) {
+      const stripped = token.replace(/[)\]>"'`.,;:!?]+$/, "");
+      if (stripped === token) break;
+      token = stripped;
+    }
+    if (!/^(https?:\/\/|www\.)/i.test(token)) continue;
+    let entry = null;
+    const fb = normalizeFacebookPageUrl(token);
+    // Tokens here always contain "/" or "." — the facebook normalizer only
+    // accepts such tokens on real facebook/fb hosts, so fb.ok is decisive.
+    if (fb.ok && fb.value) {
+      entry = { value: fb.value, kind: "facebook" };
+    } else {
+      const site = normalizeWebsiteUrl(token);
+      if (site.ok && site.value) entry = { value: site.value, kind: "website" };
+    }
+    if (!entry || seen.has(entry.value)) continue;
+    seen.add(entry.value);
+    if (candidates.length >= C2_MAX_CANDIDATES) {
+      overflow += 1;
+      continue;
+    }
+    candidates.push(entry);
+  }
+  return { candidates, overflow };
+}
+
 module.exports = {
   normalizeWebsiteUrl,
   normalizeFacebookPageUrl,
   normalizeSocialUrl,
   SOCIAL_PLATFORMS,
   isRefusalAnswer,
+  extractUrlCandidates,
 };
