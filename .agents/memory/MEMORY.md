@@ -129,3 +129,4 @@
 - [EchoAI workspace drift](echoai-workspace-drift.md) — workspace tree ≠ real staging; D-37 evidence must come from a fresh GitHub clone (EchoAI-Foundation, staging); cp -r not cp -al into /tmp.
 - [EchoAI P035 PI orchestration](echoai-p035-pi-orchestration.md) — claim-time onboarding gate, no defaults over explicit input (even disclosed), recovery repeats full handoff, `_createMessage` is the interview stub seam.
 - [EchoAI evidence accounting](echoai-evidence-accounting.md) — owner-report numbers only from the D-37 fresh clone (workspace drifts); forFirstWin falls back to retained celebration→proof lineage; neutralize [[ in any authored text entering the system prompt.
+- [EchoAI volunteered-URL confirm](echoai-c2-url-confirm.md) — detect≠capture w/ _c2_url_confirm sentinel; applyOnlinePresence returns "present" not "changed" (sameAnchors dedups); normalizer href has trailing slash.

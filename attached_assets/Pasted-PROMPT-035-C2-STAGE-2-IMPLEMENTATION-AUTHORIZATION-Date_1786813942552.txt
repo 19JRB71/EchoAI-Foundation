@@ -1,0 +1,931 @@
+PROMPT 035-C2 — STAGE 2 IMPLEMENTATION AUTHORIZATION
+
+Date: 2026-08-15
+
+STATUS:
+Prompt 035 is CONDITIONALLY ACCEPTED.
+035-C2 is the sole remaining corrective gate before Prompt 026 H1 may restart.
+
+This authorization incorporates:
+
+1. Replit's Prompt 035-C2 Stage-1 Design Note.
+2. Claude's Stage-1 adversarial ruling:
+   DECISION B — ACCEPT WITH DESIGN AMENDMENTS.
+3. Owner + ChatGPT consolidation.
+
+Where this authorization is more specific than the Stage-1 design note,
+THIS AUTHORIZATION WINS.
+
+==================================================
+A. AUTHORIZATION
+==================================================
+
+035-C2 STAGE 2 IS AUTHORIZED.
+
+Implement ONLY the bounded volunteered-anchor corrective described below.
+
+Do not expand this into an onboarding redesign.
+
+Do not resume Prompt 026 H1.
+
+Do not begin Prompt 027.
+
+Do not touch production/main.
+
+Do not implement or resolve I-50.
+
+Do not alter the website/Facebook solicitation question catalog.
+
+Do not alter Sage's research architecture.
+
+Do not create a new provenance system.
+
+Do not perform any production action.
+
+==================================================
+B. PURPOSE
+==================================================
+
+The live Prompt-035 smoke established this gap:
+
+An owner can naturally volunteer a website URL inside a free-text interview
+answer, Echo can verbally acknowledge the website, yet the URL never enters
+the structured anchor machinery and Sage therefore cannot research it.
+
+Example:
+
+"We sell cakes and our website is https://example.com"
+
+Current behavior:
+the URL remains only inside free text.
+
+Required behavior:
+the literal URL is deterministically detected, explicitly confirmed by the
+owner, and ONLY THEN handed into the EXISTING structured online-presence /
+anchor / Sage research pipeline.
+
+This corrective MUST preserve the distinction between:
+
+DETECTION
+and
+OWNER CONFIRMATION
+and
+STRUCTURED CAPTURE
+and
+RESEARCH.
+
+Detection alone is never permission to capture.
+
+Research initiation remains separate from owner approval of Company Truth.
+
+==================================================
+C. EXACT FILE BOUNDARY
+==================================================
+
+Expected files are EXACTLY:
+
+1. EchoAI/utils/onlinePresence.js
+2. EchoAI/controllers/setupAgentController.js
+3. EchoAI/test/p035.c2.urlCapture.test.js
+
+No client file is authorized.
+
+No route file is authorized.
+
+No configuration file is authorized.
+
+No migration is authorized.
+
+No schema change is authorized.
+
+No anchorOrchestrator/research-machinery modification is authorized.
+
+If implementation proves that another source file is genuinely required:
+
+STOP AND REPORT BEFORE CHANGING IT.
+
+Do not silently expand the diff.
+
+==================================================
+D. EXTRACTION — DETERMINISTIC ONLY
+==================================================
+
+Add the narrow pure helper proposed in Stage 1:
+
+extractUrlCandidates(text)
+
+It MUST NOT use AI.
+
+It MUST NOT infer company websites.
+
+It MUST NOT guess domains.
+
+It MUST NOT search the web.
+
+It MUST NOT treat ordinary bare domains embedded in prose as anchors.
+
+Candidate signals are limited to literal owner-supplied tokens beginning with:
+
+https://
+http://
+www.
+
+Validation/classification MUST reuse the existing:
+
+normalizeWebsiteUrl
+normalizeFacebookPageUrl
+
+machinery.
+
+Existing normalizers remain authoritative.
+
+Candidate limits:
+
+- token length <= 2048 characters
+- maximum 3 queued candidates from one answer
+- deduplicate by normalized value
+
+The existing whole-answer URL path wins first and remains unchanged.
+
+==================================================
+E. AM-2 — WRAPPER/PUNCTUATION HANDLING
+==================================================
+
+Claude's AM-2 is binding.
+
+Candidate extraction must handle common literal wrappers.
+
+Strip appropriate LEADING wrapper characters such as:
+
+(
+[
+"
+'
+<
+
+and strip trailing punctuation/wrappers ITERATIVELY so constructions such as:
+
+https://example.com).
+"https://example.com"
+[https://example.com]
+<https://example.com>
+
+can yield the literal URL candidate when otherwise valid.
+
+This remains deterministic token cleanup.
+
+Do NOT turn this into generalized markdown parsing or text mining.
+
+The existing normalizers still decide whether the resulting candidate is
+valid.
+
+==================================================
+F. CONFIRMATION STATE
+==================================================
+
+Use the existing setup_sessions.answers JSONB.
+
+New state belongs under the existing:
+
+answers._interview.urlConfirm
+
+No schema.
+
+Conceptually:
+
+urlConfirm = {
+  queue: [
+    {
+      value: <normalized URL>,
+      kind: "website" | "facebook"
+    }
+  ],
+
+  decided: {
+    "<normalized URL>": "confirmed" | "rejected"
+  },
+
+  exchangeLog: [...]
+}
+
+Names may follow existing local conventions, but the semantics above are
+binding.
+
+==================================================
+G. INTERCEPT-FIRST CONFIRMATION
+==================================================
+
+When a URL confirmation is pending, that turn MUST be handled deterministically
+BEFORE the normal engine/AI answer path.
+
+The confirmation itself is server-templated.
+
+Example website wording:
+
+"I noticed https://example.com in your answer. Is that your business website?"
+
+Facebook equivalent:
+
+"I noticed https://facebook.com/example in your answer. Is that your Facebook page?"
+
+The response contract reuses the EXISTING 023 confirmation SHAPE:
+
+action: "confirm"
+
+candidate: {
+  value: ...,
+  origin: "volunteered_url"
+}
+
+with non-catalog sentinel target:
+
+_c2_url_confirm
+
+This is NOT authorization to create another knowledge-field architecture.
+
+It is deliberately outside the knowledge catalog.
+
+==================================================
+H. SENTINEL SAFETY
+==================================================
+
+_c2_url_confirm MUST NOT be a valid knowledge FIELD_KEY.
+
+It MUST NOT create a knowledge version.
+
+It MUST NOT resolve through the normal knowledge-field write path.
+
+That property must be bound by regression C2-12.
+
+Do not merely assert it by code inspection.
+
+==================================================
+I. YES PATH
+==================================================
+
+On explicit owner confirmation:
+
+YES
+
+the confirmed normalized candidate enters the SAME existing alias used by the
+whole-answer path:
+
+website:
+answers.business_website
+
+Facebook:
+the existing facebook_page alias/path
+
+Then reuse the existing accepted chain:
+
+applyOnlinePresence
+→ brands website_url / facebook_page_url
+→ presenceChanged
+→ anchorOrchestrator.onAnchorArrival({
+     reason: "setup_interview"
+   })
+→ existing anchor snapshot
+→ existing Tier-A Sage research machinery
+
+DO NOT create a second research pipeline.
+
+DO NOT call Sage through a new path.
+
+DO NOT create a website knowledge-version stated fact.
+
+Website/Facebook remain structured brand anchors exactly as in the accepted
+existing architecture.
+
+If the URL arrives before a brand exists, preserve the existing Stage-1
+behavior:
+
+store the confirmed answer and allow the existing later
+applyOnlinePresence pickup path to process it once the brand exists.
+
+==================================================
+J. NO PATH
+==================================================
+
+If owner says NO:
+
+mark that candidate rejected;
+
+remove/pop it from the pending queue;
+
+do not write it to brands;
+
+do not create an anchor;
+
+do not trigger research.
+
+Interview continues normally.
+
+==================================================
+K. CORRECTION PATH
+==================================================
+
+If the owner responds to the confirmation with another literal URL:
+
+the original candidate becomes rejected;
+
+the corrected URL becomes a NEW candidate;
+
+the corrected candidate MUST itself be confirmed.
+
+Never silently replace one URL with another.
+
+Never capture an unconfirmed corrected URL.
+
+==================================================
+L. AMBIGUOUS RESPONSE
+==================================================
+
+If the owner response is neither:
+
+- yes,
+- no,
+- nor a corrected literal URL,
+
+re-ask the confirmation ONCE using explicit yes/no framing.
+
+If the second response is still ambiguous:
+
+fail closed;
+
+mark the candidate rejected;
+
+capture nothing;
+
+trigger no research;
+
+resume the interview.
+
+No infinite confirmation loop.
+
+==================================================
+M. AM-3 — CONFIRMATION EXCHANGE RECORD
+==================================================
+
+Claude identified a truth-record problem:
+
+A substantive owner utterance during a confirmation turn must not simply
+vanish because the deterministic confirmation handler consumed the turn.
+
+Therefore:
+
+confirmation-turn replies MUST be retained in a bounded log inside:
+
+_interview.urlConfirm
+
+The log records the confirmation exchange sufficiently to preserve what the
+owner actually said.
+
+Do NOT reinterpret unrelated substantive text as structured knowledge.
+
+Do NOT route it into arbitrary fields.
+
+The purpose of this log is RECORD PRESERVATION, not inference.
+
+No schema.
+
+Keep it bounded.
+
+==================================================
+N. MULTIPLE URLS — AM-1
+==================================================
+
+The Stage-1 cap-3 FIFO design is accepted.
+
+Maximum queued candidates per answer:
+
+3
+
+Confirm serially, one per turn.
+
+If additional candidates beyond the cap are detected:
+
+do not queue them;
+
+do not capture them;
+
+do not silently pretend they were processed;
+
+tell the owner accurately that additional link(s) were seen and that they may
+re-paste the one they want handled.
+
+CRITICAL AM-1:
+
+Beyond-cap candidates MUST NEVER be inserted into the decided map.
+
+Therefore if the owner later re-volunteers one of those URLs, it is eligible
+to enter the confirmation queue normally.
+
+The disclosure count MUST be accurate.
+
+The original verbatim owner answer remains preserved in setup answers.
+
+No unbounded queue.
+
+No multi-choice client redesign.
+
+==================================================
+O. AM-5 — STRONGER LATER WHOLE-ANSWER STATEMENT
+==================================================
+
+A URL rejected during the embedded-candidate confirmation flow may later be
+captured through the EXISTING whole-answer URL path.
+
+That is intentional.
+
+A later whole-answer URL is treated as a stronger explicit owner statement.
+
+Do not add suppression logic that prevents the existing whole-answer path from
+working merely because the same URL was previously rejected as an extracted
+candidate.
+
+==================================================
+P. HONESTY WORDING
+==================================================
+
+The Section-P defect was not only missing capture.
+
+Echo said words equivalent to:
+
+"thanks for sharing the website!"
+
+even though nothing structural happened.
+
+That must not remain possible on the embedded-detection turn.
+
+Before confirmation:
+
+Echo may truthfully say:
+
+"I noticed https://example.com in your answer. Is that your business website?"
+
+It MUST NOT imply:
+
+saved
+captured
+received into the business profile
+research started
+or anything equivalent.
+
+After successful confirmed structured capture, wording may truthfully state:
+
+"Got it — I've saved https://example.com as your website."
+
+The director instruction for subsequent AI turns must also prevent claims that
+a website/page was received or saved unless it is actually present in the
+structured anchors.
+
+==================================================
+Q. IDEMPOTENCY / RESUME
+==================================================
+
+Preserve the Stage-1 design properties:
+
+Repeated identical embedded candidate:
+no repeated confirmation once decided.
+
+Repeated identical confirmed anchor:
+no version churn and no duplicate research.
+
+Existing:
+sameAnchors
+claimRun
+single-flight
+autoRunsToday
+
+protections remain authoritative and UNMODIFIED.
+
+Refresh/resume with a pending URL confirmation:
+
+must restore/re-emit the same confirmation truthfully;
+
+must not duplicate capture;
+
+must not skip the underlying real interview field;
+
+must not corrupt current_field;
+
+must not increment catalog surfaces incorrectly;
+
+must not flip a catalog field resolved merely because the URL confirmation
+occurred.
+
+==================================================
+R. FACEBOOK DIRECT REGRESSION
+==================================================
+
+Embedded Facebook URLs are explicitly part of C2.
+
+A literal embedded Facebook URL must:
+
+be deterministically classified through the existing Facebook normalizer;
+
+produce a Facebook confirmation;
+
+on YES populate the existing facebook_page path;
+
+then populate brands.facebook_page_url through existing machinery;
+
+then enter the same existing anchor-arrival path.
+
+No separate Facebook architecture.
+
+==================================================
+S. I-50 REMAINS OUT OF SCOPE
+==================================================
+
+DO NOT add:
+
+"What's your website?"
+
+"What's your Facebook page?"
+
+or any equivalent new catalog question in this corrective.
+
+Do not change interview ordering.
+
+Do not change the solicitation timing.
+
+Do not modify the question catalog.
+
+I-50 remains OPEN for the later E1 timing decision.
+
+035-C2 fixes volunteered-anchor CAPTURE only.
+
+==================================================
+T. REQUIRED REGRESSION SUITE
+==================================================
+
+Create:
+
+EchoAI/test/p035.c2.urlCapture.test.js
+
+Bind at least these 13 properties:
+
+C2-1
+Embedded website candidate
+→ confirmation
+→ YES
+→ business_website
+→ applyOnlinePresence
+→ anchor arrival exactly once.
+
+C2-2
+NO path
+→ no capture
+→ no anchor
+→ no research.
+
+C2-3
+Correction
+→ original rejected
+→ corrected URL requires confirmation
+→ only corrected confirmed URL captured.
+
+C2-4
+Existing whole-answer URL path unchanged.
+
+C2-5
+No qualifying URL
+→ no candidate queue
+→ no confirmation.
+
+C2-6
+Multiple URLs
+→ bounded FIFO behavior
+→ correct beyond-cap disclosure
+→ no duplicate trigger.
+
+Also bind AM-1:
+beyond-cap URLs are NOT entered into decided and may be re-volunteered later.
+
+C2-7
+Repeated identical URL
+→ no confirmation churn
+→ no second research run.
+
+C2-8
+Refresh/resume with pending confirmation
+→ same truthful confirmation restored
+→ catalog interview state intact.
+
+C2-9
+Acknowledgment honesty:
+pre-capture language does not imply save/capture;
+post-capture save language only after actual structured capture.
+
+C2-10
+C1 early-brand behavior remains green, including:
+p035.c1.earlyBrand
+p035.c1.g1RollbackRace.
+
+C2-11
+Ambiguous response
+→ re-ask once
+→ second ambiguity fails closed
+→ nothing captured
+→ interview proceeds.
+
+Also verify AM-3 exchange-log preservation.
+
+C2-12
+_c2_url_confirm is structurally excluded from knowledge FIELD_KEY handling;
+attempting to resolve it as a knowledge field cannot create a knowledge write.
+
+C2-13
+Embedded Facebook URL
+→ Facebook classification
+→ confirmation
+→ YES
+→ facebook_page_url
+→ existing anchor-arrival path.
+
+The entire existing server suite remains mandatory.
+
+The entire existing client suite remains mandatory.
+
+Current baselines:
+
+SERVER: 1419
+CLIENT: 440
+
+Server additions must be accounted exactly under D-37.
+
+Do not simply report "all green."
+
+Return:
+
+baseline count
++
+named C2 additions
+=
+new exact server total.
+
+Client expected result:
+
+440 / 440
+
+with no client test additions.
+
+==================================================
+U. IMPLEMENTATION DIFF BOUNDS
+==================================================
+
+Stage-1 estimate:
+
+onlinePresence.js:
+approximately 30–45 lines
+
+setupAgentController.js:
+approximately 80–120 lines
+
+plus new test suite.
+
+Claude authorized a modest approximately 10–20 production-line allowance for
+the amendments.
+
+These are review bounds, not permission to distort code merely to hit a line
+number.
+
+If the implementation materially exceeds them:
+
+STOP AND REPORT WHY before expanding scope.
+
+==================================================
+V. PRE-PR RECONCILIATION
+==================================================
+
+After implementation and tests pass:
+
+DO NOT MERGE.
+
+Return a PRE-MERGE RECONCILIATION including:
+
+1. branch name;
+2. PR number/link;
+3. exact PR head SHA;
+4. exact staging base SHA;
+5. verbatim changed-file accounting;
+6. per-file purpose;
+7. exact insertion/deletion totals;
+8. D-32 deletion review;
+9. confirmation that only the three authorized files changed;
+10. D-37 server arithmetic from 1419;
+11. exact client result from baseline 440;
+12. named C2-1 through C2-13 results;
+13. explicit AM-1 verification;
+14. explicit AM-2 verification;
+15. explicit AM-3 verification;
+16. explicit AM-5 verification;
+17. sentinel / accepted-artifact preservation evidence as applicable;
+18. confirmation of NO schema/migration;
+19. confirmation of NO client change;
+20. confirmation of NO anchorOrchestrator/research-machinery change;
+21. confirmation of NO I-50/catalog change;
+22. confirmation production/main untouched;
+23. confirmation frozen SDS specimen untouched;
+24. deviations, if any;
+25. STOP conditions encountered, if any.
+
+Then STOP for owner + ChatGPT + Claude merge review.
+
+MERGE IS NOT SELF-AUTHORIZED.
+
+==================================================
+W. POST-MERGE VERIFICATION PLAN
+==================================================
+
+Do not execute this section until separately authorized after PRE-MERGE review.
+
+Expected later chain:
+
+merge to STAGING ONLY
+
+→ verify deployed merge SHA at:
+https://staging.zorecho.com/api/health
+
+→ verify environment = staging
+
+→ verify schema_migrations remains EXACTLY 148 applied migrations
+  and no C2 migration exists
+
+→ verify served client remains the existing accepted client build;
+  because no client file changes are authorized, no SW cache bump is expected
+
+→ focused live C2 smoke
+
+→ Section-Q report
+
+→ STOP for owner/ChatGPT review
+
+Do not use the retired Railway domain from the earlier stale notes.
+
+==================================================
+X. FOCUSED LIVE C2 RE-SMOKE — DESIGN BOUND NOW
+==================================================
+
+When separately authorized after merge, use TWO fresh D-43 TEST identities.
+
+STAGING ONLY.
+
+.invalid anchors.
+
+No consent.
+
+No /execute.
+
+No production.
+
+PATH A — EMBEDDED PATH
+
+Fresh TEST identity and TEST brand.
+
+During a normal free-text interview answer embed:
+
+https://test-p035c2a-smoke.invalid
+
+Expect:
+
+1. deterministic confirmation naming exact URL;
+2. no premature save/research claim;
+3. owner YES;
+4. brands.website_url populated;
+5. anchor snapshot website_url populated;
+6. exactly ONE research run;
+7. expected honest empty/no_public_info outcome;
+8. timing evidence recorded.
+
+Also exercise one NO candidate in the same interview:
+
+embedded second .invalid URL
+→ confirmation
+→ NO
+→ nothing captured
+→ no research from rejected candidate.
+
+PATH B — EXISTING WHOLE-ANSWER PATH
+
+Separate fresh TEST identity and TEST brand.
+
+Provide as an entire answer:
+
+https://test-p035c2b-smoke.invalid
+
+Expect:
+
+existing whole-answer behavior unchanged;
+
+NO new C2 confirmation;
+
+website captured;
+
+anchor snapshot populated;
+
+exactly ONE research run.
+
+GLOBAL SMOKE EVIDENCE
+
+For both identities/window verify:
+
+external_actions = 0
+external_proofs = 0
+email_messages = 0
+sms_messages = 0
+
+If ANY such row exists:
+
+REPORT IT AS A DEVIATION.
+
+Do not silently reclassify it.
+
+Also verify:
+
+consent_granted = false
+
+no /execute
+
+production/main untouched
+
+run count per brand = exactly 1
+
+all staging residue inventoried and retained according to existing disposition
+rules.
+
+==================================================
+Y. COMPLETION / LADDER RULE
+==================================================
+
+035-C2 implementation does NOT itself restart H1.
+
+The sequence remains:
+
+C2 implementation
+→ PRE-MERGE reconciliation
+→ owner/ChatGPT/Claude merge ruling
+→ staging deployment
+→ focused C2 re-smoke
+→ Section-Q report
+→ owner/ChatGPT review
+→ Prompt 035 converts from CONDITIONALLY ACCEPTED to COMPLETE using the
+  already-mandated I-50-scoped completion wording
+→ ONLY THEN Prompt 026 H1 restarts under the existing G-19 sequence.
+
+After 026 eventually completes, the original ladder resumes.
+
+Prompt 027 remains next at its proper point.
+
+==================================================
+Z. STOP CONDITIONS
+==================================================
+
+STOP AND REPORT rather than improvise if ANY of these occur:
+
+- schema or DDL becomes necessary;
+- migration becomes necessary;
+- client file change becomes necessary;
+- route/config change becomes necessary;
+- question-catalog change becomes necessary;
+- I-50 solicitation change becomes necessary;
+- new provenance vocabulary becomes necessary;
+- anchorOrchestrator modification becomes necessary;
+- Sage research machinery modification becomes necessary;
+- confirmation cannot bypass AI phrasing without altering engine-completion
+  logic;
+- implementation materially exceeds authorized file/diff boundaries;
+- a fourth source file appears necessary;
+- existing whole-answer path must be redesigned;
+- approval/consent boundaries would change;
+- production/main would be touched;
+- frozen SDS specimen would be touched;
+- any ambiguity would require inventing behavior not authorized here.
+
+==================================================
+FINAL AUTHORIZATION
+==================================================
+
+PROMPT 035-C2 STAGE 2 IMPLEMENTATION IS AUTHORIZED WITH THE FIVE BINDING
+CLAUDE AMENDMENTS INCORPORATED.
+
+IMPLEMENT AND TEST ONLY.
+
+CREATE THE PR AND RETURN THE COMPLETE PRE-MERGE RECONCILIATION.
+
+DO NOT MERGE.
+
+DO NOT DEPLOY.
+
+DO NOT RUN THE LIVE RE-SMOKE YET.
+
+DO NOT RESUME 026 H1.
+
+DO NOT BEGIN 027.
+
+DO NOT TOUCH PRODUCTION.
+
+STOP AT THE PRE-MERGE OWNER CHECKPOINT.
+
+BEGIN PROMPT 035-C2 STAGE 2.
