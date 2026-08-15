@@ -1,0 +1,868 @@
+PROMPT 026-C1 — BLOCKING-DEFECT CORRECTIVE MINI-CYCLE
+Social Connection Truth, Durable Skip State, Calendar Activation Authorization,
+Past-Time Safety, and Owner-Visible Failure Handling
+
+OWNER AUTHORIZATION
+
+Prompt 026 H1 is PAUSED.
+
+The current SDS-H1 specimen is frozen as:
+
+HALTED-BY-BLOCKING-FINDING
+
+It is NOT a PASS and MUST NOT be treated as completed H1 evidence regardless
+of setup_sessions.status.
+
+Prompt 035 remains CLOSED and MUST NOT be reopened.
+
+Production remains untouched.
+
+BLACOR-H1 must not begin.
+H2 remains unauthorized.
+Prompt 027 must not begin.
+
+This authorization inserts one bounded corrective mini-cycle inside Prompt 026:
+
+026-C1
+
+The ladder itself is not reordered.
+
+============================================================
+A. GOVERNING PURPOSE
+============================================================
+
+The fresh SDS-H1 AFTER specimen exposed a connected cluster of blocking defects:
+
+1. connect_social Continue cannot advance despite an existing Facebook
+   connection;
+
+2. skipped setup work is durably conflated with completed work;
+
+3. Skip can cascade through remaining setup steps and reach an
+   externally-capable scheduling transition without a new artifact-bound
+   owner authorization;
+
+4. calendar activation can move already-past drafts into scheduled state,
+   causing the background publisher to process them immediately;
+
+5. pre-provider publisher failures are durable on the work item but invisible
+   to the owner;
+
+6. connect_social can silently loop because needs_connection and bounded DB
+   failures are not surfaced actionably.
+
+These defects were discovered through the same customer journey and share the
+same H1 restart gate.
+
+We are fixing them NOW rather than accumulating them for later cleanup.
+
+============================================================
+B. CRITICAL FACTUAL CORRECTION — PRESERVE EXACTLY
+============================================================
+
+The SDS-H1 incident DID NOT make an HTTP/provider call to Facebook.
+
+What occurred:
+
+- a past-dated post was transitioned to scheduled;
+- the publisher sweep picked it up;
+- publish_attempts became 1;
+- execution failed during the local brand-scoped social-account prerequisite;
+- error was persisted on the post;
+- execution stopped BEFORE executeExternal/provider gateway;
+- Facebook was never contacted;
+- external_actions = 0 and external_proofs = 0 are therefore correct.
+
+This was:
+
+AN UNATTENDED PUBLISHER PROCESSING ATTEMPT
+
+It was NOT:
+
+A FACEBOOK PROVIDER ATTEMPT.
+
+Do not collapse those two concepts in code, tests, comments, reports, or issue
+language.
+
+The existing external ledger semantics must remain pure.
+
+============================================================
+C. ARCHITECTURAL RULINGS — BINDING
+============================================================
+
+C1. TWO-STORE SOCIAL CONTRACT
+
+The architecture is:
+
+api_integrations
+    = credential authority
+    = user <-> provider credentials/tokens/provider access
+
+social_accounts
+    = brand destination authority
+    = brand <-> selected provider page/account binding
+
+These stores are NOT duplicates.
+
+They answer different questions.
+
+Do NOT rewrite downstream brand consumers to infer the destination directly
+from api_integrations.
+
+Instead, the explicit owner-selected Facebook Page/account during connection
+must create/update the corresponding brand-scoped social_accounts binding.
+
+Rules:
+
+- binding comes ONLY from explicit owner selection;
+- NEVER use first-in-list;
+- reconnect is idempotent;
+- one appropriate binding per brand/platform;
+- reconnect updates the intended binding rather than creating duplicates;
+- no guessed automatic backfill for existing brands;
+- brands with credentials but no brand binding must be routed to explicit
+  owner re-linking/selection;
+- no silent binding based on account order or historical accident.
+
+This is a multi-brand correctness invariant.
+
+------------------------------------------------------------
+C2. CANONICAL EXTERNAL-ACTION AUTHORIZATION INVARIANT
+------------------------------------------------------------
+
+Binding invariant:
+
+"No post may reach 'scheduled' without an explicit owner authorization event
+bound to that post or its containing artifact."
+
+For content-calendar activation, the authorization boundary is the:
+
+DRAFT -> SCHEDULED
+
+transition.
+
+It is NOT:
+
+- initial generic onboarding consent;
+- per-publish approval;
+- background sweep time;
+- TEST/KEEP product state.
+
+For calendar activation, use the accepted artifact-bound consent pattern from
+024.
+
+The confirmation presented to the owner must identify enough of the artifact
+to make consent meaningful, including at minimum:
+
+- number of posts;
+- relevant date/date range;
+- platform(s);
+- destination page/account.
+
+Consent must bind to the calendar/artifact version being activated.
+
+If that artifact is regenerated or materially replaced before activation,
+previous consent cannot silently authorize the new artifact.
+
+Reuse the accepted 024 pattern.
+
+DO NOT reopen or rewrite 024.
+
+Once posts legitimately reach scheduled state, the background publisher may
+execute them without per-post owner confirmation.
+
+Preserve autopilot behavior.
+
+Internal-only setup actions such as email_preferences and create_survey do not
+need this new gate merely because they occur after Skip.
+
+------------------------------------------------------------
+C3. TEST/KEEP CLASSIFICATION
+------------------------------------------------------------
+
+Prompt-026 R2 TEST/KEEP classification remains RUNBOOK / TEST STATE.
+
+DO NOT introduce TEST/KEEP semantics into production application logic.
+
+The product enforces the generic authorization invariant in C2.
+
+The runbook controls whether the owner authorizes an artifact during H1.
+
+Existing demo-brand protections remain unchanged unless an actual dependency
+requires otherwise.
+
+------------------------------------------------------------
+C4. EXTERNAL LEDGER SEMANTICS
+------------------------------------------------------------
+
+DO NOT write pre-provider prerequisite failures into external_actions merely to
+make them visible.
+
+D-30 ledger semantics remain load-bearing:
+
+an external_actions attempt means execution reached the provider-attempt
+boundary represented by that ledger.
+
+A local prerequisite failure before the gateway must remain distinguishable
+from a provider attempt.
+
+Audit the diagnosed publisher pre-gateway failure paths.
+
+The owning work item must durably record the failure using the existing or
+compatible work-item evidence:
+
+- attempt/count where applicable;
+- failure/error;
+- timestamp/state;
+- sufficient reason for diagnosis.
+
+Then make those failures OWNER VISIBLE through the appropriate existing product
+surface.
+
+Do not create a parallel ledger unless Stage 1 proves an existing invariant
+requires one.
+
+------------------------------------------------------------
+C5. PAST-DATED ACTIVATION
+------------------------------------------------------------
+
+Do NOT silently activate stale posts.
+
+Do NOT necessarily reject an entire calendar merely because one draft has
+become stale.
+
+Required intended behavior:
+
+- only drafts whose scheduled_time is safely in the future may transition to
+  scheduled;
+- stale/past drafts remain unscheduled;
+- every excluded stale draft is explicitly surfaced to the caller/owner;
+- UI must not claim the entire calendar was scheduled if some items were
+  excluded;
+- owner receives accurate counts/status;
+- valid future drafts can continue without forcing regeneration of the entire
+  calendar.
+
+The likely SQL guard is equivalent to:
+
+scheduled_time > NOW()
+
+BUT the predicate alone is insufficient.
+
+There must also be reconciliation between eligible drafts and actually
+activated drafts so stale exclusions are visible rather than silently left
+behind.
+
+Stage 1 must verify whether onboarding and regular content-calendar activation
+share the same activation implementation.
+
+If they do, correct the shared boundary once.
+
+If they do not, STOP AND REPORT before duplicating logic across paths.
+
+------------------------------------------------------------
+C6. DURABLE SKIP TRUTH
+------------------------------------------------------------
+
+Skipped and completed are different facts.
+
+Do not add schema merely to fix this unless Stage 1 proves existing JSON/session
+state cannot safely represent it.
+
+Preferred design:
+
+one authoritative session outcome map, conceptually:
+
+step_outcomes = {
+    step_name: "completed" | "skipped"
+}
+
+Exact naming may follow existing conventions if a better existing structure is
+already present.
+
+Avoid parallel truth.
+
+completed_steps may remain for runner/backward compatibility if required, but
+its semantics must be explicitly defined and consumers must not infer
+"successfully completed" from membership alone.
+
+If retained, it may represent terminal/no-further-runner-action steps while
+step_outcomes carries the truthful outcome.
+
+Any such dual write MUST occur atomically/in the same state update so the two
+cannot diverge.
+
+Most importantly:
+
+FIX THE CONSUMERS IN THE SAME CYCLE.
+
+Enumerate at minimum:
+
+- setup/bootstrap rendering;
+- setup progress/status restoration after reload;
+- companion/Echo nag or recommendation logic;
+- guided-setup re-entry;
+- any completion/reporting consumer reading completed_steps.
+
+After reload, Skip must still display/behave as Skip.
+
+A marker that downstream consumers ignore is NOT an accepted fix.
+
+============================================================
+D. CONTINUE / CONNECTION ERROR HANDLING
+============================================================
+
+When connect_social checks for the brand binding:
+
+IF binding exists:
+    Continue advances exactly as intended.
+
+IF credentials exist but brand binding is absent:
+    owner receives an actionable re-link/select-page message.
+
+IF no Facebook connection exists:
+    owner receives the correct connect requirement.
+
+IF a bounded DB lookup fails:
+    do NOT silently coerce the failure into "not connected" if doing so hides a
+    system error.
+
+Remove/replace the diagnosed swallowed-error behavior ONLY in the bounded
+functions involved in this defect.
+
+This is NOT authorization for a repo-wide catch/error-handling cleanup.
+
+The client must not silently re-render the same panel indefinitely after a
+well-formed needs_connection response.
+
+============================================================
+E. FAILED-POST OWNER VISIBILITY
+============================================================
+
+The SDS post had durable local failure evidence but the owner could not see it.
+
+Determine the narrowest existing UI/product surface where a failed scheduled
+post should become visible.
+
+Use the existing work-item status/error as the authority.
+
+Do NOT create a second failure truth merely for display.
+
+The owner-visible state must distinguish, where the existing data permits:
+
+- failed before provider attempt;
+- provider-attempt failure;
+- successfully published/scheduled state.
+
+Do not claim a provider attempt when none occurred.
+
+============================================================
+F. ACCEPTED SYSTEMS / HARD NON-SCOPE
+============================================================
+
+DO NOT reopen accepted systems unless Stage 1 proves a direct dependency.
+
+Specifically:
+
+- Prompt 035 CLOSED;
+- 022 research orchestration untouched;
+- 023 gap engine untouched;
+- 024 consent machinery REUSED, not rewritten;
+- 033 external execution/ad chain untouched unless direct dependency is proven;
+- executeExternal semantics unchanged;
+- D-30 external ledger semantics preserved;
+- D-24/D-25 spine untouched;
+- production untouched;
+- H2 unauthorized;
+- Prompt 027 not started.
+
+NO broad refactors.
+
+NO new research architecture.
+
+NO TEST/KEEP production feature.
+
+NO per-publish approval system.
+
+NO automatic historical social-account backfill.
+
+NO guessed brand/page association.
+
+NO deletion or mutation of the frozen SDS-H1 evidence specimen.
+
+============================================================
+G. ISSUES TO FILE — NOT IMPLEMENT IN 026-C1
+============================================================
+
+Record these separately if not already present:
+
+I-53 — OAuth-return continuity / resume-screen detour / stale progress display.
+
+I-54 — ad-account selection/default behavior.
+Wrong destination selection must be a hard pre-H2/live-spend gate, but is not
+authorized in this mini-cycle unless Stage 1 proves it is inseparable from the
+social page-binding correction.
+
+I-55 — packages/display arithmetic discrepancy.
+
+I-56 — wording + Google app verification observations.
+
+I-50 remains OPEN under its existing disposition.
+
+I-52 remains under its existing disposition.
+
+Do not pull these into implementation merely because adjacent files are open.
+
+============================================================
+H. SDS-H1 SPECIMEN — FREEZE
+============================================================
+
+The current SDS-H1 specimen remains:
+
+HALTED-BY-BLOCKING-FINDING
+
+Preserve through the entire corrective cycle:
+
+- failed post row;
+- publish_attempts/error/timestamp;
+- setup session and its completed_steps conflation;
+- both Continue-click observations/timestamps;
+- empty brand-scoped social_accounts state;
+- populated user-scoped api_integrations state;
+- selected page/account evidence;
+- wrong-ad-account observation;
+- both Sage research runs and supersede lineage;
+- first-win proof and celebration pair;
+- onboarding timing events;
+- any associated H1-F findings.
+
+NO cleanup.
+NO retry.
+NO mutation merely to make the evidence prettier.
+
+The specimen remains historical BEFORE-CORRECTIVE evidence.
+
+============================================================
+I. PROCESS — TWO STAGES REQUIRED
+============================================================
+
+026-C1 is a TWO-STAGE corrective.
+
+STAGE 1 = READ-ONLY INVESTIGATION + DESIGN.
+
+STAGE 2 = IMPLEMENTATION, but ONLY after a separate owner authorization.
+
+THIS PROMPT AUTHORIZES STAGE 1 ONLY.
+
+Do not implement anything during Stage 1.
+
+Do not edit source.
+Do not edit tests.
+Do not create migrations.
+Do not modify DB/provider state.
+Do not create a branch intended for implementation if that itself changes
+governed state.
+Do not fix anything while investigating.
+
+============================================================
+J. STAGE-1 REQUIRED DELIVERABLES
+============================================================
+
+Return one complete 026-C1 Stage-1 report containing ALL of the following:
+
+1. D-37 baseline
+   - fresh clone;
+   - exact staging SHA;
+   - current server test count;
+   - current client test count;
+   - production build baseline if relevant;
+   - no stale workspace evidence.
+
+2. Exact connect_social flow
+   - client action;
+   - API;
+   - runner/action;
+   - DB reads;
+   - success condition;
+   - needs_connection condition;
+   - every swallowed error/catch in the diagnosed path.
+
+3. Exact Facebook connect flow
+   - owner page-selection surface;
+   - credential write;
+   - page_ref/page identifier;
+   - brand context available at selection time;
+   - why social_accounts is not currently written.
+
+4. Two-store contract verification
+   - every relevant writer of api_integrations;
+   - every relevant writer of social_accounts;
+   - every relevant consumer in onboarding/publisher/campaign paths;
+   - confirm whether the proposed authority split matches actual architecture;
+   - identify any contradiction before implementation.
+
+5. Multi-brand safety analysis
+   - demonstrate why user-scoped credentials alone cannot identify a brand
+     destination;
+   - explicit selection requirement;
+   - reconnect/idempotency behavior;
+   - no guessed backfill.
+
+6. Exact Skip persistence path
+   - client;
+   - API;
+   - session write;
+   - completed_steps behavior;
+   - reload/bootstrap behavior;
+   - every consumer that interprets completed_steps.
+
+7. Proposed single-authority skip representation
+   - exact existing JSON/session location;
+   - compatibility behavior;
+   - consumer migration plan;
+   - why no schema is needed;
+   - STOP if schema actually is required.
+
+8. Runner cascade map
+   - post-Skip control flow;
+   - which remaining actions run automatically;
+   - classify each as internal-only vs capable of creating externally executable
+     work.
+
+9. ALL paths into social-post status='scheduled'
+   Enumerate them exhaustively.
+
+   At minimum investigate:
+   - manual scheduling;
+   - content-calendar activation;
+   - onboarding social_schedule;
+   - autopilot;
+   - reschedule/retry;
+   - any administrative/system path.
+
+10. Authorization event for every scheduled-entry path
+    For each path identify:
+    - owner action/consent;
+    - artifact it binds to;
+    - regeneration/version invalidation behavior;
+    - whether the Q4 invariant currently holds.
+
+11. 024 consent-pattern reuse design
+    - exact accepted machinery to reuse;
+    - exact boundary where calendar activation pauses;
+    - count/date/platform/destination payload;
+    - artifact/version binding;
+    - how regeneration invalidates prior consent;
+    - prove first-win/celebration logic is not reopened.
+
+12. Calendar-generation stale-time path
+    - timezone conversion;
+    - day-one generation;
+    - activation;
+    - publisher sweep;
+    - exact shared activation statement/function;
+    - confirm whether onboarding and normal calendar UI use the same activation
+      boundary.
+
+13. Partial-stale activation design
+    - future-only predicate;
+    - expected eligible count;
+    - actual activated count;
+    - excluded stale records;
+    - caller/API response;
+    - owner-visible UI wording/state;
+    - no silent partial success.
+
+14. Publisher pre-gateway failure audit
+    - enumerate pre-provider failure exits in the diagnosed publish path;
+    - what each currently records on the owning post/work item;
+    - identify any path that leaves no durable local evidence;
+    - NO external_actions semantic expansion.
+
+15. Failed-post visibility design
+    - existing status/error authority;
+    - narrowest UI surface;
+    - provider-vs-pre-provider honesty;
+    - no parallel truth.
+
+16. Error-surfacing design for Continue
+    - needs_connection;
+    - missing binding with credentials present;
+    - no credentials;
+    - actual DB/system failure;
+    - owner-visible actionable responses.
+
+17. Schema/migration expectation
+    Expected: NONE.
+
+    If Stage 1 determines DDL is required:
+    STOP AND REPORT.
+    Do not design around it silently.
+
+18. Exact changed-file forecast for Stage 2
+    - file;
+    - purpose;
+    - estimated additions/deletions;
+    - identify client files explicitly because a client change is expected;
+    - migration files should be NONE.
+
+19. Diff-bound authorization proposal
+    Give realistic padded bounds.
+
+    Standing rule:
+    if implementation evidence indicates the running change will exceed an
+    authorized padded diff bound by >25%, STOP AND REPORT BEFORE continuing to
+    write code.
+
+20. Regression plan with exact tests.
+
+============================================================
+K. MANDATORY REGRESSIONS
+============================================================
+
+The Stage-1 test plan must include at least:
+
+R1. Brand mapping present:
+    Continue advances exactly one step.
+
+R2. Brand mapping absent:
+    visible actionable error;
+    no silent loop;
+    session remains truthful.
+
+R3. Explicit owner page selection:
+    creates the intended brand-scoped mapping.
+
+R4. No first-in-list behavior:
+    multiple pages/accounts cannot silently select one.
+
+R5. Connect idempotency:
+    reconnect updates/maintains one binding rather than duplicating.
+
+R6. Multi-brand:
+    same user credentials can support distinct explicit brand/page bindings
+    without cross-brand leakage.
+
+R7. Skip:
+    durable outcome = skipped.
+
+R8. Reload:
+    skipped still renders/behaves as skipped.
+
+R9. Consumer truth:
+    bootstrap, companion/nag logic, re-entry and reporting consumers distinguish
+    skipped from successfully completed.
+
+R10. Skip cascade:
+     internal-only work may continue where intended, but externally-capable
+     calendar activation pauses at the authorization gate.
+
+R11. Past-only activation:
+     stale draft cannot reach scheduled.
+
+R12. Mixed calendar:
+     valid future drafts activate;
+     stale drafts do not;
+     exclusions are explicitly surfaced;
+     owner is not told all items activated.
+
+R13. All-future calendar:
+     normal activation remains successful.
+
+R14. Artifact-bound consent:
+     confirmation identifies count/date range/platform/destination.
+
+R15. Regeneration:
+     materially regenerated/replaced calendar cannot reuse stale consent.
+
+R16. Manual scheduling:
+     existing explicit owner action still satisfies the scheduled invariant.
+
+R17. Autopilot:
+     existing accepted consent regime remains valid and unchanged.
+
+R18. Pre-provider failure:
+     owning post/work item records durable failure evidence.
+
+R19. Pre-provider failure:
+     does NOT create a false external_actions provider-attempt record.
+
+R20. Owner visibility:
+     failed scheduled work surfaces to the owner with truthful failure state.
+
+R21. Provider-attempt path:
+     existing external ledger behavior remains unchanged.
+
+R22. Duplicate safety:
+     failed/ambiguous processing cannot produce uncontrolled repeat provider
+     attempts.
+
+R23. Existing successful future scheduling/publishing path:
+     still works end-to-end with correct binding and existing ledger semantics.
+
+R24. 024 regression:
+     accepted first-win/consent/celebration behavior remains green.
+
+R25. Frozen SDS specimen:
+     untouched by tests/implementation verification.
+
+Add any further regressions Stage 1 proves necessary.
+
+============================================================
+L. ACCEPTANCE / LIVE VERIFICATION PLAN
+============================================================
+
+Stage 1 must propose the exact bounded Stage-2 verification procedure.
+
+At minimum it must include:
+
+1. D-37 fresh-clone arithmetic from current baselines.
+
+2. Full server suite.
+
+3. Full client suite.
+
+4. Production client build.
+
+5. Pinned-head PR reconciliation before merge.
+
+6. Staging-only merge.
+
+7. /api/health SHA verification.
+
+8. schema_migrations count unchanged.
+   No migration expected.
+   Any unexpected migration/DDL = STOP.
+
+9. Because client changes are expected:
+   apply the standing service-worker/cache-version rule;
+   prove the new client is actually served.
+
+10. Focused TEST-prefixed staging verification:
+    - explicit page selection;
+    - brand binding exists;
+    - Continue advances;
+    - Skip persists through reload;
+    - stale draft cannot schedule;
+    - mixed stale/future activation explicitly surfaces exclusions;
+    - calendar activation cannot pass without artifact-bound authorization;
+    - authorization names artifact details;
+    - no unintended provider write.
+
+11. External evidence:
+    distinguish:
+    - local processing;
+    - provider attempt;
+    - provider success/failure.
+
+12. Residue inventory.
+
+13. Zero production writes.
+
+14. Frozen SDS specimen untouched.
+
+============================================================
+M. H1 RESTART RULE
+============================================================
+
+After 026-C1 Stage 2 is eventually implemented, reviewed, merged and live-proven,
+SDS-H1 does NOT resume from the frozen session.
+
+It restarts FRESH.
+
+Reason:
+
+the corrected onboarding journey invalidates the remainder of the existing
+specimen as AFTER evidence.
+
+The existing specimen remains historical evidence.
+
+Already-valid evidence that does not necessarily need to be re-proven merely
+because the specimen restarts:
+
+- interview-capture evidence;
+- Sage research supersede arithmetic;
+- existing I-50 timing verdict;
+- first-win GA4 proof;
+
+subject to the final 026-C1 acceptance ruling.
+
+The fresh SDS-H1 run must nevertheless execute the actual redesigned journey
+normally; do not artificially bypass these areas merely because prior evidence
+exists.
+
+BLACOR-H1 remains waiting until SDS-H1 completes under the governing H1 plan.
+
+============================================================
+N. STOP CONDITIONS
+============================================================
+
+STOP AND REPORT immediately if Stage 1 finds:
+
+- schema/DDL is required;
+- social_accounts is not actually the correct brand destination authority;
+- explicit page selection does not provide enough brand context to create the
+  binding safely;
+- fixing connection requires guessed historical binding;
+- calendar activation paths are materially more numerous/different than
+  expected;
+- the 024 consent pattern cannot be reused without modifying an accepted
+  invariant;
+- implementation would require executeExternal or D-30 ledger semantic changes;
+- production access/write is required;
+- frozen SDS evidence would need mutation;
+- an accepted system outside this package must be reopened;
+- any other architectural contradiction makes this authorization unsafe.
+
+Do not improvise around a STOP.
+
+============================================================
+O. STANDING PROCESS RULES
+============================================================
+
+All prior standing rules remain in force, including:
+
+- no self-acceptance;
+- owner + ChatGPT + Claude review checkpoints;
+- fresh D-37 evidence;
+- no stale workspace as authority;
+- exact changed-file accounting;
+- D-32 deletion review;
+- pinned-head merge authorization;
+- staging before production;
+- no production work unless separately authorized;
+- no unplanned DB write during verification;
+- any unplanned DB write = STOP FIRST, even staging, even reversible;
+- pre-flight capacity/prerequisites before multi-identity smoke work;
+- >25% diff-bound overrun = STOP BEFORE continuing implementation;
+- findings are reported honestly rather than normalized to fit expectations.
+
+============================================================
+P. RETURN FORMAT
+============================================================
+
+Return:
+
+026-C1 STAGE-1 READ-ONLY DESIGN REPORT
+
+with Sections J1-J20 answered individually, plus:
+
+- regression matrix R1-R25;
+- exact file/diff forecast;
+- STOP-condition evaluation;
+- implementation recommendation;
+- exact Stage-2 authorization boundary you recommend.
+
+Then STOP.
+
+Do NOT implement.
+Do NOT create Stage-2 changes.
+Do NOT merge.
+Do NOT deploy.
+Do NOT resume SDS-H1.
+Do NOT start BLACOR-H1.
+Do NOT start H2.
+Do NOT start Prompt 027.
+Do NOT touch production.
+
+BEGIN PROMPT 026-C1 — STAGE 1 ONLY.
