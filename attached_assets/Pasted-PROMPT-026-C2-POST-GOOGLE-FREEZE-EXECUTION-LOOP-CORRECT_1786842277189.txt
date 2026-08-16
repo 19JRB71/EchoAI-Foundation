@@ -1,0 +1,764 @@
+PROMPT 026-C2 — POST-GOOGLE FREEZE / EXECUTION-LOOP CORRECTIVE
+STAGE 1: EVIDENCE-FIRST DIAGNOSIS + DESIGN ONLY
+
+OWNER + CHATGPT CONSOLIDATED AUTHORIZATION
+Date: 2026-08-16
+
+Claude's 026-C2 ruling is accepted and consolidated.
+
+This authorization begins 026-C2 Stage 1.
+
+IMPORTANT: THIS IS NOT IMPLEMENTATION AUTHORIZATION.
+
+SDS-H1 remains PAUSED.
+
+Do not click Retry.
+Do not clear or modify any lease.
+Do not modify the frozen SDS-H1 specimen.
+Do not make staging DB writes.
+Do not change code.
+Do not create a commit or PR.
+Do not deploy anything.
+Do not attempt to "unstick" onboarding.
+Do not work around the defect.
+Do not resume H1.
+Do not touch production.
+
+The purpose of this stage is to establish the actual failure first, then return the smallest coherent corrective design for review.
+
+============================================================
+A. GOVERNING FINDING
+============================================================
+
+The current SDS-H1 specimen exposed a journey-breaking execution-loop defect after Google Calendar connection.
+
+Observed evidence currently includes:
+
+1. Google Calendar connection completed.
+
+2. The content-calendar step subsequently completed server-side.
+
+3. The owner-facing setup UI did not reliably reconcile that completed server state and appeared frozen/stale.
+
+4. Refresh/remount did not reliably resume the journey.
+
+5. The UI later displayed:
+
+   "A setup step is already running. Please wait."
+
+6. Read-only server inspection subsequently showed no active execution lease.
+
+7. The 409 appears to be the designed collision response for overlapping /execute calls, but the client treats that transient condition as terminal instead of reconciling authoritative state and resuming.
+
+8. The next execution boundary — described in the current diagnosis as the ad-creatives / step-5 boundary — appears to have failed without leaving adequate durable failure evidence.
+
+9. Because the failure left inadequate durable evidence, the exact step-5 root cause has NOT yet been established.
+
+Do not turn the current hypothesis into a fact.
+
+In particular:
+
+- Do not blame Google account reuse without evidence.
+- Do not blame React StrictMode as the root cause.
+- Do not assume Facebook/ad-account prerequisites are the cause.
+- Do not assume the 409 itself caused the original failure.
+- Do not design the step-5-specific fix until the actual failure is established.
+
+Repeated use of the same Gmail account is a hypothesis worth preserving if evidence points there, but current evidence shows Google completed and subsequent setup work completed. Therefore it is not presently the leading explanation.
+
+============================================================
+B. BINDING EXECUTION-LOOP INVARIANT
+============================================================
+
+The following invariant is binding for 026-C2:
+
+"The run loop may terminate only in three states — all-complete, awaiting-owner-action, or visible-error. Never silently."
+
+A transient collision, remount, refresh, OAuth return, failed step, or stale client projection must never leave the owner staring at an apparently frozen setup with no truthful explanation or recovery path.
+
+Server state is authoritative.
+
+Client progress is a projection of server truth.
+
+============================================================
+C. STAGE-1 FIRST OBJECTIVE — CAPTURE THE REAL FAILURE
+============================================================
+
+Before designing the step-5-specific corrective, determine what actually happened at the failed execution boundary.
+
+PATH A IS REQUIRED FIRST:
+
+RAILWAY SERVER LOG EVIDENCE.
+
+Identify as precisely as possible the time window and request/execution associated with the winning /execute call that failed around the ad-creatives / step-5 boundary.
+
+Use all available read-only evidence to narrow the Railway log window.
+
+If Railway logs are not accessible from your environment, do NOT substitute speculation.
+
+Instead:
+
+1. determine the exact deployment/service the owner must inspect;
+2. determine the narrowest useful timestamp window;
+3. determine what strings/request IDs/errors/stack traces the owner should look for;
+4. then give the owner ONE manual Railway-dashboard action at a time.
+
+Do not ask the owner to hunt through the dashboard without direction.
+
+The objective is to obtain the actual server exception/failure if it still exists in the logs.
+
+If Railway evidence identifies the failure, record it verbatim enough to establish the technical cause while respecting D-23/redaction requirements.
+
+============================================================
+D. REQUIRED READ-ONLY CODE INSPECTION
+============================================================
+
+Regardless of whether Railway immediately provides the exception, inspect the code at the deployed staging SHA:
+
+513cab801fe711b92dfb68274d35f81c3222d2e6
+
+Use the governing D-37 audit surface.
+
+Do not rely on a stale workspace tree.
+
+For the "generate ad creatives" / step-5 path, establish:
+
+1. Exact entry point.
+
+2. Exact functions/controllers/services involved.
+
+3. Every prerequisite the step expects.
+
+4. Whether Facebook credentials are required.
+
+5. Whether a Facebook Page binding is required.
+
+6. Whether an ad account is required.
+
+7. Whether Google state is involved at all.
+
+8. Whether any other provider state is required.
+
+9. Whether the step can make any external provider call.
+
+10. If yes, identify exactly which providers and under what conditions.
+
+11. If no, state that clearly.
+
+12. Every database/internal artifact it can create or mutate.
+
+13. Whether partial artifacts can exist when the step fails.
+
+14. Whether retrying the step is currently idempotent.
+
+15. Whether duplicate creatives/drafts/tasks/etc. can be produced on retry.
+
+16. Where exceptions from this step are caught.
+
+17. Where exceptions are transformed.
+
+18. Where exceptions can presently be swallowed or lost.
+
+19. Why the observed failure could leave no durable 'failed' outcome.
+
+20. Why the owner could receive no useful visible error.
+
+21. Whether the step's current position in the onboarding sequence is logically valid given its prerequisites.
+
+22. If the failure is a missing prerequisite, determine whether the correct solution is:
+    - honest precondition handling,
+    - step ordering,
+    - awaiting-owner-action,
+    - or another narrow correction.
+
+Do not redesign the journey unless the evidence requires it.
+
+============================================================
+E. EXECUTION-LOOP DIAGNOSIS
+============================================================
+
+Inspect the runLoop and server lease/collision implementation.
+
+Establish the complete state machine for:
+
+- initial mount;
+- normal /execute success;
+- completed step;
+- awaiting-owner-action response;
+- failed execution;
+- 409 lease collision;
+- OAuth return;
+- browser refresh;
+- component remount;
+- double mount;
+- double click;
+- duplicate network request;
+- retry;
+- setup completion.
+
+Specifically establish:
+
+1. How the server claims an execution lease.
+
+2. Lease lifetime.
+
+3. Heartbeat behavior.
+
+4. Release behavior.
+
+5. Expiration behavior.
+
+6. Exact conditions producing the 409 "already running" response.
+
+7. Whether the 409 mutates state.
+
+8. What the client currently does when it receives that 409.
+
+9. Why "Please wait" can currently be displayed even though the loop has terminated.
+
+10. Whether two runLoops can exist concurrently.
+
+11. Whether StrictMode exposes this.
+
+12. Whether the same condition is reachable in production through remount, refresh, network retry, double click, or other normal behavior.
+
+React StrictMode MUST NOT be removed as the corrective.
+
+StrictMode is treated as an exposure amplifier for a real idempotency/reconciliation defect, not the root cause.
+
+============================================================
+F. OAUTH RETURN / I-53
+============================================================
+
+I-53 is promoted from deferred to REQUIRED under 026-C2.
+
+Do not solve this by unnecessarily re-architecting Google OAuth routing.
+
+The preferred narrow architecture is:
+
+OAuth return/remount -> bootstrap -> authoritative server reconciliation -> correct next state -> resume if runnable.
+
+Inspect and explain:
+
+1. Where OAuth currently returns.
+
+2. What component mounts afterward.
+
+3. How setup state is loaded.
+
+4. Whether runLoop automatically restarts.
+
+5. Why the owner can return from successful Google OAuth and see a stale/frozen setup.
+
+6. What minimum bootstrap/resume change makes OAuth return, F5, remount, and ordinary revisit converge through the SAME mechanism.
+
+One mechanism is preferred over special-case OAuth behavior.
+
+============================================================
+G. AUTHORITATIVE PROGRESS RECONCILIATION
+============================================================
+
+Server truth must control the rendered progress.
+
+Stage 1 must identify how the current stale-display defect occurred:
+
+server:
+content calendar = complete
+
+owner UI:
+"Building your content calendar" = unfinished/current
+
+Determine the smallest design that guarantees reconciliation:
+
+- on initial mount;
+- after OAuth return;
+- after refresh;
+- after every successful /execute response;
+- after every 409;
+- after retry;
+- after awaiting-owner-action;
+- after failure.
+
+A completed server step must never render as unfinished.
+
+A skipped server step must never render as completed.
+
+A failed server step must never disappear.
+
+An awaiting-owner-action step must never look like a freeze.
+
+============================================================
+H. DURABLE FAILURE STATE
+============================================================
+
+Extend the already-accepted step_outcomes concept in the Stage-2 DESIGN.
+
+Do not implement it yet.
+
+The expected direction is:
+
+step_outcomes[step] = 'failed'
+
+plus bounded, useful error evidence.
+
+Zero DDL is strongly preferred because step_outcomes already exists in the current persistence model.
+
+The Stage-1 design must determine the appropriate existing JSON/JSONB structure for error evidence.
+
+The durable record must be sufficient to answer later:
+
+- which step failed;
+- when;
+- safe error classification/message;
+- whether retry is allowed;
+- whether anything was partially created;
+- and, where useful, an internal correlation/reference.
+
+Do not dump secrets, tokens, provider payloads, or uncontrolled stack traces into owner-visible or durable state.
+
+Error evidence must be bounded and fail-honest.
+
+If no safe zero-DDL home exists, STOP AND REPORT rather than inventing schema.
+
+============================================================
+I. OWNER-VISIBLE FAILURE
+============================================================
+
+A failed step must produce an honest actionable UI state.
+
+The owner should not need Railway, SQL, or developer tools to know setup failed.
+
+Design the minimum UI behavior required to distinguish:
+
+- temporary execution collision / reconciliation;
+- waiting for owner action;
+- actual step failure;
+- retry available;
+- setup complete.
+
+Copy must match behavior.
+
+Specifically, a terminal path may NOT say "Please wait."
+
+============================================================
+J. 409 CORRECTIVE DESIGN
+============================================================
+
+Design bounded:
+
+409 -> reconcile -> poll authoritative session state -> resume if appropriate.
+
+Requirements:
+
+1. 409 itself is not treated as fatal.
+
+2. Reconciliation reads authoritative session state.
+
+3. Completed steps are immediately reflected.
+
+4. If another execution is genuinely active, poll with bounded backoff.
+
+5. If that execution completes, continue from the next correct step.
+
+6. If owner action is required, stop in awaiting-owner-action.
+
+7. If the authoritative state records a failure, render the visible failure.
+
+8. If bounded attempts expire without convergence, render an honest actionable error.
+
+9. Never spin forever.
+
+10. Never start duplicate work merely because a collision occurred.
+
+11. Never duplicate side effects.
+
+============================================================
+K. RETRY / IDEMPOTENCY
+============================================================
+
+The Stage-2 design must guarantee that Retry:
+
+- does not rerun completed steps;
+- targets only the failed/current step;
+- cannot duplicate rows or artifacts that were successfully created before an error;
+- does not bypass owner-action gates;
+- does not bypass C1 consent;
+- does not silently convert a failed step into completed;
+- preserves truthful history.
+
+For every step C2 could cause to retry, identify its side effects and idempotency mechanism.
+
+Pay special attention to the ad-creatives step once its actual failure is known.
+
+============================================================
+L. C1 MUST NOT REGRESS
+============================================================
+
+026-C2 must preserve the completed 026-C1 architecture.
+
+In particular, C2 may not weaken or bypass:
+
+- explicit social destination binding;
+- Page selection;
+- digest-bound activation;
+- stale-digest refusal;
+- stale/unbound exclusions;
+- durable consent echo;
+- truthful skip outcomes;
+- real-publishing authorization gate;
+- external-write boundaries.
+
+The C1 consent-gate pause must remain a regression requirement.
+
+============================================================
+M. FALLBACK PATH B — CONTROLLED RETRY
+============================================================
+
+A controlled Retry is NOT authorized by this prompt.
+
+Path B becomes eligible only if Railway evidence is:
+
+- unavailable,
+- rotated,
+- inaccessible,
+- or genuinely inconclusive.
+
+If Path A fails, STOP AND REPORT before any Retry.
+
+Your STOP report must include:
+
+1. why Railway evidence could not establish the failure;
+
+2. current no-lease proof;
+
+3. exact completed_steps;
+
+4. exact step_outcomes;
+
+5. current calendar/draft/creative/task counts relevant to the step;
+
+6. external_actions / external_proofs / applicable ledger state;
+
+7. whether any provider/public artifact attributable to the freeze exists;
+
+8. the code-inspection answer on whether the failed step can reach a provider;
+
+9. exact expected mutations of ONE Retry;
+
+10. exact STOP conditions during that Retry;
+
+11. confirmation that C1's consent gate must stop later execution before social publishing authorization.
+
+Then await owner authorization.
+
+Do not infer authorization from this prompt.
+
+============================================================
+N. CURRENT FROZEN SDS-H1 SPECIMEN
+============================================================
+
+The current specimen is evidence.
+
+Do not clean it up.
+
+Do not delete it.
+
+Do not restart it.
+
+Do not advance it during Stage 1.
+
+Do not alter its lease.
+
+Do not manufacture failure state retroactively.
+
+Preserve the observed freeze and timing.
+
+Current architectural preference after a successful C2 verification is to RESUME this specimen rather than automatically consume another identity.
+
+Reason:
+
+C2 is presently expected to change execution/resume/error-handling mechanics rather than the substantive journey content.
+
+However, this is NOT a final authorization to resume it.
+
+Stage 1 must explicitly report whether anything discovered about the step-5 root cause would invalidate that assumption.
+
+If C2 ultimately changes journey content/order materially, flag that for owner ruling because a fresh specimen may then be required.
+
+============================================================
+O. REQUIRED REGRESSION PLAN
+============================================================
+
+Return an exact Stage-2 regression list.
+
+At minimum it must include:
+
+1. 409 collision -> reconcile -> resume, no freeze.
+
+2. Simulated double mount -> exactly one effective execution; no duplicated side effects.
+
+3. Double/overlapping execute request -> convergence.
+
+4. Run loop cannot terminate outside:
+   all-complete,
+   awaiting-owner-action,
+   visible-error.
+
+5. Failed step -> durable step_outcomes='failed'.
+
+6. Failed step -> bounded useful error evidence.
+
+7. Failed step -> visible actionable UI.
+
+8. Retry retries the failed step only.
+
+9. Retry skips already-completed steps.
+
+10. Retry cannot duplicate artifacts/side effects.
+
+11. Server-complete content calendar renders Done after reconciliation.
+
+12. Refresh uses authoritative server truth.
+
+13. OAuth return uses authoritative server truth and resumes the correct next step.
+
+14. Remount resumes the correct next step.
+
+15. 409 followed by another request completing the step causes the waiting client to converge rather than rerun it.
+
+16. Bounded 409 polling eventually produces visible error if convergence never occurs.
+
+17. Existing skip truth remains correct.
+
+18. C1 consent-gate pause remains correct.
+
+19. No owner publishing authorization is bypassed.
+
+20. One step-5-specific regression determined from the actual captured root cause.
+
+Also identify any existing tests that already cover portions of these requirements rather than duplicating them unnecessarily.
+
+============================================================
+P. TEST BASELINES / ACCOUNTING
+============================================================
+
+Use the current accepted baselines:
+
+SERVER: 1463
+CLIENT: 448
+
+Stage 1 must return:
+
+- exact proposed number of new server tests;
+- exact proposed number of new client tests;
+- exact resulting expected totals;
+- existing tests modified;
+- existing tests deleted, if any;
+- why every deletion is necessary.
+
+D-32 deletion review applies.
+
+No existing test may simply be removed because the corrected behavior makes it inconvenient.
+
+If an existing assertion literally asserts the defect, identify it explicitly and replace it with the correct inverse/updated contract.
+
+============================================================
+Q. FILE AND DIFF BOUNDS
+============================================================
+
+Stage 1 must enumerate the proposed Stage-2 file surface BEFORE implementation.
+
+For each proposed file provide:
+
+- exact path;
+- production/test/client classification;
+- purpose;
+- expected change.
+
+Then propose:
+
+- maximum production files;
+- maximum test files;
+- maximum total files;
+- expected insertion/deletion range;
+- padded authorized diff bound.
+
+Apply the standing rule:
+
+If mid-work evidence during Stage 2 indicates the implementation will exceed the padded authorized diff bound by more than 25%, STOP AND REPORT BEFORE writing further.
+
+Do not finish an oversized implementation and self-adjudicate afterward.
+
+============================================================
+R. D-37 / AUDIT SURFACE
+============================================================
+
+All accounting and code citations must come from the governing fresh audit surface.
+
+The ratified clarification applies:
+
+When /tmp is unavailable, a .local clone is permissible only with HEAD verification immediately before every accounting run.
+
+Record HEAD explicitly.
+
+Do not use a stale workspace tree as authority.
+
+============================================================
+S. EXCLUSIONS
+============================================================
+
+OUT OF SCOPE unless the evidence proves one is inseparable from the root cause and you STOP for authorization first:
+
+- removing React StrictMode;
+- broad OAuth redesign;
+- broad setup-agent rewrite;
+- schema/DDL/migrations;
+- production changes;
+- beta capacity changes;
+- TEST identity cleanup;
+- P035 identity changes;
+- unrelated Google integration work;
+- I-50;
+- I-52;
+- I-54;
+- I-55;
+- I-56;
+- I-57;
+- I-58;
+- I-59 repo-wide audit;
+- BLACOR-H1;
+- H2;
+- Prompt 027;
+- ads;
+- production publishing;
+- unrelated UI polish;
+- unrelated telemetry architecture;
+- executeExternal/spine changes unless direct evidence proves required and owner separately authorizes them.
+
+I-53 IS in scope because this ruling explicitly promotes it into C2.
+
+============================================================
+T. SAFETY / EXTERNAL WRITE BOUNDARY
+============================================================
+
+Stage 1 is read-only.
+
+No provider write is authorized.
+
+No public artifact is authorized.
+
+No ad creation or spend is authorized.
+
+No social publish is authorized.
+
+No Meta/Google mutation is authorized.
+
+No Retry is authorized.
+
+No database write is authorized.
+
+If investigation unexpectedly requires a write to obtain evidence:
+
+STOP AND REPORT.
+
+============================================================
+U. STAGE-1 RETURN PACKAGE
+============================================================
+
+Return ONE consolidated 026-C2 Stage-1 report containing:
+
+1. Exact deployed SHA inspected.
+
+2. Exact audit-surface HEAD evidence.
+
+3. Railway failure evidence, if obtained.
+
+4. If not obtained, exact reason it is unavailable/inconclusive.
+
+5. Actual step-5 root cause, ONLY if evidence supports it.
+
+6. Step-5 dependency/provider/precondition map.
+
+7. Step-5 mutation and idempotency map.
+
+8. Exception propagation/loss map.
+
+9. Current runLoop state machine.
+
+10. Exact 409 failure mechanism.
+
+11. OAuth/bootstrap/resume diagnosis.
+
+12. Stale-progress diagnosis.
+
+13. Proposed authoritative reconciliation architecture.
+
+14. Proposed durable failed-outcome architecture.
+
+15. Proposed owner-visible failure behavior.
+
+16. Proposed bounded 409 reconcile/poll/resume behavior.
+
+17. Proposed retry/idempotency behavior.
+
+18. C1 preservation analysis.
+
+19. Frozen-specimen disposition recommendation:
+    resume after C2 vs fresh restart,
+    based on what Stage 1 actually discovers.
+
+20. Exact proposed files.
+
+21. Exact regressions.
+
+22. Server arithmetic from 1463.
+
+23. Client arithmetic from 448.
+
+24. Proposed diff bounds.
+
+25. D-32 deletion expectations.
+
+26. Explicit exclusions.
+
+27. Any deviations.
+
+28. Any STOP conditions encountered.
+
+29. Open issues affected:
+    I-53 required;
+    I-59 remains future maintenance;
+    I-52 unchanged unless evidence proves otherwise.
+
+30. Final Stage-1 recommendation.
+
+============================================================
+V. HARD STOP
+============================================================
+
+After returning the Stage-1 evidence/design report:
+
+STOP.
+
+Do not implement.
+
+Do not commit.
+
+Do not create a PR.
+
+Do not deploy.
+
+Do not Retry the frozen specimen.
+
+Do not resume SDS-H1.
+
+Do not begin BLACOR-H1.
+
+Do not begin H2.
+
+Do not begin Prompt 027.
+
+Await owner + ChatGPT + Claude Stage-2 authorization.
+
+PROMPT 026-C2 STAGE 1 IS AUTHORIZED.
+IMPLEMENTATION IS NOT.
