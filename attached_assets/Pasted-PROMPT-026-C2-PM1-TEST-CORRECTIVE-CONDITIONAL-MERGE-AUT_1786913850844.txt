@@ -1,0 +1,626 @@
+PROMPT 026-C2 — PM1 TEST CORRECTIVE + CONDITIONAL MERGE AUTHORIZATION
+
+Owner + ChatGPT + Claude pre-merge review of PR #54 is complete.
+
+CURRENT RULING:
+
+ACCEPT WITH PRE-MERGE CORRECTIVE.
+
+One TEST-ONLY micro-commit is required:
+
+026-C2-PM1
+
+After that corrective is implemented, verified, committed, and pushed,
+PR #54 may merge to STAGING ONLY under this ruling WITHOUT another owner/Claude
+review round, provided the new PR head differs from:
+
+9304c12cf8d95210054e2d6f01ce1963fe60ae0a
+
+ONLY by the authorized PM1 test addition.
+
+No production change.
+No H1 resume yet.
+No BLACOR-H1.
+No H2.
+No Prompt 027.
+No Anthropic billing change under this prompt.
+
+============================================================
+A. PM1 — DIRECT I-53 GUIDEDSETUPWIZARD REGRESSION
+============================================================
+
+Add ONE focused component-level regression for the actual new
+GuidedSetupWizard OAuth-return routing branch.
+
+Purpose:
+
+The current implementation fixes I-53 by routing an OAuth-return state back to
+the profile/SetupAgent surface so that the existing SetupAgent bootstrap
+reconciles and resumes from authoritative server truth.
+
+That production branch is currently supported by design reasoning and indirect
+SetupAgent coverage only.
+
+Claude ruled that indirect coverage is NOT sufficient for this load-bearing
+branch.
+
+Required regression:
+
+Render GuidedSetupWizard in the relevant OAuth-return state.
+
+Assert:
+
+1. the OAuth-return condition is recognized;
+2. the wizard routes/selects the profile/SetupAgent surface;
+3. SetupAgent is mounted/rendered or otherwise invoked through the intended
+   component boundary;
+4. the SetupAgent bootstrap/startWith path is invoked at mock/component level;
+5. the wizard does NOT remain stranded on the old "Welcome back" checkpoint;
+6. no new OAuth architecture is introduced merely to make the test possible.
+
+A full browser redirect simulation is NOT required.
+
+A deterministic component-level test is sufficient.
+
+============================================================
+B. TEST FILE AUTHORIZATION
+============================================================
+
+This PM1 may add ONE new client test file if that is the cleanest way to bind
+the branch.
+
+Suggested logical location:
+
+client/src/onboarding/guided/
+
+Exact filename may follow existing test conventions.
+
+This test-only file addition is explicitly authorized.
+
+Do NOT modify production code unless the test exposes a real mismatch between
+the implemented branch and the already-authorized I-53 behavior.
+
+If production code must change to make the intended behavior true:
+
+STOP AND REPORT.
+
+Do not quietly turn PM1 into another implementation round.
+
+============================================================
+C. PM1 FILE BOUNDARY
+============================================================
+
+Expected PM1 delta:
+
+TEST ONLY.
+
+No production source file change expected.
+
+No controller change.
+No SetupAgent production change.
+No executeError production change.
+No GuidedSetupWizard production change expected.
+No sw.js change.
+No dist rebuild required merely for a test-only commit.
+No schema.
+No migration.
+No config.
+No DB write.
+No provider action.
+
+If PM1 requires anything beyond the new/updated test surface:
+
+STOP AND REPORT.
+
+============================================================
+D. TEST ACCOUNTING
+============================================================
+
+Current accepted pre-PM1 baselines:
+
+SERVER:
+1467 / 1467
+
+CLIENT:
+451 / 451
+
+PM1 should increase only the client total.
+
+Report exact arithmetic:
+
+451
++
+number of newly added PM1 test cases
+=
+new observed client total.
+
+Run:
+
+- targeted PM1 test;
+- full client suite;
+- full server suite.
+
+Expected server:
+
+1467 / 1467 unchanged.
+
+Do not project counts.
+Report observed totals.
+
+============================================================
+E. D-32 / TEST-SURFACE ACCOUNTING
+============================================================
+
+No existing test should be removed to make room for PM1.
+
+Report:
+
+- exact PM1 test file;
+- exact new test name(s);
+- no existing test deleted;
+- no existing test renamed;
+- no existing test merged away;
+- no production assertion weakened.
+
+============================================================
+F. CANONICAL FILE-CEILING RULE — RECORD FOR FUTURE USE
+============================================================
+
+Claude's ruling establishes this canonical interpretation:
+
+"File ceilings count hand-edited source and test files only.
+Mandatory mechanical accompaniments — the SW cache-version file and committed
+client/dist build output — are excluded from ceilings but must be enumerated in
+the reconciliation. Any other generated file must be declared and justified."
+
+Apply this interpretation to the current reconciliation.
+
+No scope breach occurred from:
+
+client/public/sw.js
+
+or
+
+client/dist/*
+
+because both were mandated/mechanical accompaniments.
+
+============================================================
+G. DIFF-BOUND INTERPRETATION
+============================================================
+
+The 650-line padded bound applies to hand-edited files.
+
+Committed dist build output is excluded from that hand-edited bound.
+
+At merge time, report separately:
+
+1. production hand-edited lines;
+2. test hand-edited lines;
+3. mandatory sw.js mechanical change;
+4. committed dist rebuild delta.
+
+Confirm the hand-edited total remained inside the authorized bound and never
+approached the >25% STOP threshold.
+
+============================================================
+H. THIRD TEST INVERSION — FORMALLY ACCEPTED
+============================================================
+
+The disclosed server E2E inversion is ACCEPTED.
+
+Old contract:
+
+"a failing step is skipped with a friendly message and setup still completes"
+
+New contract:
+
+failing step
+→ durable owner-safe failed outcome
+→ step NOT in completed_steps
+→ no raw provider text
+→ retry after recovery
+→ completes truthfully.
+
+This was testing the exact defect C2 exists to remove.
+
+Do not revert it.
+
+Keep the OLD/NEW daylight comments/evidence.
+
+============================================================
+I. ORIGINAL RAILWAY EVIDENCE
+============================================================
+
+The original 00:41 Railway raw incident window rotated before capture.
+
+This does NOT block merge.
+
+Record remains:
+
+owner-attested primary Railway dashboard observation;
+raw historical incident window unavailable after rotation.
+
+Do NOT synthesize or recreate historical evidence.
+
+============================================================
+J. PM1 IMPLEMENTATION / PUSH
+============================================================
+
+Implement the focused test.
+
+Then:
+
+1. run targeted test;
+2. run full client suite;
+3. run full server suite;
+4. commit PM1 on the existing PR #54 branch;
+5. push;
+6. record new PR head SHA.
+
+Before merge, run:
+
+git diff
+9304c12cf8d95210054e2d6f01ce1963fe60ae0a..<NEW_HEAD>
+
+This inter-head diff MUST contain ONLY:
+
+the authorized I-53 GuidedSetupWizard test corrective.
+
+If any production file or unrelated test change appears:
+
+STOP AND REPORT.
+DO NOT MERGE.
+
+============================================================
+K. CONDITIONAL MERGE AUTHORIZATION
+============================================================
+
+If:
+
+- PM1 targeted test passes;
+- full client suite passes;
+- full server suite passes;
+- inter-head diff contains only the authorized PM1 test delta;
+- PR head is pinned and unchanged;
+
+THEN:
+
+MERGE PR #54 TO STAGING ONLY.
+
+No additional pre-merge review round is required.
+
+Use pinned-head merge discipline.
+
+If the head moves again after PM1 verification:
+
+STOP.
+Authorization is void for the moved head.
+
+Production/main remains untouched.
+
+============================================================
+L. POST-MERGE DEPLOYMENT VERIFICATION
+============================================================
+
+After merge:
+
+1. record resulting staging merge SHA;
+
+2. verify the correct Railway staging service serving:
+   https://staging.zorecho.com
+
+3. verify:
+   https://staging.zorecho.com/api/health
+
+   reports:
+   environment = staging
+   version = exact merge SHA
+
+4. verify:
+   schema_migrations = 148 exactly
+
+5. verify no new migration exists;
+
+6. verify actually served:
+   sw.js = echoai-shell-v174
+
+7. verify the newly built client bundle/hash set is actually served.
+
+No retired/stale Railway domain.
+
+============================================================
+M. LIVE RETRY MODEL
+============================================================
+
+The post-merge sequence is authorized under this ruling.
+
+Each Retry is still OWNER-PERFORMED at the moment.
+
+No separate written authorization is required for each click, but Replit must
+continue the one-owner-action-at-a-time protocol.
+
+----------------------------------------
+CASE 1 — ANTHROPIC CREDITS STILL EXHAUSTED
+----------------------------------------
+
+Resume the current SDS-H1 specimen.
+
+Expected truthful initial state:
+
+Step 5 is the current unresolved runnable step.
+
+Do NOT fabricate a historical failed C2 outcome for the old pre-C2 failure.
+
+Give the owner ONE action:
+
+Retry Step 5.
+
+Exactly once.
+
+Expected live result:
+
+real Anthropic billing rejection
+→ durable failed step_outcome
+→ owner-safe visible failure
+→ retryable/operator-action-required classification
+→ no raw provider billing text in browser/session
+→ opaque ref
+→ zero ad_creatives partial artifact
+→ completed_steps unchanged
+→ no stale progress
+→ no fake "Please wait."
+
+Then STOP the owner flow.
+
+Verify read-only.
+
+If ANY unexpected provider/public artifact occurs:
+
+STOP AND REPORT.
+
+If raw provider text reaches the UI:
+
+STOP AND REPORT.
+
+If more than one creative exists:
+
+STOP AND REPORT.
+
+After successful failure verification:
+
+tell the owner the platform Anthropic account still needs credits restored.
+
+Do NOT change billing yourself.
+
+Owner handles billing separately.
+
+Once owner confirms credits restored:
+
+give ONE owner action:
+
+Retry Step 5 once.
+
+Expected:
+
+creative succeeds
+→ failed outcome clears/replaces only on genuine success
+→ Step 5 completes exactly once
+→ exactly one creative artifact
+→ authoritative server/client state reconciles
+→ setup continues from next step.
+
+----------------------------------------
+CASE 2 — CREDITS ALREADY RESTORED
+----------------------------------------
+
+Do NOT deliberately recreate a billing failure.
+
+The stubbed provider-billing regression remains the failure proof.
+
+Resume current SDS specimen and give owner ONE Step-5 Retry.
+
+Verify:
+
+- successful creative generation;
+- exactly one creative;
+- Step 5 completes once;
+- no stale failed outcome;
+- authoritative progress reconciles;
+- no consent replay;
+- no duplicate execution.
+
+Then continue H1 under the existing one-step-at-a-time owner protocol.
+
+============================================================
+N. C1 LIVE CHECKPOINTS REMAIN AHEAD
+============================================================
+
+As the resumed SDS specimen progresses, C1 still must be exercised live at its
+natural remaining points.
+
+Preserve:
+
+- explicit Facebook Page selection;
+- brand-scoped social_accounts binding;
+- Continue advances correctly;
+- durable skip truth;
+- calendar activation artifact preview;
+- count/date/platform/destination consent;
+- stale/future reconciliation;
+- server-recomputed digest;
+- no one-shot consent replay;
+- external/provider boundary truth.
+
+Do not bypass these merely because their automated suites are green.
+
+============================================================
+O. SPECIMEN / TIMING REPORTING
+============================================================
+
+Continue using the SAME SDS-H1 specimen.
+
+H1 report must segment timing honestly:
+
+PRE-C2 JOURNEY
+→ FREEZE / BLOCKING INCIDENT
+→ C2 CORRECTIVE BOUNDARY
+→ POST-C2 RESUMED JOURNEY
+
+The freeze is part of H1 friction evidence.
+
+Do not pretend onboarding was uninterrupted.
+
+Do not restart with another SDS account unless a NEW owner ruling later
+requires it.
+
+============================================================
+P. I-60
+============================================================
+
+I-60 remains OPEN / OUT OF SCOPE:
+
+provider-health/quota monitoring reported healthy while Anthropic provider
+billing rejected requests.
+
+Do not fix it in this cycle.
+
+============================================================
+Q. FINAL POST-MERGE RETURN
+============================================================
+
+After:
+
+- PM1;
+- merge;
+- deploy verification;
+- applicable live Retry path;
+- C2 live verification;
+
+return ONE report titled:
+
+026-C2 — POST-MERGE DEPLOYMENT + LIVE VERIFICATION REPORT
+
+Include:
+
+1. old PR head:
+   9304c12cf8d95210054e2d6f01ce1963fe60ae0a
+
+2. PM1 commit SHA;
+
+3. new PR head SHA;
+
+4. inter-head diff proving test-only PM1;
+
+5. PM1 test filename and test name;
+
+6. server result;
+
+7. client result;
+
+8. final hand-edited file accounting;
+
+9. production/test/dist/SW split;
+
+10. merge SHA;
+
+11. live health SHA;
+
+12. schema_migrations = 148;
+
+13. no migration;
+
+14. served sw.js = v174;
+
+15. served client bundle evidence;
+
+16. original Railway-evidence disposition;
+
+17. credits state at live verification;
+
+18. first live Retry path used:
+    exhausted-credit failure OR already-restored success;
+
+19. if exhausted-credit path:
+    durable live failed-outcome evidence;
+
+20. owner-safe live UI evidence;
+
+21. no raw provider text proof;
+
+22. opaque ref proof;
+
+23. no partial creative proof;
+
+24. completed_steps purity;
+
+25. credit restoration disposition;
+
+26. recovery Retry evidence if applicable;
+
+27. exactly one creative result;
+
+28. failed outcome clearing-on-success;
+
+29. authoritative progress reconciliation;
+
+30. I-53 live convergence observation where applicable;
+
+31. C1 consent-no-replay result;
+
+32. frozen/current SDS specimen preservation;
+
+33. segmented H1 timing note;
+
+34. I-60 remains open;
+
+35. production/main untouched;
+
+36. all deviations;
+
+37. all STOP conditions;
+
+38. final status exactly one of:
+
+026-C2 LIVE VERIFICATION COMPLETE — AWAITING OWNER REVIEW
+
+or
+
+STOP CONDITION FOUND.
+
+============================================================
+R. HARD STOP
+============================================================
+
+After the post-merge C2 verification report:
+
+STOP.
+
+Do NOT self-accept C2.
+
+Do NOT continue deep into H1 beyond the already-authorized immediate resumed
+sequence if a new STOP condition appears.
+
+Do NOT start BLACOR-H1.
+
+Do NOT start H2.
+
+Do NOT start Prompt 027.
+
+Do NOT touch production.
+
+Return the report to owner + ChatGPT for review.
+
+============================================================
+FINAL AUTHORIZATION
+============================================================
+
+026-C2-PM1 TEST CORRECTIVE IS AUTHORIZED.
+
+IF PM1 IS CLEAN, PR #54 IS AUTHORIZED TO MERGE TO STAGING ONLY WITHOUT ANOTHER
+PRE-MERGE REVIEW ROUND.
+
+THE POST-MERGE C2 LIVE VERIFICATION SEQUENCE IS ALSO AUTHORIZED, WITH EACH
+RETRY OWNER-PERFORMED ONE ACTION AT A TIME.
+
+BEGIN PM1.
