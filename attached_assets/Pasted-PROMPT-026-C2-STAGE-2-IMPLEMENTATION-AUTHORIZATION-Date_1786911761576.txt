@@ -1,0 +1,1053 @@
+PROMPT 026-C2 — STAGE-2 IMPLEMENTATION AUTHORIZATION
+
+Date: 2026-08-16
+
+OWNER + CHATGPT + CLAUDE CONSOLIDATED AUTHORIZATION
+
+Prompt 026-C2 Stage 1 is COMPLETE.
+
+Claude's adversarial ruling:
+
+DECISION B — ACCEPT WITH DESIGN AMENDMENTS.
+
+Those amendments are incorporated into this document and are binding.
+
+026-C2 Stage 2 is now AUTHORIZED.
+
+Prompt 026 H1 remains PAUSED during implementation, merge, deployment, and
+C2 verification.
+
+The current SDS-H1 specimen remains preserved.
+
+BLACOR-H1 must not start.
+
+H2 remains unauthorized.
+
+Prompt 027 must not start.
+
+Production/main remains untouched.
+
+============================================================
+A. ESTABLISHED ROOT CAUSE
+============================================================
+
+The immediate Step-5 failure is established as:
+
+ANTHROPIC API CREDIT EXHAUSTION.
+
+Observed provider error:
+
+Anthropic rejected the creative-generation request with HTTP 400 because the
+platform Anthropic account lacked sufficient API credits.
+
+The failure path is:
+
+setup-agent Step 5:
+ad_creatives
+
+→ adCreativeStudioController.generateCreatives
+→ generateCreativePackagesForBrand
+→ Anthropic messages API
+→ provider billing rejection
+→ exception before creative persistence.
+
+Observed state is consistent:
+
+- zero ad_creatives partial artifacts;
+- completed_steps unchanged;
+- no Step-5 success state;
+- lease released;
+- no Facebook dependency;
+- no Google dependency;
+- no ad-account dependency;
+- no provider write other than the intended Anthropic generation request.
+
+Do NOT redesign Step 5 around Facebook or Google.
+
+The immediate infrastructure trigger and the software defects are separate.
+
+============================================================
+B. INFRASTRUCTURE VS SOFTWARE
+============================================================
+
+INFRASTRUCTURE:
+
+Anthropic credits must ultimately be restored by the owner/operator.
+
+That is NOT a code fix.
+
+SOFTWARE:
+
+The application must still behave honestly, durably, and recoverably whenever
+Anthropic or another required upstream AI dependency fails.
+
+Buying credits does NOT close 026-C2.
+
+026-C2 fixes:
+
+- silent/non-durable setup failure;
+- stale client progress;
+- bad 409 handling;
+- reconciliation;
+- Retry semantics;
+- OAuth/refresh/remount convergence;
+- durable failed-step truth;
+- owner-safe error presentation.
+
+============================================================
+C. AUTHORIZED PRODUCTION FILE SURFACE
+============================================================
+
+Expected production files are exactly:
+
+1. EchoAI/client/src/onboarding/SetupAgent.jsx
+2. EchoAI/client/src/onboarding/executeError.js
+3. EchoAI/client/src/onboarding/guided/GuidedSetupWizard.jsx
+4. EchoAI/controllers/setupAgentController.js
+
+Expected test files:
+
+5. EchoAI/client/src/onboarding/SetupAgent.test.jsx
+6. EchoAI/client/src/onboarding/executeError.test.js
+7. EchoAI/tests/setupAgent.failedOutcome.test.js
+8. EchoAI/test/setupAgent.e2e.test.js
+
+A ninth TEST file is allowed only if needed to keep the test surface coherent.
+
+NO FIFTH PRODUCTION FILE is authorized.
+
+If implementation proves a fifth production file is necessary:
+
+STOP AND REPORT BEFORE CHANGING IT.
+
+Do not silently widen scope.
+
+============================================================
+D. NO DDL / NO MIGRATION
+============================================================
+
+NO schema change is authorized.
+
+NO migration is authorized.
+
+Use existing setup_sessions.answers / step_outcomes structures.
+
+If implementation reveals DDL is required:
+
+STOP AND REPORT.
+
+Do not create a migration.
+
+============================================================
+E. SERVER STATE IS AUTHORITATIVE
+============================================================
+
+Canonical C2 client/server invariant:
+
+SERVER SESSION STATE IS THE AUTHORITY.
+
+CLIENT PROGRESS IS A PROJECTION OF SERVER TRUTH.
+
+After execute/reconciliation responses, the client must adopt authoritative:
+
+completedSteps
+stepOutcomes
+
+from the serialized server session.
+
+Do not continue relying on stale local result refs as the primary truth.
+
+The client must render the state that the server says exists.
+
+============================================================
+F. DURABLE FAILED STEP OUTCOME
+============================================================
+
+When a setup action throws before successful completion:
+
+persist a durable failed outcome in the EXISTING:
+
+setup_sessions.answers.step_outcomes
+
+Do NOT add the failed step to completed_steps.
+
+Conceptually:
+
+step_outcomes[stepKey] = {
+    status: "failed",
+    at: <ISO>,
+    code: <classified owner-safe code>,
+    message: <templated owner-safe message>,
+    retryable: true|false,
+    ref: <opaque correlation reference>
+}
+
+Exact naming may follow existing conventions.
+
+Failure survives:
+
+- reload;
+- refresh;
+- OAuth return;
+- remount;
+- revisit.
+
+A failed state clears ONLY after genuine successful completion of that same
+step.
+
+Do not clear failure merely because Retry was clicked.
+
+============================================================
+G. AM-C2-1 — OWNER-SAFE BY CONSTRUCTION
+============================================================
+
+THIS IS BINDING.
+
+setup_sessions.answers serializes to the browser.
+
+Therefore NOTHING placed in step_outcomes may contain raw provider/operator
+diagnostics.
+
+The browser-visible failure object may contain ONLY:
+
+- classified code;
+- templated owner-safe message;
+- retryable flag;
+- timestamp;
+- opaque correlation ref.
+
+The opaque ref must contain no:
+
+- provider tokens;
+- credentials;
+- request bodies;
+- raw provider account identifiers;
+- secret data;
+- raw stack traces.
+
+RAW ANTHROPIC BILLING TEXT MUST NEVER ENTER step_outcomes.
+
+For example, this MUST NOT reach the customer's browser:
+
+"Your credit balance is too low to access the Anthropic API..."
+
+That message belongs only in server/operator diagnostics.
+
+Owner-facing wording should accurately abstract the failure, e.g.:
+
+"Creative generation is temporarily unavailable. Please try again after the
+service is available."
+
+Do not falsely claim:
+
+- Anthropic is down;
+- the customer's account is at fault;
+- the customer must buy credits;
+- the creative succeeded.
+
+============================================================
+H. ERROR CLASSIFICATION
+============================================================
+
+Create/use bounded classifications appropriate to the diagnosed failure types.
+
+At minimum distinguish:
+
+1. retryable upstream/provider service failure;
+2. operator-action-required upstream configuration/billing failure;
+3. non-retryable internal validation failure where applicable;
+4. lease/reconciliation state;
+5. generic safe internal failure.
+
+The owner-facing text remains templated and bounded.
+
+Raw provider diagnostics stay in server logs.
+
+The internal ref ties the browser-visible failure to operator logs.
+
+============================================================
+I. EXECUTION ERROR PATH
+============================================================
+
+Current behavior:
+
+run throws
+→ server console only
+→ generic HTTP error
+→ client terminates loop
+→ failure disappears after reload.
+
+Replace that with:
+
+run throws
+→ classify safely
+→ persist durable failed step_outcome
+→ release lease safely
+→ return bounded error/session response
+→ client renders persistent failed-step state.
+
+The system must never represent a thrown setup step as successfully completed.
+
+============================================================
+J. 409 RECONCILIATION
+============================================================
+
+A setup execution lease 409 means:
+
+another execution currently owns the lease.
+
+It does NOT mean the setup has failed.
+
+It does NOT mean the user should stare forever at "Please wait."
+
+Modify the 409 response so it includes the authoritative serialized setup
+session state where safe.
+
+Client 409 behavior:
+
+409
+→ reconcile authoritative server state
+→ bounded polling/backoff if another live execution may still be running
+→ converge to one of:
+
+- completed/new progress;
+- awaiting owner action;
+- durable failed;
+- fully complete;
+- honest bounded timeout/error.
+
+A 409 is RECONCILABLE.
+
+It is NOT a generic terminal setup failure.
+
+============================================================
+K. AM-C2-2 — BOUNDED MEANS BOUNDED
+============================================================
+
+The 409 reconciliation loop MUST be explicitly bounded.
+
+Pin:
+
+- max attempts;
+- backoff behavior;
+- terminal timeout behavior
+
+with a NAMED regression.
+
+Example Stage-1 design:
+
+approximately 5 attempts over approximately 30 seconds.
+
+Exact implementation may vary slightly if justified, but it MUST be finite and
+test-bound.
+
+No infinite polling.
+
+No "polite infinite wait."
+
+When bounds are exhausted:
+
+render an honest actionable state.
+
+Never leave the user under a terminal "Please wait."
+
+============================================================
+L. SINGLE-FLIGHT CLIENT EXECUTION
+============================================================
+
+Implement a client-side single-flight guard around setup runLoop execution.
+
+Purpose:
+
+prevent redundant execute loops from:
+
+- StrictMode development double-effect;
+- Retry double-click;
+- remount races;
+- duplicated client invocation.
+
+If a runLoop generation is already active:
+
+a second invocation must not create another parallel client execution.
+
+Do not disable the server lease.
+
+The server CAS remains the authoritative concurrency protection.
+
+The client guard reduces avoidable collisions; it does not replace server
+idempotency.
+
+============================================================
+M. SERVER-TRUTH RECONCILIATION
+============================================================
+
+After EVERY successful execute response:
+
+adopt the returned session truth.
+
+Do not merely patch local results and assume they remain authoritative.
+
+After 409:
+
+adopt/re-fetch session truth.
+
+After retry:
+
+re-read truth before deciding what step to run.
+
+After mount/remount:
+
+bootstrap from truth.
+
+No scenario should produce:
+
+server says 4 steps done
+while
+UI says 3 steps done
+
+merely because local state failed to reconcile.
+
+============================================================
+N. RETRY CONTRACT
+============================================================
+
+Retry must:
+
+1. pass through the single-flight guard;
+2. first reconcile authoritative server state;
+3. never rerun completed steps;
+4. retry only the actual failed/current step;
+5. preserve earlier genuine progress;
+6. clear failed outcome only after successful completion;
+7. preserve per-step idempotency guards;
+8. never manufacture a replacement artifact when one already exists.
+
+For ad_creatives specifically:
+
+the existing creative precheck remains authoritative.
+
+If no creative exists:
+
+retry generation.
+
+If a creative was already committed:
+
+existing guard prevents duplicate generation/persistence.
+
+============================================================
+O. AM-C2-4 — C1 ONE-SHOT CONSENT MUST NEVER REPLAY
+============================================================
+
+This is now a NAMED LOAD-BEARING REGRESSION.
+
+Generic reconciliation, refresh, remount, 409 recovery, or Retry MUST NOT
+re-send/replay a consumed C1 artifact-bound one-shot confirmation.
+
+A C1 calendar activation confirmation travels only on the execute request for
+which the owner actually approved it.
+
+Once consumed:
+
+reconciliation cannot recreate it;
+
+Retry cannot blindly resend it;
+
+refresh cannot recreate it;
+
+OAuth return cannot recreate it.
+
+If a new authorization is required because state/artifact changed:
+
+the owner must receive a fresh legitimate authorization surface under C1.
+
+Bind this directly by test.
+
+============================================================
+P. OAUTH / REFRESH / REMOUNT CONVERGENCE — I-53
+============================================================
+
+I-53 IS INCLUDED in C2.
+
+Do NOT redesign OAuth.
+
+Use the existing setup bootstrap/startWith mechanism as the convergence point.
+
+These entry modes:
+
+- initial setup mount;
+- Google OAuth return;
+- browser refresh;
+- component remount;
+- revisiting in-progress setup
+
+must converge through:
+
+bootstrap
+→ authoritative session read
+→ render current truth
+→ resume automatically only when the session is consented and runnable.
+
+GuidedSetupWizard receives only the minimal change necessary to route the owner
+back into the existing SetupAgent/bootstrap path after OAuth return or a
+consented in-progress setup state.
+
+No new OAuth state machine.
+
+============================================================
+Q. FAILURE UI STATES
+============================================================
+
+The onboarding client must clearly distinguish at least:
+
+1. RECONCILING
+   temporary:
+   "Checking your progress..."
+
+2. AWAITING OWNER ACTION
+   e.g. needs_connection / C1 confirmation.
+
+3. STEP FAILED
+   persistent:
+   owner-safe explanation
+   + Retry when retryable.
+
+4. COMPLETE.
+
+A state that has already terminated must NOT display:
+
+"Please wait"
+
+unless actual bounded reconciliation is still occurring.
+
+============================================================
+R. ORIGINAL PRE-C2 FAILURE ON RESUME
+============================================================
+
+Important:
+
+the original Anthropic failure occurred BEFORE C2 existed.
+
+Therefore the existing frozen/current SDS specimen has no durable failed
+step_outcome representing that historical failure.
+
+When the corrected client first resumes this specimen:
+
+do NOT fabricate a historical failed outcome.
+
+Expected truthful initial state:
+
+Step 5 is simply the current unresolved runnable step.
+
+The historical failure remains documented in the H1/C2 evidence record.
+
+After C2 deploy:
+
+if Step 5 fails again under the real exhausted balance,
+THEN the new durable failure outcome must be created live.
+
+============================================================
+S. SPECIMEN RULING — RESUME, DO NOT RESTART
+============================================================
+
+Claude ruling:
+
+RESUME THE CURRENT SDS-H1 SPECIMEN AFTER C2.
+
+Do NOT create another fresh SDS account merely because C2 was inserted.
+
+Reason:
+
+- Step 5 created zero partial creative artifacts;
+- previous completed setup work is genuine;
+- no journey-content redesign occurs in C2;
+- retry is idempotent;
+- no earlier owner answers are invalidated.
+
+This is NOT convenience-based.
+
+It is evidence-based.
+
+H1 timing/reporting must explicitly segment:
+
+PRE-C2 journey
+→ freeze/blocker period
+→ C2 corrective boundary
+→ POST-C2 resumed journey.
+
+Do not pretend the freeze didn't occur.
+
+The freeze itself remains a legitimate H1 friction finding.
+
+============================================================
+T. MONITORING ISSUE — I-60
+============================================================
+
+File/retain:
+
+I-60 — provider-health/quota monitoring gap.
+
+Observation:
+
+internal quota sweep reported all providers healthy while Anthropic was
+rejecting setup requests for insufficient billing balance.
+
+Do NOT fix I-60 in C2.
+
+It is not required for safe H1 continuation.
+
+Do not expand the file surface.
+
+============================================================
+U. C1 PRESERVATION
+============================================================
+
+026-C1 remains accepted and binding.
+
+Regression-protect:
+
+- explicit owner-selected brand→Page binding;
+- api_integrations credential authority;
+- social_accounts brand destination authority;
+- skip outcome truth;
+- artifact-bound calendar activation;
+- server-recomputed activation digest;
+- stale-slot exclusion;
+- truthful stale reconciliation;
+- activation owner consent;
+- external ledger semantics;
+- no TEST/KEEP product logic.
+
+Do not modify those behaviors except where C2 must consume/reconcile their
+existing session responses.
+
+============================================================
+V. PRIMARY RAILWAY EVIDENCE REQUIREMENT
+============================================================
+
+Claude ruling:
+
+Stage 2 may proceed NOW.
+
+Before merge, attempt to preserve the original Railway incident evidence if it
+still exists.
+
+Desired primary evidence:
+
+2026-08-16
+00:41:20–00:42:00 UTC
+
+including:
+
+- relevant POST /api/setup-agent/execute entries;
+- Anthropic billing error;
+- adjacent stack/error information.
+
+If the original lines can still be captured:
+
+save/include the screenshot/raw excerpt in the C2 pre-merge evidence package.
+
+If the logs have rotated out:
+
+DO NOT fabricate or recreate evidence.
+
+Record exactly:
+
+"Owner-attested primary Railway dashboard observation; corroborating raw log
+window no longer available."
+
+Lack of the screenshot after log rotation does NOT invalidate Stage-2
+implementation authorization.
+
+Do not generate a synthetic provider failure merely to reconstruct historical
+evidence.
+
+============================================================
+W. ANTHROPIC CREDIT TIMING
+============================================================
+
+DO NOT require credits before implementation.
+
+All automated regressions use a stubbed provider error seam.
+
+Preferred live-verification sequence IF THE CREDIT BALANCE REMAINS EXHAUSTED
+AFTER C2 DEPLOYS:
+
+1. Deploy C2 to staging.
+
+2. Resume SDS at Step 5.
+
+3. ONE owner-authorized Retry against the still-exhausted real Anthropic
+   account.
+
+4. Expect the real provider error to produce:
+
+   - durable failed step outcome;
+   - owner-safe visible message;
+   - retryable/operator-action-required classification;
+   - no partial creative;
+   - no completed-step mutation;
+   - no stale progress;
+   - no misleading "Please wait."
+
+5. STOP.
+
+6. Owner restores Anthropic credits separately.
+
+7. ONE subsequent owner-authorized Retry.
+
+8. Expect:
+
+   - creative succeeds;
+   - failed outcome clears/replaces only on success;
+   - step completes exactly once;
+   - no duplicate creative;
+   - journey resumes from next authoritative step.
+
+IF credits have already been restored before deployment:
+
+do not deliberately break billing.
+
+Use the stubbed regression for the billing failure and live-prove only recovery/
+normal execution.
+
+Record which path was used.
+
+This authorization DOES NOT itself authorize purchasing credits or changing
+billing settings.
+
+That remains an owner/operator action.
+
+============================================================
+X. AUTOMATED REGRESSIONS
+============================================================
+
+Current Stage-1 baseline:
+
+SERVER:
+1463
+
+CLIENT:
+448
+
+Stage-1 expected additions before Claude amendments:
+
+SERVER +7
+CLIENT +10
+
+Final counts may increase slightly for AM-C2-2 and AM-C2-4 named regressions.
+
+Do not fake arithmetic to preserve projected counts.
+
+Report exact observed arithmetic.
+
+Mandatory properties include all Stage-1 regressions plus:
+
+AM-C2-1:
+browser/session step_outcome contains no raw provider/billing error text.
+
+AM-C2-2:
+409 reconciliation maximum attempts/backoff/terminal outcome explicitly bound.
+
+AM-C2-3:
+two defect-asserting client tests replaced transparently with inverse correct
+contracts.
+
+AM-C2-4:
+consumed C1 artifact-bound confirmation cannot replay through Retry,
+reconciliation, refresh/remount, or generic resume.
+
+Provider-billing regression:
+
+stub Anthropic/provider failure at accepted seam.
+
+Prove:
+
+- durable failed outcome;
+- retryable classification;
+- owner-safe message;
+- no raw Anthropic billing text in serialized session/browser response;
+- opaque correlation ref;
+- no partial ad_creatives;
+- no completed-step mutation;
+- lease released;
+- successful retry after simulated provider recovery;
+- exactly one creative persistence.
+
+============================================================
+Y. AM-C2-3 — D-32 DAYLIGHT ON MODIFIED TEST CONTRACTS
+============================================================
+
+Two existing client tests currently assert old defective behavior.
+
+They may be changed, but MUST be explicitly disclosed.
+
+Test 1:
+old behavior:
+409 treated as terminal retryable/generic error while client loop is dead.
+
+New behavior:
+409 treated as reconciliation state, then convergence.
+
+Test 2:
+old executeError classification:
+409 classified under the previous generic/terminal contract.
+
+New:
+409 classification becomes reconcilable.
+
+In pre-merge reconciliation:
+
+name both test files/tests;
+
+show what assertion was removed;
+
+show what inverse/correct contract replaced it;
+
+confirm no unrelated coverage was silently deleted.
+
+This is not a prohibited deletion.
+
+It is defect-contract inversion in daylight.
+
+============================================================
+Z. DIFF / FILE LIMITS
+============================================================
+
+Authorized padded diff bound:
+
+650 changed lines.
+
+Expected production files:
+
+4 maximum.
+
+Expected total files:
+
+9 maximum.
+
+Standing overrun rule:
+
+If implementation evidence indicates >25% beyond the padded 650-line bound:
+
+STOP AND REPORT BEFORE writing further.
+
+Any fifth production file:
+
+STOP AND REPORT.
+
+Any schema/migration:
+
+STOP AND REPORT.
+
+Any new OAuth architecture:
+
+STOP AND REPORT.
+
+Any C1 authorization-semantic change:
+
+STOP AND REPORT.
+
+============================================================
+AA. IMPLEMENTATION PROCEDURE
+============================================================
+
+Use a fresh D-37 staging clone.
+
+Verify HEAD before accounting.
+
+Because a prior audit clone drifted unexpectedly:
+
+also re-verify HEAD immediately before final test/diff accounting.
+
+If audit surface changes unexpectedly:
+
+STOP using it;
+reconstruct a clean authoritative surface;
+record the incident.
+
+Implement only the authorized C2 scope.
+
+Do not use the stale workspace tree as authority.
+
+============================================================
+AB. TEST / BUILD REQUIREMENTS
+============================================================
+
+Run:
+
+1. targeted C2 regressions;
+2. complete server suite;
+3. complete client suite;
+4. production client build;
+5. required C1 preservation suites.
+
+Return exact arithmetic.
+
+Current pre-C2 baselines:
+
+SERVER:
+1463
+
+CLIENT:
+448
+
+Do not report projected totals as observed totals.
+
+============================================================
+AC. SERVICE WORKER
+============================================================
+
+Client changes are expected.
+
+Apply the standing service-worker cache-version rule.
+
+Stage-2 verification must eventually prove the new client bundle is actually
+served on staging.
+
+Expected next accepted SW version from Claude's review:
+
+v174
+
+If current authoritative staging already differs for an authorized reason,
+report the actual version and reconcile rather than blindly forcing v174.
+
+============================================================
+AD. PRE-MERGE RECONCILIATION — HARD CHECKPOINT
+============================================================
+
+After implementation and all local/fresh-clone verification:
+
+DO NOT MERGE.
+
+Return:
+
+026-C2 STAGE-2 PRE-MERGE RECONCILIATION
+
+containing:
+
+1. implementation branch;
+2. PR number/link, marked DO NOT MERGE;
+3. exact staging base SHA;
+4. exact PR head SHA;
+5. exact changed-file list;
+6. production-file count;
+7. total-file count;
+8. per-file purpose;
+9. exact insertion/deletion totals;
+10. diff-bound comparison;
+11. D-32 deletion review;
+12. AM-C2-3 test-inversion disclosure;
+13. exact server baseline arithmetic;
+14. exact server result;
+15. exact client baseline arithmetic;
+16. exact client result;
+17. production client build;
+18. provider-billing regression result;
+19. durable-failure regression result;
+20. owner-safe serialization proof;
+21. opaque-ref/D-23 proof;
+22. no-raw-provider-text browser proof;
+23. failed-outcome clearing-on-success proof;
+24. 409 reconciliation proof;
+25. bounded 409 attempts/backoff test;
+26. single-flight test;
+27. stale-progress reconciliation test;
+28. server-state-authority proof;
+29. Retry truth-re-read proof;
+30. no completed-step rerun proof;
+31. no duplicate creative proof;
+32. OAuth-return convergence proof;
+33. refresh convergence proof;
+34. remount convergence proof;
+35. I-53 result;
+36. C1 no-consent-replay named regression;
+37. other C1 preservation results;
+38. no DDL/migration proof;
+39. schema_migrations expectation;
+40. SW/cache change accounting;
+41. original Railway evidence attachment status:
+    - captured, OR
+    - honestly unavailable/rotated;
+42. frozen/current SDS specimen untouched by implementation;
+43. production/main untouched;
+44. I-60 recorded/out-of-scope;
+45. all deviations;
+46. all STOP conditions encountered.
+
+Then STOP.
+
+DO NOT MERGE.
+
+DO NOT DEPLOY.
+
+DO NOT RUN LIVE RETRY.
+
+DO NOT BUY/CHANGE ANTHROPIC CREDITS AS PART OF THIS CODE PROMPT.
+
+DO NOT RESUME SDS-H1.
+
+DO NOT START BLACOR-H1.
+
+DO NOT START H2.
+
+DO NOT START PROMPT 027.
+
+DO NOT TOUCH PRODUCTION.
+
+============================================================
+AE. POST-MERGE PLAN — NOT YET AUTHORIZED
+============================================================
+
+The later separately-authorized chain is expected to be:
+
+owner/ChatGPT/Claude pre-merge review
+→ merge to STAGING only
+→ verify live SHA
+→ migrations unchanged at 148
+→ verify updated SW/client served
+→ if Anthropic credits still exhausted:
+     ONE controlled live Retry to prove durable real-provider failure
+→ owner restores credits
+→ ONE controlled recovery Retry
+→ Step 5 succeeds exactly once
+→ server/client state reconcile
+→ resume current SDS-H1 specimen
+→ continue one owner action at a time.
+
+This section is planning only.
+
+MERGE AND LIVE RETRY ARE NOT AUTHORIZED BY THIS DOCUMENT.
+
+============================================================
+AF. HARD STOP
+============================================================
+
+At pre-merge reconciliation:
+
+STOP.
+
+No self-acceptance.
+
+Return the complete report to the owner for owner + ChatGPT + Claude review.
+
+============================================================
+FINAL AUTHORIZATION
+============================================================
+
+026-C2 STAGE 2 IMPLEMENTATION IS AUTHORIZED.
+
+Implement and test ONLY.
+
+Create the PR.
+
+Return the complete pre-merge reconciliation.
+
+DO NOT MERGE.
+
+DO NOT DEPLOY.
+
+DO NOT RETRY STEP 5 LIVE.
+
+DO NOT RESUME H1.
+
+BEGIN 026-C2 STAGE 2.
