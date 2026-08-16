@@ -50,6 +50,13 @@ function StatusDot({ status }) {
       </span>
     );
   }
+  if (status === "failed") {
+    return (
+      <span className={`${base} bg-red-500/20 text-red-400`} aria-label="failed">
+        ✕
+      </span>
+    );
+  }
   if (status === "needs_connection") {
     return (
       <span className={`${base} bg-sky-500/20 text-sky-400`} aria-label="needs connection">
@@ -141,6 +148,14 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
   // 026-C1: the step key of the last needs_connection pause, to detect a
   // repeated pause on the same step ("nothing has been scheduled yet").
   const lastNeedsRef = useRef(null);
+  // 026-C2: single-flight guard — only one runLoop may be in flight per mount.
+  // The server's CAS lease stays authoritative; this stops the CLIENT from
+  // racing itself (StrictMode double-invoke, Retry double-click, resume races).
+  const loopActiveRef = useRef(false);
+  // 026-C2: RECONCILING banner (a live lease conflict is being re-checked) and
+  // the persistent STEP FAILED panel ({ key, label, outcome, message }).
+  const [reconciling, setReconciling] = useState(false);
+  const [failedStep, setFailedStep] = useState(null);
 
   const sessionId = session && session.sessionId;
 
@@ -214,72 +229,197 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
 
   // ---- Action execution loop -------------------------------------------------
 
+  // 026-C2: adopt server truth. Seeds the local results map from an
+  // authoritative serialized session — completed/skipped steps from
+  // completedSteps + stepOutcomes (026-C1 shape: string 'completed'|'skipped'),
+  // failed steps from the C2 object shape ({ status:'failed', ... }) which are
+  // NEVER in completedSteps. Used after EVERY session fetch, execute response,
+  // 409 reconcile, retry, and mount so the panel can't drift from the server.
+  const adoptSession = useCallback((s) => {
+    if (!s) return;
+    setSession(s);
+    if (Array.isArray(s.steps) && s.steps.length > 0) setSteps(s.steps);
+    const outcomes = s.stepOutcomes && typeof s.stepOutcomes === "object" ? s.stepOutcomes : {};
+    const seeded = {};
+    const completedSteps = Array.isArray(s.completedSteps) ? s.completedSteps : [];
+    for (const key of completedSteps) {
+      seeded[key] =
+        outcomes[key] === "skipped"
+          ? { status: "skipped", detail: "Skipped." }
+          : { status: "done", detail: "Done." };
+    }
+    for (const [key, outcome] of Object.entries(outcomes)) {
+      if (completedSteps.includes(key)) continue;
+      if (outcome && typeof outcome === "object" && outcome.status === "failed") {
+        seeded[key] = {
+          status: "failed",
+          detail: outcome.message || "This step couldn't finish. You can retry.",
+          outcome,
+        };
+      }
+    }
+    if (completedSteps.length > 0 || Object.keys(seeded).length > 0) setResults(seeded);
+  }, []);
+
+  // 026-C2 / AM-C2-2: bounded lease-conflict reconcile. When /execute answers
+  // 409 "another step is running", the loop adopts any server truth it carried
+  // and re-attempts a FINITE number of times before surfacing an honest
+  // timeout — never an unbounded poll, never a terminal "Please wait".
+  const RECONCILE_MAX_ATTEMPTS = 5;
+  const RECONCILE_DELAY_MS = 6000;
+
   const runLoop = useCallback(
     async (sid) => {
+      // Single-flight: the server CAS lease is authoritative, but the client
+      // must not race itself either (Retry double-click, StrictMode remount).
+      if (loopActiveRef.current) return;
+      loopActiveRef.current = true;
       setPhase("running");
       setNeedsConnection(null);
+      setFailedStep(null);
       setError("");
-      const done = new Set(Object.keys(resultsRef.current));
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const pending = stepsRef.current.find((s) => !done.has(s.key));
-        setRunningKey(pending ? pending.key : null);
-        let res;
-        try {
-          // 026-C1: a one-shot artifact-bound confirmation (set by
-          // approveActivation) rides on the FIRST execute of this loop only —
-          // it approves exactly one artifact, never a category of actions.
-          const confirmOnce = confirmRef.current;
-          confirmRef.current = null;
-          res = await api.runSetupAction(sid, false, confirmOnce);
-        } catch (err) {
-          setRunningKey(null);
-          // A 409 carrying the real session means a user-initiated pause/dismiss
-          // raced this step and won — the cancellation was honored server-side,
-          // so reflect the true state instead of a scary error screen.
-          const outcome = classifyExecuteError(err);
-          if (outcome.type === "dismissed") {
-            onClose();
+      let reconcileAttempts = 0;
+      try {
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          // A failed step is NOT done — it stays the current runnable step so
+          // the next execute (a Retry) re-runs exactly it.
+          const done = new Set(
+            Object.entries(resultsRef.current)
+              .filter(([, r]) => r && r.status !== "failed")
+              .map(([k]) => k),
+          );
+          const pending = stepsRef.current.find((s) => !done.has(s.key));
+          setRunningKey(pending ? pending.key : null);
+          let res;
+          try {
+            // 026-C1: a one-shot artifact-bound confirmation (set by
+            // approveActivation) rides on the FIRST execute of this loop only —
+            // it approves exactly one artifact, never a category of actions.
+            // AM-C2-4: it is cleared BEFORE the call, so no reconcile
+            // re-attempt, Retry, refresh, or OAuth return can ever replay it.
+            const confirmOnce = confirmRef.current;
+            confirmRef.current = null;
+            res = await api.runSetupAction(sid, false, confirmOnce);
+          } catch (err) {
+            const outcome = classifyExecuteError(err);
+            if (outcome.type === "dismissed") {
+              setRunningKey(null);
+              onClose();
+              return;
+            }
+            if (outcome.type === "paused") {
+              setRunningKey(null);
+              setSession(outcome.session);
+              setPhase("paused");
+              return;
+            }
+            if (outcome.type === "reconcile") {
+              // Another execute holds the lease. Adopt whatever truth the 409
+              // carried, then re-attempt — bounded (AM-C2-2), with an honest
+              // timeout instead of an eternal "Please wait".
+              if (outcome.session) adoptSession(outcome.session);
+              reconcileAttempts += 1;
+              if (reconcileAttempts >= RECONCILE_MAX_ATTEMPTS) {
+                setReconciling(false);
+                setRunningKey(null);
+                setError(
+                  "A setup step is still running from another window or a previous attempt. Nothing was lost — wait a moment, then press Retry.",
+                );
+                return;
+              }
+              setReconciling(true);
+              await new Promise((r) => setTimeout(r, RECONCILE_DELAY_MS));
+              continue;
+            }
+            setReconciling(false);
+            setRunningKey(null);
+            if (outcome.type === "failed") {
+              // The server recorded a durable, owner-safe failed outcome.
+              // Adopt its truth and show the persistent STEP FAILED panel.
+              if (outcome.session) adoptSession(outcome.session);
+              setResults((prev) => ({
+                ...prev,
+                [outcome.failedStep.key]: {
+                  status: "failed",
+                  detail: outcome.message,
+                  label: outcome.failedStep.label,
+                  outcome: outcome.outcome,
+                },
+              }));
+              setFailedStep({
+                key: outcome.failedStep.key,
+                label: outcome.failedStep.label,
+                outcome: outcome.outcome,
+                message: outcome.message,
+              });
+              return;
+            }
+            setError(outcome.message);
             return;
           }
-          if (outcome.type === "paused") {
-            setSession(outcome.session);
-            setPhase("paused");
+          reconcileAttempts = 0;
+          setReconciling(false);
+          if (res.allComplete) {
+            if (res.session) setSession(res.session);
+            setRunningKey(null);
+            setPhase("done");
             return;
           }
-          setError(outcome.message);
-          return;
+          const { step, status, detail } = res;
+          setResults((prev) => ({ ...prev, [step.key]: { status, detail, label: step.label } }));
+          // Adopt the authoritative session riding every execute response
+          // (026-C2) — but AFTER the richer local detail line is recorded, and
+          // without clobbering it: session adoption here only updates the
+          // session object; the seeded map is for fetch/reconcile paths.
+          if (res.session) setSession(res.session);
+          if (status === "needs_connection") {
+            setRunningKey(null);
+            // 026-C1: detect a REPEATED pause on the same step so the panel can
+            // say plainly that nothing has been scheduled yet. A changed
+            // artifact (connect.changed) is a fresh review, not a repeat.
+            const repeated =
+              lastNeedsRef.current === step.key && !(res.connect && res.connect.changed);
+            lastNeedsRef.current = step.key;
+            setNeedsConnection({
+              key: step.key,
+              connect: res.connect,
+              detail,
+              label: step.label,
+              repeated,
+            });
+            return; // wait for the user to connect or skip
+          }
+          lastNeedsRef.current = null;
         }
-        if (res.allComplete) {
-          setRunningKey(null);
-          setPhase("done");
-          return;
-        }
-        const { step, status, detail } = res;
-        setResults((prev) => ({ ...prev, [step.key]: { status, detail, label: step.label } }));
-        if (status === "needs_connection") {
-          setRunningKey(null);
-          // 026-C1: detect a REPEATED pause on the same step so the panel can
-          // say plainly that nothing has been scheduled yet. A changed
-          // artifact (connect.changed) is a fresh review, not a repeat.
-          const repeated =
-            lastNeedsRef.current === step.key && !(res.connect && res.connect.changed);
-          lastNeedsRef.current = step.key;
-          setNeedsConnection({
-            key: step.key,
-            connect: res.connect,
-            detail,
-            label: step.label,
-            repeated,
-          });
-          return; // wait for the user to connect or skip
-        }
-        lastNeedsRef.current = null;
-        done.add(step.key);
+      } finally {
+        loopActiveRef.current = false;
+        setReconciling(false);
       }
     },
-    [onClose],
+    [onClose, adoptSession],
   );
+
+  // 026-C2 Retry contract: reconcile FIRST (adopt fresh server truth so a step
+  // that actually completed is never re-run and a lifted lease is seen), then
+  // resume the loop, which re-runs the failed/current step exactly once per
+  // pass. Single-flight + busy-guarded — a double-click cannot double-run.
+  const retryStep = useCallback(async () => {
+    if (busy || loopActiveRef.current) return;
+    setBusy(true);
+    setError("");
+    try {
+      const data = await api.startSetupSession();
+      const s = data.session;
+      adoptSession(s);
+      setFailedStep(null);
+      await runLoop(s.sessionId);
+    } catch (err) {
+      setError(err.message || "Could not retry this step.");
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, adoptSession, runLoop]);
 
   // ---- Bootstrap / resume ----------------------------------------------------
 
@@ -300,22 +440,11 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         const data = await api.startSetupSession(intent ? { intent } : undefined);
         if (!activeRef.current) return;
         const s = data.session;
-        setSession(s);
+        // 026-C2: one adoption point for server truth — seeds completed,
+        // skipped AND durably-failed step outcomes (a failed step renders as
+        // its persistent failed state on every mount, incl. OAuth returns).
+        adoptSession(s);
         setSteps(s.steps || []);
-        // Pre-seed already-completed steps so a resumed run shows prior progress.
-        // 026-C1: honor the per-step outcome — a skipped step reloads as
-        // "Skipped.", never as a lying "Done.".
-        if (Array.isArray(s.completedSteps) && s.completedSteps.length > 0) {
-          const outcomes = s.stepOutcomes && typeof s.stepOutcomes === "object" ? s.stepOutcomes : {};
-          const seeded = {};
-          for (const key of s.completedSteps) {
-            seeded[key] =
-              outcomes[key] === "skipped"
-                ? { status: "skipped", detail: "Skipped." }
-                : { status: "done", detail: "Done." };
-          }
-          setResults(seeded);
-        }
 
         if (!s.interviewComplete) {
           setQuestion(data.question || null);
@@ -614,21 +743,10 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       // idempotently, so we just re-seed progress and continue the run.
       const data = await api.startSetupSession();
       const s = data.session;
-      setSession(s);
+      // 026-C2: same single adoption point as bootstrap — completed, skipped
+      // AND failed outcomes all resume truthfully.
+      adoptSession(s);
       setSteps(s.steps || []);
-      if (Array.isArray(s.completedSteps) && s.completedSteps.length > 0) {
-        // 026-C1: outcome-aware, same as the bootstrap seeding — a skipped
-        // step resumes as "Skipped.", never as a lying "Done.".
-        const outcomes = s.stepOutcomes && typeof s.stepOutcomes === "object" ? s.stepOutcomes : {};
-        const seeded = {};
-        for (const key of s.completedSteps) {
-          seeded[key] =
-            outcomes[key] === "skipped"
-              ? { status: "skipped", detail: "Skipped." }
-              : { status: "done", detail: "Done." };
-        }
-        setResults(seeded);
-      }
       await runLoop(s.sessionId);
     } catch (err) {
       setError(err.message || "Could not resume setup.");
@@ -1282,11 +1400,60 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
             })()
           : null}
 
+        {reconciling && phase === "running" ? (
+          <div
+            className="mt-6 flex items-center gap-3 rounded-xl border border-teal-500/30 bg-teal-500/5 p-4"
+            data-testid="reconciling-banner"
+          >
+            <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-teal-400 border-t-transparent" />
+            <p className="text-sm text-teal-200">
+              A setup step is still finishing — checking on it now. Nothing is lost.
+            </p>
+          </div>
+        ) : null}
+
+        {failedStep && phase === "running" ? (
+          <div
+            className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/5 p-6"
+            data-testid="failed-step-panel"
+          >
+            <h3 className="font-semibold text-red-200">
+              {failedStep.outcome && failedStep.outcome.code === "provider_billing"
+                ? "This step needs attention on our side"
+                : "This step couldn't finish"}
+            </h3>
+            <p className="mt-1 text-sm text-white/70">{failedStep.message}</p>
+            <p className="mt-2 text-xs text-white/40">
+              Step: {failedStep.label}
+              {failedStep.outcome && failedStep.outcome.ref
+                ? ` · Reference: ${failedStep.outcome.ref}`
+                : ""}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                onClick={retryStep}
+                disabled={busy}
+                className="rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+                data-testid="failed-step-retry"
+              >
+                {busy ? "Retrying…" : "Retry this step"}
+              </button>
+              <button
+                onClick={skipConnection}
+                disabled={busy}
+                className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
+              >
+                Skip this step
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {error && phase === "running" ? (
           <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
             <p className="text-sm text-red-300">{error}</p>
             <button
-              onClick={() => runLoop(sessionId)}
+              onClick={retryStep}
               disabled={busy}
               className="mt-3 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20"
             >

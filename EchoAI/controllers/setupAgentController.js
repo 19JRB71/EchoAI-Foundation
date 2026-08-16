@@ -598,6 +598,78 @@ async function writeCompletedSteps(sessionId, completed, outcomeEntry) {
   return rows[0] || null;
 }
 
+// ---------------------------------------------------------------------------
+// 026-C2: durable failed step outcomes
+// ---------------------------------------------------------------------------
+// When a setup action throws, the failure must become a DURABLE, owner-safe
+// record — never a console-only log the browser can't see (the SDS-H1 Step 5
+// freeze). The outcome lives in answers.step_outcomes[stepKey] (existing JSONB,
+// zero DDL) as an object: { status:'failed', at, code, message, retryable, ref }.
+// The failed step is NEVER added to completed_steps — it stays the current
+// runnable step, so a later retry that succeeds overwrites the failed outcome
+// via the same writeCompletedSteps merge.
+//
+// AM-C2-1 (owner-safe by construction): the stored message and the HTTP error
+// are chosen from fixed templates below. Raw provider/SDK text (billing
+// details, stack traces, tokens) NEVER enters step_outcomes or any response —
+// it goes to the server log only, tied to the browser-visible record by an
+// opaque `ref`.
+
+const STEP_FAILURE_TEMPLATES = {
+  provider_billing:
+    "Echo's AI service needs attention on our side before this step can finish. Your progress is saved — nothing was lost. Please try again later, or contact support if this persists.",
+  provider_unavailable:
+    "The AI service was temporarily unavailable while running this step. Your progress is saved — you can retry now.",
+  step_input_invalid:
+    "This step couldn't run with the information provided. Your progress is saved — you can retry, or skip this step and set it up later from your dashboard.",
+  internal_error:
+    "Something went wrong while running this step. Your progress is saved — you can retry.",
+};
+
+// Classifies a thrown step error into an owner-safe outcome. Uses only status
+// codes and coarse keyword sniffing on the SERVER side — the matched raw text
+// itself never leaves the server.
+function classifyStepError(err) {
+  const statusCode = err && err.statusCode;
+  const raw = String((err && err.message) || "").toLowerCase();
+  if (
+    /credit balance|billing|purchase credits|payment required|quota exceeded|insufficient credit/.test(
+      raw,
+    )
+  ) {
+    // Operator-action-required provider/billing fault (the diagnosed SDS-H1
+    // class). Retryable once the operator resolves it.
+    return { code: "provider_billing", retryable: true };
+  }
+  if (statusCode === 502 || statusCode === 503 || (typeof err?.status === "number" && err.status >= 500)) {
+    return { code: "provider_unavailable", retryable: true };
+  }
+  if (statusCode === 400 || statusCode === 422) {
+    return { code: "step_input_invalid", retryable: false };
+  }
+  return { code: "internal_error", retryable: true };
+}
+
+// Persist a failed outcome for a step WITHOUT touching completed_steps.
+// Status-guarded exactly like writeCompletedSteps: a pause/dismiss that raced
+// this step and won makes this a no-op (caller falls back to
+// respondCancelledMidStep). Returns the updated row, or null.
+async function writeFailedOutcome(sessionId, stepKey, outcome) {
+  const { rows } = await db.query(
+    `UPDATE setup_sessions
+       SET answers = jsonb_set(
+             COALESCE(answers, '{}'::jsonb),
+             '{step_outcomes}',
+             COALESCE(answers->'step_outcomes', '{}'::jsonb) || $2::jsonb
+           ),
+           updated_at = NOW()
+     WHERE session_id = $1 AND status = 'in_progress'
+     RETURNING *`,
+    [sessionId, JSON.stringify({ [stepKey]: outcome })],
+  );
+  return rows[0] || null;
+}
+
 // Uniform response when a lifecycle change (pause/dismiss) raced an in-flight
 // step and won: report the session's real current state instead of pretending
 // the step advanced the run. 409 = the execute conflicted with that change.
@@ -2383,7 +2455,18 @@ async function executeNextAction(req, res) {
   // step's lease fresh so it is never reclaimed while genuinely running.
   const leaseToken = await claimExecution(session.session_id);
   if (!leaseToken) {
-    return res.status(409).json({ error: "A setup step is already running. Please wait." });
+    // 026-C2: the refusal now carries the authoritative serialized session so
+    // the client can reconcile (adopt server truth, then bounded re-attempt)
+    // instead of rendering a terminal "Please wait" over a dead loop. The
+    // session in this body is the row as of this request — status
+    // 'in_progress' distinguishes a live lease conflict from the
+    // pause/dismiss races respondCancelledMidStep reports.
+    const current = await reloadSession(session.session_id);
+    return res.status(409).json({
+      error: "A setup step is already running.",
+      code: "execute_in_progress",
+      session: current ? serializeSession(current) : undefined,
+    });
   }
   const heartbeat = startHeartbeat(session.session_id, leaseToken);
 
@@ -2468,32 +2551,35 @@ async function executeNextAction(req, res) {
     try {
       outcome = await nextAction.run({ userId, session: liveSession, answers, confirm });
     } catch (stepErr) {
-      // 026-C1 Section D: a SYSTEM FAULT (a lookup the step needed failed) is
-      // not a "step outcome" — coercing it to skipped would tell the owner a
-      // truthful-looking lie. Rethrow to the endpoint's 500; the step stays
-      // pending and retryable.
-      if (stepErr.systemFault === true) throw stepErr;
-      // Never block setup completion on a single failed step. If a step throws
-      // (e.g. the AI drip designer fails even after its retries), record it as
-      // skipped with a friendly message and move on to the next step instead of
-      // aborting the whole run. The failure is logged for diagnosis.
-      console.error(`Setup agent step "${nextAction.key}" failed (skipping):`, stepErr.message);
-      completed.push(nextAction.key);
-      const skippedRow = await writeCompletedSteps(session.session_id, completed, {
-        key: nextAction.key,
-        outcome: "skipped",
-      });
-      if (!skippedRow) return respondCancelledMidStep(res, session.session_id);
-      const remainingAfterSkip = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
-      return res.json({
-        allComplete: false,
-        step: { key: nextAction.key, label: nextAction.label },
-        status: "skipped",
-        detail:
-          nextAction.skipMessage ||
-          "We couldn't finish this step automatically — you can set it up later from your dashboard.",
-        remaining: remainingAfterSkip,
-        session: serializeSession(skippedRow),
+      // 026-C2: a thrown setup step is a FAILURE, recorded durably and
+      // owner-safely — never a console-only log (the SDS-H1 silent freeze),
+      // never coerced to a truthful-looking "skipped", and never added to
+      // completed_steps. The step stays the current runnable step so Retry
+      // re-runs exactly it (each step's own idempotency precheck guards
+      // against duplicate side effects).
+      const { code, retryable } = classifyStepError(stepErr);
+      const ref = crypto.randomUUID();
+      // Raw provider/SDK text goes to the SERVER LOG ONLY, tied to the
+      // browser-visible record by the opaque ref (AM-C2-1).
+      console.error(
+        `Setup agent step "${nextAction.key}" failed [${code}] [ref ${ref}]:`,
+        stepErr.message,
+      );
+      const outcome = {
+        status: "failed",
+        at: new Date().toISOString(),
+        code,
+        message: STEP_FAILURE_TEMPLATES[code] || STEP_FAILURE_TEMPLATES.internal_error,
+        retryable,
+        ref,
+      };
+      const failedRow = await writeFailedOutcome(session.session_id, nextAction.key, outcome);
+      if (!failedRow) return respondCancelledMidStep(res, session.session_id);
+      return res.status(retryable ? 502 : 400).json({
+        error: outcome.message,
+        failedStep: { key: nextAction.key, label: nextAction.label },
+        outcome: { code, retryable, ref, at: outcome.at },
+        session: serializeSession(failedRow),
       });
     }
 
@@ -2530,7 +2616,14 @@ async function executeNextAction(req, res) {
   } catch (err) {
     const status = err.statusCode || 500;
     console.error("Setup agent execute error:", err.message);
-    return res.status(status).json({ error: err.message || "A setup step failed" });
+    // 026-C2 / AM-C2-1: a 5xx here is an internal/system fault whose raw text
+    // (DB/provider detail) must never reach the browser. 4xx messages are our
+    // own user-facing texts and pass through unchanged.
+    const safeMessage =
+      status >= 500
+        ? "Something went wrong while running this step. Your progress is saved — you can retry."
+        : err.message || "A setup step failed";
+    return res.status(status).json({ error: safeMessage });
   } finally {
     // Stop the heartbeat and release the lease, even on error, so the next
     // /execute call (or a retry after a failed step) can proceed immediately.
