@@ -468,23 +468,163 @@ describe("SetupAgent raced-outcome render branches", () => {
     expect(screen.queryByText(/you can retry/i)).not.toBeInTheDocument();
   });
 
-  test("409 without a session body keeps the retryable error banner in the running phase", async () => {
+  // 026-C2 / AM-C2-3 INVERSION (disclosed): this test previously asserted the
+  // DEFECT — a lease 409 without a session rendered the terminal error banner
+  // ("A setup step is already running." + Retry) while the loop was dead: the
+  // exact frozen surface the owner saw in SDS-H1.
+  //   OLD assertion: terminal error banner with the raw server message.
+  //   NEW assertion: the loop RECONCILES — shows the reconciling banner, waits
+  //   the bounded delay, re-attempts, and converges when the lease lifts.
+  test("409 without a session body reconciles (bounded re-attempt) and converges — never a dead terminal banner", async () => {
+    vi.useFakeTimers();
+    try {
+      api.runSetupAction
+        .mockRejectedValueOnce(make409("Another setup step is currently running."))
+        .mockResolvedValueOnce({ allComplete: true });
+      const onClose = vi.fn();
+
+      render(<SetupAgent onClose={onClose} />);
+
+      // The reconciling banner appears — NOT the red terminal error, NOT the
+      // paused panel, and never the raw "already running" server text.
+      await vi.waitFor(() =>
+        expect(screen.getByTestId("reconciling-banner")).toBeInTheDocument(),
+      );
+      expect(
+        screen.queryByText("Another setup step is currently running."),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Setup paused")).not.toBeInTheDocument();
+
+      // After the bounded delay the loop re-attempts and converges.
+      await vi.advanceTimersByTimeAsync(6000);
+      await vi.waitFor(() =>
+        expect(screen.getByText("Your account is ready")).toBeInTheDocument(),
+      );
+      expect(api.runSetupAction).toHaveBeenCalledTimes(2);
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // 026-C2 / AM-C2-2: the reconcile is BOUNDED. If the lease never lifts, the
+  // loop stops after its finite attempts with an honest message — not an
+  // unbounded poll and not a "Please wait" lie.
+  test("a lease that never lifts ends in an honest bounded-timeout message, not an eternal wait", async () => {
+    vi.useFakeTimers();
+    try {
+      api.runSetupAction.mockRejectedValue(
+        make409("Another setup step is currently running."),
+      );
+
+      render(<SetupAgent onClose={vi.fn()} />);
+
+      await vi.waitFor(() =>
+        expect(screen.getByTestId("reconciling-banner")).toBeInTheDocument(),
+      );
+      // Drive through every bounded attempt (5 attempts, 6s apart).
+      for (let i = 0; i < 5; i++) {
+        await vi.advanceTimersByTimeAsync(6000);
+      }
+      await vi.waitFor(() =>
+        expect(
+          screen.getByText(/still running from another window or a previous attempt/i),
+        ).toBeInTheDocument(),
+      );
+      // Exactly the bounded number of execute attempts — never unbounded.
+      expect(api.runSetupAction).toHaveBeenCalledTimes(5);
+      // The honest timeout offers Retry; it never says "Please wait".
+      expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+      expect(screen.queryByText(/please wait/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId("reconciling-banner")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // 026-C2: a durable failed step renders the persistent STEP FAILED panel
+  // with owner-safe text + opaque ref, and Retry reconciles-then-reruns —
+  // clearing the failure only on genuine success.
+  test("a failed step shows the persistent failed panel, and Retry reruns it to success", async () => {
+    const failedBody = {
+      error:
+        "The AI service was temporarily unavailable while running this step. Your progress is saved — you can retry now.",
+      failedStep: { key: "brand", label: "Set up your brand" },
+      outcome: { code: "provider_unavailable", retryable: true, ref: "ref-42", at: "2026-08-16T00:00:00Z" },
+      session: { ...READY_SESSION, stepOutcomes: {} },
+    };
     api.runSetupAction.mockRejectedValueOnce(
-      make409("A setup step is already running."),
+      Object.assign(new Error("Request failed"), { status: 502, data: failedBody }),
     );
-    const onClose = vi.fn();
 
-    render(<SetupAgent onClose={onClose} />);
+    render(<SetupAgent onClose={vi.fn()} />);
 
-    // The retryable error banner (with the server message + Retry) shows, and we
-    // stay in the running phase — the paused panel must NOT appear.
-    expect(await screen.findByText("A setup step is already running.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
-    expect(screen.queryByText("Setup paused")).not.toBeInTheDocument();
-    expect(onClose).not.toHaveBeenCalled();
+    // The persistent failed panel: owner-safe template text + the opaque ref —
+    // never raw provider/billing text.
+    const panel = await screen.findByTestId("failed-step-panel");
+    expect(panel).toBeInTheDocument();
+    // The owner-safe message renders in BOTH the step rail detail and the
+    // panel — scope the assertion to the panel.
+    expect(panel.textContent).toMatch(
+      /The AI service was temporarily unavailable while running this step/,
+    );
+    expect(screen.getByText(/Reference: ref-42/)).toBeInTheDocument();
+    expect(screen.queryByText(/credit balance|billing/i)).not.toBeInTheDocument();
 
-    // The progress rail (running phase) is still on screen.
-    expect(screen.getByText("Setting up your account…")).toBeInTheDocument();
+    // Retry: reconciles via the session endpoint first (server truth), then
+    // re-executes the SAME step; success clears the failed panel.
+    api.startSetupSession.mockResolvedValueOnce({
+      session: {
+        ...READY_SESSION,
+        stepOutcomes: {
+          brand: { status: "failed", code: "provider_unavailable", retryable: true, ref: "ref-42", message: "x" },
+        },
+      },
+    });
+    api.runSetupAction
+      .mockResolvedValueOnce({
+        step: { key: "brand", label: "Set up your brand" },
+        status: "done",
+        detail: "Brand created.",
+      })
+      .mockResolvedValueOnce({ allComplete: true });
+
+    fireEvent.click(screen.getByTestId("failed-step-retry"));
+
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+    expect(screen.queryByTestId("failed-step-panel")).not.toBeInTheDocument();
+    // bootstrap(fail) + retry(brand done) + allComplete probe.
+    expect(api.runSetupAction).toHaveBeenCalledTimes(3);
+    // Reconcile-first: the session endpoint was consulted before rerunning.
+    expect(api.startSetupSession).toHaveBeenCalledTimes(2);
+  });
+
+  // 026-C2 / AM-C2-4: a consumed one-shot activation confirmation must never
+  // replay through the reconcile path — the reconcile re-attempt sends NO
+  // confirmation, so the server re-pauses for fresh approval instead of
+  // silently re-approving an artifact the user saw once.
+  test("a one-shot confirmation never rides a reconcile re-attempt", async () => {
+    vi.useFakeTimers();
+    try {
+      api.runSetupAction
+        // First execute (the one that would carry a confirm) hits a lease 409.
+        .mockRejectedValueOnce(make409("Another setup step is currently running."))
+        .mockResolvedValueOnce({ allComplete: true });
+
+      render(<SetupAgent onClose={vi.fn()} />);
+
+      await vi.waitFor(() =>
+        expect(screen.getByTestId("reconciling-banner")).toBeInTheDocument(),
+      );
+      await vi.advanceTimersByTimeAsync(6000);
+      await vi.waitFor(() => expect(api.runSetupAction).toHaveBeenCalledTimes(2));
+
+      // The re-attempt after the 409 carried NO confirmation payload.
+      const secondCallArgs = api.runSetupAction.mock.calls[1];
+      expect(secondCallArgs[2] ?? null).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

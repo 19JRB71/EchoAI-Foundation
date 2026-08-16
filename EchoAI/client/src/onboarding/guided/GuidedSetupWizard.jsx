@@ -222,6 +222,37 @@ export default function GuidedSetupWizard({ onComplete }) {
         setLoading(false);
         return;
       }
+      // 026-C2 (I-53): a return from a full-page OAuth redirect while the
+      // saved step is "profile" means the Setup Agent's execute loop initiated
+      // the handoff (e.g. connect_google). Landing on "Welcome back" instead
+      // of remounting SetupAgent left the loop dead forever — the OAuth-return
+      // freeze. Route straight back to the profile step: SetupAgent's mount
+      // bootstrap (startWith) is the designated convergence point and resumes
+      // the run from server truth automatically.
+      if (oauth && savedStep === "profile") {
+        setOauthNotice(
+          oauth.status === "connected"
+            ? {
+                tone: "success",
+                text:
+                  CONNECTION_SUCCESS_LINE[oauth.key] ||
+                  `Welcome back, Sir — ${oauth.name} is connected. Picking setup back up now.`,
+              }
+            : {
+                tone: "reassure",
+                text: `Welcome back, Sir. The ${oauth.name} connection didn't go through this time — no harm done. Setup continues, and we can try again whenever you're ready.`,
+              },
+        );
+        if (oauth.status !== "connected") {
+          // Raw provider detail goes to the server log only — never on screen.
+          api.reportGuidedSetupConnectionError(oauth.key, oauth.message).catch(() => {});
+        }
+        setFlags(nextFlags);
+        setStep("profile");
+        persist("profile", nextFlags);
+        setLoading(false);
+        return;
+      }
       // OAuth return but the saved step drifted — still surface the outcome.
       if (oauth) {
         setOauthNotice(

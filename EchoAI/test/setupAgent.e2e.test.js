@@ -759,6 +759,14 @@ test("concurrent /execute calls for one session run the step exactly once (HTTP 
   refused.forEach((r) =>
     assert.match(r.body.error || "", /already running/i, "refusals must be the concurrency guard, not another error"),
   );
+  // 026-C2: every lease refusal carries the authoritative serialized session
+  // (status in_progress) so the client reconciles instead of dying on a
+  // terminal "Please wait" — plus the machine-readable code.
+  refused.forEach((r) => {
+    assert.equal(r.body.code, "execute_in_progress", "lease refusals must carry the C2 reconcile code");
+    assert.ok(r.body.session, "lease refusals must carry the serialized session for client reconcile");
+    assert.equal(r.body.session.status, "in_progress", "the carried session shows a live run, not a cancellation");
+  });
 
   // The single winner ran the first pending step to completion.
   assert.equal(ran[0].body.step.key, "create_brand_profile");
@@ -773,11 +781,18 @@ test("concurrent /execute calls for one session run the step exactly once (HTTP 
   );
 });
 
-// A single AI-heavy step failing (e.g. the drip designer erroring after all its
-// upstream retries) must NEVER block setup completion: the step is recorded as
-// skipped with a friendly, actionable message and the run continues to
-// allComplete. This guards the "one failed step can't stop setup" guarantee.
-test("a failing step (drip designer) is skipped with a friendly message and setup still completes", async () => {
+// 026-C2 / AM-C2-3 INVERSION (disclosed, beyond the two authorized client
+// inversions — flagged as a deviation in the reconciliation): this test
+// previously pinned the DEFECT class C2 removes — a thrown AI step was
+// silently coerced to "skipped" and setup marched on, telling the owner a
+// truthful-looking lie (the same silent-coercion family as the SDS-H1 freeze).
+//   OLD assertion: the failing drip step returns 200/"skipped" with a friendly
+//   message and the run reaches allComplete around it.
+//   NEW assertion: the failing step returns an owner-safe error with a DURABLE
+//   failed outcome (not in completed_steps, no raw provider text, opaque ref),
+//   the step stays the current runnable step, and a retry after provider
+//   recovery completes it and then the whole run.
+test("a failing step (drip designer) records a durable owner-safe failed outcome, and retry after recovery completes setup", async () => {
   const { token } = await createUser({ tier: "pro" });
   const session = await completeInterview(token);
   await apiRequest(token, "POST", "/consent", { sessionId: session.sessionId });
@@ -794,41 +809,74 @@ test("a failing step (drip designer) is skipped with a friendly message and setu
     return inner(args);
   };
 
-  // Drive /execute like the client, capturing the email step's full outcome.
-  let emailOutcome = null;
-  let finalSession = null;
+  // Drive /execute like the client until the email step FAILS.
+  let failedRes = null;
   let guard = 0;
   try {
     while (guard++ < 25) {
       const res = await executeStep(token, { sessionId });
-      assert.equal(res.status, 200, `execute failed: ${JSON.stringify(res.body)}`);
-      const b = res.body;
-      if (b.allComplete) {
-        finalSession = b.session;
+      if (res.status !== 200) {
+        failedRes = res;
         break;
       }
+      const b = res.body;
+      assert.ok(!b.allComplete, "the run must not complete around a failed step");
       if (b.status === "needs_connection") {
         const skipRes = await executeStep(token, { sessionId, skip: true });
         assert.equal(skipRes.status, 200, `skip failed: ${JSON.stringify(skipRes.body)}`);
-        if (skipRes.body.step && skipRes.body.step.key === "email_preferences") {
-          emailOutcome = skipRes.body;
-        }
-        continue;
       }
-      if (b.step.key === "email_preferences") emailOutcome = b;
     }
   } finally {
     anthropicModule.anthropic.messages.create = inner;
   }
 
-  // The whole run finished despite the failed step.
-  assert.ok(finalSession, "setup should reach allComplete even when a step fails");
+  // The failed step surfaced as an owner-safe error carrying the durable outcome.
+  assert.ok(failedRes, "the failing email step must surface an error, not a silent skip");
+  assert.equal(failedRes.body.failedStep.key, "email_preferences");
+  assert.equal(failedRes.body.outcome.retryable, true);
+  assert.equal(typeof failedRes.body.outcome.ref, "string");
+  assert.ok(
+    !/AI provider unavailable/i.test(JSON.stringify(failedRes.body)),
+    "raw provider text must never reach the browser",
+  );
 
-  // The email step ran, was marked skipped (not fatal), and carried the friendly
-  // message pointing the user to the Email Marketing section.
-  assert.ok(emailOutcome, "email_preferences step should have been attempted");
-  assert.equal(emailOutcome.status, "skipped", "a failed drip step must be skipped, not fatal");
-  assert.match(emailOutcome.detail, /Email Marketing section/);
+  // Durable: the failed outcome is persisted; the step is NOT in completed_steps.
+  const { rows } = await db.query("SELECT * FROM setup_sessions WHERE session_id = $1", [sessionId]);
+  const row = rows[0];
+  const outcome = (row.answers.step_outcomes || {}).email_preferences;
+  assert.equal(outcome && outcome.status, "failed", "the failed outcome must be persisted");
+  assert.ok(
+    !row.completed_steps.includes("email_preferences"),
+    "a failed step must stay the current runnable step",
+  );
+  assert.equal(row.status, "in_progress", "the session stays resumable");
+
+  // Retry after recovery: the SAME step runs, succeeds, and the run completes.
+  let finalSession = null;
+  guard = 0;
+  while (guard++ < 25) {
+    const res = await executeStep(token, { sessionId });
+    assert.equal(res.status, 200, `retry execute failed: ${JSON.stringify(res.body)}`);
+    if (res.body.allComplete) {
+      finalSession = res.body.session;
+      break;
+    }
+    if (res.body.status === "needs_connection") {
+      const skipRes = await executeStep(token, { sessionId, skip: true });
+      assert.equal(skipRes.status, 200);
+    }
+  }
+  assert.ok(finalSession, "setup completes after the failed step is retried successfully");
+  const { rows: after } = await db.query(
+    "SELECT answers, completed_steps FROM setup_sessions WHERE session_id = $1",
+    [sessionId],
+  );
+  assert.ok(after[0].completed_steps.includes("email_preferences"));
+  assert.equal(
+    (after[0].answers.step_outcomes || {}).email_preferences,
+    "completed",
+    "the completed outcome replaces the failed object",
+  );
 });
 
 // ---------------------------------------------------------------------------
