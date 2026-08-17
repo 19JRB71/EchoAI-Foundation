@@ -624,6 +624,11 @@ const STEP_FAILURE_TEMPLATES = {
     "This step couldn't run with the information provided. Your progress is saved — you can retry, or skip this step and set it up later from your dashboard.",
   internal_error:
     "Something went wrong while running this step. Your progress is saved — you can retry.",
+  // 026-C3 (I-61): an owner-fixable precondition — never presented as an AI
+  // outage and never labeled retryable-as-is. Used only when a marked error
+  // somehow reaches the failure path without its authored safeMessage.
+  owner_action_required:
+    "This step needs a quick choice from you before it can run. Nothing failed — finish the setup choice shown above, then continue.",
 };
 
 // Classifies a thrown step error into an owner-safe outcome. Uses only status
@@ -632,6 +637,19 @@ const STEP_FAILURE_TEMPLATES = {
 function classifyStepError(err) {
   const statusCode = err && err.statusCode;
   const raw = String((err && err.message) || "").toLowerCase();
+  // 026-C3 (I-61): marker-first. An explicitly authored owner-action
+  // precondition (e.g. resolveBrandAdDestination's deliberate 503) is checked
+  // BEFORE the billing regex and BEFORE any status-code class, so it can never
+  // masquerade as "AI service unavailable" again. Only the marker's authored
+  // safeMessage may reach the browser — err.message is never generically
+  // trusted (unmarked errors keep the bounded templates below).
+  if (err && err.ownerActionRequired === true) {
+    return {
+      code: "owner_action_required",
+      retryable: false,
+      safeMessage: typeof err.safeMessage === "string" ? err.safeMessage : null,
+    };
+  }
   if (
     /credit balance|billing|purchase credits|payment required|quota exceeded|insufficient credit/.test(
       raw,
@@ -977,7 +995,7 @@ const ACTIONS = [
     key: "create_facebook_campaign",
     label: "Creating your first Facebook ad campaign",
     feature: null,
-    async run({ userId, session, answers }) {
+    async run({ userId, session, answers, confirm }) {
       if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
       // Idempotency: don't launch a second campaign on a retry after a crash
       // between the Graph API side effect and the completed-steps write.
@@ -1011,6 +1029,110 @@ const ACTIONS = [
       const budget = pickAdBudget(answers);
       const monthly = pickMonthlyAdBudget(answers);
 
+      // -----------------------------------------------------------------
+      // 026-C3 — THREE-STORE AUTHORITY MAP (do not merge these stores):
+      //   STORE 1  api_integrations (user+platform): does this USER have
+      //            Facebook credentials and granted Pages? page_ref is a
+      //            wizard default suggestion only — launch paths never read it.
+      //   STORE 2  social_accounts (brand+platform): which Page is bound to
+      //            this BRAND for social PUBLISHING. Never a fallback for ads.
+      //   STORE 3  brands.facebook_page_id + brands.ad_link_url (brand):
+      //            which Page/destination this BRAND's ADS use. This step
+      //            coordinates STORE 3 only, via the existing product writers
+      //            (POST /api/facebook/select-page, PUT /api/brands/:id).
+      // -----------------------------------------------------------------
+      // 026-C3 (I-62) preflight: Facebook is connected, so a missing Page or
+      // destination is a PREDICTABLE owner setup choice — pause and solicit
+      // it, never fall through to a launch path whose guard must fail. This
+      // pause is re-derived from live brand state on every execute (no
+      // durable failure, no VALIDATION_FAILED artifact, nothing completed).
+      const gateBrand = await db.query(
+        "SELECT facebook_page_id, ad_link_url FROM brands WHERE brand_id = $1",
+        [session.brand_id],
+      );
+      const brandDest = gateBrand.rows[0] || {};
+      if (!brandDest.facebook_page_id || !brandDest.ad_link_url) {
+        return {
+          status: "owner_action_required",
+          action: {
+            code: "missing_ad_destination",
+            missing: {
+              page: !brandDest.facebook_page_id,
+              destination: !brandDest.ad_link_url,
+            },
+          },
+          detail:
+            "Before I can set up your first ad campaign, choose the Facebook Page your ads will run from and confirm where clicks should go.",
+        };
+      }
+
+      // 026-C3 AM-C3-2: configuration ≠ launch authorization. Before ANY
+      // externally-capable campaign branch may run, the owner must explicitly
+      // authorize THIS launch. The summary and its digest come from CURRENT
+      // SERVER TRUTH (never client state); the confirmation is artifact-bound
+      // exactly like the C1 social_schedule approval: a digest mismatch (the
+      // configuration changed between review and approval) re-pauses with a
+      // fresh summary instead of launching something the owner never saw.
+      // One-shot by construction: the confirm rides exactly one execute call
+      // (the client clears it before sending), is validated against live
+      // truth here, and the existing campaigns-exist idempotency precheck
+      // above means a consumed authorization can never produce a second
+      // provider-object attempt.
+      const integ = await db.query(
+        `SELECT account_ref, facebook_pages FROM api_integrations
+         WHERE user_id = $1 AND platform = 'facebook'`,
+        [userId],
+      );
+      const integRow = integ.rows[0] || {};
+      const grantedPages = Array.isArray(integRow.facebook_pages)
+        ? integRow.facebook_pages
+        : [];
+      const pageMeta = grantedPages.find((p) => p && p.id === brandDest.facebook_page_id);
+      const launchSummary = {
+        pageId: brandDest.facebook_page_id,
+        pageName: (pageMeta && pageMeta.name) || null,
+        adAccount: integRow.account_ref || null,
+        destination: brandDest.ad_link_url,
+        dailyBudget: budget,
+        createdPaused: true,
+        initialSpend: 0,
+      };
+      const launchDigest = crypto
+        .createHash("sha256")
+        .update(
+          [
+            session.brand_id,
+            launchSummary.pageId,
+            launchSummary.adAccount || "",
+            launchSummary.destination,
+            String(budget),
+          ].join("|"),
+        )
+        .digest("hex");
+      const launchConfirmed =
+        confirm &&
+        confirm.step === "create_facebook_campaign" &&
+        typeof confirm.digest === "string" &&
+        confirm.digest === launchDigest;
+      if (!launchConfirmed) {
+        const stale =
+          confirm && confirm.step === "create_facebook_campaign" && confirm.digest
+            ? true
+            : false;
+        return {
+          status: "owner_action_required",
+          action: {
+            code: "confirm_campaign_launch",
+            summary: launchSummary,
+            digest: launchDigest,
+            changed: stale,
+          },
+          detail: stale
+            ? "Your ads setup changed since you reviewed it — please look at the update and authorize again."
+            : "Everything is configured. Review the summary and authorize creating your first campaign — it will be created PAUSED with $0 spent.",
+        };
+      }
+
       // Prefer launching the AI-generated creative from the ad_creatives step so
       // the campaign runs the real ad we just built (image concept, copy,
       // audience). This only works when Facebook ad creation is fully configured
@@ -1022,16 +1144,7 @@ const ACTIONS = [
         [session.brand_id],
       );
       const creativeId = latestCreative.rows[0] && latestCreative.rows[0].creative_id;
-      // Launching the generated creative needs the BRAND's own ad destination
-      // (per-brand Facebook Page + link) — never env vars. The connection is
-      // already verified above; the launch path re-checks it live.
-      const gateBrand = await db.query(
-        "SELECT facebook_page_id, ad_link_url FROM brands WHERE brand_id = $1",
-        [session.brand_id],
-      );
-      const brandDest = gateBrand.rows[0] || {};
-      const canLaunchCreative =
-        creativeId && brandDest.facebook_page_id && brandDest.ad_link_url;
+      const canLaunchCreative = Boolean(creativeId);
 
       if (canLaunchCreative) {
         const launched = await invoke(adCreativeStudioController.launchCreative, userId, {
@@ -2557,7 +2670,7 @@ async function executeNextAction(req, res) {
       // completed_steps. The step stays the current runnable step so Retry
       // re-runs exactly it (each step's own idempotency precheck guards
       // against duplicate side effects).
-      const { code, retryable } = classifyStepError(stepErr);
+      const { code, retryable, safeMessage } = classifyStepError(stepErr);
       const ref = crypto.randomUUID();
       // Raw provider/SDK text goes to the SERVER LOG ONLY, tied to the
       // browser-visible record by the opaque ref (AM-C2-1).
@@ -2569,7 +2682,13 @@ async function executeNextAction(req, res) {
         status: "failed",
         at: new Date().toISOString(),
         code,
-        message: STEP_FAILURE_TEMPLATES[code] || STEP_FAILURE_TEMPLATES.internal_error,
+        // 026-C3 (I-61): only explicitly authored marker text (safeMessage,
+        // set at trusted throw sites) may replace the bounded template —
+        // err.message is never generically exposed (AM-C2-1 preserved).
+        message:
+          (code === "owner_action_required" && safeMessage) ||
+          STEP_FAILURE_TEMPLATES[code] ||
+          STEP_FAILURE_TEMPLATES.internal_error,
         retryable,
         ref,
       };
@@ -2580,6 +2699,24 @@ async function executeNextAction(req, res) {
         failedStep: { key: nextAction.key, label: nextAction.label },
         outcome: { code, retryable, ref, at: outcome.at },
         session: serializeSession(failedRow),
+      });
+    }
+
+    // 026-C3: owner_action_required does NOT mark the step complete and is
+    // NOT a durable failure — it is re-derived from authoritative server
+    // truth on every execute (reload/remount/resume converge back to it).
+    // The UI renders the required owner action (ads destination capture, or
+    // the explicit campaign-launch authorization) and calls execute again.
+    if (outcome.status === "owner_action_required") {
+      const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
+      return res.json({
+        allComplete: false,
+        step: { key: nextAction.key, label: nextAction.label },
+        status: "owner_action_required",
+        action: outcome.action || null,
+        detail: outcome.detail,
+        remaining,
+        session: serializeSession(await reloadSession(session.session_id)),
       });
     }
 
@@ -2789,6 +2926,10 @@ module.exports = {
   getLatestSession,
   // Exported for the reliability test suite (tests/setupAgent.*.test.js).
   ACTIONS,
+  // 026-C3 (I-61): exported so the owner-action suite can bind marker-first
+  // classification and the bounded template set directly.
+  classifyStepError,
+  STEP_FAILURE_TEMPLATES,
   isActionAllowed,
   pickAdBudget,
   pickMonthlyAdBudget,

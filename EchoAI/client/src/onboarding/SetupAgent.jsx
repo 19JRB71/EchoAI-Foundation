@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { openAuthUrl } from "../lib/oauthNav.js";
 import Spinner from "../components/Spinner.jsx";
 import { classifyExecuteError } from "./executeError.js";
+import AdsDestinationCapture from "./guided/AdsDestinationCapture.jsx";
 import { useVoiceInput, detectIsMobile } from "./useVoiceInput.js";
 import VoiceCalibration from "./VoiceCalibration.jsx";
 import useOnboardingTiming from "./useOnboardingTiming.js";
@@ -137,6 +138,10 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
   const [results, setResults] = useState({}); // key -> { status, detail }
   const [runningKey, setRunningKey] = useState(null);
   const [needsConnection, setNeedsConnection] = useState(null);
+  // 026-C3: owner-action pause ({ key, label, action, detail }) — a re-derived
+  // server pause (missing_ad_destination | confirm_campaign_launch), NOT a
+  // failure. While active there is no Retry control and no failure copy.
+  const [ownerAction, setOwnerAction] = useState(null);
 
   const resultsRef = useRef({});
   resultsRef.current = results;
@@ -276,6 +281,7 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       loopActiveRef.current = true;
       setPhase("running");
       setNeedsConnection(null);
+      setOwnerAction(null);
       setFailedStep(null);
       setError("");
       let reconcileAttempts = 0;
@@ -373,6 +379,19 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
           // without clobbering it: session adoption here only updates the
           // session object; the seeded map is for fetch/reconcile paths.
           if (res.session) setSession(res.session);
+          if (status === "owner_action_required") {
+            // 026-C3: pause for an explicit owner action. Re-derived from
+            // server truth on every execute — never stored as failure, never
+            // marked complete, converges after reload/remount.
+            setRunningKey(null);
+            setOwnerAction({
+              key: step.key,
+              label: step.label,
+              action: res.action || null,
+              detail,
+            });
+            return; // wait for the owner to configure / authorize / skip
+          }
           if (status === "needs_connection") {
             setRunningKey(null);
             // 026-C1: detect a REPEATED pause on the same step so the panel can
@@ -709,6 +728,64 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
     try {
       setNeedsConnection(null);
       await runLoop(sessionId);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 026-C3: the shared capture verified BOTH values against server truth —
+  // re-enter the loop; the server re-derives the next state (normally the
+  // confirm_campaign_launch authorization pause — configuration alone never
+  // launches anything).
+  async function continueAfterOwnerAction() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      setOwnerAction(null);
+      await runLoop(sessionId);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 026-C3 AM-C3-2: explicit, artifact-bound campaign-launch authorization.
+  // Rides the SAME one-shot confirmRef the C1 schedule approval uses: set for
+  // exactly one execute, cleared before the call, digest-checked server-side
+  // against live truth — refresh/remount/reconcile can never replay it.
+  async function authorizeCampaignLaunch(digest) {
+    if (busy || !digest) return;
+    setBusy(true);
+    setError("");
+    try {
+      confirmRef.current = { step: "create_facebook_campaign", digest };
+      setOwnerAction(null);
+      await runLoop(sessionId);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 026-C3: honest skip at an owner-action pause — same server skip semantics
+  // as needs_connection (step marked skipped, nothing launched).
+  async function skipOwnerAction() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.runSetupAction(sessionId, true);
+      setResults((prev) => ({
+        ...prev,
+        [ownerAction.key]: {
+          status: "skipped",
+          detail: "Skipped — you can set this up later from your dashboard.",
+          label: ownerAction.label,
+        },
+      }));
+      setOwnerAction(null);
+      await runLoop(sessionId);
+    } catch (err) {
+      setError(err.message || "Could not skip this step.");
     } finally {
       setBusy(false);
     }
@@ -1400,6 +1477,123 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
             })()
           : null}
 
+        {ownerAction && phase === "running"
+          ? (() => {
+              const code = ownerAction.action && ownerAction.action.code;
+              // 026-C3 (I-62): the ads-destination capture pause. A PAUSE, not
+              // a failure — no Retry control, no failure/provider copy. Skip
+              // stays available (honest skip, nothing launched).
+              if (code === "missing_ad_destination") {
+                return (
+                  <div className="mt-6" data-testid="owner-action-panel">
+                    <div className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-6 pb-0">
+                      <h3 className="font-semibold text-sky-200">A quick choice from you</h3>
+                      <p className="mt-1 text-sm text-white/70">{ownerAction.detail}</p>
+                    </div>
+                    <AdsDestinationCapture
+                      brandId={session && session.brandId}
+                      onConfigured={continueAfterOwnerAction}
+                      onReconnectFacebook={connectFacebook}
+                    />
+                    <div className="mt-3">
+                      <button
+                        onClick={skipOwnerAction}
+                        disabled={busy}
+                        className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
+                        data-testid="owner-action-skip"
+                      >
+                        Skip this step
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              // 026-C3 AM-C3-2: the explicit launch authorization. Summary is
+              // SERVER TRUTH from this pause's payload; the button binds the
+              // approval to that exact artifact via its digest.
+              if (code === "confirm_campaign_launch") {
+                const s = (ownerAction.action && ownerAction.action.summary) || {};
+                return (
+                  <div
+                    className="mt-6 rounded-2xl border border-teal-500/30 bg-teal-500/5 p-6"
+                    data-testid="owner-action-panel"
+                  >
+                    <h3 className="font-semibold text-teal-200">
+                      Authorize your first ad campaign
+                    </h3>
+                    <p className="mt-1 text-sm text-white/70">{ownerAction.detail}</p>
+                    <div className="mt-3 space-y-1 text-sm text-white/80">
+                      <p>
+                        Facebook Page:{" "}
+                        <span className="font-semibold">{s.pageName || s.pageId}</span>
+                      </p>
+                      {s.adAccount ? (
+                        <p>
+                          Ad account: <span className="font-semibold">{s.adAccount}</span>
+                        </p>
+                      ) : null}
+                      <p>
+                        Clicks go to:{" "}
+                        <span className="font-semibold break-all">{s.destination}</span>
+                      </p>
+                      <p>The campaign is created PAUSED — it will not run ads yet.</p>
+                      <p>$0 is spent at creation.</p>
+                      {ownerAction.action && ownerAction.action.changed ? (
+                        <p className="text-amber-300/90">
+                          Your setup changed since the last review — this is the updated
+                          summary.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        onClick={() => authorizeCampaignLaunch(ownerAction.action.digest)}
+                        disabled={busy || !(ownerAction.action && ownerAction.action.digest)}
+                        className="rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+                        data-testid="owner-action-authorize"
+                      >
+                        Authorize — create it paused
+                      </button>
+                      <button
+                        onClick={skipOwnerAction}
+                        disabled={busy}
+                        className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
+                        data-testid="owner-action-skip"
+                      >
+                        Skip — don&apos;t create a campaign
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              // Unknown owner-action code (future server): honest generic pause.
+              return (
+                <div
+                  className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/5 p-6"
+                  data-testid="owner-action-panel"
+                >
+                  <p className="text-sm text-white/70">{ownerAction.detail}</p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button
+                      onClick={continueAfterOwnerAction}
+                      disabled={busy}
+                      className="rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+                    >
+                      I&apos;ve done this — continue
+                    </button>
+                    <button
+                      onClick={skipOwnerAction}
+                      disabled={busy}
+                      className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
+                    >
+                      Skip this step
+                    </button>
+                  </div>
+                </div>
+              );
+            })()
+          : null}
+
         {reconciling && phase === "running" ? (
           <div
             className="mt-6 flex items-center gap-3 rounded-xl border border-teal-500/30 bg-teal-500/5 p-4"
@@ -1412,7 +1606,7 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
           </div>
         ) : null}
 
-        {failedStep && phase === "running" ? (
+        {failedStep && !ownerAction && phase === "running" ? (
           <div
             className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/5 p-6"
             data-testid="failed-step-panel"

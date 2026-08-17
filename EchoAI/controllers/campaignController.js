@@ -70,6 +70,14 @@ function resolveBrandAdDestination(brand, grantedPages) {
         : "This brand has no ad destination link. Add a website / destination link in the brand's settings, then try again."
     );
     err.statusCode = 503;
+    // 026-C3 (I-61): explicit owner-action marker. This is a PRECONDITION the
+    // owner can fix, not a provider outage — classifiers must never map it to
+    // "AI service unavailable". safeMessage is this authored, owner-safe text
+    // (never raw provider/SDK output); only marker-carried text may reach the
+    // browser. Guard behavior itself is unchanged (defense-in-depth).
+    err.ownerActionRequired = true;
+    err.ownerActionCode = "missing_ad_destination";
+    err.safeMessage = err.message;
     throw err;
   }
   if (!grantedPages.some((p) => p && p.id === pageId)) {
@@ -77,6 +85,11 @@ function resolveBrandAdDestination(brand, grantedPages) {
       "This brand's Facebook Page is no longer available on your connected Facebook account. Reconnect Facebook and grant access to that Page (or pick a different Page for this brand), then try again."
     );
     err.statusCode = 503;
+    // 026-C3 (I-61): same owner-action marker — the fix is re-selecting or
+    // re-granting a Page, an owner action, not a provider retry.
+    err.ownerActionRequired = true;
+    err.ownerActionCode = "missing_ad_destination";
+    err.safeMessage = err.message;
     throw err;
   }
   return { pageId, linkUrl };
