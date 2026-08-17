@@ -1,0 +1,561 @@
+026-C3-PM2 — CITATION COMPLETION + CONDITIONAL MERGE AUTHORIZATION
+
+Owner + ChatGPT + Claude review of PR #56 is complete.
+
+CLAUDE RULING:
+
+MERGE APPROVED — scoped to exact head:
+
+00b377819e59e04619388f5a3079d7e4e3a1ab8e
+
+STAGING ONLY.
+
+Head movement normally voids this approval.
+
+However, one narrow exception is authorized below:
+
+IF Citation 3 proves there is no existing composed pause→failure test,
+one append-only TEST-ONLY commit is authorized for that single missing
+regression.
+
+No production code change is authorized.
+
+No server code change is authorized.
+
+No schema/migration change is authorized.
+
+No live specimen action is authorized until the citation conditions are closed
+and the merge/deployment sequence begins.
+
+============================================================
+1. CITATION 1 — EXPLAIN THE 1479 → 1480 SERVER BASELINE
+============================================================
+
+The PM2 reconciliation reports:
+
+C3 accepted server total:
+1479
+
+PM2 baseline:
+1480
+
+No server production file changed during PM2.
+
+Name the EXACT +1 server test and the commit that added it.
+
+Expected explanation:
+
+the additional test is the C3-PM1 Citation-3 spine-level regression added
+before PR #55 merged.
+
+Return:
+
+- exact test file;
+- exact test name;
+- exact commit SHA;
+- exact arithmetic:
+
+1479
++ 1
+= 1480.
+
+If the +1 came from anything else:
+
+STOP AND REPORT.
+
+Do not merge until the baseline narrative is corrected honestly.
+
+============================================================
+2. CITATION 2 — "completed" VOCABULARY NORMALIZATION
+============================================================
+
+Claude approved classifyStepStatus only subject to one citation:
+
+Show where a serialized step_outcomes value:
+
+"completed"
+
+is normalized into the classifier vocabulary that recognizes:
+
+done | skipped
+
+as completion.
+
+The concern is:
+
+if "completed" reached classifyStepStatus verbatim,
+it would fall into awaiting_owner
+and could stall a genuinely finished step.
+
+Return:
+
+1. exact file/function;
+2. exact normalization path;
+3. exact mapping;
+4. the existing regression(s) that bind it.
+
+We need to see the full truth flow:
+
+server serialized outcome
+→ adoption/normalization
+→ classifyStepStatus
+→ completion truth.
+
+If no normalization exists and "completed" can reach classifyStepStatus
+verbatim:
+
+STOP AND REPORT.
+
+Do NOT patch production under this citation authorization.
+
+Return the discrepancy for review.
+
+============================================================
+3. CITATION 3 — PAUSE → DURABLE FAILURE COMPOSITION
+============================================================
+
+Claude requires direct evidence for this composed lifecycle:
+
+owner-action pause active
+→ owner performs legitimate action/re-entry
+→ the step then throws a REAL durable failure
+→ old pause panel is replaced
+→ durable failed panel renders
+→ pause does NOT remain stale
+→ failure does NOT disappear.
+
+First search the current test suite.
+
+If an EXISTING test directly binds that composition:
+
+return:
+
+- exact test file;
+- exact test name;
+- exact assertions proving:
+  a. pause existed first;
+  b. later execution failed durably;
+  c. pause UI disappeared/replaced;
+  d. failed UI rendered;
+  e. authoritative failed outcome was adopted.
+
+If that exact composition is NOT currently tested:
+
+one TEST-ONLY PM2-CITATION commit is authorized.
+
+============================================================
+4. IF CITATION-3 TEST IS MISSING — AUTHORIZED TEST-ONLY COMMIT
+============================================================
+
+Authorized file:
+
+EchoAI/client/src/onboarding/SetupAgent.owneraction.test.jsx
+
+Preferred:
+
+append one focused test to that existing PM2 test file.
+
+Do NOT modify production code.
+
+Do NOT modify executeError.js.
+
+Do NOT modify SetupAgent.jsx.
+
+Do NOT modify server code.
+
+Do NOT modify shared helpers/config/harness.
+
+Do NOT touch sw.js or dist for a test-only commit.
+
+Required test shape:
+
+1. render/adopt an authoritative owner-action pause;
+2. assert the pause panel is visibly present;
+3. perform the legitimate owner action that causes the client to re-enter the
+   step;
+4. make the next authoritative execute/session result a REAL C2-style durable
+   failed outcome;
+5. assert:
+   - old owner-action panel is gone;
+   - failed-step panel is visible;
+   - failure message is the safe durable one;
+   - Retry appears only according to the durable-failure contract;
+   - later step does not show "Working on it...";
+   - no stale pause remains;
+   - no blank intermediate terminal state is accepted.
+
+This test must exercise actual state adoption / runLoop behavior sufficiently to
+bind the composition.
+
+Do not satisfy it by simply swapping props in a shallow renderer.
+
+============================================================
+5. TEST-ONLY HEAD MOVEMENT RULE
+============================================================
+
+If Citation 3 needs the test:
+
+create exactly ONE append-only test commit.
+
+Record:
+
+OLD HEAD:
+00b377819e59e04619388f5a3079d7e4e3a1ab8e
+
+NEW COMMIT SHA:
+<citation-test commit>
+
+NEW PR HEAD:
+<new head>
+
+Inter-head diff MUST show only:
+
+EchoAI/client/src/onboarding/SetupAgent.owneraction.test.jsx
+
+with additions only.
+
+If any production file or unrelated test file changes:
+
+STOP AND REPORT.
+
+No merge.
+
+============================================================
+6. VERIFICATION IF TEST IS ADDED
+============================================================
+
+Current accepted PM2 totals:
+
+SERVER:
+1480 / 1480
+
+CLIENT:
+476 / 476
+
+If one new client test is added:
+
+expected arithmetic:
+
+476
++ 1
+= 477
+
+Run:
+
+- targeted composed lifecycle test;
+- full client suite;
+- full server suite.
+
+Expected server:
+
+1480 / 1480 unchanged.
+
+Report observed totals, not projected totals.
+
+============================================================
+7. CONDITIONAL MERGE AUTHORIZATION
+============================================================
+
+Merge may proceed when ALL THREE citations are closed.
+
+Path A — no new test needed:
+
+If:
+
+- Citation 1 reconciles;
+- Citation 2 proves completed normalization;
+- Citation 3 identifies an existing direct composition test;
+- PR head remains exactly:
+  00b377819e59e04619388f5a3079d7e4e3a1ab8e;
+
+THEN:
+
+MERGE PR #56 TO STAGING ONLY
+using pinned-head discipline.
+
+Path B — one Citation-3 test commit needed:
+
+If:
+
+- Citation 1 reconciles;
+- Citation 2 proves completed normalization;
+- exactly one authorized append-only Citation-3 test is added;
+- targeted test passes;
+- full client suite passes;
+- full server suite passes;
+- inter-head diff contains only the authorized test addition;
+
+THEN:
+
+MERGE PR #56 TO STAGING ONLY
+at the NEW pinned head.
+
+No additional Claude review round is required for that one test-only head
+movement.
+
+Any other head movement voids authorization.
+
+============================================================
+8. POST-MERGE DEPLOYMENT VERIFICATION
+============================================================
+
+After merge:
+
+1. record resulting staging merge SHA;
+
+2. verify:
+   https://staging.zorecho.com/api/health
+
+   environment = staging
+   version = exact merge SHA;
+
+3. verify:
+   schema_migrations = 148;
+
+4. verify:
+   no new migration exists;
+
+5. verify actually served:
+   echoai-shell-v176;
+
+6. verify served client/dist bundle matches the merged commit.
+
+Production/main remains untouched.
+
+============================================================
+9. LIVE RE-PROOF — SAME SDS SPECIMEN
+============================================================
+
+After deployment verification:
+
+resume the SAME SDS specimen.
+
+Do not create another SDS account.
+
+Give the owner ONE action at a time.
+
+First expected convergence:
+
+Step 6
+→ missing_ad_destination
+→ AdsDestinationCapture visibly renders.
+
+Immediately verify read-only:
+
+- Step 6 still current;
+- no later server step executed;
+- campaigns = 0;
+- external_actions = 0;
+- external_proofs = 0.
+
+============================================================
+10. DELIBERATE PAUSE-PERSISTENCE PROBE #1
+============================================================
+
+Before configuring anything:
+
+leave the capture panel visible for a deliberate wait.
+
+Then perform ONE controlled remount/refresh.
+
+Expected:
+
+- AdsDestinationCapture still renders;
+- Step 6 remains current;
+- Google Ads does NOT show "Working on it...";
+- no later step is rendered as running;
+- no provider state exists.
+
+If the panel disappears or the client visually advances:
+
+STOP AND REPORT.
+
+Do not configure Page/destination.
+
+============================================================
+11. OWNER PAGE CONFIGURATION
+============================================================
+
+If persistence probe #1 passes:
+
+give the owner exactly ONE next action:
+
+explicitly select/confirm the South Dixie Storage Facebook Page.
+
+No silent auto-selection.
+
+After owner action:
+
+STOP and verify read-only:
+
+- brands.facebook_page_id;
+- relevant page_ref;
+- Store 2 social_accounts unchanged unless existing accepted behavior
+  explicitly requires otherwise.
+
+Do not proceed until verified.
+
+============================================================
+12. OWNER DESTINATION CONFIGURATION
+============================================================
+
+Then give the owner exactly ONE next action:
+
+confirm or enter the South Dixie Storage ad destination.
+
+Expected:
+
+website may be shown as a suggestion,
+but owner must explicitly confirm/save it.
+
+After owner action:
+
+verify read-only:
+
+- brands.ad_link_url;
+- brands.facebook_page_id;
+- Store 3 complete;
+- Store 2 unchanged;
+- campaigns = 0;
+- external_actions = 0;
+- external_proofs = 0.
+
+CONFIGURATION MUST NOT CREATE PROVIDER STATE.
+
+Any campaign/external row before launch confirmation:
+
+STOP AND REPORT.
+
+============================================================
+13. CONFIRM_CAMPAIGN_LAUNCH GATE
+============================================================
+
+After configuration is complete:
+
+the product must render:
+
+confirm_campaign_launch
+
+with server-truth summary containing:
+
+- selected Page;
+- Page name;
+- selected ad account;
+- destination;
+- PAUSED;
+- $0 initial spend.
+
+Do NOT click authorize.
+
+============================================================
+14. DELIBERATE PAUSE-PERSISTENCE PROBE #2
+============================================================
+
+Leave the launch-confirm panel visible for a deliberate wait.
+
+Then perform ONE remount/refresh.
+
+Expected:
+
+- confirm_campaign_launch panel still renders;
+- the same current server-truth summary is shown;
+- no confirm is auto-sent;
+- no campaign exists;
+- external_actions = 0;
+- external_proofs = 0;
+- no later step shows "Working on it..."
+
+If the authorization panel disappears or the client advances:
+
+STOP AND REPORT.
+
+============================================================
+15. HARD STOP BEFORE CAMPAIGN LAUNCH
+============================================================
+
+Once confirm_campaign_launch has survived the live persistence probe:
+
+HARD STOP.
+
+DO NOT:
+
+- click Authorize;
+- click launch;
+- create Meta campaign objects;
+- perform the R6 campaign attempt;
+- continue to later setup steps;
+- start BLACOR-H1;
+- start H2;
+- start Prompt 027;
+- touch production.
+
+The actual H1 R6 campaign launch requires the NEXT owner + ChatGPT + Claude
+ruling.
+
+============================================================
+16. RETURN REPORT
+============================================================
+
+Return one report titled:
+
+026-C3-PM2 — POST-MERGE PAUSE-PERSISTENCE LIVE REPORT
+
+Include:
+
+1. Citation 1 exact +1 test/commit/arithmetic.
+2. Citation 2 exact completed-normalization path.
+3. Citation 3 existing-test citation OR new test details.
+4. old PM2 head.
+5. citation-test commit/new head if applicable.
+6. exact inter-head diff if applicable.
+7. final client result.
+8. final server result.
+9. merge SHA.
+10. live health SHA.
+11. schema_migrations = 148.
+12. no migration.
+13. served sw.js = v176.
+14. served bundle evidence.
+15. SDS resume evidence.
+16. missing_ad_destination panel live evidence.
+17. persistence probe #1 result.
+18. Google Ads not-running evidence.
+19. Page-selection action/evidence.
+20. facebook_page_id readback.
+21. destination action/evidence.
+22. ad_link_url readback.
+23. Store 2 unchanged evidence.
+24. campaigns = 0 after configuration.
+25. external_actions = 0.
+26. external_proofs = 0.
+27. confirm_campaign_launch live evidence.
+28. launch summary.
+29. persistence probe #2 result.
+30. confirmation no launch authorization was sent.
+31. frozen specimen preservation.
+32. production/main untouched.
+33. all deviations.
+34. all STOP conditions.
+35. final status:
+
+026-C3-PM2 PAUSE LIFECYCLE LIVE-PROVEN — AWAITING OWNER REVIEW
+
+or
+
+STOP CONDITION FOUND.
+
+============================================================
+FINAL AUTHORIZATION
+============================================================
+
+Complete Citations 1–3 first.
+
+If clean:
+merge PR #56 to STAGING ONLY under the applicable pinned-head path.
+
+Then perform ONLY the authorized pause-persistence live re-proof,
+one owner action at a time.
+
+DO NOT CROSS confirm_campaign_launch.
+
+BEGIN WITH CITATION 1.
