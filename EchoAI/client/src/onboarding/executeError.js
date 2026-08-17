@@ -51,3 +51,21 @@ export function classifyExecuteError(err) {
     message: (err && err.message) || "A setup step failed. You can retry.",
   };
 }
+
+// 026-C3-PM2: shared pause-class classification (§C/§D/§H). One path for the
+// WHOLE pause class — missing_ad_destination, confirm_campaign_launch, and
+// needs_connection all arrive as non-completed step statuses and classify
+// here; so does every unknown/future status string.
+//
+// A step is "done" ONLY when authoritative truth establishes completion
+// (completed/skipped). "failed" is C2's durable failure (retryable). EVERY
+// other status — owner_action_required, needs_connection, and anything the
+// client does not recognize — is "awaiting_owner": a RESTING state. It is
+// never completion, never an invitation to continue, and must never advance
+// the client's local progress prediction. (The old `status !== "failed" ⇒
+// done` inference is deleted; it is forbidden under PM2 §D.)
+export function classifyStepStatus(status) {
+  if (status === "done" || status === "skipped") return "done";
+  if (status === "failed") return "failed";
+  return "awaiting_owner";
+}
