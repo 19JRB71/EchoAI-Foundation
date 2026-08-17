@@ -132,4 +132,5 @@
 - [EchoAI volunteered-URL confirm](echoai-c2-url-confirm.md) — detect≠capture w/ _c2_url_confirm sentinel; applyOnlinePresence returns "present" not "changed" (sameAnchors dedups); normalizer href has trailing slash.
 - [EchoAI activation consent](echoai-activation-consent.md) — calendar activation is digest-bound two-phase (preview→approve); every scheduling path uses the SAME guarded boundary; 409 re-previews, never errors.
 - [Setup-step failure misclassification](echoai-step-failure-misclassification.md) — 503 precondition guards render as "AI service unavailable"; diagnose via agent_tasks.last_error + ai_usage_log, never the UI copy.
+- [EchoAI owner-action pauses](echoai-c3-owner-action-pause.md) — owner-fixable step preconditions pause (never fail durably); launches need one-shot digest confirm; marker-first error classification.
 - [Package firewall workaround](echoai-package-firewall-workaround.md) — firewall can newly 403 lockfile-pinned versions; lockfile-matched node_modules copy is safe; rebuild clones in .local, never /tmp.

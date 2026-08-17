@@ -1,0 +1,921 @@
+# PROMPT 026-C3 — STAGE 2 IMPLEMENTATION AUTHORIZATION
+
+Date: 2026-08-17
+Subject: Journey-safe Facebook ads destination capture + owner-action pause + explicit campaign-launch authorization
+Authority: Owner + ChatGPT consolidation of Claude's 026-C3 Stage-1 adversarial ruling
+
+## A. AUTHORIZATION
+
+You are authorized to implement 026-C3 Stage 2 on a fresh branch from the exact accepted staging baseline:
+
+517bc2895c36285e5555dbafa931e8376b8ec487
+
+This authorization incorporates:
+
+- your complete 026-C3 Stage-1 read-only design report;
+- Claude's Stage-1 adversarial ruling;
+- AM-C3-1 through AM-C3-4 below.
+
+This is an IMPLEMENT-AND-TEST authorization only.
+
+DO NOT MERGE.
+DO NOT DEPLOY.
+DO NOT resume the SDS-H1 specimen.
+DO NOT Retry or Skip the frozen Step 6.
+DO NOT select a Facebook Page on the live specimen.
+DO NOT write its ad_link_url.
+DO NOT create or launch any campaign live.
+DO NOT start BLACOR-H1.
+DO NOT start H2.
+DO NOT start Prompt 027.
+DO NOT touch production.
+
+Stop at the PRE-MERGE OWNER CHECKPOINT and return the reconciliation package.
+
+============================================================
+B. PURPOSE
+============================================================
+
+026-C3 resolves I-62 and I-61 together.
+
+I-62:
+The onboarding journey can reach create_facebook_campaign without ever establishing the brand's required ads Page and destination link, even though the required configuration surfaces exist elsewhere in the product.
+
+I-61:
+A deliberate owner-actionable precondition 503 was classified as provider_unavailable, causing the owner to see the false message that the AI service was unavailable and that Retry was appropriate.
+
+C3 must fix the journey rather than teach the owner to work around it.
+
+The resulting golden path is:
+
+Facebook connected
+→ ads destination configuration solicited
+→ explicit owner configuration
+→ server truth verified
+→ explicit campaign-launch authorization pause
+→ owner authorization
+→ only then may the externally-capable campaign path proceed.
+
+Configuration and launch authorization are TWO DISTINCT OWNER GATES.
+
+============================================================
+C. THREE-STORE AUTHORITY CONTRACT
+============================================================
+
+Preserve the verified three-store distinction.
+
+STORE 1 — api_integrations
+
+Question:
+Does this USER have Facebook credentials and granted Pages?
+
+Authority:
+user + platform.
+
+STORE 2 — social_accounts
+
+Question:
+Which Facebook Page is bound to this BRAND for social publishing?
+
+Authority:
+brand + platform.
+
+STORE 3 — brands.facebook_page_id + brands.ad_link_url
+
+Question:
+Which Page and destination does this BRAND use for ADS?
+
+Authority:
+brand.
+
+026-C3 coordinates STORE 3 only.
+
+DO NOT merge Store 2 and Store 3.
+
+DO NOT silently synchronize social_accounts from facebook_page_id.
+
+DO NOT use social_accounts as a fallback for ads.
+
+DO NOT change C1's social binding behavior.
+
+Add a concise code comment/doc block in the appropriate implementation location documenting this three-store distinction so the authority map lives with the code and not only in the project record.
+
+============================================================
+D. AM-C3-1 — DUAL facebook_page_id WRITERS
+============================================================
+
+The canonical statement is now:
+
+"POST /api/facebook/select-page is the sole product-UI writer of brands.facebook_page_id. PUT /api/brands/:brandId through updateBrand is a validated secondary server writer."
+
+Do NOT remove or consolidate updateBrand's facebookPageId capability under C3.
+
+Do NOT introduce a third writer.
+
+C3's UI must use the existing select-page path.
+
+Add a regression pinning updateBrand's existing facebookPageId behavior:
+
+1. brand ownership enforced;
+2. selected Page must belong to the user's granted Facebook Page list;
+3. invalid/ungranted Page rejected;
+4. blank value clears according to the existing contract;
+5. no weakening of validation.
+
+This regression exists specifically so the secondary server writer cannot silently drift into an unsafe bypass later.
+
+============================================================
+E. C3-1 — SHARED ADS DESTINATION CAPTURE
+============================================================
+
+Create one shared component:
+
+client/src/onboarding/guided/AdsDestinationCapture.jsx
+
+Use the SAME component in both required hosts.
+
+HOST 1:
+ConnectionsStep.
+
+HOST 2:
+SetupAgent's Step-6 owner-action pause.
+
+Do not create two independent implementations of the same capture behavior.
+
+The component configures STORE 3 only:
+
+- brands.facebook_page_id
+- brands.ad_link_url
+
+It must use the existing product writers.
+
+Page:
+
+api.selectFacebookPage(pageId, brandId)
+→ existing POST /api/facebook/select-page.
+
+Destination:
+
+api.updateBrand(brandId, { adLinkUrl })
+→ existing PUT /api/brands/:brandId.
+
+No direct DB writes.
+No new route.
+No new configuration store.
+
+============================================================
+F. PAGE-SELECTION CONTRACT
+============================================================
+
+Explicit owner authority is mandatory.
+
+ZERO granted Pages:
+show an honest state and route/reconnect affordance using existing machinery.
+Never fabricate a Page.
+
+ONE granted Page:
+it may be visibly preselected for convenience, but NO WRITE occurs until the owner explicitly confirms/saves it.
+
+MULTIPLE granted Pages:
+owner must explicitly select one.
+
+Never:
+
+- silently auto-bind;
+- first-in-list auto-bind;
+- infer from history;
+- infer from page_ref;
+- copy another brand's selection;
+- select without explicit owner action.
+
+All writes remain brand-scoped and ownership checked.
+
+============================================================
+G. AD DESTINATION CONTRACT
+============================================================
+
+ad_link_url remains the authoritative ads destination.
+
+If website_url exists:
+
+prefill it visibly as a suggestion, clearly labeled as suggested.
+
+The owner must explicitly confirm or change it.
+
+DO NOT silently copy website_url → ad_link_url.
+
+If no website exists:
+
+show an empty destination field and require the owner to provide a valid destination.
+
+Custom valid http(s) destinations remain permitted.
+
+Server-side normalizeWebsiteUrl remains authoritative.
+
+Client validation is UX only.
+
+============================================================
+H. SAVE SEMANTICS
+============================================================
+
+One explicit "Save & continue" action may coordinate the two existing writes:
+
+1. selectFacebookPage(pageId, brandId)
+2. updateBrand(brandId, { adLinkUrl })
+3. authoritative server reread
+4. onConfigured ONLY if server truth shows both required values.
+
+Do NOT create an atomic combined endpoint.
+
+Sequential partial state is acceptable because the pause is re-derived from authoritative truth.
+
+Partial failure must be honest.
+
+Example:
+
+Page write succeeds.
+Destination write fails.
+
+Required result:
+
+- Page remains legitimately saved;
+- no fabricated overall success;
+- pause re-derives with only destination missing;
+- next Save must NOT create unnecessary duplicate Page writes;
+- owner sees exactly what remains unresolved.
+
+Never roll back a legitimate first write merely to simulate transactionality unless an existing invariant already requires it.
+
+============================================================
+I. HOST 1 — CONNECTIONSSTEP
+============================================================
+
+Present AdsDestinationCapture at the natural connection moment:
+
+immediately following successful Facebook OAuth resolution.
+
+Also present it when ConnectionsStep renders and:
+
+Facebook is already connected
+
+BUT
+
+facebook_page_id and/or ad_link_url are missing.
+
+This must cover:
+
+- first-time Facebook connect;
+- OAuth return;
+- refresh after OAuth;
+- already-connected account with incomplete Store 3;
+- remount.
+
+FacebookWizard itself is not to be mounted or duplicated here.
+
+Reuse its existing writer/API behavior, not the entire post-onboarding widget.
+
+============================================================
+J. C3-2 — STEP-6 PRECONDITION PAUSE
+============================================================
+
+Extend the existing Step-6 gateBrand preflight.
+
+If Facebook is connected but either:
+
+facebook_page_id missing
+
+OR
+
+ad_link_url missing,
+
+DO NOT:
+
+- fall through to createCampaign;
+- call launchFacebookCampaign;
+- reach resolveBrandAdDestination;
+- create an agent_tasks VALIDATION_FAILED row from the guided journey;
+- create provider objects;
+- classify this predictable state as a failure.
+
+Instead return a re-derived pause:
+
+status:
+owner_action_required
+
+action.code:
+missing_ad_destination
+
+action.missing:
+{
+  page: <bool>,
+  destination: <bool>
+}
+
+The response should otherwise follow the established needs_connection pause pattern.
+
+This pause is NOT a durable failure outcome.
+
+It is re-derived from authoritative server truth on every execute.
+
+Do not add it to completed_steps.
+
+Do not fabricate a step_outcomes failure.
+
+Reload/remount/resume must converge back to the correct pause from server truth.
+
+============================================================
+K. CLIENT PAUSE BEHAVIOR
+============================================================
+
+SetupAgent must treat missing_ad_destination as a pause, not a failure.
+
+Render the shared AdsDestinationCapture inline.
+
+While this pause is active:
+
+- do not show the failed-step Retry control;
+- do not tell the owner to Retry;
+- do not show provider-unavailable copy;
+- preserve the existing honest Skip capability if that is part of the accepted setup semantics.
+
+After configuration succeeds and the server reread verifies both values, the setup machinery may re-enter Step 6.
+
+BUT:
+
+successful configuration MUST NOT itself authorize campaign provider-object creation.
+
+Section L is mandatory.
+
+============================================================
+L. AM-C3-2 — EXPLICIT CAMPAIGN-LAUNCH AUTHORIZATION
+============================================================
+
+This is a new load-bearing requirement.
+
+After configuration is complete, and BEFORE any externally-capable campaign branch may create provider objects, Step 6 must enter a SECOND re-derived owner-action pause:
+
+action.code:
+confirm_campaign_launch
+
+This is distinct from:
+
+missing_ad_destination.
+
+The launch-confirm pause must present an artifact-light owner summary derived from CURRENT SERVER TRUTH, not stale client state.
+
+At minimum show:
+
+- selected Facebook Page;
+- selected ad account;
+- ad destination link;
+- explicit statement that the campaign will be created PAUSED;
+- explicit statement that budget/spend is $0 at creation.
+
+The owner must explicitly authorize this action.
+
+Only that explicit confirmation may permit the externally-capable campaign path to proceed.
+
+Configuration ≠ launch authorization.
+
+OAuth connection ≠ launch authorization.
+
+Top-of-funnel setup consent ≠ launch authorization.
+
+Retry ≠ launch authorization.
+
+A generic setup-loop continuation ≠ launch authorization.
+
+No provider-object creation without an explicit owner authorization event bound to this campaign-launch action.
+
+The authorization must follow the same project principle established by C1:
+
+owner approval must be bound to the externally-capable action it authorizes.
+
+Use existing pause machinery rather than inventing a parallel orchestration system.
+
+Skip at this pause must remain honest and must not launch anything.
+
+============================================================
+M. LAUNCH AUTHORIZATION CONSUMPTION / REPLAY SAFETY
+============================================================
+
+The launch-confirm authorization must not become a reusable ambient consent flag.
+
+Design it so that:
+
+- it is bound to the current Step-6 launch action;
+- refresh/remount does not accidentally replay a consumed authorization;
+- generic reconciliation does not recreate authorization;
+- duplicate execute calls do not create a second launch attempt;
+- the existing single-attempt/idempotency machinery remains authoritative;
+- once consumed, the confirmation cannot be silently reused for another provider-object attempt.
+
+Do not weaken any C1 one-shot confirmation guarantees.
+
+If implementing this safely requires touching behavior outside the already authorized file surface, STOP AND REPORT before expanding scope.
+
+============================================================
+N. I-61 — MARKER-FIRST ERROR CLASSIFICATION
+============================================================
+
+Preserve the existing resolveBrandAdDestination guard as defense-in-depth.
+
+Its logic must remain behaviorally identical except for explicit owner-action metadata on its existing precondition throws.
+
+Use explicit authored marker fields such as:
+
+err.ownerActionRequired = true
+err.ownerActionCode = "missing_ad_destination"
+err.safeMessage = <owner-safe authored guard message>
+
+Exact internal naming may follow existing conventions, but semantics are binding.
+
+classifyStepError must check the explicit owner-action marker BEFORE:
+
+- billing regex;
+- provider status-code classification;
+- generic 5xx classification.
+
+Marked owner-action preconditions classify as:
+
+code:
+owner_action_required
+
+retryable:
+false
+
+Only explicitly authored safeMessage text from trusted marker sites may reach the browser.
+
+DO NOT generically expose err.message.
+
+Unmarked errors continue through C2's bounded owner-safe templates.
+
+Genuine Anthropic/provider/billing errors must preserve their accepted C2 classifications and behavior.
+
+============================================================
+O. DEFENSE-IN-DEPTH GUARD
+============================================================
+
+resolveBrandAdDestination remains mandatory.
+
+It must still reject unsafe direct callers with missing Page/destination before Facebook provider-object creation.
+
+Do NOT weaken it because the guided journey now preflights.
+
+The guided path should normally never reach the guard with missing prerequisites after C3.
+
+Direct or unexpected callers remain protected by the guard.
+
+============================================================
+P. FROZEN SDS SPECIMEN CONTRACT
+============================================================
+
+Do not touch the specimen during Stage 2 implementation.
+
+After eventual owner-approved deployment, the existing specimen is intended to RESUME, not restart.
+
+Its historical failed Step-6 outcome remains legitimate history.
+
+Expected post-C3 convergence:
+
+owner performs the existing Retry once
+→ server re-enters Step 6
+→ new preflight sees missing configuration
+→ owner_action_required / missing_ad_destination
+→ shared capture panel appears
+→ no new failure fabricated.
+
+After Page + destination configuration:
+
+→ authoritative truth verified
+→ campaigns still zero
+→ external_actions still zero
+→ external_proofs still zero
+→ confirm_campaign_launch pause appears
+→ STOP for owner/H1 authorization.
+
+The old failed outcome clears/supersedes only under the accepted C2 latest-truth semantics when the step genuinely succeeds.
+
+Do not mutate historical state to make the specimen fit the new code.
+
+============================================================
+Q. MANDATORY REGRESSIONS
+============================================================
+
+Bind at minimum all Stage-1 C3-R1 through C3-R33 plus the amendments below.
+
+Mandatory named coverage must include:
+
+1. Post-OAuth capture appears.
+
+2. Already-connected-but-unconfigured Facebook state presents capture.
+
+3. Single granted Page:
+   visibly preselected;
+   no write before explicit Save.
+
+4. Multiple Pages:
+   explicit choice required.
+
+5. Zero Pages:
+   honest state;
+   no fabrication.
+
+6. website_url suggestion:
+   visible prefill;
+   zero ad_link_url write before explicit Save.
+
+7. Custom destination accepted through existing normalization path.
+
+8. Save uses existing select-page path.
+
+9. Save uses existing updateBrand(adLinkUrl) path.
+
+10. Authoritative reread required before onConfigured.
+
+11. Partial failure:
+    Page saved;
+    link fails;
+    re-derived pause shows only missing.destination;
+    no fabricated success;
+    second Save does not duplicate the already-successful Page write.
+
+12. Configuration alone creates:
+    campaigns = 0;
+    external_actions = 0;
+    external_proofs = 0.
+
+13. Step-6 missing prerequisites returns owner_action_required rather than falling into campaign launch.
+
+14. Missing prerequisite guided path creates no VALIDATION_FAILED spine artifact.
+
+15. resolveBrandAdDestination defense-in-depth still rejects direct unsafe callers.
+
+16. Marker-first classification maps authored precondition to owner_action_required.
+
+17. owner_action_required is retryable:false.
+
+18. Unmarked errors never expose err.message.
+
+19. Genuine C2 provider/billing classifications remain unchanged.
+
+20. needs_connection behavior remains unchanged.
+
+21. Pause renders shared capture component.
+
+22. Retry control absent while missing_ad_destination pause is active.
+
+23. Reload/remount converges to pause from server truth.
+
+24. Legacy frozen failed outcome converges to pause on next execute without DB mutation.
+
+25. Post-configuration does NOT launch.
+
+26. Post-configuration presents confirm_campaign_launch.
+
+27. Launch-confirm summary is derived from actual stored/server values, not client-cached values.
+
+28. Launch-confirm summary includes:
+    Page;
+    ad account;
+    destination;
+    PAUSED;
+    $0.
+
+29. No provider-object creation before explicit launch confirmation.
+
+30. Explicit launch confirmation permits exactly ONE attempt under existing idempotency/single-attempt rules.
+
+31. Expected resulting campaign remains PAUSED/$0 under the existing C1/R6 contract.
+
+32. Skip at launch-confirm:
+    no launch;
+    honest skipped outcome.
+
+33. Refresh/remount/reconciliation cannot replay consumed launch authorization.
+
+34. Duplicate execute cannot create a second attempt.
+
+35. updateBrand facebookPageId secondary-writer regression:
+    ownership;
+    granted-list validation;
+    rejection;
+    blank-clears.
+
+36. Store-2 social_accounts remains unchanged by Store-3 configuration.
+
+37. C1 suites remain green.
+
+38. C2 suites remain green.
+
+39. C1 one-shot/artifact-bound confirmation behavior remains green and unchanged.
+
+40. Configuration writes never cross executeExternal.
+
+If any existing test currently asserts behavior C3 intentionally replaces, apply the established D-32 / inversion-daylight rule:
+
+name the old contract;
+show why it encodes the defect;
+state the new contract;
+report the exact test modification/deletion.
+
+Do not silently delete or weaken tests.
+
+============================================================
+R. FILE SURFACE
+============================================================
+
+Authorized hand-edited production forecast:
+
+1. EchoAI/controllers/setupAgentController.js
+
+2. EchoAI/controllers/campaignController.js
+
+3. EchoAI/client/src/onboarding/guided/AdsDestinationCapture.jsx
+
+4. EchoAI/client/src/onboarding/guided/ConnectionsStep.jsx
+
+5. EchoAI/client/src/onboarding/SetupAgent.jsx
+
+6. EchoAI/client/src/api.js
+   CONTINGENCY ONLY.
+   Existing calls appear sufficient.
+   Do not touch unless implementation proves necessary.
+   If touched, explain exactly why.
+
+Authorized test surface:
+
+7. EchoAI/test/setupAgent.owneraction.test.js
+
+8. client test for AdsDestinationCapture
+
+9. client test for SetupAgent owner-action behavior
+
+Existing test files may be modified only when necessary to invert an old defect contract or preserve coverage.
+
+If an additional existing test file must be modified, disclose it explicitly at reconciliation under D-32.
+
+AM-C3-2 must fit inside the already authorized production surface.
+
+A genuinely new production file beyond this surface is a STOP AND REPORT.
+
+============================================================
+S. FILE-CEILING RULE
+============================================================
+
+Canonical rule:
+
+File ceilings count hand-edited source and test files.
+
+Mandatory mechanical accompaniments are excluded from the ceiling but must be enumerated:
+
+- service-worker cache-version bump;
+- committed client/dist build output.
+
+Any other generated file must be declared and justified.
+
+Authorized ceiling:
+
+9 forecast hand-edited files.
+
+Necessary existing-test inversions/modifications must be separately enumerated and justified; do not hide them inside the ceiling arithmetic.
+
+============================================================
+T. DIFF BOUND
+============================================================
+
+Authorized padded hand-edited diff bound:
+
+2,000 lines.
+
+Standing STOP threshold:
+
+2,500 hand-edited lines.
+
+If mid-work evidence indicates the implementation will exceed 2,500 hand-edited lines:
+
+STOP AND REPORT BEFORE WRITING FURTHER.
+
+Do not complete the overage and justify it afterward.
+
+Report separately:
+
+- production hand-edited insertions/deletions;
+- test hand-edited insertions/deletions;
+- mechanical sw.js;
+- mechanical dist output.
+
+============================================================
+U. SERVICE WORKER / BUILD
+============================================================
+
+Because client production code changes:
+
+bump:
+
+echoai-shell-v174
+→ echoai-shell-v175
+
+Produce the normal committed client/dist build output.
+
+These are mechanical accompaniments, excluded from the hand-edited ceiling, but must be enumerated.
+
+============================================================
+V. DDL / MIGRATIONS
+============================================================
+
+ZERO DDL authorized.
+
+ZERO migrations authorized.
+
+schema_migrations baseline:
+
+148.
+
+If implementation appears to require:
+
+- a new table;
+- a new column;
+- a migration;
+- schema mutation;
+
+STOP AND REPORT.
+
+Do not improvise persistence.
+
+============================================================
+W. EXPLICIT OUT-OF-SCOPE
+============================================================
+
+Do NOT:
+
+- redesign Facebook OAuth;
+- modify FacebookWizard except by separate STOP/report if an unforeseen invariant demands it;
+- merge social_accounts with brands.facebook_page_id;
+- auto-select Pages;
+- auto-copy website_url into ad_link_url;
+- create a combined configuration endpoint;
+- redesign campaign creation;
+- redesign executeExternal;
+- weaken ledgers;
+- change provider readback;
+- change PAUSED/$0 policy;
+- modify production;
+- work on I-50;
+- work on I-52;
+- work on I-60;
+- rewrite the "website & social links" red-herring panel;
+- implement Prompt 027;
+- start BLACOR-H1;
+- start H2.
+
+The red-herring copy clarification remains separate/out of scope.
+
+============================================================
+X. PROMPT-027 PATTERN RECORD
+============================================================
+
+Record only; do not implement:
+
+STORE-POPULATION VS JOURNEY-SOLICITATION GAP.
+
+Binding future 027 requirement:
+
+"For every store or field consumed by the golden path, a prior reachable journey step must solicit or establish it."
+
+Do not perform 027 work under C3.
+
+============================================================
+Y. TEST ACCOUNT / LIVE SAFETY
+============================================================
+
+Stage 2 is code/test only.
+
+Do not use the frozen SDS specimen to test implementation before merge authorization.
+
+Do not perform live Page selection.
+
+Do not set live ad_link_url.
+
+Do not perform a live campaign confirmation.
+
+Do not create Meta objects.
+
+Do not call production.
+
+Unit/integration tests must use stubs/test DB according to existing project conventions.
+
+============================================================
+Z. PRE-MERGE RECONCILIATION PACKAGE
+============================================================
+
+When implementation and tests are complete:
+
+STOP BEFORE MERGE.
+
+Return one PRE-MERGE RECONCILIATION report containing:
+
+1. branch name;
+2. PR number/link;
+3. exact PR head SHA;
+4. exact staging base SHA;
+5. exact changed-file list;
+6. per-file purpose;
+7. exact hand-edited production diff;
+8. exact hand-edited test diff;
+9. mechanical sw.js diff;
+10. mechanical dist files;
+11. total hand-edited diff vs 2,000 bound and 2,500 STOP threshold;
+12. D-32 deletion/inversion review;
+13. exact server baseline arithmetic from 1467;
+14. exact server result;
+15. exact client baseline arithmetic from 454;
+16. exact client result;
+17. named C3 regression accounting;
+18. AM-C3-1 dual-writer regression evidence;
+19. missing_ad_destination pause evidence;
+20. partial-write recovery evidence;
+21. zero-provider-state-from-configuration evidence;
+22. confirm_campaign_launch pause evidence;
+23. launch-summary server-truth evidence;
+24. explicit-confirm-before-provider evidence;
+25. one-shot/no-replay launch authorization evidence;
+26. skip-at-launch-confirm evidence;
+27. C1 preservation;
+28. C2 preservation;
+29. three-store isolation evidence;
+30. resolveBrandAdDestination defense-in-depth evidence;
+31. schema/migration confirmation;
+32. SW v175/build confirmation;
+33. any deviations;
+34. every STOP condition encountered, even if resolved without code;
+35. exact proposed post-merge live sequence.
+
+The proposed post-merge sequence must preserve this separation:
+
+DEPLOY
+→ verify SHA/migrations/SW/dist
+→ resume frozen SDS specimen
+→ missing_ad_destination pause
+→ owner configures Page
+→ owner confirms destination
+→ read-only verify Store 3
+→ verify Store 2 unchanged
+→ verify campaigns/external_actions/external_proofs still ZERO
+→ confirm_campaign_launch pause appears
+→ HARD STOP
+→ owner + ChatGPT + Claude ruling
+→ only then may the H1 R6 launch authorization be exercised.
+
+============================================================
+AA. STOP CONDITIONS
+============================================================
+
+STOP AND REPORT immediately if:
+
+1. DDL/migration appears necessary.
+2. A new production file outside the authorized surface is required.
+3. Hand-edited diff is projected above 2,500.
+4. C1 behavior must change.
+5. C2 durable-failure/reconcile behavior must be weakened.
+6. social_accounts must be modified to make C3 work.
+7. silent Page auto-selection appears necessary.
+8. silent website→ad_link_url write appears necessary.
+9. configuration cannot be separated mechanically from campaign launch.
+10. explicit launch confirmation cannot be made one-shot/replay-safe inside the authorized architecture.
+11. raw/untrusted provider error text must reach the browser.
+12. resolveBrandAdDestination must be weakened.
+13. live specimen mutation appears necessary before merge.
+14. any provider object must be created to test Stage 2.
+15. production access/write appears necessary.
+16. an unforeseen write path undermines the three-store authority model.
+
+When in doubt:
+
+STOP FIRST.
+
+Do not solve an authorization problem by widening scope yourself.
+
+============================================================
+AB. FINAL STATUS
+============================================================
+
+AUTHORIZED:
+
+026-C3 STAGE 2 IMPLEMENTATION + TESTS ONLY.
+
+NOT AUTHORIZED:
+
+merge,
+deploy,
+live verification,
+SDS-H1 resume,
+Page selection on specimen,
+ad_link_url specimen write,
+campaign launch,
+BLACOR-H1,
+H2,
+Prompt 027,
+production changes.
+
+Implement the authorized corrective, run the full verification suites, prepare the PR, return the complete PRE-MERGE RECONCILIATION package, and STOP.
