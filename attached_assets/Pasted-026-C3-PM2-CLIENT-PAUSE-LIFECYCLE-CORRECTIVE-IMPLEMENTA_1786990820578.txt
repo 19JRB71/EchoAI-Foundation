@@ -1,0 +1,686 @@
+026-C3-PM2 — CLIENT PAUSE-LIFECYCLE CORRECTIVE
+IMPLEMENTATION + PRE-MERGE VERIFICATION AUTHORIZATION
+
+Owner + ChatGPT + Claude have reviewed the first post-merge C3 live STOP.
+
+Claude's ruling:
+
+DECISION A — CLIENT-ONLY PM2 AUTHORIZED IN PRINCIPLE.
+
+You are now authorized to implement 026-C3-PM2 under the exact boundaries below.
+
+This is a CLIENT corrective.
+
+Do NOT resume H1 during implementation.
+Do NOT touch the frozen SDS specimen during implementation/testing.
+Do NOT Retry.
+Do NOT Skip.
+Do NOT configure the Facebook Page.
+Do NOT configure ad_link_url.
+Do NOT authorize campaign launch.
+Do NOT create any provider object.
+Do NOT touch production.
+Do NOT start BLACOR-H1.
+Do NOT start H2.
+Do NOT start Prompt 027.
+
+============================================================
+A. BASELINE / BRANCH DISCIPLINE
+============================================================
+
+Work from the CURRENT staging head containing merged C3 + PM1:
+
+staging merge SHA:
+1c7c97691ef90769947875e9448d0937ea33f10f
+
+Before editing:
+
+1. verify staging is exactly at the expected baseline;
+2. create a dedicated PM2 branch;
+3. record the branch name;
+4. record the exact baseline SHA;
+5. record fresh-clone test baselines before modification.
+
+Expected current observed suites from PM1:
+
+server:
+1480 / 1480 pass
+
+client:
+468 / 468 pass
+
+If the fresh-clone baseline differs, STOP AND REPORT before implementation.
+
+============================================================
+B. LIVE DEFECT BEING CORRECTED
+============================================================
+
+The C3 server contract held live.
+
+On the owner's single Retry of historical Step 6:
+
+server correctly returned:
+
+owner_action_required
+→ missing_ad_destination
+
+and correctly:
+
+- did not complete Step 6;
+- did not skip Step 6;
+- did not newly fail Step 6;
+- did not execute Google Ads;
+- created zero new agent_tasks;
+- created zero campaigns;
+- created zero external_actions;
+- created zero external_proofs;
+- made no provider attempt.
+
+However, the client:
+
+1. received the pause;
+2. briefly/adoptively obtained its detail;
+3. failed to keep AdsDestinationCapture rendered;
+4. predicted Google Ads as next;
+5. rendered Google Ads as "Working on it..."
+
+while authoritative server state remained paused at Step 6.
+
+The defect is CLIENT PROJECTION, not server orchestration.
+
+============================================================
+C. BINDING PM2 INVARIANT
+============================================================
+
+Implement this invariant:
+
+"An owner-action pause is a RESTING STATE of the client loop. Any loop pass,
+however triggered, that encounters an active pause — from the execute response
+or adopted session truth — must terminate in that pause, re-rendered from
+authoritative state. A pause is never 'done', never 'failed', never an
+invitation to continue; only explicit owner action (configure, confirm, skip)
+or changed authoritative server truth moves the journey past it."
+
+This applies to the WHOLE PAUSE CLASS, not only the observed code.
+
+At minimum:
+
+- missing_ad_destination
+- confirm_campaign_launch
+- needs_connection
+
+must flow through one shared pause/awaiting-owner classification path.
+
+Do NOT solve this by special-casing only missing_ad_destination.
+
+============================================================
+D. SERVER AUTHORITY
+============================================================
+
+Preserve the accepted C2 invariant:
+
+SERVER SESSION STATE IS AUTHORITATIVE.
+CLIENT PROGRESS IS A PROJECTION.
+
+The client must not locally predict advancement beyond an authoritative pause.
+
+Delete/replace the defective heuristic under which:
+
+status !== "failed"
+
+effectively means:
+
+done
+
+That inference is forbidden.
+
+For completion/progression purposes:
+
+A step is "done" only if authoritative truth establishes completion, including:
+
+- membership in server completed_steps; or
+- an authoritative serialized completed/skipped outcome where the existing
+  contract permits that representation.
+
+Every other status — including unknown/future status strings — MUST NOT be
+treated as completed merely because it is not "failed."
+
+============================================================
+E. runningKey HONESTY
+============================================================
+
+Delete the local "next step must therefore be running" guess.
+
+"Working on it..." may render only for a step associated with an ACTUAL
+in-flight execute operation.
+
+Never render a later step as running merely because the client predicts it
+comes next.
+
+Specifically:
+
+while authoritative server state is paused at create_facebook_campaign,
+
+setup_google_ads MUST NOT render "Working on it..."
+
+unless an actual server execute for setup_google_ads exists — which must not
+happen while the earlier pause remains authoritative.
+
+============================================================
+F. PAUSE UI — REPLACE, NEVER BLANK
+============================================================
+
+Do not clear owner-action UI state merely because runLoop begins.
+
+Pause UI transitions occur at authoritative state adoption.
+
+Use:
+
+REPLACE, NEVER BLANK.
+
+A new loop pass may legitimately occur.
+
+When it does:
+
+1. reconcile/read authoritative server truth;
+2. adopt that truth;
+3. reconstruct/re-render the active pause if it still exists;
+4. terminate/rest in that pause.
+
+There must never be a rendered/adopted state where authoritative truth says an
+owner-action pause remains active but the corresponding owner-action UI has
+been blanked because a loop restarted.
+
+============================================================
+G. RE-ENTRY / CONVERGENCE
+============================================================
+
+The correction must be state-based and trigger-agnostic.
+
+It must remain correct under:
+
+- manual Retry;
+- sequential runLoop re-entry;
+- mount auto-resume;
+- remount;
+- refresh;
+- 409 reconciliation;
+- StrictMode/dev double effects.
+
+Do NOT spend scope reconstructing which exact browser lifecycle event caused
+the live second pass unless implementation evidence shows it is necessary.
+
+The invariant must survive ANY legal second pass.
+
+============================================================
+H. PAUSE TYPES
+============================================================
+
+Use one shared pause-class classification path/table.
+
+It must include:
+
+1. missing_ad_destination
+2. confirm_campaign_launch
+3. needs_connection
+
+The design should make future pause/action codes fail safely as awaiting-owner
+rather than silently being interpreted as completion.
+
+Do not duplicate three independent special-case lifecycle implementations.
+
+============================================================
+I. CONFIRM_CAMPAIGN_LAUNCH PRESERVATION
+============================================================
+
+AM-C3-2 is load-bearing.
+
+The new launch-confirm gate must receive exactly the same lifecycle protection.
+
+Therefore:
+
+fully configured Step 6
+→ confirm_campaign_launch pause
+→ wait/remount/re-entry
+→ SAME authorization panel remains authoritative
+
+until:
+
+- explicit owner confirm;
+- explicit owner skip; or
+- changed authoritative server truth.
+
+Configuration alone must still create:
+
+campaigns = 0
+external_actions = 0
+external_proofs = 0
+
+No provider-object creation is authorized by PM2.
+
+============================================================
+J. needs_connection PRESERVATION
+============================================================
+
+C1's existing connection pause must remain correct.
+
+needs_connection is also a resting owner-action state.
+
+Do not regress OAuth/connect/resume behavior.
+
+============================================================
+K. C1 / C2 / C3 PRESERVATION
+============================================================
+
+Mandatory preservation:
+
+C1:
+- activation/consent boundaries;
+- skip truth;
+- social binding;
+- no consumed one-shot replay;
+- connection behavior.
+
+C2:
+- server-state authority;
+- durable failures;
+- bounded 409 reconciliation;
+- single-flight;
+- Retry truth reread;
+- refresh/remount/OAuth convergence;
+- honest failed-step rendering.
+
+C3:
+- missing_ad_destination preflight;
+- AdsDestinationCapture;
+- explicit Page selection;
+- explicit destination confirmation;
+- three-store separation;
+- owner_action_required classification;
+- confirm_campaign_launch gate;
+- digest binding / changed-summary behavior;
+- zero provider state before explicit launch confirmation.
+
+Do not modify accepted server behavior to make the client easier to fix.
+
+============================================================
+L. AUTHORIZED PRODUCTION FILE SURFACE
+============================================================
+
+Authorized hand-edited production file:
+
+client/src/onboarding/SetupAgent.jsx
+
+CONTINGENCY ONLY:
+
+client/src/onboarding/executeError.js
+
+Touch executeError.js only if the shared pause classification naturally belongs
+there.
+
+If touched, disclose exactly why it was necessary.
+
+NO SERVER PRODUCTION FILE IS AUTHORIZED.
+
+Any server production change:
+
+STOP AND REPORT.
+
+Any additional client production file:
+
+STOP AND REPORT before writing it.
+
+Do not self-authorize another production surface.
+
+============================================================
+M. AUTHORIZED TEST SURFACE
+============================================================
+
+You may extend:
+
+client/src/onboarding/SetupAgent.owneraction.test.jsx
+
+and/or:
+
+client/src/onboarding/SetupAgent.test.jsx
+
+One NEW client test file is permitted if materially cleaner.
+
+If added, enumerate it explicitly.
+
+Do not modify/delete/invert an existing assertion-of-correct-behavior merely to
+make PM2 green.
+
+If an existing test explicitly binds the defective heuristic and therefore
+requires inversion, STOP AND DISCLOSE it under D-32 before changing that
+contract.
+
+============================================================
+N. MECHANICAL FILES
+============================================================
+
+Client changes require:
+
+client/public/sw.js
+v175 → v176
+
+and committed client/dist rebuild.
+
+These are mandatory mechanical accompaniments and excluded from the
+hand-edited file ceiling, but must be enumerated in reconciliation.
+
+No other generated/mechanical file without disclosure.
+
+============================================================
+O. DIFF BOUND
+============================================================
+
+Padded hand-edited diff bound:
+
+400 lines
+
+Standing STOP threshold:
+
+500 lines
+
+If evidence during implementation shows the running implementation will exceed
+500 hand-edited changed lines:
+
+STOP AND REPORT BEFORE writing further.
+
+Do not finish the overage and adjudicate it afterward.
+
+============================================================
+P. MANDATORY REGRESSIONS — R1 THROUGH R16
+============================================================
+
+Bind all sixteen.
+
+R1 — initial pause rendering
+
+owner_action_required response
+→ correct owner-action panel rendered.
+
+R2 — sequential loop re-entry
+
+owner_action_required
+→ second runLoop invocation
+→ same pause remains/reappears.
+
+R3 — pause is not completion
+
+owner_action_required MUST NOT be counted as completed by local progression
+logic.
+
+R4 — no predicted-running lie
+
+while server truth remains paused at Step 6:
+setup_google_ads does NOT render "Working on it..."
+
+R5 — auto-resume/manual-Retry race shape
+
+mount/auto-resume plus manual Retry/re-entry cannot visually advance beyond the
+authoritative pause.
+
+Do not require actual nondeterministic timing; deterministic orchestration of
+the lifecycle is preferred.
+
+R6 — remount
+
+remount while the pause remains authoritative converges to the same pause.
+
+R7 — refresh/server reread
+
+authoritative reread while paused converges to the same pause.
+
+R8 — legitimate prerequisite resolution
+
+owner configuration clears the missing_ad_destination pause only after
+authoritative state changes and the client re-adopts server truth.
+
+R9 — launch-confirm lifecycle
+
+confirm_campaign_launch receives the same resting-state protection across
+re-entry/remount.
+
+R10 — needs_connection preservation
+
+existing connection pause remains a resting owner-action state and does not
+advance local progress.
+
+R11 — durable-failed Retry preservation
+
+C2 durable failure/Retry behavior remains correct.
+
+R12 — 409 preservation
+
+409 reconciliation remains bounded and truthful.
+
+R13 — single-flight preservation
+
+existing single-flight behavior remains effective.
+
+Do not "fix" legal sequential re-entry by blocking all subsequent loops.
+
+R14 — replace-not-blank property
+
+After authoritative adoption, there is NO rendered state where:
+
+server truth holds an active owner-action pause
+
+AND
+
+no corresponding owner-action UI is rendered merely because runLoop started
+again.
+
+R15 — property-style completion/predictor regression
+
+For EVERY non-completed, non-skipped status value tested — including:
+
+- owner_action_required
+- needs_connection
+- failed
+- unknown/future arbitrary status
+
+the client MUST NOT classify that step as done and MUST NOT advance runningKey
+past it merely because status !== "failed".
+
+This is intended to close the entire lie-class, not just today's code string.
+
+R16 — shared pause-class regression
+
+missing_ad_destination
+confirm_campaign_launch
+needs_connection
+
+all classify through the shared awaiting-owner/resting-state path.
+
+============================================================
+Q. TEST QUALITY
+============================================================
+
+Tests must bind behavior, not implementation trivia.
+
+In particular:
+
+- model a second legal loop pass;
+- model authoritative re-adoption;
+- assert visible UI truth;
+- assert later-step running state is absent;
+- assert explicit owner actions are still required.
+
+Do not satisfy R2/R5/R6/R7 merely by rendering a component twice with no
+runLoop/adoption behavior exercised.
+
+If the architecture makes one requested regression impossible to bind
+deterministically, STOP AND REPORT rather than substituting a weaker surrogate
+without disclosure.
+
+============================================================
+R. SERVER TESTS
+============================================================
+
+No server change is expected.
+
+Run the complete server suite anyway as preservation evidence.
+
+Expected baseline before PM2:
+
+1480
+
+Expected post-PM2 server count:
+
+1480
+
+unless you discover a legitimate reason otherwise, in which case STOP and
+explain before proceeding.
+
+============================================================
+S. CLIENT TEST ARITHMETIC
+============================================================
+
+Fresh-clone client baseline expected:
+
+468
+
+Report:
+
+- exact number of new tests;
+- exact number modified/inverted, if any;
+- exact resulting total;
+- full pass/fail result;
+- per-file accounting.
+
+Do not project arithmetic — report observed totals.
+
+============================================================
+T. IMPLEMENTATION STOP CONDITIONS
+============================================================
+
+STOP immediately for any of the following:
+
+1. any server production file appears necessary;
+2. any unapproved client production file appears necessary;
+3. any DDL/migration;
+4. any C1 behavior change;
+5. any C2 server-contract change;
+6. any C3 server-contract change;
+7. any weakening/removal of confirm_campaign_launch;
+8. any weakening of explicit Page/destination confirmation;
+9. any path that creates provider state without explicit launch confirmation;
+10. any need to modify an existing correct test contract merely for convenience;
+11. hand-edited diff projected above 500;
+12. frozen SDS specimen is touched during implementation/testing;
+13. staging receives an external/provider write;
+14. production is contacted for a write;
+15. implementation evidence contradicts the diagnosed client-only defect.
+
+============================================================
+U. IMPLEMENTATION VERIFICATION
+============================================================
+
+After implementation:
+
+1. run targeted PM2 client regressions;
+2. run full client suite;
+3. run full server suite;
+4. build client;
+5. inspect exact diff;
+6. enumerate all hand-edited files;
+7. enumerate mechanical files;
+8. give exact line accounting;
+9. verify no unauthorized files;
+10. verify no DDL;
+11. verify frozen specimen untouched;
+12. verify no staging/provider writes.
+
+Do NOT merge yet.
+
+============================================================
+V. PRE-MERGE REPORT
+============================================================
+
+Return one PRE-MERGE RECONCILIATION containing:
+
+1. branch;
+2. baseline SHA;
+3. proposed PR number;
+4. PR head SHA;
+5. complete changed-file list;
+6. production hand-edited files;
+7. test hand-edited files;
+8. mechanical files;
+9. per-file purpose;
+10. exact numstat;
+11. total hand-edited diff;
+12. D-32 deletion/inversion review;
+13. R1–R16 test-to-contract map;
+14. client arithmetic and result;
+15. server arithmetic and result;
+16. build result;
+17. SW v176 evidence;
+18. dist enumeration;
+19. server-production-change = NONE;
+20. DDL = NONE;
+21. C1 preservation;
+22. C2 preservation;
+23. C3 preservation;
+24. confirm_campaign_launch preservation;
+25. frozen specimen attestation;
+26. provider/external-write attestation;
+27. deviations;
+28. STOP conditions encountered;
+29. exact proposed post-merge live sequence.
+
+Then HARD STOP.
+
+No self-acceptance.
+No merge without owner + ChatGPT + Claude ruling.
+
+============================================================
+W. POST-MERGE LIVE SEQUENCE — NOT YET AUTHORIZED
+============================================================
+
+For planning only.
+
+After a later explicit merge ruling:
+
+deploy
+→ verify health SHA
+→ migrations remain 148
+→ served sw.js = v176
+→ served dist matches commit
+→ resume SAME SDS specimen
+→ Step 6 missing_ad_destination pause
+→ AdsDestinationCapture visibly renders
+→ deliberately WAIT
+→ remount/refresh once
+→ verify AdsDestinationCapture STILL renders
+→ verify Google Ads does NOT show "Working on it..."
+→ owner explicitly selects South Dixie Facebook Page
+→ owner explicitly confirms destination
+→ read-only verify Store 3
+→ verify Store 2 unchanged
+→ campaigns = 0
+→ external_actions = 0
+→ external_proofs = 0
+→ confirm_campaign_launch pause visibly appears
+→ deliberately WAIT
+→ remount/refresh once
+→ verify launch-confirm panel STILL renders
+→ HARD STOP.
+
+NO CAMPAIGN LAUNCH under PM2.
+
+The later H1 R6 launch requires a separate owner + ChatGPT + Claude ruling at
+that gate.
+
+============================================================
+X. STATUS
+============================================================
+
+026-C3-PM2 IMPLEMENTATION AUTHORIZED UNDER THESE BOUNDS.
+
+H1 remains PAUSED.
+
+Implement, test, reconcile, and STOP before merge.
