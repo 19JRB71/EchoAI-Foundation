@@ -1,0 +1,362 @@
+026-C3 — PM1 TEST-ONLY CORRECTIVE AUTHORIZATION
+NO-SPINE-ROW REGRESSION
+
+Owner + ChatGPT ruling:
+
+Citation 1 is accepted.
+Citation 2 is accepted.
+Citation 3 is the only remaining blocker.
+
+PR #55 remains open and unmerged.
+
+Current approved-but-blocked head:
+
+f87f9077d1cdeed96d724476e59d2e1e64837007
+
+A single TEST-ONLY corrective commit is now authorized:
+
+026-C3-PM1
+
+Purpose:
+
+Directly bind the property that the guided Step-6 missing-prerequisite path:
+
+missing facebook_page_id and/or ad_link_url
+→ owner_action_required / missing_ad_destination pause
+
+does NOT create an:
+
+agent_tasks
+status = VALIDATION_FAILED
+
+spine row.
+
+This corrective exists only to satisfy Claude's Citation-3 requirement.
+
+============================================================
+A. AUTHORIZED SCOPE
+============================================================
+
+TEST CODE ONLY.
+
+Expected file:
+
+EchoAI/test/setupAgent.owneraction.test.js
+
+Do NOT modify production code.
+
+Do NOT modify:
+
+controllers/setupAgentController.js
+controllers/campaignController.js
+AdsDestinationCapture.jsx
+ConnectionsStep.jsx
+SetupAgent.jsx
+api.js
+sw.js
+client/dist
+schema
+migrations
+config
+shared harness/helpers
+
+If the required regression cannot be written without changing production code
+or another existing file:
+
+STOP AND REPORT.
+
+Do not widen scope.
+
+============================================================
+B. REQUIRED REGRESSION
+============================================================
+
+Add one named regression that drives the REAL runner/spine path rather than
+calling the Step-6 run() function directly.
+
+The test must exercise enough of:
+
+executeNextAction / setup runner path
+
+to prove the following property at the persistence boundary:
+
+Given a session/brand where:
+
+- Facebook integration is connected;
+- facebook_page_id is missing and/or ad_link_url is missing;
+- Step 6 is the current runnable action;
+
+When the real runner executes the step:
+
+EXPECTED:
+
+1. response/state is:
+   owner_action_required
+
+2. action code is:
+   missing_ad_destination
+
+3. Step 6 is NOT added to completed_steps.
+
+4. No campaign row is created.
+
+5. Most importantly:
+   direct DB query of agent_tasks for the relevant session/brand/run shows:
+
+   ZERO rows with:
+
+   status = VALIDATION_FAILED
+
+   attributable to this guided Step-6 execution.
+
+6. No ad-launch spine attempt is created merely because prerequisites are
+   missing.
+
+7. No provider/external action occurs.
+
+This must be a DIRECT DB assertion.
+
+Do NOT satisfy it by:
+
+- inferring from zero campaigns;
+- inferring from no thrown error;
+- inferring from mocks;
+- calling only the isolated Step-6 run() function.
+
+The test exists specifically to bind the spine-layer behavior.
+
+============================================================
+C. TEST NAME
+============================================================
+
+Use a clear named contract, for example:
+
+"missing ad destination pauses before the spine and creates no VALIDATION_FAILED agent_task"
+
+Exact wording may follow existing naming conventions, but it must be obvious
+from the name what invariant is being bound.
+
+============================================================
+D. PRESERVE EXISTING TESTS
+============================================================
+
+Do not delete, rename, merge, or weaken any existing test.
+
+This PM1 adds coverage only.
+
+Citation 1 arithmetic remains accepted.
+
+Citation 2 harness accounting remains accepted.
+
+Do not reopen those issues.
+
+============================================================
+E. TEST EXECUTION
+============================================================
+
+After adding the regression:
+
+1. run the targeted new test;
+
+2. run the full server suite;
+
+3. run the full client suite.
+
+Current accepted pre-PM1 baselines:
+
+SERVER:
+1479 / 1479
+
+CLIENT:
+468 / 468
+
+Expected:
+
+SERVER increases by the number of newly added PM1 server tests.
+
+CLIENT remains:
+
+468 / 468
+
+unless no client code/tests are changed, as expected.
+
+Report exact observed arithmetic.
+
+Do not project.
+
+============================================================
+F. COMMIT / HEAD MOVEMENT
+============================================================
+
+Create exactly one PM1 commit on the existing branch:
+
+c3-ads-destination-capture
+
+Commit purpose:
+
+026-C3-PM1 — bind no-VALIDATION_FAILED spine behavior
+
+Push it to PR #55.
+
+Record:
+
+- PM1 commit SHA;
+- new PR head SHA.
+
+============================================================
+G. INTER-HEAD DIFF
+============================================================
+
+Before any merge, compare:
+
+OLD HEAD:
+f87f9077d1cdeed96d724476e59d2e1e64837007
+
+TO:
+
+NEW HEAD:
+<PM1 HEAD>
+
+The inter-head diff MUST contain only the authorized test-only change.
+
+Expected:
+
+EchoAI/test/setupAgent.owneraction.test.js
+
+ONLY.
+
+If any production file, client file, helper, harness, config, schema, migration,
+sw.js, dist file, or unrelated test file appears:
+
+STOP AND REPORT.
+
+Do NOT merge.
+
+============================================================
+H. UPDATED MERGE AUTHORIZATION CONDITION
+============================================================
+
+The previous merge approval attached to the old head is superseded by this
+narrow PM1 authorization.
+
+If:
+
+- the PM1 regression passes;
+- full server suite passes;
+- full client suite passes;
+- inter-head diff is test-only exactly as authorized;
+- Citation 3 is now directly bound;
+- PR #55 head is pinned to the new PM1 head and does not move again;
+
+THEN:
+
+PR #55 is authorized to MERGE TO STAGING ONLY.
+
+No additional Claude review is required for this one test-only head movement.
+
+Production/main remains untouched.
+
+============================================================
+I. POST-MERGE SEQUENCE — UNCHANGED
+============================================================
+
+After clean merge:
+
+DEPLOY
+→ verify staging SHA
+→ verify schema_migrations = 148
+→ verify no migration
+→ verify served sw.js = v175
+→ verify new dist/client
+
+Then resume the EXISTING frozen SDS specimen.
+
+Expected:
+
+old Step-6 failure
+→ owner Retry once
+→ missing_ad_destination pause
+→ AdsDestinationCapture appears
+
+Then one owner action at a time:
+
+1. owner explicitly selects South Dixie Facebook Page;
+2. read-only verify facebook_page_id;
+3. owner explicitly confirms/enters ad destination;
+4. read-only verify ad_link_url;
+5. verify social_accounts unchanged;
+6. verify campaigns = 0;
+7. verify external_actions = 0;
+8. verify external_proofs = 0;
+9. verify confirm_campaign_launch pause appears.
+
+Then:
+
+HARD STOP.
+
+DO NOT authorize the campaign launch.
+
+The Meta/provider attempt remains a separate later owner + ChatGPT + Claude
+decision under H1 R6.
+
+============================================================
+J. PM1 + POST-MERGE REPORT
+============================================================
+
+Return one report including:
+
+1. old head SHA;
+2. PM1 commit SHA;
+3. new head SHA;
+4. exact inter-head diff;
+5. exact new test name;
+6. exact DB assertion against agent_tasks;
+7. targeted test result;
+8. server arithmetic/result;
+9. client result;
+10. confirmation no existing test changed/deleted;
+11. confirmation no production file changed in PM1;
+12. merge SHA;
+13. live staging health SHA;
+14. schema_migrations = 148;
+15. served sw.js v175;
+16. served client/dist evidence;
+17. frozen SDS resume evidence;
+18. missing_ad_destination pause live evidence;
+19. Page selection evidence;
+20. facebook_page_id readback;
+21. destination confirmation evidence;
+22. ad_link_url readback;
+23. social_accounts unchanged;
+24. campaigns = 0 after configuration;
+25. external_actions = 0;
+26. external_proofs = 0;
+27. confirm_campaign_launch pause live evidence;
+28. confirmation launch was NOT clicked;
+29. all deviations;
+30. all STOP conditions;
+31. final status:
+
+026-C3 CONFIGURATION GATE LIVE-PROVEN — AWAITING OWNER REVIEW
+
+or
+
+STOP CONDITION FOUND
+
+============================================================
+K. HARD STOP
+============================================================
+
+Do NOT:
+
+- change production code in PM1;
+- create another PM1 beyond this test;
+- touch schema;
+- touch production;
+- launch the Facebook campaign;
+- cross confirm_campaign_launch;
+- start BLACOR-H1;
+- start H2;
+- start Prompt 027.
+
+BEGIN WITH THE SINGLE SPINE-LEVEL REGRESSION.
