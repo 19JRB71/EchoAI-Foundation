@@ -1,0 +1,426 @@
+026-C3 — CITATION COMPLETION + CONDITIONAL MERGE AUTHORIZATION
+
+Owner + ChatGPT + Claude review of PR #55 is complete.
+
+CLAUDE RULING:
+
+MERGE APPROVED — scoped to exact head:
+
+f87f9077d1cdeed96d724476e59d2e1e64837007
+
+STAGING ONLY.
+
+No code change is required.
+No head movement is permitted.
+No new commit is authorized.
+
+Three citation-only conditions must be completed BEFORE merge.
+
+If all three citations return exactly as expected, merge proceeds under this
+same ruling with no additional review round.
+
+If any citation reveals a discrepancy, STOP AND REPORT before merge.
+
+============================================================
+1. CITATION 1 — NAME ALL 14 NEW CLIENT TESTS
+============================================================
+
+The reconciliation states:
+
+CLIENT BASELINE:
+454
+
+NEW:
++14
+
+OBSERVED:
+468 / 468
+
+But the prose currently accounts for:
+
+7 AdsDestinationCapture tests
++
+6 SetupAgent owner-action tests
+=
+13
+
+One test is not named in the reconciliation.
+
+Return the exact names of ALL 14 newly added client test cases.
+
+For each, include:
+
+- test file;
+- exact test name;
+- whether it is new or inherited/modified.
+
+Expected:
+
+14 genuinely new client tests across the two new client test files,
+with no existing test silently deleted, renamed, merged, or replaced.
+
+If the true number is actually 13:
+
+STOP.
+
+Correct the arithmetic honestly and explain how 468 was reached before merge.
+
+Do not reinterpret the discrepancy away.
+
+============================================================
+2. CITATION 2 — LOCATE THE TWO TEST-HARNESS FIXES
+============================================================
+
+The reconciliation disclosed two test-harness-only fixes during authoring:
+
+- campaigns column names;
+- pool teardown.
+
+Confirm EXACTLY where those edits live.
+
+Expected:
+
+they are contained inside the THREE NEW test files only:
+
+- test/setupAgent.owneraction.test.js
+- client/src/onboarding/guided/AdsDestinationCapture.test.jsx
+- client/src/onboarding/SetupAgent.owneraction.test.jsx
+
+Return:
+
+- exact file;
+- exact relevant lines/change;
+- what each harness fix does.
+
+Also run/return:
+
+git diff --name-status
+517bc2895c36285e5555dbafa931e8376b8ec487..
+f87f9077d1cdeed96d724476e59d2e1e64837007
+
+for all test/harness-related files.
+
+If ANY existing shared test file, helper, harness, setup file, DB helper, or
+configuration file was modified:
+
+STOP AND REPORT.
+
+That would contradict the current D-32 statement:
+
+"no existing test was modified."
+
+Do not merge until disclosed and reviewed.
+
+============================================================
+3. CITATION 3 — NAME THE NO-SPINE-ROW REGRESSION
+============================================================
+
+Name the SPECIFIC regression that proves:
+
+guided Step-6 missing prerequisites
+→ owner_action_required pause
+→ NO agent_tasks VALIDATION_FAILED row created.
+
+Return:
+
+- exact test file;
+- exact test name;
+- exact assertion/query that proves the agent_tasks row does not exist.
+
+This must directly bind the property.
+
+Do not answer with:
+
+"implied by zero durable writes"
+
+or
+
+"the code path never reaches the launch."
+
+We require the named regression and its direct evidence.
+
+If no direct assertion currently exists:
+
+STOP.
+
+Do not merge.
+
+Report that a test-only corrective is needed.
+
+============================================================
+4. HEAD PIN
+============================================================
+
+Before merge, verify PR #55 head is STILL exactly:
+
+f87f9077d1cdeed96d724476e59d2e1e64837007
+
+If head moved for any reason:
+
+STOP.
+
+This approval is void for the moved head.
+
+No new commit is authorized under this ruling.
+
+============================================================
+5. IF ALL THREE CITATIONS PASS
+============================================================
+
+If:
+
+- all 14 client tests reconcile exactly;
+- both harness fixes are proven to exist only inside the three new test files;
+- the no-agent_tasks/VALIDATION_FAILED property is directly regression-bound;
+- PR head remains exactly f87f9077...;
+
+THEN:
+
+MERGE PR #55 TO STAGING ONLY.
+
+Use pinned-head merge discipline.
+
+Production/main remains untouched.
+
+============================================================
+6. POST-MERGE DEPLOYMENT VERIFICATION
+============================================================
+
+After merge:
+
+1. record the resulting staging merge SHA;
+
+2. verify the correct staging service:
+   https://staging.zorecho.com
+
+3. verify:
+   /api/health
+   environment = staging
+   version = exact merge SHA
+
+4. verify:
+   schema_migrations = 148
+
+5. verify:
+   NO new migration exists
+
+6. verify served:
+   echoai-shell-v175
+
+7. verify new built client/dist hashes are actually served.
+
+Do not use any retired Railway domain.
+
+============================================================
+7. RESUME FROZEN SDS SPECIMEN — CONFIGURATION PHASE ONLY
+============================================================
+
+After deployment verification:
+
+Resume the EXISTING frozen SDS-H1 specimen.
+
+Do NOT create a fresh account.
+
+Expected current state:
+
+historical Step-6 failed outcome exists from the pre-C3 journey.
+
+Give the owner EXACTLY ONE manual action:
+
+Retry Step 6 ONCE.
+
+Expected:
+
+server re-enters Step 6
+→ detects missing ads destination prerequisites
+→ returns owner_action_required
+→ renders AdsDestinationCapture
+
+Expected UI:
+
+NOT the old AI-service failure panel.
+
+Do not give another owner action until read-only verification confirms the new
+pause.
+
+============================================================
+8. OWNER PAGE CONFIGURATION — ONE ACTION AT A TIME
+============================================================
+
+Once the missing_ad_destination pause is verified:
+
+give the owner exactly ONE next action at a time.
+
+First:
+
+select/confirm the correct South Dixie Storage Facebook Page through the
+shared capture UI.
+
+Rules:
+
+- explicit owner selection;
+- no silent auto-bind;
+- no first-in-list assumption.
+
+After owner action:
+
+STOP and verify read-only:
+
+brands.facebook_page_id
+
+and relevant page_ref state.
+
+Do not proceed until verified.
+
+============================================================
+9. OWNER DESTINATION CONFIGURATION — ONE ACTION AT A TIME
+============================================================
+
+Then give the owner exactly ONE action:
+
+confirm or enter the South Dixie Storage ad destination link through the shared
+capture UI.
+
+Expected:
+
+website may appear as a suggestion,
+but the owner must explicitly confirm/save it.
+
+After owner action:
+
+STOP and verify read-only:
+
+brands.ad_link_url
+
+Then verify:
+
+- Store 3 is configured;
+- Store 2 social_accounts is unchanged;
+- campaigns = 0;
+- external_actions = 0;
+- external_proofs = 0.
+
+CONFIGURATION MUST NOT CREATE PROVIDER STATE.
+
+If any campaign/provider/external row exists before launch confirmation:
+
+STOP AND REPORT.
+
+============================================================
+10. CONFIRM_CAMPAIGN_LAUNCH PAUSE
+============================================================
+
+After configuration is complete:
+
+the product must present:
+
+confirm_campaign_launch
+
+BEFORE any provider-object creation.
+
+Read-only verify the summary comes from authoritative server truth.
+
+Expected summary includes:
+
+- selected Facebook Page;
+- Page name;
+- selected ad account;
+- ad destination;
+- campaign will be PAUSED;
+- initial spend = $0.
+
+Do NOT click authorize/confirm launch.
+
+At this point:
+
+HARD STOP.
+
+This merge authorization DOES NOT authorize the Facebook campaign attempt.
+
+============================================================
+11. POST-MERGE REPORT
+============================================================
+
+Return one report titled:
+
+026-C3 — POST-MERGE CONFIGURATION GATE LIVE REPORT
+
+Include:
+
+1. Citation 1 — all 14 client test names.
+2. Citation 2 — exact harness-fix locations.
+3. Citation 3 — exact no-spine-row regression.
+4. PR head at merge.
+5. merge SHA.
+6. live /api/health SHA.
+7. schema_migrations = 148.
+8. no migration.
+9. served SW v175.
+10. served client/dist hashes.
+11. frozen SDS specimen resume evidence.
+12. old failed panel → new missing_ad_destination pause evidence.
+13. Page selection evidence.
+14. facebook_page_id readback.
+15. destination confirmation evidence.
+16. ad_link_url readback.
+17. social_accounts unchanged evidence.
+18. campaigns = 0 after configuration.
+19. external_actions = 0 after configuration.
+20. external_proofs = 0 after configuration.
+21. confirm_campaign_launch pause live evidence.
+22. actual server-truth launch summary.
+23. PAUSED/$0 copy visible.
+24. confirmation that launch was NOT clicked.
+25. I-61 live disposition.
+26. I-62 live disposition.
+27. frozen specimen preservation.
+28. production/main untouched.
+29. all deviations.
+30. all STOP conditions encountered.
+31. final status exactly one of:
+
+026-C3 CONFIGURATION GATE LIVE-PROVEN — AWAITING OWNER REVIEW
+
+or
+
+STOP CONDITION FOUND
+
+============================================================
+12. HARD STOP
+============================================================
+
+Do NOT:
+
+- authorize the campaign launch;
+- click launch confirmation;
+- create Meta campaign objects;
+- perform a second attempt;
+- start BLACOR-H1;
+- continue deeper into H1;
+- start H2;
+- start Prompt 027;
+- touch production.
+
+At the live confirm_campaign_launch pause:
+
+STOP.
+
+Return the report to owner + ChatGPT + Claude.
+
+============================================================
+FINAL AUTHORIZATION
+============================================================
+
+FIRST:
+complete the THREE citation-only conditions.
+
+IF CLEAN:
+merge PR #55 at exact head f87f9077... to STAGING ONLY.
+
+THEN:
+deploy-verify and live-prove ONLY the configuration gate through the
+confirm_campaign_launch pause.
+
+DO NOT CROSS THE LAUNCH GATE.
+
+BEGIN WITH CITATION 1.
