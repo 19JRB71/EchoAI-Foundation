@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api.js";
 import { openAuthUrl } from "../lib/oauthNav.js";
 import Spinner from "../components/Spinner.jsx";
-import { classifyExecuteError } from "./executeError.js";
+import { classifyExecuteError, classifyStepStatus } from "./executeError.js";
 import AdsDestinationCapture from "./guided/AdsDestinationCapture.jsx";
 import { useVoiceInput, detectIsMobile } from "./useVoiceInput.js";
 import VoiceCalibration from "./VoiceCalibration.jsx";
@@ -263,7 +263,22 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         };
       }
     }
-    if (completedSteps.length > 0 || Object.keys(seeded).length > 0) setResults(seeded);
+    // 026-C3-PM2 (§F): REPLACE, NEVER BLANK. Server truth wins for every step
+    // it resolves (completed / skipped / durable-failed above), but a locally
+    // recorded awaiting-owner pause on a step the server still shows as
+    // unresolved remains — authoritative truth says that pause is still the
+    // current state, so re-adoption must not blank its record.
+    // (The pre-PM2 guard stays: an adoption carrying NO resolved steps adopts
+    // nothing — it must not blank locally recorded richer results either.)
+    if (completedSteps.length > 0 || Object.keys(seeded).length > 0) {
+      setResults((prev) => {
+        const next = { ...seeded };
+        for (const [key, r] of Object.entries(prev)) {
+          if (!next[key] && r && classifyStepStatus(r.status) === "awaiting_owner") next[key] = r;
+        }
+        return next;
+      });
+    }
   }, []);
 
   // 026-C2 / AM-C2-2: bounded lease-conflict reconcile. When /execute answers
@@ -280,8 +295,11 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       if (loopActiveRef.current) return;
       loopActiveRef.current = true;
       setPhase("running");
-      setNeedsConnection(null);
-      setOwnerAction(null);
+      // 026-C3-PM2 (§F): REPLACE, NEVER BLANK. A loop pass starting is NOT an
+      // authoritative state change, so an active owner-action / connection
+      // pause stays rendered; it is replaced (or cleared) only when this pass
+      // adopts new authoritative truth below. (setFailedStep(null) stays: a
+      // Retry of a durable C2 failure is an explicit owner action.)
       setFailedStep(null);
       setError("");
       let reconcileAttempts = 0;
@@ -290,9 +308,14 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         while (true) {
           // A failed step is NOT done — it stays the current runnable step so
           // the next execute (a Retry) re-runs exactly it.
+          // 026-C3-PM2 (§D): a step is done ONLY when authoritative truth says
+          // completed/skipped. owner_action_required, needs_connection, and any
+          // unknown/future status are RESTING states — never counted done, so
+          // the predicted pending step can never advance past an active pause
+          // (the forbidden `status !== "failed" ⇒ done` inference is deleted).
           const done = new Set(
             Object.entries(resultsRef.current)
-              .filter(([, r]) => r && r.status !== "failed")
+              .filter(([, r]) => r && classifyStepStatus(r.status) === "done")
               .map(([k]) => k),
           );
           const pending = stepsRef.current.find((s) => !done.has(s.key));
@@ -359,6 +382,9 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
                 outcome: outcome.outcome,
                 message: outcome.message,
               });
+              // Authoritative durable failure replaces any prior pause (§F).
+              setOwnerAction(null);
+              setNeedsConnection(null);
               return;
             }
             setError(outcome.message);
@@ -369,6 +395,10 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
           if (res.allComplete) {
             if (res.session) setSession(res.session);
             setRunningKey(null);
+            // Authoritative completion: the only legitimate way a pause panel
+            // disappears without owner action (§F — replaced by new truth).
+            setOwnerAction(null);
+            setNeedsConnection(null);
             setPhase("done");
             return;
           }
@@ -384,12 +414,15 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
             // server truth on every execute — never stored as failure, never
             // marked complete, converges after reload/remount.
             setRunningKey(null);
+            // REPLACE (§F): the re-derived pause replaces the prior surface —
+            // same pause re-rendered from authoritative truth, or a new one.
             setOwnerAction({
               key: step.key,
               label: step.label,
               action: res.action || null,
               detail,
             });
+            setNeedsConnection(null);
             return; // wait for the owner to configure / authorize / skip
           }
           if (status === "needs_connection") {
@@ -407,9 +440,29 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
               label: step.label,
               repeated,
             });
+            setOwnerAction(null);
             return; // wait for the user to connect or skip
           }
+          if (classifyStepStatus(status) !== "done") {
+            // 026-C3-PM2 (§C/§H): a status this client does not positively
+            // recognize as completion is NEVER an invitation to continue.
+            // Fail safe: rest as a generic awaiting-owner pause re-rendered
+            // from this response's truth instead of predicting the next step.
+            setRunningKey(null);
+            setOwnerAction({
+              key: step.key,
+              label: step.label,
+              action: res.action || null,
+              detail,
+            });
+            setNeedsConnection(null);
+            return;
+          }
           lastNeedsRef.current = null;
+          // Authoritative progress past the paused step (§F): only now may an
+          // active pause surface be cleared without explicit owner action.
+          setOwnerAction(null);
+          setNeedsConnection(null);
         }
       } finally {
         loopActiveRef.current = false;
