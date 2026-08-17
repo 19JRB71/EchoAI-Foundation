@@ -1,0 +1,77 @@
+STOP AND INVESTIGATE READ-ONLY.
+
+I performed exactly the authorized action: I clicked Retry on failed Step 6 once.
+
+I did NOT click Skip.
+I did NOT select a Facebook Page.
+I did NOT enter or confirm an ad destination.
+I did NOT authorize a campaign launch.
+
+After the Retry, the expected missing_ad_destination / AdsDestinationCapture
+panel did NOT appear.
+
+Instead, the UI now shows:
+
+- "Creating your first Facebook ad campaign" in a neutral/incomplete state,
+  with the text:
+  "Before I can set up your first ad campaign, choose the Facebook Page your
+  ads will run from and confirm where clicks should go."
+
+- "Setting up your Google Ads campaign" showing "Working on it..."
+
+The screenshot confirms this state.
+
+This appears to have advanced beyond Step 6 instead of parking at the required
+missing_ad_destination owner-action pause.
+
+HARD STOP.
+
+Do NOT write, retry, skip, repair, resume, or alter the specimen.
+
+Perform READ-ONLY investigation and report:
+
+1. Current setup_sessions.status.
+2. Current completed_steps in exact order.
+3. Current authoritative next/current step.
+4. Current step_outcomes, especially create_facebook_campaign.
+5. Whether create_facebook_campaign was marked completed, skipped, paused,
+   failed, or remains unresolved.
+6. Whether setup_google_ads was actually claimed/executed and why the client
+   shows "Working on it..."
+7. Current runner/lease state.
+8. Whether any new agent_tasks rows were created by this Retry.
+9. Whether the historical VALIDATION_FAILED row changed.
+10. Current brands.facebook_page_id.
+11. Current brands.ad_link_url.
+12. Current social_accounts state.
+13. Current campaigns rows for this brand.
+14. Current external_actions rows for this brand.
+15. Current external_proofs rows for this brand.
+16. Whether ANY Meta, Google, or other provider call/object was attempted or
+    created after my Retry.
+17. Exact server response returned by the Step-6 Retry if recoverable from
+    logs/state.
+18. Why AdsDestinationCapture did not render despite the C3
+    missing_ad_destination pause.
+19. Whether this is:
+    (a) server pause-generation failure,
+    (b) client pause-rendering failure,
+    (c) runner incorrectly advancing past an owner-action pause,
+    (d) stale-client/cache issue,
+    or another evidenced cause.
+
+Compare the observed live path directly against the regression that was
+supposed to bind:
+
+missing prerequisites
+→ missing_ad_destination owner-action pause
+→ no spine attempt
+→ no advancement.
+
+Do not propose or implement a fix yet.
+
+Return:
+
+026-C3 LIVE PAUSE FAILURE — READ-ONLY INVESTIGATION REPORT
+
+Then HARD STOP for owner + ChatGPT + Claude ruling.
