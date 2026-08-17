@@ -490,3 +490,96 @@ test("D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl
   row = await db.query("SELECT facebook_page_id FROM brands WHERE brand_id = $1", [brandId]);
   assert.equal(row.rows[0].facebook_page_id, null);
 });
+
+// ---------------------------------------------------------------------------
+// E. 026-C3-PM1 — spine-level regression (Citation 3).
+//
+// Drives the REAL runner (executeNextAction, the same handler the /execute
+// route calls, with the session row exactly as requireSetupConsent attaches
+// it) — NOT the isolated Step-6 run() — and binds at the persistence
+// boundary that the missing_ad_destination pause creates NO agent_tasks
+// spine row (in particular none with status = 'VALIDATION_FAILED'), marks
+// nothing complete, creates no campaign, and reaches no launch path.
+// ---------------------------------------------------------------------------
+
+test("E1: missing ad destination pauses before the spine and creates no VALIDATION_FAILED agent_task (real runner path)", async () => {
+  installLaunchStubs();
+  const { userId } = await createUser();
+  await connectFacebook(userId);
+  // STORE 3 incomplete: no facebook_page_id, no ad_link_url.
+  const brandId = await createBrand(userId);
+
+  // Real setup_sessions row positioned so create_facebook_campaign is the
+  // current runnable action (all prior steps recorded complete).
+  const stepIndex = setupAgent.ACTIONS.findIndex((a) => a.key === "create_facebook_campaign");
+  assert.ok(stepIndex > 0, "create_facebook_campaign must not be the first action");
+  const priorKeys = setupAgent.ACTIONS.slice(0, stepIndex).map((a) => a.key);
+  const inserted = await db.query(
+    `INSERT INTO setup_sessions
+       (user_id, brand_id, status, interview_complete, consent_granted, consent_at, completed_steps)
+     VALUES ($1, $2, 'in_progress', TRUE, TRUE, NOW(), $3::jsonb)
+     RETURNING *`,
+    [userId, brandId, JSON.stringify(priorKeys)],
+  );
+  const sessionRow = inserted.rows[0];
+
+  // Invoke the real handler with a hand-built req/res, exactly as the
+  // /execute route would after requireSetupConsent attached the session row.
+  const result = await new Promise((resolve, reject) => {
+    const req = { user: { userId }, setupSession: sessionRow, body: {} };
+    const res = {
+      statusCode: 200,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        resolve({ status: this.statusCode, body: payload });
+      },
+    };
+    Promise.resolve(setupAgent.executeNextAction(req, res)).catch(reject);
+  });
+
+  // 1–2. The runner reports the owner-action pause with the exact code.
+  assert.equal(result.status, 200);
+  assert.equal(result.body.status, "owner_action_required");
+  assert.equal(result.body.step.key, "create_facebook_campaign");
+  assert.equal(result.body.action.code, "missing_ad_destination");
+  assert.deepEqual(result.body.action.missing, { page: true, destination: true });
+
+  // 3. Step 6 is NOT added to completed_steps (re-read from the DB, not the
+  //    response).
+  const after = await db.query(
+    "SELECT status, completed_steps FROM setup_sessions WHERE session_id = $1",
+    [sessionRow.session_id],
+  );
+  assert.equal(after.rows[0].status, "in_progress");
+  assert.deepEqual(after.rows[0].completed_steps, priorKeys);
+
+  // 4. No campaign row was created.
+  const campaigns = await db.query("SELECT 1 FROM campaigns WHERE brand_id = $1", [brandId]);
+  assert.equal(campaigns.rows.length, 0);
+
+  // 5. DIRECT DB assertion at the spine's persistence boundary: zero
+  //    agent_tasks rows with status = 'VALIDATION_FAILED' attributable to
+  //    this brand/user/run.
+  const validationFailed = await db.query(
+    `SELECT 1 FROM agent_tasks
+      WHERE (brand_id = $1 OR user_id = $2) AND status = 'VALIDATION_FAILED'`,
+    [brandId, userId],
+  );
+  assert.equal(validationFailed.rows.length, 0);
+
+  // 6. Stronger still: NO ad-launch spine attempt of any status was created
+  //    merely because prerequisites were missing.
+  const anySpineRow = await db.query(
+    "SELECT 1 FROM agent_tasks WHERE brand_id = $1 OR user_id = $2",
+    [brandId, userId],
+  );
+  assert.equal(anySpineRow.rows.length, 0);
+
+  // 7. No provider/external path was reached (stubs untouched).
+  assert.equal(launchCalls.length, 0);
+
+  restoreLaunchStubs();
+});
