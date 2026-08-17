@@ -1,0 +1,1040 @@
+PROMPT 026-C3 — STAGE-1 READ-ONLY INVESTIGATION + DESIGN
+
+Title:
+Journey prerequisite capture, owner-action pause, and honest Step-6 classification
+
+Date: 2026-08-16
+
+STATUS:
+
+Prompt 026 H1 is PAUSED.
+
+Current SDS-H1 specimen is preserved at:
+
+create_facebook_campaign / Step 6
+
+DO NOT Retry.
+DO NOT Skip.
+DO NOT finish onboarding.
+DO NOT select the Facebook Page yet.
+DO NOT set ad_link_url yet.
+DO NOT alter database state.
+DO NOT change code.
+DO NOT touch production.
+
+This package establishes:
+
+I-61
+= incorrect failure classification for owner-actionable preconditions
+
+I-62
+= onboarding reaches Facebook campaign creation before soliciting required
+  Page/ad-destination state
+
+Together these form corrective:
+
+026-C3
+
+Claude's architectural direction is accepted as the Stage-1 design hypothesis,
+but Stage 1 must verify it against the actual deployed staging code before any
+implementation is authorized.
+
+THIS PROMPT AUTHORIZES STAGE 1 ONLY.
+
+============================================================
+A. PROVEN CURRENT FAILURE
+============================================================
+
+The current SDS-H1 Step-6 failure is proven:
+
+create_facebook_campaign
+→ campaignController.createCampaign
+→ launchFacebookCampaign
+→ resolveBrandAdDestination
+→ deliberate pre-provider validation failure.
+
+Durable evidence:
+
+agent_tasks:
+task_type = ad_launch
+status = VALIDATION_FAILED
+attempt = 1
+
+Guard message:
+
+"This brand has no Facebook Page selected for ads. Pick a Page for this brand
+in the Facebook Setup Wizard, then try again."
+
+Current brand state:
+
+facebook_page_id = NULL
+ad_link_url = NULL
+
+Facebook credentials/connection are present and healthy.
+
+No provider attempt occurred.
+
+No Facebook campaign/object was created.
+
+external_actions = 0
+external_proofs = 0
+
+The launch guard worked correctly.
+
+DO NOT weaken that guard.
+
+============================================================
+B. CURRENT JOURNEY GAP
+============================================================
+
+Read-only investigation already established:
+
+FACEBOOK PAGE SELECTION
+
+Only current real product writer:
+
+FacebookWizard
+→ POST /api/facebook/select-page
+→ brands.facebook_page_id
+
+AD DESTINATION LINK
+
+Only current real product editor:
+
+Sage
+→ Business Links
+→ ad_link_url
+
+But while onboardingCompleted = false:
+
+GuidedSetupWizard owns the experience.
+
+The owner cannot reach:
+
+- AI Team;
+- FacebookWizard triggers;
+- Sage;
+- Business Links.
+
+Guided ConnectionsStep performs Facebook OAuth only.
+
+It does not collect Page selection.
+
+The optional website/social links panel does not write either:
+
+facebook_page_id
+or
+ad_link_url.
+
+Therefore the journey can reach create_facebook_campaign while both required
+values are absent and unreachable.
+
+This is the core I-62 finding.
+
+============================================================
+C. DESIGN DIRECTION TO VERIFY
+============================================================
+
+Stage 1 must investigate and either CONFIRM or REFUTE this bounded C3 design:
+
+C3-1 — CAPTURE AT THE RIGHT MOMENT
+
+After successful Facebook OAuth inside guided onboarding:
+
+present inline capture for:
+
+1. explicit Facebook Page selection;
+2. ad destination link.
+
+Reuse EXISTING write paths.
+
+Page:
+
+reuse POST /api/facebook/select-page.
+
+Do NOT create a second writer.
+
+Ad destination:
+
+reuse the existing ad_link_url update path or the same authoritative server
+operation underlying Sage Business Links.
+
+Do NOT create a parallel ad-destination store.
+
+Rules:
+
+- explicit Page selection always;
+- no first-page automatic binding;
+- if exactly one Page exists, UI may preselect it for convenience but owner
+  must explicitly confirm;
+- ad destination may be suggested from an already-captured website_url;
+- suggestion is NOT authorization;
+- owner must explicitly confirm/save it;
+- no silent website→ad_link_url copy.
+
+------------------------------------------------------------
+C3-2 — PAUSE, DO NOT FAIL
+------------------------------------------------------------
+
+Before create_facebook_campaign runs:
+
+preflight required configuration.
+
+If either is absent:
+
+facebook_page_id
+or
+ad_link_url
+
+the setup step must PAUSE as:
+
+owner_action_required
+
+rather than running into VALIDATION_FAILED.
+
+Reuse existing C1/C2 pause/reconciliation machinery.
+
+Do NOT invent another setup state machine if the current one can represent it.
+
+The inline pause state should expose the same shared Page/destination capture
+component used after OAuth.
+
+Once both required values exist:
+
+authoritative server state is reread
+→ campaign step becomes runnable.
+
+The existing resolveBrandAdDestination guard remains intact as
+defense-in-depth.
+
+It must still reject invalid callers outside the happy guided journey.
+
+------------------------------------------------------------
+C3-3 — HONEST FAILURE CLASSIFICATION
+------------------------------------------------------------
+
+I-61 is included in C3.
+
+Current defect:
+
+classifyStepError uses broad statusCode inference.
+
+A deliberate owner-actionable 503 therefore becomes:
+
+provider_unavailable
+
+with UI copy:
+
+"The AI service was temporarily unavailable..."
+
+That is false for this failure.
+
+Investigate a distinguishable precondition marker/class.
+
+Desired contract:
+
+owner-action/configuration precondition
+→ marker-first classification
+→ owner_action_required
+→ owner-safe actionable message
+
+before status-code fallback.
+
+The guard's current message appears owner-safe, but Stage 1 must verify whether
+it can be surfaced directly or whether a bounded template should wrap it.
+
+Do NOT expose unsafe internal exception text generally.
+
+============================================================
+D. SHARED CAPTURE COMPONENT
+============================================================
+
+Stage 1 must design ONE shared logical capture component/contract used in TWO
+hosts:
+
+HOST 1:
+guided ConnectionsStep after Facebook OAuth
+
+HOST 2:
+owner_action_required pause at create_facebook_campaign
+
+Do not build two independently behaving forms.
+
+Determine:
+
+- data inputs;
+- selected Page model;
+- ad destination model;
+- validation;
+- save order;
+- loading states;
+- error states;
+- success/continue behavior;
+- server reread after save;
+- accessibility/mobile considerations if relevant;
+- whether component belongs inside existing guided component tree or a new
+  narrowly scoped shared onboarding component.
+
+The shared component must call EXISTING authoritative server writers.
+
+No direct DB writes.
+
+============================================================
+E. THREE-STORE CONTRACT — DOCUMENT EXPLICITLY
+============================================================
+
+This repeated defect pattern exists partly because separate stores answer
+different questions.
+
+Stage 1 must produce a written authority map for:
+
+STORE 1 — CREDENTIAL AUTHORITY
+
+api_integrations
+
+Answers:
+Does this user have provider credentials/access?
+
+STORE 2 — SOCIAL/PUBLISHING BRAND BINDING
+
+social_accounts
+
+Answers:
+Which social account/Page is bound to this brand for social publishing?
+
+STORE 3 — ADS DESTINATION
+
+brands.facebook_page_id
+plus
+brands.ad_link_url
+
+Answers:
+Which Page and destination URL should this brand's ads use?
+
+Do NOT merge these stores merely because they all involve Facebook.
+
+Stage 1 must enumerate:
+
+- writers;
+- readers;
+- ownership scope;
+- brand/user keying;
+- how each becomes populated;
+- whether Page selection currently writes both social_accounts and
+  facebook_page_id or only one;
+- whether C3 must coordinate both, or only ads destination state;
+- any multi-brand collision risk.
+
+If Claude's assumed three-store distinction is wrong in code:
+
+STOP AND REPORT.
+
+============================================================
+F. EXPLICIT PAGE SELECTION INVARIANT
+============================================================
+
+Preserve:
+
+NO SILENT AUTO-SELECTION.
+
+Even if exactly one granted Facebook Page exists:
+
+allowed:
+preselect visibly
+→ owner confirms
+
+not allowed:
+server/client silently binds it.
+
+With multiple Pages:
+
+owner must choose.
+
+No first-in-list fallback.
+
+No guessed historical backfill.
+
+No Page inferred from business name.
+
+No Page copied from another brand.
+
+Multi-brand semantics must remain safe.
+
+============================================================
+G. AD DESTINATION CONTRACT
+============================================================
+
+Stage 1 must determine exactly how ad_link_url should behave.
+
+Questions to answer:
+
+1. What currently consumes ad_link_url?
+
+2. Is it strictly required for every Facebook campaign path?
+
+3. Is website_url semantically suitable as a suggested default?
+
+4. Should:
+
+website_url exists
+→ UI prefill suggestion
+→ owner explicitly confirms
+
+be the accepted contract?
+
+5. What happens when no website exists?
+
+6. May owner type another destination URL?
+
+7. What URL validation/normalization already exists?
+
+8. Does Sage Business Links use an authoritative route/function we can reuse?
+
+9. Is ad_link_url brand-scoped and multi-brand safe?
+
+10. Does changing ad_link_url invalidate any already-created draft/campaign
+    assumptions?
+
+No silent copy.
+
+============================================================
+H. STEP-6 PRECONDITION ORDERING
+============================================================
+
+Stage 1 must map the exact execution order around Step 6.
+
+Determine:
+
+- when Facebook OAuth occurs;
+- when Page data becomes available;
+- when ConnectionsStep ends;
+- when ad creative Step 5 completes;
+- when create_facebook_campaign becomes next runnable;
+- where the new configuration preflight belongs;
+- whether preflight should happen:
+  a. before Step 6 becomes runnable;
+  b. at entry to Step 6;
+  c. both.
+
+Preferred architecture:
+
+journey-level preflight prevents the predictable failure;
+
+guard remains defense-in-depth.
+
+Do not remove resolveBrandAdDestination.
+
+============================================================
+I. OWNER_ACTION_REQUIRED PAUSE CONTRACT
+============================================================
+
+Reuse the accepted setup pause mechanisms if possible.
+
+Stage 1 must define exact server/client contract.
+
+At minimum:
+
+status/type:
+owner_action_required
+
+reason/code:
+missing_ad_destination
+or equivalent bounded classification
+
+missing fields:
+page
+destination
+as safe structured flags where appropriate
+
+session:
+authoritative serialized state
+
+owner UI:
+shared capture surface
+
+Retry button:
+must NOT be offered as a pointless action while prerequisites are missing.
+
+After configuration succeeds:
+
+server reread
+→ prerequisites satisfied
+→ setup proceeds normally.
+
+Determine whether explicit "Continue" is required after capture or whether save
+can legitimately resume automatically.
+
+Bias:
+
+one clear owner action should authorize/save the configuration;
+do not create surprising auto-launch behavior.
+
+The campaign step itself must still respect all existing C1/R6 authorization
+boundaries before any provider objects are created.
+
+============================================================
+J. I-61 CLASSIFICATION CONTRACT
+============================================================
+
+Stage 1 must inspect all current classifyStepError paths and propose the
+narrowest marker-first design.
+
+Possible shape:
+
+throw/precondition carries:
+
+code / kind / ownerActionRequired / safeMessage
+
+classifyStepError first checks explicit marker
+
+THEN falls back to statusCode classes.
+
+Do NOT broadly trust arbitrary thrown error.message as browser-safe.
+
+Only specifically designated owner-safe precondition messages may pass through.
+
+Prove how owner-safe designation is established.
+
+Regression must prevent:
+
+owner_action_required
+→ provider_unavailable
+
+for this exact case.
+
+Also ensure genuine Anthropic/provider 503 behavior still maps correctly.
+
+============================================================
+K. RED-HERRING PANEL
+============================================================
+
+The existing:
+
+"Add your website & social links (optional)"
+
+panel visually suggests it might solve this problem but does not write:
+
+facebook_page_id
+or
+ad_link_url.
+
+Stage 1 must decide its C3 disposition.
+
+Allowed:
+
+a trivial copy clarification if clearly necessary and within the same changed
+surface, for example clarifying that those are public business/social links,
+not ad account/Page selection.
+
+NOT automatically authorized:
+
+rewriting the panel;
+making it a second ads-configuration surface;
+changing its data model.
+
+If meaningful redesign is needed:
+
+file it separately.
+
+Do not expand C3.
+
+============================================================
+L. STORE-POPULATION VS JOURNEY-SOLICITATION PATTERN
+============================================================
+
+Record the now-confirmed pattern:
+
+STORE-POPULATION VS JOURNEY-SOLICITATION GAP
+
+Instances:
+
+1. social_accounts:
+   downstream required brand social binding;
+   connect flow populated credentials but journey did not complete binding.
+
+2. I-50:
+   website/social anchors consumed downstream but engine-mode onboarding did
+   not solicit them.
+
+3. I-62:
+   Facebook campaign consumed ads Page/destination state but journey did not
+   solicit it before Step 6.
+
+This pattern is NOT itself authorization for broad redesign.
+
+But Stage 1 must record this binding requirement for Prompt 027:
+
+FOR EVERY STORE/FIELD CONSUMED BY THE GOLDEN PATH,
+THE SCRIPT/DESIGN MUST ASSERT THAT A PRIOR REACHABLE JOURNEY STEP SOLICITS OR
+ESTABLISHES IT.
+
+Do not implement Prompt 027 now.
+
+============================================================
+M. SPECIMEN DISPOSITION
+============================================================
+
+Current provisional ruling:
+
+RESUME CURRENT SDS-H1 SPECIMEN AFTER C3.
+
+Do not restart unless Stage 1 finds a reason evidence integrity requires it.
+
+Why resume is currently preferred:
+
+- Step 6 failed pre-provider;
+- no campaign artifact exists;
+- no provider object exists;
+- current configuration gap is exactly what C3 fixes;
+- specimen becomes the natural live proof of the new pause behavior.
+
+Expected post-C3 live sequence:
+
+current Step 6 specimen
+→ setup reads missing prerequisites
+→ displays owner_action_required inline capture
+→ owner selects Page
+→ owner confirms destination
+→ server state verified
+→ Step 6 becomes runnable
+→ one owner-authorized campaign attempt under existing R6 rules.
+
+H1 report must segment:
+
+PRE-C2
+→ C2 boundary
+→ POST-C2
+→ C3 blocker
+→ POST-C3 resumed journey.
+
+Do not erase the friction.
+
+============================================================
+N. EXISTING SAFETY RULES REMAIN BINDING
+============================================================
+
+C3 does NOT authorize any ad launch.
+
+C3 Stage 1 is read-only.
+
+For eventual live H1 Step 6:
+
+existing D-43 / R6 remains load-bearing:
+
+- at most one PAUSED/$0 owner-driven ad chain per environment;
+- no automatic retry;
+- no second owner click;
+- no retry after ambiguous provider acknowledgment;
+- any ambiguity = STOP;
+- authoritative provider/evidence inspection before further action.
+
+C3 must not weaken:
+
+- C1 artifact-bound consent;
+- external ledger semantics;
+- executeExternal;
+- provider readback;
+- PAUSED/$0 enforcement;
+- TEST/KEEP remains H1 runbook state.
+
+============================================================
+O. ZERO DDL EXPECTATION
+============================================================
+
+Expected:
+
+NO schema
+NO migration
+
+Required fields/stores already exist.
+
+If Stage 1 discovers schema/DDL is genuinely required:
+
+STOP AND REPORT.
+
+Do not design a migration.
+
+============================================================
+P. STAGE-1 D-37 BASELINE
+============================================================
+
+Use fresh authoritative staging clone.
+
+Do not use stale workspace.
+
+Report:
+
+- exact staging SHA;
+- server test baseline;
+- client test baseline;
+- client production-build baseline;
+- current service-worker version;
+- schema_migrations count;
+- current relevant accepted C1/C2 suites.
+
+Reverify authoritative HEAD before final Stage-1 accounting.
+
+============================================================
+Q. REQUIRED FILE-SURFACE FORECAST
+============================================================
+
+Stage 1 must forecast the smallest realistic Stage-2 file surface.
+
+Likely areas to investigate:
+
+- Guided ConnectionsStep;
+- shared Page/destination capture component;
+- SetupAgent pause rendering;
+- setupAgentController classification/preflight;
+- existing FacebookWizard/select-page integration;
+- existing Sage Business Links update client/API;
+- tests;
+- SW mechanical bump because client changes.
+
+Do NOT assume every inspected file must change.
+
+Return exact proposed:
+
+- hand-edited production files;
+- hand-edited test files;
+- mechanical SW;
+- mechanical dist output;
+- expected additions/deletions.
+
+Canonical ceiling rule:
+
+File ceilings count HAND-EDITED source and test files only.
+
+Mandatory mechanical accompaniments:
+- SW cache-version file;
+- committed client/dist build output
+
+are excluded from ceilings but must be enumerated.
+
+============================================================
+R. DIFF BOUND
+============================================================
+
+Propose a realistic padded Stage-2 bound.
+
+Do not reuse an arbitrary prior number.
+
+Standing rule:
+
+If Stage-2 implementation evidence indicates the padded hand-edited diff bound
+will be exceeded by >25%:
+
+STOP AND REPORT BEFORE writing further.
+
+============================================================
+S. REQUIRED REGRESSION PLAN
+============================================================
+
+Stage 1 must return a named regression matrix including at minimum:
+
+C3-R1
+Guided post-OAuth flow presents ads Page/destination capture.
+
+C3-R2
+Multiple granted Pages:
+no first-in-list binding;
+owner must explicitly select.
+
+C3-R3
+Exactly one granted Page:
+may preselect visually but no write until owner confirm.
+
+C3-R4
+Explicit Page confirm calls existing select-page writer.
+
+C3-R5
+No duplicate/parallel facebook_page_id writer introduced.
+
+C3-R6
+Existing social_accounts authority remains unchanged.
+
+C3-R7
+website_url prefill:
+suggested only;
+ad_link_url remains unchanged until explicit owner save/confirm.
+
+C3-R8
+Custom destination URL can be explicitly entered and validated.
+
+C3-R9
+Missing Page at Step 6:
+owner_action_required pause;
+NO campaign execution.
+
+C3-R10
+Missing destination at Step 6:
+owner_action_required pause;
+NO campaign execution.
+
+C3-R11
+Both missing:
+single shared configuration pause;
+not multiple confusing failures.
+
+C3-R12
+After configuration:
+authoritative server reread confirms prerequisites.
+
+C3-R13
+Step proceeds only after prerequisites exist.
+
+C3-R14
+resolveBrandAdDestination guard remains intact and still rejects direct unsafe
+caller.
+
+C3-R15
+Guard/precondition marked owner-actionable.
+
+C3-R16
+classifyStepError marker-first maps to owner_action_required.
+
+C3-R17
+owner-actionable precondition never renders AI/provider-unavailable copy.
+
+C3-R18
+genuine provider billing/unavailability C2 cases still classify correctly.
+
+C3-R19
+Retry button absent/disabled while prerequisite configuration is incomplete.
+
+C3-R20
+C2 durable server-state/reconciliation behavior remains green.
+
+C3-R21
+C2 409 bounded reconciliation remains green.
+
+C3-R22
+C2 raw-provider-text protections remain green.
+
+C3-R23
+C1 artifact-bound consent remains green.
+
+C3-R24
+C1 explicit Page binding/multi-brand behavior remains green.
+
+C3-R25
+No campaign/provider object created merely by completing Page/destination
+capture.
+
+C3-R26
+Eventual campaign path still requires existing owner authorization before
+provider launch.
+
+C3-R27
+Current frozen SDS state can resume into the new owner_action_required pause
+without fabrication/mutation.
+
+C3-R28
+Reload/remount while paused restores the same missing-prerequisite surface.
+
+C3-R29
+Completion of config clears the pause only after server truth confirms both
+values.
+
+C3-R30
+No silent website→ad_link_url write.
+
+Add any regressions Stage 1 proves necessary.
+
+============================================================
+T. LIVE VERIFICATION PLAN
+============================================================
+
+Stage 1 must propose exact Stage-2 live proof after implementation.
+
+Expected shape:
+
+1. merge to staging only after review;
+2. verify live SHA;
+3. schema_migrations unchanged;
+4. verify new client/SW served;
+5. resume CURRENT SDS specimen;
+6. Step 6 must show owner_action_required capture rather than AI failure;
+7. owner explicitly selects South Dixie Facebook Page;
+8. owner explicitly confirms/enters South Dixie ad destination;
+9. read-only verify:
+   facebook_page_id
+   ad_link_url
+   relevant brand/social binding state;
+10. verify no provider/campaign artifact created by configuration alone;
+11. verify Step 6 now becomes runnable;
+12. STOP before campaign launch unless separate H1 R6 authorization already
+    governs the next owner click;
+13. eventual one campaign attempt:
+    PAUSED/$0
+    single attempt
+    ledgered
+    provider readback
+    ambiguous result = STOP.
+
+C3 live verification must distinguish:
+
+configuration success
+
+from:
+
+campaign-launch authorization.
+
+Do not combine them into one automatic action.
+
+============================================================
+U. I-61 + I-62 ISSUE DISPOSITION
+============================================================
+
+Stage 1 recommendation should address:
+
+I-61:
+classification honesty
+
+I-62:
+journey missing prerequisite solicitation
+
+Expected:
+
+both resolved by one coherent C3 corrective.
+
+But do not force that conclusion if the code proves they require unrelated
+changes.
+
+============================================================
+V. NON-SCOPE
+============================================================
+
+Do NOT implement or pull in:
+
+I-50
+I-52
+I-53 beyond already accepted C2 behavior
+I-54
+I-55
+I-56
+I-60
+Prompt 027
+BLACOR-H1
+H2
+production
+
+Do NOT:
+
+rewrite Facebook OAuth;
+rewrite FacebookWizard;
+merge the three stores;
+add auto-binding;
+add guessed defaults;
+rewrite Sage generally;
+rewrite campaign architecture;
+rewrite executeExternal;
+rewrite C1/C2;
+add TEST/KEEP product state.
+
+============================================================
+W. STAGE-1 STOP CONDITIONS
+============================================================
+
+STOP AND REPORT if investigation finds:
+
+- DDL/schema required;
+- select-page is not actually the sole authoritative page writer;
+- ad_link_url cannot be safely reused from existing architecture;
+- shared component requires a new parallel data store;
+- Page selection cannot be made explicit pre-onboarding completion;
+- C2 pause machinery cannot represent owner_action_required safely;
+- campaign execution cannot be separated from configuration completion;
+- fixing classification requires exposing unsafe raw error text;
+- C1 authorization semantics must change;
+- executeExternal semantics must change;
+- social_accounts / facebook_page_id authority assumptions are wrong;
+- frozen SDS specimen would require manual DB mutation;
+- production access/write required;
+- another accepted subsystem must be reopened.
+
+Do not improvise around a STOP.
+
+============================================================
+X. REQUIRED STAGE-1 REPORT
+============================================================
+
+Return ONE document:
+
+026-C3 — STAGE-1 READ-ONLY DESIGN REPORT
+
+with sections answering:
+
+1. D-37 baseline.
+2. Current Step-6 execution path.
+3. Current Page-selection write path.
+4. Current ad_link_url write path.
+5. Three-store authority map.
+6. Multi-brand implications.
+7. ConnectionsStep current post-OAuth path.
+8. FacebookWizard reuse design.
+9. ad_link_url reuse design.
+10. Shared capture-component design.
+11. One-Page vs multi-Page behavior.
+12. Website suggestion/confirmation contract.
+13. Step-6 prerequisite preflight placement.
+14. owner_action_required pause server contract.
+15. owner_action_required client contract.
+16. resume/reload behavior.
+17. classification marker design.
+18. safe-message design.
+19. guard defense-in-depth preservation.
+20. exact red-herring-panel disposition.
+21. C1 preservation analysis.
+22. C2 preservation analysis.
+23. exact changed-file forecast.
+24. exact padded diff proposal.
+25. C3-R1 through C3-R30 regression matrix.
+26. additional regressions if needed.
+27. schema/migration statement.
+28. frozen SDS resume analysis.
+29. live-verification procedure.
+30. I-61/I-62 disposition recommendation.
+31. store-population-vs-journey-solicitation pattern record for 027.
+32. all deviations/findings.
+33. all STOP conditions.
+34. exact Stage-2 boundary recommended.
+
+Then STOP.
+
+============================================================
+Y. HARD STOP
+============================================================
+
+THIS IS STAGE 1 ONLY.
+
+DO NOT:
+
+- implement;
+- edit source;
+- edit tests;
+- create a PR for implementation;
+- merge;
+- deploy;
+- change DB state;
+- select Facebook Page;
+- set ad_link_url;
+- Retry Step 6;
+- Skip Step 6;
+- resume SDS-H1;
+- start BLACOR-H1;
+- start H2;
+- start Prompt 027;
+- touch production.
+
+Return the full Stage-1 report to owner + ChatGPT + Claude for review.
+
+============================================================
+FINAL AUTHORIZATION
+============================================================
+
+PROMPT 026-C3 STAGE 1 IS AUTHORIZED.
+
+READ-ONLY INVESTIGATION AND DESIGN ONLY.
+
+BEGIN 026-C3 STAGE 1.
