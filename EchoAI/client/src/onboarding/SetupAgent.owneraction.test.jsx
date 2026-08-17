@@ -412,3 +412,93 @@ describe("026-C3-PM2 unknown statuses rest safely (R15 integration)", () => {
     expect(screen.queryAllByLabelText("done")).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 026-C3-PM2 CITATION 3 — composed lifecycle: owner-action pause → legitimate
+// owner re-entry → REAL C2-style durable failure on the next execute.
+//
+// Binds, in one continuous run against actual runLoop/adoption behavior:
+//   a. the pause existed first (capture panel visibly rendered);
+//   b. the later execution failed durably (502 + C2 outcome body);
+//   c. the pause UI disappeared/was replaced — never left stale;
+//   d. the durable failed panel rendered with the safe owner message;
+//   e. the authoritative failed outcome (from the failure body's serialized
+//      session) was adopted — the step rail shows failed, not awaiting-owner;
+// and that no blank intermediate terminal state is accepted: the terminal
+// render IS the failed panel with its Retry per the durable-failure contract,
+// while the later step never shows "Working on it…".
+// ---------------------------------------------------------------------------
+describe("026-C3-PM2 Citation 3 — pause → owner re-entry → durable failure composition", () => {
+  test("an active capture pause is REPLACED by the durable failed panel when the re-entered step fails durably — no stale pause, no lost failure, no blank state", async () => {
+    const failedBody = {
+      error:
+        "The AI service was temporarily unavailable while running this step. Your progress is saved — you can retry now.",
+      failedStep: STEP,
+      outcome: {
+        status: "failed",
+        code: "provider_unavailable",
+        retryable: true,
+        ref: "ref-77",
+        at: "2026-08-17T00:00:00Z",
+      },
+      session: {
+        ...TWO_STEP_SESSION,
+        stepOutcomes: {
+          create_facebook_campaign: {
+            status: "failed",
+            code: "provider_unavailable",
+            retryable: true,
+            ref: "ref-77",
+            message: "x",
+          },
+        },
+      },
+    };
+
+    api.startSetupSession.mockResolvedValue({ session: TWO_STEP_SESSION });
+    api.runSetupAction
+      // (a) authoritative pause first.
+      .mockResolvedValueOnce(missingDestinationPause())
+      // (b) the owner-triggered re-entry then fails durably (real C2 shape).
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Request failed"), { status: 502, data: failedBody }),
+      );
+
+    render(<SetupAgent onClose={vi.fn()} />);
+
+    // (a) The pause panel is visibly present before anything else happens.
+    expect(await screen.findByTestId("owner-action-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("capture-stub")).toBeInTheDocument();
+    expect(screen.queryByTestId("failed-step-panel")).not.toBeInTheDocument();
+
+    // (c) Legitimate owner action: the capture reports configured, which
+    // re-enters the loop and re-executes the step — which now fails durably.
+    fireEvent.click(screen.getByText("stub-configured"));
+
+    // (d) The durable failed panel renders with the safe owner message and
+    // the C2 reference line.
+    const failedPanel = await screen.findByTestId("failed-step-panel");
+    expect(failedPanel.textContent).toMatch(
+      /The AI service was temporarily unavailable while running this step/,
+    );
+    expect(screen.getByText(/Reference: ref-77/)).toBeInTheDocument();
+    // Retry appears exactly per the durable-failure contract (retryable).
+    expect(screen.getByTestId("failed-step-retry")).toBeInTheDocument();
+
+    // (c) The old pause did NOT remain stale — replaced, not co-rendered.
+    expect(screen.queryByTestId("owner-action-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("capture-stub")).not.toBeInTheDocument();
+
+    // (e) The authoritative failed outcome was adopted: the step rail shows
+    // the failed state, not a lingering awaiting-owner record, and the later
+    // step is not predicted as running or done.
+    expect(screen.getAllByLabelText("failed").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Working on it…")).not.toBeInTheDocument();
+    expect(screen.queryAllByLabelText("done")).toHaveLength(0);
+
+    // No blank intermediate terminal state was accepted: exactly the two
+    // executes happened (pause, then the failed re-entry) and the terminal
+    // render is the failed panel above.
+    expect(api.runSetupAction).toHaveBeenCalledTimes(2);
+  });
+});
