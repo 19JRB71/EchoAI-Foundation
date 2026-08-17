@@ -11,6 +11,7 @@ import { CONNECTION_CATALOG } from "./connectionCatalog.jsx";
 import { translateConnectionError, errorCopyForKey } from "./connectionErrors.js";
 import PreviewPanel from "./PreviewPanel.jsx";
 import HelpMeRescue from "./HelpMeRescue.jsx";
+import AdsDestinationCapture from "./AdsDestinationCapture.jsx";
 
 // Milestone framing (Customer Experience Constitution): each connection is
 // presented as unlocking an ability, not filling out a form.
@@ -143,19 +144,32 @@ export default function ConnectionsStep({
               ? errorCopyForKey(connection.key, flag.errorKey)
               : null);
           return (
-            <ConnectionCard
-              key={connection.key}
-              connection={connection}
-              status={status}
-              flag={flag}
-              error={error}
-              ready={readiness ? readiness[connection.key] !== false : undefined}
-              verified={verification ? verification[connection.key] !== false : undefined}
-              busy={busyKey === connection.key}
-              onConnect={() => openPreview(connection)}
-              onSkip={() => skip(connection)}
-              onHelp={() => setHelpFor(connection.key)}
-            />
+            <div key={connection.key}>
+              <ConnectionCard
+                connection={connection}
+                status={status}
+                flag={flag}
+                error={error}
+                ready={readiness ? readiness[connection.key] !== false : undefined}
+                verified={verification ? verification[connection.key] !== false : undefined}
+                busy={busyKey === connection.key}
+                onConnect={() => openPreview(connection)}
+                onSkip={() => skip(connection)}
+                onHelp={() => setHelpFor(connection.key)}
+              />
+              {/* 026-C3 (I-62) HOST 1: whenever Facebook is connected, surface
+                  the shared ads-destination capture right here — first
+                  connect, OAuth return, refresh, or remount all converge to
+                  it (the component reads server truth itself and shows an
+                  honest "already set up" line once STORE 3 is complete).
+                  Never mounts FacebookWizard. */}
+              {connection.key === "facebook" && status === "connected" ? (
+                <AdsDestinationCapture
+                  compact
+                  onReconnectFacebook={() => openPreview(connection)}
+                />
+              ) : null}
+            </div>
           );
         })}
 
