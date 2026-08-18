@@ -166,6 +166,12 @@ export default function AdsDestinationCapture({
         setLinkError(err.message || "That web address couldn't be saved. Check it and try again.");
       }
       // Authoritative reread — success is only ever declared from server truth.
+      // 026-C3-PM4: GET /api/brands/:brandId returns a FLAT brand row (no
+      // { brand } wrapper) that now includes facebook_page_id and ad_link_url;
+      // shape bound by the real-contract regression in
+      // test/brandProfileContract.test.js. The server may return a NORMALIZED
+      // destination (e.g. "southdixiestorage.com" → "https://southdixiestorage.com/");
+      // normalized truth counts as success — never compare against raw input.
       const brandRes = await api.getBrand(brandId).catch(() => null);
       const brand = brandRes && (brandRes.brand || brandRes);
       const truthPage = brand && brand.facebook_page_id ? brand.facebook_page_id : null;

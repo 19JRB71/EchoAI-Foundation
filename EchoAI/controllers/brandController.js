@@ -98,7 +98,8 @@ async function getBrandProfile(req, res) {
       `SELECT brand_id, user_id, brand_name, brand_personality, voice_description,
               visual_style_preferences, target_audience, brand_type,
               website_url, facebook_page_url, instagram_url, linkedin_url,
-              youtube_url, tiktok_url, google_business_url, created_at, updated_at
+              youtube_url, tiktok_url, google_business_url,
+              facebook_page_id, ad_link_url, created_at, updated_at
        FROM brands
        WHERE brand_id = $1 AND user_id = $2`,
       [brandId, userId]
