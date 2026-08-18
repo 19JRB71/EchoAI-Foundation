@@ -1,0 +1,476 @@
+026-C3-PM5 — APPROVED MERGE + DEPLOY + LIVE TRUTH RE-PROOF
+PINNED MERGE AUTHORIZATION — HARD STOP AFTER META READBACK
+
+Claude and ChatGPT have completed the PM5 pre-merge review.
+
+FINAL DECISION:
+A. MERGE APPROVED
+
+PR:
+#59
+[DO NOT MERGE] 026-C3-PM5 — post-launch honesty corrective
+
+Approved head:
+45851e7d…
+
+Base:
+staging
+
+This authorization is for:
+
+1. pinned-SHA merge to STAGING ONLY;
+2. deployment verification;
+3. same-specimen PM5 truth re-proof;
+4. READ-ONLY interrogation of the TWO EXISTING Meta object IDs;
+5. HARD STOP.
+
+NO SECOND FACEBOOK LAUNCH IS AUTHORIZED.
+
+NO RETRY.
+NO SKIP.
+NO NEW CAMPAIGN.
+NO NEW AD SET.
+NO NEW CREATIVE.
+NO NEW AD.
+NO PROVIDER EDIT.
+NO PROVIDER DELETE.
+NO PROVIDER ACTIVATION.
+NO CLEANUP.
+NO PROMPT 031 IMPLEMENTATION.
+NO SOCIAL ADVANCE.
+NO PRODUCTION.
+
+==================================================
+1. PRE-MERGE PIN CHECK
+==================================================
+
+Immediately before merge:
+
+- retrieve PR #59 current head;
+- verify it is exactly the approved PM5 head;
+- report the FULL SHA.
+
+Approved short head:
+
+45851e7d…
+
+If the head has moved from the reviewed commit:
+
+STOP AND REPORT.
+
+Do not merge a moved head.
+
+==================================================
+2. MERGE
+==================================================
+
+Merge PR #59 into staging ONLY using the pinned reviewed SHA.
+
+Record:
+
+- full approved PR head SHA;
+- merge SHA;
+- merge timestamp;
+- staging branch result.
+
+Production/main must remain untouched.
+
+==================================================
+3. DEPLOYMENT VERIFICATION
+==================================================
+
+Wait for staging deployment convergence.
+
+Verify and report:
+
+A. /api/health
+- environment = staging
+- version = exact merge SHA
+
+B. schema_migrations
+- count remains 148
+- no migration ran
+
+C. service worker
+- served SW = echoai-shell-v179
+
+D. served client bundle
+Expected PM5 bundle:
+
+index-DQWXutlv.js
+
+Verify the served index references the committed PM5 bundle.
+
+If deployment does not correspond exactly to the merged PM5 artifact:
+
+STOP AND REPORT.
+
+==================================================
+4. PRE-SPECIMEN READ-ONLY BASELINE
+==================================================
+
+Before opening/resuming the specimen, perform READ-ONLY checks.
+
+Use the SAME SDS specimen.
+
+Confirm the existing ugly launch evidence is still intact.
+
+At minimum record:
+
+SESSION
+- current status
+- executing
+- executing token/lease
+- completed_steps
+- step_outcomes
+
+CAMPAIGN
+- existing local campaign row
+- status
+- all persisted Meta IDs
+- created/updated timestamps
+
+AGENT TASK
+- ad_launch task
+- MANUAL_REVIEW state
+- reference/correlation evidence
+- proof linkage if any
+
+EXTERNAL ACTION
+- existing facebook/ad_launch attempt
+- status failed
+- terminal classification
+- idempotency key
+
+EXTERNAL PROOFS
+- current baseline rows
+
+STORE 2
+- social_accounts baseline
+
+PROVIDER COUNTS / LOCAL COUNTS
+- campaign count
+- no new attempt since the original launch
+
+This phase is READ ONLY.
+
+Do not correct completed_steps manually.
+
+PM5 itself must perform the reconciliation.
+
+==================================================
+5. SAME-SPECIMEN RESUME
+==================================================
+
+Resume/open the SAME SDS Setup Agent session.
+
+Do not perform any owner action beyond opening/resuming it.
+
+PM5 must reconcile the state itself.
+
+Expected behavior:
+
+1. completed_steps currently contains the false
+   create_facebook_campaign completion.
+
+2. PM5 reconciliation recognizes that authoritative launch evidence contradicts that operational marker.
+
+3. It removes/corrects ONLY the erroneous
+   create_facebook_campaign completion.
+
+4. It preserves legitimate sibling state, including the already-resolved setup_google_ads state.
+
+5. It records the truthful failed/manual-review outcome with correlation/reference evidence.
+
+6. The runner re-derives Step 6.
+
+7. The recognizer sees:
+   - launch_failed campaign;
+   - partial provider chain;
+   - MANUAL_REVIEW;
+   - failed terminal ledger evidence.
+
+8. The UI renders a truthful provider/manual-review failure state.
+
+It MUST NOT say:
+
+"Your first ad campaign is already set up."
+
+It MUST NOT say:
+
+"AI service was temporarily unavailable"
+
+unless a newly classified AI failure actually occurred, which should NOT occur during this read-only reconciliation.
+
+It MUST NOT show an immediate Retry affordance for the terminal provider/manual-review state.
+
+It MUST NOT automatically execute.
+
+It MUST NOT create anything.
+
+==================================================
+6. IMMEDIATE POST-RESUME READ-ONLY VERIFICATION
+==================================================
+
+After the truthful panel appears, run read-only verification.
+
+Confirm:
+
+- create_facebook_campaign is no longer falsely present as completed;
+- setup_google_ads and unrelated legitimate sibling state are preserved;
+- truthful provider_manual_review / equivalent failed outcome exists;
+- correction carries its correlation/reference;
+- correction occurred exactly once;
+- campaign row preserved;
+- existing Meta IDs preserved;
+- external action preserved;
+- task preserved;
+- historical proofs preserved;
+- Store 2 unchanged;
+- no new campaign row;
+- no new external action;
+- no provider write;
+- no automatic execution;
+- no second launch attempt.
+
+Then perform one remount/reload persistence probe.
+
+Expected:
+
+- same truthful failed/manual-review state returns;
+- correction is NOT repeated;
+- no mount loop;
+- no provider call;
+- no Retry;
+- no false green completion;
+- no AI-outage claim.
+
+Run another read-only verification after remount to prove reconciliation idempotency.
+
+==================================================
+7. READ-ONLY META INTERROGATION — EXISTING IDS ONLY
+==================================================
+
+Only after PM5 truth reconciliation is proven:
+
+Use the EXISTING authorized Graph READ paths to interrogate the two provider IDs already created by attempt #1.
+
+Existing IDs from the incident report:
+
+52548872979134
+52548872983334
+
+THIS IS READ-ONLY PROVIDER ACCESS.
+
+For EACH ID determine, as far as the existing authorized read paths allow:
+
+1. Does the object exist?
+
+2. What Meta object type is it actually?
+   Do not infer type merely from which local column contains the ID.
+
+3. Which ad account owns it?
+
+Expected account:
+
+act_185098744942162
+
+4. What is configured_status/status?
+
+5. What is effective_status?
+
+6. Is it PAUSED?
+
+7. What budget-related state is visible?
+
+8. What parent/child relationship does it have to the other object?
+
+9. Does it correspond to the local campaign row's recorded chain?
+
+10. Is the object usable/complete, partial, rejected, archived, deleted, inaccessible, or otherwise constrained?
+
+11. Is there any evidence that an object is ACTIVE or capable of spend?
+
+12. Is there any evidence of spend?
+
+READ ONLY means READ ONLY.
+
+Do NOT:
+
+- update status;
+- pause;
+- activate;
+- edit;
+- rename;
+- delete;
+- recreate;
+- finish the chain;
+- create a creative;
+- create an ad;
+- alter budget;
+- alter targeting;
+- alter destination;
+- perform cleanup.
+
+If either ID cannot be identified confidently:
+
+STOP AND REPORT THAT FACT.
+
+Do not compensate by creating or changing anything.
+
+==================================================
+8. SAFETY STOP CONDITIONS
+==================================================
+
+STOP IMMEDIATELY AND REPORT if:
+
+- a second external action appears;
+- a second campaign attempt occurs;
+- any new Meta object appears;
+- any existing object becomes ACTIVE;
+- any spend appears;
+- completed_steps reconciliation removes an unrelated step;
+- the correction repeats on remount;
+- the specimen still says the failed campaign is already set up;
+- the specimen still labels this known provider failure as an AI outage;
+- an immediate Retry remains available for terminal provider/manual-review state;
+- any Store-2 mutation occurs;
+- any historical provider ID is deleted/cleared;
+- any production/main change occurs;
+- any provider read requires a write to continue.
+
+==================================================
+9. FINAL REPORT
+==================================================
+
+Return one consolidated:
+
+026-C3-PM5 — POST-MERGE TRUTH RE-PROOF + PARTIAL-CHAIN READBACK REPORT
+
+Include:
+
+MERGE / DEPLOY
+1. full approved PR head SHA
+2. merge SHA
+3. staging health SHA
+4. migrations count
+5. SW version
+6. served bundle
+7. production untouched
+
+PRE-RESUME
+8. session truth
+9. completed_steps
+10. step_outcomes
+11. campaign row/status
+12. all existing provider IDs
+13. agent task
+14. external action
+15. proof baseline
+16. Store-2 baseline
+
+PM5 RECONCILIATION
+17. exact correction performed
+18. corrected completed_steps
+19. sibling steps preserved
+20. truthful outcome written
+21. correction ref
+22. correction log evidence
+23. UI presentation
+24. confirmation false "already set up" is gone
+25. confirmation false AI-outage claim is gone
+26. confirmation Retry is absent
+27. confirmation no automatic execution occurred
+
+IDEMPOTENCY
+28. remount result
+29. second reconciliation behavior
+30. proof correction occurred once
+31. no execution on remount
+32. no second external action
+
+HISTORY PRESERVATION
+33. campaign row preserved
+34. Meta IDs preserved
+35. task preserved
+36. external action preserved
+37. proofs preserved
+38. Store 2 unchanged
+
+META READBACK — ID #1
+39. ID
+40. actual object type
+41. existence
+42. owning account
+43. configured/status
+44. effective_status
+45. PAUSED/ACTIVE truth
+46. budget/spend evidence
+47. relationship to local row/other object
+
+META READBACK — ID #2
+48. ID
+49. actual object type
+50. existence
+51. owning account
+52. configured/status
+53. effective_status
+54. PAUSED/ACTIVE truth
+55. budget/spend evidence
+56. relationship to local row/other object
+
+FINAL SAFETY
+57. campaigns/local attempt count
+58. external_actions count/delta
+59. external_proofs count/delta
+60. agent_tasks delta
+61. provider objects created during PM5 proof = 0
+62. provider objects edited during PM5 proof = 0
+63. second launch attempts = 0
+64. spend observed
+65. STOP-condition review
+66. deviations
+67. final disposition
+
+==================================================
+10. HARD STOP AFTER READBACK
+==================================================
+
+After the two existing Meta IDs have been read:
+
+HARD STOP.
+
+DO NOT RETRY.
+
+DO NOT CLICK SKIP.
+
+DO NOT CONTINUE THE FACEBOOK CAMPAIGN.
+
+DO NOT CLEAN UP META.
+
+DO NOT CREATE THE MISSING CREATIVE OR AD.
+
+DO NOT START PROMPT 031.
+
+DO NOT ADVANCE SOCIAL SETUP.
+
+DO NOT START BLACOR-H1.
+
+DO NOT START H2.
+
+DO NOT START 027.
+
+DO NOT TOUCH PRODUCTION.
+
+Return the report to the owner, ChatGPT, and Claude.
+
+The next decision will be made from the provider readback evidence:
+
+A. reconcile/resume the existing partial chain;
+B. owner cleanup + explicitly authorized fresh chain;
+C. honest Skip and continue H1 while Meta review proceeds;
+D. another disposition supported by the evidence.
+
+PM5 DOES NOT AUTHORIZE THAT DECISION.
+
+STOP AFTER READBACK.
