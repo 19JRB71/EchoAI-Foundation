@@ -138,11 +138,43 @@ function installLaunchStubs({ succeed = true } = {}) {
   const stub = (name) => async (req, res) => {
     launchCalls.push({ name, body: req.body });
     if (!succeed) return res.status(502).json({ error: "stubbed provider failure" });
-    // Mimic the real side effect the idempotency precheck looks for.
+    // 026-C3-PM5 stub-fidelity correction (D-32 disclosure, no assertion
+    // weakened):
+    //   OLD stub side effect: a bare campaigns row (no status/ids) — the
+    //   pre-PM5 existence precheck only looked for "any row".
+    //   REAL side effect (launchFacebookCampaign + adLaunchSpine, verified
+    //   against staging): status 'created_paused', all four Graph ids, an
+    //   ad_launch spine task at EXTERNALLY_VERIFIED with an external_proofs
+    //   row, and a 'succeeded' executeExternal ledger row.
+    //   CORRECTED: the stub now persists that full canonical evidence chain,
+    //   so B4's replay assertion ("done without a second provider attempt")
+    //   keeps binding real behavior under the PM5 canonical success
+    //   predicate.
+    const stubBrandId = req.body.brandId || req.body.brand_id;
+    const camp = await db.query(
+      `INSERT INTO campaigns (brand_id, user_id, campaign_name, budget, status,
+          facebook_campaign_id, facebook_adset_id, facebook_creative_id, facebook_ad_id)
+       VALUES ($1, $2, 'C3 stub campaign', 10, 'created_paused',
+          'fb-camp-stub', 'fb-adset-stub', 'fb-creative-stub', 'fb-ad-stub')
+       RETURNING campaign_id`,
+      [stubBrandId, req.user.userId],
+    );
+    const stubCampaignId = camp.rows[0].campaign_id;
+    const proof = await db.query(
+      `INSERT INTO external_proofs (run_key, provider, action, external_id, brand_id, user_id, environment, evidence)
+       VALUES ($1, 'facebook', 'launch_readback', 'fb-camp-stub', $2, $3, 'test', '{"effective_status":"PAUSED"}'::jsonb)
+       RETURNING proof_id`,
+      [`c3-stub-${stubCampaignId}`, stubBrandId, req.user.userId],
+    );
     await db.query(
-      `INSERT INTO campaigns (brand_id, user_id, campaign_name, budget)
-       VALUES ($1, $2, 'C3 stub campaign', 10)`,
-      [req.body.brandId || req.body.brand_id, req.user.userId],
+      `INSERT INTO agent_tasks (brand_id, user_id, task_type, source_type, source_id, status, title, proof_id)
+       VALUES ($1, $2, 'ad_launch', 'campaign', $3, 'EXTERNALLY_VERIFIED', 'C3 stub launch', $4)`,
+      [stubBrandId, req.user.userId, String(stubCampaignId), proof.rows[0].proof_id],
+    );
+    await db.query(
+      `INSERT INTO external_actions (idempotency_key, provider, action, brand_id, user_id, status, finished_at)
+       VALUES ($1, 'facebook', 'ad_launch', $2, $3, 'succeeded', NOW())`,
+      [`ad_launch:${stubCampaignId}`, stubBrandId, req.user.userId],
     );
     return res.json({ success: true });
   };

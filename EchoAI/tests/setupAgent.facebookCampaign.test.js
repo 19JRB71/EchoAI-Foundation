@@ -66,10 +66,43 @@ test("skips when there is no brand yet", async () => {
 });
 
 test("idempotent: reports done without duplicating when a campaign already exists", async () => {
-  await db.query(
-    `INSERT INTO campaigns (brand_id, user_id, campaign_name, budget, status)
-     VALUES ($1, $2, $3, $4, 'created_paused')`,
+  // 026-C3-PM5 fixture correction (D-32 disclosure, no assertion weakened):
+  //   OLD fixture: a 'created_paused' row with NO provider ids, no spine
+  //   task, no ledger — a shape the real success writer never produces
+  //   (launchFacebookCampaign persists all four Graph ids, the ad_launch
+  //   spine task reaches EXTERNALLY_VERIFIED with a proof row, and the
+  //   executeExternal ledger records 'succeeded').
+  //   REAL shape: verified via the staging specimen and utils/adLaunchSpine —
+  //   success rows always carry the full id chain + verified task + proof.
+  //   CORRECTED: the fixture now seeds the full canonical evidence chain, so
+  //   this test keeps binding the true behavior ("a genuinely completed
+  //   launch reports done and never duplicates") under the PM5 canonical
+  //   success predicate; the old id-less shape is now (correctly) treated as
+  //   dirty failed-attempt evidence and is bound separately in
+  //   tests/setupAgent.pm5LaunchHonesty.test.js.
+  const inserted = await db.query(
+    `INSERT INTO campaigns (brand_id, user_id, campaign_name, budget, status,
+        facebook_campaign_id, facebook_adset_id, facebook_creative_id, facebook_ad_id)
+     VALUES ($1, $2, $3, $4, 'created_paused', 'fb-camp-x', 'fb-adset-x', 'fb-creative-x', 'fb-ad-x')
+     RETURNING campaign_id`,
     [brandId, userId, "Existing Campaign", 20],
+  );
+  const campaignId = inserted.rows[0].campaign_id;
+  const proof = await db.query(
+    `INSERT INTO external_proofs (run_key, provider, action, external_id, brand_id, user_id, environment, evidence)
+     VALUES ($1, 'facebook', 'launch_readback', 'fb-camp-x', $2, $3, 'test', '{"effective_status":"PAUSED"}'::jsonb)
+     RETURNING proof_id`,
+    [`fbcamp-idem-${campaignId}`, brandId, userId],
+  );
+  await db.query(
+    `INSERT INTO agent_tasks (brand_id, user_id, task_type, source_type, source_id, status, title, proof_id)
+     VALUES ($1, $2, 'ad_launch', 'campaign', $3, 'EXTERNALLY_VERIFIED', 'Existing launch', $4)`,
+    [brandId, userId, String(campaignId), proof.rows[0].proof_id],
+  );
+  await db.query(
+    `INSERT INTO external_actions (idempotency_key, provider, action, brand_id, user_id, status, finished_at)
+     VALUES ($1, 'facebook', 'ad_launch', $2, $3, 'succeeded', NOW())`,
+    [`ad_launch:${campaignId}`, brandId, userId],
   );
 
   const res = await ACTION.run({

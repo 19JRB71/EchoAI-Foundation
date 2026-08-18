@@ -149,6 +149,14 @@ function ensureOk(result, fallbackMessage) {
   if (result.statusCode >= 200 && result.statusCode < 300) return result.payload;
   const err = new Error((result.payload && result.payload.error) || fallbackMessage);
   err.statusCode = result.statusCode;
+  // 026-C3-PM5 §6: the invoke() boundary strips error-object markers, so a
+  // terminal provider classification made inside the invoked controller
+  // (campaignController failureClass) rides the JSON body and is re-attached
+  // here — classifyStepError stays marker-first and the failure can never be
+  // misfiled as an AI outage.
+  if (result.payload && result.payload.failureClass === "provider_permission") {
+    err.providerPermission = true;
+  }
   throw err;
 }
 
@@ -629,6 +637,19 @@ const STEP_FAILURE_TEMPLATES = {
   // somehow reaches the failure path without its authored safeMessage.
   owner_action_required:
     "This step needs a quick choice from you before it can run. Nothing failed — finish the setup choice shown above, then continue.",
+  // 026-C3-PM5 (Defect 1): a TERMINAL provider permission/restriction failure
+  // (e.g. Meta rejecting ad creation because the ad account is restricted).
+  // This is NEVER an AI outage and NEVER retryable-as-is: the fix lives in the
+  // provider's console (owner/provider attention), so no Retry is offered and
+  // nothing re-executes automatically. No raw provider codes/subcodes here —
+  // raw evidence stays server-side in the logs and ledgers, joined by ref.
+  provider_permission:
+    "Facebook couldn't accept this ad campaign because the connected ad account needs attention on Facebook's side (a permission or account restriction). Everything Echo prepared is saved, and Echo will not retry automatically — resolve the restriction in Meta Business Manager, and this can be picked up from there.",
+  // 026-C3-PM5 (Defect 2 / D-40 dirty evidence): a prior launch attempt left
+  // partial provider evidence (failed/manual-review). The truthful resting
+  // state: not complete, not "already set up", never auto-retried.
+  provider_manual_review:
+    "Your first ad campaign didn't finish launching and needs a manual review. Everything from the earlier attempt is saved, and Echo will not retry automatically until it's resolved.",
 };
 
 // Classifies a thrown step error into an owner-safe outcome. Uses only status
@@ -649,6 +670,19 @@ function classifyStepError(err) {
       retryable: false,
       safeMessage: typeof err.safeMessage === "string" ? err.safeMessage : null,
     };
+  }
+  // 026-C3-PM5 §6/§7 — marker-first, BEFORE any status-code class, so a
+  // terminal provider permission failure can never fall through to the 5xx
+  // branch and masquerade as "AI service unavailable" (the live Defect 1).
+  // Only the bounded templates render — raw provider text never leaves the
+  // server; markers are set solely at trusted classification sites
+  // (campaignController's terminal-provider marking, the PM5 dirty-evidence
+  // recognizer below).
+  if (err && err.providerPermission === true) {
+    return { code: "provider_permission", retryable: false, safeMessage: null };
+  }
+  if (err && err.providerManualReview === true) {
+    return { code: "provider_manual_review", retryable: false, safeMessage: null };
   }
   if (
     /credit balance|billing|purchase credits|payment required|quota exceeded|insufficient credit/.test(
@@ -686,6 +720,119 @@ async function writeFailedOutcome(sessionId, stepKey, outcome) {
     [sessionId, JSON.stringify({ [stepKey]: outcome })],
   );
   return rows[0] || null;
+}
+
+// ---------------------------------------------------------------------------
+// 026-C3-PM5 — canonical create_facebook_campaign completion predicate.
+// ---------------------------------------------------------------------------
+// DUPLICATE PREVENTION IS NOT SUCCESS EVIDENCE. The old recognizer reused the
+// existence precheck ("any campaigns row for this brand") as the completion
+// predicate, which presented a launch_failed partial chain as "already set
+// up" (the live Defect 2). This predicate reuses the EXISTING Prompt-018
+// evidence model — no parallel success definition:
+//   1. campaigns row in a success domain state ('created_paused' | 'live' |
+//      'completed' — utils/campaignState machine; launch_failed is failure);
+//   2. the FULL provider chain persisted: facebook_campaign_id,
+//      facebook_adset_id, facebook_creative_id, facebook_ad_id all present
+//      (D-27 §11 — partial ids are never a chain);
+//   3. the canonical ad_launch spine task (task_type 'ad_launch',
+//      source_type 'campaign', source_id = campaign_id) reached a
+//      SPINE_SUCCESS_STATE ('EXTERNALLY_VERIFIED'|'REPORTED'|'COMPLETED')
+//      WITH proof_id — i.e. the Prompt-005 provider read-back verified the
+//      launch and wrote its external_proofs row (utils/honestStatus rule:
+//      spine success without proof lineage is never verified success);
+//   4. the executeExternal ledger for this launch, when present, recorded
+//      'succeeded' — a failed/terminal external_actions row with no
+//      succeeded row is dirty evidence, never completion. (Launches adopted
+//      before the ledger existed have no row at all; for those the spine
+//      proof of §3 is the authoritative equivalent, so absence alone does
+//      not veto — but recorded failure always does.)
+// Fail CLOSED: if evidence cannot be read, the step is NOT complete.
+async function facebookCampaignLaunchComplete(brandId) {
+  if (!brandId) return { complete: false, dirty: false };
+  try {
+    const { rows } = await db.query(
+      `SELECT c.campaign_id, c.status,
+              (c.facebook_campaign_id IS NOT NULL AND c.facebook_adset_id IS NOT NULL
+               AND c.facebook_creative_id IS NOT NULL AND c.facebook_ad_id IS NOT NULL) AS full_chain,
+              t.status AS task_status, t.proof_id,
+              (SELECT ea.status FROM external_actions ea
+                WHERE ea.idempotency_key = 'ad_launch:' || c.campaign_id::text
+                ORDER BY ea.created_at DESC LIMIT 1) AS ledger_status
+         FROM campaigns c
+         LEFT JOIN agent_tasks t
+           ON t.task_type = 'ad_launch' AND t.source_type = 'campaign'
+          AND t.source_id = c.campaign_id::text
+        WHERE c.brand_id = $1`,
+      [brandId],
+    );
+    if (rows.length === 0) return { complete: false, dirty: false };
+    const SUCCESS_CAMPAIGN_STATES = ["created_paused", "live", "completed"];
+    const SPINE_SUCCESS_STATES = ["EXTERNALLY_VERIFIED", "REPORTED", "COMPLETED"];
+    const complete = rows.some(
+      (r) =>
+        SUCCESS_CAMPAIGN_STATES.includes(r.status) &&
+        r.full_chain === true &&
+        SPINE_SUCCESS_STATES.includes(r.task_status) &&
+        r.proof_id != null &&
+        (r.ledger_status == null || r.ledger_status === "succeeded"),
+    );
+    // Any campaigns row that is not part of a proven-complete launch is
+    // DIRTY prior evidence (D-40): it blocks automatic re-execution.
+    return { complete, dirty: !complete };
+  } catch (err) {
+    // Fail CLOSED both ways: not provably complete, and not provably clean.
+    console.error("PM5 launch-evidence read failed:", err.message);
+    return { complete: false, dirty: true, readFailed: true };
+  }
+}
+
+// 026-C3-PM5 §5 — completed_steps reconciliation (operational state only).
+// completed_steps is runner state, NOT launch evidence. If it claims
+// create_facebook_campaign while the authoritative evidence above says the
+// launch is not complete AND prior attempt evidence exists, the marker is
+// removed and the truthful failed/manual-review outcome is recorded — one
+// atomic, status-guarded UPDATE through the same JSONB paths the runner
+// uses. Idempotent by construction: the second run finds the marker gone and
+// does nothing. Preserves ALL evidence (campaigns rows, provider ids,
+// ledgers, tasks, proofs are never touched).
+async function reconcileCompletedSteps(session) {
+  const STEP = "create_facebook_campaign";
+  const completed = Array.isArray(session.completed_steps) ? session.completed_steps : [];
+  if (!completed.includes(STEP) || !session.brand_id) return session;
+  const evidence = await facebookCampaignLaunchComplete(session.brand_id);
+  if (evidence.complete || !evidence.dirty) return session;
+  const ref = crypto.randomUUID();
+  const outcome = {
+    status: "failed",
+    at: new Date().toISOString(),
+    code: "provider_manual_review",
+    message: STEP_FAILURE_TEMPLATES.provider_manual_review,
+    retryable: false,
+    ref,
+    correctedFrom: "completed_steps",
+  };
+  const { rows } = await db.query(
+    `UPDATE setup_sessions
+       SET completed_steps = (completed_steps - $2),
+           answers = jsonb_set(
+             COALESCE(answers, '{}'::jsonb),
+             '{step_outcomes}',
+             COALESCE(answers->'step_outcomes', '{}'::jsonb) || $3::jsonb
+           ),
+           updated_at = NOW()
+     WHERE session_id = $1 AND status = 'in_progress'
+       AND completed_steps ? $2
+     RETURNING *`,
+    [session.session_id, STEP, JSON.stringify({ [STEP]: outcome })],
+  );
+  if (rows[0]) {
+    console.error(
+      `Setup agent completed_steps corrected: "${STEP}" removed for session ${session.session_id} — authoritative launch evidence is failed/manual-review [ref ${ref}]`,
+    );
+    return rows[0];
+  }
+  return session;
 }
 
 // Uniform response when a lifecycle change (pause/dismiss) raced an in-flight
@@ -997,14 +1144,25 @@ const ACTIONS = [
     feature: null,
     async run({ userId, session, answers, confirm }) {
       if (!session.brand_id) return { status: "skipped", detail: "No brand to configure yet." };
-      // Idempotency: don't launch a second campaign on a retry after a crash
-      // between the Graph API side effect and the completed-steps write.
-      const existing = await db.query(
-        "SELECT 1 FROM campaigns WHERE brand_id = $1 LIMIT 1",
-        [session.brand_id],
-      );
-      if (existing.rows.length > 0) {
+      // 026-C3-PM5: duplicate prevention and success recognition are now
+      // SEPARATE questions answered by the same evidence read.
+      //   - COMPLETE (full canonical evidence chain) → done, truthfully.
+      //   - DIRTY (any prior attempt evidence short of that) → D-40: never
+      //     execute again, never create provider objects, never say "already
+      //     set up" — surface the truthful failed/manual-review resting state
+      //     (classifyStepError maps the marker to provider_manual_review,
+      //     retryable false, so no Retry affordance renders).
+      //   - NO evidence at all → first attempt may proceed below.
+      const evidence = await facebookCampaignLaunchComplete(session.brand_id);
+      if (evidence.complete) {
         return { status: "done", detail: "Your first ad campaign is already set up." };
+      }
+      if (evidence.dirty) {
+        const dirtyErr = new Error(
+          "Prior ad-launch attempt evidence exists for this brand (failed/manual-review) — automatic re-execution is blocked.",
+        );
+        dirtyErr.providerManualReview = true;
+        throw dirtyErr;
       }
       // A real Facebook ad campaign needs a connected ad account. Instead of
       // skipping (making the user hunt for Settings later), we hand off to the
@@ -1891,7 +2049,11 @@ async function initiateSession(req, res) {
          RETURNING *`,
         [existing.rows[0].session_id],
       );
-      const session = resumed.rows[0];
+      let session = resumed.rows[0];
+      // 026-C3-PM5 §5: completed_steps is operational runner state, not
+      // launch evidence — reconcile it against authoritative launch evidence
+      // on every resume. Idempotent; preserves all historical evidence.
+      session = await reconcileCompletedSteps(session);
       const messages = Array.isArray(session.messages) ? session.messages : [];
       const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
       let firstQuestion = null;
@@ -2959,4 +3121,10 @@ module.exports = {
   // and the serializer that surfaces stepOutcomes to the client.
   writeCompletedSteps,
   serializeSession,
+  // 026-C3-PM5 seams for tests: the canonical launch-completion predicate,
+  // the completed_steps reconciliation, and the step-error classifier.
+  _facebookCampaignLaunchComplete: facebookCampaignLaunchComplete,
+  _reconcileCompletedSteps: reconcileCompletedSteps,
+  _classifyStepError: classifyStepError,
+  STEP_FAILURE_TEMPLATES,
 };

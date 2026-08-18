@@ -1665,9 +1665,17 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
             data-testid="failed-step-panel"
           >
             <h3 className="font-semibold text-red-200">
+              {/* 026-C3-PM5 §7: the heading is selected ONLY by the server's
+                  authoritative failure classification (outcome.code) — the UI
+                  never names a cause it has not classified, and never infers
+                  one from which step failed. */}
               {failedStep.outcome && failedStep.outcome.code === "provider_billing"
                 ? "This step needs attention on our side"
-                : "This step couldn't finish"}
+                : failedStep.outcome &&
+                    (failedStep.outcome.code === "provider_permission" ||
+                      failedStep.outcome.code === "provider_manual_review")
+                  ? "Your ad account needs attention"
+                  : "This step couldn't finish"}
             </h3>
             <p className="mt-1 text-sm text-white/70">{failedStep.message}</p>
             <p className="mt-2 text-xs text-white/40">
@@ -1677,14 +1685,24 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
                 : ""}
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                onClick={retryStep}
-                disabled={busy}
-                className="rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
-                data-testid="failed-step-retry"
-              >
-                {busy ? "Retrying…" : "Retry this step"}
-              </button>
+              {/* 026-C3-PM5 §8: a terminal provider/manual-review failure gets
+                  NO immediate Retry affordance — the fix is provider-side and
+                  a retry cannot succeed (and must never re-execute against
+                  dirty prior evidence). Every other failed class keeps the
+                  existing Retry. */}
+              {failedStep.outcome &&
+              failedStep.outcome.retryable === false &&
+              (failedStep.outcome.code === "provider_permission" ||
+                failedStep.outcome.code === "provider_manual_review") ? null : (
+                <button
+                  onClick={retryStep}
+                  disabled={busy}
+                  className="rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
+                  data-testid="failed-step-retry"
+                >
+                  {busy ? "Retrying…" : "Retry this step"}
+                </button>
+              )}
               <button
                 onClick={skipConnection}
                 disabled={busy}
