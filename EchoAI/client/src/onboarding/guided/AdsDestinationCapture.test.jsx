@@ -21,6 +21,16 @@
 // The previous mock here (verifyFacebookConnection → { pages }) fabricated a
 // field the verify endpoint never returns and concealed a live defect — no
 // test in this file may mock pages on verifyFacebookConnection again (PM3-R6).
+//
+// 026-C3-PM4 mock fidelity (§L, second application): api.getBrand is mocked in
+// the REAL response shape of GET /api/brands/:brandId — a FLAT brand row (no
+// { brand: ... } wrapper) that includes facebook_page_id and ad_link_url —
+// bound by the server contract regression test/brandProfileContract.test.js
+// (PM4-R1/R2/R15). The previous mock here ({ brand: {...} }) fabricated a
+// wrapper the endpoint never returns, and pre-PM4 the real flat row omitted
+// both Store-3 fields, which made every successful Save read back as "didn't
+// stick" live. No test in this file may wrap getBrand responses again
+// (PM4-R3).
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
@@ -58,14 +68,28 @@ function accountsResponse(pages) {
   };
 }
 
+// Real flat contract: the row itself is the response (PM4-R3).
+function flatBrand(fields) {
+  return {
+    brand_id: BRAND_ID,
+    user_id: "user-1",
+    brand_name: "Test Brand",
+    brand_type: "small_business",
+    website_url: null,
+    facebook_page_id: null,
+    ad_link_url: null,
+    ...fields,
+  };
+}
+
 function stageBrand(brand) {
-  api.getBrand.mockResolvedValue({ brand });
+  api.getBrand.mockResolvedValue(flatBrand(brand));
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   api.getFacebookAccounts.mockResolvedValue(accountsResponse(PAGES));
-  stageBrand({ brand_id: BRAND_ID, facebook_page_id: null, ad_link_url: null, website_url: null });
+  stageBrand({});
   api.selectFacebookPage.mockResolvedValue({ success: true });
   api.updateBrand.mockResolvedValue({ success: true });
 });
@@ -114,12 +138,7 @@ describe("AdsDestinationCapture", () => {
   });
 
   test("website suggestion is labeled 'suggested' and never silently copied — save writes it only explicitly", async () => {
-    stageBrand({
-      brand_id: BRAND_ID,
-      facebook_page_id: null,
-      ad_link_url: null,
-      website_url: "https://mysite.example",
-    });
+    stageBrand({ website_url: "https://mysite.example" });
     render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={vi.fn()} />);
 
     expect(await screen.findByTestId("ads-capture-suggestion-note")).toBeInTheDocument();
@@ -132,16 +151,10 @@ describe("AdsDestinationCapture", () => {
     const onConfigured = vi.fn();
     // Reread after save shows both values (server truth).
     api.getBrand
-      .mockResolvedValueOnce({
-        brand: { brand_id: BRAND_ID, facebook_page_id: null, ad_link_url: null, website_url: null },
-      })
-      .mockResolvedValueOnce({
-        brand: {
-          brand_id: BRAND_ID,
-          facebook_page_id: PAGES[1].id,
-          ad_link_url: "https://example.com/offer",
-        },
-      });
+      .mockResolvedValueOnce(flatBrand({}))
+      .mockResolvedValueOnce(
+        flatBrand({ facebook_page_id: PAGES[1].id, ad_link_url: "https://example.com/offer" }),
+      );
     render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
 
     fireEvent.click(await screen.findByTestId(`ads-page-option-${PAGES[1].id}`));
@@ -167,17 +180,14 @@ describe("AdsDestinationCapture", () => {
     api.updateBrand.mockRejectedValueOnce(new Error("That link looks malformed."));
     api.getBrand
       // initial load
-      .mockResolvedValueOnce({
-        brand: { brand_id: BRAND_ID, facebook_page_id: null, ad_link_url: null },
-      })
+      .mockResolvedValueOnce(flatBrand({}))
       // reread after first (partially failed) save: page saved, link missing
-      .mockResolvedValueOnce({
-        brand: { brand_id: BRAND_ID, facebook_page_id: PAGES[0].id, ad_link_url: null },
-      })
+      // (PM4-R5: only the destination remains unresolved)
+      .mockResolvedValueOnce(flatBrand({ facebook_page_id: PAGES[0].id }))
       // reread after second save: both present
-      .mockResolvedValueOnce({
-        brand: { brand_id: BRAND_ID, facebook_page_id: PAGES[0].id, ad_link_url: "https://ok.example/" },
-      });
+      .mockResolvedValueOnce(
+        flatBrand({ facebook_page_id: PAGES[0].id, ad_link_url: "https://ok.example/" }),
+      );
 
     render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
     fireEvent.click(await screen.findByTestId(`ads-page-option-${PAGES[0].id}`));
@@ -199,11 +209,7 @@ describe("AdsDestinationCapture", () => {
   });
 
   test("already configured server truth renders the honest 'set up' line, no form, no writes", async () => {
-    stageBrand({
-      brand_id: BRAND_ID,
-      facebook_page_id: PAGES[0].id,
-      ad_link_url: "https://done.example/",
-    });
+    stageBrand({ facebook_page_id: PAGES[0].id, ad_link_url: "https://done.example/" });
     render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={vi.fn()} />);
     expect(await screen.findByTestId("ads-destination-configured")).toBeInTheDocument();
     expect(screen.queryByTestId("ads-destination-save")).not.toBeInTheDocument();
@@ -270,5 +276,80 @@ describe("AdsDestinationCapture", () => {
     // component regressed to calling it, this render would throw. The Page
     // list came exclusively from the accounts contract:
     expect(api.getFacebookAccounts).toHaveBeenCalledTimes(1);
+  });
+
+  // ---- 026-C3-PM4 additions -------------------------------------------------
+
+  test("PM4-R9: normalized server truth counts as success — raw 'southdixiestorage.com' saved, reread returns 'https://southdixiestorage.com/', onConfigured fires with normalized truth", async () => {
+    const onConfigured = vi.fn();
+    api.getFacebookAccounts.mockResolvedValue(accountsResponse([PAGES[0]]));
+    api.getBrand
+      .mockResolvedValueOnce(flatBrand({}))
+      .mockResolvedValueOnce(
+        flatBrand({ facebook_page_id: PAGES[0].id, ad_link_url: "https://southdixiestorage.com/" }),
+      );
+    render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
+    await screen.findByTestId(`ads-page-option-${PAGES[0].id}`);
+    fireEvent.change(screen.getByTestId("ads-destination-input"), {
+      target: { value: "southdixiestorage.com" },
+    });
+    fireEvent.click(screen.getByTestId("ads-destination-save"));
+    await waitFor(() =>
+      expect(onConfigured).toHaveBeenCalledWith({
+        pageId: PAGES[0].id,
+        adLinkUrl: "https://southdixiestorage.com/",
+      }),
+    );
+    // No false "didn't stick" from comparing against the owner's raw text.
+    expect(screen.queryByText(/didn't stick/i)).not.toBeInTheDocument();
+  });
+
+  test("PM4-R6: destination-only partial — reread shows ad_link_url present but Page missing; only the Page remains in error, destination is not re-solicited as failed", async () => {
+    const onConfigured = vi.fn();
+    api.selectFacebookPage.mockRejectedValueOnce(new Error("Page save failed"));
+    api.getBrand
+      .mockResolvedValueOnce(flatBrand({}))
+      .mockResolvedValueOnce(flatBrand({ ad_link_url: "https://ok.example/" }));
+    render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
+    fireEvent.click(await screen.findByTestId(`ads-page-option-${PAGES[0].id}`));
+    fireEvent.change(screen.getByTestId("ads-destination-input"), {
+      target: { value: "https://ok.example/" },
+    });
+    fireEvent.click(screen.getByTestId("ads-destination-save"));
+
+    expect(await screen.findByText(/page save failed/i)).toBeInTheDocument();
+    expect(onConfigured).not.toHaveBeenCalled();
+    // Destination is server truth now — it must not carry an error.
+    expect(screen.queryByText(/destination didn't stick/i)).not.toBeInTheDocument();
+  });
+
+  test("PM4-R7/R8: already-configured flat truth on load renders the honest configured state with ZERO writer calls (live SDS recovery path)", async () => {
+    stageBrand({
+      facebook_page_id: "140006069194366",
+      ad_link_url: "https://southdixiestorage.com/",
+    });
+    render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={vi.fn()} />);
+    expect(await screen.findByTestId("ads-destination-configured")).toBeInTheDocument();
+    expect(screen.queryByTestId("ads-destination-save")).not.toBeInTheDocument();
+    // Recovery must never rewrite server truth to progress (PM4-R8).
+    expect(api.selectFacebookPage).not.toHaveBeenCalled();
+    expect(api.updateBrand).not.toHaveBeenCalled();
+  });
+
+  test("PM4-R4: after both writes land, the FLAT authoritative reread sees both fields and success is declared from server truth", async () => {
+    const onConfigured = vi.fn();
+    api.getBrand
+      .mockResolvedValueOnce(flatBrand({}))
+      .mockResolvedValueOnce(
+        flatBrand({ facebook_page_id: PAGES[1].id, ad_link_url: "https://example.com/offer" }),
+      );
+    render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
+    fireEvent.click(await screen.findByTestId(`ads-page-option-${PAGES[1].id}`));
+    fireEvent.change(screen.getByTestId("ads-destination-input"), {
+      target: { value: "https://example.com/offer" },
+    });
+    fireEvent.click(screen.getByTestId("ads-destination-save"));
+    await waitFor(() => expect(onConfigured).toHaveBeenCalled());
+    expect(screen.queryByText(/didn't stick/i)).not.toBeInTheDocument();
   });
 });
