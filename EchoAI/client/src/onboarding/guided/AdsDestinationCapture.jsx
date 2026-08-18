@@ -6,6 +6,14 @@
 //   HOST 2: SetupAgent's Step-6 owner_action_required / missing_ad_destination
 //           pause panel.
 //
+// Page candidates (026-C3-PM3): read from the EXISTING accounts endpoint,
+//   api.getFacebookAccounts() → GET /api/facebook/accounts,
+// which exposes the Store-1 (api_integrations.facebook_pages) granted-page
+// authority. /api/facebook/verify stays a health/status contract ({ok,checks})
+// and is NOT read here. Reconnect is the owner's refresh mechanism; a stale
+// candidate is allowed to render and is rejected honestly at Save time by the
+// existing select-page validation.
+//
 // It configures STORE 3 ONLY (brands.facebook_page_id + brands.ad_link_url),
 // through the EXISTING product writers:
 //   Page:        api.selectFacebookPage(pageId, brandId)  → POST /api/facebook/select-page
@@ -81,13 +89,23 @@ export default function AdsDestinationCapture({
         }
         return;
       }
-      const [brandRes, verify] = await Promise.all([
+      // 026-C3-PM3: Page candidates come from GET /api/facebook/accounts
+      // (facebookOAuthController.getConnectedAccounts) — the Store-1
+      // granted-page authority. Its real response shape is bound by the server
+      // contract regression in test/facebookAccountsContract.test.js:
+      //   { configured, connected, connectionStatus, accounts,
+      //     selectedAccountId, pages: [{ id, name, category }], selectedPageId }
+      // The previous read (verify.pages from /api/facebook/verify) was a
+      // phantom field — that endpoint returns only { ok, checks } and never a
+      // Page list, so the picker was unconditionally empty.
+      const [brandRes, accountsRes] = await Promise.all([
         api.getBrand(bid),
-        api.verifyFacebookConnection().catch(() => null),
+        api.getFacebookAccounts().catch(() => null),
       ]);
       if (!activeRef.current) return;
       const brand = brandRes && (brandRes.brand || brandRes);
-      const granted = (verify && Array.isArray(verify.pages) && verify.pages) || [];
+      const granted =
+        (accountsRes && Array.isArray(accountsRes.pages) && accountsRes.pages) || [];
       setBrandId(bid);
       setPages(granted);
       const curPage = brand && brand.facebook_page_id ? brand.facebook_page_id : null;
