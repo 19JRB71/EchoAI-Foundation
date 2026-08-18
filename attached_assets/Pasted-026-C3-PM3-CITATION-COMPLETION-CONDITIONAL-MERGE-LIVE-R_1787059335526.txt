@@ -1,0 +1,509 @@
+026-C3-PM3 — CITATION COMPLETION + CONDITIONAL MERGE + LIVE RE-PROOF
+
+Owner + ChatGPT + Claude review of PR #57 is complete.
+
+CLAUDE RULING:
+
+MERGE APPROVED — scoped to exact PR head:
+
+bba1548546a899cef38e3b3ec2ae7507c7bc8e7a
+
+STAGING ONLY.
+
+No production code change is authorized.
+No server production change is authorized.
+No new commit is expected.
+
+Two citation-only items must be completed BEFORE merge.
+
+If both citations return exactly as expected, merge proceeds under this same ruling with no additional review round.
+
+If either citation reveals a discrepancy outside the pre-ruled outcomes below, STOP AND REPORT.
+
+============================================================
+1. CITATION 1 — SUCCESSFUL LIVE REFRESH RETURNING ZERO PAGES
+============================================================
+
+Inspect the existing server controller behind:
+
+GET /api/facebook/accounts
+→ facebookOAuthController.getConnectedAccounts
+
+Answer EXACTLY:
+
+When:
+
+- the stored api_integrations.facebook_pages snapshot is NON-EMPTY;
+- a stored token exists;
+- the pre-existing best-effort live Graph refresh SUCCEEDS;
+- the successful live response contains ZERO Pages;
+
+does the implementation:
+
+A. return pages: [] for that render BUT preserve the non-empty stored
+   api_integrations.facebook_pages snapshot;
+
+OR
+
+B. overwrite/persist the stored facebook_pages snapshot as [] and return []?
+
+Cite:
+
+- exact controller/function;
+- exact relevant branch;
+- whether any UPDATE occurs;
+- whether returned pages are taken from live result or stored snapshot.
+
+Claude has already ruled both outcomes:
+
+IF A — RESPONSE-ONLY EMPTY:
+ACCEPT AS-IS.
+
+Record canonical behavior:
+
+- stored snapshot remains durable authority/fallback;
+- successful live truth may produce an empty render for that request;
+- next load may recover from the stored snapshot;
+- reconnect remains the explicit owner refresh path.
+
+Proceed.
+
+IF B — EMPTY LIVE SUCCESS OVERWRITES STORED SNAPSHOT:
+DO NOT FIX UNDER PM3.
+
+File:
+
+I-63 — successful empty Facebook refresh may erase non-empty stored granted-page snapshot.
+
+Record it as a PRE-EXISTING hazard, not introduced by PM3.
+
+Reconnect remains the recovery.
+
+Proceed with merge under the existing ruling.
+
+If the code does something materially different from A or B:
+
+STOP AND REPORT.
+
+============================================================
+2. CITATION 2A — CORRECT CLIENT TEST COUNT NARRATIVE
+============================================================
+
+Correct the wording:
+
+"7 pre-existing + 4 new + 1 re-pointed = 12"
+
+because a re-pointed existing test is still PRE-EXISTING.
+
+Return the true file-level split.
+
+The authoritative arithmetic already accepted is:
+
+CLIENT BASELINE:
+477
+
+NEW TESTS:
++4
+
+FINAL:
+481 / 481 observed.
+
+State exactly:
+
+- total tests in AdsDestinationCapture.test.jsx before PM3;
+- number of those existing tests re-pointed to the new mock source;
+- number of truly new tests added;
+- final total in that file.
+
+Do not count a re-pointed test as new.
+
+============================================================
+3. CITATION 2B — EXPLAIN 476 → 477 BASELINE MOVE
+============================================================
+
+Name the exact +1 client test that moved the accepted client baseline:
+
+476
+→ 477
+
+before PM3 began.
+
+Expected:
+
+the PM2 Citation-3 composed lifecycle regression added before PR #56 merged.
+
+Return:
+
+- exact test file;
+- exact test name;
+- exact commit SHA;
+- arithmetic:
+
+476 + 1 = 477.
+
+If the +1 came from anything else:
+
+STOP AND REPORT.
+
+============================================================
+4. HEAD PIN
+============================================================
+
+Before merge, verify PR #57 head remains exactly:
+
+bba1548546a899cef38e3b3ec2ae7507c7bc8e7a
+
+If head moved:
+
+STOP.
+
+No head movement is authorized under this ruling.
+
+============================================================
+5. CONDITIONAL MERGE
+============================================================
+
+If:
+
+- Citation 1 fits pre-ruled outcome A or B;
+- Citation 2A reconciles honestly;
+- Citation 2B reconciles honestly;
+- PR head remains exactly bba15485...;
+
+THEN:
+
+MERGE PR #57 TO STAGING ONLY
+
+using pinned-head merge discipline.
+
+Production/main remains untouched.
+
+============================================================
+6. POST-MERGE DEPLOYMENT VERIFICATION
+============================================================
+
+After merge:
+
+1. record exact staging merge SHA;
+
+2. verify:
+
+https://staging.zorecho.com/api/health
+
+environment = staging
+version = exact merge SHA;
+
+3. verify:
+schema_migrations = 148;
+
+4. verify:
+no migration ran;
+
+5. verify served:
+echoai-shell-v177;
+
+6. verify served bundle:
+index-CAHiAtI2.js
+
+or the exact committed PM3 bundle if merge metadata causes a different
+mechanical filename — in that case prove byte/commit correspondence.
+
+Do not use retired Railway domains.
+
+============================================================
+7. RESUME SAME SDS SPECIMEN
+============================================================
+
+Resume the SAME SDS-H1 specimen.
+
+Do not create a fresh account.
+
+Do not reconnect Facebook again.
+
+Expected:
+
+Step 6 remains:
+
+missing_ad_destination
+
+and AdsDestinationCapture renders.
+
+============================================================
+8. VERIFY PAGE PICKER
+============================================================
+
+The picker must now show:
+
+South Dixie Storage
+
+Page id:
+
+140006069194366
+
+using the canonical getFacebookAccounts contract.
+
+If the picker still shows zero Pages:
+
+STOP AND REPORT.
+
+Do NOT reconnect again.
+
+Do NOT Skip.
+
+Do NOT enter destination.
+
+Do NOT Save.
+
+Investigate read-only only.
+
+============================================================
+9. PM2 PERSISTENCE PROBE — PRESERVE THE PASS
+============================================================
+
+Before changing configuration:
+
+leave the Step-6 capture panel visible for a deliberate wait.
+
+Then perform ONE remount/refresh.
+
+Expected:
+
+- Step 6 remains current;
+- AdsDestinationCapture remains visible;
+- South Dixie Storage remains available in the picker;
+- Google Ads does NOT show "Working on it...";
+- no failure panel appears;
+- no later step runs.
+
+Read-only verify:
+
+- completed_steps unchanged;
+- campaigns = 0;
+- external_actions = 0;
+- external_proofs = 0;
+- no new agent_tasks.
+
+If persistence fails:
+
+STOP AND REPORT.
+
+PM2 remains recorded as already live-proven; any new failure must be described precisely rather than rewriting history.
+
+============================================================
+10. PAGE SELECTION — ONE OWNER ACTION
+============================================================
+
+If the picker is healthy after the persistence probe:
+
+give the owner exactly ONE action:
+
+select South Dixie Storage in the Page picker.
+
+DO NOT click Save yet.
+
+After the owner selects it:
+
+STOP and verify read-only:
+
+brands.facebook_page_id MUST STILL BE EMPTY.
+
+Expected:
+
+selection is client-local until Save.
+
+Also verify:
+
+- ad_link_url still empty;
+- campaigns = 0;
+- external_actions = 0;
+- external_proofs = 0.
+
+If facebook_page_id persisted before Save:
+
+STOP AND REPORT.
+
+============================================================
+11. DESTINATION + SAVE — ONE OWNER ACTION
+============================================================
+
+After the pre-Save read-only check passes:
+
+give the owner exactly ONE action:
+
+enter or confirm the South Dixie Storage ad destination and click:
+
+Save & continue
+
+Expected destination may use the known South Dixie website if presented as a suggestion, but the owner must explicitly confirm/save it.
+
+After Save:
+
+STOP and verify read-only:
+
+STORE 3:
+
+brands.facebook_page_id
+= South Dixie Storage Page id
+
+brands.ad_link_url
+= exact normalized owner-confirmed destination
+
+STORE 2:
+
+social_accounts
+UNCHANGED
+
+Also verify:
+
+campaigns = 0
+external_actions = 0
+external_proofs = 0
+
+CONFIGURATION MUST NOT CREATE PROVIDER STATE.
+
+If any campaign/external row appears:
+
+STOP AND REPORT.
+
+============================================================
+12. CONFIRM_CAMPAIGN_LAUNCH GATE
+============================================================
+
+After Store 3 is successfully configured:
+
+the product must render:
+
+confirm_campaign_launch
+
+before any provider-object creation.
+
+Expected server-truth summary includes:
+
+- South Dixie Storage Page;
+- Page name;
+- selected ad account;
+- destination;
+- campaign will be PAUSED;
+- initial spend = $0.
+
+DO NOT AUTHORIZE.
+
+============================================================
+13. LAUNCH-GATE PERSISTENCE PROBE
+============================================================
+
+Leave confirm_campaign_launch visible for a deliberate wait.
+
+Then perform ONE remount/refresh.
+
+Expected:
+
+- same confirm_campaign_launch gate remains visible;
+- same authoritative summary is shown;
+- no confirm is auto-sent;
+- campaigns = 0;
+- external_actions = 0;
+- external_proofs = 0;
+- no later step shows "Working on it..."
+
+If the gate disappears or the client advances:
+
+STOP AND REPORT.
+
+============================================================
+14. HARD STOP BEFORE META LAUNCH
+============================================================
+
+Once the launch-confirm gate survives the persistence probe:
+
+HARD STOP.
+
+DO NOT:
+
+- click Authorize;
+- click launch;
+- create Meta campaign objects;
+- trigger R6;
+- continue later setup steps;
+- start BLACOR-H1;
+- start H2;
+- start Prompt 027;
+- touch production.
+
+The actual Facebook campaign attempt requires the NEXT owner + ChatGPT + Claude ruling.
+
+============================================================
+15. RETURN REPORT
+============================================================
+
+Return one report titled:
+
+026-C3-PM3 — POST-MERGE PAGE-CONTRACT + GATE LIVE REPORT
+
+Include:
+
+1. Citation 1 exact live-refresh-success-empty behavior.
+2. Whether I-63 was filed.
+3. Citation 2A corrected client test split.
+4. Citation 2B 476→477 source.
+5. PR head at merge.
+6. merge SHA.
+7. live health SHA.
+8. schema_migrations = 148.
+9. no migration.
+10. served sw.js v177.
+11. served bundle evidence.
+12. same SDS specimen resume evidence.
+13. missing_ad_destination pause evidence.
+14. South Dixie Storage picker evidence.
+15. PM2 persistence probe result.
+16. Google Ads not-running evidence.
+17. Page-selection owner action.
+18. pre-Save facebook_page_id = empty evidence.
+19. pre-Save ad_link_url = empty evidence.
+20. pre-Save campaigns = 0.
+21. pre-Save external_actions = 0.
+22. pre-Save external_proofs = 0.
+23. destination owner action.
+24. Save evidence.
+25. post-Save facebook_page_id readback.
+26. post-Save ad_link_url readback.
+27. Store 2 unchanged evidence.
+28. campaigns = 0 after configuration.
+29. external_actions = 0.
+30. external_proofs = 0.
+31. confirm_campaign_launch live evidence.
+32. exact server-truth launch summary.
+33. PAUSED/$0 copy evidence.
+34. launch-gate persistence probe result.
+35. confirmation no launch authorization was sent.
+36. PM2 remains live-proven.
+37. PM3 Page contract live disposition.
+38. frozen specimen preservation.
+39. production/main untouched.
+40. deviations.
+41. STOP conditions.
+42. final status exactly one of:
+
+026-C3-PM3 PAGE CONTRACT + LAUNCH GATE LIVE-PROVEN — AWAITING OWNER REVIEW
+
+or
+
+STOP CONDITION FOUND.
+
+============================================================
+FINAL AUTHORIZATION
+============================================================
+
+FIRST:
+complete Citations 1 and 2.
+
+IF CLEAN:
+merge PR #57 to STAGING ONLY at exact pinned head bba15485....
+
+THEN:
+perform ONLY the authorized PM3 live re-proof, one owner action at a time.
+
+DO NOT CROSS confirm_campaign_launch.
+
+BEGIN WITH CITATION 1.
