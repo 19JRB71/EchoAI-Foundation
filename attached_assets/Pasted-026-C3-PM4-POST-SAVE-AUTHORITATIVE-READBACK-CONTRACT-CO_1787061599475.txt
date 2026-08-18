@@ -1,0 +1,995 @@
+026-C3-PM4 — POST-SAVE AUTHORITATIVE READBACK CONTRACT CORRECTIVE
+IMPLEMENTATION + TEST + PRE-MERGE RECONCILIATION
+
+Owner + ChatGPT + Claude have reviewed the live PM3 STOP.
+
+CLAUDE RULING:
+
+DECISION A — PM4 NARROW CORRECTIVE AUTHORIZED IN PRINCIPLE.
+ARCHITECTURE: OPTION A.
+
+This is an IMPLEMENT + TEST + BUILD + OPEN-PR authorization only.
+
+DO NOT MERGE.
+DO NOT DEPLOY.
+DO NOT access or resume the SDS specimen during implementation.
+DO NOT ask the owner to Save again.
+DO NOT modify the already-persisted Store-3 values.
+DO NOT authorize campaign launch.
+DO NOT create provider objects.
+DO NOT start BLACOR-H1.
+DO NOT start H2.
+DO NOT start Prompt 027.
+DO NOT touch production.
+
+============================================================
+A. PROVEN LIVE STATE — PRESERVE THE RECORD
+============================================================
+
+Do not rewrite prior findings.
+
+PM2 is LIVE-PROVEN:
+
+- missing_ad_destination pause rendered correctly;
+- wait + remount preserved the pause;
+- Google Ads did not falsely show "Working on it...";
+- no advancement occurred.
+
+PM3 PAGE-LIST READ is LIVE-PROVEN:
+
+- South Dixie Storage appeared in the Page picker;
+- the picker survived wait + remount;
+- Page selection remained client-local before Save.
+
+PM3 SAVE WRITES are LIVE-PROVEN:
+
+The owner selected:
+
+South Dixie Storage
+Page id:
+140006069194366
+
+and entered:
+
+southdixiestorage.com
+
+then clicked Save & continue exactly once.
+
+Read-only server evidence proves:
+
+brands.facebook_page_id
+=
+140006069194366
+
+brands.ad_link_url
+=
+https://southdixiestorage.com/
+
+The server normalizer correctly converted the bare domain.
+
+Store 2:
+social_accounts = 0
+unchanged.
+
+Provider/external state:
+
+campaigns = 0
+external_actions = 0
+external_proofs = 1 historic GA4 proof only
+agent_tasks = 1 historic VALIDATION_FAILED row only
+
+No new provider state was created.
+
+The Save WRITE PATHS are therefore correct.
+
+PM4 must not modify them.
+
+============================================================
+B. PROVEN DEFECT
+============================================================
+
+After Save, AdsDestinationCapture performed its required authoritative reread.
+
+Its path is:
+
+api.getBrand(brandId)
+
+→ GET /api/brands/:brandId
+
+→ brandController.getBrandProfile
+
+The real getBrandProfile SELECT currently returns a flat row containing fields
+such as:
+
+brand_id
+user_id
+brand_name
+brand_personality
+voice_description
+visual_style_preferences
+target_audience
+brand_type
+website_url
+facebook_page_url
+instagram_url
+linkedin_url
+youtube_url
+tiktok_url
+google_business_url
+created_at
+updated_at
+
+It does NOT include:
+
+facebook_page_id
+ad_link_url
+
+Therefore the component can never verify either successful Store-3 write
+through this authoritative reread.
+
+The UI correctly failed closed and displayed:
+
+"The Page choice didn't stick — please try again."
+
+"The destination didn't stick — please try again."
+
+even though both values were actually persisted.
+
+============================================================
+C. SECOND PHANTOM CONTRACT
+============================================================
+
+AdsDestinationCapture.test.jsx also contains an adjacent fabricated contract.
+
+The test mocks:
+
+api.getBrand
+
+approximately as:
+
+{
+  brand: {
+    facebook_page_id,
+    ad_link_url
+  }
+}
+
+But the real endpoint returns a FLAT brand row.
+
+It does NOT return a:
+
+{ brand: ... }
+
+wrapper.
+
+And before PM4 the flat row also omitted the two Store-3 fields.
+
+This is the second phantom cross-boundary contract discovered in the same
+component.
+
+PM4 must correct it under the standing MOCK-FIDELITY RULE.
+
+============================================================
+D. ARCHITECTURAL RULING — OPTION A
+============================================================
+
+Complete the existing authoritative brand projection.
+
+In:
+
+controllers/brandController.js
+→ getBrandProfile
+
+add exactly the existing brand columns:
+
+facebook_page_id
+ad_link_url
+
+to the SELECT / returned flat row.
+
+Do NOT:
+
+- add a wrapper;
+- create another endpoint;
+- create another reader;
+- create a new writer;
+- modify the schema;
+- modify the write paths.
+
+Canonical response remains:
+
+FLAT ROW.
+
+Client tests must follow the real server shape.
+
+Reality does not change to rescue a mock.
+
+============================================================
+E. SAFETY OF ADDITIVE FIELDS
+============================================================
+
+Before implementation/reconciliation, confirm from the real route/controller:
+
+1. GET /api/brands/:brandId is authenticated.
+2. Brand ownership is enforced.
+3. facebook_page_id is owner-visible business configuration.
+4. ad_link_url is owner-visible business configuration.
+5. Neither is a token, credential, secret, provider access key, or private
+   authentication artifact.
+
+PM4-R15 must explicitly guard that no token/secret-class field enters this
+projection.
+
+If either field turns out to be unsafe for this authenticated owner-facing
+response:
+
+STOP AND REPORT.
+
+Do not implement Option A.
+
+============================================================
+F. WRITERS ARE FROZEN
+============================================================
+
+These writers are LIVE-PROVEN correct and must remain untouched:
+
+Page:
+
+POST /api/facebook/select-page
+→ brands.facebook_page_id
+
+Destination:
+
+PUT /api/brands/:brandId
+with adLinkUrl
+→ brands.ad_link_url
+via existing normalization
+
+DO NOT modify:
+
+- select-page behavior;
+- select-page validation;
+- updateBrand adLinkUrl behavior;
+- URL normalization;
+- Store-3 write ordering;
+- Store-2 behavior.
+
+If a writer change appears necessary:
+
+STOP AND REPORT.
+
+============================================================
+G. CLIENT READBACK
+============================================================
+
+AdsDestinationCapture must consume the REAL flat api.getBrand response.
+
+After an authoritative reread:
+
+truthPage
+must come from the real flat:
+
+facebook_page_id
+
+truthLink
+must come from the real flat:
+
+ad_link_url
+
+Do NOT expect:
+
+response.brand.facebook_page_id
+
+or:
+
+response.brand.ad_link_url
+
+unless the real endpoint actually returns that shape, which the governing
+evidence says it does not.
+
+============================================================
+H. NORMALIZED SERVER TRUTH
+============================================================
+
+Server truth is authoritative even when its normalized representation differs
+from owner input.
+
+Example live-proven case:
+
+owner input:
+southdixiestorage.com
+
+server truth:
+https://southdixiestorage.com/
+
+The authoritative reread must accept that normalized result as success.
+
+Do not compare against the owner's raw text in a way that causes a false
+"didn't stick" result.
+
+============================================================
+I. PARTIAL-WRITE HONESTY
+============================================================
+
+Preserve the C3 sequential-write contract.
+
+Authoritative reread must distinguish:
+
+CASE 1:
+Page present
+destination missing
+
+→ only destination remains missing/error.
+
+CASE 2:
+destination present
+Page missing
+
+→ only Page remains missing/error.
+
+CASE 3:
+both present
+
+→ configuration is confirmed;
+→ onConfigured may fire.
+
+CASE 4:
+neither present
+
+→ both remain unresolved.
+
+Do NOT introduce artificial transactionality or rollback.
+
+============================================================
+J. ALREADY-CONFIGURED RECOVERY
+============================================================
+
+This is load-bearing for the live SDS specimen.
+
+The specimen already contains BOTH correct Store-3 fields.
+
+After eventual deployment:
+
+DO NOT ask the owner to Save again.
+
+Expected recovery:
+
+resume SAME specimen
+→ AdsDestinationCapture reads authoritative flat brand truth
+→ sees facebook_page_id already configured
+→ sees ad_link_url already configured
+→ renders/recognizes honest configured state
+→ ZERO writer calls
+→ setup loop re-enters Step 6
+→ server preflight sees Store 3 complete
+→ confirm_campaign_launch appears.
+
+No DB mutation is needed to recover.
+
+No field clearing.
+No repeat Page selection.
+No repeat destination entry.
+No duplicate Save.
+
+============================================================
+K. CONFIGURATION ≠ LAUNCH AUTHORIZATION
+============================================================
+
+Absolute invariant remains:
+
+CONFIGURATION DOES NOT AUTHORIZE LAUNCH.
+
+Recognizing already-configured server truth may advance ONLY to:
+
+confirm_campaign_launch
+
+It must NOT create:
+
+- campaign rows;
+- external_actions;
+- new external_proofs;
+- provider objects;
+- Meta campaign state.
+
+It must NOT auto-confirm the launch gate.
+
+============================================================
+L. MOCK-FIDELITY RULE — SECOND APPLICATION
+============================================================
+
+Standing rule:
+
+"A mock of a cross-boundary contract must mirror a shape bound by a real-contract
+test. For every cross-boundary read a corrective introduces, at least one test
+must assert the actual server response shape; client mocks derive from it,
+comment-linked."
+
+Apply it explicitly.
+
+D-32 daylight must record:
+
+OLD FABRICATED CLIENT MOCK:
+
+api.getBrand
+→
+{
+  brand: {
+    facebook_page_id,
+    ad_link_url
+  }
+}
+
+REAL PRE-PM4 CONTRACT:
+
+flat row
+WITHOUT facebook_page_id/ad_link_url
+
+NEW PM4 CONTRACT:
+
+flat row
+INCLUDING facebook_page_id/ad_link_url
+
+No wrapper.
+
+============================================================
+M. COMPONENT CROSS-BOUNDARY SWEEP — MANDATORY
+============================================================
+
+Because two phantom contracts were found in AdsDestinationCapture, PM4 must
+close the entire cross-boundary family for this component in one pass.
+
+Enumerate EVERY api.* call made by AdsDestinationCapture and report its binding
+status.
+
+Expected calls include:
+
+1. getFacebookAccounts
+   - reader
+   - PM3 real-contract bound
+
+2. getBrand
+   - reader
+   - PM4 real-contract bound
+
+3. selectFacebookPage
+   - writer
+   - live-proven
+   - regression-bound
+
+4. updateBrand
+   - writer
+   - live-proven
+   - regression-bound
+
+If any additional api.* call exists:
+
+enumerate it and state:
+
+- real endpoint;
+- actual request/response contract;
+- whether a real-contract test binds it;
+- whether the component mock matches reality.
+
+If another phantom contract is discovered:
+
+STOP AND REPORT before proceeding.
+
+Do not wait for another live failure.
+
+============================================================
+N. AUTHORIZED PRODUCTION FILE SURFACE
+============================================================
+
+Authorized production hand-edited files:
+
+1. EchoAI/controllers/brandController.js
+
+2. EchoAI/client/src/onboarding/guided/AdsDestinationCapture.jsx
+
+CONTINGENCY ONLY:
+
+3. EchoAI/client/src/api.js
+
+api.js should not be necessary if the current wrapper simply returns the flat
+endpoint response.
+
+If api.js is touched:
+
+justify exactly why.
+
+ANY additional production file:
+
+STOP AND REPORT before editing.
+
+============================================================
+O. AUTHORIZED TEST SURFACE
+============================================================
+
+Client:
+
+EchoAI/client/src/onboarding/guided/AdsDestinationCapture.test.jsx
+
+Server:
+
+one brand-profile contract test surface:
+
+either:
+- a NEW focused server test file;
+
+OR
+- an existing appropriate brandController test file.
+
+Enumerate which choice was made.
+
+Do not modify unrelated shared harness/config files.
+
+============================================================
+P. MECHANICAL FILES
+============================================================
+
+Because client production code changes:
+
+bump:
+
+echoai-shell-v177
+→ echoai-shell-v178
+
+Rebuild committed client/dist output.
+
+SW/dist are mandatory mechanical accompaniments and excluded from the
+hand-edited ceiling, but must be enumerated.
+
+============================================================
+Q. DIFF BOUNDS
+============================================================
+
+Padded hand-edited bound:
+
+350 lines
+
+HARD STOP threshold:
+
+440 lines
+
+Production + tests count.
+
+Mechanical SW/dist excluded.
+
+If implementation evidence indicates the hand-edited diff will reach 440:
+
+STOP BEFORE writing further.
+
+Do not trim required contract tests merely to satisfy the padded estimate.
+
+============================================================
+R. MANDATORY REGRESSIONS — PM4-R1 THROUGH R16
+============================================================
+
+PM4-R1 — REAL BRAND CONTRACT
+
+Exercise the actual getBrandProfile controller/route contract and bind the exact
+FLAT response including:
+
+facebook_page_id
+ad_link_url
+
+No fabricated wrapper.
+
+PM4-R2 — OWNERSHIP
+
+A foreign user cannot read another owner's brand through this endpoint.
+
+PM4-R3 — MOCK FIDELITY
+
+AdsDestinationCapture's getBrand mock mirrors the bound flat real contract.
+
+No:
+{ brand: ... }
+
+wrapper.
+
+PM4-R4 — BOTH FIELDS VISIBLE
+
+After writes are stored, authoritative reread sees both and onConfigured fires.
+
+PM4-R5 — PAGE-ONLY PARTIAL
+
+facebook_page_id present;
+ad_link_url absent;
+
+only destination remains unresolved/error.
+
+PM4-R6 — DESTINATION-ONLY PARTIAL
+
+ad_link_url present;
+facebook_page_id absent;
+
+only Page remains unresolved/error.
+
+PM4-R7 — ALREADY CONFIGURED
+
+Component loads while both fields are already stored and recognizes configured
+truth honestly.
+
+PM4-R8 — NO DUPLICATE SAVE / NO REWRITE
+
+Already-configured recovery causes ZERO calls to:
+
+selectFacebookPage
+updateBrand
+
+merely to progress.
+
+PM4-R9 — NORMALIZATION
+
+Owner raw input:
+
+southdixiestorage.com
+
+server reread:
+
+https://southdixiestorage.com/
+
+is accepted as successful authoritative truth.
+
+PM4-R10 — STORE-2 ISOLATION
+
+social_accounts remains untouched.
+
+PM4-R11 — ZERO PROVIDER STATE
+
+Configured readback/recovery creates no:
+
+campaigns
+external_actions
+new external_proofs
+provider objects.
+
+PM4-R12 — CONFIRM GATE
+
+Configured convergence leads only to:
+
+confirm_campaign_launch
+
+and no further.
+
+PM4-R13 — PM2/PM3 PRESERVATION
+
+All pause-lifecycle and Page-picker real-contract suites remain green
+unchanged.
+
+PM4-R14 — ADDITIVE CALLER SAFETY
+
+Enumerate all existing consumers of getBrandProfile / GET /api/brands/:brandId.
+
+Demonstrate that the two additive fields do not break their expectations.
+
+Use existing suites where sufficient.
+
+Do not hand-wave "additive is safe" without caller enumeration.
+
+PM4-R15 — NO-SECRETS PROJECTION GUARD
+
+The real brand-profile contract test must assert that secret/token-class fields
+are NOT exposed.
+
+At minimum inspect for:
+
+access tokens
+refresh tokens
+page access tokens
+encrypted token blobs
+provider secrets
+credentials
+OAuth authorization material
+
+The exact assertion should follow real field names in the codebase.
+
+Do not create a brittle test that fails merely because harmless owner-visible
+fields are later added; guard the secret classes deliberately.
+
+PM4-R16 — CROSS-BOUNDARY SWEEP
+
+Reconciliation must contain the complete AdsDestinationCapture api.* table with
+per-call:
+
+- API method;
+- real route;
+- request shape;
+- response shape;
+- reader/writer role;
+- real-contract binding status;
+- mock-fidelity status;
+- live-proof status where applicable.
+
+============================================================
+S. D-32 REVIEW
+============================================================
+
+Explicitly report every change to existing tests.
+
+Known expected change:
+
+getBrand mock changes from fabricated wrapper to real flat contract.
+
+Report:
+
+- exact old mock;
+- exact new mock;
+- assertions changed;
+- assertions deleted;
+- tests added;
+- tests renamed;
+- tests removed;
+- any inversion.
+
+No silent weakening.
+
+============================================================
+T. BASELINES / FULL VERIFICATION
+============================================================
+
+Start from a fresh clone of the CURRENT staging head.
+
+Before editing:
+
+record exact baseline SHA.
+
+Re-derive exact test baselines.
+
+Expected latest known totals after PM3:
+
+CLIENT:
+481
+
+SERVER:
+1483
+
+Do not assume those totals.
+
+Run fresh baseline verification first.
+
+If materially different:
+
+STOP AND REPORT before implementation.
+
+After implementation:
+
+1. run targeted PM4 server contract tests;
+2. run targeted AdsDestinationCapture tests;
+3. run full server suite;
+4. run full client suite;
+5. run production client build.
+
+Report observed arithmetic exactly.
+
+============================================================
+U. ZERO DDL
+============================================================
+
+ZERO schema changes authorized.
+
+ZERO migrations authorized.
+
+Expected schema_migrations baseline remains:
+
+148.
+
+If DDL appears necessary:
+
+STOP.
+
+Adding two existing columns to a SELECT is NOT DDL.
+
+============================================================
+V. SPECIMEN FREEZE
+============================================================
+
+Do NOT access or mutate the SDS specimen during implementation/testing.
+
+Do NOT:
+
+- login as specimen;
+- Save again;
+- clear fields;
+- modify Page;
+- modify destination;
+- reconnect Facebook;
+- trigger Step 6;
+- manipulate DB state.
+
+Current governing specimen state is already evidenced:
+
+facebook_page_id =
+140006069194366
+
+ad_link_url =
+https://southdixiestorage.com/
+
+Store 2 unchanged
+
+campaigns = 0
+
+external_actions = 0
+
+external_proofs =
+historic GA4 baseline only
+
+Preserve it.
+
+============================================================
+W. STOP CONDITIONS
+============================================================
+
+STOP AND REPORT immediately if:
+
+1. the real getBrandProfile response is not flat;
+2. ownership is not enforced;
+3. exposing either field creates a security/privacy concern;
+4. another production file is required;
+5. a writer must change;
+6. schema/DDL is required;
+7. api.js requires a material semantic redesign;
+8. AdsDestinationCapture contains another unbound phantom cross-boundary
+   contract;
+9. partial-write honesty cannot be preserved;
+10. already-configured recovery requires another Save;
+11. configuration cannot advance only to confirm_campaign_launch;
+12. provider state must be created to test;
+13. Store 2 must change;
+14. hand-edited diff reaches 440;
+15. an existing load-bearing test must be weakened/deleted;
+16. specimen access appears necessary;
+17. production access/write appears necessary.
+
+STOP FIRST.
+
+Do not widen authorization yourself.
+
+============================================================
+X. PRE-MERGE RECONCILIATION PACKAGE
+============================================================
+
+When implementation/tests/build are complete:
+
+STOP BEFORE MERGE.
+
+Return:
+
+026-C3-PM4 — PRE-MERGE RECONCILIATION
+
+with:
+
+1. branch;
+2. verified fresh baseline SHA;
+3. PR number/link marked DO NOT MERGE;
+4. exact PR head SHA;
+5. complete changed-file list;
+6. production hand-edited files;
+7. test hand-edited files;
+8. mechanical files;
+9. per-file purpose;
+10. exact numstat;
+11. total hand-edited diff vs 350/440;
+12. D-32 review;
+13. exact pre-fix getBrandProfile SELECT;
+14. exact post-fix SELECT/response shape;
+15. authentication + ownership proof;
+16. field-safety analysis;
+17. PM4-R15 no-secrets evidence;
+18. old fabricated getBrand mock shape;
+19. corrected flat mock shape;
+20. PM4-R1..R16 map;
+21. component cross-boundary sweep table;
+22. existing getBrandProfile caller enumeration;
+23. caller-safety evidence;
+24. partial-readback tests;
+25. already-configured recovery test;
+26. zero-repeat-writer evidence;
+27. normalization evidence;
+28. Store-2 isolation evidence;
+29. zero-provider-state evidence;
+30. confirm-gate preservation;
+31. PM2 preservation;
+32. PM3 preservation;
+33. targeted test results;
+34. client baseline arithmetic/result;
+35. server baseline arithmetic/result;
+36. build result;
+37. SW v178 evidence;
+38. dist enumeration;
+39. zero DDL/migration evidence;
+40. specimen untouched attestation;
+41. provider/external-write attestation;
+42. deviations;
+43. STOP conditions;
+44. proposed post-merge live sequence.
+
+Then HARD STOP.
+
+No self-acceptance.
+
+============================================================
+Y. PROPOSED POST-MERGE LIVE RECOVERY — DO NOT EXECUTE YET
+============================================================
+
+After a later owner + ChatGPT + Claude merge ruling:
+
+deploy
+→ verify exact live SHA
+→ migrations remain 148
+→ served SW v178
+→ served dist matches
+
+→ read-only verify SAME SDS specimen still contains:
+facebook_page_id = 140006069194366
+ad_link_url = https://southdixiestorage.com/
+
+→ owner opens/resumes SAME setup session
+
+NO Save.
+
+Expected:
+
+AdsDestinationCapture/getBrand authoritative read sees BOTH stored fields
+
+→ UI recognizes configured Store 3
+
+→ no select-page call
+→ no updateBrand call
+→ no DB configuration mutation
+
+→ Step 6 re-enters server truth
+
+→ confirm_campaign_launch appears
+
+Then read-only verify:
+
+campaigns = 0
+external_actions = 0
+external_proofs has NO NEW rows beyond historic GA4 baseline
+Store 2 unchanged
+
+Then:
+
+deliberate wait
+→ one remount/refresh
+→ confirm_campaign_launch remains stable
+→ no confirm auto-sent
+→ no later step runs
+
+→ HARD STOP.
+
+NO CAMPAIGN LAUNCH.
+
+============================================================
+Z. FINAL AUTHORIZATION
+============================================================
+
+AUTHORIZED:
+
+PM4 implementation
+tests
+build
+PR creation
+pre-merge reconciliation
+
+NOT AUTHORIZED:
+
+merge
+deploy
+staging specimen access
+repeat Save
+Page rewrite
+destination rewrite
+Facebook reconnect
+campaign authorization
+campaign launch
+provider writes
+BLACOR-H1
+H2
+Prompt 027
+production changes
+
+BEGIN WITH THE FRESH BASELINE VERIFICATION AND THE REAL getBrandProfile
+CONTRACT.
