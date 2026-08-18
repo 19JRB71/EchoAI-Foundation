@@ -533,8 +533,42 @@ async function createCampaign(req, res) {
     const body = { error: err.message || "Failed to create campaign" };
     // Surface a partial Facebook chain to the UI — never a silent partial launch.
     if (err.partialChain) body.partialChain = err.partialChain;
+    // 026-C3-PM5 §6 — terminal-provider classification/marking ONLY. A Meta
+    // permission/account-restriction rejection (the live incident: Graph
+    // code 200, subcode 1487194) is a TERMINAL provider fault: not an AI
+    // outage, not retryable-as-is. The classification rides the response
+    // body (the in-process invoke() boundary strips error-object fields) so
+    // the setup agent's classifier can render truthful owner copy. Raw
+    // provider codes stay server-side.
+    if (isProviderPermissionError(err)) {
+      body.failureClass = "provider_permission";
+      body.retryable = false;
+    }
     return res.status(status).json(body);
   }
+}
+
+/**
+ * 026-C3-PM5 — true when a launch error is a terminal Meta/provider
+ * permission or account-restriction failure (provider/account attention
+ * required; never an AI outage, never automatically retryable). Detection
+ * uses the Graph error surface utils/facebookApi attaches (fbCode/fbSubcode/
+ * HTTP status) plus a narrow message fallback for permission wording.
+ * Graph code 200-299 is Meta's documented permission-error family; 10 is
+ * "permission denied"; subcode 1487194 is the live ad-account capability
+ * restriction.
+ */
+function isProviderPermissionError(err) {
+  if (!err) return false;
+  const fbCode = err.fbCode;
+  const hasGraphSurface = fbCode !== undefined || err.fbSubcode !== undefined;
+  if (typeof fbCode === "number" && ((fbCode >= 200 && fbCode <= 299) || fbCode === 10)) return true;
+  if (err.fbSubcode === 1487194) return true;
+  if (hasGraphSurface && err.status === 403) return true;
+  if (hasGraphSurface && /permission|not authorized|restricted|capab/i.test(String(err.message || ""))) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -735,4 +769,6 @@ module.exports = {
   optimizeCampaign,
   getCampaignPerformance,
   generateAdCreative,
+  // 026-C3-PM5 seam: terminal provider-permission classification predicate.
+  isProviderPermissionError,
 };
