@@ -1,0 +1,541 @@
+026-C3-PM5 — IMPLEMENT POST-LAUNCH HONESTY CORRECTIVE
+IMPLEMENTATION AUTHORIZATION — HARD STOP BEFORE MERGE
+
+You are implementing the narrow C3-PM5 corrective authorized by the owner, ChatGPT, and Claude.
+
+This is an IMPLEMENTATION prompt.
+
+Do not merely analyze or propose a plan. Implement the authorized corrective, run the required tests, build the client, open the PR, and return the complete PRE-MERGE RECONCILIATION.
+
+DO NOT MERGE.
+DO NOT DEPLOY.
+DO NOT RETRY THE FACEBOOK CAMPAIGN.
+DO NOT TOUCH THE SDS SPECIMEN.
+DO NOT DELETE, EDIT, ACTIVATE, PAUSE, OR CREATE META OBJECTS.
+DO NOT ADVANCE THE JOURNEY.
+PRODUCTION/MAIN REMAINS UNTOUCHED.
+
+==================================================
+1. STARTING POINT / BRANCH DISCIPLINE
+==================================================
+
+Start from the current staging head that contains accepted PM4/PM4b.
+
+Expected accepted staging merge SHA:
+
+7be8ce1fa572b0868fc5679e79bcb55ae1b10ea7
+
+Before any edit:
+
+1. Use a fresh clone/worktree suitable for this governed change.
+2. Verify repository toplevel.
+3. Verify staging HEAD.
+4. Record the exact baseline SHA.
+5. If baseline materially differs from the accepted PM4/PM4b staging head, STOP AND REPORT before editing.
+6. Create a dedicated branch:
+
+c3-pm5-post-launch-honesty
+
+Given the repeated nested-.git disappearance hazard, verify git toplevel and HEAD before every consequential git operation. Do not allow a commit to land on the general workspace repository accidentally.
+
+==================================================
+2. LIVE INCIDENT THAT PM5 MUST CORRECT
+==================================================
+
+The first authorized H1 R6 Facebook launch crossed executeExternal exactly once.
+
+The provider execution spine behaved honestly:
+
+- exactly one launch attempt occurred;
+- external action was recorded;
+- Meta returned a terminal permissions failure;
+- the external action became failed/terminal;
+- the agent task reached MANUAL_REVIEW;
+- no automatic second attempt occurred.
+
+The Meta error was:
+
+code 200
+subcode 1487194
+
+The launch left a partial chain:
+
+- local campaign row exists;
+- campaign status = launch_failed;
+- two Meta object IDs were persisted;
+- no complete campaign/adset/creative/ad chain was proven;
+- no EXTERNALLY_VERIFIED completion occurred.
+
+Two product honesty defects were then exposed.
+
+DEFECT 1:
+The terminal Meta permission failure was rendered to the owner as:
+
+"AI service was temporarily unavailable"
+
+with a Retry affordance.
+
+That was false. AI generation had succeeded. Meta rejected provider creation.
+
+DEFECT 2:
+On later reconciliation, create_facebook_campaign was treated as complete / "already set up" despite the authoritative campaign truth being launch_failed with only a partial provider chain.
+
+A duplicate-prevention/existence predicate appears to have been reused as a success predicate.
+
+PM5 corrects ONLY truth, classification, completion recognition, operational completed_steps reconciliation, and retry gating.
+
+PM5 DOES NOT design or execute partial-chain continuation.
+
+==================================================
+3. CANONICAL SUCCESS PREDICATE — BIND THIS LITERALLY
+==================================================
+
+create_facebook_campaign is COMPLETE iff the existing canonical evidence model proves the launch reached EXTERNALLY_VERIFIED.
+
+Success requires the full existing evidence chain, not merely campaign existence.
+
+At minimum the predicate must require the existing authoritative equivalents of:
+
+1. local campaign row in a success state;
+2. full expected provider chain persisted:
+   - campaign
+   - adset
+   - creative
+   - ad
+3. external action succeeded;
+4. provider read-back succeeded and verified the expected provider truth/effective status;
+5. launch spine reached EXTERNALLY_VERIFIED.
+
+Reuse the existing 018/evidence model and existing spine semantics.
+
+DO NOT create a parallel success definition.
+
+A campaign row existing is NOT success.
+
+One or two provider IDs existing is NOT success.
+
+launch_failed is NOT success.
+
+MANUAL_REVIEW is NOT success.
+
+A duplicate-prevention predicate is NOT a completion predicate.
+
+If the repository cannot support the canonical predicate described above without changing an unauthorized production subsystem, STOP AND REPORT rather than widening PM5.
+
+==================================================
+4. DIRTY EVIDENCE / D-40 SEMANTICS
+==================================================
+
+Apply the existing evidence-dirty semantics to this setup path.
+
+Prior provider evidence means:
+
+- DO NOT automatically execute again;
+- DO NOT create a second provider chain;
+- DO NOT interpret the evidence as successful completion merely because it exists;
+- surface the truthful failed/manual-review state.
+
+For the live specimen:
+
+launch_failed + partial provider IDs + failed terminal external action + MANUAL_REVIEW
+
+must resolve to:
+
+NOT COMPLETE
+NOT "already set up"
+NOT automatically retried
+NOT auto-advanced
+owner-safe failed/manual-review presentation
+
+Preserve all historical evidence.
+
+==================================================
+5. COMPLETED_STEPS RECONCILIATION
+==================================================
+
+completed_steps is operational runner state, not authoritative launch evidence.
+
+If create_facebook_campaign appears in completed_steps but authoritative campaign/spine/ledger evidence proves the step is not complete:
+
+1. reconcile the operational state truthfully;
+2. remove/correct the erroneous completion marker through the authorized server reconciliation path;
+3. record the truthful failed/manual-review outcome;
+4. log the correction with a correlation/reference identifier;
+5. preserve all campaign rows, provider IDs, ledgers, tasks, proofs, and historical attempt evidence.
+
+The correction MUST be idempotent.
+
+Running reconciliation twice must correct once and then remain stable.
+
+NO migration.
+NO manual DB surgery.
+NO deletion of history.
+
+==================================================
+6. FAILURE CLASSIFICATION
+==================================================
+
+Introduce/use a truthful terminal provider-permission/manual-review classification for failures of this family.
+
+Expected semantic family:
+
+provider_permission / manual_review
+
+Exact internal naming may follow existing conventions, but semantics are binding.
+
+For terminal provider permission/restriction failures:
+
+- retryable = false;
+- owner presentation must indicate provider/account attention is required;
+- correlation/reference ID must remain visible;
+- do not expose unnecessary raw provider internals/subcodes in owner-facing copy;
+- raw provider evidence remains available server-side/ledger-side.
+
+The owner-facing UI MUST NOT call this an AI outage.
+
+==================================================
+7. GENERAL HONESTY RULE
+==================================================
+
+Bind this property by test:
+
+THE UI NEVER NAMES A CAUSE IT HAS NOT CLASSIFIED.
+
+"AI service was temporarily unavailable" or equivalent AI-specific copy may render ONLY when the authoritative failure classification actually identifies AI unavailability.
+
+A Meta/provider permission failure must not render AI-outage copy.
+
+An unknown terminal failure must receive neutral truthful wording plus the correlation/reference ID.
+
+Do not infer cause from the name of the setup step.
+
+Templates are selected by authoritative failure class, not by an assumed cause associated with the step.
+
+==================================================
+8. RETRY GATING
+==================================================
+
+NO SECOND FACEBOOK LAUNCH IS AUTHORIZED BY PM5.
+
+For terminal/unreconciled provider evidence:
+
+- no immediate Retry affordance;
+- no automatic retry;
+- no execution on mount;
+- no execution on remount;
+- no execution during reconciliation;
+- no second external action;
+- no provider creation.
+
+Partial-chain continuation/resumption belongs to the later Prompt-031/post-readback ruling.
+
+Do not implement it here.
+
+Do not delete the partial chain to make Retry possible.
+
+Do not create a fresh chain.
+
+==================================================
+9. SAME-ROW / HISTORY RULE
+==================================================
+
+The existing partial campaign row is permanent attempt history.
+
+PM5 must not delete or replace it.
+
+Future reconciliation/resume design, if later authorized, should attach to/reconcile the same attempt where appropriate.
+
+Supersede-with-link or fresh-chain behavior is explicitly deferred.
+
+Do not implement either under PM5.
+
+==================================================
+10. AUTHORIZED PRODUCTION SURFACE
+==================================================
+
+Authorized production files:
+
+- setupAgentController.js
+  recognizer/completion predicate, completed_steps reconciliation, truthful outcome/template behavior
+
+- campaignController.js
+  terminal-provider classification/marking ONLY
+
+- SetupAgent.jsx
+  failed/manual-review presentation and Retry gating
+
+- executeError.js
+  CONTINGENCY ONLY if genuinely required by the established classification boundary
+
+No other production file is authorized.
+
+If another production file is required:
+
+STOP AND REPORT.
+
+Do not widen scope yourself.
+
+ZERO DDL / ZERO MIGRATIONS.
+
+Any schema requirement = STOP AND REPORT.
+
+==================================================
+11. TEST SURFACE
+==================================================
+
+Use the appropriate existing server recognizer/classifier suites and client rendering suites.
+
+New test files may be created only where needed to bind the authorized behavior and must be enumerated.
+
+D-32 applies:
+
+- no deleting existing tests;
+- no weakening assertions;
+- no inversion disguised as correction;
+- any corrected mock/fixture must be disclosed old shape -> real shape -> corrected shape;
+- mocks crossing a boundary must follow the Mock-Fidelity rule.
+
+==================================================
+12. REQUIRED REGRESSION PROPERTIES — R1-R18
+==================================================
+
+Bind and report R1-R18 explicitly.
+
+R1.
+A launch_failed campaign with partial provider IDs is NOT complete.
+
+R2.
+Campaign-row existence alone is never create_facebook_campaign success.
+
+R3.
+Partial provider IDs are never full-chain success.
+
+R4.
+MANUAL_REVIEW/failed terminal external evidence does not become "already set up."
+
+R5.
+The canonical positive success fixture DOES complete only when the full existing evidence predicate is satisfied.
+
+R6.
+Dirty prior evidence blocks automatic re-execution.
+
+R7.
+If completed_steps incorrectly contains create_facebook_campaign while authoritative evidence says launch_failed, reconciliation removes/corrects the operational completion and records truthful failed/manual-review outcome.
+
+R8.
+The R7 correction preserves campaign row, provider IDs, external action, task, proof/history evidence.
+
+R9.
+Terminal Meta/provider permission failure is classified provider_permission/manual_review (or repository-equivalent truthful class), retryable false.
+
+R10.
+Provider-permission failure does NOT render "AI service unavailable."
+
+R11.
+Provider-permission/manual-review state does NOT render an immediate Retry control.
+
+R12.
+Mount/remount/reconcile with dirty terminal evidence causes ZERO provider creation and ZERO external action.
+
+R13.
+Unknown terminal errors render neutral truthful copy + reference, not an invented AI/provider cause.
+
+R14.
+A genuinely classified AI-unavailability failure may still render the AI-specific unavailable copy if that is the existing truthful behavior.
+
+R15.
+Configuration truth and launch truth remain separate; no recognition path auto-authorizes provider execution.
+
+R16.
+PROPERTY STYLE:
+The UI never names a cause it has not classified.
+
+R17.
+completed_steps correction is logged and idempotent:
+first reconciliation corrects once;
+second reconciliation performs no second correction and remains stable.
+
+R18.
+PROPERTY/POSITIVE SUCCESS:
+The successful create_facebook_campaign recognizer requires the FULL canonical success predicate, including provider read-back / EXTERNALLY_VERIFIED evidence, not an arbitrary subset.
+
+Do not satisfy R18 by inventing a second success model.
+
+==================================================
+13. PRESERVATION REQUIREMENTS
+==================================================
+
+The following previously proven behavior must remain green:
+
+- PM2 pause lifecycle
+- replace-never-blank behavior
+- PM3 page-list contract
+- PM3 Store-3 Save writers
+- PM4 authoritative brand readback
+- no-Save configured recovery
+- confirm_campaign_launch gate behavior
+- explicit authorization requirement
+- no ambient launch authorization
+- Store 2 separation
+- campaign single-attempt/idempotency protections
+- existing spine evidence semantics
+
+No regression may convert partial state into automatic re-execution.
+
+==================================================
+14. MECHANICAL CLIENT OUTPUT
+==================================================
+
+If client production changes require the standing cache/build procedure:
+
+- bump service worker v178 -> v179;
+- rebuild dist;
+- enumerate all mechanical files separately from hand-edited files.
+
+Do not count mechanical dist output against the hand-edited scope.
+
+If the established procedure determines no bump/build is required, explain why explicitly rather than silently omitting it.
+
+==================================================
+15. DIFF BOUNDS
+==================================================
+
+Padded hand-edited bound: 800 lines.
+
+HARD STOP: 1,000 hand-edited lines.
+
+Report numstat by file and classify:
+
+- production hand-edited;
+- tests hand-edited;
+- mechanical.
+
+If the 800 pad is exceeded but 1,000 is not, disclose and justify.
+
+At or above the 1,000 STOP: STOP AND REPORT before merge.
+
+==================================================
+16. NO LIVE SPECIMEN DURING IMPLEMENTATION
+==================================================
+
+Do NOT log into the SDS specimen during implementation.
+
+Do NOT run a live retry.
+
+Do NOT touch the existing campaign row.
+
+Do NOT call Meta to create/edit/delete anything.
+
+Do NOT manipulate completed_steps manually in staging.
+
+Do NOT use the live specimen to make the tests pass.
+
+The ugly existing state is preserved for post-deploy live proof.
+
+==================================================
+17. REQUIRED PRE-MERGE RECONCILIATION
+==================================================
+
+Return a complete report containing at least:
+
+1. branch;
+2. verified baseline SHA;
+3. PR number/title;
+4. PR head SHA;
+5. complete changed-file list;
+6. production files changed;
+7. test files changed;
+8. mechanical files changed;
+9. per-file purpose;
+10. numstat;
+11. hand-edited total;
+12. D-32 review;
+13. exact canonical success predicate as implemented, citing the existing evidence/spine fields it reuses;
+14. exact prior dirty-evidence predicate;
+15. exact completed_steps correction behavior;
+16. exact correction log/reference behavior;
+17. proof of correction idempotency;
+18. terminal-provider classification path;
+19. owner-facing provider/manual-review copy;
+20. Retry gating behavior;
+21. proof mount/remount/reconcile cannot create a second attempt;
+22. proof unknown failures do not invent a cause;
+23. proof genuine AI-unavailability still gets AI-specific copy only when classified;
+24. R1-R18 mapping test-by-test;
+25. targeted test totals;
+26. full client test arithmetic;
+27. full server test arithmetic;
+28. build result;
+29. SW version;
+30. dist bundle filename;
+31. zero DDL/migration confirmation;
+32. zero unauthorized production files;
+33. campaign writers/provider spine preservation;
+34. Store-2 preservation;
+35. launch authorization preservation;
+36. PM2/PM3/PM4 regression status;
+37. specimen untouched confirmation;
+38. zero provider calls/writes during implementation;
+39. deviations;
+40. STOP-condition review.
+
+Also include a CROSS-BOUNDARY / EVIDENCE TABLE showing every authoritative source used by the create_facebook_campaign completion recognizer:
+
+SOURCE
+FIELD/STATE CONSUMED
+WHY IT IS AUTHORITATIVE
+BOUND TEST
+SUCCESS VALUE
+FAILURE/DIRTY VALUE
+
+The table must make it visually impossible to confuse:
+
+DUPLICATE PREVENTION
+
+with:
+
+SUCCESS EVIDENCE.
+
+==================================================
+18. PRE-MERGE HARD STOP
+==================================================
+
+Open the PR against staging with:
+
+[DO NOT MERGE] 026-C3-PM5 — post-launch honesty corrective
+
+Then STOP.
+
+DO NOT MERGE.
+DO NOT DEPLOY.
+DO NOT CONTACT OR MODIFY THE SDS SPECIMEN.
+DO NOT RETRY.
+DO NOT SKIP.
+DO NOT CLEAN UP META.
+DO NOT ADVANCE SOCIAL SETUP.
+DO NOT START PROMPT 031.
+DO NOT TOUCH PRODUCTION.
+
+Return the PRE-MERGE RECONCILIATION to the owner, ChatGPT, and Claude for review.
+
+==================================================
+19. GOVERNING INTENT
+==================================================
+
+PM5 has one job:
+
+MAKE THE SYSTEM TELL THE TRUTH ABOUT THE EXISTING FAILED PARTIAL LAUNCH.
+
+It does NOT have permission to solve that partial launch.
+
+After PM5 is deployed and the same specimen truthfully presents failed/manual-review state, the existing two Meta IDs will be read back using authorized read-only provider paths.
+
+Then HARD STOP.
+
+Only after that evidence will the owner + ChatGPT + Claude decide whether to:
+
+A. reconcile/resume the existing partial chain;
+B. owner-cleanup and authorize a fresh chain;
+C. abandon/skip the campaign step while Meta review continues.
+
+NO SECOND LAUNCH IS AUTHORIZED BY THIS PROMPT.
