@@ -1,0 +1,706 @@
+026-C3-PM4b — SWEEP-COMPLETION TEST MICRO-COMMIT
++ CITATION COMPLETION
++ CONDITIONAL MERGE
++ NO-SAVE LIVE RECOVERY
+
+Owner + ChatGPT + Claude review of PR #58 is complete.
+
+CLAUDE RULING:
+
+DECISION B — ACCEPT WITH PRE-MERGE CORRECTIVE.
+
+Exactly ONE test-only PM4b micro-commit is authorized, plus two narrative
+citations.
+
+NO production-code change is authorized.
+
+DO NOT modify:
+
+controllers/brandController.js
+AdsDestinationCapture.jsx
+api.js
+any server production file
+any client production file
+schema/migrations
+sw.js
+dist
+
+under PM4b.
+
+The existing PM4 production implementation remains the approved implementation.
+
+Current approved PR #58 head before PM4b:
+
+e9948b15fe816ed7baca1a53d8ed09f011857de4
+
+============================================================
+1. PM4b(i) — COMPLETE THE COMPONENT CROSS-BOUNDARY SWEEP
+============================================================
+
+PM4's sweep identified six api.* calls used by AdsDestinationCapture:
+
+1. getFacebookAccounts
+2. getBrand
+3. getActiveBrand
+4. getBrands
+5. selectFacebookPage
+6. updateBrand
+
+Current evidence status:
+
+getFacebookAccounts:
+real-contract bound in PM3
+
+getBrand:
+real-contract bound in PM4
+
+selectFacebookPage:
+live-proven + regression-bound
+
+updateBrand:
+live-proven + regression-bound
+
+Remaining inspection-only reads:
+
+getActiveBrand
+getBrands
+
+Claude ruled that code inspection is NOT sufficient here because this component
+already contained two phantom cross-boundary contracts.
+
+PM4b must add server-side contract coverage for BOTH remaining reads.
+
+============================================================
+2. BIND getActiveBrand REAL CONTRACT
+============================================================
+
+Add a server contract test exercising the REAL handler/route/controller behind:
+
+GET /api/brands/active/selection
+
+Bind its actual response shape.
+
+Expected from the audited source:
+
+{
+  brandId
+}
+
+Do not assume that shape.
+
+Quote/inspect the real controller and assert what it actually serializes.
+
+At minimum bind:
+
+- authenticated request;
+- owner-scoped behavior;
+- exact response key shape;
+- brandId value;
+- no invented wrapper;
+- no unrelated/secret fields.
+
+If the real shape differs materially from:
+
+{ brandId }
+
+STOP AND REPORT before changing production.
+
+Do NOT change production to satisfy the expectation.
+
+============================================================
+3. BIND getBrands REAL CONTRACT
+============================================================
+
+Add a server contract test exercising the REAL handler/route/controller behind:
+
+GET /api/brands
+
+Bind its actual response shape.
+
+Expected from the audited source:
+
+{
+  count,
+  brands: [flat rows]
+}
+
+Again:
+
+do not assume it.
+
+Bind the real serialized response.
+
+At minimum prove:
+
+- exact top-level key shape;
+- count semantics;
+- brands is an array;
+- each returned brand object is FLAT;
+- no fabricated wrapper;
+- ownership scoping;
+- no secret/token-class fields in the tested projection.
+
+The purpose is Mock-Fidelity closure for AdsDestinationCapture's fallback path.
+
+If the real route shape materially differs from the component's consumption:
+
+STOP AND REPORT.
+
+No production correction is authorized under PM4b.
+
+============================================================
+4. TEST FILE SURFACE
+============================================================
+
+Preferred:
+
+extend the existing PM4 server contract test surface if coherent.
+
+You may use:
+
+EchoAI/test/brandProfileContract.test.js
+
+OR
+
+one NEW focused server test file if separating collection/active contracts is
+materially cleaner.
+
+But PM4b may change TEST FILES ONLY.
+
+If any production file appears necessary:
+
+STOP AND REPORT.
+
+============================================================
+5. PM4b(ii) — EXACT-KEY ALLOWLIST CHECK
+============================================================
+
+Inspect the existing PM4 brand-profile contract test.
+
+Claude requires confirmation that the returned brand-profile response is bound
+by an EXACT key-set assertion — for example:
+
+deepStrictEqual(Object.keys(...).sort(), expectedKeys.sort())
+
+or equivalent exact-key comparison.
+
+It is NOT enough merely to assert:
+
+facebook_page_id exists
+ad_link_url exists.
+
+If the exact-key assertion ALREADY EXISTS:
+
+citation-only.
+Do not modify it unnecessarily.
+
+If it does NOT exist:
+
+add the exact-key assertion in the SAME PM4b test-only commit.
+
+The exact-key contract plus the existing secret-class name scan together form
+the accepted PM4-R15 safety guard.
+
+Do NOT create a new semantic projection mechanism.
+
+============================================================
+6. NARRATIVE CITATION (a) — SHAPE-TOLERANCE SENTENCE
+============================================================
+
+Record explicitly in the PM4b return:
+
+"The PM4 client production bundle is byte-identical because
+AdsDestinationCapture was already response-shape tolerant at runtime via
+`brandRes.brand || brandRes`; PM4's client production change was comment-only.
+The live failure existed because the server flat row omitted
+facebook_page_id/ad_link_url, not because the runtime client required a wrapper.
+PM4 corrected the tests from the fabricated wrapped mock to the real flat
+contract and completed the server projection."
+
+This sentence is required to reconcile:
+
+- byte-identical client bundle;
+- prior fabricated test wrapper;
+- real runtime behavior.
+
+Do not rewrite PM4 as a client logic fix.
+
+The actual functional PM4 repair is server projection completion.
+
+============================================================
+7. NARRATIVE CITATION (b) — v178 BUMP
+============================================================
+
+Record explicitly:
+
+"The v178 service-worker bump was not technically required to deliver new
+client runtime logic because the PM4 client bundle was byte-identical; it was
+a harmless mechanical application of the standing client-change procedure."
+
+Do not roll it back.
+
+Do not make another SW bump for PM4b because PM4b is test-only.
+
+============================================================
+8. HEAD MOVEMENT RULE
+============================================================
+
+PM4b may create exactly ONE test-only commit.
+
+Record:
+
+OLD HEAD:
+e9948b15fe816ed7baca1a53d8ed09f011857de4
+
+PM4b COMMIT:
+<new commit>
+
+NEW PR HEAD:
+<new head>
+
+Inter-head diff must contain TEST FILES ONLY.
+
+No production file.
+No mechanical file.
+No sw.
+No dist.
+No config.
+No schema.
+No migration.
+
+If anything else appears:
+
+STOP AND REPORT.
+
+============================================================
+9. EXPECTED TEST ARITHMETIC
+============================================================
+
+Current accepted totals before PM4b:
+
+CLIENT:
+485 / 485
+
+SERVER:
+1486 / 1486
+
+PM4b is server-test-only unless an already-existing exact-key assertion makes
+part (ii) citation-only.
+
+Report:
+
+- exact number of new server tests;
+- exact resulting server total;
+- full server result;
+- full client result.
+
+Client is expected to remain:
+
+485 / 485
+
+unless an authorized client TEST file is legitimately changed, which is not
+currently expected.
+
+Do not project totals.
+Report observed totals.
+
+============================================================
+10. TARGETED VERIFICATION
+============================================================
+
+Run targeted tests proving:
+
+A. getActiveBrand exact real response contract.
+B. getBrands exact real response contract.
+C. brandProfile exact key set.
+D. PM4-R15 no-secrets guard still passes.
+
+Then run:
+
+full server suite
+full client suite
+
+No production build is necessary for a test-only PM4b commit unless repository
+policy mechanically requires it.
+
+Do not rebuild sw/dist for a test-only commit.
+
+============================================================
+11. SWEEP-CLOSURE TABLE — FINAL FORM
+============================================================
+
+Return the final six-call table for AdsDestinationCapture.
+
+For EVERY api.* call include:
+
+- API method;
+- role: reader/writer;
+- real route;
+- real request shape;
+- real response shape;
+- contract binding;
+- client mock-fidelity status;
+- live-proof status.
+
+Final expected evidence class:
+
+getFacebookAccounts:
+REAL CONTRACT TEST + PM3 LIVE PROOF
+
+getBrand:
+REAL CONTRACT TEST + PM4 LIVE DEFECT / recovery pending
+
+getActiveBrand:
+REAL CONTRACT TEST — PM4b
+
+getBrands:
+REAL CONTRACT TEST — PM4b
+
+selectFacebookPage:
+REGRESSION + PM3 LIVE WRITE PROOF
+
+updateBrand:
+REGRESSION + PM3 LIVE WRITE PROOF
+
+If ANY seventh api.* call is discovered:
+
+STOP AND REPORT.
+
+If any of the six still depends only on an invented mock or inspection where a
+real contract is required:
+
+STOP AND REPORT.
+
+============================================================
+12. CONDITIONAL MERGE AUTHORIZATION
+============================================================
+
+If ALL of the following are true:
+
+1. getActiveBrand contract test passes;
+2. getBrands contract test passes;
+3. exact-key brand-profile contract is proven;
+4. no production file changed;
+5. PM4b inter-head diff is test-only;
+6. full server suite green;
+7. full client suite green;
+8. citations (a) and (b) are recorded;
+9. no STOP condition appears;
+
+THEN:
+
+MERGE PR #58 TO STAGING ONLY
+
+at the NEW pinned PM4b head.
+
+Use pinned-head merge discipline.
+
+Any additional head movement voids authorization.
+
+Production/main remains untouched.
+
+============================================================
+13. POST-MERGE DEPLOYMENT VERIFICATION
+============================================================
+
+After merge:
+
+record exact staging merge SHA.
+
+Verify:
+
+https://staging.zorecho.com/api/health
+
+environment = staging
+version = exact merge SHA.
+
+Verify:
+
+schema_migrations = 148
+
+and no migration ran.
+
+Verify served:
+
+echoai-shell-v178
+
+Because PM4b is test-only, the expected served client bundle remains:
+
+index-CAHiAtI2.js
+
+Verify correspondence.
+
+============================================================
+14. READ-ONLY SPECIMEN PRECHECK
+============================================================
+
+Before the owner opens setup, perform read-only verification that the SAME
+SDS specimen still contains:
+
+facebook_page_id =
+140006069194366
+
+ad_link_url =
+https://southdixiestorage.com/
+
+Store 2:
+social_accounts = 0 rows
+
+campaigns = 0
+
+external_actions = 0
+
+external_proofs =
+exactly the historic GA4 baseline, with NO NEW rows since the PM3 Save
+
+agent_tasks =
+historic lineage only, no new task.
+
+Session remains in_progress and not executing.
+
+If either Store-3 value is missing:
+
+STOP AND REPORT.
+
+Do NOT reconstruct or Save it.
+
+============================================================
+15. OWNER LIVE RECOVERY — ONE ACTION
+============================================================
+
+If deployment + precheck are clean:
+
+give the owner exactly ONE action:
+
+Log in to the SAME SDS staging account and open/resume the SAME Setup Agent
+session.
+
+NO Save.
+
+NO Page selection.
+
+NO destination edit.
+
+NO reconnect.
+
+NO Skip.
+
+Expected convergence:
+
+AdsDestinationCapture reads the real flat getBrand response
+→ sees facebook_page_id already configured
+→ sees ad_link_url already configured
+→ recognizes configured Store 3
+→ ZERO writer calls
+→ Step 6 re-enters server truth
+→ confirm_campaign_launch appears.
+
+============================================================
+16. IMMEDIATE POST-RESUME READ-ONLY VERIFICATION
+============================================================
+
+Once the owner reports the screen:
+
+verify read-only:
+
+facebook_page_id remains:
+140006069194366
+
+ad_link_url remains:
+https://southdixiestorage.com/
+
+brand updated_at:
+must NOT move due merely to recovery
+
+Store 2:
+unchanged
+
+campaigns:
+0
+
+external_actions:
+0
+
+external_proofs:
+NO NEW rows beyond historic GA4 baseline
+
+agent_tasks:
+no new launch attempt
+
+completed_steps:
+must not show Step 6 as completed merely from configuration
+
+No provider state.
+
+Also establish from logs/state if possible that:
+
+selectFacebookPage was NOT called
+updateBrand was NOT called
+
+during recovery.
+
+If either writer fired:
+
+STOP AND REPORT.
+
+============================================================
+17. CONFIRM_CAMPAIGN_LAUNCH EXPECTED SCREEN
+============================================================
+
+The owner should now see the product-level launch authorization gate:
+
+confirm_campaign_launch
+
+with authoritative summary containing:
+
+- South Dixie Storage Page;
+- Page name;
+- ad account;
+- destination:
+  https://southdixiestorage.com/
+- created PAUSED;
+- initial spend $0.
+
+NO AUTHORIZE CLICK.
+
+If the flow skips the gate:
+
+STOP AND REPORT.
+
+If a campaign exists before explicit authorization:
+
+STOP AND REPORT.
+
+============================================================
+18. LAUNCH-GATE PERSISTENCE PROBE
+============================================================
+
+Once confirm_campaign_launch is visible:
+
+tell the owner to take NO action for a deliberate wait.
+
+Then exactly ONE refresh/remount.
+
+Expected after remount:
+
+- same confirm_campaign_launch gate remains visible;
+- same authoritative summary remains;
+- no auto-confirm;
+- no campaign;
+- no external action;
+- no new external proof;
+- no later step runs;
+- no "Working on it..." lie.
+
+Run read-only verification again.
+
+============================================================
+19. HARD STOP
+============================================================
+
+After the launch-confirm gate survives the wait/remount probe:
+
+HARD STOP.
+
+DO NOT:
+
+- click Authorize;
+- click Confirm;
+- click Launch;
+- execute Meta campaign creation;
+- continue to Google Ads;
+- continue social setup;
+- start BLACOR-H1;
+- start H2;
+- start Prompt 027;
+- touch production.
+
+The actual H1 R6 Facebook campaign launch remains subject to the NEXT owner +
+ChatGPT + Claude ruling.
+
+============================================================
+20. RETURN ONE FINAL PM4 REPORT
+============================================================
+
+Return:
+
+026-C3-PM4 — PM4b + POST-MERGE NO-SAVE RECOVERY REPORT
+
+Include:
+
+1. old head e9948b15...
+2. PM4b commit SHA.
+3. new PR head.
+4. exact inter-head diff.
+5. PM4b test files changed.
+6. getActiveBrand real route/response.
+7. getActiveBrand contract test.
+8. getBrands real route/response.
+9. getBrands contract test.
+10. exact-key brand-profile assertion evidence.
+11. PM4-R15 guard result.
+12. Citation (a) shape-tolerance sentence verbatim.
+13. Citation (b) v178 sentence verbatim.
+14. final six-call cross-boundary sweep table.
+15. server arithmetic/result.
+16. client arithmetic/result.
+17. merge SHA.
+18. live health SHA.
+19. schema_migrations = 148.
+20. no migration.
+21. served v178.
+22. served bundle.
+23. pre-resume Store-3 readback.
+24. same specimen resume evidence.
+25. no-repeat-Save evidence.
+26. no Page rewrite.
+27. no destination rewrite.
+28. no writer-call recovery evidence if observable.
+29. confirm_campaign_launch live evidence.
+30. launch summary exact values.
+31. campaigns = 0.
+32. external_actions = 0.
+33. no new external_proofs beyond historic GA4 baseline.
+34. Store 2 unchanged.
+35. launch-gate wait/remount result.
+36. confirmation no launch authorization was sent.
+37. PM2 remains live-proven.
+38. PM3 Page-list remains live-proven.
+39. PM3 Save writes remain live-proven.
+40. PM4 reread recovery disposition.
+41. production/main untouched.
+42. deviations.
+43. STOP conditions.
+44. final status exactly one:
+
+026-C3-PM4 READBACK + LAUNCH GATE LIVE-PROVEN — AWAITING OWNER REVIEW
+
+or
+
+STOP CONDITION FOUND.
+
+============================================================
+FINAL AUTHORIZATION
+============================================================
+
+FIRST:
+
+implement PM4b test-only sweep closure and citations.
+
+IF CLEAN:
+
+merge PR #58 to STAGING ONLY at the new pinned PM4b head.
+
+THEN:
+
+deploy + verify.
+
+THEN:
+
+resume the SAME SDS specimen with NO SAVE.
+
+STOP at the stable confirm_campaign_launch gate.
+
+NO CAMPAIGN LAUNCH.
+
+BEGIN WITH PM4b(i).
