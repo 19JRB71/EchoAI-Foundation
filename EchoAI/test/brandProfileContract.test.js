@@ -111,6 +111,24 @@ test("PM4-R1: GET /api/brands/:brandId (real controller) returns the FLAT row �
     assert.strictEqual(res.body.brand, undefined, "no { brand } wrapper — flat row is canonical");
     assert.strictEqual(res.body, FLAT_ROW);
 
+    // PM4b(ii) — EXACT-KEY ALLOWLIST: the serialized brand-profile response is
+    // bound to this exact key set. Any field added to (or dropped from) the
+    // projection must consciously update this list. Together with the
+    // secret-class name scan below (PM4-R15) this forms the accepted safety
+    // guard.
+    const EXPECTED_PROFILE_KEYS = [
+      "brand_id", "user_id", "brand_name", "brand_personality",
+      "voice_description", "visual_style_preferences", "target_audience",
+      "brand_type", "website_url", "facebook_page_url", "instagram_url",
+      "linkedin_url", "youtube_url", "tiktok_url", "google_business_url",
+      "facebook_page_id", "ad_link_url", "created_at", "updated_at",
+    ];
+    assert.deepStrictEqual(
+      Object.keys(res.body).sort(),
+      EXPECTED_PROFILE_KEYS.slice().sort(),
+      "brand-profile response must carry EXACTLY the allowlisted keys",
+    );
+
     // The two Store-3 fields the authoritative reread depends on (PM4-R4).
     assert.strictEqual(res.body.facebook_page_id, "140006069194366");
     assert.strictEqual(res.body.ad_link_url, "https://southdixiestorage.com/");
@@ -178,3 +196,111 @@ test("PM4-R15: no secret/token-class field enters the brand-profile projection (
     db.query = orig;
   }
 });
+
+// ---------------------------------------------------------------------------
+// 026-C3-PM4b(i) — sweep completion: the two remaining inspection-only reads
+// used by AdsDestinationCapture's brand-resolution fallback are bound to their
+// REAL serialized contracts (code inspection alone ruled insufficient after
+// two phantom contracts were found in this component's history).
+// ---------------------------------------------------------------------------
+
+test("PM4b: GET /api/brands/active/selection (real controller) serializes exactly { brandId } from the owned-brand-joined lookup", async () => {
+  const orig = db.query;
+  let boundParams = null;
+  db.query = async (sql, params) => {
+    // Real query: users.last_active_brand_id JOINed against brands ON
+    // brand_id AND user_id — a brand the user no longer owns can never be
+    // returned as active. Bind that scoping.
+    assert.ok(
+      sql.includes("last_active_brand_id") &&
+        sql.includes("JOIN brands b ON b.brand_id = u.last_active_brand_id AND b.user_id = u.user_id"),
+      "active-brand lookup must be owned-brand-joined",
+    );
+    boundParams = params;
+    return { rows: [{ brand_id: FLAT_ROW.brand_id }] };
+  };
+  try {
+    const res = makeRes();
+    await brandController.getActiveBrand({ user: { userId: FLAT_ROW.user_id } }, res);
+    assert.strictEqual(res.statusCode, 200);
+    // EXACT shape: one key, no wrapper, no extra/secret fields.
+    assert.deepStrictEqual(Object.keys(res.body), ["brandId"]);
+    assert.strictEqual(res.body.brandId, FLAT_ROW.brand_id);
+    assert.deepStrictEqual(boundParams, [FLAT_ROW.user_id]);
+  } finally {
+    db.query = orig;
+  }
+});
+
+test("PM4b: GET /api/brands/active/selection with no owned active brand serializes { brandId: null } — same single-key shape", async () => {
+  const orig = db.query;
+  db.query = async () => ({ rows: [] });
+  try {
+    const res = makeRes();
+    await brandController.getActiveBrand({ user: { userId: "user-without-active" } }, res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.deepStrictEqual(Object.keys(res.body), ["brandId"]);
+    assert.strictEqual(res.body.brandId, null);
+  } finally {
+    db.query = orig;
+  }
+});
+
+test("PM4b: GET /api/brands (real controller) serializes exactly { count, brands: [flat rows] } — ownership-scoped, flat, no secret-class fields", async () => {
+  const LIST_ROW = {
+    brand_id: FLAT_ROW.brand_id,
+    brand_name: "South Dixie Storage",
+    brand_personality: null,
+    voice_description: null,
+    visual_style_preferences: null,
+    target_audience: null,
+    brand_type: "small_business",
+    is_demo: false,
+    demo_tier: null,
+    website_url: "https://southdixiestorage.com/",
+    facebook_page_url: null,
+    instagram_url: null,
+    linkedin_url: null,
+    youtube_url: null,
+    tiktok_url: null,
+    google_business_url: null,
+    created_at: "2026-08-15T00:00:00.000Z",
+    updated_at: "2026-08-18T13:48:28.000Z",
+  };
+  const orig = db.query;
+  let boundParams = null;
+  db.query = async (sql, params) => {
+    assert.ok(sql.includes("FROM brands") && sql.includes("WHERE user_id = $1"), "list must be ownership-scoped");
+    for (const pat of SECRET_FIELD_PATTERNS) {
+      const selectText = sql.slice(sql.indexOf("SELECT"), sql.indexOf("FROM brands"));
+      assert.ok(!pat.test(selectText), `secret-class pattern ${pat} must not appear in the getBrands SELECT`);
+    }
+    boundParams = params;
+    return { rows: [LIST_ROW] };
+  };
+  try {
+    const res = makeRes();
+    await brandController.getBrands({ user: { userId: FLAT_ROW.user_id } }, res);
+    assert.strictEqual(res.statusCode, 200);
+    // EXACT top-level shape.
+    assert.deepStrictEqual(Object.keys(res.body).sort(), ["brands", "count"]);
+    // count semantics = number of returned rows.
+    assert.strictEqual(res.body.count, 1);
+    assert.ok(Array.isArray(res.body.brands));
+    // Each element is the FLAT row itself — no per-item wrapper.
+    assert.strictEqual(res.body.brands[0], LIST_ROW);
+    assert.strictEqual(res.body.brands[0].brand, undefined);
+    // No secret-class field on the serialized rows.
+    for (const key of Object.keys(res.body.brands[0])) {
+      for (const pat of SECRET_FIELD_PATTERNS) {
+        assert.ok(!pat.test(key), `brands[] field "${key}" matches secret-class pattern ${pat}`);
+      }
+    }
+    // AdsDestinationCapture's fallback consumes list.brands[0].brand_id — bind it.
+    assert.strictEqual(res.body.brands[0].brand_id, FLAT_ROW.brand_id);
+    assert.deepStrictEqual(boundParams, [FLAT_ROW.user_id]);
+  } finally {
+    db.query = orig;
+  }
+});
+
