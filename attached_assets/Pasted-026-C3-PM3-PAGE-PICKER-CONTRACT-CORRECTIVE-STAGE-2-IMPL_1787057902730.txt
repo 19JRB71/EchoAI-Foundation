@@ -1,0 +1,591 @@
+026-C3-PM3 — PAGE-PICKER CONTRACT CORRECTIVE
+STAGE 2 IMPLEMENTATION + PRE-MERGE RECONCILIATION
+
+You are authorized to implement the narrowly bounded 026-C3-PM3 corrective
+described below.
+
+This is NOT authorization to merge.
+This is NOT authorization to deploy.
+This is NOT authorization to touch production.
+This is NOT authorization to modify or resume the frozen SDS staging specimen.
+This is NOT authorization to reconnect Facebook.
+This is NOT authorization to select a Page or save an ad destination.
+This is NOT authorization to cross confirm_campaign_launch or create any
+provider object.
+
+Work from a fresh branch based on the CURRENT staging head containing merged
+C3 + PM1 + PM2.
+
+Before editing, verify and report the exact baseline SHA.
+
+============================================================
+A. PROVEN LIVE DEFECT
+============================================================
+
+The C3/PM2 live re-proof reached the missing_ad_destination pause successfully.
+
+PM2 itself is live-proven through persistence probe #1:
+
+- Step 6 remains current;
+- AdsDestinationCapture renders;
+- wait + remount preserves the pause;
+- Google Ads does not falsely show "Working on it...";
+- no later step executes;
+- no new agent_tasks;
+- campaigns = 0;
+- external_actions = 0;
+- external_proofs = 0.
+
+Facebook was then reconnected through the real owner surface.
+
+Read-only evidence proved the reconnect succeeded:
+
+- api_integrations connection_status = connected;
+- updated_at moved to the reconnect;
+- ad account present;
+- page_ref present;
+- facebook_pages contains exactly one granted Page:
+  South Dixie Storage
+  id 140006069194366;
+- page tokens present.
+
+Yet AdsDestinationCapture still rendered:
+
+"Your connected Facebook account has no Pages Echo can use."
+
+The cause is proven from merged code:
+
+AdsDestinationCapture builds its picker from:
+
+verify.pages
+
+where verify comes from:
+
+GET /api/facebook/verify
+
+But facebookOAuthController.verifyConnection returns only:
+
+{
+  ok,
+  checks
+}
+
+It never returns pages.
+
+Therefore verify.pages is always undefined and the picker becomes [].
+
+The current client test concealed the defect by mocking
+verifyFacebookConnection as returning:
+
+{
+  pages: PAGES
+}
+
+which is not a real server response shape.
+
+============================================================
+B. ARCHITECTURAL RULING — OPTION B
+============================================================
+
+DO NOT extend /api/facebook/verify.
+
+That endpoint remains a health/status contract.
+
+DO NOT make a server production change.
+
+AdsDestinationCapture must obtain its Page candidates from the SAME existing
+page-list reader used by FacebookWizard:
+
+api.getFacebookAccounts
+
+The accepted architecture says that endpoint exposes the stored granted-page
+authority from Store 1.
+
+IMPORTANT PRECONDITION:
+
+Before implementation, inspect the REAL server controller/route behind
+getFacebookAccounts and quote in your reconciliation the ACTUAL response shape
+returned by that endpoint.
+
+Do not assume it.
+
+We already shipped one defect because a cross-boundary shape was assumed.
+This corrective must bind the real contract.
+
+If the real endpoint does NOT provide the Page fields needed by the capture,
+STOP AND REPORT before changing architecture.
+
+============================================================
+C. AUTHORITY CONTRACT
+============================================================
+
+Page-candidate authority remains:
+
+STORE 1:
+api_integrations.facebook_pages
+credential / granted-page authority
+
+Access it through the existing accounts endpoint.
+
+Do NOT make a live Meta request on every render.
+
+The stored granted-page snapshot is the picker candidate source.
+
+Reconnect is the owner's refresh mechanism.
+
+The existing select-page path remains the authoritative Save-time validation
+and product-UI writer for brands.facebook_page_id.
+
+A stale candidate may be displayed.
+
+If it is no longer valid when the owner saves, the existing authoritative
+validation must reject it honestly.
+
+Do not create another validation/write path.
+
+============================================================
+D. THREE-STORE CONTRACT — PRESERVE EXACTLY
+============================================================
+
+STORE 1:
+api_integrations
+credential / granted-page authority
+
+STORE 2:
+social_accounts
+social publishing binding
+
+STORE 3:
+brands.facebook_page_id + brands.ad_link_url
+ads destination
+
+PM3 repairs ONLY the candidate-list READ contract.
+
+DO NOT:
+
+- merge stores;
+- synchronize Store 2 and Store 3;
+- auto-bind a Page;
+- auto-write facebook_page_id;
+- modify social_accounts;
+- create another Page writer.
+
+============================================================
+E. OWNER-SELECTION CONTRACT
+============================================================
+
+ZERO PAGES:
+render the honest reconnect/no-access state.
+
+ONE PAGE:
+it may be visibly preselected for convenience,
+but MUST NOT persist until explicit owner Save.
+
+MULTIPLE PAGES:
+owner must explicitly choose.
+
+Never silently bind the first Page.
+
+Never silently save Page selection.
+
+Never silently copy/save destination.
+
+============================================================
+F. TWO-GATE C3 DESIGN — UNTOUCHED
+============================================================
+
+Gate 1:
+missing_ad_destination
+
+Gate 2:
+confirm_campaign_launch
+
+PM3 changes only the Page-candidate read source inside Gate 1.
+
+It must NOT:
+
+- auto-complete missing_ad_destination;
+- advance Step 6 merely because candidates exist;
+- save facebook_page_id before Save;
+- save ad_link_url before Save;
+- create a campaign;
+- create external_actions;
+- create external_proofs;
+- authorize launch;
+- weaken confirm_campaign_launch.
+
+============================================================
+G. MOCK-FIDELITY RULE — NOW BINDING
+============================================================
+
+Standing rule:
+
+"A mock of a cross-boundary contract must mirror a shape bound by a
+real-contract test. For every cross-boundary read a corrective introduces, at
+least one test must assert the actual server response shape; client mocks
+derive from it, comment-linked."
+
+Apply this rule in PM3.
+
+The current AdsDestinationCapture test mock:
+
+verifyFacebookConnection -> { pages: PAGES }
+
+is a fabricated contract and encoded the defect.
+
+Correct it under D-32 daylight.
+
+Do not hide or silently rewrite that history.
+
+In reconciliation explicitly state:
+
+1. the old mocked shape;
+2. why it was impossible;
+3. the actual accounts-endpoint shape;
+4. how the corrected client mock now mirrors the bound real contract.
+
+============================================================
+H. AUTHORIZED PRODUCTION FILE SURFACE
+============================================================
+
+Production hand-edited:
+
+1. client/src/onboarding/guided/AdsDestinationCapture.jsx
+
+CONTINGENCY ONLY:
+
+2. client/src/api.js
+
+Touch api.js only if the existing getFacebookAccounts wrapper cannot be
+consumed correctly without a small wrapper correction.
+
+If touched, justify exactly why.
+
+SERVER PRODUCTION FILE CHANGE = HARD STOP.
+
+NEW PRODUCTION FILE = HARD STOP.
+
+No schema.
+No migration.
+No new endpoint.
+No new store.
+
+============================================================
+I. AUTHORIZED TEST SURFACE
+============================================================
+
+Client:
+
+client/src/onboarding/guided/AdsDestinationCapture.test.jsx
+
+Correct the fabricated verify.pages mock under D-32 daylight.
+
+Server tests:
+
+One NEW server-side contract test file is permitted if that is the cleanest
+way to bind the existing accounts endpoint's REAL response shape.
+
+A server TEST file is permitted.
+
+A server PRODUCTION change is not.
+
+Additional existing test-file edits outside these surfaces require
+STOP-and-disclose before proceeding.
+
+============================================================
+J. MECHANICAL FILES
+============================================================
+
+Because client production changes are expected:
+
+public sw.js:
+v176 -> v177
+
+Rebuild and enumerate committed dist output.
+
+Mechanical SW/dist changes are excluded from the hand-edited ceiling under
+the canonical rule.
+
+Do not conceal them from the changed-file list.
+
+============================================================
+K. DIFF BOUNDS
+============================================================
+
+Padded hand-edited bound:
+
+250 lines total
+
+HARD STOP threshold:
+
+315 hand-edited lines
+
+Count production + tests.
+
+Mechanical SW/dist excluded.
+
+If the implementation approaches 315, STOP before crossing it.
+
+Do not widen scope to consume available headroom.
+
+============================================================
+L. MANDATORY REGRESSIONS
+============================================================
+
+Bind at minimum:
+
+PM3-R1 — REAL CONTRACT
+Exercise the actual accounts route/controller and assert the real response
+contains pages[] in the exact shape consumed by AdsDestinationCapture.
+
+This must NOT be a mocked server contract.
+
+PM3-R2 — STORED PAGE APPEARS
+A stored granted Page returned through the real contract is available to the
+capture picker.
+
+PM3-R3 — ONE PAGE, NO SILENT WRITE
+Exactly one Page may render visibly preselected, but no select-page/update
+write occurs before explicit Save.
+
+PM3-R4 — MULTIPLE PAGES
+All candidates render and explicit owner selection is required.
+
+PM3-R5 — ZERO PAGES
+A genuine accounts response containing zero Pages renders the honest reconnect
+state.
+
+This must distinguish genuine pages:[] from the old undefined phantom-field
+defect.
+
+PM3-R6 — MOCK FIDELITY
+No client test mocks pages on verifyFacebookConnection.
+
+The Page-list mock must mirror the real getFacebookAccounts contract bound by
+PM3-R1.
+
+Comment-link the mock to the server contract regression if appropriate.
+
+PM3-R7 — WRITER AUTHORITY
+select-page remains the product-UI write path used by the component for
+facebook_page_id.
+
+No auto-write or alternate writer is introduced.
+
+PM3-R8 — STALE CANDIDATE HONESTY
+If a displayed candidate is rejected by the existing Save-time validation,
+the component renders the failure honestly and does not fabricate success or
+call onConfigured.
+
+Do not weaken server validation to make this test pass.
+
+PM3-R9 — ZERO PROVIDER STATE
+Page-list loading and Page selection/configuration before launch create no
+campaign/provider state.
+
+PM3-R10 — PM2 PRESERVATION
+Existing pause lifecycle/persistence suites remain green unchanged.
+
+PM3-R11 — LAUNCH GATE PRESERVATION
+confirm_campaign_launch behavior remains untouched and all existing C3 launch
+gate regressions remain green.
+
+PM3-R12 — REAL ZERO-PAGE RESPONSE
+Explicitly bind the actual zero-page server response shape to the reconnect UI.
+
+PM3-R13 — VERIFY CONTRACT HONESTY
+If AdsDestinationCapture retains verifyFacebookConnection for connection
+health/status, bind it only to fields the real verify endpoint actually
+returns.
+
+No pages field may be read from verify.
+
+Add only genuinely load-bearing regressions beyond these.
+
+============================================================
+M. D-32 REVIEW
+============================================================
+
+Before reconciliation, explicitly report:
+
+- every existing test changed;
+- every assertion deleted;
+- every assertion rewritten;
+- every mock shape changed;
+- whether any test expectation was weakened.
+
+The known AdsDestinationCapture mock correction is AUTHORIZED but must be
+disclosed.
+
+Do not delete a failing regression to make the suite green.
+
+If an existing test reveals a conflict with the PM3 ruling, fix production or
+STOP — do not invert the test silently.
+
+============================================================
+N. FULL VERIFICATION
+============================================================
+
+Run:
+
+1. targeted PM3 tests;
+2. full client suite;
+3. full server suite;
+4. client production build.
+
+Report exact observed pass totals and baseline arithmetic.
+
+Verify:
+
+- zero DDL;
+- schema baseline remains 148 in test setup;
+- SW v177;
+- committed dist matches build.
+
+No staging specimen access is needed or authorized during implementation.
+
+============================================================
+O. FROZEN SDS SPECIMEN
+============================================================
+
+DO NOT access or mutate the SDS specimen during implementation.
+
+It remains the live proof after merge.
+
+Expected preserved state:
+
+Step 6 missing_ad_destination pause
+facebook_page_id empty
+ad_link_url empty
+campaigns 0
+external_actions 0
+external_proofs 0
+healthy stored South Dixie Storage Page grant
+
+Do not reconnect again.
+
+Do not use the specimen to debug PM3.
+
+============================================================
+P. STOP CONDITIONS
+============================================================
+
+STOP AND REPORT if any of these occur:
+
+1. real getFacebookAccounts server response does not contain the Page data
+   required by the component;
+2. a server production change appears necessary;
+3. schema/DDL appears necessary;
+4. a new endpoint appears necessary;
+5. another Page writer appears necessary;
+6. social_accounts must be modified;
+7. select-page validation would need weakening;
+8. confirm_campaign_launch must change;
+9. missing_ad_destination server machinery must change;
+10. a new production file appears necessary;
+11. hand-edited diff reaches 315;
+12. an existing load-bearing test must be deleted/inverted;
+13. implementation requires live Meta probing per render;
+14. staging specimen access appears necessary;
+15. provider objects would need to be created;
+16. baseline differs materially from the expected merged staging head.
+
+Do not improvise through a STOP condition.
+
+============================================================
+Q. PRE-MERGE RECONCILIATION — REQUIRED OUTPUT
+============================================================
+
+After implementation/tests/build, STOP BEFORE MERGE and return one complete
+reconciliation containing:
+
+1. branch name;
+2. verified baseline SHA;
+3. PR number, marked DO NOT MERGE;
+4. PR head SHA;
+5. complete changed-file list;
+6. production hand-edited files;
+7. test hand-edited files;
+8. mechanical files;
+9. exact per-file purpose;
+10. exact numstat adds/deletes;
+11. total hand-edited diff against 250/315;
+12. D-32 deletion/inversion/mock review;
+13. quoted REAL getFacebookAccounts server response shape and exact
+    controller/route source;
+14. exact component fields consumed from that response;
+15. old fabricated verify mock shape;
+16. corrected mock shape;
+17. PM3-R1..R13 test-to-contract map;
+18. targeted results;
+19. client baseline arithmetic and observed total;
+20. server baseline arithmetic and observed total;
+21. build result;
+22. SW v177 evidence;
+23. dist enumeration;
+24. zero server production changes;
+25. zero DDL/migrations;
+26. three-store preservation;
+27. select-page writer preservation;
+28. stale-candidate behavior;
+29. PM2 preservation;
+30. confirm_campaign_launch preservation;
+31. specimen untouched attestation;
+32. provider/external-write attestation;
+33. deviations;
+34. STOP conditions encountered;
+35. proposed post-merge live sequence.
+
+============================================================
+R. POST-MERGE LIVE SEQUENCE — PROPOSE ONLY
+============================================================
+
+Do NOT execute this yet.
+
+Expected later sequence, after owner + ChatGPT + Claude merge ruling:
+
+deploy
+→ verify SHA
+→ migrations remain 148
+→ served SW v177
+→ served dist matches
+→ resume SAME SDS specimen
+→ missing_ad_destination pause
+→ picker shows South Dixie Storage
+→ deliberate wait/remount persistence probe
+→ owner selects South Dixie Storage
+→ READ-ONLY verify facebook_page_id is STILL empty before Save
+→ owner enters/confirms destination and presses Save
+→ READ-ONLY verify Store 3
+→ verify Store 2 unchanged
+→ campaigns = 0
+→ external_actions = 0
+→ external_proofs = 0
+→ confirm_campaign_launch appears
+→ deliberate wait/remount persistence probe
+→ HARD STOP
+
+NO CAMPAIGN LAUNCH.
+
+============================================================
+S. FINAL AUTHORIZATION BOUNDARY
+============================================================
+
+You are authorized to IMPLEMENT + TEST + BUILD + OPEN THE PR.
+
+You are NOT authorized to:
+
+- merge;
+- deploy;
+- modify staging;
+- access/resume the SDS specimen;
+- reconnect Facebook;
+- select the Page on staging;
+- save destination on staging;
+- Skip;
+- create provider state;
+- launch a campaign;
+- touch production.
+
+Return the PRE-MERGE RECONCILIATION and HARD STOP for owner + ChatGPT +
+Claude review.
