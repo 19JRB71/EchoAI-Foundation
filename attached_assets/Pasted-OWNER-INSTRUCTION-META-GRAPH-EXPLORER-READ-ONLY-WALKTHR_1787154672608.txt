@@ -1,0 +1,120 @@
+OWNER INSTRUCTION — META GRAPH EXPLORER READ-ONLY WALKTHROUGH
+
+I need to obtain the two owner-token Meta Graph Explorer READ-ONLY results you
+requested for these IDs:
+
+52548872979134
+52548872983334
+
+I want YOU to walk me through this manually ONE STEP AT A TIME.
+
+IMPORTANT RULES:
+
+1. Give me exactly ONE action at a time.
+2. Tell me exactly what to click, type, or select.
+3. Tell me what I should expect to see.
+4. Then STOP and wait for my screenshot/result before giving me the next step.
+5. Do not give me a batch of instructions.
+6. Do not assume I know where anything is in Meta.
+7. If the screen I show you differs from what you expect, inspect my screenshot
+   and adjust the next instruction.
+8. Do not ask me to expose, paste, screenshot, or send you:
+   - access tokens;
+   - app secrets;
+   - passwords;
+   - ENCRYPTION_KEY;
+   - client secrets;
+   - any credential value.
+9. I will keep the Graph Explorer access token private.
+10. If a token or secret appears on screen, instruct me to hide/redact it before
+    sending a screenshot.
+11. READ-ONLY GRAPH REQUESTS ONLY.
+12. No POST, DELETE, UPDATE, CREATE, PAUSE, ACTIVATE, RETRY, or provider
+    mutation of any kind.
+13. Do not make Graph calls yourself.
+14. I am the person operating Meta Graph Explorer.
+15. PM5 remains at its existing HARD STOP while we collect this evidence.
+
+PURPOSE
+
+We need authoritative Meta-side read-only evidence for:
+
+52548872979134
+52548872983334
+
+The final evidence needs to establish, where Meta's response permits:
+
+- whether each object exists;
+- actual Meta object type — NEVER infer type merely from our local DB column;
+- owning ad account, expected act_185098744942162 if the provider says so;
+- configured_status;
+- effective_status;
+- whether the object is actually PAUSED;
+- budget/spend-related fields where applicable and safely readable;
+- parent/child relationship between the two objects, if applicable;
+- correspondence to the existing local launch_failed evidence.
+
+Do not broaden the investigation beyond what is needed for those two IDs.
+
+QUERY DESIGN
+
+When we reach the point where a Graph Explorer request must be entered:
+
+- tell me the exact GET path/query to enter;
+- use only fields supported for the object's actual endpoint/type;
+- if we do not yet know the object type, start with the narrowest safe
+  read-only identification request rather than guessing;
+- if Meta returns an object-type/permissions error, STOP and interpret the
+  response before changing the query;
+- do not repeatedly probe endpoints blindly.
+
+TOKEN RULE
+
+Walk me through obtaining/selecting an appropriate USER access token in Graph
+Explorer if needed, but NEVER ask me to paste the token into Replit or into
+this chat.
+
+If permissions must be selected, tell me only which permission names to
+select and why.
+
+Do not request broader permissions than necessary for these read-only ad-object
+checks.
+
+RESULT HANDLING
+
+After each GET:
+
+tell me to copy only the RESPONSE JSON/result — NOT the token.
+
+If the response contains any credential-like or private value that is not
+needed for this evidence, tell me to redact it first.
+
+We need both responses preserved accurately enough that you can later fold
+them into the PM5 final partial-chain evidence table.
+
+STOP CONDITIONS
+
+STOP and explain before proceeding if:
+
+- Meta asks for a write permission/action;
+- Graph Explorer appears to be using an unintended app/business context;
+- the requested object is inaccessible with the available owner token;
+- the response shows an unexpected owning ad account;
+- the object type contradicts the local assumption;
+- the query would require provider mutation;
+- we would need to expose a token or secret;
+- the result is ambiguous enough that another query could accidentally become
+  a mutation.
+
+FINAL BEHAVIOR
+
+Do NOT give me both object queries at once.
+
+Start from wherever I am now.
+
+Give me only the FIRST action required to get into the correct Meta Graph API
+Explorer and prepare for the first read-only result.
+
+Then STOP and wait for me.
+
+BEGIN ONE-STEP-AT-A-TIME WALKTHROUGH.
