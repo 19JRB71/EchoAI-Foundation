@@ -1,0 +1,120 @@
+REPLIT — OWNER + CHATGPT + CLAUDE CONSOLIDATED RULING
+
+Claude confirms that the partial-chain disposition was already adjudicated and remains unchanged:
+
+DECISION D — PRESERVE BLOCKED CHAIN + CONTINUE UNRELATED H1,
+with the honesty rider.
+
+This is now the governing disposition.
+
+Do NOT reopen or re-investigate the disposition question.
+
+The existing partial Meta ads chain must remain preserved exactly as evidence:
+
+- Campaign ID: 52548872979134
+- Ad Set ID: 52548872983334
+- Both provider objects confirmed configured PAUSED and effective PAUSED.
+- Existing local `launch_failed` campaign row remains unchanged.
+- Existing `MANUAL_REVIEW` task remains unchanged.
+- Existing failed external action remains unchanged.
+- Existing Campaign and Ad Set IDs remain preserved.
+- No creative/ad currently exists.
+- No provider cleanup is authorized.
+- No continuation of this partial ads chain is authorized.
+- No second launch is authorized.
+
+The operational treatment is NOT simply "skipped."
+
+The truthful meaning is:
+
+"Facebook campaign launch deferred after a failed partial launch pending Meta review."
+
+The preserved failure evidence must remain intact. Any operational skip/deferral state must sit BESIDE that evidence and must not overwrite, erase, downgrade, or reinterpret the historical failure.
+
+I-64 is filed and NON-GATING:
+the persisted correlation reference and later UI-displayed reference differed. Do not investigate or fix I-64 during this H1 continuation.
+
+NOW RESUME SDS-H1 under the standing ruling.
+
+The next authorized owner action is the documented campaign-step Skip/deferral using the existing product surface.
+
+IMPORTANT:
+Before asking me to click anything, verify READ-ONLY that the specimen is still at the expected truthful campaign/manual-review state and that no relevant state changed since the HARD STOP.
+
+If that read-only verification matches the standing evidence, give me ONE manual action only:
+the exact button I should click to defer/skip this campaign step.
+
+After I perform it, verify what actually persisted before giving me another action.
+
+Then continue SDS-H1 ONE OWNER ACTION AT A TIME through only the authorized remaining journey:
+
+- setup_google_ads
+- connect_social, including the C1 State-B Page-picker checkpoint
+- social_schedule, including the C1 activation-digest gate
+- email_preferences
+- create_survey
+- first-win verification
+- timing capture
+
+Do not assume the UI sequence from the list above. Server truth remains authoritative. Follow the actual specimen state.
+
+SPECIAL SAFETY BOUNDARY:
+
+Nothing in this continuation authorizes creating, editing, activating, pausing, deleting, retrying, replacing, or otherwise mutating any META ADS object.
+
+The existing Campaign and Ad Set remain untouched.
+
+Page/social publishing is governed separately by the already-authorized H1/C1 rules. Do not treat the Meta ads restriction as permission to bypass any consent or activation gate.
+
+If social_schedule reaches an action that could schedule or publish real posts, STOP at the existing explicit owner activation/KEEP consent gate and show me exactly what will happen before I approve or skip it.
+
+Do not infer consent from prior actions.
+
+NO automatic action may occur because Meta later approves or rejects its review.
+
+STOP immediately on any new blocking defect, unexpected provider mutation, unexpected external action, evidence inconsistency, or behavior outside the existing authorization.
+
+NEXT HARD STOP:
+SDS-H1 journey completion OR the next blocking defect, whichever occurs first.
+
+At SDS-H1 journey completion, return the SDS-H1 segment report before doing anything else.
+
+The report must preserve and disclose:
+- the original partial Meta launch,
+- the failed/manual-review state,
+- the two preserved PAUSED Meta objects,
+- the PM5 reconciliation,
+- the operational deferral honesty rider,
+- the correlation-reference I-64 limitation,
+- all timing/friction evidence,
+- all C1 live checkpoints,
+- all external actions and proofs,
+- any skips/deferrals separately from genuine completions,
+- any new defects or deviations.
+
+After that report: HARD STOP.
+
+BLACOR-H1 MUST NOT begin.
+
+A separate Meta-chain checkpoint is required before BLACOR-H1 and before H1 can close, using Meta's eventual review verdict as evidence.
+
+NOT AUTHORIZED:
+- Retry of the Facebook campaign
+- second Facebook ad launch
+- Meta ads mutation of any kind
+- cleanup/deletion of the partial chain
+- Prompt 031 implementation
+- BLACOR-H1
+- H2
+- Prompt 027
+- production changes
+- I-64 work
+- automatic action based on Meta's review outcome
+
+Begin with READ-ONLY verification of the current SDS-H1 specimen state.
+
+Then give me ONE owner action at a time.
+
+Do not batch instructions.
+
+BEGIN.
