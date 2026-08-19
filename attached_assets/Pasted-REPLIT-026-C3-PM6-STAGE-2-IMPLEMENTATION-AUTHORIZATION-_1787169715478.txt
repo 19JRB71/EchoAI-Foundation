@@ -1,0 +1,435 @@
+REPLIT — 026-C3-PM6 STAGE-2 IMPLEMENTATION AUTHORIZATION
+
+Owner + ChatGPT + Claude have completed review of the failed-step deferral defect.
+
+Claude's governing ruling is:
+
+DECISION: OPTION 2 — ENRICHED SINGLE OUTCOME
+Authorized as narrow corrective 026-C3-PM6.
+
+Decision D remains unchanged:
+
+PRESERVE BLOCKED META CHAIN + CONTINUE UNRELATED H1.
+
+PM6 exists ONLY to make the already-authorized owner deferral action truthful.
+
+The SDS-H1 specimen MUST remain frozen at its current state during implementation.
+
+DO NOT click Skip.
+DO NOT interact with the specimen during implementation.
+DO NOT Retry.
+DO NOT make any Meta/provider call.
+DO NOT modify, delete, pause, activate, recreate, continue, or clean up the existing Meta objects.
+
+--------------------------------------------------
+A. DEFECT BEING CORRECTED
+--------------------------------------------------
+
+The existing "Skip this step" behavior is unsafe for an already-failed/manual-review step.
+
+Today it would:
+
+1. add `create_facebook_campaign` to `completed_steps`; and
+
+2. overwrite the durable:
+
+`provider_manual_review`
+
+outcome with:
+
+`"skipped"`.
+
+That destroys the distinction between:
+
+- skipped before execution; and
+- partially executed, failed, entered manual review, then owner-deferred.
+
+Additionally, PM5 reconciliation would subsequently strip the completed_steps membership again because the canonical success predicate still fails.
+
+PM6 must correct BOTH halves.
+
+--------------------------------------------------
+B. BINDING SEMANTIC CONTRACT
+--------------------------------------------------
+
+Use the existing `step_outcomes` object as the single authoritative outcome truth.
+
+DO NOT create a parallel deferral truth store.
+
+When an owner chooses to defer a step that ALREADY has a durable failed/manual-review outcome, enrich that SAME structured outcome in place.
+
+The original failure truth MUST remain.
+
+Conceptually the resulting outcome must preserve:
+
+status: "failed"
+code: "provider_manual_review"
+existing owner-safe message
+retryable: false
+existing correlation reference
+
+and add:
+
+journey_disposition: "deferred"
+deferred_reason: "pending_provider_review"
+deferred_at: <timestamp>
+owner_directed: true
+
+Do not replace the object.
+
+Do not replace it with `"skipped"`.
+
+Do not manufacture a new correlation reference.
+
+The existing correlation reference must survive unchanged.
+
+--------------------------------------------------
+C. COMPLETED_STEPS SEMANTICS
+--------------------------------------------------
+
+For this owner-directed failed-then-deferred state, the step MAY enter `completed_steps` ONLY under the existing documented meaning:
+
+TERMINAL FOR RUNNER PURPOSES — NO FURTHER AUTOMATIC RUNNER ACTION.
+
+It MUST NOT mean provider success.
+
+The enriched `step_outcomes` object is what distinguishes the state from genuine success and ordinary pre-execution skip.
+
+The six states must remain distinguishable:
+
+1. Never attempted:
+   no outcome + not completed member.
+
+2. Skipped before attempt:
+   ordinary `"skipped"` outcome under existing behavior.
+
+3. Succeeded:
+   completed membership + canonical success evidence.
+
+4. Failed retryable:
+   structured failed outcome, retryable true, not completed.
+
+5. Failed manual review:
+   structured failed/provider_manual_review outcome, not completed.
+
+6. Failed then owner-deferred:
+   SAME failed/provider_manual_review outcome enriched with the deferral fields + completed membership.
+
+No one state may silently masquerade as another.
+
+--------------------------------------------------
+D. PM5 RECONCILIATION INTERACTION
+--------------------------------------------------
+
+This is load-bearing.
+
+PM5 currently strips `create_facebook_campaign` from completed_steps when the canonical success predicate fails.
+
+That behavior MUST remain for erroneous/false completion.
+
+Amend the reconciliation guard narrowly:
+
+IF:
+- completed_steps contains the key,
+- canonical success predicate fails,
+- AND there is NO valid owner-directed deferral,
+
+THEN:
+PM5 behavior remains unchanged:
+strip the false completion and reconcile truthfully.
+
+BUT IF:
+- completed_steps contains the key,
+- canonical success predicate fails,
+- AND the existing structured outcome carries the valid owner-directed deferred disposition,
+
+THEN:
+respect the terminal owner deferral.
+Do not strip it.
+Do not rerun it.
+Do not reinterpret it as success.
+
+This must be idempotent across refresh/remount/resume.
+
+Do NOT weaken PM5's canonical success predicate.
+
+Do NOT make a generic failed step count as deferred.
+
+--------------------------------------------------
+E. EVIDENCE PRESERVATION — ABSOLUTE
+--------------------------------------------------
+
+PM6 may write ONLY the necessary session JSONB / journey state.
+
+The following historical evidence must remain untouched:
+
+- campaign `launch_failed` row;
+- Campaign ID `52548872979134`;
+- Ad Set ID `52548872983334`;
+- creative ID remains absent;
+- ad ID remains absent;
+- MANUAL_REVIEW task;
+- failed/terminal external action;
+- existing proof/history records.
+
+No Meta/provider mutation.
+
+No new campaign.
+
+No new Ad Set.
+
+No creative.
+
+No ad.
+
+No second launch.
+
+No cleanup.
+
+No Retry.
+
+--------------------------------------------------
+F. UI CONTRACT
+--------------------------------------------------
+
+Generic Skip remains unchanged for genuinely unattempted optional steps.
+
+ONLY when the current step has the durable failed/manual-review state should the owner-facing action become:
+
+"Defer for now"
+
+Do not present this as an ordinary Skip.
+
+Owner-facing explanatory copy should communicate, in substance:
+
+"Your campaign draft stays paused at Meta and is not running. Setup will continue without it — you can resolve it later."
+
+Do not promise that the system will resolve it.
+
+Do not imply successful campaign creation.
+
+Do not say Done.
+
+After owner deferral, the checklist/state must display:
+
+"Deferred"
+
+NOT:
+- Done
+- Completed
+- Skipped
+- Failed as though no owner disposition occurred.
+
+The underlying execution outcome nevertheless remains failed/provider_manual_review with its historical evidence preserved.
+
+--------------------------------------------------
+G. AUTHORIZED PRODUCTION FILE SURFACE
+--------------------------------------------------
+
+Expected production surface:
+
+1. `setupAgentController.js`
+   - failure-aware skip/deferral branch
+   - minimal PM5 reconciliation-guard amendment
+
+2. `SetupAgent.jsx`
+   - state-aware "Defer for now" wording
+   - explanatory copy
+   - Deferred rendering
+
+3. `executeError.js`
+   - contingency ONLY if genuinely required by the approved semantics.
+
+If a FOURTH hand-edited production file is required:
+
+STOP AND REPORT BEFORE MODIFYING IT.
+
+No DDL.
+No schema migration.
+
+Any DDL requirement = STOP.
+
+Mechanical requirements:
+- SW bump to v180 because client behavior changes.
+- rebuilt committed dist as required by project convention.
+These mechanical files do not count against the hand-edited production-file ceiling but must be enumerated.
+
+--------------------------------------------------
+H. DIFF BOUNDS
+--------------------------------------------------
+
+PM6 padded hand-edited implementation bound:
+
+450 lines.
+
+STOP threshold:
+
+560 lines.
+
+Standing >25% rule applies.
+
+If evidence shows BEFORE completion that the implementation will exceed the authorized STOP threshold, STOP AND REPORT before continuing.
+
+Do not finish an oversized implementation and ask forgiveness afterward.
+
+--------------------------------------------------
+I. MANDATORY REGRESSIONS
+--------------------------------------------------
+
+Bind the ruling with named regressions.
+
+At minimum prove:
+
+R1 — failed/manual-review + owner deferral enriches the existing structured outcome rather than replacing it.
+
+R2 — deep preservation:
+all pre-deferral failure fields remain identical, including the original correlation reference.
+
+R3 — deferral adds exactly the intended journey fields:
+journey_disposition,
+deferred_reason,
+deferred_at,
+owner_directed.
+
+R4 — PM5 reconciliation STILL strips false completed membership when canonical success fails and no valid deferral exists.
+
+R5 — PM5 reconciliation respects a valid owner-directed deferral across resume/remount and does not strip it.
+
+R6 — deferred failed step is not automatically rerun.
+
+R7 — generic Skip behavior for a genuinely unattempted optional step remains unchanged.
+
+R8 — UI renders "Defer for now" only for the durable failed/manual-review state.
+
+R9 — post-deferral UI renders "Deferred", not Done/Completed/Skipped.
+
+R10 — six-way state taxonomy property test:
+never attempted,
+pre-attempt skipped,
+succeeded,
+failed retryable,
+failed manual review,
+failed then deferred
+remain distinguishable and cannot classify as one another.
+
+Also preserve all relevant PM5/C1 regressions unchanged.
+
+No test may redefine canonical success to make deferral look successful.
+
+--------------------------------------------------
+J. IMPLEMENTATION PROCESS
+--------------------------------------------------
+
+Implement PM6 on a fresh branch from the current accepted staging tip under D-37.
+
+Do not work from the stale workspace tree.
+
+Before implementation:
+- establish exact staging base SHA;
+- establish current server/client baselines;
+- confirm specimen remains untouched.
+
+Then implement only the authorized PM6 scope.
+
+Run complete server/client suites.
+
+Perform exact changed-file accounting.
+
+Perform D-32 deletion review.
+
+Explicitly identify:
+- production source changes;
+- tests;
+- SW mechanical change;
+- dist mechanical output.
+
+Do not merge.
+
+--------------------------------------------------
+K. PRE-MERGE RETURN
+--------------------------------------------------
+
+Return a complete PM6 PRE-MERGE RECONCILIATION containing:
+
+1. branch;
+2. PR number;
+3. exact PR head SHA;
+4. staging base SHA;
+5. exact changed files;
+6. per-file purpose;
+7. insertion/deletion totals;
+8. hand-edited production/test/dist split;
+9. D-32 deletion review;
+10. server baseline arithmetic and result;
+11. client baseline arithmetic and result;
+12. R1–R10 evidence individually;
+13. proof original correlation ref is preserved;
+14. proof ordinary Skip remains unchanged;
+15. proof PM5 false-completion stripping remains unchanged;
+16. proof valid deferral survives reconciliation;
+17. proof no canonical-success predicate weakening;
+18. proof no schema/migration;
+19. proof no Meta/provider code path executed;
+20. specimen preservation verification;
+21. diff-bound accounting;
+22. deviations;
+23. STOP-condition review.
+
+Then HARD STOP for owner + ChatGPT + Claude pre-merge review.
+
+DO NOT MERGE.
+
+--------------------------------------------------
+L. POST-MERGE VERIFICATION — NOT YET AUTHORIZED TO SELF-EXECUTE
+--------------------------------------------------
+
+After separate pre-merge approval, the expected staging verification will be:
+
+- pinned-head merge to staging only;
+- health SHA matches merge;
+- migrations remain 148;
+- served SW = v180;
+- new bundle served;
+- specimen resumes at truthful failed/manual-review state;
+- owner sees "Defer for now";
+- ONE owner click;
+- read-only verify enriched outcome;
+- original correlation ref unchanged;
+- key terminal in completed_steps;
+- campaign/task/action/provider IDs byte-preserved;
+- zero provider calls;
+- refresh/remount;
+- "Deferred" persists;
+- reconciliation does not strip it;
+- no automatic campaign execution;
+- runner advances to the next truthful unrelated setup step.
+
+That live sequence is NOT authorization to merge now.
+It describes the later acceptance target.
+
+--------------------------------------------------
+M. EXISTING STANDING BOUNDARIES
+--------------------------------------------------
+
+Decision D remains governing.
+
+NOT AUTHORIZED:
+
+- Retry;
+- second Facebook campaign launch;
+- continuation of the partial Meta ads chain;
+- any Meta ads mutation;
+- cleanup/deletion;
+- Prompt 031;
+- I-64 work;
+- BLACOR-H1;
+- H2;
+- Prompt 027;
+- production deployment/change;
+- automatic action based on Meta review.
+
+The SDS-H1 specimen stays frozen during PM6 development.
+
+BEGIN PM6 IMPLEMENTATION.
+
+Return the PRE-MERGE RECONCILIATION and STOP.
