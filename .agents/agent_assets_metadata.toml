@@ -474,3 +474,10 @@ id = "qduSmsU251-IClSTfcacw"
 uri = "file://ZORECHO_FULL_SYSTEM_REVIEW_PACKAGE_2026-07-24.zip"
 type = "unspecified"
 title = "Zorecho Full System Review Package (2026-07-24)"
+
+[[outputs]]
+id = "L4u-hryr30HnZDadAtUV4"
+uri = "file://attached_assets/sds-h1-pm7-staging-panel.png"
+type = "image"
+title = "SDS-H1 PM7 staging verification"
+description = "Guarded read-only capture of the frozen Facebook campaign failure panel after PR #61 deployed to staging."
