@@ -1,0 +1,80 @@
+OWNER + CHATGPT CONSOLIDATED AUTHORIZATION — 026-C3-PM7
+
+Claude's final pre-merge ruling is A. MERGE APPROVED, pinned to PR #61 head 29d8799, staging only.
+
+Proceed under that ruling and the existing PM7/PM6/Decision-D boundaries.
+
+Before merge, perform Claude's one merge-time checklist item:
+
+Verify from PR #61's existing 30-point record that:
+
+the per-file numstat is present and names every hand-edited file with exact +/- accounting; and
+the amendment regressions are explicitly named:
+(a) non-campaign parity regression;
+(b) shared real-envelope builder linked/bound to the server response-construction assertion;
+(c) server skip-branch regression proving skip:true against a qualifying durable failed outcome performs PM6 deferral regardless of the client label.
+
+If all are present: report the checklist result and proceed without another review round.
+
+If any are absent: STOP before merge and provide the missing disclosure only. Do not modify implementation merely to satisfy a reporting omission.
+
+Authorized sequence if checklist passes
+
+Merge PR #61 pinned to exact head 29d8799 into staging only.
+
+Then verify before touching the SDS-H1 specimen:
+
+staging /api/health reports the resulting merge SHA;
+schema_migrations = 148;
+served service worker is v181;
+served client bundle is index-DaK3CAPL.js;
+production remains untouched.
+
+If any deployment check fails or the served assets do not correspond to the approved PM7 delivery, STOP AND REPORT. Do not interact with the specimen.
+
+After deployment verification
+
+Resume/open the same frozen SDS-H1 specimen only far enough to observe the failed Facebook campaign panel.
+
+Expected PM7 proof:
+
+the panel still truthfully represents the existing provider_manual_review failure;
+the action now reads “Defer for now”, not “Skip this step”;
+the explanatory copy is present;
+no Retry appears for this terminal state;
+merely opening/remounting causes no runner execution, provider call, campaign mutation, or other write.
+
+Then HARD STOP and return control to me.
+
+Do NOT click “Defer for now” yourself.
+
+That is the next owner-performed action. Once Replit confirms the corrected button is live and the specimen remains unchanged, I will make that single click.
+
+After my click, you may perform only the already-authorized read-only PM6 verification:
+
+original durable failure fields preserved;
+exactly the four deferral fields added;
+original correlation ref preserved;
+create_facebook_campaign enters completed_steps only as terminal-not-success;
+campaign/task/action/Meta evidence byte-unchanged;
+zero provider calls.
+
+Then refresh/remount and verify:
+
+Deferred persists;
+PM5 reconciliation does not strip the disposition;
+no campaign rerun occurs.
+
+After that, continue Decision D only, one owner action at a time, until SDS-H1 journey completion or the next blocking defect.
+
+Still NOT authorized
+
+Retry; second launch; Meta ads mutation; cleanup; I-64 work; Prompt 031; BLACOR-H1; H2; Prompt 027; production changes.
+
+Preserve all existing STOP-FIRST rules.
+
+Begin with the merge-time checklist.
+
+The important part for you: Replit should do the merge and deployment checks now, but it should NOT click the button. Once it tells us the live SDS specimen now says “Defer for now,” that's when you make the click.
+
+That gives us a very clean live proof that PM7 fixed exactly what it was supposed to fix without accidentally executing the underlying action.
