@@ -36,3 +36,12 @@ The wizard is milestone-framed per CUSTOMER_EXPERIENCE_CONSTITUTION.md: profile 
 
 ## Resume must not replay step intro voice lines (July 2026)
 gotoStep speaks the step's first-time intro line ("Now tell me about your business…") on every entry — resuming mid-execution replayed it as if starting over ("Echo started asking about my business like beginning"). Resume path passes { resumed: true } and speaks a short "Picking up right where we left off" line instead.
+
+## Pre-completion Social destination handoff
+While onboarding is incomplete, the App gate prevents dashboard sections from mounting. An embedded Setup Agent request for Social → Connected Accounts must therefore open the shared Facebook Page picker inline; it must never be translated into First Win. The inline picker is selection-only and writes Store 2 only after explicit **Use this Page** confirmation.
+
+The Guided Setup progress row is only a projection. A saved `firstwin` pointer may be healed back to the profile/Setup Agent surface only when an active serialized session says `connect_social` is the next unresolved planned step. If session truth is unavailable or does not match, fail closed and keep the saved projection.
+
+**Why:** discarding the destination sent the owner to a later milestone while the real Setup Agent session still required Page selection; weakening the pre-completion gate would expose dashboard surfaces too early.
+
+**How to apply:** preserve the normal Connected Accounts picker behavior, reuse its existing Store-2 writer, and let the Setup Agent's normal execute recheck decide whether setup may advance after the owner confirms a Page.

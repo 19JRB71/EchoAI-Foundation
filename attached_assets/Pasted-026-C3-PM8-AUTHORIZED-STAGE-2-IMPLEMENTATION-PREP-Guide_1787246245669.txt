@@ -1,0 +1,371 @@
+026-C3-PM8 — AUTHORIZED STAGE-2 IMPLEMENTATION PREP
+Guided Setup Page-Picker Handoff Corrective
+
+Claude has returned the governing PM8 ruling:
+
+DECISION B — ACCEPT WITH AMENDMENTS.
+
+You are authorized to proceed with C3-PM8 investigation/design/implementation
+ONLY within the boundaries below.
+
+The SDS-H1 specimen remains FROZEN on the incorrectly reached
+"Your First Win" screen.
+
+DO NOT interact with that specimen during implementation.
+DO NOT refresh it.
+DO NOT click Back, Skip, or any First Win option.
+DO NOT select a Facebook Page.
+DO NOT call Facebook/Meta/provider APIs.
+
+==================================================
+ESTABLISHED DEFECT
+==================================================
+
+The embedded SetupAgent correctly emits:
+
+onExitToSection("social", "accounts")
+
+from:
+
+Choose a Page
+
+But GuidedSetupWizard currently discards that destination and maps the callback
+to:
+
+gotoStep("firstwin")
+
+This incorrectly persisted:
+
+guided_setup_progress.current_step = "firstwin"
+
+and:
+
+connections = {}
+
+The owner click caused:
+
+- zero Facebook/provider activity;
+- zero social_accounts binding;
+- zero setup_sessions mutation;
+- zero second launch;
+- no change to the deferred campaign evidence.
+
+PM6/PM7 and Decision D are CLOSED and live-proven.
+
+PM8 fixes only the Guided Setup / Page-picker handoff and truthful recovery.
+
+==================================================
+FIRST REQUIRED DELIVERABLE — SHAPE QUESTION
+==================================================
+
+BEFORE WRITING PRODUCTION CODE, answer this one architectural question from
+the actual current implementation:
+
+Can the existing Social Media → Connected Accounts Page-picker surface
+genuinely mount during pre-completion Guided Setup through a faithful parent
+route WITHOUT weakening or bypassing the App onboardingCompleted gate?
+
+Trace the actual route/component/gate.
+
+Return one of:
+
+SHAPE A:
+Yes. The existing Connected Accounts picker can mount pre-completion cleanly
+through the existing architecture.
+
+If so, implement the narrow destination-aware handoff.
+
+OR:
+
+SHAPE B:
+No. The onboarding gate prevents that surface from mounting cleanly before
+completion.
+
+If so, DO NOT weaken the gate and DO NOT invent a new navigation framework.
+
+Use the established C3 precedent:
+render/reuse the existing Facebook Page-picker machinery INLINE at the
+connect_social owner-action pause inside Guided Setup.
+
+The inline implementation must reuse existing picker/writer contracts rather
+than creating a second Page-binding system.
+
+Document which shape the evidence selects and why.
+
+==================================================
+SEMANTIC CONTRACT
+==================================================
+
+Regardless of Shape A or B:
+
+1. Destination intent must never be discarded.
+
+2. "Choose a Page" itself must cause:
+   - zero provider calls;
+   - zero Facebook writes;
+   - zero social_accounts writes;
+   - zero Page binding;
+   - zero progression to firstwin.
+
+3. Page choices must come from the existing PM3-bound accounts contract using
+   faithful/shared response fixtures.
+
+4. OWNER explicitly selects a Page.
+
+5. Selection alone writes NOTHING.
+
+6. OWNER then separately confirms:
+   "Use this Page"
+   or the existing equivalent explicit confirmation.
+
+7. Only that explicit confirmation may invoke the existing socialController
+   upsert and create the Store-2 posting-page binding.
+
+8. Exactly one Store-2 social_accounts row is expected.
+
+9. Store 3 must remain unchanged.
+
+10. Deferred create_facebook_campaign outcome must remain byte-unchanged.
+
+11. Historical campaign/task/action/Meta evidence must remain untouched.
+
+==================================================
+onClose CONTRACT
+==================================================
+
+Do NOT broaden this fix unnecessarily.
+
+onClose → firstwin
+
+remains unchanged unless concrete evidence proves it defective.
+
+The defect in evidence is:
+
+onExitToSection
+
+discarding the requested destination.
+
+==================================================
+AUTHORITATIVE RECOVERY CONTRACT
+==================================================
+
+The frozen specimen currently has a stale projection:
+
+guided_setup_progress.current_step = "firstwin"
+
+PM8 must recover this through PRODUCT TRUTH, not choreography.
+
+The C2 authority principle applies:
+
+guided_setup_progress is a projection.
+
+When the embedded SetupAgent has an active unresolved owner-action need
+(connect_social / Page selection), Guided Setup must present that authoritative
+need regardless of the stale firstwin pointer.
+
+Preferred recovery:
+
+Deploy PM8
+→ owner reopens/resumes same specimen
+→ bootstrap derives authoritative SetupAgent need
+→ Guided Setup corrects/heals stale pointer
+→ Page-picker surface appears
+→ no DB surgery.
+
+Do NOT simply tell the owner to navigate around the stale pointer.
+
+Direct staging UPDATE is LAST RESORT ONLY.
+
+If product-truth recovery proves technically infeasible:
+STOP and report why.
+Do not perform the UPDATE without a separate explicit authorization.
+
+==================================================
+AMENDMENT 3 — CLOBBERED connections FIELD
+==================================================
+
+The erroneous firstwin transition also persisted:
+
+connections = {}
+
+Determine READ-ONLY what guided_setup_progress.connections contained
+immediately before the erroneous owner click, using existing evidence/history
+if available.
+
+Report one of:
+
+A. It was already {}, so no information was lost.
+
+B. It contained recoverable information; specify exactly what was lost and how
+   authoritative product truth can re-derive/restore it.
+
+C. Prior value cannot be established; state that explicitly and assess whether
+   authoritative state elsewhere makes recovery deterministic.
+
+Do not silently assume {} was harmless.
+
+==================================================
+REQUIRED REGRESSIONS
+==================================================
+
+Bind at minimum:
+
+R1.
+Embedded SetupAgent requests:
+onExitToSection("social","accounts")
+→ destination is honored OR inline picker renders, depending on selected shape.
+
+R2.
+Choose-a-Page action does NOT advance guided progress to firstwin.
+
+R3.
+Choose-a-Page action causes zero provider/Facebook calls.
+
+R4.
+Choose-a-Page action causes zero social_accounts write/binding.
+
+R5.
+Picker loads Pages from the established bound accounts contract using faithful
+shared fixtures.
+
+R6.
+Selecting a Page alone writes nothing.
+
+R7.
+Explicit "Use this Page" confirmation writes exactly one Store-2
+social_accounts row through the existing writer.
+
+R8.
+Store 3 remains unchanged.
+
+R9.
+Deferred Facebook campaign outcome remains byte-unchanged.
+
+R10.
+Genuine Guided Setup profile-stage completion still progresses to firstwin.
+
+R11.
+onClose behavior remains unchanged.
+
+R12.
+Stale firstwin projection + authoritative embedded SetupAgent owner-action need
+recovers to the Page-picker surface on bootstrap/resume.
+
+Add any narrowly necessary regressions discovered during implementation, but
+disclose them.
+
+==================================================
+PRODUCTION SURFACE
+==================================================
+
+Expected production surface:
+
+- GuidedSetupWizard.jsx
+
+Plus, depending on selected shape:
+
+- SetupAgent.jsx
+and/or
+- existing/inline Page-picker host needed to reuse the existing machinery.
+
+Enumerate every production file before implementation.
+
+NO SERVER PRODUCTION CHANGE EXPECTED.
+
+If any server production file becomes necessary:
+HARD STOP and report/justify before touching it.
+
+Mechanical:
+SW v181 → v182
+committed dist rebuild
+
+File ceilings count hand-edited source/test files only.
+Mandatory SW/dist mechanical accompaniments are excluded but must be
+enumerated.
+
+==================================================
+DIFF BOUND
+==================================================
+
+Padded authorization:
+500 hand-edited touched lines.
+
+STOP threshold:
+625.
+
+If >500:
+disclose exact reason.
+
+If >625:
+STOP.
+
+==================================================
+MANDATORY PRESERVATION
+==================================================
+
+Do not reopen or alter:
+
+- PM5 semantics;
+- PM6 semantics;
+- PM7 durable-outcome authority;
+- completed_steps deferral behavior;
+- campaign retry behavior;
+- deferred campaign evidence;
+- Meta IDs;
+- campaign/task/action evidence;
+- Store 3;
+- I-64.
+
+No Retry.
+No second launch.
+No Meta ads mutation.
+No automatic Page selection.
+No automatic Page binding.
+
+No Prompt 031.
+No BLACOR-H1.
+No H2.
+No Prompt 027.
+No production deployment.
+
+==================================================
+PRE-MERGE DELIVERY
+==================================================
+
+Work on a dedicated PM8 branch.
+
+Run the focused regressions plus all required preservation suites.
+
+Before requesting merge, return a PM8 reconciliation including:
+
+1. Selected Shape A or Shape B and evidence.
+2. Exact root-cause line/path.
+3. Exact recovery mechanism.
+4. connections={} clobber assessment.
+5. Every production file touched and why.
+6. Every test file touched/added and why.
+7. Exact per-file +/- numstat.
+8. Hand-edited total.
+9. Mechanical SW/dist changes separately.
+10. Test baseline → final counts.
+11. R1–R12 mapping to named tests.
+12. Confirmation of zero server production changes, or STOP if not true.
+13. Confirmation PM5/PM6/PM7 suites remain green.
+14. Confirmation Store-2/Store-3 separation remains bound.
+15. Confirmation deferred campaign evidence remains protected.
+16. Build result.
+17. SW v182 result.
+18. PR number, base, head SHA.
+19. Explicit statement that the SDS-H1 specimen was untouched.
+20. Any deviations or unexpected findings.
+
+Then HARD STOP for Claude/ChatGPT pre-merge review.
+
+DO NOT MERGE.
+DO NOT DEPLOY.
+DO NOT TOUCH THE FROZEN SPECIMEN.
+
+The eventual live sequence is NOT authorized yet.
+
+Begin with the one-question Shape A / Shape B determination, then proceed only
+within the ruled PM8 scope.
