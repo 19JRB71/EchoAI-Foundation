@@ -7,6 +7,7 @@ import AdsDestinationCapture from "./guided/AdsDestinationCapture.jsx";
 import { useVoiceInput, detectIsMobile } from "./useVoiceInput.js";
 import VoiceCalibration from "./VoiceCalibration.jsx";
 import useOnboardingTiming from "./useOnboardingTiming.js";
+import { FacebookPagePicker } from "../sections/social/ConnectedAccounts.jsx";
 
 const VOICE_MODE_KEY = "echoai_setup_voice_mode";
 // Set once the user completes OR skips voice calibration, so we never re-offer
@@ -134,7 +135,14 @@ function connectKind(connect) {
   return null;
 }
 
-export default function SetupAgent({ onClose, onExitToSection, embedded = false, doneLabel }) {
+export default function SetupAgent({
+  onClose,
+  onExitToSection,
+  embedded = false,
+  doneLabel,
+  inlineExitDestination,
+  onInlineExitComplete,
+}) {
   const [phase, setPhase] = useState("loading");
   // Prompt 035 Section L — standalone timing only; when embedded, the wizard's
   // hook already covers this surface (interval merge would dedup anyway, but
@@ -809,6 +817,14 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
     // Land directly on the Connected Accounts tab (not the section's default
     // Content Calendar tab) so the connect buttons are immediately visible.
     if (typeof onExitToSection === "function") onExitToSection("social", "accounts");
+  }
+
+  async function completeInlinePageSelection() {
+    // The existing Page writer has already succeeded. Re-check the same
+    // unresolved Setup Agent step through its normal execute boundary; only
+    // authoritative server truth may advance the run.
+    await continueAfterConnect();
+    if (typeof onInlineExitComplete === "function") onInlineExitComplete();
   }
 
   async function skipConnection() {
@@ -1499,6 +1515,33 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
               // has no Page selected — an explicit Page-picker handoff, never a
               // generic connect that looks already satisfied.
               if (kind === "social_select_page") {
+                const showInlinePicker =
+                  embedded &&
+                  inlineExitDestination?.section === "social" &&
+                  inlineExitDestination?.tab === "accounts";
+                if (showInlinePicker) {
+                  return (
+                    <div
+                      className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/5 p-6"
+                      data-testid="setup-inline-facebook-page-picker"
+                    >
+                      <h3 className="font-semibold text-sky-200">Choose your Facebook Page</h3>
+                      <p className="mt-1 text-sm text-white/70">{needsConnection.detail}</p>
+                      {session?.brandId ? (
+                        <FacebookPagePicker
+                          brandId={session.brandId}
+                          onConnected={completeInlinePageSelection}
+                          requireExplicitSelection
+                          selectionOnly
+                        />
+                      ) : (
+                        <p className="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                          Your business is not ready for Page selection yet. Retry this setup step.
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
                 return (
                   <div className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/5 p-6">
                     <h3 className="font-semibold text-sky-200">Choose your Facebook Page</h3>

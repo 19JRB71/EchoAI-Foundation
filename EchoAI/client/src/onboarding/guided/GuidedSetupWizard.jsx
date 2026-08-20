@@ -81,6 +81,22 @@ function pickLine(pool) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+export function shouldRecoverSocialPageHandoff(savedStep, session) {
+  if (
+    savedStep !== "firstwin" ||
+    !session ||
+    !["in_progress", "paused"].includes(session.status) ||
+    !session.interviewComplete ||
+    !session.consentGranted ||
+    !Array.isArray(session.steps)
+  ) {
+    return false;
+  }
+  const completed = new Set(Array.isArray(session.completedSteps) ? session.completedSteps : []);
+  const nextUnresolved = session.steps.find((candidate) => !completed.has(candidate.key));
+  return nextUnresolved?.key === "connect_social";
+}
+
 // CEO-approved warm success lines, spoken and shown when an OAuth connection
 // lands — Echo reports it like an executive assistant, not system software.
 const CONNECTION_SUCCESS_LINE = {
@@ -111,6 +127,7 @@ export default function GuidedSetupWizard({ onComplete }) {
   const [parked, setParked] = useState(false);
   const [fwStatus, setFwStatus] = useState(null);
   const [celebration, setCelebration] = useState(null); // {celebrate, provider}
+  const [setupExitDestination, setSetupExitDestination] = useState(null);
   const { speak, stop } = useEchoSpeak();
 
   const stepRef = useRef(step);
@@ -189,6 +206,28 @@ export default function GuidedSetupWizard({ onComplete }) {
         }
       } catch {
         /* projection is best-effort here; steps load their own state */
+      }
+      if (!active) return;
+
+      // 026-C3-PM8: the Guided Setup projection is not allowed to outrank the
+      // active Setup Agent session. A stale "firstwin" pointer is healed only
+      // when serialized server truth says the next unresolved planned action is
+      // connect_social. The mounted SetupAgent then re-derives the live pause;
+      // this client never fabricates completion or mutates a Page binding.
+      if (!oauth && savedStep === "firstwin") {
+        try {
+          const latest = await api.getSetupLatest();
+          if (active && shouldRecoverSocialPageHandoff(savedStep, latest?.session)) {
+            setFlags(nextFlags);
+            setSetupExitDestination({ section: "social", tab: "accounts" });
+            setStep("profile");
+            persist("profile", nextFlags);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          /* fail closed: keep the saved projection when session truth is unavailable */
+        }
       }
       if (!active) return;
 
@@ -299,6 +338,14 @@ export default function GuidedSetupWizard({ onComplete }) {
     },
     [persist, speak],
   );
+
+  const handleSetupExitToSection = useCallback((section, tab) => {
+    if (section === "social" && tab === "accounts") {
+      setSetupExitDestination({ section, tab });
+      return;
+    }
+    setError("That setup destination is not available here yet.");
+  }, []);
 
   // Merge + persist per-connection flags (awaited by ConnectionsStep before
   // it leaves the page for an OAuth redirect).
@@ -467,7 +514,9 @@ export default function GuidedSetupWizard({ onComplete }) {
                   embedded
                   doneLabel="Continue setup"
                   onClose={() => gotoStep("firstwin")}
-                  onExitToSection={() => gotoStep("firstwin")}
+                  onExitToSection={handleSetupExitToSection}
+                  inlineExitDestination={setupExitDestination}
+                  onInlineExitComplete={() => setSetupExitDestination(null)}
                 />
               </div>
               <OnlineLinksPanel />

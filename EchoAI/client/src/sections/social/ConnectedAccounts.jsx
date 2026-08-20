@@ -159,7 +159,12 @@ export default function ConnectedAccounts({ brandId, focusPlatform, onFocusConsu
 // than pasting a token + Page ID, the owner picks which of their already-connected
 // Pages this brand should post to. If Facebook isn't connected yet, this offers
 // the same one OAuth flow used everywhere else (no separate credential system).
-function FacebookPagePicker({ brandId, onConnected }) {
+export function FacebookPagePicker({
+  brandId,
+  onConnected,
+  requireExplicitSelection = false,
+  selectionOnly = false,
+}) {
   const [loading, setLoading] = useState(true);
   const [fb, setFb] = useState(null); // { configured, connected, pages, selectedPageId }
   const [pageId, setPageId] = useState("");
@@ -173,14 +178,18 @@ function FacebookPagePicker({ brandId, onConnected }) {
       const data = await api.getFacebookAccounts();
       setFb(data);
       const pages = data.pages || [];
-      setPageId(data.selectedPageId || (pages[0] && pages[0].id) || "");
+      setPageId(
+        data.selectedPageId ||
+          (!requireExplicitSelection && pages[0] && pages[0].id) ||
+          "",
+      );
     } catch (err) {
       setError(err.message);
       setFb(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [requireExplicitSelection]);
 
   useEffect(() => {
     loadFb();
@@ -269,14 +278,16 @@ function FacebookPagePicker({ brandId, onConnected }) {
             Connect Facebook once — it authorizes all your Pages for both ads and
             posting. Then choose which Page this business posts to.
           </p>
-          <button
-            type="button"
-            onClick={startConnect}
-            disabled={busy}
-            className="rounded-lg bg-[#1877F2] px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {busy ? "Opening Facebook…" : "Connect Facebook"}
-          </button>
+          {!selectionOnly && (
+            <button
+              type="button"
+              onClick={startConnect}
+              disabled={busy}
+              className="rounded-lg bg-[#1877F2] px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+            >
+              {busy ? "Opening Facebook…" : "Connect Facebook"}
+            </button>
+          )}
         </div>
       ) : pages.length === 0 ? (
         <div className="space-y-3">
@@ -284,7 +295,7 @@ function FacebookPagePicker({ brandId, onConnected }) {
             Facebook is connected, but we don’t see any Pages you manage. Make
             sure you granted access to your Page, then reconnect.
           </p>
-          <div className="flex items-center gap-2">
+          {!selectionOnly && <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={startConnect}
@@ -301,7 +312,7 @@ function FacebookPagePicker({ brandId, onConnected }) {
             >
               Disconnect
             </button>
-          </div>
+          </div>}
         </div>
       ) : (
         <div className="space-y-3">
@@ -332,27 +343,31 @@ function FacebookPagePicker({ brandId, onConnected }) {
             <button
               type="button"
               onClick={handleSave}
-              disabled={busy}
+              disabled={busy || !pageId}
               className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-60"
             >
               {busy ? "Saving…" : "Use this Page"}
             </button>
-            <button
-              type="button"
-              onClick={startConnect}
-              disabled={busy}
-              className="rounded-lg border border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-700"
-            >
-              Reconnect Facebook
-            </button>
-            <button
-              type="button"
-              onClick={handleDisconnect}
-              disabled={busy}
-              className="rounded-lg border border-red-700/50 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-60"
-            >
-              Disconnect
-            </button>
+            {!selectionOnly && (
+              <>
+                <button
+                  type="button"
+                  onClick={startConnect}
+                  disabled={busy}
+                  className="rounded-lg border border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-700"
+                >
+                  Reconnect Facebook
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  disabled={busy}
+                  className="rounded-lg border border-red-700/50 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-60"
+                >
+                  Disconnect
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
