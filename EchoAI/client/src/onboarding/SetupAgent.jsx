@@ -51,6 +51,13 @@ function StatusDot({ status }) {
       </span>
     );
   }
+  if (status === "deferred") {
+    return (
+      <span className={`${base} bg-amber-500/20 text-amber-300`} aria-label="deferred">
+        –
+      </span>
+    );
+  }
   if (status === "failed") {
     return (
       <span className={`${base} bg-red-500/20 text-red-400`} aria-label="failed">
@@ -80,6 +87,32 @@ function Avatar() {
     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-600 text-xl font-black text-black shadow-lg">
       AI
     </div>
+  );
+}
+
+function isDeferrableCampaignFailure(stepKey, outcome) {
+  return Boolean(
+    stepKey === "create_facebook_campaign" &&
+    outcome &&
+    typeof outcome === "object" &&
+    outcome.status === "failed" &&
+    outcome.code === "provider_manual_review" &&
+    outcome.retryable === false &&
+    typeof outcome.message === "string" &&
+    outcome.message.length > 0 &&
+    typeof outcome.ref === "string" &&
+    outcome.ref.length > 0
+  );
+}
+
+function isOwnerDirectedDeferredOutcome(outcome) {
+  return (
+    isDeferrableCampaignFailure("create_facebook_campaign", outcome) &&
+    outcome.journey_disposition === "deferred" &&
+    outcome.deferred_reason === "pending_provider_review" &&
+    outcome.owner_directed === true &&
+    typeof outcome.deferred_at === "string" &&
+    Number.isFinite(Date.parse(outcome.deferred_at))
   );
 }
 
@@ -248,8 +281,9 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
     const seeded = {};
     const completedSteps = Array.isArray(s.completedSteps) ? s.completedSteps : [];
     for (const key of completedSteps) {
-      seeded[key] =
-        outcomes[key] === "skipped"
+      seeded[key] = isOwnerDirectedDeferredOutcome(outcomes[key])
+        ? { status: "deferred", detail: "Deferred", outcome: outcomes[key] }
+        : outcomes[key] === "skipped"
           ? { status: "skipped", detail: "Skipped." }
           : { status: "done", detail: "Done." };
     }
@@ -276,6 +310,7 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
         for (const [key, r] of Object.entries(prev)) {
           if (!next[key] && r && classifyStepStatus(r.status) === "awaiting_owner") next[key] = r;
         }
+        resultsRef.current = next;
         return next;
       });
     }
@@ -769,6 +804,25 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
       await runLoop(sessionId);
     } catch (err) {
       setError(err.message || "Could not skip this step.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deferFailedStep() {
+    if (busy || !failedStep) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await api.runSetupAction(sessionId, true);
+      if (!res || !res.session) {
+        throw new Error("The deferral did not return updated setup state.");
+      }
+      adoptSession(res.session);
+      setFailedStep(null);
+      await runLoop(sessionId);
+    } catch (err) {
+      setError(err.message || "Could not defer this step.");
     } finally {
       setBusy(false);
     }
@@ -1684,6 +1738,12 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
                 ? ` · Reference: ${failedStep.outcome.ref}`
                 : ""}
             </p>
+            {isDeferrableCampaignFailure(failedStep.key, failedStep.outcome) ? (
+              <p className="mt-3 text-sm text-amber-200/90">
+                Your campaign draft stays paused at Meta and is not running. Setup will continue
+                without it — you can resolve it later.
+              </p>
+            ) : null}
             <div className="mt-4 flex flex-wrap gap-3">
               {/* 026-C3-PM5 §8: a terminal provider/manual-review failure gets
                   NO immediate Retry affordance — the fix is provider-side and
@@ -1703,13 +1763,24 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
                   {busy ? "Retrying…" : "Retry this step"}
                 </button>
               )}
-              <button
-                onClick={skipConnection}
-                disabled={busy}
-                className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
-              >
-                Skip this step
-              </button>
+              {isDeferrableCampaignFailure(failedStep.key, failedStep.outcome) ? (
+                <button
+                  onClick={deferFailedStep}
+                  disabled={busy}
+                  className="rounded-lg px-5 py-2.5 font-semibold text-amber-200 hover:text-amber-100 disabled:opacity-50"
+                  data-testid="failed-step-defer"
+                >
+                  Defer for now
+                </button>
+              ) : (
+                <button
+                  onClick={skipConnection}
+                  disabled={busy}
+                  className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
+                >
+                  Skip this step
+                </button>
+              )}
             </div>
           </div>
         ) : null}

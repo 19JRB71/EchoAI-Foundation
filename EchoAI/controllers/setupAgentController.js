@@ -787,6 +787,49 @@ async function facebookCampaignLaunchComplete(brandId) {
   }
 }
 
+// 026-C3-PM6 — an owner deferral is journey state, never launch success.
+// Only the live partial-launch failure class may take this branch.  Generic
+// skips keep their existing string outcome, while every original failure field
+// (especially the correlation ref) survives unchanged in this SAME object.
+function isDeferrableFailedOutcome(stepKey, outcome) {
+  return Boolean(
+    stepKey === "create_facebook_campaign" &&
+    outcome &&
+    typeof outcome === "object" &&
+    !Array.isArray(outcome) &&
+    outcome.status === "failed" &&
+    outcome.code === "provider_manual_review" &&
+    outcome.retryable === false &&
+    typeof outcome.message === "string" &&
+    outcome.message.length > 0 &&
+    typeof outcome.ref === "string" &&
+    outcome.ref.length > 0
+  );
+}
+
+function isValidOwnerDirectedDeferral(outcome) {
+  return (
+    isDeferrableFailedOutcome("create_facebook_campaign", outcome) &&
+    outcome.journey_disposition === "deferred" &&
+    outcome.deferred_reason === "pending_provider_review" &&
+    outcome.owner_directed === true &&
+    typeof outcome.deferred_at === "string" &&
+    Number.isFinite(Date.parse(outcome.deferred_at))
+  );
+}
+
+function enrichOwnerDirectedDeferral(outcome, deferredAt = new Date().toISOString()) {
+  if (!isDeferrableFailedOutcome("create_facebook_campaign", outcome)) return null;
+  if (isValidOwnerDirectedDeferral(outcome)) return { ...outcome };
+  return {
+    ...outcome,
+    journey_disposition: "deferred",
+    deferred_reason: "pending_provider_review",
+    deferred_at: deferredAt,
+    owner_directed: true,
+  };
+}
+
 // 026-C3-PM5 §5 — completed_steps reconciliation (operational state only).
 // completed_steps is runner state, NOT launch evidence. If it claims
 // create_facebook_campaign while the authoritative evidence above says the
@@ -802,6 +845,14 @@ async function reconcileCompletedSteps(session) {
   if (!completed.includes(STEP) || !session.brand_id) return session;
   const evidence = await facebookCampaignLaunchComplete(session.brand_id);
   if (evidence.complete || !evidence.dirty) return session;
+  const existingOutcome =
+    session.answers &&
+    session.answers.step_outcomes &&
+    session.answers.step_outcomes[STEP];
+  // PM6: completed membership is valid runner-terminal state when (and ONLY
+  // when) the original failed/manual-review object carries the complete,
+  // owner-directed deferral contract.  It is still not provider success.
+  if (isValidOwnerDirectedDeferral(existingOutcome)) return session;
   const ref = crypto.randomUUID();
   const outcome = {
     status: "failed",
@@ -2778,6 +2829,31 @@ async function executeNextAction(req, res) {
 
     // Explicit skip of the current pending action (e.g. user declines an OAuth handoff).
     if (skip) {
+      const existingOutcome =
+        answers.step_outcomes &&
+        typeof answers.step_outcomes === "object" &&
+        answers.step_outcomes[nextAction.key];
+      const deferredOutcome = isDeferrableFailedOutcome(nextAction.key, existingOutcome)
+        ? enrichOwnerDirectedDeferral(existingOutcome)
+        : null;
+      if (deferredOutcome) {
+        completed.push(nextAction.key);
+        const updatedRow = await writeCompletedSteps(session.session_id, completed, {
+          key: nextAction.key,
+          outcome: deferredOutcome,
+        });
+        if (!updatedRow) return respondCancelledMidStep(res, session.session_id);
+        const remaining = ACTIONS.filter((a) => !completed.includes(a.key)).map((a) => a.key);
+        return res.json({
+          allComplete: false,
+          step: { key: nextAction.key, label: nextAction.label },
+          status: "deferred",
+          detail:
+            "Deferred — your campaign draft stays paused at Meta and is not running. Setup will continue without it; you can resolve it later.",
+          remaining,
+          session: serializeSession(updatedRow),
+        });
+      }
       completed.push(nextAction.key);
       const updatedRow = await writeCompletedSteps(session.session_id, completed, {
         key: nextAction.key,
@@ -3126,5 +3202,8 @@ module.exports = {
   _facebookCampaignLaunchComplete: facebookCampaignLaunchComplete,
   _reconcileCompletedSteps: reconcileCompletedSteps,
   _classifyStepError: classifyStepError,
+  _isDeferrableFailedOutcome: isDeferrableFailedOutcome,
+  _isValidOwnerDirectedDeferral: isValidOwnerDirectedDeferral,
+  _enrichOwnerDirectedDeferral: enrichOwnerDirectedDeferral,
   STEP_FAILURE_TEMPLATES,
 };
