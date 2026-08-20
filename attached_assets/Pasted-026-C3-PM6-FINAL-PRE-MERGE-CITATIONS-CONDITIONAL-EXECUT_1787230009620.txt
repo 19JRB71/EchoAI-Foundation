@@ -1,0 +1,251 @@
+026-C3-PM6 — FINAL PRE-MERGE CITATIONS + CONDITIONAL EXECUTION AUTHORIZATION
+
+Claude returned:
+
+DECISION A — MERGE APPROVED
+PR #60
+Reviewed head:
+6f08ae06c13ab879fb6268380e49c3548b4abe21
+
+This authorization is CONDITIONAL on satisfying Claude's two citation-only
+requirements BEFORE MERGE.
+
+Do not merge until both are produced and checked.
+
+==================================================
+1. CITATION 1 — COMPLETED_STEPS CONSUMER SWEEP
+==================================================
+
+At the exact reviewed head, perform a fresh repository-wide search for EVERY
+reader/consumer of setup session completed_steps.
+
+Enumerate every consumer individually with:
+
+- exact file
+- function/component
+- relevant line/range
+- what the consumer uses completed_steps for
+- whether it treats membership as:
+  A. runner-terminal state, or
+  B. provider/business success
+- whether it also consults step_outcomes and/or canonical success evidence
+  where success matters
+
+This must be a fresh proof at head 6f08ae06..., not a recollection of the
+earlier C1 enumeration.
+
+LOAD-BEARING STOP:
+
+If ANY consumer treats membership in completed_steps as proof that the
+Facebook campaign successfully launched without consulting the authoritative
+outcome/canonical evidence, STOP BEFORE MERGE and report it.
+
+Explicitly verify the previously known categories:
+- runner next-action selection
+- serializer
+- bootstrap seeding
+- resume seeding
+- nags/reporting, including confirmation that they do not improperly derive
+  campaign success from completed_steps
+
+Conclude explicitly either:
+
+"Q15 CONSUMER SWEEP CLEAN — completed_steps remains terminal-not-success
+through every consumer at this head."
+
+OR STOP and report the violating consumer.
+
+==================================================
+2. CITATION 2 — EXACT PER-FILE ACCOUNTING
+==================================================
+
+Provide exact final numstat for every hand-edited production and test file.
+
+For EACH production file give:
+
+- filename
+- + additions
+- - deletions
+- purpose
+
+Explicitly identify the three production files.
+
+Claude specifically requires an explicit answer:
+
+WAS executeError.js touched?
+
+If YES:
+- give exact +/-
+- explain why it was required under the authorized contingency
+
+If NO:
+- state that explicitly
+- identify what the third production file actually is
+
+If the third production file is anything other than the previously authorized
+surface/executeError.js contingency, STOP BEFORE MERGE and disclose it.
+
+Separately enumerate:
+
+A. production hand-edited lines
+B. test hand-edited lines
+C. SW mechanical change
+D. generated client/dist changes
+
+Confirm the total hand-edited touched-line accounting = 503 and remains below
+the 560 STOP.
+
+Also consolidate the exact location/diff purpose of the mid-work hardenings:
+
+1. client deferral-validator alignment with server predicate
+2. adoption/results-ref synchronization
+3. zero-delta campaign snapshot covering campaign status, budget and Meta IDs
+4. independent-review-driven strict UI guard and its negative regressions
+
+These are disclosure/accounting items, not authorization for new work.
+
+==================================================
+IF AND ONLY IF BOTH CITATIONS PASS
+==================================================
+
+You are authorized to proceed WITHOUT another review round:
+
+1. Verify PR #60 head is STILL exactly:
+   6f08ae06c13ab879fb6268380e49c3548b4abe21
+
+If head moved:
+STOP.
+
+2. Merge PR #60 using the pinned reviewed SHA into STAGING ONLY.
+
+3. Record:
+- pinned PR head
+- merge SHA
+- confirmation that the head did not move
+
+4. Wait for staging deployment.
+
+5. Verify:
+- /api/health reports exact merge SHA
+- environment = staging
+- schema_migrations remains exactly 148
+- served sw.js = echoai-shell-v180
+- new client bundle is served
+- production remains untouched
+
+STOP on any mismatch.
+
+==================================================
+LIVE PM6 VERIFICATION — SAME SDS-H1 SPECIMEN
+==================================================
+
+After deployment checks pass, use the SAME frozen SDS-H1 specimen.
+
+Do NOT click anything on the owner's behalf.
+
+First verify/read the specimen state and tell me exactly what ONE manual action
+I should perform.
+
+Expected state:
+
+- existing campaign remains launch_failed
+- existing Campaign ID preserved
+- existing Ad Set ID preserved
+- creative/ad still absent
+- MANUAL_REVIEW task preserved
+- failed terminal external action preserved
+- provider_manual_review outcome preserved
+- no automatic execution
+- no provider call
+- UI truthfully shows the failed/manual-review state
+- control now reads "Defer for now"
+
+Then STOP and give me ONE owner action:
+
+Click "Defer for now."
+
+Do not perform that click yourself.
+
+==================================================
+AFTER MY ONE CLICK
+==================================================
+
+When I tell you I clicked it, perform READ-ONLY verification.
+
+Verify:
+
+1. Existing failed outcome was ENRICHED IN PLACE, not replaced.
+
+2. Every pre-deferral field remains unchanged, including:
+- status = failed
+- code = provider_manual_review
+- retryable = false
+- owner-safe message
+- ORIGINAL correlation reference
+
+3. Exactly these deferral semantics were added:
+- journey_disposition = deferred
+- deferred_reason = pending_provider_review
+- deferred_at
+- owner_directed = true
+
+4. create_facebook_campaign is now in completed_steps solely as
+runner-terminal disposition — NOT provider success.
+
+5. Historical evidence is unchanged:
+- campaign row
+- campaign status/budget
+- Campaign Meta ID
+- Ad Set Meta ID
+- MANUAL_REVIEW task
+- failed external action
+- proofs
+- partial provider-chain evidence
+
+6. ZERO provider calls/writes occurred from the deferral.
+
+7. ZERO second campaign launch.
+
+Then have me perform/reconfirm the ruled refresh/remount as the next owner
+action if necessary.
+
+After refresh verify:
+
+- UI says Deferred
+- never Done / Completed / Skipped
+- enriched outcome persists
+- original correlation ref persists
+- completed_steps membership persists
+- PM5 reconciliation DOES NOT strip the legitimate owner deferral
+- campaign does not rerun
+- no provider call occurs
+
+==================================================
+THEN DECISION D CONTINUES
+==================================================
+
+Only after all PM6 live verification passes may SDS-H1 continue under the
+existing Decision-D authorization.
+
+Next HARD STOP:
+- SDS-H1 journey completion, OR
+- the next blocking defect,
+whichever occurs first.
+
+NOT AUTHORIZED:
+
+- Retry
+- second campaign launch
+- Meta ads mutation of any kind
+- activation/pause/edit/delete/create of provider ads objects
+- cleanup
+- Prompt 031
+- BLACOR-H1
+- H2
+- Prompt 027
+- production changes
+
+If a new blocking defect appears, STOP AND REPORT.
+Do not work around it or fix it without owner authorization.
+
+Proceed first with CITATION 1 and CITATION 2.
