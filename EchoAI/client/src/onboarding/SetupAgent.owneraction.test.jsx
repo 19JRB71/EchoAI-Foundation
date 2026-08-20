@@ -46,6 +46,7 @@ vi.mock("./guided/AdsDestinationCapture.jsx", () => ({
 
 import { api } from "../api.js";
 import SetupAgent from "./SetupAgent.jsx";
+import { makeFailedExecuteEnvelope } from "./setupAgentResponseEnvelope.fixture.js";
 
 const STEPS = [{ key: "create_facebook_campaign", label: "Creating your first Facebook ad campaign" }];
 
@@ -430,30 +431,20 @@ describe("026-C3-PM2 unknown statuses rest safely (R15 integration)", () => {
 // ---------------------------------------------------------------------------
 describe("026-C3-PM2 Citation 3 — pause → owner re-entry → durable failure composition", () => {
   test("an active capture pause is REPLACED by the durable failed panel when the re-entered step fails durably — no stale pause, no lost failure, no blank state", async () => {
-    const failedBody = {
-      error:
-        "The AI service was temporarily unavailable while running this step. Your progress is saved — you can retry now.",
-      failedStep: STEP,
-      outcome: {
+    const safeMessage =
+      "The AI service was temporarily unavailable while running this step. Your progress is saved — you can retry now.";
+    const failedBody = makeFailedExecuteEnvelope({
+      step: STEP,
+      durableOutcome: {
         status: "failed",
         code: "provider_unavailable",
+        message: safeMessage,
         retryable: true,
         ref: "ref-77",
         at: "2026-08-17T00:00:00Z",
       },
-      session: {
-        ...TWO_STEP_SESSION,
-        stepOutcomes: {
-          create_facebook_campaign: {
-            status: "failed",
-            code: "provider_unavailable",
-            retryable: true,
-            ref: "ref-77",
-            message: "x",
-          },
-        },
-      },
-    };
+      sessionOverrides: TWO_STEP_SESSION,
+    });
 
     api.startSetupSession.mockResolvedValue({ session: TWO_STEP_SESSION });
     api.runSetupAction
