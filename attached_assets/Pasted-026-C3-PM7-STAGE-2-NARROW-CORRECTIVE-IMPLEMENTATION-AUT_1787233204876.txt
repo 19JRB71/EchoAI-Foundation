@@ -1,0 +1,382 @@
+026-C3-PM7 — STAGE-2 NARROW CORRECTIVE IMPLEMENTATION AUTHORIZATION
+
+Claude ruling received:
+
+DECISION A — NARROW CORRECTIVE APPROVED IN PRINCIPLE
+Designation: C3-PM7
+
+Proceed with PM7 implementation on a fresh staging-based branch.
+
+The SAME SDS-H1 specimen remains FROZEN throughout implementation and
+pre-merge verification.
+
+Do not interact with that specimen during implementation.
+
+==================================================
+A. ROOT CAUSE — FIX ONLY THIS
+==================================================
+
+The live PM6 verification established:
+
+- durable session.stepOutcomes.create_facebook_campaign contains the complete
+  authoritative failed outcome;
+- immediate /execute data.outcome is intentionally reduced;
+- the client selected the reduced projection when constructing failedStep;
+- PM6's strict deferral predicate therefore lacked status/message and correctly
+  failed closed to ordinary "Skip this step."
+
+Canonical authority:
+
+SERVER SESSION STATE IS AUTHORITATIVE.
+
+When both exist:
+
+session.stepOutcomes[stepKey]
+
+wins UNCONDITIONALLY over the reduced immediate outcome.
+
+The reduced immediate outcome is fallback only when durable session truth is
+absent.
+
+Do NOT expand the server immediate outcome.
+
+==================================================
+B. AUTHORIZED PRODUCTION SURFACE
+==================================================
+
+Primary production file:
+
+EchoAI/client/src/onboarding/SetupAgent.jsx
+
+Contingency only:
+
+EchoAI/client/src/onboarding/executeError.js
+
+Touch executeError.js ONLY if the authority/extraction change naturally belongs
+there. If touched, disclose exact reason and diff.
+
+SERVER PRODUCTION CODE MUST NOT CHANGE.
+
+Any server production change = STOP AND REPORT.
+
+Mechanical accompaniments after client change:
+
+- SW v180 -> v181
+- committed client/dist rebuild
+
+No other production source file is authorized.
+
+==================================================
+C. IMPLEMENTATION CONTRACT
+==================================================
+
+For failed-response state construction:
+
+1. Determine the relevant failed step key.
+
+2. If the serialized response session contains:
+
+   session.stepOutcomes[stepKey]
+
+   use that COMPLETE durable outcome as authoritative for failedStep/result
+   state.
+
+3. If both durable session outcome and immediate outcome exist and disagree:
+
+   durable session outcome wins unconditionally.
+
+4. Only if durable session truth is absent may the client fall back to the
+   reduced immediate outcome.
+
+5. In fallback/degraded mode, DO NOT synthesize missing fields.
+
+6. PM6's strict deferral predicate remains unchanged in meaning.
+
+Therefore incomplete fallback truth must continue to withhold:
+
+"Defer for now"
+
+This is intentional fail-closed behavior.
+
+==================================================
+D. PM6 SEMANTICS MUST NOT CHANGE
+==================================================
+
+Do not alter:
+
+- provider_manual_review classification
+- PM6 deferral predicate semantics
+- enriched failed-then-deferred outcome
+- completed_steps terminal-not-success semantics
+- PM5 canonical campaign-success predicate
+- reconciliation strip/respect behavior
+- Retry behavior
+- campaign evidence
+- Meta chain
+- provider behavior
+
+PM7 is client outcome-authority/transport selection only.
+
+==================================================
+E. REQUIRED REGRESSIONS
+==================================================
+
+Use the REAL server envelope shape.
+
+The real response fixture must contain:
+
+data.outcome:
+{
+  code,
+  retryable,
+  ref,
+  at
+}
+
+and:
+
+data.session.stepOutcomes[stepKey]:
+{
+  status,
+  code,
+  retryable,
+  message,
+  ref,
+  at
+}
+
+Do not hand-build an unrealistically complete data.outcome.
+
+Required positive regression:
+
+1. Facebook campaign durable outcome:
+   status = failed
+   code = provider_manual_review
+   retryable = false
+   message = non-empty
+   ref = non-empty
+
+   Immediate outcome remains reduced.
+
+   EXPECT:
+   "Defer for now"
+
+   NEVER:
+   "Skip this step"
+
+==================================================
+F. REQUIRED NEGATIVE REGRESSIONS
+==================================================
+
+Against the REAL envelope shape, bind:
+
+1. Campaign step + durable provider_permission
+   -> ordinary Skip
+   -> NEVER Defer
+
+2. Non-campaign step + provider_manual_review
+   -> ordinary behavior
+   -> NEVER PM6 Defer semantics
+
+3. Campaign provider_manual_review with blank ref
+   -> ordinary Skip
+   -> NEVER Defer
+
+4. Campaign provider_manual_review with missing/blank message
+   -> ordinary Skip
+   -> NEVER Defer
+
+5. Durable session truth and immediate projection disagree
+   -> durable session truth wins
+
+6. Durable session truth absent
+   -> reduced immediate outcome fallback is used
+   -> incomplete fallback DOES NOT acquire Defer semantics
+
+==================================================
+G. NON-CAMPAIGN PARITY — AMENDMENT (a)
+==================================================
+
+Add a named regression proving a non-campaign failure such as
+provider_unavailable renders identically under the new authority selection:
+
+- same owner-facing failure panel
+- same Retry availability/class behavior
+- no campaign deferral semantics
+
+PM7 must not accidentally alter unrelated failure presentation.
+
+==================================================
+H. MOCK-FIDELITY CLASS FIX — AMENDMENT (b)
+==================================================
+
+This is Mock-Fidelity occurrence #3.
+
+Create ONE shared client response-envelope fixture builder used by the relevant
+PM6/PM7 client tests.
+
+The builder must model the REAL server response:
+
+- reduced data.outcome
+- complete data.session.stepOutcomes
+
+It must be comment-linked/traceable to a SERVER-SIDE TEST ASSERTION of the
+actual response construction.
+
+Important distinction:
+
+You may modify/add SERVER TEST CODE if needed to bind the response envelope.
+
+You may NOT modify SERVER PRODUCTION CODE.
+
+Standing rule now bound:
+
+"Fixtures for response envelopes must come from a shared builder bound to the
+server's actual serialization — never hand-built per test."
+
+Update PM6 tests that currently rely on the unrealistic complete immediate
+outcome so they use the shared real-envelope builder.
+
+Do not weaken their assertions.
+
+==================================================
+I. SERVER SKIP-BRANCH CONFIRMATION — AMENDMENT (c)
+==================================================
+
+The PM7 report MUST cite a binding server-side test proving:
+
+Given durable qualifying provider_manual_review truth in the session,
+
+POST /api/setup-agent/execute
+with:
+skip: true
+
+takes the PM6 DEFERRAL branch regardless of the client button label.
+
+It must prove the server:
+
+- enriches the existing failed outcome;
+- preserves original fields/ref;
+- adds the four deferral fields;
+- adds the step to completed_steps under terminal-not-success semantics;
+- does not replace the outcome with bare "skipped";
+- does not invoke provider/campaign execution.
+
+If the existing PM6 server regression already binds all of this, cite it
+rather than duplicating it.
+
+If it does NOT bind the actual skip:true request path sufficiently, strengthen
+the TEST ONLY.
+
+No server production change.
+
+==================================================
+J. TEST / PRESERVATION REQUIREMENTS
+==================================================
+
+Run focused PM6 + PM7 suites.
+
+Then run the required broader client/server regression set needed to establish
+no C1/C2/C3/PM5/PM6 behavior changed.
+
+D-37 arithmetic must be reported from the actual fresh-clone baseline.
+
+No existing test may be silently removed, renamed, merged away, or weakened.
+
+Any inversion/deletion of an old assertion must be disclosed under D-32 before
+merge.
+
+==================================================
+K. DIFF / FILE BOUNDS
+==================================================
+
+PM7 padded hand-edited bound:
+
+350 touched lines
+
+STOP threshold:
+
+440 touched lines
+
+The bound applies to hand-edited source + tests.
+
+Mechanical SW and generated dist are enumerated separately.
+
+If mid-work evidence shows the implementation will exceed 440 touched
+hand-edited lines:
+
+STOP BEFORE writing further.
+
+Do not finish the overage and rationalize it afterward.
+
+==================================================
+L. PRE-MERGE REPORT
+==================================================
+
+STOP before merge and report:
+
+1. Branch name.
+2. PR number/link.
+3. Staging base SHA.
+4. PR head full SHA.
+5. Exact changed-file list.
+6. Exact per-file +/− accounting.
+7. Production/test/mechanical/dist split.
+8. Whether executeError.js was touched and why.
+9. Confirmation SERVER PRODUCTION CODE unchanged.
+10. Exact authority-selection implementation.
+11. Proof durable session truth wins on disagreement.
+12. Proof reduced projection is fallback only.
+13. Proof degraded fallback remains fail-closed.
+14. Positive real-envelope Defer regression.
+15. All required negative real-envelope regressions.
+16. Non-campaign parity regression.
+17. Shared envelope-fixture builder location and consumers.
+18. Server-side serialization assertion to which the fixture is bound.
+19. AMENDMENT (c): exact server skip:true regression proving PM6 deferral
+    occurs from durable truth regardless of client label.
+20. PM6 preservation results.
+21. PM5/C1/C2/C3 relevant preservation results.
+22. Exact fresh-clone server/client test arithmetic.
+23. Build result.
+24. SW source = v181 and generated dist enumeration.
+25. D-32 deletion/inversion review.
+26. Diff-bound result.
+27. Confirmation frozen SDS-H1 specimen untouched.
+28. Confirmation zero Meta/provider calls.
+29. Confirmation production untouched.
+30. Deviations / STOP conditions encountered.
+
+Then HARD STOP.
+
+NO MERGE until owner + ChatGPT + Claude pre-merge ruling.
+
+==================================================
+M. ABSOLUTE NON-SCOPE
+==================================================
+
+NOT AUTHORIZED:
+
+- server production changes
+- Retry
+- current-build Skip click
+- specimen mutation
+- second campaign launch
+- Meta/provider call or mutation
+- campaign cleanup
+- PM5 redesign
+- PM6 semantic redesign
+- completed_steps semantic changes
+- I-64 investigation/fix
+- Prompt 031
+- BLACOR-H1
+- H2
+- Prompt 027
+- production deployment/change
+
+The existing SDS-H1 specimen remains frozen at its exact current pre-deferral
+state.
+
+Proceed with PM7 implementation and tests only.
+
+STOP at the pre-merge report.
