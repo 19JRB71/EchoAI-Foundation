@@ -400,22 +400,48 @@ export default function SetupAgent({ onClose, onExitToSection, embedded = false,
             setRunningKey(null);
             if (outcome.type === "failed") {
               // The server recorded a durable, owner-safe failed outcome.
-              // Adopt its truth and show the persistent STEP FAILED panel.
+              // 026-C3-PM7: serialized session truth is authoritative. The
+              // immediate outcome is intentionally reduced; use it only when
+              // the session has no durable entry for this exact step. Presence,
+              // not truthiness, decides authority so disagreement always
+              // resolves in favor of the server session without synthesizing
+              // missing fields in the degraded fallback.
+              const stepKey = outcome.failedStep.key;
+              const sessionOutcomes =
+                outcome.session &&
+                outcome.session.stepOutcomes &&
+                typeof outcome.session.stepOutcomes === "object"
+                  ? outcome.session.stepOutcomes
+                  : null;
+              const hasDurableOutcome =
+                sessionOutcomes &&
+                Object.prototype.hasOwnProperty.call(sessionOutcomes, stepKey);
+              const failedOutcome = hasDurableOutcome
+                ? sessionOutcomes[stepKey]
+                : outcome.outcome;
+              const failedMessage =
+                failedOutcome &&
+                typeof failedOutcome === "object" &&
+                Object.prototype.hasOwnProperty.call(failedOutcome, "message")
+                  ? failedOutcome.message
+                  : outcome.message;
+
+              // Adopt the full session and show the persistent STEP FAILED panel.
               if (outcome.session) adoptSession(outcome.session);
               setResults((prev) => ({
                 ...prev,
-                [outcome.failedStep.key]: {
+                [stepKey]: {
                   status: "failed",
-                  detail: outcome.message,
+                  detail: failedMessage,
                   label: outcome.failedStep.label,
-                  outcome: outcome.outcome,
+                  outcome: failedOutcome,
                 },
               }));
               setFailedStep({
-                key: outcome.failedStep.key,
+                key: stepKey,
                 label: outcome.failedStep.label,
-                outcome: outcome.outcome,
-                message: outcome.message,
+                outcome: failedOutcome,
+                message: failedMessage,
               });
               // Authoritative durable failure replaces any prior pause (§F).
               setOwnerAction(null);

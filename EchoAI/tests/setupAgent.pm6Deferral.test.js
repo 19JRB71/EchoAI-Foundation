@@ -160,6 +160,80 @@ test("R1/R2/R3/R5/R6: owner deferral enriches in place, preserves the full failu
   assert.deepEqual(afterCounts.rows[0], beforeCounts.rows[0], "zero provider/evidence path delta");
 });
 
+test("PM7 response envelope keeps immediate outcome reduced while serializing durable truth", async () => {
+  const session = await stageSession({ nextKey: STEP });
+  const campaignAction = setupAgent.ACTIONS.find((a) => a.key === STEP);
+  const originalRun = campaignAction.run;
+  let campaignRuns = 0;
+  campaignAction.run = async () => {
+    campaignRuns += 1;
+    const err = new Error("temporary provider outage");
+    err.statusCode = 503;
+    throw err;
+  };
+
+  try {
+    const res = await execute(session.session_id, false);
+    assert.equal(res.statusCode, 502);
+    assert.equal(campaignRuns, 1);
+    assert.deepEqual(Object.keys(res.body.outcome).sort(), ["at", "code", "ref", "retryable"]);
+    assert.equal(res.body.outcome.code, "provider_unavailable");
+    assert.equal(res.body.outcome.retryable, true);
+    assert.equal("status" in res.body.outcome, false);
+    assert.equal("message" in res.body.outcome, false);
+
+    const durable = res.body.session.stepOutcomes[STEP];
+    assert.deepEqual(
+      Object.keys(durable).sort(),
+      ["at", "code", "message", "ref", "retryable", "status"],
+    );
+    assert.equal(durable.status, "failed");
+    assert.equal(durable.code, res.body.outcome.code);
+    assert.equal(durable.retryable, res.body.outcome.retryable);
+    assert.equal(durable.ref, res.body.outcome.ref);
+    assert.equal(durable.at, res.body.outcome.at);
+    assert.equal(res.body.error, durable.message);
+    assert.ok(!res.body.session.completedSteps.includes(STEP));
+  } finally {
+    campaignAction.run = originalRun;
+  }
+});
+
+test("PM7 skip:true defers durable truth without invoking campaign execution", async () => {
+  const session = await stageSession({ outcome: ORIGINAL });
+  const campaignAction = setupAgent.ACTIONS.find((a) => a.key === STEP);
+  const originalRun = campaignAction.run;
+  let campaignRuns = 0;
+  campaignAction.run = async () => {
+    campaignRuns += 1;
+    throw new Error("campaign action must not run during owner deferral");
+  };
+
+  try {
+    const res = await execute(session.session_id, true);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.status, "deferred");
+    assert.equal(campaignRuns, 0);
+    const persisted = await db.query(
+      "SELECT completed_steps,answers FROM setup_sessions WHERE session_id=$1",
+      [session.session_id],
+    );
+    const row = persisted.rows[0];
+    const enriched = row.answers.step_outcomes[STEP];
+    assert.ok(row.completed_steps.includes(STEP), "runner-terminal only");
+    for (const [key, value] of Object.entries(ORIGINAL)) {
+      assert.deepEqual(enriched[key], value, `original field ${key} must survive`);
+    }
+    assert.deepEqual(
+      Object.keys(enriched).filter((key) => !(key in ORIGINAL)).sort(),
+      ["deferred_at", "deferred_reason", "journey_disposition", "owner_directed"],
+    );
+    assert.notEqual(enriched, "skipped");
+  } finally {
+    campaignAction.run = originalRun;
+  }
+});
+
 test("R4: PM5 still strips false completion when no valid owner-directed deferral exists", async () => {
   const brandId = await makeDirtyBrand("PM6 false completion");
   const session = await stageSession({ brandId, outcome: ORIGINAL, completed: true });

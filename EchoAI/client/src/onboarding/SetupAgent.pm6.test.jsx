@@ -18,23 +18,14 @@ vi.mock("../api.js", () => ({
 
 import { api } from "../api.js";
 import SetupAgent from "./SetupAgent.jsx";
+import {
+  FACEBOOK_CAMPAIGN_STEP as STEP,
+  MANUAL_REVIEW_FAILURE as FAILURE,
+  makeFailedExecuteError,
+  makeSetupSession,
+} from "./setupAgentResponseEnvelope.fixture.js";
 
-const STEP = { key: "create_facebook_campaign", label: "Creating your first Facebook ad campaign" };
-const FAILURE = {
-  status: "failed",
-  code: "provider_manual_review",
-  message: "The campaign needs manual review.",
-  retryable: false,
-  ref: "original-ref",
-  at: "2026-08-19T14:38:15.312Z",
-};
-const READY = {
-  sessionId: "sess-pm6",
-  interviewComplete: true,
-  consentGranted: true,
-  steps: [STEP],
-  completedSteps: [],
-};
+const READY = makeSetupSession();
 const DEFERRED = {
   ...FAILURE,
   journey_disposition: "deferred",
@@ -42,13 +33,6 @@ const DEFERRED = {
   deferred_at: "2026-08-19T20:00:00.000Z",
   owner_directed: true,
 };
-
-function failedError(outcome = FAILURE, failedStep = STEP) {
-  return Object.assign(new Error(outcome.message), {
-    status: 400,
-    data: { error: outcome.message, failedStep, outcome, session: READY },
-  });
-}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -58,7 +42,7 @@ beforeEach(() => {
 
 describe("SetupAgent PM6 deferral", () => {
   test("R8: only durable provider_manual_review renders Defer for now and the paused/not-running explanation", async () => {
-    api.runSetupAction.mockRejectedValueOnce(failedError());
+    api.runSetupAction.mockRejectedValueOnce(makeFailedExecuteError());
     render(<SetupAgent onClose={vi.fn()} />);
     expect(await screen.findByTestId("failed-step-defer")).toHaveTextContent("Defer for now");
     expect(screen.getByText(/campaign draft stays paused at Meta and is not running/i)).toBeInTheDocument();
@@ -68,7 +52,13 @@ describe("SetupAgent PM6 deferral", () => {
 
   test("R8 negative: non-qualifying failures keep generic Skip and never gain the PM6 deferral action", async () => {
     api.runSetupAction.mockRejectedValueOnce(
-      failedError({ ...FAILURE, code: "provider_permission", message: "Permission attention required." }),
+      makeFailedExecuteError({
+        durableOutcome: {
+          ...FAILURE,
+          code: "provider_permission",
+          message: "Permission attention required.",
+        },
+      }),
     );
     const first = render(<SetupAgent onClose={vi.fn()} />);
     expect(await screen.findByText("Skip this step")).toBeInTheDocument();
@@ -79,7 +69,10 @@ describe("SetupAgent PM6 deferral", () => {
     api.pauseSetupSession.mockResolvedValue(undefined);
     api.startSetupSession.mockResolvedValue({ session: READY });
     api.runSetupAction.mockRejectedValueOnce(
-      failedError(FAILURE, { key: "setup_google_ads", label: "Setting up Google Ads" }),
+      makeFailedExecuteError({
+        durableOutcome: FAILURE,
+        step: { key: "setup_google_ads", label: "Setting up Google Ads" },
+      }),
     );
     const second = render(<SetupAgent onClose={vi.fn()} />);
     expect(await screen.findByText("Skip this step")).toBeInTheDocument();
@@ -89,7 +82,9 @@ describe("SetupAgent PM6 deferral", () => {
     vi.clearAllMocks();
     api.pauseSetupSession.mockResolvedValue(undefined);
     api.startSetupSession.mockResolvedValue({ session: READY });
-    api.runSetupAction.mockRejectedValueOnce(failedError({ ...FAILURE, ref: "" }));
+    api.runSetupAction.mockRejectedValueOnce(
+      makeFailedExecuteError({ durableOutcome: { ...FAILURE, ref: "" } }),
+    );
     render(<SetupAgent onClose={vi.fn()} />);
     expect(await screen.findByText("Skip this step")).toBeInTheDocument();
     expect(screen.queryByTestId("failed-step-defer")).not.toBeInTheDocument();
@@ -102,7 +97,7 @@ describe("SetupAgent PM6 deferral", () => {
       stepOutcomes: { [STEP.key]: DEFERRED },
     };
     api.runSetupAction
-      .mockRejectedValueOnce(failedError())
+      .mockRejectedValueOnce(makeFailedExecuteError())
       .mockResolvedValueOnce({ status: "deferred", step: STEP, session: deferredSession })
       .mockResolvedValueOnce({ allComplete: true, session: { ...deferredSession, status: "completed" } });
 
