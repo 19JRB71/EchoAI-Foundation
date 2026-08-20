@@ -1,0 +1,47 @@
+OWNER RULING — PM7 MERGE-TIME DISCLOSURE
+
+The missing per-file numstat has now been disclosed in your STOP report and reconciles exactly to the previously reported 404 hand-edited touched lines:
+
+351 additions
+53 deletions
+404 total touched lines
+
+The three amendment regressions have also been explicitly located in PR #61's existing 30-point record:
+
+(a) non-campaign parity — point 20
+(b) shared real-envelope builder/server-response binding — points 21–22
+(c) skip:true PM6 deferral server regression — point 25
+
+Claude explicitly ruled that an absent checklist disclosure required pause for disclosure only, not a code change or another review round.
+
+Authorization: add the exact per-file numstat you just reported to PR #61's evidence record/comment so the required disclosure becomes part of the PR record. This is reporting/documentation only.
+
+Then re-read the PR record and confirm both merge-time checklist requirements are present.
+
+If confirmed, proceed under Claude's existing A. MERGE APPROVED ruling:
+
+Verify PR #61 remains pinned to exact approved head 29d8799. If the head changed, STOP.
+Merge PR #61 to staging only.
+Verify staging health reports the resulting merge SHA.
+Verify schema_migrations = 148.
+Verify served SW = v181.
+Verify served bundle = index-DaK3CAPL.js.
+Verify production remains untouched.
+
+If those checks pass, open/resume the same frozen SDS-H1 specimen only far enough to observe the campaign failure panel.
+
+Verify read-only that:
+
+the existing manual-review failure is still truthful;
+the button now says “Defer for now”;
+the explanatory copy is present;
+no Retry is offered;
+opening/remounting caused no runner execution, provider call, campaign mutation, or other unexpected write.
+
+Then HARD STOP.
+
+Do not click “Defer for now.” That remains the owner's next manual action.
+
+Do not Retry, Skip, launch again, mutate Meta, clean up the partial chain, investigate I-64, begin Prompt 031, BLACOR-H1, H2, Prompt 027, or touch production.
+
+If any merge/deployment/specimen expectation differs, STOP AND REPORT.
