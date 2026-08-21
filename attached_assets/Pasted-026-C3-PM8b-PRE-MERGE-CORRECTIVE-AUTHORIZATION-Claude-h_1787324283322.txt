@@ -1,0 +1,559 @@
+026-C3-PM8b — PRE-MERGE CORRECTIVE AUTHORIZATION
+
+Claude has returned the governing Connections State-Loss ruling.
+
+DECISION:
+B. PRE-MERGE CORRECTIVE REQUIRED
+
+Designation:
+C3-PM8b
+
+PR #62's existing Page-picker / Shape-B work REMAINS VALID.
+
+DO NOT redesign or discard PM8.
+
+PM8b must land as additional commits on the SAME PM8 branch:
+
+026-c3-pm8-guided-page-picker
+
+Current reviewed PM8 head before PM8b:
+d39725e55d7c2534216a2970da3f0bc694d54b4d
+
+The SDS-H1 specimen remains FROZEN.
+
+NO specimen interaction is authorized during PM8b development.
+
+NO merge.
+NO deployment.
+NO refresh.
+NO clicks.
+NO Meta/provider activity.
+
+==================================================
+A. ESTABLISHED NEW ROOT CAUSE
+==================================================
+
+Citation 1 proved:
+
+guided_setup_progress.connections
+
+contains legitimate durable, non-derivable owner-intent state.
+
+Legitimate durable examples include:
+
+provider.skipped
+provider.errorKey
+firstwin.choice
+firstwin.done
+firstwin.skipped
+parked.parked
+parked.at
+
+The current server writer:
+
+guidedSetupController.saveProgress
+
+sanitizes and then REPLACES the entire JSONB connections object.
+
+That means a caller intending to update one subsection can silently destroy
+unrelated durable owner state.
+
+This is the deeper class defect.
+
+Canonical rule now binding:
+
+"A writer of shared durable state must never replace more than the caller's
+intent."
+
+PM8b fixes this class NOW.
+
+==================================================
+B. SPECIMEN DISPOSITION
+==================================================
+
+The current SDS-H1 specimen SURVIVES.
+
+Do NOT restart SDS-H1.
+
+Do NOT create another SDS account.
+
+The lost pre-clobber connections value is irrecoverable.
+
+Therefore:
+
+- do NOT invent/reconstruct historical skipped flags;
+- do NOT fabricate errorKey;
+- do NOT fabricate firstwin state;
+- do NOT fabricate parked state;
+- do NOT pretend {} proves no prior owner decisions.
+
+The practical loss is bounded by the recorded owner-action chronicle, but that
+is INFERENCE ONLY and must never be persisted as recovered fact.
+
+The database truth for the lost historical payload remains:
+
+UNKNOWN / IRRECOVERABLE.
+
+==================================================
+C. ONE-TIME RECOVERY MARKER
+==================================================
+
+When PM8 heals the specific stale-firstwin projection caused by this incident,
+write a one-time marker INSIDE the existing connections JSONB.
+
+Required shape conceptually:
+
+connections._recovery = {
+  clobbered: true,
+  at: <timestamp>,
+  ref: <opaque correlation/reference>,
+  note: <bounded owner-safe/internal-safe classification>
+}
+
+Exact safe naming may follow existing conventions.
+
+Requirements:
+
+1. marker written ONLY by the exact PM8 stale-firstwin recovery signature:
+   - current guided pointer = firstwin
+   - serialized active SetupAgent truth says connect_social is the next
+     unresolved planned step
+   - this is the known defect recovery path
+
+2. marker written exactly once.
+
+3. repeat bootstrap/heal is idempotent.
+
+4. never overwrite the original marker timestamp/ref on a later heal.
+
+5. marker must not contain secrets, OAuth parameters, provider tokens, or raw
+   request data.
+
+6. marker records that historical connections state was clobbered and cannot
+   be fully reconstructed.
+
+7. marker does NOT claim which historical keys were present.
+
+==================================================
+D. SANITIZER CHANGE
+==================================================
+
+The existing sanitizeConnections currently strips unknown keys.
+
+Amend it narrowly so the sanctioned:
+
+_recovery
+
+subsection survives.
+
+It must allow ONLY the approved bounded _recovery shape.
+
+Arbitrary unknown keys must remain stripped.
+
+Bind this with tests.
+
+==================================================
+E. SAVE-PROGRESS CLASS FIX
+==================================================
+
+This is the load-bearing PM8b change.
+
+guidedSetupController.saveProgress must no longer replace the entire
+connections JSONB object when the incoming payload updates only part of it.
+
+Adopt intent-scoped merge/patch semantics.
+
+Rules:
+
+1. Start from the existing persisted sanitized connections state.
+
+2. Apply ONLY subsections/keys actually present in the caller payload.
+
+3. For provider subsections:
+   facebook
+   google
+   email
+
+   deep-merge only the keys present for that provider.
+
+4. For:
+   firstwin
+   parked
+   _recovery
+
+   deep-merge only the incoming subsection keys.
+
+5. Omitted subsections MUST survive unchanged.
+
+6. Omitted nested keys inside a supplied subsection MUST survive unless the
+   existing API explicitly defines a legitimate clearing operation.
+
+7. Existing legitimate clearing flows MUST continue to work:
+   - connecting may be set false/removed as current semantics require
+   - errorKey may be cleared through the existing intended writer path
+   - skipped may be set false
+   - other explicit clears must remain supported
+
+8. Do not accidentally turn "omitted" into "clear."
+
+9. Do not preserve arbitrary unsanitized data.
+
+Merge semantics operate on sanitized allowed shapes only.
+
+==================================================
+F. TRANSIENT CONNECTING BEHAVIOR
+==================================================
+
+The writer class fix must NOT trap transient OAuth state forever.
+
+Existing legitimate flow for:
+
+provider.connecting
+
+must still allow:
+
+true
+→ false / cleared
+
+when OAuth completes/fails/is abandoned through the current intended logic.
+
+Add a named regression proving transient connecting still clears normally.
+
+==================================================
+G. FULL-INTENT WRITES
+==================================================
+
+Normal Guided Setup writes that legitimately submit multiple subsections must
+behave identically to existing intended behavior.
+
+The merge patch must NOT duplicate or preserve stale values that an explicit
+full-intent update legitimately clears.
+
+Bind normal full-intent behavior with a regression.
+
+==================================================
+H. AUTHORIZED PRODUCTION SURFACE
+==================================================
+
+PM8b explicitly authorizes ONE server production file:
+
+EchoAI/controllers/guidedSetupController.js
+
+This file may contain ONLY:
+
+- intent-scoped connections merge semantics;
+- sanitizer _recovery admission.
+
+Client production changes are authorized only within the EXISTING PM8
+recovery/heal path necessary to write the one-time marker.
+
+Expected client production surface remains existing PM8 files only.
+
+Any OTHER server production file:
+
+HARD STOP BEFORE TOUCHING IT.
+
+No schema migration.
+No DDL.
+
+Any schema/DDL requirement:
+STOP.
+
+==================================================
+I. PROPERTY-STYLE PARTIAL-WRITE REGRESSIONS
+==================================================
+
+Mandatory class-fix regressions:
+
+For EACH durable key family, seed stored state, then call saveProgress with a
+payload that omits that family, and prove it survives byte-equivalently.
+
+At minimum:
+
+1. facebook.skipped survives unrelated provider write.
+
+2. google.skipped survives unrelated subsection write.
+
+3. email.skipped survives unrelated subsection write.
+
+4. provider.errorKey survives unrelated write.
+
+5. firstwin.choice/done/skipped survive provider-only write.
+
+6. parked.parked/at survive unrelated write.
+
+7. _recovery survives subsequent normal wizard writes.
+
+These must test the REAL saveProgress path, not only a helper.
+
+==================================================
+J. RECOVERY-MARKER REGRESSIONS
+==================================================
+
+Bind:
+
+1. stale firstwin + authoritative active connect_social need
+   → current_step heals truthfully
+   → _recovery marker written.
+
+2. marker says clobbered=true.
+
+3. marker contains bounded safe at/ref/note.
+
+4. second identical heal:
+   → no second/new marker
+   → original marker unchanged.
+
+5. completed/non-social sessions do NOT receive the marker.
+
+6. genuine firstwin progression does NOT receive the marker.
+
+7. arbitrary client-supplied _recovery values cannot bypass sanitizer shape
+   constraints.
+
+==================================================
+K. SANITIZER REGRESSIONS
+==================================================
+
+Bind:
+
+- valid _recovery subsection admitted;
+- invalid _recovery keys stripped;
+- arbitrary top-level keys still stripped;
+- arbitrary provider nested keys still stripped;
+- existing allowed provider/firstwin/parked keys unchanged.
+
+==================================================
+L. TRANSIENT + FULL-WRITE REGRESSIONS
+==================================================
+
+Bind:
+
+- connecting=true can still legitimately clear;
+- errorKey can still legitimately clear through intended flow;
+- skipped true→false remains supported;
+- normal full-intent Guided Setup writes behave identically;
+- existing PM8 R1–R12 remain green.
+
+==================================================
+M. EXISTING PM8 / PM5–PM7 PRESERVATION
+==================================================
+
+Do not alter:
+
+- Shape B inline picker contract;
+- explicit Page selection;
+- separate Use this Page confirmation;
+- Store-2 writer semantics;
+- Store-3 separation;
+- PM5 campaign truth;
+- PM6 deferred outcome;
+- PM7 session-outcome authority;
+- completed_steps semantics;
+- deferred Meta chain.
+
+Run preservation suites.
+
+==================================================
+N. DIFF BOUND
+==================================================
+
+PM8b additional authorization:
+
++300 hand-edited touched lines PADDED on top of the current PM8 accounting.
+
+PM8b STOP threshold:
+
++375 additional hand-edited touched lines.
+
+This is ADDITIONAL to the current PM8 +441/-32 record.
+
+Report separately:
+
+- original PM8 hand-edited totals;
+- PM8b inter-head hand-edited totals;
+- combined final hand-edited totals.
+
+If PM8b alone exceeds +375 touched lines:
+
+STOP BEFORE continuing.
+
+==================================================
+O. SERVICE WORKER / DIST
+==================================================
+
+Because the recovery client path changes:
+
+SW target:
+v183
+
+Rebuild committed dist mechanically.
+
+Enumerate mechanical changes separately.
+
+==================================================
+P. CITATION 2 REMAINS DEFERRED
+==================================================
+
+Do NOT perform Claude's final Citation 2 against the OLD PM8 head.
+
+After PM8b implementation is complete and pushed:
+
+1. establish NEW PR #62 head SHA;
+
+2. produce an INTER-HEAD DIFF:
+
+old PM8 head:
+d39725e55d7c2534216a2970da3f0bc694d54b4d
+
+→ new PM8b head
+
+This diff must contain ONLY PM8b-authorized additions.
+
+3. THEN perform Citation 2 against the NEW head:
+   exact per-file hand-edited numstat + purpose.
+
+==================================================
+Q. PRE-MERGE PM8b RETURN
+==================================================
+
+Do NOT merge.
+
+Return:
+
+026-C3-PM8b — PRE-MERGE RECONCILIATION
+
+with:
+
+1. old PM8 head SHA;
+2. PM8b commit SHA(s);
+3. new PR #62 head SHA;
+4. exact inter-head diff file list;
+5. proof inter-head changes are PM8b-only;
+6. exact PM8b per-file +/-;
+7. original PM8 +/-;
+8. combined final +/-;
+9. server production file confirmation:
+   guidedSetupController.js only;
+10. exact saveProgress merge semantics;
+11. exact sanitizer _recovery semantics;
+12. all legitimate clear behaviors preserved;
+13. property-style partial-write results;
+14. _recovery one-time/idempotency results;
+15. sanitizer results;
+16. transient connecting result;
+17. normal full-intent behavior result;
+18. PM8 R1–R12 preservation;
+19. PM5–PM7 preservation;
+20. fresh full server result;
+21. fresh full client result;
+22. focused suite results;
+23. build result;
+24. SW v183;
+25. generated dist accounting;
+26. Citation 2 exact per-file accounting against NEW head;
+27. confirmation Citation 1 historical failure remains recorded;
+28. specimen untouched;
+29. no staging write;
+30. no Meta/provider activity;
+31. no merge/deployment;
+32. production untouched;
+33. all deviations;
+34. all STOP conditions.
+
+Then HARD STOP for owner + ChatGPT + Claude review.
+
+==================================================
+R. LIVE ACCEPTANCE TARGET — NOT YET AUTHORIZED
+==================================================
+
+After later merge approval:
+
+Deploy checks:
+- exact health SHA
+- migrations 148
+- SW v183
+- new bundle
+
+Then same frozen specimen:
+
+owner performs ONE reopen/refresh.
+
+Expected:
+
+- stale firstwin heals;
+- inline Page picker appears;
+- _recovery marker written exactly once;
+- no reconstructed historical owner-intent fields invented;
+- authoritative live connection truth displayed;
+- no provider call;
+- no Page binding.
+
+Then owner selects South Dixie Page:
+selection only, zero write.
+
+Then explicit:
+Use this Page
+
+Expected:
+- exactly one Store-2 social_accounts row;
+- Store 3 unchanged;
+- deferred campaign untouched;
+- zero Meta ADS mutation.
+
+Then perform a subsequent normal Guided Setup progress write and verify live:
+
+- _recovery marker survives;
+- any other existing durable subsection survives;
+- only intended subsection changes.
+
+This is the live proof of the new partial-write safety.
+
+Decision-D then continues toward social_schedule.
+
+NOT AUTHORIZED YET.
+
+==================================================
+S. H1 REPORT DUTY
+==================================================
+
+Record for eventual H1 report:
+
+- the connections clobber incident;
+- potentially lost durable items:
+  provider skipped state,
+  provider errorKey,
+  firstwin choice/done/skipped,
+  parked decision/timestamp,
+  transient connecting flag;
+- exact pre-clobber value irrecoverable;
+- chronicle-based bounding inference clearly labeled as INFERENCE;
+- _recovery marker;
+- saveProgress shared-state writer class fix;
+- no fabricated recovered history.
+
+==================================================
+T. NON-SCOPE
+==================================================
+
+Still NOT authorized:
+
+- merge
+- deploy
+- specimen interaction
+- Meta/provider mutation
+- auto Page selection
+- auto binding
+- Retry
+- second launch
+- cleanup
+- I-64
+- Prompt 031
+- BLACOR-H1
+- H2
+- Prompt 027
+- production changes
+
+Proceed with PM8b ONLY.
+
+STOP at the pre-merge reconciliation.
