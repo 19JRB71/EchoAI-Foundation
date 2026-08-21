@@ -1,0 +1,245 @@
+Give Replit this prompt:
+
+SDS-H1 — OWNER CONTENT-REVIEW / DRAFT-EDITING CHECKPOINT
+
+Claude has ruled:
+
+C1 stale-digest checkpoint = PASS/CLOSED.
+
+The remaining five currently eligible Facebook posts must be reviewed and, where necessary, corrected before any Approve & schedule action.
+
+This is an owner editorial checkpoint, not a Replit editing task.
+
+ABSOLUTE RULE
+
+DO NOT edit any post for me.
+
+DO NOT click Approve & schedule.
+
+DO NOT click Skip.
+
+DO NOT schedule or publish anything.
+
+DO NOT write directly to the database.
+
+DO NOT use an API to modify post content.
+
+Your job is to walk me through Zorecho’s existing product UI one owner action at a time so I can review/edit the eligible drafts myself.
+
+1. FIRST — LOCATE THE PRODUCT EDITING SURFACE
+
+Read the deployed product/code and determine the correct existing owner-facing route/surface for editing an individual draft social post.
+
+Do not navigate or click it for me.
+
+Tell me exactly what ONE thing I should click from my current screen to reach the draft/content calendar editing surface.
+
+If no legitimate owner-facing draft-edit surface exists:
+
+HARD STOP AND REPORT.
+
+Do not invent a workaround.
+
+Do not edit through the DB.
+
+Do not have me use an admin-only/developer route.
+
+2. CONTENT TRIAGE — FIVE CURRENTLY ELIGIBLE POSTS
+
+The governing rule is:
+
+“A generated claim about a real business must be owner-confirmed fact, or rewritten to assert nothing unverified — and a testimonial may never be synthesized.”
+
+The five posts currently eligible for Facebook scheduling require this review:
+
+POST — AUGUST 25
+
+Current concern:
+
+“a question we love asking”
+
+and
+
+“some of the best building ideas we’ve seen”
+
+These are presented as real company/customer experience.
+
+Owner must either:
+
+confirm those statements are genuinely true for South Dixie Storage; or
+edit them into generic language that does not claim a history that may not exist.
+
+POST — AUGUST 30
+
+HIGH PRIORITY.
+
+This contains the specific North Georgia customer story:
+
+two acres;
+growing equipment collection;
+rusting equipment;
+tractors being tarped;
+40x60 pole barn;
+six-week delivery/install timeline;
+direct quote:
+“I should've done this five years ago.”
+
+This must NOT be published as written unless the owner confirms:
+
+the customer actually exists;
+the facts are true;
+the timeline is true;
+the quote is authentic;
+South Dixie has the right to publish it.
+
+If those facts cannot be confirmed, this post must be replaced/re-written as a clearly generic, non-attributed scenario.
+
+It may not retain a fabricated testimonial or fabricated quotation.
+
+POST — SEPTEMBER 4
+
+Review:
+
+drainage/structural-risk guidance;
+claim that South Dixie “always” asks customers about drainage before delivery.
+
+Owner must either confirm that company process is true or change it.
+
+Technical wording should be conservative:
+
+use “consider,” “think through,” or “consult an appropriate professional” framing rather than presenting unverified structural/engineering prescription.
+
+POST — SEPTEMBER 8
+
+Review whether South Dixie actually supports or commonly provides:
+
+concrete aprons;
+workshop-bay configurations;
+the described installation/configuration.
+
+If not established, rewrite so it does not imply South Dixie supplies those exact features.
+
+POST — SEPTEMBER 13
+
+HIGH PRIORITY.
+
+Verify these claims:
+
+“engineered for where you live”
+“delivered to your door”
+“installed by people who know what they’re doing”
+
+The owner must confirm which of those are true for South Dixie Storage.
+
+Any unconfirmed capability claim gets removed or rewritten conservatively.
+
+3. ONE POST AT A TIME
+
+Walk me through editing one post at a time.
+
+For each post:
+
+Tell me how to open that exact draft in the product UI.
+Show/remind me of the current copy.
+Tell me what factual issue requires my decision.
+Ask me whether the underlying claim is true.
+Based on MY answer, help me draft corrected copy.
+I will make/save the edit through Zorecho’s UI.
+After I tell you it is saved, perform read-only verification that only the intended draft changed.
+Then give me the next post.
+
+Do not batch-edit all five without owner review.
+
+4. PRESERVATION DURING EDITING
+
+During this editorial process verify read-only that:
+
+no post becomes scheduled;
+no post becomes published;
+calendar remains unactivated;
+no Facebook/provider write occurs;
+no social_accounts mutation occurs;
+deferred Facebook advertising campaign remains unchanged;
+historical Meta chain remains unchanged;
+Store 2 binding remains unchanged;
+_recovery remains preserved.
+
+Any unexpected external action or scheduling:
+
+HARD STOP.
+
+5. AFTER ALL OWNER-APPROVED EDITS
+
+Once the owner has reviewed and saved all necessary corrections:
+
+return to the social-schedule activation gate through the normal product UI.
+
+Do not approve it.
+
+Because the content artifacts changed, expect the old digest to be invalid.
+
+Obtain/render the fresh activation preview.
+
+Then report:
+
+exact number currently eligible;
+exact Facebook destination;
+exact date/time range;
+stale count;
+unbound-platform count;
+confirmation all eligible post copy corresponds to the owner-reviewed versions;
+total draft count;
+scheduled count;
+published count.
+
+Expected before final approval:
+
+0 scheduled
+
+0 published
+
+6. HARD STOP BEFORE FINAL APPROVAL
+
+Once the corrected fresh digest is displayed:
+
+HARD STOP.
+
+Do NOT click Approve & schedule.
+
+Return the full corrected five-post copy and fresh digest evidence to me.
+
+I will take that back to ChatGPT/Claude for the final activation decision.
+
+NOT AUTHORIZED
+
+No Replit-authored post edits.
+
+No direct DB edits.
+
+No silent AI rewriting without owner approval.
+
+No Approve & schedule.
+
+No Skip.
+
+No publishing.
+
+No campaign Retry.
+
+No Meta ads mutation.
+
+No I-64 fix.
+
+No I-65 implementation.
+
+No Prompt 031.
+
+No BLACOR-H1.
+
+No H2.
+
+No Prompt 027.
+
+No production change.
+
+BEGIN by determining the legitimate product draft-editing surface and give me ONE manual owner action only.
