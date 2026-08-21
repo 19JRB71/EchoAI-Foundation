@@ -1,0 +1,457 @@
+026-C3-PM8 — FINAL CITATIONS + CONDITIONAL STAGING MERGE AUTHORIZATION
+
+Claude has completed the PM8 pre-merge review.
+
+RULING:
+
+DECISION A — MERGE APPROVED
+
+PR #62
+Base:
+staging
+
+Reviewed/pinned head:
+d39725e55d7c2534216a2970da3f0bc694d54b4d
+
+This approval is conditional on TWO citation-only items being completed
+BEFORE MERGE.
+
+These are evidence/reporting requirements.
+
+Do not change code merely to satisfy them.
+
+If both citations are clean, proceed directly to the already-approved
+staging-only merge/deploy/live-verification sequence without another review
+round.
+
+The frozen SDS-H1 browser specimen must remain untouched until the deployment
+checks have passed.
+
+============================================================
+CITATION 1 — guided_setup_progress.connections ENUMERATION
+============================================================
+
+Claude explicitly ruled that the prior:
+
+connections = {}
+
+overwrite must not be waved past.
+
+Perform a fresh source-level enumeration at the exact reviewed PR head of EVERY
+writer/key that can legitimately appear in:
+
+guided_setup_progress.connections
+
+For EACH legitimate key report:
+
+1. exact key name / shape;
+2. exact writer file/function;
+3. when it is written;
+4. what it represents;
+5. whether the value is:
+
+   A. DERIVABLE FROM AUTHORITATIVE STORES
+
+   or
+
+   B. TRANSIENT / IN-FLIGHT ONLY
+
+   or
+
+   C. DURABLE AND NON-DERIVABLE
+
+6. if derivable, name the authoritative store/source;
+7. if transient, state what happens safely when the transient state disappears
+   after reload/recovery;
+8. whether PM8 actually repopulates `connections` or instead renders the
+   truthful connection state directly from authoritative live state.
+
+Explicitly include the known historical transient example:
+
+connections.connecting = true
+
+or its exact current equivalent used during OAuth/in-flight connection state.
+
+Do not assume that is the only key.
+
+Search exhaustively.
+
+Also determine whether any key can represent:
+
+- completed Facebook connection;
+- Google connection;
+- OAuth return state;
+- selected Page state;
+- posting-page binding;
+- setup completion;
+- any durable owner choice.
+
+LOAD-BEARING STOP:
+
+If ANY legitimate `connections` key is DURABLE + NON-DERIVABLE from existing
+authoritative data, STOP BEFORE MERGE.
+
+Report exactly what information was potentially lost from the frozen SDS
+specimen.
+
+Do not repair it.
+
+Do not alter staging.
+
+Do not infer the old value.
+
+If all legitimate values are either:
+
+- derivable from authoritative stores, or
+- transient/in-flight only,
+
+then state exactly:
+
+"CITATION 1 PASS — connections={} caused no unrecoverable durable-state loss.
+Guided Setup can recover/render connection truth from authoritative stores;
+transient in-flight flags are safely non-durable."
+
+Also state whether the current frozen SDS specimen had any OAuth operation
+in-flight when the erroneous firstwin write occurred, based only on existing
+read-only evidence already captured.
+
+No live provider call.
+
+No specimen interaction.
+
+============================================================
+CITATION 2 — EXACT HAND-EDITED PER-FILE NUMSTAT
+============================================================
+
+From the exact reviewed PR #62 head, enumerate every hand-edited source/test
+file individually.
+
+For EACH give:
+
+- exact file path;
+- additions;
+- deletions;
+- purpose;
+- production vs test classification.
+
+Then separately enumerate mechanical/generated changes:
+
+- client/public/sw.js
+- client/dist/sw.js
+- client/dist/index.html
+- new generated bundle
+- removed old generated bundle
+- any other generated asset
+
+Reconcile exactly to the already reported:
+
+Hand-edited:
++441 / -32
+
+PR total including generated:
++598 / -189
+
+If the actual arithmetic differs from the governing report:
+
+STOP BEFORE MERGE and disclose the discrepancy.
+
+Also explicitly name the production client files and confirm:
+
+NO server production file changed.
+
+============================================================
+OTHER PRE-MERGE CONFIRMATIONS
+============================================================
+
+Before merge, re-confirm:
+
+1. PR #62 is still OPEN.
+2. PR head is still EXACTLY:
+   d39725e55d7c2534216a2970da3f0bc694d54b4d
+3. Base remains staging.
+4. No new commit/head movement occurred.
+5. Frozen SDS-H1 specimen has not been opened, refreshed, navigated, clicked,
+   or modified during the citation work.
+6. No Meta/provider call occurred.
+7. No staging data write occurred.
+8. Production remains untouched.
+
+============================================================
+IF BOTH CITATIONS PASS
+============================================================
+
+Proceed WITHOUT another Claude/ChatGPT review round.
+
+Merge PR #62 using pinned-head discipline into STAGING ONLY.
+
+If head moves before merge:
+
+STOP.
+
+Do not merge the moved head.
+
+Record:
+
+- reviewed PR head;
+- resulting staging merge SHA;
+- merge timestamp/method;
+- confirmation main/production was not targeted.
+
+============================================================
+DEPLOYMENT VERIFICATION
+============================================================
+
+Wait for the Railway staging deployment for the EXACT resulting merge SHA.
+
+Do not touch the frozen browser specimen while Railway is pending.
+
+When and only when the exact SHA reports successful deployment, verify:
+
+1. staging /api/health:
+   environment = staging
+   version = exact merge SHA
+
+2. schema_migrations:
+   exactly 148
+
+3. served service worker:
+   echoai-shell-v182
+
+4. served client bundle:
+   index-CytwuDUB.js
+
+5. old client bundle:
+   index-DaK3CAPL.js
+   is no longer the served active bundle
+
+6. production/main untouched.
+
+Any mismatch:
+
+HARD STOP.
+
+Do not interact with SDS-H1.
+
+============================================================
+LIVE PM8 RECOVERY — OWNER OPERATED
+============================================================
+
+After deployment verification passes:
+
+DO NOT click anything on behalf of the owner.
+
+The owner currently has the frozen SDS-H1 browser specimen sitting on the
+incorrect:
+
+Milestone 1 — Your First Win
+
+screen.
+
+The owner was explicitly told:
+
+NO click
+NO Skip
+NO Back
+NO refresh
+
+until PM8 deployed.
+
+Now PM8 must prove authoritative recovery.
+
+Give the owner ONE action only:
+
+REOPEN / REFRESH the same SDS-H1 staging specimen once.
+
+Then STOP and inspect/read state.
+
+Expected result:
+
+The stale firstwin projection heals from authoritative SetupAgent session truth.
+
+The owner should NOT remain on First Win.
+
+The product should present the inline connect_social Facebook Page picker.
+
+Expected owner-visible surface:
+
+Choose your Facebook Page
+
+with the South Dixie Storage Page available from the existing PM3-bound
+accounts contract.
+
+No Page should already be selected/bound automatically.
+
+============================================================
+READ-ONLY RECOVERY VERIFICATION
+============================================================
+
+After that single reopen/refresh, verify read-only:
+
+1. Guided Setup no longer incorrectly treats firstwin as authoritative.
+
+2. The active SetupAgent need is connect_social.
+
+3. The inline Page picker is presented.
+
+4. No Facebook/provider call was caused merely by recovery.
+
+5. No social_accounts write occurred.
+
+6. No automatic Page selection occurred.
+
+7. No automatic Page binding occurred.
+
+8. Deferred Facebook ad campaign remains unchanged.
+
+9. Campaign launch_failed row unchanged.
+
+10. historical Campaign ID unchanged.
+
+11. historical Ad Set ID unchanged.
+
+12. creative/ad IDs remain absent.
+
+13. MANUAL_REVIEW task unchanged.
+
+14. failed external action unchanged.
+
+15. Store 3 unchanged.
+
+16. guided_setup_progress state is now truthful under the PM8 recovery
+    contract.
+
+17. connections-field state/rendering matches Citation 1's ruled derivation
+    model.
+
+If ANY unexpected mutation or provider action occurs:
+
+HARD STOP.
+
+============================================================
+OWNER PAGE-SELECTION STEP
+============================================================
+
+If recovery passes, give the owner ONE action only:
+
+Select the South Dixie Storage Facebook Page.
+
+DO NOT click "Use this Page" yet.
+
+After owner selection:
+
+READ-ONLY VERIFY:
+
+- no social_accounts row was written;
+- no provider/Facebook write occurred;
+- no OAuth operation occurred;
+- no campaign evidence changed;
+- only local UI selection state changed.
+
+Then STOP and tell the owner the result.
+
+============================================================
+OWNER CONFIRMATION STEP
+============================================================
+
+Only after selection-only verification passes:
+
+Give the owner ONE action:
+
+Click:
+
+"Use this Page"
+
+or the exact equivalent confirmation button.
+
+Then perform READ-ONLY verification.
+
+Expected:
+
+1. EXACTLY ONE Store-2 social_accounts posting-page binding exists for the SDS
+   brand.
+
+2. Binding corresponds to the explicitly selected South Dixie Storage Page.
+
+3. The write occurred through the existing authorized Store-2 writer.
+
+4. Store 3 remains unchanged.
+
+5. Deferred Facebook campaign outcome remains byte-unchanged.
+
+6. Historical partial Meta ads chain remains untouched.
+
+7. No Meta ADS mutation occurred.
+
+8. No ad Retry occurred.
+
+9. No second launch occurred.
+
+10. No automatic Page selection/binding occurred.
+
+11. Guided Setup pointer/state remains truthful.
+
+This is the C1/R15 live Store-2 checkpoint.
+
+============================================================
+AFTER STORE-2 CHECKPOINT
+============================================================
+
+If and only if that checkpoint passes:
+
+Decision-D SDS-H1 continuation may resume ONE OWNER ACTION AT A TIME toward:
+
+social_schedule
+
+which contains the next C1 activation-gate checkpoint.
+
+Do not blow through that gate.
+
+Any externally capable posting/scheduling action still requires the existing
+explicit owner consent/KEEP classification and preview/digest contract.
+
+Next HARD STOP remains:
+
+SDS-H1 journey completion
+OR
+the next blocking defect,
+whichever happens first.
+
+============================================================
+NOT AUTHORIZED
+============================================================
+
+Still NOT authorized:
+
+- Retry of Facebook campaign
+- second ad launch
+- any Meta ADS mutation
+- cleanup/deletion of partial Meta ads objects
+- automatic Facebook Page selection
+- automatic Store-2 Page binding
+- I-64 work
+- Prompt 031
+- BLACOR-H1
+- H2
+- Prompt 027
+- production changes
+
+PM5, PM6, PM7 semantics remain closed.
+
+============================================================
+REPORTING
+============================================================
+
+First perform Citation 1 and Citation 2.
+
+If either fails:
+STOP.
+
+If both pass:
+merge/deploy as authorized.
+
+After deployment, proceed one owner action at a time exactly as above.
+
+At any new blocking defect:
+STOP AND REPORT before fixing anything.
+
+BEGIN WITH CITATION 1.

@@ -45,3 +45,10 @@ The Guided Setup progress row is only a projection. A saved `firstwin` pointer m
 **Why:** discarding the destination sent the owner to a later milestone while the real Setup Agent session still required Page selection; weakening the pre-completion gate would expose dashboard surfaces too early.
 
 **How to apply:** preserve the normal Connected Accounts picker behavior, reuse its existing Store-2 writer, and let the Setup Agent's normal execute recheck decide whether setup may advance after the owner confirms a Page.
+
+## The `connections` JSONB is not disposable
+Despite its name, Guided Setup's `connections` JSONB contains both live-flow flags and durable, non-derivable owner/UI resume state. Only provider `connecting` is strictly transient. Provider `skipped` and `errorKey`, the `firstwin` record, and the `parked` checkpoint cannot all be reconstructed from connection/account stores.
+
+**Why:** replacing the whole object with `{}` during a step transition can erase skip choices, the last normalized OAuth error, first-win recap state, or the owner's saved-place checkpoint. Live probes can recover actual connection status, but not those values.
+
+**How to apply:** preserve/merge the existing sanitized object on every progress write. Never treat live connection probes as proof that the full JSONB is recoverable, and never infer or silently reconstruct values after an observed clobber.
