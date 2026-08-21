@@ -1,0 +1,71 @@
+COPY THIS TO REPLIT
+
+SDS-H1 — ACTIVATION DIGEST STALE-GUARD LIVE CHECK
+
+The Page-picker checkpoint is PASS/CLOSED and the social-schedule pre-approval review is complete.
+
+The owner-visible green panel currently contains an outdated six-post digest because the August 21, 1:00 PM slot has now passed.
+
+Current read-only truth is expected to be:
+
+13 total drafts
+5 currently eligible Facebook posts
+2 stale Facebook posts
+6 unbound Instagram posts
+0 scheduled
+0 published
+
+Do not schedule or publish anything. Do not click Skip.
+
+I want to live-prove the C1 stale-digest protection and obtain the refreshed activation digest, but I want you to walk me through it one owner action at a time.
+
+BEFORE ANY CLICK
+
+Inspect the deployed staging behavior and determine exactly how the stale digest is refreshed.
+
+If clicking the currently displayed “Approve & schedule” button is required to submit the old digest and trigger the server's digest-mismatch protection, STOP BEFORE THE CLICK.
+
+Tell me clearly:
+
+“Click Approve & schedule now. This is expected to submit the stale digest for validation, be rejected because the digest has changed, schedule ZERO posts, publish ZERO posts, and return a fresh preview.”
+
+Do not click it for me. The owner will perform the click.
+
+If there is a safer way to refresh/recompute the digest without submitting an approval attempt, tell me and use that path instead.
+
+AFTER THE OWNER ACTION
+
+Immediately perform read-only verification and establish:
+
+Whether the stale digest was rejected.
+Whether 0 posts were scheduled.
+Whether 0 posts were published.
+Whether 0 Facebook/provider writes occurred.
+Whether all 13 posts remained drafts during the stale-digest rejection.
+Whether a fresh owner-visible activation digest was produced.
+Whether that fresh digest truthfully shows:
+5 eligible Facebook posts;
+2 stale Facebook posts;
+6 unbound Instagram posts.
+Whether the stale-digest guard therefore passes its live C1 checkpoint.
+CRITICAL STOP
+
+DO NOT APPROVE THE FRESH FIVE-POST DIGEST.
+
+We have not authorized those posts for public scheduling. Some of the generated content still requires owner review.
+
+Do not:
+
+approve the fresh digest;
+click Skip;
+schedule anything;
+publish anything;
+edit any post;
+Retry anything;
+perform any Meta ads action;
+mutate the deferred campaign chain;
+perform unrelated staging changes.
+
+Once the fresh digest is displayed and verified, HARD STOP and return the complete evidence report to me.
+
+One owner action at a time. Do not move ahead of me.
