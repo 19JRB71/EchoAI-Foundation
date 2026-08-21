@@ -1,0 +1,229 @@
+SDS-H1 — DECISION-D CONTINUATION AFTER CONTENT-EDITOR ACCESS RULING
+
+Claude has issued the binding 026 Content-Editor Access Ruling.
+
+SDS-H1 CONTINUES NOW. No code change is authorized.
+
+I-66 and I-67 are filed for C3-PM9 after SDS-H1 completion and before BLACOR-H1. I-65 remains separate and is not authorized now.
+
+We will use the existing legitimate product path:
+
+Skip social scheduling → finish onboarding → unlock Dashboard → owner edits drafts in Content Calendar → owner opens Calendar activation preview → owner approves corrected schedule in the same sitting.
+
+Replit remains read-only except for observing the owner's normal product actions and collecting evidence.
+
+CURRENT STATE
+
+The refreshed social-schedule gate currently shows:
+
+5 eligible Facebook drafts
+2 stale Facebook drafts
+6 unbound Instagram drafts
+13 total drafts
+0 scheduled
+0 published
+
+The stale-digest guard is C1 PASS/CLOSED.
+
+The Page-picker C1/R15 checkpoint is PASS/CLOSED.
+
+The Facebook advertising partial chain remains failed/deferred and must remain untouched.
+
+STEP 1 — OWNER SKIPS SOCIAL SCHEDULING
+
+First, perform read-only pre-click verification that the current visible:
+
+“Skip — keep everything as drafts”
+
+control is the ruled C1 skip path and that clicking it will:
+
+record social_schedule as skipped;
+leave all 13 posts as drafts;
+schedule zero posts;
+publish zero posts;
+perform zero Facebook/provider mutations;
+not alter the Store-2 Facebook Page binding;
+not alter the deferred Facebook advertising campaign/partial Meta chain;
+allow the Setup Agent cascade to continue to the authorized internal-only steps.
+
+If that exact behavior is confirmed, STOP and tell me exactly ONE owner action: click “Skip — keep everything as drafts.”
+
+Do not click it for me.
+
+After I tell you I clicked it, immediately perform read-only verification before giving me another action.
+
+STEP 2 — VERIFY THE SKIP AND CASCADE
+
+After my click, verify:
+
+social_schedule outcome truthfully records the owner skip;
+all 13 posts remain drafts;
+0 scheduled;
+0 published;
+calendar remains unactivated;
+zero provider/Facebook mutation;
+email_preferences and create_survey proceed only according to their already-authorized internal semantics;
+deferred campaign and Meta evidence remain byte-unchanged;
+_recovery remains preserved.
+
+If anything unexpected occurs:
+
+HARD STOP.
+
+Otherwise give me only the next owner action presented by the legitimate Guided Setup flow.
+
+STEP 3 — FIRST WIN
+
+When Guided Setup reaches First Win, STOP before any First Win action.
+
+Explain exactly what the displayed choices do and identify which choices could cause an external action.
+
+Do not choose for me and do not click anything.
+
+I will decide whether to perform or skip First Win.
+
+After my owner action, perform read-only verification.
+
+This is also a PM8b live-proof opportunity:
+
+verify that the legitimate new firstwin write preserves the existing _recovery marker and unrelated durable Guided Setup state.
+
+Any clobber:
+
+HARD STOP.
+
+STEP 4 — ONBOARDING COMPLETION
+
+Continue one owner action at a time until onboarding legitimately completes.
+
+When onboarding_completed flips and the Dashboard becomes available:
+
+HARD STOP.
+
+Collect the SDS-H1 journey-completion evidence required by the standing rulings.
+
+Do NOT proceed automatically into Content Calendar.
+
+Report that onboarding is complete and tell me the single normal owner navigation action required to reach:
+
+Dashboard → Content Calendar
+
+STEP 5 — OWNER CONTENT EDITING
+
+Once I explicitly continue, I will edit the relevant Facebook drafts myself through the normal Content Calendar UI.
+
+Replit must not edit or rewrite posts.
+
+Work with me one post at a time.
+
+For each eligible post:
+
+identify the persisted draft;
+show me its existing copy;
+identify the factual/content concern;
+ask me whether the underlying claim is actually true;
+I may use ChatGPT/Claude/Replit suggestions as proposed wording;
+I make the editorial decision;
+I explicitly save the edit through the product UI;
+Replit then verifies read-only that only the intended persisted draft changed.
+
+The governing rule is:
+
+“A generated claim about a real business must be owner-confirmed fact, or rewritten to assert nothing unverified — and a testimonial may never be synthesized.”
+
+In particular, the Aug. 30 fabricated customer story/direct quotation may NOT survive unless I explicitly substantiate it as a real, publishable customer testimonial.
+
+No silent AI rewriting.
+
+No DB/API editing.
+
+STEP 6 — SAME-SITTING ACTIVATION
+
+Because I-67 has established that the current digest does not yet bind post content, use the ruled immediate mitigation:
+
+I finish editing first → immediately open the Calendar activation preview → review → approve in the same sitting.
+
+Do not claim that an edit itself invalidates the existing digest. Claude has explicitly established that this is not currently true and is scheduled for PM9.
+
+Once editing is complete, guide me through the legitimate Calendar UI to the shared activation boundary.
+
+Render/retrieve a new post-edit activation preview.
+
+Before approval, report:
+
+exact eligible count;
+exact eligible post IDs;
+owner-reviewed copy represented by those persisted posts;
+Facebook destination;
+date/time range;
+stale count;
+unbound-platform count;
+total drafts;
+scheduled count;
+published count.
+
+Then:
+
+HARD STOP BEFORE APPROVAL.
+
+Show me the preview and tell me whether it is safe and internally consistent.
+
+I alone decide whether to click Approve & schedule.
+
+STEP 7 — AFTER OWNER APPROVAL
+
+If and only if I explicitly click Approve & schedule, immediately HARD STOP and perform read-only verification:
+
+exactly the approved eligible set changed draft → scheduled;
+stale posts remained drafts;
+unbound Instagram posts remained drafts;
+calendar became active;
+zero posts published during activation;
+zero Facebook/provider calls occurred from activation itself;
+social_accounts remained unchanged;
+deferred Facebook campaign and partial Meta chain remained unchanged;
+_recovery remained preserved;
+C1 consent echo exists in agent_tasks meta;
+consent echo contains the approved digest, approver, timestamp, counts and destination;
+every scheduled time is still in the future.
+
+Then STOP for ChatGPT/Claude three-party review.
+
+IMPORTANT I-67 DISCLOSURE
+
+Do not represent the current digest as content-bound.
+
+It currently binds:
+
+eligible post set;
+scheduled times;
+platform/destination;
+exclusions.
+
+It does not currently bind the post text/content.
+
+I-67 will correct this in C3-PM9 after SDS-H1.
+
+NOT AUTHORIZED
+No code changes.
+No I-65 implementation.
+No I-66/I-67/PM9 implementation yet.
+No Replit-authored post edits.
+No direct DB/API edits.
+No Replit owner clicks.
+No Meta ads mutation.
+No campaign Retry.
+No second Facebook ad launch.
+No Prompt 031.
+No BLACOR-H1.
+No H2.
+No Prompt 027.
+No production changes.
+
+BEGIN WITH STEP 1 ONLY.
+
+Verify the current “Skip — keep everything as drafts” path read-only.
+
+If it matches the ruled semantics, give me exactly ONE owner instruction and STOP.
+
+So the next thing should be very simple: Replit verifies that Skip button, then tells you to click it. Don't click anything else until Replit gives you that one instruction.
