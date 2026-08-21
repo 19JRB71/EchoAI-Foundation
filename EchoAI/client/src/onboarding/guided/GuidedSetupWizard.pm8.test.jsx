@@ -75,6 +75,13 @@ const RECOVERY_SESSION = Object.freeze({
   ]),
 });
 
+const EXISTING_RECOVERY = Object.freeze({
+  clobbered: true,
+  at: "2026-08-21T12:00:00.000Z",
+  ref: "pm8b-11111111-1111-4111-8111-111111111111",
+  note: "historical_connections_state_irrecoverable",
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   window.history.replaceState({}, "", "/");
@@ -113,10 +120,17 @@ describe("GuidedSetupWizard PM8 Page-picker handoff", () => {
     fireEvent.click(screen.getByRole("button", { name: "Complete profile setup" }));
     expect(await screen.findByTestId("firstwin-step")).toBeInTheDocument();
     expect(api.saveGuidedSetupProgress).toHaveBeenCalledWith("firstwin", {});
+    expect(api.saveGuidedSetupProgress).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ _recovery: expect.anything() }),
+    );
   });
 
   it("heals stale firstwin from authoritative active-session truth and pre-opens the inline destination", async () => {
-    const connections = { facebook: { skipped: false } };
+    const connections = {
+      facebook: { skipped: false },
+      _recovery: { ...EXISTING_RECOVERY, clobbered: false },
+    };
     api.getGuidedSetupState.mockResolvedValue({
       progress: { currentStep: "firstwin", connections },
       connectionStatus: { facebook: "connected" },
@@ -130,9 +144,34 @@ describe("GuidedSetupWizard PM8 Page-picker handoff", () => {
       inlineExitDestination: { section: "social", tab: "accounts" },
     });
     expect(screen.queryByTestId("firstwin-step")).not.toBeInTheDocument();
-    expect(api.saveGuidedSetupProgress).toHaveBeenCalledWith("profile", connections);
+    expect(api.saveGuidedSetupProgress).toHaveBeenCalledWith("profile", {
+      ...connections,
+      _recovery: {
+        clobbered: true,
+        at: expect.stringMatching(/Z$/),
+        ref: expect.stringMatching(/^pm8b-/),
+        note: "historical_connections_state_irrecoverable",
+      },
+    });
     expect(api.updateOnboarding).not.toHaveBeenCalled();
     expect(RECOVERY_SESSION.stepOutcomes.create_facebook_campaign).toBe(DEFERRED_CAMPAIGN);
+  });
+
+  it("keeps an existing recovery marker byte-equivalent on repeated bootstrap healing", async () => {
+    const connections = {
+      facebook: { skipped: false },
+      _recovery: EXISTING_RECOVERY,
+    };
+    api.getGuidedSetupState.mockResolvedValue({
+      progress: { currentStep: "firstwin", connections },
+      connectionStatus: { facebook: "connected" },
+    });
+
+    render(<GuidedSetupWizard onComplete={vi.fn()} />);
+
+    expect(await screen.findByTestId("setup-agent")).toBeInTheDocument();
+    expect(api.saveGuidedSetupProgress).toHaveBeenCalledWith("profile", connections);
+    expect(api.saveGuidedSetupProgress.mock.calls.at(-1)[1]._recovery).toBe(EXISTING_RECOVERY);
   });
 
   it("does not override a genuine First Win projection without an active pending social step", () => {
@@ -148,5 +187,21 @@ describe("GuidedSetupWizard PM8 Page-picker handoff", () => {
         completedSteps: [],
       }),
     ).toBe(false);
+  });
+
+  it.each([
+    ["completed", { ...RECOVERY_SESSION, status: "completed" }],
+    ["non-social", { ...RECOVERY_SESSION, completedSteps: [] }],
+  ])("does not mark a %s session", async (_label, session) => {
+    api.getGuidedSetupState.mockResolvedValue({
+      progress: { currentStep: "firstwin", connections: {} },
+      connectionStatus: {},
+    });
+    api.getSetupLatest.mockResolvedValue({ session });
+
+    render(<GuidedSetupWizard onComplete={vi.fn()} />);
+
+    expect(await screen.findByRole("heading", { name: "Welcome back!" })).toBeInTheDocument();
+    expect(api.saveGuidedSetupProgress).not.toHaveBeenCalled();
   });
 });

@@ -92,6 +92,8 @@ const GUIDED_STEPS = [
 const CONNECTION_KEYS = ["facebook", "google", "email"];
 // First-win choices the client may record (Milestone 1 of the first hour).
 const FIRST_WIN_CHOICES = ["post", "ad", "email", "lead"];
+const RECOVERY_NOTE = "historical_connections_state_irrecoverable";
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 // --- Live connection probes (same sources of truth as utils/setupStatus.js) --
 
@@ -148,10 +150,7 @@ async function getState(req, res) {
           currentStep: GUIDED_STEPS.includes(rows[0].current_step)
             ? rows[0].current_step
             : "welcome",
-          connections:
-            rows[0].connections && typeof rows[0].connections === "object"
-              ? rows[0].connections
-              : {},
+          connections: sanitizeConnections(rows[0].connections),
           updatedAt: rows[0].updated_at,
         }
       : null;
@@ -196,7 +195,8 @@ async function getState(req, res) {
 
 // Whitelist the connection flags the client may persist. Real connection
 // status is intentionally NOT storable — it is always probed live.
-function sanitizeConnections(input) {
+// preserveClears is used only while building a patch; null never reaches storage.
+function sanitizeConnections(input, { preserveClears = false } = {}) {
   const out = {};
   if (!input || typeof input !== "object" || Array.isArray(input)) return out;
   for (const key of CONNECTION_KEYS) {
@@ -205,8 +205,11 @@ function sanitizeConnections(input) {
     const entry = {};
     if (typeof v.skipped === "boolean") entry.skipped = v.skipped;
     if (typeof v.connecting === "boolean") entry.connecting = v.connecting;
-    if (typeof v.errorKey === "string" && v.errorKey.trim()) {
-      entry.errorKey = v.errorKey.trim().slice(0, 64);
+    if (hasOwn(v, "errorKey")) {
+      if (preserveClears && v.errorKey === null) entry.errorKey = null;
+      else if (typeof v.errorKey === "string" && v.errorKey.trim()) {
+        entry.errorKey = v.errorKey.trim().slice(0, 64);
+      }
     }
     out[key] = entry;
   }
@@ -232,30 +235,101 @@ function sanitizeConnections(input) {
     }
     if (Object.keys(entry).length > 0) out.parked = entry;
   }
+  // PM8b: one bounded provenance marker for the known stale-firstwin clobber.
+  // It records no reconstructed history and accepts no arbitrary values.
+  const recovery = input._recovery;
+  if (recovery && typeof recovery === "object" && !Array.isArray(recovery)) {
+    const at = typeof recovery.at === "string" ? recovery.at.trim() : "";
+    const ref = typeof recovery.ref === "string" ? recovery.ref.trim() : "";
+    if (
+      recovery.clobbered === true &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(at) &&
+      /^pm8b-[a-z0-9-]{6,80}$/i.test(ref) &&
+      recovery.note === RECOVERY_NOTE
+    ) {
+      out._recovery = {
+        clobbered: true,
+        at: at.slice(0, 40),
+        ref: ref.slice(0, 85),
+        note: RECOVERY_NOTE,
+      };
+    }
+  }
   return out;
+}
+
+function mergeConnections(existingInput, incomingInput) {
+  const merged = sanitizeConnections(existingInput);
+  const patch = sanitizeConnections(incomingInput, { preserveClears: true });
+
+  for (const [section, values] of Object.entries(patch)) {
+    // The first valid provenance marker is immutable.
+    if (section === "_recovery" && merged._recovery) continue;
+    const next = { ...(merged[section] || {}) };
+    for (const [key, value] of Object.entries(values)) {
+      if (value === null) delete next[key];
+      else next[key] = value;
+    }
+
+    if (CONNECTION_KEYS.includes(section)) {
+      // Existing OAuth return semantics clear transient state by omission:
+      // success supplies skipped=false; failure supplies errorKey.
+      if (
+        !hasOwn(values, "connecting") &&
+        (values.skipped === false || typeof values.errorKey === "string")
+      ) {
+        delete next.connecting;
+      }
+      if (
+        values.skipped === false &&
+        !hasOwn(values, "connecting") &&
+        !hasOwn(values, "errorKey")
+      ) {
+        delete next.errorKey;
+      }
+    }
+    merged[section] = next;
+  }
+
+  return sanitizeConnections(merged);
 }
 
 /** PUT /api/guided-setup/progress */
 async function saveProgress(req, res) {
+  let client;
   try {
     const { currentStep, connections } = req.body || {};
     if (!GUIDED_STEPS.includes(currentStep)) {
       return res.status(400).json({ error: "Invalid setup step" });
     }
-    const sanitized = sanitizeConnections(connections);
-    await db.query(
+    client = await db.getClient();
+    await client.query("BEGIN");
+    // Serialize even the first insert by locking the parent user row.
+    await client.query("SELECT user_id FROM users WHERE user_id = $1 FOR UPDATE", [
+      req.user.userId,
+    ]);
+    const current = await client.query(
+      "SELECT connections FROM guided_setup_progress WHERE user_id = $1 FOR UPDATE",
+      [req.user.userId],
+    );
+    const merged = mergeConnections(current.rows[0]?.connections, connections);
+    await client.query(
       `INSERT INTO guided_setup_progress (user_id, current_step, connections)
        VALUES ($1, $2, $3::jsonb)
        ON CONFLICT (user_id) DO UPDATE
          SET current_step = EXCLUDED.current_step,
              connections  = EXCLUDED.connections,
              updated_at   = NOW()`,
-      [req.user.userId, currentStep, JSON.stringify(sanitized)],
+      [req.user.userId, currentStep, JSON.stringify(merged)],
     );
-    return res.json({ currentStep, connections: sanitized });
+    await client.query("COMMIT");
+    return res.json({ currentStep, connections: merged });
   } catch (err) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
     console.error("guidedSetup saveProgress error:", err);
     return res.status(500).json({ error: "Failed to save your setup progress" });
+  } finally {
+    if (client) client.release();
   }
 }
 
@@ -416,6 +490,7 @@ module.exports = {
   GUIDED_STEPS,
   CONNECTION_KEYS,
   sanitizeConnections,
+  mergeConnections,
   // Prompt 024: the onboarding status projection reuses the SAME live probes
   // the wizard checklist uses — one source of connection truth.
   probeFacebook,

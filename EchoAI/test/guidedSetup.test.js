@@ -25,9 +25,17 @@ const controller = require("../controllers/guidedSetupController");
 const { validateSetupHelpAnalysis } = promptModule;
 
 const realQuery = db.query;
+const realGetClient = db.getClient;
+const RECOVERY = Object.freeze({
+  clobbered: true,
+  at: "2026-08-21T12:00:00.000Z",
+  ref: "pm8b-11111111-1111-4111-8111-111111111111",
+  note: "historical_connections_state_irrecoverable",
+});
 
 beforeEach(() => {
   db.query = realQuery;
+  db.getClient = realGetClient;
   analyzeImpl = async () => {
     throw new Error("analyzeSetupHelpScreenshot not stubbed");
   };
@@ -56,6 +64,25 @@ function mockRes() {
 }
 
 const req = (body) => ({ user: { userId: "u1" }, body });
+
+function installProgressClient(initialConnections) {
+  const calls = [];
+  let stored = initialConnections;
+  db.getClient = async () => ({
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      if (/SELECT connections FROM guided_setup_progress/.test(sql)) {
+        return { rows: stored === undefined ? [] : [{ connections: stored }] };
+      }
+      if (/INSERT INTO guided_setup_progress/.test(sql)) {
+        stored = JSON.parse(params[2]);
+      }
+      return { rows: [] };
+    },
+    release: () => {},
+  });
+  return { calls, stored: () => stored };
+}
 
 // --- validateSetupHelpAnalysis ------------------------------------------------
 
@@ -110,13 +137,26 @@ test("sanitizeConnections tolerates junk input", () => {
   assert.deepStrictEqual(controller.sanitizeConnections("nope"), {});
 });
 
+test("sanitizeConnections admits only the bounded PM8b recovery marker", () => {
+  const out = controller.sanitizeConnections({
+    _recovery: { ...RECOVERY, token: "never-store", arbitrary: true },
+    arbitrary: { accepted: true },
+  });
+  assert.deepStrictEqual(out, { _recovery: RECOVERY });
+  assert.deepStrictEqual(
+    controller.sanitizeConnections({
+      _recovery: { ...RECOVERY, clobbered: false, ref: "attacker-value" },
+    }),
+    {},
+  );
+});
+
 // --- saveProgress ----------------------------------------------------------------
 
 test("saveProgress rejects an unknown step with 400 and never hits the DB", async () => {
   let called = 0;
-  db.query = async () => {
+  db.getClient = async () => {
     called += 1;
-    return { rows: [] };
   };
   const res = mockRes();
   await controller.saveProgress(req({ currentStep: "hack", connections: {} }), res);
@@ -125,11 +165,7 @@ test("saveProgress rejects an unknown step with 400 and never hits the DB", asyn
 });
 
 test("saveProgress upserts the sanitized payload", async () => {
-  const calls = [];
-  db.query = async (sql, params) => {
-    calls.push({ sql, params });
-    return { rows: [] };
-  };
+  const dbState = installProgressClient(undefined);
   const res = mockRes();
   await controller.saveProgress(
     req({
@@ -139,11 +175,95 @@ test("saveProgress upserts the sanitized payload", async () => {
     res,
   );
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(calls.length, 1);
-  assert.match(calls[0].sql, /ON CONFLICT \(user_id\)/);
-  assert.strictEqual(calls[0].params[1], "connections");
-  assert.deepStrictEqual(JSON.parse(calls[0].params[2]), { facebook: { connecting: true } });
+  const insert = dbState.calls.find(({ sql }) => /INSERT INTO guided_setup_progress/.test(sql));
+  assert.match(insert.sql, /ON CONFLICT \(user_id\)/);
+  assert.strictEqual(insert.params[1], "connections");
+  assert.deepStrictEqual(JSON.parse(insert.params[2]), { facebook: { connecting: true } });
   assert.deepStrictEqual(res.body.connections, { facebook: { connecting: true } });
+});
+
+test("saveProgress preserves every omitted durable family through the real writer path", async () => {
+  const seed = {
+    facebook: { skipped: true, errorKey: "denied" },
+    google: { skipped: true },
+    email: { skipped: true },
+    firstwin: { choice: "lead", done: true, skipped: false },
+    parked: { parked: true, at: "2026-08-20T10:00:00.000Z" },
+    _recovery: RECOVERY,
+  };
+  const dbState = installProgressClient(seed);
+  const res = mockRes();
+  await controller.saveProgress(
+    req({ currentStep: "connections", connections: { google: { connecting: false } } }),
+    res,
+  );
+  assert.deepStrictEqual(res.body.connections, {
+    ...seed,
+    google: { skipped: true, connecting: false },
+  });
+  assert.deepStrictEqual(dbState.stored(), res.body.connections);
+});
+
+test("saveProgress preserves explicit provider clears and OAuth transient cleanup", async () => {
+  let dbState = installProgressClient({
+    facebook: { skipped: true, connecting: true, errorKey: "denied" },
+  });
+  let res = mockRes();
+  await controller.saveProgress(
+    req({
+      currentStep: "connections",
+      connections: { facebook: { skipped: false, connecting: false, errorKey: null } },
+    }),
+    res,
+  );
+  assert.deepStrictEqual(res.body.connections.facebook, {
+    skipped: false,
+    connecting: false,
+  });
+
+  dbState = installProgressClient({
+    facebook: { skipped: true, connecting: true, errorKey: "denied" },
+  });
+  res = mockRes();
+  await controller.saveProgress(
+    req({ currentStep: "connections", connections: { facebook: { skipped: false } } }),
+    res,
+  );
+  assert.deepStrictEqual(dbState.stored().facebook, { skipped: false });
+});
+
+test("saveProgress honors full intent while keeping the first recovery marker immutable", async () => {
+  const dbState = installProgressClient({
+    facebook: { skipped: true, connecting: true, errorKey: "old" },
+    firstwin: { choice: "lead", done: true, skipped: false },
+    parked: { parked: true, at: "2026-08-20T10:00:00.000Z" },
+    _recovery: RECOVERY,
+  });
+  const replacementMarker = {
+    ...RECOVERY,
+    at: "2026-08-22T12:00:00.000Z",
+    ref: "pm8b-22222222-2222-4222-8222-222222222222",
+  };
+  const res = mockRes();
+  await controller.saveProgress(
+    req({
+      currentStep: "team",
+      connections: {
+        facebook: { skipped: false, connecting: false, errorKey: null },
+        firstwin: { choice: "post", done: true, skipped: false },
+        parked: { parked: false, at: "2026-08-21T12:00:00.000Z" },
+        _recovery: replacementMarker,
+      },
+    }),
+    res,
+  );
+  assert.deepStrictEqual(res.body.connections, {
+    facebook: { skipped: false, connecting: false },
+    firstwin: { choice: "post", done: true, skipped: false },
+    parked: { parked: false, at: "2026-08-21T12:00:00.000Z" },
+    _recovery: RECOVERY,
+  });
+  assert.deepStrictEqual(dbState.stored(), res.body.connections);
 });
 
 // --- getState ---------------------------------------------------------------------
@@ -155,7 +275,11 @@ test("getState reports probe failures as unknown, never fabricated", async () =>
         rows: [
           {
             current_step: "connections",
-            connections: { facebook: { skipped: true } },
+            connections: {
+              facebook: { skipped: true },
+              junk: { persisted: true },
+              _recovery: { ...RECOVERY, clobbered: false },
+            },
             updated_at: "2026-07-11",
           },
         ],
@@ -173,6 +297,7 @@ test("getState reports probe failures as unknown, never fabricated", async () =>
   assert.strictEqual(res.body.connectionStatus.google, "connected");
   assert.deepStrictEqual(res.body.setupSession, { status: "unknown" });
   assert.strictEqual(res.body.progress.currentStep, "connections");
+  assert.deepStrictEqual(res.body.progress.connections, { facebook: { skipped: true } });
 });
 
 test("getState returns null progress for a brand-new user", async () => {

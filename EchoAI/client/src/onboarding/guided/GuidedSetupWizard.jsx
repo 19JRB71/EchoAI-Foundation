@@ -97,6 +97,30 @@ export function shouldRecoverSocialPageHandoff(savedStep, session) {
   return nextUnresolved?.key === "connect_social";
 }
 
+const RECOVERY_NOTE = "historical_connections_state_irrecoverable";
+
+function createConnectionsRecoveryMarker() {
+  const correlation =
+    globalThis.crypto?.randomUUID?.() || `local-${Date.now().toString(36)}`;
+  return {
+    clobbered: true,
+    at: new Date().toISOString(),
+    ref: `pm8b-${correlation}`,
+    note: RECOVERY_NOTE,
+  };
+}
+
+function isConnectionsRecoveryMarker(value) {
+  return (
+    value?.clobbered === true &&
+    typeof value.at === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value.at) &&
+    typeof value.ref === "string" &&
+    /^pm8b-[a-z0-9-]{6,80}$/i.test(value.ref) &&
+    value.note === RECOVERY_NOTE
+  );
+}
+
 // CEO-approved warm success lines, spoken and shown when an OAuth connection
 // lands — Echo reports it like an executive assistant, not system software.
 const CONNECTION_SUCCESS_LINE = {
@@ -218,10 +242,13 @@ export default function GuidedSetupWizard({ onComplete }) {
         try {
           const latest = await api.getSetupLatest();
           if (active && shouldRecoverSocialPageHandoff(savedStep, latest?.session)) {
-            setFlags(nextFlags);
+            const recoveredFlags = isConnectionsRecoveryMarker(nextFlags._recovery)
+              ? nextFlags
+              : { ...nextFlags, _recovery: createConnectionsRecoveryMarker() };
+            setFlags(recoveredFlags);
             setSetupExitDestination({ section: "social", tab: "accounts" });
             setStep("profile");
-            persist("profile", nextFlags);
+            persist("profile", recoveredFlags);
             setLoading(false);
             return;
           }
