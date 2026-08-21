@@ -1,0 +1,30 @@
+PROMPT FOR REPLIT — GET THE FINAL PAGE-PICKER EVIDENCE
+
+Copy and paste this into Replit:
+
+SDS-H1 — PAGE-PICKER CHECKPOINT FINAL EVIDENCE REPORT
+
+The Page-picker test is finished. Do not perform any further owner action and do not interact with the green posting-schedule panel.
+
+I need you to give me the final evidence/report for the Page-picker checkpoint we just completed, so I can return it to ChatGPT and Claude for review before we authorize anything else.
+
+Please perform read-only verification only using evidence already available or safe read-only staging/database inspection. Do not click anything in the wizard.
+
+Report:
+
+Whether the PM8/PM8b recovery completed correctly, including the _recovery marker and truthful guided-setup pointer.
+Whether South Dixie Storage was explicitly selected by the owner and then separately confirmed with “Use this Page.”
+Whether exactly one Store-2 social_accounts posting-page binding now exists and identify the selected Page from the stored evidence.
+Confirm that selection alone caused no write and that the Store-2 write occurred only after the explicit Use this Page confirmation.
+Confirm Store 3/ad-destination state was unchanged.
+Confirm the deferred Facebook campaign/partial Meta chain remained unchanged.
+Confirm there was no second ad launch, no Meta ads mutation, and no unintended provider action.
+Confirm the PM8b partial-write protection preserved _recovery and any unrelated durable Guided Setup state through the subsequent normal write.
+State whether the C1/R15 Page-picker live checkpoint is now PASS/CLOSED, or identify any remaining defect that prevents that conclusion.
+Explain exactly what the green posting-schedule panel represents and confirm that neither button has been clicked and nothing has been scheduled or sent.
+
+HARD STOP after the report.
+
+Do not click either posting-schedule button. Do not schedule or publish anything. Do not Retry, Skip, reconnect, launch, clean up, or mutate any Meta ads object. Do not start another test or corrective.
+
+Return the complete evidence report to me and stop so I can paste it into ChatGPT for the next ruling.
