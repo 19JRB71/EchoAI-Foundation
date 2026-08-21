@@ -1,0 +1,162 @@
+026-C3-PM8b — FINAL MERGE + CONTROLLED LIVE VERIFICATION AUTHORIZATION
+
+Claude has issued Decision A — MERGE APPROVED, pinned to PR #62 head:
+
+e5321fd1e1bce6eadb46f17fd484b84eeab22a2d
+
+Authorization is staging only. Production remains untouched.
+
+1. CLOSE THE ONE CITATION-ONLY ITEM BEFORE MERGE
+
+Add a factual D-32 deletion statement to the PR record covering the −27 hand-edited deletions:
+
+guidedSetupController.js: −11
+guidedSetup.test.js: −12
+GuidedSetupWizard.jsx: −2
+GuidedSetupWizard.pm8.test.jsx: −2
+
+For each deleted region:
+
+classify it as refactor/replacement or otherwise state exactly what was removed;
+explicitly affirm whether any test, assertion, safety contract, or coverage was deleted or weakened;
+explain the focused-test partition discrepancy: the work narrative anticipated 42 for the PM5/PM6/guided set, while final reporting shows 35/35 plus 18/18 PM8b and 55/55 guarded.
+
+The full-suite totals remain authoritative:
+
+Server: 1510/1510
+Client: 509/509
+
+If this review reveals that a test/assertion/safety contract actually was deleted or weakened, STOP before merge and report it.
+
+Otherwise append the disclosure to the existing PR record. No code change/new head is required solely for this citation.
+
+2. RE-PIN IMMEDIATELY BEFORE MERGE
+
+Confirm PR #62 is still open and its exact head remains:
+
+e5321fd1e1bce6eadb46f17fd484b84eeab22a2d
+
+If the head changed: STOP.
+
+If unchanged and the D-32 citation passes, merge that exact head to staging only.
+
+Record the resulting merge SHA.
+
+3. DEPLOYMENT VERIFICATION — BEFORE TOUCHING SDS-H1
+
+Wait for Railway to successfully deploy the exact merge SHA.
+
+Then verify:
+
+/api/health reports the exact merge SHA;
+schema_migrations remains 148;
+served service worker is v183;
+served JS bundle is index-5WnMT_QM.js;
+production was not changed.
+
+Any mismatch = HARD STOP.
+
+Do not open or refresh the SDS-H1 specimen until all deployment checks pass.
+
+4. SDS-H1 RECOVERY — ONE OWNER ACTION AT A TIME
+
+Once deployment verification passes, tell me explicitly that it is safe for the owner to perform one refresh/reopen of the same frozen SDS-H1 specimen.
+
+Do not perform that owner action for me.
+
+After I refresh/reopen, perform read-only verification before instructing me to click anything else.
+
+Expected truth:
+
+stale First Win projection heals;
+inline Facebook Page picker appears instead of First Win;
+_recovery is written exactly once with the bounded recovery marker;
+no historical owner-intent fields are fabricated;
+current_step is truthful;
+deferred Facebook campaign outcome remains unchanged;
+existing Campaign and Ad Set IDs remain unchanged;
+no Meta/provider call or campaign mutation occurs.
+
+If any of those fail: HARD STOP.
+
+5. PAGE SELECTION — OWNER ACTION #2
+
+Once the recovery checkpoint passes, instruct me to select South Dixie Storage only.
+
+Do not click Use this Page for me.
+
+Immediately after my selection, verify read-only:
+
+selection alone wrote zero social_accounts rows;
+no provider call occurred;
+no campaign/Meta mutation occurred;
+Store 3 remains unchanged.
+
+If selection itself causes a write: HARD STOP.
+
+6. USE THIS PAGE — OWNER ACTION #3
+
+Only after the selection-only checkpoint passes, tell me it is safe to click:
+
+Use this Page
+
+Do not click it for me.
+
+After my click, verify read-only:
+
+exactly one social_accounts Store-2 binding exists for South Dixie Storage;
+no duplicate Store-2 row;
+Store 3 unchanged;
+deferred campaign outcome and preserved Meta partial chain byte-unchanged;
+zero Meta/provider calls caused by the binding;
+guided pointer remains truthful.
+
+This is the C1/R15 live checkpoint.
+
+7. PARTIAL-WRITE SAFETY LIVE PROOF
+
+When the next normal Guided Setup write occurs naturally in the authorized journey, verify that it preserves:
+
+_recovery;
+all unrelated durable connection state;
+existing owner-intent state.
+
+Do not manufacture an action merely to create this proof.
+
+8. CONTINUATION
+
+After the Store-2 checkpoint passes, continue Decision-D SDS-H1 only, toward social_schedule and the C1 activation-gate checkpoint.
+
+Preserve the standing one-owner-action-at-a-time discipline.
+
+Next HARD STOP remains:
+
+SDS-H1 journey completion, or
+the next blocking defect.
+ABSOLUTELY NOT AUTHORIZED
+
+No Retry.
+
+No second Facebook ad launch.
+
+No Meta ads create/edit/activate/pause/delete operation.
+
+No automatic Page selection.
+
+No automatic Page binding.
+
+No I-64 work.
+
+No Prompt 031.
+
+No BLACOR-H1.
+
+No H2.
+
+No Prompt 027.
+
+No production changes.
+
+If anything unexpected occurs, STOP before attempting to repair it and report the observed evidence.
+
+Begin with the D-32 citation-only reconciliation and exact-head pin check. Do not merge until those pass.
