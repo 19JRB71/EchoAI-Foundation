@@ -481,3 +481,10 @@ uri = "file://attached_assets/sds-h1-pm7-staging-panel.png"
 type = "image"
 title = "SDS-H1 PM7 staging verification"
 description = "Guarded read-only capture of the frozen Facebook campaign failure panel after PR #61 deployed to staging."
+
+[[outputs]]
+id = "DdcId9zVdPED8r-vg1Iiq"
+uri = "file://026-C3-PM10-STAGE-NOTE.md"
+type = "text"
+title = "026-C3-PM10 Stage Note"
+description = "Read-only Stage-note for Claude Stage-1 ruling. Records the I-69 crash diagnosis, terminal session evidence, binding hard stop, completion-writer conflict, conditional design, R1-R17 matrix, and frozen-specimen confirmation."

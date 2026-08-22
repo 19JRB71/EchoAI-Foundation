@@ -1,0 +1,274 @@
+026-C3-PM10 — STAGE-NOTE AUTHORIZATION ONLY
+
+Claude has ruled the SDS-H1 completion-handoff failure a GENUINE BLOCKING DEFECT, designated 026-C3-PM10.
+
+This prompt authorizes investigation and Stage-note preparation ONLY.
+
+DO NOT IMPLEMENT ANY FIX.
+
+The SDS-H1 specimen remains frozen.
+
+Do not click either business option.
+Do not start or resume a Setup Agent session.
+Do not modify staging data.
+Do not perform a DB/API repair.
+Do not schedule or publish anything.
+Do not invoke Facebook/Meta/provider actions.
+
+AUTHORITATIVE DEFECT
+
+The existing SDS-H1 Setup Agent session is durably completed, but the Guided Setup/account onboarding projection remains incomplete because the client crashed before the wrapper committed its completion handoff.
+
+On reload, because there is no OPEN Setup Agent session, the shell falls back to the existing-business chooser.
+
+Selecting South Dixie Storage would start a fresh Setup Agent session, potentially rerunning already-completed journey actions.
+
+That path is forbidden.
+
+Claude's governing class rule is:
+
+“A journey's terminal state transition must be CONVERGENT FROM DURABLE TRUTH — never solely dependent on a transient client surviving to perform a handoff.”
+
+PM10 AUTHORITY MODEL
+
+The completed Setup Agent session is authoritative.
+
+Convergence is permitted only if ALL of the following are proven:
+
+The latest completed Setup Agent session is bound to the current user + brand + this onboarding journey.
+That binding is proven from actual persisted contracts, not inferred.
+Session status is completed.
+Every step outcome is terminal under the project's six-way taxonomy.
+A failed outcome subsequently carrying journey_disposition: deferred counts as terminal.
+The onboarding-completion projection is currently false.
+
+If a completed session contains any non-terminal outcome:
+
+FAIL CLOSED.
+
+No convergence.
+No fresh session.
+Surface/report the anomaly.
+
+STAGE-NOTE DELIVERABLES
+A. I-69 CLIENT-CRASH DIAGNOSIS
+
+Perform a read-only diagnosis of the client crash that interrupted the completion handoff.
+
+Use available logs, console evidence, source paths, timestamps and previously captured evidence.
+
+Determine if possible:
+
+exact exception/error;
+component/function involved;
+triggering state;
+whether reproducible from evidence without touching the specimen;
+whether the crash occurred before or after authoritative Setup Agent completion;
+whether it affected any durable state besides preventing the wrapper completion transition.
+
+Do not fix I-69 during this Stage-note.
+
+If evidence shows the Setup Agent session itself is not truly completed, HARD STOP immediately.
+
+B. SESSION ↔ JOURNEY BINDING PROOF
+
+Prove exactly how the completed Setup Agent session binds to:
+
+current user/tenant;
+South Dixie Storage brand;
+this Guided Setup/onboarding journey.
+
+Cite exact schema fields, server contracts and source locations.
+
+No heuristic matching by display name.
+
+If the binding cannot be proven, STOP.
+
+C. TERMINAL-OUTCOMES TABLE
+
+Produce a table of every planned Setup Agent step for this completed SDS-H1 session containing:
+
+step key;
+durable status;
+relevant outcome code;
+journey disposition where applicable;
+terminal/non-terminal classification;
+evidence source.
+
+Explicitly demonstrate that the deferred Meta campaign failure is terminal because its durable outcome carries the authorized deferred journey disposition.
+
+Any unexplained non-terminal step = STOP.
+
+D. EXISTING COMPLETION WRITER
+
+Locate and cite the existing writer that currently performs the legitimate onboarding-completion transition.
+
+PM10 MUST reuse that writer/semantic operation.
+
+No second writer of onboarding-completion state may be created.
+
+Identify:
+
+controller/service/function;
+fields it changes;
+transaction behavior;
+current caller;
+whether it already supports idempotency/concurrency.
+
+The PM10 convergence operation may touch completion state only.
+
+It must never alter:
+
+connections;
+_recovery;
+firstwin;
+parked;
+errorKey;
+social drafts/calendar;
+social account bindings;
+campaign/Meta state.
+E. SERVER CONVERGENCE DESIGN
+
+Stage the narrow design for an explicit server-side idempotent convergence WRITE operation.
+
+Guided Setup bootstrap may invoke it whenever account truth remains incomplete.
+
+Server evaluates the authoritative predicate.
+
+If satisfied:
+
+completed durable journey → existing completion writer → completion projection converges.
+
+Requirements:
+
+explicit write endpoint/operation, not a GET side effect;
+transactionally safe;
+exactly-once completion semantics;
+two concurrent bootstraps produce one completion transition;
+retries/remounts become no-ops after convergence;
+no new Setup Agent session;
+no action replay.
+F. SERVER FRESH-SESSION GUARD
+
+Independently design the second protection at the Setup Agent session-start endpoint itself.
+
+A direct request must not mint a fresh Setup Agent session when authoritative evidence proves that onboarding journey already completed.
+
+This protection must survive:
+
+stale client;
+second device;
+old browser tab;
+future Guided Setup routing bug;
+direct endpoint invocation.
+
+Document the proposed fail-closed response semantics.
+
+Do not implement yet.
+
+G. CLIENT BOOTSTRAP
+
+Identify the smallest Guided Setup bootstrap/chooser change required so that:
+
+onboarding projection incomplete + authoritative completed journey
+
+causes convergence before the shell offers a fresh-session path.
+
+The existing-business chooser remains unchanged for legitimate cases with no completed journey.
+
+H. REQUIRED R1–R17 TEST PLAN
+
+Reconcile Claude's required regressions, including:
+
+completed session + onboarding incomplete converges;
+no new session;
+no setup-action reruns;
+completed session unchanged;
+refresh/remount idempotent;
+legitimate new/existing-business behavior preserved;
+incomplete/open sessions resume normally;
+completed session with non-terminal outcome fails closed;
+dashboard unlock only after truthful convergence;
+_recovery preserved;
+social drafts unchanged;
+deferred Meta campaign unchanged;
+direct server session-start request refuses fresh session after completed journey;
+concurrent convergence performs exactly one completion write;
+failed-then-deferred Meta outcome counts terminal;
+convergence modifies completion state only.
+
+Real-endpoint tests are required for the cross-boundary contracts specified by Claude.
+
+I. EXACT PROPOSED FILE SURFACE
+
+Maximum production surface:
+
+Server — TWO files maximum
+
+Guided Setup state/bootstrap controller, expected guidedSetupController.js;
+Setup Agent session-start controller, expected setupAgentController.js.
+
+Client
+
+existing Guided Setup bootstrap/chooser surface only, expected GuidedSetupWizard.jsx and/or its existing bootstrap module.
+
+Tests as required.
+
+Zero DDL.
+
+Migration count must remain 148.
+
+Any third production server file = STOP.
+
+Any new completion-state writer = STOP.
+
+J. DIFF BOUND
+
+Proposed PM10 implementation:
+
++300 hand-edited padded bound
+
+HARD STOP: 375 touched hand-edited lines
+
+Adds + deletes count toward touched lines.
+
+SW/dist mechanical output excluded from this bound but must later be enumerated.
+
+Do not begin implementation under this prompt.
+
+REQUIRED STAGE-NOTE RESPONSE
+
+Return:
+
+I-69 crash diagnosis;
+session↔journey binding proof;
+terminal-outcomes evidence table;
+existing completion-writer citation;
+proposed convergence architecture;
+proposed server fresh-session guard;
+proposed client bootstrap change;
+R1–R17 test matrix;
+exact proposed file surface;
+expected diff accounting;
+risks/anomalies;
+explicit confirmation that the SDS-H1 specimen was untouched.
+
+DO NOT IMPLEMENT.
+
+Return the Stage-note to the owner + ChatGPT for Claude Stage-1 architectural ruling.
+
+HARD STOPS
+
+Stop immediately for:
+
+third server production file;
+new completion-state writer;
+convergence touching non-completion state;
+any DDL;
+unprovable session↔journey binding;
+evidence the Setup Agent session is not truly completed;
+need to touch the SDS-H1 specimen;
+need for provider/Meta interaction;
+scope exceeding the ruled surface.
+
+No business-option click. No fresh session. No implementation. No merge. No deploy. No production. STOP after the Stage-note.
