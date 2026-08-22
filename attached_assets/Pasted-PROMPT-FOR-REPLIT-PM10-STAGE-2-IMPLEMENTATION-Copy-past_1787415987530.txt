@@ -1,0 +1,383 @@
+PROMPT FOR REPLIT — PM10 STAGE-2 IMPLEMENTATION
+
+Copy/paste this entire prompt into Replit:
+
+026-C3-PM10 — STAGE-2 IMPLEMENTATION AUTHORIZATION
+
+Claude has issued the final 026-C3-PM10 Stage-1 Architectural Ruling.
+
+Stage-2 implementation is NOW AUTHORIZED, staging only, under the exact architecture and STOP conditions below.
+
+The SDS-H1 specimen remains FROZEN throughout implementation and pre-merge review.
+
+DO NOT click either business option.
+DO NOT start a fresh Setup Agent session.
+DO NOT touch the live specimen.
+DO NOT merge or deploy.
+
+Your job is:
+
+implement → test → audit → open/update PR → STOP for Claude/ChatGPT pre-merge review.
+
+1. MANDATORY PRE-IMPLEMENTATION CITATION — SESSION CREATION PATHS
+
+Before changing code, enumerate EVERY code path at the pinned head that creates a setup_sessions row.
+
+This is load-bearing.
+
+Prove whether every creation path is onboarding-hosted.
+
+If ANY non-onboarding creation path exists: HARD STOP. DO NOT IMPLEMENT.
+
+Also cite the persisted:
+
+session user FK;
+session brand_id FK.
+
+For the frozen SDS-H1 specimen, perform a read-only cardinality query proving exactly:
+
+ONE completed Setup Agent session for the current user + South Dixie Storage brand.
+
+If cardinality is zero or greater than one:
+
+HARD STOP.
+
+Do not infer identity from display name, timestamps, proximity, or “most likely.”
+
+2. AUTHORIZED AUTHORITY CONTRACT
+
+PM10 convergence may occur only when ALL are true:
+
+persisted session user FK matches current user;
+persisted session brand_id matches current brand;
+the creation-path enumeration proves Setup Agent sessions are currently onboarding-hosted only;
+exactly ONE completed Setup Agent session exists for user+brand;
+session status is completed;
+every planned step outcome is terminal under the six-way taxonomy;
+a failed outcome with authorized journey_disposition: deferred counts as terminal;
+onboarding completion projection remains false.
+
+Zero or >1 matching completed sessions:
+
+NO convergence. NO fresh session. Fail closed and surface truthful state.
+
+Do NOT add origin/journey tagging in PM10.
+
+Do NOT retro-tag the existing specimen.
+
+I-71 records that future second session-creation paths must add origin/journey tagging and update this predicate.
+
+3. COMPLETION WRITER — ONE MUTATION SITE ONLY
+
+Locate the existing legitimate onboarding-completion mutation in authController.js.
+
+There must still be ONE completion writer after PM10.
+
+If the mutation is inline:
+
+extract it into a callable function;
+keep it in authController.js or an already-existing appropriate service;
+make the original route delegate to that same function;
+preserve existing behavior byte-equivalently.
+
+If it is already importable:
+
+reuse it;
+do NOT touch authController.js unnecessarily.
+
+Do not duplicate the completion mutation anywhere.
+
+PM10 must result in:
+
+ONE completion writer → TWO callers
+
+original normal completion handoff;
+PM10 convergence.
+
+Any second mutation implementation = HARD STOP.
+
+4. GUIDED SETUP CONVERGENCE
+
+In guidedSetupController.js, implement an explicit idempotent WRITE convergence operation invoked by Guided Setup bootstrap.
+
+Do NOT create a GET side effect.
+
+It must evaluate the complete authority predicate above.
+
+On valid convergence:
+
+call the existing/extracted completion writer;
+perform the transition transactionally;
+completion flips exactly once;
+no new Setup Agent session;
+no Setup Agent action rerun;
+completed session unchanged;
+outcomes unchanged.
+
+Convergence may mutate completion state only.
+
+It must NOT modify:
+
+connections;
+_recovery;
+firstwin;
+parked;
+errorKey;
+social drafts;
+social calendar;
+social account bindings;
+campaign state;
+Meta state;
+task/action history.
+
+Repeated bootstrap/remount after convergence = no-op.
+
+Concurrent convergence attempts must result in exactly one completion transition.
+
+5. FRESH-SESSION SERVER GUARD — R13
+
+In setupAgentController.js, guard the Setup Agent start endpoint itself.
+
+A stale client, old tab, second device, shell defect, or direct endpoint request must not mint a fresh Setup Agent session when authoritative evidence proves that the onboarding journey already completed.
+
+This protection must exist server-side independently of client routing.
+
+Return a truthful fail-closed completed/already-completed response such as the ruled 409/redirect-to-completed semantics consistent with existing API conventions.
+
+No new session row.
+
+No action rerun.
+
+No provider call.
+
+6. GUIDED SETUP CLIENT BOOTSTRAP
+
+Modify only the existing Guided Setup bootstrap/chooser surface required to invoke convergence before offering a fresh-session path.
+
+Required behavior:
+
+onboarding projection incomplete + authoritative completed journey
+
+→
+
+explicit convergence WRITE
+
+→
+
+bootstrap reload/reconciliation
+
+→
+
+dashboard unlocks.
+
+The existing-business chooser must remain unchanged for legitimate cases where no completed journey exists.
+
+Do not weaken the App onboarding gate.
+
+Do not add a new navigation framework.
+
+7. I-69 — FIX THE TERMINAL CRASH
+
+Claude ACCEPTED the diagnosis:
+
+skipConnection() dereferences needsConnection.key while needsConnection is null after the server-side terminal cascade has already completed.
+
+First confirm skipConnection() lies inside the already-authorized client surface.
+
+If yes:
+
+fix I-69 inside PM10.
+
+This must be a minimal CONTROL-FLOW correction:
+
+the terminal sequence must not invoke connection-skip semantics when no connection is pending.
+
+DO NOT use try/catch to hide the null.
+
+DO NOT silently suppress the error.
+
+If skipConnection() lies outside the authorized client surface:
+
+STOP and report before touching it.
+
+8. REQUIRED REGRESSIONS — R1 THROUGH R21
+
+Preserve base PM10 R1–R17 and add Claude's R18–R21.
+
+At minimum bind:
+
+completed session + incomplete onboarding converges;
+no new Setup Agent session;
+no setup actions rerun;
+completed session unchanged;
+refresh/remount idempotent;
+legitimate new/existing-business behavior preserved;
+open/incomplete session resumes normally;
+completed session containing non-terminal outcome fails closed;
+dashboard unlocks only after truthful convergence;
+_recovery preserved;
+all 13 social drafts unchanged;
+deferred Meta campaign unchanged;
+direct session-start request refuses fresh session after completed journey;
+concurrent convergence performs exactly one completion write;
+failed-then-deferred Meta outcome counts terminal;
+convergence modifies completion state only;
+R18: original handoff through extracted writer remains byte-equivalent;
+R19: handoff and convergence use the same completion mutation site and produce identical completion state;
+R20: terminal completion sequence produces no client exception and completes handoff;
+R21: zero OR more-than-one completed session for user+brand → no convergence, no fresh session, truthful fail-closed state.
+
+Real-endpoint tests are required for:
+
+R13, R14, R18, R19 and R21.
+
+Apply the Mock-Fidelity rule. Do not hand-build impossible response envelopes.
+
+9. AUTHORIZED PRODUCTION SURFACE
+
+Server production maximum:
+
+authController.js
+
+ONLY extraction/reuse of existing completion mutation.
+
+If already importable, leave untouched.
+
+guidedSetupController.js
+
+ONLY PM10 convergence operation/predicate.
+
+setupAgentController.js
+
+ONLY R13 fresh-session guard.
+
+ANY FOURTH SERVER PRODUCTION FILE = HARD STOP.
+
+Any edit in these files outside their named role = HARD STOP.
+
+Client production:
+
+GuidedSetupWizard.jsx and/or its existing shell/bootstrap module;
+minimal I-69 control-flow lines only if skipConnection() is within this already-authorized surface.
+
+Tests as necessary.
+
+Zero DDL.
+
+Migration count remains 148.
+
+SW:
+
+v183 → v184
+
+Generated dist mechanical.
+
+10. DIFF BOUND
+
+350 hand-edited padded
+
+HARD STOP: 440 touched hand-edited lines
+
+Adds + deletes count.
+
+Source + tests count.
+
+SW/dist mechanical excluded but must be enumerated separately.
+
+Any >25% mid-work overage or approach beyond 440:
+
+STOP before proceeding.
+
+11. REQUIRED VALIDATION
+
+Run:
+
+full server suite, baseline 1510;
+full client suite, baseline 509;
+focused PM10 tests;
+PM5–PM9 preservation suites as applicable;
+production client build;
+SW v184 source/dist verification.
+
+Report exact arithmetic:
+
+baseline + new tests = final count.
+
+No deleted/disabled/weakened tests or assertions.
+
+If anything is deleted/refactored, provide D-32 deletion accounting.
+
+12. PRE-MERGE EVIDENCE PACKAGE
+
+Before requesting merge approval, provide:
+
+pinned branch/head/base SHA;
+creation-path enumeration with immutable line anchors;
+user FK and brand FK anchors;
+frozen-specimen cardinality query and exact result;
+full 11-step terminal-outcome evidence table;
+existing completion writer location;
+extracted/importable writer anchor;
+original caller anchor;
+convergence caller anchor;
+proof there remains exactly one completion mutation site;
+convergence predicate anchor;
+transaction/concurrency/idempotency evidence;
+fresh-session guard anchor;
+I-69 crash line and corrected control flow;
+R1–R21 reconciliation;
+real-endpoint test citations;
+full-suite arithmetic;
+exact per-file hand-edited numstat + purpose;
+separate SW/dist mechanical accounting;
+D-32 deletion statement;
+migration count 148;
+architecture review;
+explicit confirmation that SDS-H1 was untouched.
+
+The pre-merge reconciliation must include the underlying Stage-note evidence that Claude did not have verbatim:
+
+writer location + lines;
+session creation-path enumeration;
+I-69 crash line;
+session user/brand FKs;
+completed-session cardinality query output.
+13. STOP BEFORE MERGE
+
+After implementation, tests, audit and PR preparation:
+
+STOP.
+
+Do NOT merge.
+
+Do NOT deploy.
+
+Do NOT reopen/refresh the SDS-H1 specimen.
+
+Do NOT click either business option.
+
+Do NOT schedule/publish.
+
+Do NOT call Facebook/Meta/provider APIs.
+
+Return the complete PM10 implementation/reconciliation report to the owner + ChatGPT for Claude pre-merge ruling.
+
+HARD STOPS
+
+Immediately stop for:
+
+any non-onboarding setup_sessions creation site;
+specimen completed-session cardinality ≠1;
+unprovable user or brand FK binding;
+fourth server production file;
+edit outside a named server-file role;
+duplicated completion mutation;
+convergence touching non-completion state;
+DDL;
+migration count change from 148;
+skipConnection() outside authorized surface if an I-69 edit is required;
+hand-edited diff >440 touched lines;
+head movement invalidating reviewed evidence;
+need to touch the frozen SDS-H1 specimen.
+
+Implement only within these boundaries, prepare the evidence package, then STOP before merge.
