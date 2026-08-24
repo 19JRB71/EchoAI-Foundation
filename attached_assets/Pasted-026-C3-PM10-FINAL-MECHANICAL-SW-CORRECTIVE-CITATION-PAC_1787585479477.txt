@@ -1,0 +1,447 @@
+026-C3-PM10 — FINAL MECHANICAL SW CORRECTIVE + CITATION PACKAGE + CONDITIONAL MERGE AUTHORIZATION
+
+Claude has issued:
+
+DECISION B — MERGE APPROVED AFTER MECHANICAL SW CORRECTIVE
+
+Current reviewed PR:
+
+PR #63
+
+Current reviewed head:
+
+298b283c8191837932abb1a42fe761469862e338
+
+Base:
+
+45ee970f76b9adb408d9f674ac2f72f5cc5f1450
+
+This prompt authorizes:
+
+ONE mechanical SW/dist corrective commit;
+the mandatory citation package C1–C4;
+conditional staging-only merge ONLY if every citation condition passes.
+
+No further implementation/source changes are authorized.
+
+SDS-H1 remains frozen until deploy checks pass.
+
+PHASE 1 — MECHANICAL SW/DIST CORRECTIVE ONLY
+
+Make exactly one mechanical corrective:
+
+client/public/sw.js
+
+echoai-shell-v183
+
+→
+
+echoai-shell-v184
+
+Then rebuild the committed client dist from the already-reviewed PM10 source tree.
+
+The mechanical commit MUST include as applicable:
+
+client/public/sw.js
+client/dist/sw.js
+regenerated hashed JS bundle
+client/dist/index.html
+any mechanical manifest/reference file changed by the build
+
+No hand-edited source/test change.
+
+No controller/client logic change.
+
+No test change.
+
+No package/lockfile change.
+
+No migration.
+
+No workflow change.
+
+If anything besides the SW version and mechanical generated output changes:
+
+HARD STOP.
+
+PHASE 2 — NEW PINNED HEAD
+
+Publish the mechanical commit to PR #63.
+
+Record the exact NEW PR head SHA.
+
+Then prove:
+
+git diff 298b283c8191837932abb1a42fe761469862e338..<POST_SW_HEAD>
+
+contains ONLY:
+
+client/public/sw.js
+mechanical committed client/dist output / manifest references
+
+No other file.
+
+If any implementation/source/test file appears:
+
+HARD STOP.
+
+Also prove the rebuilt dist comes from the exact already-reviewed PM10 source tree:
+
+reviewed source tree SHA:
+
+6e8539b371731ccf36c143dc8843bbd4aedc443e
+
+State exactly how tree/source correspondence is verified.
+
+PHASE 3 — C1: PER-FILE NUMSTAT + IMMUTABLE ANCHORS
+
+At the NEW post-SW PR head, provide exact per-file numstat for all hand-edited PM10 files plus mechanical files separately.
+
+For every hand-edited file give:
+
+path
+additions
+deletions
+purpose
+
+Then provide immutable line/blob anchors for every load-bearing claim:
+
+Completion writer
+extracted/importable single completion mutation;
+original normal-handoff caller;
+convergence caller.
+Convergence predicate
+
+Anchor every clause:
+
+onboarding flag false;
+user FK;
+brand FK;
+brand owner = user;
+non-demo;
+cardinality exactly one;
+completed status;
+all outcomes terminal;
+failed-then-deferred terminal;
+entryIntent != "new_business".
+Concurrency/idempotency
+transaction/row-lock/CAS or exact guard implementing exactly-once.
+Session-start guards
+completed-journey fresh-session refusal;
+onboarding=false + new_business 409;
+placement BEFORE session mutation/provider activity.
+Client
+conditional hiding of only “Set up a different business” during embedded incomplete onboarding;
+proof it remains available in the legitimate post-completion flow;
+I-69 corrected control-flow line(s).
+Session ordering
+completed-over-newer-stale/open ordering line.
+
+Also show convergence is invoked through an explicit mode/flag on the existing Guided Setup WRITE operation, never inferred from payload shape.
+
+Prove convergence-mode writes touch completion state only.
+
+PHASE 4 — C2: COMPLETE R1–R25 COVERAGE MAP
+
+This is LOAD-BEARING.
+
+Map EVERY R1 through R25 to:
+
+test file;
+exact test name;
+whether unit/component/integration/real-endpoint;
+what exact property it binds.
+
+Mandatory real-endpoint regressions include:
+
+R13
+R14
+R18
+R19
+R21
+R23
+R24
+R25
+
+Multi-scenario tests may bind multiple R-items, but map each R explicitly.
+
+Do not summarize with:
+
+“covered by suite.”
+
+Every R gets a named test.
+
+IF ANY MANDATED R1–R25 PROPERTY IS NOT DIRECTLY BOUND BY A TEST:
+
+HARD STOP.
+
+Do not add a test under this prompt.
+
+The PM10 hand-edited diff is already at 499/500.
+
+Return to owner/Claude for a corrective authorization.
+
+PHASE 5 — C3: FULL D-32 STATEMENT
+
+Report every test modification/deletion/refactor.
+
+Explicitly cover:
+
+A.
+
+The old pre-completion:
+
+new_business → 200
+
+expectation changed to:
+
+new_business → 409
+
+Explain that this was the I-72 defect encoded as a prior contract and is now intentionally inverted.
+
+B.
+
+The four legacy unit mocks remodeled to represent a completed owner.
+
+For EACH:
+
+test file/name;
+old context;
+new context;
+original success contract still asserted;
+why the context became necessary after the new onboarding-state read.
+C.
+
+Explicitly affirm:
+
+No other assertion/test/safety contract was deleted, disabled, merged away, or weakened.
+
+If that affirmation cannot be made:
+
+STOP.
+
+PHASE 6 — C4: NORMAL OPEN-SESSION RESUME COUNTER-CHECK
+
+Claude requires an explicit answer on R7 after the new completed-over-stale ordering.
+
+Prove:
+
+onboarding incomplete
+
+OPEN Setup Agent session exists
+
+NO completed session exists
+
+→
+
+normal open session is still selected/resumed.
+
+This must be supported by:
+
+a named binding regression, OR
+an immutable code anchor plus already-existing test that directly binds the behavior.
+
+If this behavior is not bound/proven:
+
+HARD STOP.
+
+Do not merge.
+
+PHASE 7 — FINAL ARITHMETIC / PRESERVATION
+
+Reconfirm:
+
+Server:
+
+1510 + 4 = 1514
+
+Final:
+
+1514/1514
+
+Client:
+
+509 + 3 = 512
+
+Final:
+
+512/512
+
+PM10 real-HTTP:
+
+4/4
+
+Affected client:
+
+45/45
+
+PM5–PM8 preservation server:
+
+17/17
+
+PM5–PM8 preservation client:
+
+18/18
+
+Build:
+
+PASS
+
+Migrations:
+
+148
+
+SW source:
+
+v184
+
+SW committed dist:
+
+v184
+
+New served bundle candidate:
+
+report exact generated hashed name.
+
+PHASE 8 — CONDITIONAL MERGE DECISION
+
+If and ONLY if ALL of these pass:
+
+mechanical inter-head diff clean;
+C1 complete;
+C2 R1–R25 fully bound;
+C3 D-32 clean;
+C4 normal-open-session resume holds;
+tests/arithmetic clean;
+PR head remains exact;
+
+THEN:
+
+Claude's ruling pre-authorizes merge at that exact NEW post-SW head.
+
+Re-check the PR head immediately before merge.
+
+If unchanged:
+
+merge PR #63 to STAGING ONLY with pinned-head discipline.
+
+Record:
+
+post-SW approved head;
+merge SHA;
+timestamp;
+method.
+
+Production/main untouched.
+
+Any head movement:
+
+STOP.
+
+PHASE 9 — DEPLOYMENT VERIFICATION
+
+After merge:
+
+wait for Railway staging to deploy the exact merge SHA.
+
+Before touching SDS-H1 verify:
+
+/api/health environment = staging;
+version = exact merge SHA;
+schema_migrations = 148;
+served SW = echoai-shell-v184;
+served bundle = exact NEW generated bundle;
+production untouched.
+
+Any mismatch:
+
+HARD STOP.
+
+PHASE 10 — LIVE SDS-H1 RECOVERY
+
+Only after deployment verification passes:
+
+tell the OWNER it is safe to perform ONE:
+
+refresh/reopen of the same frozen SDS-H1 specimen.
+
+Do not refresh for the owner.
+
+Do not click a business.
+
+After the owner refresh:
+
+perform READ-ONLY verification:
+
+business chooser NOT rendered;
+fresh Setup Agent session NOT created;
+setup_sessions count unchanged;
+bootstrap invoked convergence;
+onboarding completion flag flipped EXACTLY ONCE;
+completion timestamp recorded;
+dashboard unlocked;
+completed Setup Agent session byte-unchanged;
+agent_tasks count unchanged;
+all 13 social posts remain drafts;
+0 scheduled;
+0 published;
+calendar remains draft;
+social_accounts unchanged;
+Store 3 unchanged;
+deferred Meta campaign/partial chain byte-unchanged;
+_recovery preserved.
+
+Then:
+
+HARD STOP.
+
+Before proceeding further, return the journey-completion evidence for owner/ChatGPT/Claude review.
+
+Claude additionally wants a second-refresh idempotency live proof.
+
+Do not perform it automatically.
+
+After the first recovery evidence passes, tell the owner that the next single action is a second refresh.
+
+Owner performs it.
+
+Then verify:
+
+no second completion write;
+no new session;
+no replay;
+no state drift.
+
+HARD STOP again.
+
+STILL NOT AUTHORIZED
+
+No hand-edited code/test change in the SW corrective.
+
+No Retry.
+
+No Meta/provider mutation.
+
+No Replit scheduling/publishing.
+
+No business-option click.
+
+No fresh session.
+
+No DB/API repair.
+
+No I-65/I-66/I-67/I-73 implementation.
+
+No Prompt 031.
+
+No BLACOR-H1.
+
+No H2.
+
+No Prompt 027.
+
+No production change.
+
+BEGIN WITH THE MECHANICAL SW + DIST CORRECTIVE ONLY.
+
+If C2 or C4 fails, STOP BEFORE MERGE.
