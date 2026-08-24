@@ -1,0 +1,635 @@
+026-C3-PM10 — SECOND-AMENDED STAGE-2 IMPLEMENTATION AUTHORIZATION
+
+Claude has issued the SECOND AMENDED PM10 Stage-1 ruling.
+
+This ruling supersedes all prior PM10 Stage-2 prompts.
+
+TASK #143 REMAINS DISCARDED.
+
+Do not assign it.
+Do not amend it.
+Do not reuse its architecture.
+
+Create fresh implementation work only from this consolidated authorization.
+
+Authoritative implementation base:
+
+45ee970f76b9adb408d9f674ac2f72f5cc5f1450
+
+Head accounting has already been accepted by Claude:
+
+21 later workspace commits were prompt/checkpoint/image artifacts only;
+product-code commits: 0;
+unauthorized product-code commits: 0;
+unknown commits: 0.
+
+Implementation branches from the approved GitHub staging product base above.
+
+Once implementation work begins, pin the implementation head/base. Any movement invalidates review evidence.
+
+The SDS-H1 specimen remains FROZEN throughout implementation and pre-merge review.
+
+DO NOT:
+
+click either business option;
+start a Setup Agent session;
+touch the browser specimen;
+mutate staging data;
+perform DB/API repair;
+call Facebook/Meta/provider APIs;
+schedule/publish;
+merge;
+deploy;
+touch production.
+1. GOVERNING PRODUCT MODEL
+
+PM10 establishes:
+
+ONE initial onboarding journey at a time.
+
+During incomplete onboarding:
+
+new_business
+
+is NOT a legitimate second parallel journey.
+
+The current embedded:
+
+“Set up a different business”
+
+option is classified as I-72 and must be suppressed in PM10.
+
+The legitimate owner need to switch businesses mid-onboarding is now I-73, future design:
+
+explicit abandon-and-replace journey semantics.
+
+I-73 is OUT OF SCOPE.
+
+After initial onboarding completes:
+
+normal multi-business support remains available.
+
+2. CLIENT RULE — PRE-COMPLETION CHOOSER
+
+In the embedded Setup Agent while onboarding is incomplete:
+
+DO NOT render:
+
+“Set up a different business”
+
+The chooser may offer only:
+
+continuation/resume of the current onboarding business;
+the existing normal no-brand initial flow where applicable.
+
+Do not redesign the chooser.
+
+No copy campaign.
+No layout redesign.
+No new option.
+
+Hide/gate exactly the unsafe second-business option.
+
+This belongs in:
+
+SetupAgent.jsx
+
+and only within the ruled embedded/incomplete-onboarding logic.
+
+Post-completion Setup Agent must retain normal:
+
+new_business
+
+support.
+
+3. SERVER RULE — TEMPORAL PARTITION
+
+In:
+
+setupAgentController.js
+
+enforce:
+
+PRE-COMPLETION
+
+If:
+
+onboarding flag = FALSE
+
+and request:
+
+intent:"new_business"
+
+then:
+
+truthful 409;
+zero setup_sessions insert;
+zero session mutation;
+zero action rerun;
+zero provider call.
+
+This server rule is the contract of record.
+
+POST-COMPLETION
+
+If:
+
+onboarding flag = TRUE
+
+then legitimate:
+
+Settings → Setup Agent → new_business
+
+must still work normally.
+
+Do not regress multi-business support.
+
+4. PERSISTED ENTRY INTENT
+
+Re-baseline has already established:
+
+PERSISTED
+
+Durable location:
+
+setup_sessions.answers._interview.entryIntent
+
+PM10 convergence must use this field.
+
+Candidate completed session with:
+
+entryIntent = "new_business"
+
+MUST fail closed.
+
+No convergence.
+No fresh session.
+Truthful surfaced state.
+
+Do NOT retro-tag anything.
+
+Do NOT add schema.
+
+No DDL.
+
+5. FINAL CONVERGENCE PREDICATE
+
+Convergence may occur only when ALL are true:
+
+onboarding flag currently FALSE;
+persisted session user FK = current user;
+persisted session brand FK = onboarding brand;
+brand owner = user;
+brand is non-demo;
+EXACTLY ONE completed Setup Agent session exists for user+brand;
+session status = completed;
+all planned outcomes are terminal under the six-way taxonomy;
+failed + journey_disposition:"deferred" counts terminal;
+persisted:
+
+answers._interview.entryIntent != "new_business"
+
+Absent/other legitimate onboarding values may pass.
+
+new_business must fail closed.
+
+Zero or >1 completed candidate sessions:
+
+no convergence;
+no fresh session;
+truthful state.
+6. MANDATORY SPECIMEN ENTRY-INTENT CITATION
+
+Before merge, perform READ-ONLY verification of the frozen SDS-H1 completed session's actual persisted:
+
+answers._interview.entryIntent
+
+Show the value verbatim.
+
+If it is:
+
+"new_business"
+
+HARD STOP.
+
+Do NOT alter it.
+Do NOT reinterpret it.
+Do NOT repair it.
+
+Same-specimen continuation is authorized only if the predicate genuinely passes.
+
+7. ONE COMPLETION WRITER
+
+The one-writer rule remains absolute.
+
+Authorized:
+
+authController.js
+
+ONLY for extraction/reuse of the existing completion mutation.
+
+If already importable:
+
+do not touch it.
+
+If inline:
+
+extract it into a callable function while preserving original behavior.
+
+After PM10:
+
+ONE mutation site
+
+with TWO callers:
+
+normal handoff;
+convergence.
+
+Any duplicated completion mutation:
+
+HARD STOP.
+
+8. GUIDED SETUP CONVERGENCE
+
+In:
+
+guidedSetupController.js
+
+implement the explicit idempotent WRITE convergence operation.
+
+No GET side effect.
+
+Guided Setup bootstrap calls it when onboarding projection remains false.
+
+Server evaluates the full final predicate.
+
+If valid:
+
+invoke the one existing completion writer;
+completion flips exactly once;
+dashboard can unlock;
+no new Setup Agent session;
+no Setup Agent replay;
+completed session unchanged;
+outcomes unchanged.
+
+Convergence may modify COMPLETION STATE ONLY.
+
+It must not alter:
+
+connections;
+_recovery;
+firstwin;
+parked;
+errorKey;
+social drafts;
+social calendar;
+social_accounts;
+campaigns;
+Meta IDs;
+task/action history.
+
+Concurrent convergence:
+
+exactly one completion transition.
+
+Repeated mount/reload after success:
+
+no-op.
+
+9. COMPLETED-JOURNEY FRESH-SESSION GUARD
+
+Also in:
+
+setupAgentController.js
+
+preserve the previously ruled R13 protection:
+
+a stale tab, second device, shell bug, or direct session-start request must not create a fresh session when authoritative completed-journey truth requires completed/converged handling.
+
+This is independent of the new_business temporal guard.
+
+10. GUIDED SETUP CLIENT BOOTSTRAP
+
+Authorized shell surface:
+
+GuidedSetupWizard.jsx
+
+and/or its existing bootstrap module only.
+
+Required:
+
+onboarding incomplete
+
+authoritative completed Setup Agent journey
+
+→
+
+invoke convergence BEFORE chooser/start behavior
+
+→
+
+reload authoritative user state
+
+→
+
+dashboard unlocks.
+
+Do not weaken the App onboarding gate.
+
+Do not invent new navigation.
+
+11. I-69 CONTROL-FLOW FIX
+
+Claude ACCEPTED the crash diagnosis.
+
+If skipConnection() and the needsConnection.key dereference are inside the now-authorized client surface:
+
+fix I-69 inside PM10.
+
+The fix must be control-flow correct:
+
+terminal completion must not invoke connection-skip semantics when no connection is pending.
+
+NO try/catch masking.
+
+NO silent suppression.
+
+If fixing it requires a client production file outside:
+
+SetupAgent.jsx
+GuidedSetupWizard.jsx / existing bootstrap module
+
+HARD STOP.
+
+12. FINAL TEST CONTRACT — R1 THROUGH R25
+
+R1–R21 remain binding.
+
+The latest numbering supersedes earlier PM10 amendments:
+
+R22
+
+Embedded + onboarding incomplete:
+
+“Set up a different business” is NOT rendered.
+
+Component-level.
+
+R23
+
+Direct real-endpoint:
+
+onboarding=false
+
+intent=new_business
+
+→
+
+truthful 409
+
+zero new session
+zero side effects.
+R24
+
+Real-endpoint:
+
+onboarding=true
+
+NEW brand
+intent=new_business
+
+→
+
+legitimate second-business session still works.
+
+R25
+
+Real-endpoint:
+
+completed candidate session
+
+persisted entryIntent=new_business
+every other convergence clause passing
+
+→
+
+convergence REJECTS.
+
+Also bind/preserve:
+
+cardinality zero/multiple fail-closed;
+direct completed-journey fresh-session guard;
+concurrent convergence exactly once;
+failed-then-deferred Meta outcome terminal;
+original handoff behavior byte-equivalent;
+handoff + convergence same mutation writer;
+terminal completion no client exception;
+_recovery unchanged;
+13 social drafts untouched;
+deferred Meta campaign untouched.
+
+Use real-endpoint tests where already mandated.
+
+Mock-Fidelity rule remains binding.
+
+13. AUTHORIZED PRODUCTION FILE SURFACE — EXHAUSTIVE
+SERVER — MAXIMUM THREE
+
+authController.js
+
+Role:
+completion-writer extraction/reuse ONLY.
+
+guidedSetupController.js
+
+Role:
+convergence operation/predicate ONLY.
+
+setupAgentController.js
+
+Roles:
+
+completed-journey session-start guard;
+pre-completion new_business 409.
+CLIENT
+
+SetupAgent.jsx
+
+Roles:
+
+suppress pre-completion embedded new_business option;
+I-69 control-flow fix if located there.
+
+GuidedSetupWizard.jsx and/or existing bootstrap module
+
+Role:
+
+convergence bootstrap invocation;
+I-69 only if located there.
+
+api.js is NOT authorized.
+
+Any other production file:
+
+HARD STOP.
+
+14. ZERO DDL
+
+Migrations remain:
+
+148
+
+No new origin column.
+No session tagging.
+No retro-tagging.
+
+Any DDL:
+
+HARD STOP.
+
+15. DIFF BOUND
+
+PM10:
+
+400 hand-edited touched lines padded
+
+HARD STOP:
+
+500 touched
+
+Adds + deletes.
+
+Source + tests.
+
+SW/dist mechanical excluded but enumerated.
+
+If mid-work evidence indicates >500:
+
+STOP before further implementation.
+
+16. IMPLEMENTATION BASE + PINNING
+
+Implementation branch MUST begin from:
+
+45ee970f76b9adb408d9f674ac2f72f5cc5f1450
+
+Record branch and base.
+
+Pin the implementation head at PR/review.
+
+Any movement after pinning invalidates authorization.
+
+17. TEST ARITHMETIC
+
+Re-baseline full suites on the clean implementation base.
+
+Expected prior governing counts:
+
+Server: 1510
+
+Client: 509
+
+If clean-base counts differ:
+
+disclose before interpreting additions.
+
+Then report:
+
+baseline
+
+named PM10 additions
+= final.
+
+Run:
+
+full server;
+full client;
+PM10 focused;
+PM5–PM8b preservation;
+production client build;
+SW v184 in source and committed dist.
+
+No test/assertion deletion or weakening.
+
+Any deletion/refactor:
+
+D-32 accounting.
+
+18. PRE-MERGE RECONCILIATION
+
+Before merge, return the complete package:
+
+Task #143 discarded confirmation;
+branch;
+exact base SHA;
+exact PR head SHA;
+PR number/link;
+creation-path enumeration;
+persisted intent schema/write/read anchors;
+pre-completion chooser chain;
+R22 client suppression anchor;
+R23 server 409 anchor;
+R24 post-completion preservation anchor;
+specimen persisted entryIntent verbatim;
+user FK;
+brand FK;
+specimen cardinality query/result;
+terminal-outcome evidence table;
+completion writer anchor;
+original handoff caller;
+convergence caller;
+proof one mutation site;
+convergence predicate;
+transaction/concurrency proof;
+completed-journey guard;
+I-69 original crash line;
+I-69 corrected control flow;
+R1–R25 mapping;
+focused results;
+full server arithmetic/result;
+full client arithmetic/result;
+exact hand-edited per-file +/- and purpose;
+SW/dist mechanical accounting;
+D-32 deletion statement;
+migration count =148;
+build;
+architecture review;
+confirmation specimen untouched;
+confirmation zero provider activity;
+production untouched;
+deviations;
+STOP-condition review.
+
+Then:
+
+HARD STOP BEFORE MERGE.
+
+Do not merge.
+Do not deploy.
+Do not interact with SDS-H1.
+
+Return the report to owner + ChatGPT for Claude's pre-merge ruling.
+
+FINAL STOP CONDITIONS
+
+Stop for:
+
+file outside authorized production surface;
+duplicated completion mutation;
+DDL;
+specimen entryIntent = new_business;
+cardinality !=1;
+additional legitimate pre-completion new_business flow beyond cited chooser;
+chooser modifications beyond hiding the one option;
+I-69 outside authorized surface;
+hand-edited diff >500;
+movement of pinned implementation head.
+
+IMPLEMENT PM10 NOW WITHIN THESE BOUNDS.
+
+STOP BEFORE MERGE.
+
+This time Replit is authorized to implement after branching from 45ee970f because Claude expressly cleared the corrected architecture and gave the exact surface and limits.
+
+Your part right now is simple: give Replit that prompt and don't touch Zorecho. When Replit returns the PM10 pre-merge report, we send that to Claude before anything is merged.
