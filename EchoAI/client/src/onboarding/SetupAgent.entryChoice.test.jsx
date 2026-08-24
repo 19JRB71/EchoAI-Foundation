@@ -56,6 +56,15 @@ beforeEach(() => {
 });
 
 describe("SetupAgent entry choice (P035 Section H)", () => {
+  test("R22: embedded onboarding keeps continuation but suppresses the different-business option", async () => {
+    api.getBrands.mockResolvedValue([BRAND]);
+    api.probeSetupSession.mockResolvedValue({ openSession: false });
+    render(<SetupAgent embedded onClose={() => {}} />);
+    expect(await screen.findByTestId("entry-choice-continue")).toBeInTheDocument();
+    expect(screen.queryByTestId("entry-choice-new")).toBeNull();
+    expect(api.startSetupSession).not.toHaveBeenCalled();
+  });
+
   test("brand exists + no open session → the choice renders and 'different business' starts with intent new_business", async () => {
     api.getBrands.mockResolvedValue([BRAND]);
     api.probeSetupSession.mockResolvedValue({ openSession: false });

@@ -99,6 +99,25 @@ beforeEach(() => {
 });
 
 describe("GuidedSetupWizard PM8 Page-picker handoff", () => {
+  it("PM10 converges a completed journey before SetupAgent can mount, then reloads authoritative completion", async () => {
+    api.getGuidedSetupState.mockResolvedValue({
+      progress: { currentStep: "profile", connections: {} },
+      connectionStatus: {},
+      setupSession: { status: "completed" },
+    });
+    api.getOnboardingStatus.mockResolvedValue({ onboardingCompleted: true });
+    const onComplete = vi.fn();
+    render(<GuidedSetupWizard onComplete={onComplete} />);
+    await waitFor(() =>
+      expect(api.saveGuidedSetupProgress).toHaveBeenCalledWith(
+        "__converge_completed_journey__",
+        {},
+      ),
+    );
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("setup-agent")).toBeNull();
+  });
+
   it("honors social/accounts inline and never turns Choose a Page into First Win", async () => {
     render(<GuidedSetupWizard onComplete={vi.fn()} />);
     fireEvent.click(await screen.findByText(/Continue where I left off/i));

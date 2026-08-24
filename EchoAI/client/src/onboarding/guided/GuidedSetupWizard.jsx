@@ -129,6 +129,7 @@ const CONNECTION_SUCCESS_LINE = {
   google:
     "Beautiful. Google is online. Your calendar, Gmail, and scheduling tools are now available to your AI team.",
 };
+const COMPLETED_JOURNEY_CONVERGENCE = "__converge_completed_journey__";
 
 export default function GuidedSetupWizard({ onComplete }) {
   const [loading, setLoading] = useState(true);
@@ -201,6 +202,28 @@ export default function GuidedSetupWizard({ onComplete }) {
         return;
       }
       if (!active) return;
+
+      // PM10: a durable completed Setup Agent journey outranks stale Guided
+      // progress. Converge completion before any chooser/start behavior, then
+      // reload the authoritative projection before unlocking the dashboard.
+      if (state.setupSession?.status === "completed") {
+        try {
+          await api.saveGuidedSetupProgress(COMPLETED_JOURNEY_CONVERGENCE, {});
+          const refreshed = await api.getOnboardingStatus();
+          if (!active) return;
+          if (refreshed?.onboardingCompleted !== true) {
+            throw new Error("Your completed setup could not be confirmed yet.");
+          }
+          stop();
+          onComplete();
+        } catch (err) {
+          if (active) {
+            setError(err.message || "Your completed setup could not be reconciled.");
+            setLoading(false);
+          }
+        }
+        return;
+      }
 
       const savedStep = state.progress?.currentStep || "welcome";
       let nextFlags = state.progress?.connections || {};

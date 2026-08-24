@@ -2028,6 +2028,29 @@ async function resolveKnowledgeAnswer({ userId, brandId, draftId, target, answer
 // Session serialization
 // ---------------------------------------------------------------------------
 
+function isTerminalSetupJourney(session) {
+  if (!session || session.status !== "completed") return false;
+  const completed = new Set(
+    Array.isArray(session.completed_steps) ? session.completed_steps : [],
+  );
+  const outcomes =
+    session.answers &&
+    typeof session.answers === "object" &&
+    session.answers.step_outcomes &&
+    typeof session.answers.step_outcomes === "object"
+      ? session.answers.step_outcomes
+      : {};
+  return ACTIONS.every((action) => {
+    if (!completed.has(action.key)) return false;
+    const outcome = outcomes[action.key];
+    return (
+      outcome === "completed" ||
+      outcome === "skipped" ||
+      isValidOwnerDirectedDeferral(outcome)
+    );
+  });
+}
+
 function serializeSession(session) {
   const answers = session.answers || {};
   return {
@@ -2067,6 +2090,33 @@ async function initiateSession(req, res) {
   // create_brand_profile must NOT crash-recover a prior discovery brand.
   const intent = req.body && req.body.intent === "new_business" ? "new_business" : null;
   try {
+    const journey = await db.query(
+      `SELECT u.onboarding_completed,
+              (SELECT COUNT(*)::int
+                 FROM setup_sessions s
+                WHERE s.user_id = u.user_id AND s.status = 'completed') AS completed_journey_count
+         FROM users u
+        WHERE u.user_id = $1`,
+      [userId],
+    );
+    if (journey.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const onboardingCompleted = journey.rows[0].onboarding_completed === true;
+    const completedJourneyCount = Number(journey.rows[0].completed_journey_count || 0);
+    if (!onboardingCompleted && intent === "new_business") {
+      return res.status(409).json({
+        error: "Finish your initial setup before starting a different business.",
+        code: "onboarding_incomplete_new_business",
+      });
+    }
+    if (!onboardingCompleted && completedJourneyCount > 0) {
+      return res.status(409).json({
+        error: "Your completed setup journey must finish Guided Setup before another session can start.",
+        code: "setup_journey_completed",
+        completedSessionCount: completedJourneyCount,
+      });
+    }
     const existing = await db.query(
       `SELECT * FROM setup_sessions
        WHERE user_id = $1 AND status IN ('in_progress', 'paused')
@@ -3164,6 +3214,7 @@ module.exports = {
   getLatestSession,
   // Exported for the reliability test suite (tests/setupAgent.*.test.js).
   ACTIONS,
+  isTerminalSetupJourney,
   // 026-C3 (I-61): exported so the owner-action suite can bind marker-first
   // classification and the bounded template set directly.
   classifyStepError,

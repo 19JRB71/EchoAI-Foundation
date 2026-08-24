@@ -299,14 +299,12 @@ test("c1.entryChoiceWithIncompleteBrand — probe reports the resumable session;
   assert.equal(probe.status, 200);
   assert.equal(probe.body.openSession, true, "probe must report the resumable open session");
 
-  // Explicit second-business intent still works and stays unbound: it must
-  // NOT inherit the incomplete brand and must NOT have created a brand.
+  // I-72: initial onboarding cannot be abandoned for a second business.
   const brandsBefore = await brandCount(userId);
   const nb = await apiRequest(token, "POST", "/session", { intent: "new_business" });
-  assert.equal(nb.status, 200);
-  assert.notEqual(nb.body.session.sessionId, session.sessionId);
-  assert.equal(nb.body.session.brandId, null, "new_business session must start unbound");
-  assert.equal(await brandCount(userId), brandsBefore, "new_business start creates no brand");
+  assert.equal(nb.status, 409);
+  assert.equal(nb.body.code, "onboarding_incomplete_new_business");
+  assert.equal(await brandCount(userId), brandsBefore, "rejection creates no brand");
 
   // And the abandoned session is still resumable afterwards (paused, its
   // brand intact) — the incomplete brand was not deleted or rebound.
@@ -315,5 +313,5 @@ test("c1.entryChoiceWithIncompleteBrand — probe reports the resumable session;
     [session.sessionId],
   );
   assert.equal(rows[0].brand_id, incompleteBrandId);
-  assert.notEqual(rows[0].status, "dismissed");
+  assert.equal(rows[0].status, "in_progress");
 });

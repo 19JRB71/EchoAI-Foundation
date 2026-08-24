@@ -401,6 +401,56 @@ async function updateProfile(req, res) {
   }
 }
 
+async function writeOnboardingProgress({
+  userId,
+  onboardingStep,
+  onboardingCompleted,
+  query = (sql, params) => db.query(sql, params),
+}) {
+  const fields = [];
+  const values = [];
+  let idx = 1;
+
+  if (onboardingStep !== undefined) {
+    fields.push(`onboarding_step = $${idx++}`);
+    values.push(Number(onboardingStep));
+  }
+  if (onboardingCompleted !== undefined) {
+    fields.push(`onboarding_completed = $${idx++}`);
+    values.push(Boolean(onboardingCompleted));
+  }
+  values.push(userId);
+  const result = await query(
+    `WITH prev AS (
+       SELECT user_id, onboarding_completed AS was_completed
+       FROM users
+       WHERE user_id = $${idx}
+     )
+     UPDATE users u
+     SET ${fields.join(", ")}
+     FROM prev
+     WHERE u.user_id = prev.user_id
+     RETURNING u.user_id, u.onboarding_completed, u.onboarding_step, prev.was_completed`,
+    values,
+  );
+  return result.rows[0] || null;
+}
+
+function sendWelcomeEmailOnCompletion(user, userId) {
+  if (!user?.onboarding_completed || user.was_completed) return;
+  db.query("SELECT email, business_name FROM users WHERE user_id = $1", [userId])
+    .then((r) => {
+      const u = r.rows[0];
+      if (u) {
+        return emailController.sendWelcomeEmail({
+          email: u.email,
+          business_name: u.business_name,
+        });
+      }
+    })
+    .catch((err) => console.error("Welcome email failed:", err.message));
+}
+
 /**
  * PUT /profile/onboarding  (protected)
  * Persists onboarding progress so the setup wizard can resume where the user
@@ -412,66 +462,32 @@ async function updateOnboarding(req, res) {
   if (onboardingStep === undefined && onboardingCompleted === undefined) {
     return res.status(400).json({ error: "No onboarding fields provided to update" });
   }
-
-  const fields = [];
-  const values = [];
-  let idx = 1;
-
   if (onboardingStep !== undefined) {
     const stepNumber = Number(onboardingStep);
     if (!Number.isInteger(stepNumber) || stepNumber < 1) {
       return res.status(400).json({ error: "onboardingStep must be a positive integer" });
     }
-    fields.push(`onboarding_step = $${idx++}`);
-    values.push(stepNumber);
-  }
-  if (onboardingCompleted !== undefined) {
-    fields.push(`onboarding_completed = $${idx++}`);
-    values.push(Boolean(onboardingCompleted));
   }
 
   // Onboarding progress belongs to the real authenticated user, not the
   // remapped workspace owner.
   const selfId = req.user.actualUserId || req.user.userId;
-  values.push(selfId);
 
   try {
-    const result = await db.query(
-      `WITH prev AS (
-         SELECT user_id, onboarding_completed AS was_completed
-         FROM users
-         WHERE user_id = $${idx}
-       )
-       UPDATE users u
-       SET ${fields.join(", ")}
-       FROM prev
-       WHERE u.user_id = prev.user_id
-       RETURNING u.user_id, u.onboarding_completed, u.onboarding_step, prev.was_completed`,
-      values
-    );
+    const user = await writeOnboardingProgress({
+      userId: selfId,
+      onboardingStep,
+      onboardingCompleted,
+    });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-
-    const user = result.rows[0];
 
     // Fire the welcome email only on the transition into completion (false -> true),
     // so repeated "completed" updates don't resend it. Best-effort: never block
     // or fail the onboarding response on email delivery.
-    if (onboardingCompleted === true && user.onboarding_completed && !user.was_completed) {
-      db.query("SELECT email, business_name FROM users WHERE user_id = $1", [selfId])
-        .then((r) => {
-          const u = r.rows[0];
-          if (u) {
-            return emailController.sendWelcomeEmail({
-              email: u.email,
-              business_name: u.business_name,
-            });
-          }
-        })
-        .catch((err) => console.error("Welcome email failed:", err.message));
-    }
+    if (onboardingCompleted === true) sendWelcomeEmailOnCompletion(user, selfId);
 
     return res.json({
       userId: user.user_id,
@@ -554,5 +570,7 @@ module.exports = {
   getProfile,
   updateProfile,
   updateOnboarding,
+  writeOnboardingProgress,
+  sendWelcomeEmailOnCompletion,
   changePassword,
 };

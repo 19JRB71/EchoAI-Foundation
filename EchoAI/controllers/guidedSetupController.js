@@ -25,6 +25,11 @@ const { analyzeSetupHelpScreenshot } = require("../prompts/guidedSetupPrompt");
 const { oauthConfigured: googleOauthConfigured } = require("../config/google");
 const { oauthConfigured: facebookOauthConfigured } = require("./facebookOAuthController");
 const { configured: jobberConfigured } = require("../config/jobber");
+const {
+  writeOnboardingProgress,
+  sendWelcomeEmailOnCompletion,
+} = require("./authController");
+const { isTerminalSetupJourney } = require("./setupAgentController");
 
 /**
  * "No green button without a green backend": server-side readiness per
@@ -93,6 +98,7 @@ const CONNECTION_KEYS = ["facebook", "google", "email"];
 // First-win choices the client may record (Milestone 1 of the first hour).
 const FIRST_WIN_CHOICES = ["post", "ad", "email", "lead"];
 const RECOVERY_NOTE = "historical_connections_state_irrecoverable";
+const CONVERGENCE_OPERATION = "__converge_completed_journey__";
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 // --- Live connection probes (same sources of truth as utils/setupStatus.js) --
@@ -166,7 +172,7 @@ async function getState(req, res) {
       const s = await db.query(
         `SELECT session_id, status, interview_complete
            FROM setup_sessions WHERE user_id = $1
-          ORDER BY created_at DESC LIMIT 1`,
+          ORDER BY (status = 'completed') DESC, created_at DESC LIMIT 1`,
         [userId],
       );
       if (s.rows[0]) {
@@ -294,14 +300,103 @@ function mergeConnections(existingInput, incomingInput) {
   return sanitizeConnections(merged);
 }
 
-/** PUT /api/guided-setup/progress */
-async function saveProgress(req, res) {
+async function conflict(client, res, code, error, details = {}) {
+  await client.query("ROLLBACK");
+  return res.status(409).json({ error, code, ...details });
+}
+
+async function convergeCompletedJourney(req, res) {
   let client;
   try {
-    const { currentStep, connections } = req.body || {};
-    if (!GUIDED_STEPS.includes(currentStep)) {
-      return res.status(400).json({ error: "Invalid setup step" });
+    const userId = req.user.actualUserId || req.user.userId;
+    client = await db.getClient();
+    await client.query("BEGIN");
+    const lockedUser = await client.query(
+      `SELECT user_id, onboarding_completed
+         FROM users WHERE user_id = $1 FOR UPDATE`,
+      [userId],
+    );
+    if (lockedUser.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "User not found" });
     }
+    if (lockedUser.rows[0].onboarding_completed === true) {
+      await client.query("COMMIT");
+      return res.json({
+        converged: false,
+        onboardingCompleted: true,
+        reason: "already_completed",
+      });
+    }
+
+    const brands = await client.query(
+      `SELECT brand_id FROM brands
+        WHERE user_id = $1 AND is_demo IS NOT TRUE
+        ORDER BY brand_id FOR SHARE`,
+      [userId],
+    );
+    if (brands.rows.length !== 1) {
+      return conflict(client, res, "onboarding_brand_ambiguous",
+        "Guided Setup could not identify exactly one onboarding business.", { brandCount: brands.rows.length });
+    }
+    const brandId = brands.rows[0].brand_id;
+    const candidates = await client.query(
+      `SELECT * FROM setup_sessions
+        WHERE user_id = $1 AND brand_id = $2 AND status = 'completed'
+        ORDER BY completed_at, session_id
+        FOR UPDATE`,
+      [userId, brandId],
+    );
+    if (candidates.rows.length !== 1) {
+      return conflict(client, res, "setup_session_cardinality",
+        "Guided Setup requires exactly one completed setup journey.", { completedSessionCount: candidates.rows.length });
+    }
+    const session = candidates.rows[0];
+    const entryIntent = session.answers?._interview?.entryIntent ?? null;
+    if (entryIntent === "new_business") {
+      return conflict(client, res, "setup_entry_intent_new_business",
+        "A second-business setup journey cannot complete initial onboarding.");
+    }
+    if (!isTerminalSetupJourney(session)) {
+      return conflict(client, res, "setup_journey_not_terminal",
+        "The completed setup journey does not have terminal outcomes for every planned action.");
+    }
+
+    const user = await writeOnboardingProgress({
+      userId,
+      onboardingStep: 5,
+      onboardingCompleted: true,
+      query: client.query.bind(client),
+    });
+    await client.query("COMMIT");
+    sendWelcomeEmailOnCompletion(user, userId);
+    return res.json({
+      converged: true,
+      onboardingCompleted: true,
+      onboardingStep: user.onboarding_step,
+      sessionId: session.session_id,
+      brandId,
+    });
+  } catch (err) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    console.error("guidedSetup convergence error:", err);
+    return res.status(500).json({ error: "Failed to reconcile your completed setup" });
+  } finally {
+    if (client) client.release();
+  }
+}
+
+/** PUT /api/guided-setup/progress */
+async function saveProgress(req, res) {
+  const { currentStep, connections } = req.body || {};
+  if (currentStep === CONVERGENCE_OPERATION) {
+    return convergeCompletedJourney(req, res);
+  }
+  if (!GUIDED_STEPS.includes(currentStep)) {
+    return res.status(400).json({ error: "Invalid setup step" });
+  }
+  let client;
+  try {
     client = await db.getClient();
     await client.query("BEGIN");
     // Serialize even the first insert by locking the parent user row.
@@ -491,6 +586,8 @@ module.exports = {
   CONNECTION_KEYS,
   sanitizeConnections,
   mergeConnections,
+  convergeCompletedJourney,
+  CONVERGENCE_OPERATION,
   // Prompt 024: the onboarding status projection reuses the SAME live probes
   // the wizard checklist uses — one source of connection truth.
   probeFacebook,

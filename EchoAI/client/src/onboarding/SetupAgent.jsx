@@ -851,7 +851,7 @@ export default function SetupAgent({
     }
   }
 
-  async function deferFailedStep() {
+  async function continuePastFailedStep() {
     if (busy || !failedStep) return;
     setBusy(true);
     setError("");
@@ -1044,16 +1044,18 @@ export default function SetupAgent({
           >
             Continue setting up {first ? `"${first.brand_name}"` : "my business"}
           </button>
-          <button
-            onClick={() => {
-              setPhase("loading");
-              startWith("new_business");
-            }}
-            className="rounded-lg bg-white/10 px-5 py-2.5 font-semibold text-white hover:bg-white/20"
-            data-testid="entry-choice-new"
-          >
-            Set up a different business
-          </button>
+          {!embedded ? (
+            <button
+              onClick={() => {
+                setPhase("loading");
+                startWith("new_business");
+              }}
+              className="rounded-lg bg-white/10 px-5 py-2.5 font-semibold text-white hover:bg-white/20"
+              data-testid="entry-choice-new"
+            >
+              Set up a different business
+            </button>
+          ) : null}
         </div>
       </div>,
     );
@@ -1834,7 +1836,7 @@ export default function SetupAgent({
               )}
               {isDeferrableCampaignFailure(failedStep.key, failedStep.outcome) ? (
                 <button
-                  onClick={deferFailedStep}
+                  onClick={continuePastFailedStep}
                   disabled={busy}
                   className="rounded-lg px-5 py-2.5 font-semibold text-amber-200 hover:text-amber-100 disabled:opacity-50"
                   data-testid="failed-step-defer"
@@ -1843,7 +1845,7 @@ export default function SetupAgent({
                 </button>
               ) : (
                 <button
-                  onClick={skipConnection}
+                  onClick={continuePastFailedStep}
                   disabled={busy}
                   className="rounded-lg px-5 py-2.5 font-semibold text-white/60 hover:text-white/90 disabled:opacity-50"
                 >
