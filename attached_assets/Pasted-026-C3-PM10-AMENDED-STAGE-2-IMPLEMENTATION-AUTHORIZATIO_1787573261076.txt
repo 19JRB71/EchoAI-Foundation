@@ -1,0 +1,559 @@
+026-C3-PM10 — AMENDED STAGE-2 IMPLEMENTATION AUTHORIZATION
+
+Claude has issued the AMENDED PM10 Stage-1 ruling.
+
+The previous Stage-2 authorization is superseded.
+
+TASK #143 IS DISCARDED.
+
+Do not assign, amend, reuse, or execute Task #143.
+
+Create fresh implementation work only from this consolidated authorization.
+
+The SDS-H1 specimen remains FROZEN throughout implementation and pre-merge review.
+
+DO NOT:
+
+click either business option;
+start a fresh Setup Agent session;
+touch the SDS-H1 browser specimen;
+perform a DB/API repair;
+schedule/publish;
+call Facebook/Meta/provider APIs;
+merge;
+deploy;
+touch production.
+PHASE 0 — REQUIRED HEAD ACCOUNTING BEFORE ANY IMPLEMENTATION
+
+The previous evidence referenced staging head:
+
+81f4d92
+
+Current observed staging head was:
+
+fe0a3ba93d2ac54456514024128a5efe25f86d8e
+
+Before writing code:
+
+Identify the last approved PM8b staging merge SHA:
+
+45ee970f...
+
+Enumerate EVERY commit from that approved merge through the current staging head.
+
+For each commit report:
+
+full SHA;
+timestamp;
+author;
+changed files;
+concise purpose;
+classification:
+authorized product merge;
+authorized mechanical/non-product;
+prompt/task/checkpoint artifact;
+unauthorized product-code change;
+unknown.
+Any unauthorized PRODUCT-CODE commit:
+
+HARD STOP IMMEDIATELY.
+
+Do not implement PM10.
+
+If only explained/authorized or non-product movement exists, select and record the new exact pinned staging base SHA.
+From that point onward, any head movement invalidates the authorization:
+
+STOP AND REPORT.
+
+PHASE 1 — FULL PM10 RE-BASELINE ON THE NEW PINNED HEAD
+
+Re-run the entire PM10 evidence set against the newly pinned base.
+
+Do not rely on stale line numbers.
+
+A. setup_sessions creation-path enumeration
+
+Enumerate every code path that can insert into setup_sessions.
+
+We already know one legitimate endpoint supports:
+
+intent: "new_business"
+
+That is NOT itself a STOP anymore.
+
+Instead, prove the new temporal-partition contract below.
+
+B. INTENT-PERSISTENCE CITATION
+
+Determine definitively whether:
+
+intent
+
+or any equivalent session-origin field is durably persisted on setup_sessions.
+
+Provide:
+
+schema anchor;
+INSERT/write-site anchor;
+read-site anchor if applicable.
+
+Return exactly one:
+
+PERSISTED
+
+or
+
+CREATION-TIME ONLY
+
+If this cannot be established:
+
+HARD STOP.
+
+C. PRE-COMPLETION new_business CLIENT REACHABILITY
+
+Exhaustively inspect client paths.
+
+Prove whether any legitimate product flow allows:
+
+intent:"new_business"
+
+while:
+
+onboarding_completed = false
+
+Claude's amended architecture depends on there being no legitimate pre-completion second-business flow.
+
+If any legitimate pre-completion new_business client path exists:
+
+HARD STOP.
+
+D. Frozen SDS cardinality
+
+Read-only verify for the exact SDS-H1 user + brand IDs:
+
+exactly ONE completed Setup Agent session.
+
+Zero or more than one:
+
+HARD STOP.
+
+Also re-prove:
+
+session user FK;
+session brand FK;
+brand owner = user;
+brand non-demo;
+onboarding flag remains false;
+all 11 planned outcomes terminal;
+failed Meta outcome carries authorized deferred disposition.
+E. Existing completion writer
+
+Re-identify the sole legitimate onboarding-completion mutation and its exact current location/lines.
+
+The one-writer rule remains absolute.
+
+F. I-69 crash line
+
+Re-anchor the exact skipConnection() / needsConnection.key failure path at the new pinned head.
+
+PHASE 2 — AMENDED AUTHORITY MODEL
+
+The old global invariant:
+
+“all Setup Agent sessions are onboarding-only”
+
+is REJECTED.
+
+Replace it with the server-enforced TEMPORAL PARTITION.
+
+PRE-COMPLETION RULE
+
+While the requesting user's onboarding flag is FALSE:
+
+intent:"new_business"
+
+MUST be refused at the SERVER.
+
+Required behavior:
+
+truthful 409 or equivalent fail-closed response;
+no setup_sessions row;
+no brand/session mutation caused by the rejected start;
+no action rerun;
+no provider call.
+
+This is the new R22 contract.
+
+POST-COMPLETION RULE
+
+Once onboarding is TRUE:
+
+legitimate second-business creation using:
+
+intent:"new_business"
+
+must continue working normally.
+
+This is R23.
+
+Do not break Settings → second-business setup.
+
+PHASE 3 — AMENDED CONVERGENCE PREDICATE
+
+Convergence may occur only if ALL apply:
+
+onboarding flag currently FALSE;
+session user FK = current user;
+session brand FK = onboarding brand;
+brand owner = user;
+brand is non-demo;
+exactly ONE completed Setup Agent session exists for that user+brand;
+session status = completed;
+every planned outcome is terminal under the six-way taxonomy;
+failed + journey_disposition:"deferred" counts terminal;
+if intent or equivalent origin IS persisted:
+
+candidate session MUST NOT be new_business.
+
+If intent is persisted, add the conditional R24 regression.
+
+If intent is creation-time only, do NOT fabricate or retro-tag it.
+
+ZERO or >1 completed sessions:
+
+no convergence;
+no fresh session;
+truthful fail-closed state.
+PHASE 4 — COMPLETION WRITER
+
+There must remain exactly ONE completion mutation site.
+
+authController.js is authorized ONLY for extraction/reuse of that existing writer.
+
+If already importable:
+
+do not modify authController.js.
+
+If inline:
+
+extract the existing mutation into one callable function while preserving original behavior.
+
+After PM10:
+
+ONE writer → TWO callers
+
+existing normal handoff;
+PM10 convergence.
+
+Any duplicated completion mutation:
+
+HARD STOP.
+
+PHASE 5 — GUIDED SETUP CONVERGENCE
+
+In guidedSetupController.js, implement the explicit idempotent WRITE convergence operation.
+
+No GET side effect.
+
+Bootstrap calls it when onboarding projection is false.
+
+Server evaluates the amended predicate.
+
+On success:
+
+call the existing completion writer;
+completion flips exactly once;
+no new Setup Agent session;
+no Setup Agent replay;
+completed session unchanged;
+outcomes unchanged.
+
+Convergence may modify COMPLETION STATE ONLY.
+
+It must not change:
+
+connections;
+_recovery;
+firstwin;
+parked;
+errorKey;
+social drafts;
+social calendar;
+social_accounts;
+campaign rows;
+Meta IDs/state;
+task/action history.
+
+Two concurrent convergence requests must result in one completion transition.
+
+Repeated mounts afterward = no-op.
+
+PHASE 6 — setupAgentController SERVER GUARDS
+
+setupAgentController.js has TWO authorized PM10 roles:
+
+Guard A — completed-journey protection
+
+Direct session-start requests may not mint a fresh session where authoritative completed-journey truth requires convergence/already-complete handling.
+
+Guard B — temporal partition
+
+While onboarding is incomplete:
+
+reject:
+
+intent:"new_business"
+
+with truthful 409 semantics.
+
+Once onboarding is complete:
+
+preserve legitimate second-business new_business creation.
+
+No other behavior changes in this file.
+
+PHASE 7 — CLIENT BOOTSTRAP
+
+Existing Guided Setup bootstrap/chooser surface only.
+
+Required:
+
+incomplete onboarding
+
+completed authoritative Setup Agent journey
+
+→
+
+convergence BEFORE fresh-session chooser/start behavior.
+
+On successful convergence:
+
+reload authoritative account state
+→
+dashboard unlock.
+
+The business chooser remains unchanged for legitimate scenarios.
+
+Do not weaken the App onboarding gate.
+
+PHASE 8 — I-69
+
+Re-anchor and fix the established crash if skipConnection() lies in the authorized client surface.
+
+Fix must be control-flow correct:
+
+terminal completion must not invoke connection-skip semantics when needsConnection is null.
+
+No try/catch masking.
+
+No silent suppression.
+
+If the line lies outside the authorized client surface:
+
+STOP BEFORE EDITING IT.
+
+PHASE 9 — REGRESSIONS R1–R24
+
+R1–R21 remain binding.
+
+Add:
+
+R22
+
+Pre-completion:
+
+new_business
+
+direct real-endpoint request
+
+→
+
+409 truthful refusal
+→
+
+zero new session.
+
+R23
+
+Post-completion:
+
+legitimate second-business flow with a NEW brand
+
+→
+
+new_business
+
+still creates/resumes normally.
+
+Real-endpoint required.
+
+R24 — CONDITIONAL
+
+Only if intent/origin is persisted:
+
+candidate completed session bearing new_business
+
+→
+
+convergence predicate rejects it.
+
+Also preserve:
+
+cardinality fail-closed;
+direct completed-journey session-start protection;
+concurrent convergence exactly once;
+original writer behavior;
+single mutation site;
+I-69 terminal completion no crash;
+_recovery preservation;
+13 draft posts unchanged;
+deferred Meta chain unchanged.
+PHASE 10 — AUTHORIZED PRODUCTION SURFACE
+
+Maximum SERVER production files:
+
+authController.js
+existing completion writer extraction/reuse ONLY.
+guidedSetupController.js
+convergence operation/predicate ONLY.
+setupAgentController.js
+completed-journey guard + pre-completion new_business guard ONLY.
+
+FOURTH SERVER PRODUCTION FILE = HARD STOP.
+
+CLIENT:
+
+existing Guided Setup bootstrap/chooser surface only,
+plus I-69 lines if they are inside that surface.
+
+No DDL.
+
+schema_migrations stays 148.
+
+No origin-column migration.
+
+No retro-tagging.
+
+PHASE 11 — DIFF BOUNDS
+
+PM10 amended pad:
+
+380 hand-edited touched lines
+
+HARD STOP:
+
+475
+
+Adds + deletes.
+
+Source + tests.
+
+SW/dist mechanical excluded but separately enumerated.
+
+Mid-work evidence showing >475:
+
+STOP before further implementation.
+
+PHASE 12 — VALIDATION
+
+Fresh pinned-base test arithmetic from:
+
+Server baseline: 1510
+
+Client baseline: 509
+
+Re-baseline these numbers first if intervening authorized product commits legitimately changed them.
+
+Then report:
+
+baseline
+
+named PM10 tests
+= final.
+
+Run:
+
+full server;
+full client;
+R1–R24 focused PM10;
+relevant PM5–PM9 preservation;
+client production build;
+SW v184 source + committed dist.
+
+No deleted/disabled/weakened tests.
+
+D-32 daylight on any deletion/refactor.
+
+PRE-MERGE RECONCILIATION — REQUIRED RETURN
+
+Before merge, return:
+
+discarded Task #143 affirmation;
+last approved staging merge SHA;
+full commit accounting to new base;
+classification of every intervening commit;
+exact new pinned base SHA;
+confirmation no unauthorized product-code commit exists;
+re-baselined server/client counts;
+complete setup_sessions creation-path enumeration;
+pre-completion new_business client-reachability citation;
+intent-persistence verdict with schema/write anchors;
+user FK anchor;
+brand FK anchor;
+frozen SDS cardinality query + result;
+complete 11-step terminal-outcome evidence table;
+completion writer anchor;
+original writer caller;
+convergence caller;
+proof one mutation site remains;
+convergence predicate anchor;
+transaction/concurrency evidence;
+completed-journey fresh-session guard;
+pre-completion new_business guard;
+post-completion new_business preservation;
+I-69 crash anchor + fix;
+R1–R24 mapping/results;
+exact full-suite arithmetic;
+exact hand-edited per-file numstat + purpose;
+separate SW/dist accounting;
+D-32 deletion statement;
+migration count 148;
+architecture review result;
+branch/PR/head/base SHA;
+deviations;
+STOP-condition review;
+confirmation frozen SDS-H1 specimen untouched;
+confirmation no provider activity;
+confirmation production untouched.
+
+Then:
+
+HARD STOP BEFORE MERGE.
+
+Do not merge.
+Do not deploy.
+Do not interact with SDS-H1.
+
+Return the package for Claude pre-merge ruling.
+
+ABSOLUTE STOPS
+
+Stop immediately if:
+
+unauthorized product-code commit appears in head accounting;
+intent persistence cannot be determined;
+legitimate pre-completion new_business flow exists;
+frozen specimen completed-session cardinality != 1;
+user/brand FK binding is not provable;
+fourth server production file required;
+duplicated completion writer;
+convergence touches non-completion state;
+DDL/migration required;
+retro-tagging appears necessary;
+I-69 lies outside allowed client surface and requires modification;
+hand-edited PM10 diff exceeds 475 touched lines;
+pinned head moves after re-baseline.
+
+BEGIN WITH HEAD ACCOUNTING AND RE-BASELINE ONLY.
+
+Do not begin implementation until those preconditions all pass.
