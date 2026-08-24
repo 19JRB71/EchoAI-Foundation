@@ -1,0 +1,606 @@
+Give Replit this exact prompt:
+
+026-C3-PM10-T — TEST-COVERAGE CORRECTIVE AUTHORIZATION
+
+Claude has issued the governing:
+
+026-C3-PM10-T — PRE-MERGE TEST-COVERAGE CORRECTIVE RULING
+
+Current PR:
+
+#63
+
+Current approved corrective head:
+
+fe87c119f92e756445782d8f48a809b0e9889f8b
+
+Current production+existing-test PM10 diff:
+
+500 touched lines exactly by Git numstat
+
+The 500-line ceiling is inclusive and has been accepted.
+
+The SW/dist corrective is already accepted:
+
+SW source = v184
+SW dist = v184
+current generated bundle = index-pjLJQVbh.js
+
+C1 = PASS
+
+C3 = PASS
+
+C4 = PASS
+
+C2 failed only because required regression properties are not sufficiently bound.
+
+This corrective is:
+
+TESTS ONLY.
+
+ABSOLUTE PRODUCTION FREEZE
+
+NO PRODUCTION CODE MAY CHANGE.
+
+Production blobs at the reviewed head are frozen.
+
+Do not modify:
+
+controllers
+client production components
+routes
+API modules
+service worker
+dist
+schema/migrations
+package files
+lockfiles
+workflows
+configuration
+
+Any non-test file appearing in the PM10-T inter-head diff:
+
+HARD STOP.
+
+If a newly required test reveals an actual production defect:
+
+DO NOT FIX PRODUCTION.
+
+Stop and report:
+
+exact failing assertion;
+actual behavior;
+expected contract;
+production anchor involved.
+
+Return for owner/ChatGPT/Claude ruling.
+
+PM10-T must never become a stealth production corrective.
+
+CANONICAL REGRESSION TABLE
+
+Claude's PM10-T table is FINAL.
+
+Ignore all earlier numbering drift.
+
+Use ONLY this canonical mapping.
+
+Already bound and carried forward:
+
+R7
+R8 / C4
+R11
+R14
+R20
+R22
+R23
+R24
+R25
+
+Do not rewrite those tests unless strictly necessary for shared-fixture reuse.
+
+Any modification must preserve their assertions.
+
+1. R17* — MASTER SNAPSHOT REAL-HTTP TEST
+
+This is the central PM10-T test.
+
+Create a shared fixture builder under the test tree.
+
+Do not hand-build inconsistent transport/database shapes.
+
+The fixture must represent a rich completed SDS-like onboarding journey containing:
+
+completed Setup Agent session;
+all terminal outcomes;
+failed-then-deferred Meta campaign outcome;
+13 social post drafts;
+draft social calendar;
+Facebook social_accounts binding;
+Store-3 destination state;
+deferred campaign row;
+campaign provider IDs/history as applicable;
+failed external action / ledger evidence;
+relevant agent_tasks;
+_recovery marker;
+other non-completion Guided Setup durable subsections.
+
+Take a FULL before snapshot of every relevant row/table.
+
+Perform convergence through the real HTTP endpoint.
+
+Take a FULL after snapshot.
+
+Assert:
+
+ONLY onboarding completion fields change.
+
+Everything else must remain byte-equivalent.
+
+Explicitly assert:
+
+zero rows created;
+zero rows deleted;
+completed Setup Agent session row unchanged;
+session answers/outcomes unchanged;
+13 social posts unchanged;
+calendar remains draft;
+zero scheduled;
+zero published;
+social_accounts unchanged;
+Store 3 unchanged;
+deferred campaign unchanged;
+Meta IDs unchanged;
+external action/ledger unchanged;
+agent_tasks unchanged;
+_recovery unchanged;
+unrelated Guided Setup durable state unchanged.
+
+Also assert provider/action seams:
+
+AI calls = 0
+provider calls = 0
+publish calls = 0
+launch calls = 0
+
+This MASTER test binds:
+
+R3
+R4
+R12
+R13
+R17
+
+Map every one individually in the final coverage table.
+
+2. R18 — ORIGINAL HANDOFF REAL-HTTP
+
+Build a dedicated fixture for the normal pre-PM10 onboarding completion handoff path.
+
+Drive the real authController completion route.
+
+Assert:
+
+completion succeeds;
+exact completion fields match the established pre-PM10 contract;
+response contract remains unchanged;
+no unrelated state changes.
+
+This proves extraction/reuse did not alter the original handoff semantics.
+
+REAL HTTP REQUIRED.
+
+3. R19 — TWO CALLERS / ONE WRITER OUTCOME EQUIVALENCE
+
+Create two equivalent fixtures.
+
+Fixture A:
+
+complete through the ORIGINAL normal handoff.
+
+Fixture B:
+
+complete through PM10 convergence.
+
+Assert that both produce identical completion state:
+
+same completion fields and values,
+
+allowing only explicitly documented timestamp differences where unavoidable.
+
+Do not prove R19 merely by checking imports.
+
+Prove it by durable resulting state.
+
+REAL HTTP REQUIRED.
+
+4. R16 — DEFERRAL TERMINALITY MATRIX
+
+Test the REAL production terminal predicate.
+
+Matrix:
+
+Positive
+
+Exact failed-then-deferred shape:
+
+status: failed
+code: provider_manual_review
+retryable: false
+journey_disposition: deferred
+
+Expected:
+
+TERMINAL
+
+Negative near-misses
+
+A. failed without deferred disposition
+
+B. failed + retryable true
+
+C. running
+
+D. pending
+
+Expected:
+
+NON-TERMINAL
+
+Use:
+
+unit coverage against the actual production predicate;
+PLUS at least one real-HTTP non-terminal case.
+
+Real-HTTP negative must assert:
+
+no convergence;
+onboarding flag remains false;
+no new session;
+truthful failure/state code.
+
+This also strengthens R15 and R21.
+
+5. STRENGTHEN R1
+
+Existing convergence positive test must explicitly assert final onboarding state:
+
+onboarding completed = TRUE;
+final onboarding step/state is the exact expected terminal value.
+
+Do not settle for:
+
+converged:true.
+
+6. STRENGTHEN R2
+
+Snapshot Setup Agent session IDs/count before convergence.
+
+After convergence assert:
+
+same count;
+same session IDs;
+no session created;
+no session deleted.
+7. STRENGTHEN R5
+
+Execute convergence twice.
+
+Assert:
+
+first:
+
+performs the completion transition.
+
+second:
+
+truthful no-op.
+
+Across BOTH calls assert the one-time side effect seam:
+
+welcome-email/transition side effect = EXACTLY ONCE.
+
+No duplicate completion effect.
+
+8. STRENGTHEN R6
+
+Component-level bootstrap/remount test:
+
+mount once
+→ convergence invocation
+
+remount again
+→ no replay.
+
+Assert exactly one convergence invocation across the two mounts under the completed-but-unconverged scenario.
+
+9. STRENGTHEN R9
+
+ZERO completed sessions.
+
+Assert explicitly:
+
+convergence does not occur;
+onboarding flag remains false;
+no fresh Setup Agent session is created;
+truthful surfaced state/code.
+10. STRENGTHEN R10
+
+Add the NEGATIVE client/gate case.
+
+Predicate/convergence fails.
+
+Assert:
+
+App/dashboard remains locked;
+no false dashboard unlock;
+truthful error/blocked state remains visible.
+11. STRENGTHEN R15
+
+Fail-closed path must assert ZERO side effects:
+
+no email/welcome attempt;
+no completion write;
+no partial state write;
+no new session;
+no provider/action call.
+12. STRENGTHEN R21
+
+BOTH cardinality branches must be explicit.
+
+ZERO completed sessions
+
+Assert:
+
+no convergence;
+no fresh session;
+onboarding flag false;
+truthful response.
+MORE THAN ONE completed session
+
+Assert:
+
+no convergence;
+no fresh session;
+onboarding flag false;
+truthful response.
+
+Do not combine the branches into one vague assertion.
+
+SHARED FIXTURE BUILDER
+
+A new shared fixture-builder module is authorized under the test tree only.
+
+Use it to construct realistic persisted records for:
+
+completed journey;
+social drafts/calendar;
+Store 2;
+Store 3;
+deferred Meta chain;
+task/action/ledger;
+Guided Setup durable state.
+
+Builder must mirror real schema/serialization.
+
+Do not invent impossible production shapes.
+
+Comment-link the builder to the actual schema/writer contracts it mirrors.
+
+This is the Mock-Fidelity requirement.
+
+AUTHORIZED TEST SURFACE
+
+Exhaustive:
+
+existing PM10 test files;
+named legacy test files already changed in PR #63;
+new PM10 test files under test tree;
+new shared test fixture-builder module.
+
+TEST PATHS ONLY.
+
+No production path.
+
+No SW/dist.
+
+No migration.
+
+No package/lockfile.
+
+No workflow.
+
+PM10-T TEST-ONLY DIFF BOUND
+
+Separate from the frozen 500-line PM10 implementation:
+
+PAD:
+
++500 touched test lines
+
+HARD STOP:
+
+625 touched test lines
+
+Git numstat is authoritative.
+
+Adds + deletes count.
+
+If mid-work total exceeds 500 but remains <=625:
+
+disclose the overage and continue only because the hard stop allows it.
+
+If >625:
+
+STOP.
+
+Do not weaken coverage to fit.
+
+Prefer shared fixture reuse and compact helpers.
+
+TEST DELETIONS — D-32
+
+Any deleted test line/assertion must receive an explicit D-32 explanation.
+
+Existing assertions may not be:
+
+deleted;
+disabled;
+loosened;
+merged away;
+replaced with weaker assertions.
+
+If restructuring tests, show old→new preservation.
+
+REQUIRED EXECUTION ORDER
+Begin from exact current PR head:
+
+fe87c119f92e756445782d8f48a809b0e9889f8b
+
+Confirm PR #63 still points there.
+Branch/work from that exact tree.
+Add TESTS ONLY.
+Run focused new regressions.
+If any required assertion fails because production behavior is wrong:
+
+HARD STOP — DO NOT FIX PRODUCTION.
+
+Run complete canonical R1–R25 coverage audit.
+Run full server/client suites.
+Run PM5–PM8 preservation.
+Confirm migrations remain 148.
+Confirm SW/dist remain byte-unchanged from fe87c119.
+Commit/push test corrective to same PR branch.
+Record NEW pinned PR head.
+STOP for final Claude merge ruling.
+REQUIRED FINAL COVERAGE MAP
+
+Return a table containing ALL:
+
+R1 through R25.
+
+For every row give:
+
+R number;
+canonical property;
+test file;
+exact test name;
+layer:
+unit
+component
+integration
+real HTTP
+direct assertions;
+PASS/FAIL.
+
+Multi-scenario tests may cover several R items, but EVERY R must have its own row.
+
+Required real-HTTP properties must be explicitly marked:
+
+R13
+R18
+R19
+
+and all other previously mandated real-endpoint items in the canonical table.
+
+If ANY R lacks a named direct binding:
+
+HARD STOP.
+
+FINAL RETURN PACKAGE
+
+Return:
+
+old PR head:
+
+fe87c119f92e756445782d8f48a809b0e9889f8b
+
+PM10-T commit SHA(s);
+new PR #63 head;
+parent relationship;
+exact inter-head changed-file list;
+proof every changed path is test-only;
+per-file Git numstat;
+PM10-T touched-line total;
+full canonical R1–R25 map;
+R17* master-snapshot test evidence;
+R18 evidence;
+R19 evidence;
+R16 matrix evidence;
+strengthened R1/R2/R5/R6/R9/R10/R15/R21 evidence;
+final server arithmetic/results;
+final client arithmetic/results;
+PM5–PM8 preservation results;
+D-32 statement;
+migrations = 148;
+production blob identity proof.
+
+Specifically prove all reviewed PM10 production blobs are byte-identical to the production tree at:
+
+ff027d0c4a91f4091c187a6dd6bc9cf57f390cb0
+
+Show blob IDs before/after.
+
+confirm SW/dist unchanged from the accepted v184 corrective head;
+confirm SDS-H1 untouched;
+zero provider activity;
+no staging deployment;
+production untouched;
+deviations;
+STOP-condition review.
+
+Then:
+
+HARD STOP.
+
+Do NOT merge.
+
+Return to owner + ChatGPT + Claude for the final merge ruling.
+
+ABSOLUTELY NOT AUTHORIZED
+
+No production edits.
+
+No controller/client logic edits.
+
+No route edits.
+
+No API edits.
+
+No SW/dist changes.
+
+No package/lockfile changes.
+
+No migrations.
+
+No deployment.
+
+No SDS-H1 interaction.
+
+No business click.
+
+No fresh session.
+
+No scheduling/publishing.
+
+No Facebook/Meta/provider call.
+
+No Retry.
+
+No I-65/I-66/I-67/I-73 work.
+
+No Prompt 031.
+
+No BLACOR-H1.
+
+No H2.
+
+No Prompt 027.
+
+No production.
+
+BEGIN PM10-T TEST CORRECTIVE NOW.
+
+TESTS ONLY.
+
+STOP BEFORE MERGE.
