@@ -233,6 +233,20 @@ function rowCounts(snapshot) {
   );
 }
 
+function assertCompletionOnlyUserChange(before, after) {
+  const { updated_at: beforeUpdatedAt, ...beforeStrict } = before;
+  const { updated_at: afterUpdatedAt, ...afterStrict } = after;
+  assert.deepEqual(afterStrict, {
+    ...beforeStrict,
+    onboarding_completed: true,
+    onboarding_step: 5,
+  });
+  assert.ok(
+    new Date(afterUpdatedAt).getTime() >= new Date(beforeUpdatedAt).getTime(),
+    "the legitimately written user row updated_at must move monotonically",
+  );
+}
+
 async function waitForWelcome(expected) {
   for (let i = 0; i < 30 && welcomeCalls < expected; i += 1) {
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -272,8 +286,7 @@ test("R1/R2/R3/R4/R5/R12/R13/R17: master real-HTTP snapshot changes only complet
   assert.equal(result.body.onboardingStep, 5);
   await waitForWelcome(beforeWelcome + 1);
   const afterSnapshot = await richSnapshot(ids);
-  const expectedUser = { ...beforeSnapshot.user, onboarding_completed: true, onboarding_step: 5 };
-  assert.deepEqual(afterSnapshot.user, expectedUser);
+  assertCompletionOnlyUserChange(beforeSnapshot.user, afterSnapshot.user);
   for (const table of ["brands", "sessions", "guided", "campaigns", "posts", "accounts", "tasks", "actions"]) {
     assert.deepEqual(afterSnapshot[table], beforeSnapshot[table], `${table} must remain byte-equivalent`);
   }
@@ -311,11 +324,7 @@ test("R18: original handoff real HTTP preserves its exact response and completio
     onboardingStep: 5,
   });
   const afterSnapshot = await richSnapshot(original);
-  assert.deepEqual(afterSnapshot.user, {
-    ...before.user,
-    onboarding_completed: true,
-    onboarding_step: 5,
-  });
+  assertCompletionOnlyUserChange(before.user, afterSnapshot.user);
   for (const table of ["brands", "sessions", "guided", "campaigns", "posts", "accounts", "tasks", "actions"]) {
     assert.deepEqual(afterSnapshot[table], before[table], `${table} must remain byte-equivalent`);
   }
