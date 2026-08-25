@@ -397,6 +397,29 @@ describe("SetupAgent needs_connection handoff", () => {
   });
 });
 
+describe("SetupAgent failed-step handoff", () => {
+  test("I-69: a terminal non-connection failure skips through failed-step state without dereferencing needsConnection", async () => {
+    api.runSetupAction
+      .mockResolvedValueOnce({
+        step: { key: "brand", label: "Set up your brand" },
+        status: "failed",
+        detail: "The brand step could not finish.",
+        outcome: { status: "failed", code: "invalid_input", retryable: false },
+      })
+      .mockResolvedValueOnce({
+        step: { key: "brand", label: "Set up your brand" },
+        status: "skipped",
+        session: { ...READY_SESSION, completedSteps: ["brand"], stepOutcomes: { brand: "skipped" } },
+      })
+      .mockResolvedValueOnce({ allComplete: true });
+    render(<SetupAgent onClose={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: /skip this step/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /skip this step/i }));
+    expect(await screen.findByText("Your account is ready")).toBeInTheDocument();
+    expect(api.runSetupAction).toHaveBeenCalledWith("sess-1", true);
+  });
+});
+
 describe("SetupAgent bootstrap failure (can't even start)", () => {
   test("a rejected startSetupSession renders the error phase with a working Close button", async () => {
     // The very first bootstrap call fails (e.g. backend briefly unavailable).

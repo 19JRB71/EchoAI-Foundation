@@ -44,6 +44,7 @@ beforeEach(() => {
   queries = [];
   db.query = async (sql, params) => {
     queries.push({ sql, params });
+    if (/SELECT u.onboarding_completed/.test(sql)) return { rows: [{ onboarding_completed: true, completed_journey_count: 0 }] };
     if (/SELECT \* FROM setup_sessions/.test(sql)) return { rows: state.openSessions };
     if (/UPDATE setup_sessions SET status = 'paused'/.test(sql)) {
       state.pausedAll = true;
@@ -149,7 +150,7 @@ test("probe is read-only: reports openSession without creating or resuming anyth
   await controller.initiateSession({ user: { userId: USER }, body: { probe: true } }, r);
   assert.deepEqual(r.body, { openSession: true });
   assert.equal(state.inserted, undefined);
-  assert.equal(queries.length, 1); // exactly the one SELECT
+  assert.equal(queries.length, 2); // user-state guard + open-session SELECT
   const r2 = res();
   state.openSessions = [];
   await controller.initiateSession({ user: { userId: USER }, body: { probe: true } }, r2);
