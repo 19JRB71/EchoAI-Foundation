@@ -99,15 +99,20 @@ beforeEach(() => {
 });
 
 describe("GuidedSetupWizard PM8 Page-picker handoff", () => {
-  it("PM10 converges a completed journey before SetupAgent can mount, then reloads authoritative completion", async () => {
-    api.getGuidedSetupState.mockResolvedValue({
-      progress: { currentStep: "profile", connections: {} },
-      connectionStatus: {},
-      setupSession: { status: "completed" },
-    });
+  it("PM10-R6 converges a completed journey once before SetupAgent can mount, with no replay after authoritative completion", async () => {
+    api.getGuidedSetupState
+      .mockResolvedValueOnce({
+        progress: { currentStep: "profile", connections: {} },
+        connectionStatus: {},
+        setupSession: { status: "completed" },
+      })
+      .mockResolvedValueOnce({
+        progress: { currentStep: "done", connections: {} },
+        connectionStatus: {},
+      });
     api.getOnboardingStatus.mockResolvedValue({ onboardingCompleted: true });
     const onComplete = vi.fn();
-    render(<GuidedSetupWizard onComplete={onComplete} />);
+    const { unmount } = render(<GuidedSetupWizard onComplete={onComplete} />);
     await waitFor(() =>
       expect(api.saveGuidedSetupProgress).toHaveBeenCalledWith(
         "__converge_completed_journey__",
@@ -115,6 +120,42 @@ describe("GuidedSetupWizard PM8 Page-picker handoff", () => {
       ),
     );
     expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("setup-agent")).toBeNull();
+
+    unmount();
+    render(<GuidedSetupWizard onComplete={onComplete} />);
+    expect(
+      await screen.findByRole("heading", { name: "Hi, I'm Echo — your new marketing team." }),
+    ).toBeInTheDocument();
+    expect(api.saveGuidedSetupProgress).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("setup-agent")).toBeNull();
+  });
+
+  it.each([
+    [
+      "a convergence failure",
+      () => api.saveGuidedSetupProgress.mockRejectedValue(new Error("Completion write failed.")),
+      "Completion write failed.",
+    ],
+    [
+      "a false authoritative status",
+      () => api.getOnboardingStatus.mockResolvedValue({ onboardingCompleted: false }),
+      "Your completed setup could not be confirmed yet.",
+    ],
+  ])("PM10-R10: %s keeps the dashboard locked", async (_case, arrange, message) => {
+    api.getGuidedSetupState.mockResolvedValue({
+      progress: { currentStep: "profile", connections: {} },
+      connectionStatus: {},
+      setupSession: { status: "completed" },
+    });
+    arrange();
+    const onComplete = vi.fn();
+
+    render(<GuidedSetupWizard onComplete={onComplete} />);
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(onComplete).not.toHaveBeenCalled();
     expect(screen.queryByTestId("setup-agent")).toBeNull();
   });
 
