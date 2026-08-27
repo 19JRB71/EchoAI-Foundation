@@ -1,0 +1,350 @@
+026-C3-PM9 — STAGE-NOTE AUTHORIZATION ONLY
+
+PM9 is now the active work track while the already-consented SDS-H1 publisher sweep waits for its first natural slot.
+
+This prompt authorizes Stage-note investigation and design preparation ONLY.
+
+DO NOT IMPLEMENT.
+
+DO NOT TOUCH THE FOUR SCHEDULED SDS-H1 POSTS.
+
+DO NOT MODIFY THEIR CONTENT, TIMES, STATUS, DESTINATION, CALENDAR, CONSENT RECORD, OR PUBLISH TASKS.
+
+The first natural publisher sweep remains a separate live checkpoint.
+
+GOVERNING ISSUES
+I-66 — EDITOR ACCESS AT ACTIVATION GATE
+
+During incomplete onboarding, the social-schedule activation gate can present real generated content for approval while the normal Dashboard → Content Calendar editor is unavailable behind the onboarding gate.
+
+Existing workaround used in SDS-H1:
+
+owner skipped scheduling → completed onboarding → edited through normal Content Calendar → returned to the shared activation boundary.
+
+That path is legitimate but poor consent ergonomics.
+
+Claude has pre-ruled the PM9 architecture:
+
+A-via-C: reuse the existing Content Calendar draft-editing machinery INLINE at the pre-completion activation gate.
+
+Do NOT weaken the global onboarding gate.
+
+Do NOT create a separate parallel editor.
+
+Do NOT build a new navigation framework.
+
+The inline editor must operate on the actual persisted social_post row, not a detached copy/projection.
+
+I-67 — ACTIVATION DIGEST DOES NOT BIND CONTENT
+
+Current activation consent binds:
+
+eligible post set;
+scheduled times;
+platform/destination;
+exclusions.
+
+It does NOT currently bind the post's actual CONTENT.
+
+Therefore an edit to post text after preview may leave the old approval digest valid.
+
+PM9 must make this invariant structurally true:
+
+edit → old digest invalid → recompute → fresh owner-visible preview → new explicit approval
+
+No prior consent artifact may survive a content change.
+
+STAGE-NOTE QUESTIONS
+A. EDITOR EXTRACTION / REUSE
+
+Inspect the existing Content Calendar editor and answer:
+
+What component(s) currently edit a persisted social post?
+Can that machinery be extracted/reused inline inside the Guided Setup social-schedule approval surface without weakening the App onboarding gate?
+Does the current editor save directly to the authoritative persisted post row?
+What route/controller/writer performs the save?
+What client state exists only as temporary form state before Save?
+Can Cancel remain write-free?
+
+Provide exact file/function anchors.
+
+If reuse would require a second editing writer or duplicated persistence path:
+
+HARD STOP.
+
+B. INLINE CONSENT UX CONTRACT
+
+Stage the narrowest UI behavior:
+
+From the pre-completion activation preview, the owner can:
+
+inspect an eligible draft;
+open/edit it inline;
+explicitly Save or Cancel;
+return to the activation preview.
+
+Required:
+
+opening editor writes nothing;
+selecting/opening a post writes nothing;
+Cancel writes nothing;
+Save changes only the intended persisted draft;
+Save does not schedule;
+Save does not publish;
+Save performs no Facebook/provider action;
+owner approval remains a separate later action.
+
+Replit/AI must never silently rewrite the content.
+
+Owner remains editorial authority.
+
+C. CONTENT-BINDING DESIGN
+
+Inspect the current activation-digest construction.
+
+Document every existing digest input.
+
+Then evaluate the smallest safe content binding.
+
+Preferred candidates:
+
+stable hash of the exact consent-relevant post content fields;
+post updated_at, only if you can prove every consent-relevant content edit necessarily advances it and unrelated changes do not create unacceptable false invalidations.
+
+Challenge both.
+
+State which is safer and why.
+
+The governing requirement is:
+
+ANY owner-visible content change that changes what will publish MUST invalidate the previous digest.
+
+The digest must continue binding:
+
+post identity;
+scheduled time;
+platform;
+destination;
+exclusions;
+plus the newly ruled content identity.
+
+No DDL expected.
+
+If DDL appears necessary:
+
+STOP and report.
+
+D. EXACT CONTENT FIELDS
+
+Enumerate every persisted field that can materially change the actual publication artifact.
+
+At minimum investigate:
+
+text/caption/body;
+image/media reference;
+video/media reference;
+link/CTA if applicable;
+platform-specific content;
+any generated creative/media association.
+
+Do not assume text alone equals content.
+
+State exactly which fields must feed the content-bound digest.
+
+E. SHARED ACTIVATION BOUNDARY
+
+Prove that:
+
+Guided Setup activation;
+normal Content Calendar activation
+
+use the SAME activation/digest boundary.
+
+PM9 must modify that shared boundary once.
+
+No separate “onboarding digest” implementation.
+
+If two divergent implementations currently exist:
+
+STOP and report before designing around them.
+
+F. STALE-CONSENT RESPONSE
+
+Stage the post-edit behavior:
+
+owner sees preview;
+owner edits a post;
+previously displayed digest becomes invalid;
+old Approve request is rejected fail-closed;
+fresh preview returns;
+owner must review and approve again.
+
+Preserve the already-live-proven stale-slot behavior.
+
+Content invalidation and time-slot invalidation should use the same honesty principle:
+
+server truth changed → old consent cannot execute.
+
+G. I-65 IS OUT OF SCOPE
+
+I-65 concerns the generator producing fabricated testimonials / unsupported business claims.
+
+PM9 does NOT fix generation grounding.
+
+PM9 only ensures:
+
+the owner can edit before approval;
+consent actually binds what will publish.
+
+No generator redesign.
+
+No provenance system expansion.
+
+No new content-generation policy engine.
+
+REQUIRED REGRESSION PLAN
+
+Reconcile the standing PM9 requirements, including:
+
+Pre-completion activation gate exposes inline edit access.
+Existing Content Calendar editor machinery is reused, not duplicated.
+Editor operates on the actual persisted draft row.
+Opening editor writes nothing.
+Cancel writes nothing.
+Save changes exactly one intended draft.
+Save schedules nothing.
+Save publishes nothing.
+Save performs zero provider/Facebook calls.
+Owner approval remains separate.
+Content edit invalidates the previous digest.
+Old digest fails closed after content edit.
+Fresh preview reflects edited persisted content.
+Fresh approval succeeds only against the new digest.
+Stale-slot exclusion remains intact.
+Unbound-platform exclusion remains intact.
+Normal post-onboarding Content Calendar editing remains unchanged.
+Guided Setup/onboarding gate remains unchanged.
+Store 2, Store 3, deferred Meta chain, _recovery, completed Setup Agent session remain untouched.
+No silent AI rewrite or auto-save.
+
+Add any additional regressions required by the actual architecture.
+
+LIVE-PROOF DESIGN FOR BLACOR-H1
+
+PM9 is required before BLACOR-H1.
+
+Stage the future live proof:
+
+pre-completion activation gate
+→ owner opens actual draft inline
+→ owner edits
+→ Save
+→ old digest rejected
+→ fresh preview
+→ owner explicitly approves
+→ exact edited artifact scheduled.
+
+Do NOT perform this on SDS-H1.
+
+SDS-H1's four scheduled posts remain frozen except for their natural publisher sweep.
+
+REQUIRED FILE SURFACE
+
+Do not implement yet.
+
+Enumerate the exact proposed production files.
+
+Expected categories only:
+
+Guided Setup / SetupAgent social-schedule activation surface;
+reusable existing Content Calendar editor component or extracted editor module;
+shared activation digest utility/controller;
+existing social-post save writer only if absolutely required for reuse and without changing its semantics.
+
+Any new persistence writer is presumptively rejected.
+
+No unrelated content-calendar redesign.
+
+No Meta ads files.
+
+No onboarding completion files.
+
+No PM10 files unless actually shared by this activation surface.
+
+DATA / MIGRATION
+
+Expected:
+
+ZERO DDL
+
+Current migration count:
+
+148
+
+If schema change appears required:
+
+HARD STOP.
+
+STAGE-NOTE DELIVERABLE
+
+Return:
+
+I-66 current-path root cause;
+reusable editor component/writer anchors;
+persisted-row authority proof;
+current digest inputs;
+exact missing content-binding fields;
+recommended content-binding mechanism and challenge analysis;
+proof both activation hosts share one boundary;
+inline-edit proposed UX;
+Save/Cancel/write semantics;
+stale-consent behavior;
+complete regression matrix;
+proposed production/test file surface;
+expected diff estimate and recommended bound;
+DDL confirmation;
+SDS-H1 isolation proof;
+risks/anomalies;
+explicit confirmation no implementation or specimen interaction occurred.
+
+DO NOT IMPLEMENT.
+
+Return the Stage-note to owner + ChatGPT for Claude architectural ruling.
+
+SDS-H1 FREEZE
+
+The four scheduled SDS-H1 Facebook posts remain exactly as owner-approved.
+
+Do NOT:
+
+edit them;
+reschedule them;
+pause them;
+unschedule them;
+regenerate them;
+alter their destination;
+alter consent artifacts;
+force publisher sweep;
+call provider APIs.
+
+The first natural sweep/publish checkpoint remains separate.
+
+NOT AUTHORIZED
+
+No code change.
+No test change.
+No branch/PR.
+No DB write.
+No Zorecho UI interaction.
+No provider call.
+No Retry.
+No I-65 implementation.
+No I-74 secret handling in this prompt.
+No Meta-chain mutation.
+No Prompt 031.
+No BLACOR-H1.
+No H2.
+No Prompt 027.
+No production.
+
+BEGIN PM9 STAGE-NOTE ONLY. STOP BEFORE IMPLEMENTATION.
