@@ -1,0 +1,140 @@
+026-C3-PM9 — STAGE-NOTE AUTHORIZATION ONLY
+
+Replit: investigate and prepare the PM9 Stage-note ONLY. DO NOT IMPLEMENT.
+
+PM9 addresses two already-ruled issues:
+
+I-66: During onboarding, the owner can reach the social-post approval gate but cannot edit those posts there.
+I-67: The activation digest currently binds post IDs, times, platforms, destinations, and exclusions, but does not bind the actual post content.
+Required investigation
+
+1. I-66 — Inline editing
+
+Inspect the existing Dashboard → Content Calendar post editor.
+
+Determine the narrowest way to reuse that existing editor inside the pre-completion activation gate so the owner can:
+
+Review post → Edit → Save → Return to preview → Approve
+
+Requirements:
+
+Reuse the existing editor/writer; do not create a second persistence path.
+Edit the actual persisted draft row, not a copy.
+Opening the editor writes nothing.
+Cancel writes nothing.
+Save changes only the intended draft.
+Save does NOT schedule or publish.
+Save makes zero Facebook/provider calls.
+Do NOT weaken the global onboarding gate.
+Owner remains the only person who saves/approves content.
+
+If this requires a new persistence writer or weakening the onboarding gate: HARD STOP and report.
+
+2. I-67 — Bind consent to actual content
+
+Inspect the shared activation digest used by both:
+
+Guided Setup activation
+Normal Content Calendar activation
+
+Document exactly what the digest currently binds.
+
+Design the smallest safe change so ANY change to what will actually publish invalidates the previous approval digest.
+
+Investigate all publication-relevant fields, including:
+
+text/caption/body
+images/media
+video
+links/CTA
+platform-specific content
+other persisted creative references
+
+Compare using:
+
+a stable content hash, versus
+updated_at
+
+Recommend the safer approach and explain why.
+
+Required behavior:
+
+Preview → content changes → old digest invalid → approval rejected fail-closed → fresh preview → owner approves again.
+
+There must remain one shared activation boundary, not separate onboarding and Calendar implementations.
+
+If the two surfaces do not actually share one boundary: HARD STOP and report.
+
+3. Preserve existing protections
+
+PM9 must not break:
+
+stale-post exclusion
+unbound-platform exclusion
+digest mismatch protection
+normal Content Calendar editing
+onboarding gate
+scheduling/publishing separation
+provider-call protections
+4. I-65 is OUT OF SCOPE
+
+Do not fix the content generator or fabricated-testimonial problem in PM9.
+
+PM9 only fixes:
+
+owner can edit before approval + approval binds what will publish.
+
+5. SDS-H1 IS FROZEN
+
+Do not touch the four already-approved South Dixie Storage scheduled posts.
+
+No:
+
+editing
+rescheduling
+regeneration
+unscheduling
+publishing
+forced sweep
+destination changes
+consent changes
+provider calls
+SDS-H1 UI interaction
+
+Their natural publisher sweep remains a separate checkpoint.
+
+Stage-note must return
+
+Provide:
+
+I-66 root cause.
+Existing editor component and writer anchors.
+Proof edits target the authoritative persisted row.
+Current digest construction and inputs.
+Missing content-binding fields.
+Recommended content-binding method.
+Proof both activation surfaces share the same boundary.
+Proposed inline-edit UX.
+Save/Cancel semantics.
+Content-change stale-consent behavior.
+Complete regression/test plan.
+Exact proposed production/test file surface.
+Estimated diff size and recommended bounds.
+Confirmation of ZERO DDL and migration count remaining 148.
+Proof SDS-H1 remains isolated.
+Any risks/anomalies discovered.
+Explicit confirmation that nothing was implemented or mutated.
+HARD STOPS
+
+Stop and report if investigation discovers:
+
+new persistence writer required;
+onboarding gate must be weakened;
+divergent activation implementations;
+DDL/schema change required;
+SDS-H1 would need modification;
+scope materially exceeds I-66/I-67.
+
+DO NOT IMPLEMENT. DO NOT CREATE A PR. DO NOT CHANGE CODE OR TESTS.
+
+Return the completed 026-C3-PM9 Stage-note to the owner for ChatGPT + Claude architectural review.
