@@ -1,0 +1,261 @@
+SEND THIS TO REPLIT — 026-C3-PM9 STAGE-2 IMPLEMENTATION
+
+Authorization: Implement PM9 on staging only, exactly within Claude’s 2026-08-27 Stage-1 architectural ruling.
+
+Pinned base: 300ebbee49473f0a36621f0c1c7e225bda49148f
+
+Before editing, verify HEAD/base and lineage. If the pinned base has moved or cannot be established, HARD STOP and report.
+
+SCOPE
+
+Implement exactly these three issues:
+
+I-66: Inline owner editing at the pre-completion activation gate.
+I-67: Activation digest must bind the actual content being approved.
+I-75: Activation digest must bind exclusion membership.
+
+Do NOT implement I-76, I-77, I-78, I-65, or any other issue.
+
+1. I-66 — INLINE EDITOR
+
+Create:
+
+client/src/sections/social/CalendarPostEditor.jsx
+
+It must be a form-only editor extracted from the existing Content Calendar editing behavior.
+
+Requirements:
+
+Both AICalendar.jsx and the onboarding activation surface use this same editor.
+Existing api.updateCalendarPost remains the ONE persistence writer.
+Edit the authoritative persisted post row.
+Text editing only.
+Existing media may be displayed/inspected but NOT replaced.
+No AI regeneration.
+No autosave.
+No Post Now.
+No rescheduling.
+Open/type/select writes nothing.
+Cancel writes nothing.
+Save is the only write.
+Inline onboarding Save uses expectedStatus:"draft" or the ruled equivalent restrictive precondition.
+Normal Content Calendar behavior remains unchanged when that precondition is absent.
+Save must not schedule, publish, or call a provider.
+
+Approve must be disabled while:
+
+editor is open;
+changes are unsaved;
+Save is running;
+refreshed activation preview is loading.
+
+After successful Save:
+
+invalidate the existing preview;
+fetch a fresh server preview;
+show that the schedule/approval preview changed and must be reviewed again;
+require a separate explicit owner approval.
+
+Do NOT weaken the App/onboarding gate.
+
+2. I-67 + I-75 — DIGEST V2
+
+Implement the canonical version-2 activation artifact in the existing shared digest path.
+
+SHA-256 over deterministic UTF-8 serialization with:
+
+explicit version/domain prefix;
+calendarId;
+eligible entries containing:
+postId
+scheduledTime as UTC ISO
+platform
+server-derived destination
+EXACT persisted post_content
+image_url with explicit null sentinel
+video_url with explicit null sentinel
+excludedStale membership:
+post IDs
+reason/category
+excludedUnbound membership:
+post IDs
+reason/category
+
+Requirements:
+
+deterministic sorted arrays;
+fixed key ordering;
+operational/bookkeeping fields excluded from content identity;
+status participates only through eligibility/exclusion classification;
+ZERO persisted digest column;
+ZERO DDL.
+
+A content change between preview and approval must cause:
+
+old digest → 409 → fresh preview required.
+
+An exclusion-membership change with the eligible set unchanged must ALSO cause:
+
+old digest → 409 → fresh preview required.
+
+A pre-PM9/v1 approval presented after deployment must fail cleanly:
+
+409 + fresh preview, never false-match or server error.
+
+Correct the overstated source comments in:
+
+utils/calendarActivationDigest.js
+controllers/contentCalendarController.js
+
+The comments must describe what the implementation actually protects.
+
+3. TRANSACTIONAL ORDERING
+
+buildActivationArtifact must select/hash the publication content AFTER the activation transaction has obtained the relevant row locks.
+
+Pre-merge evidence must cite the exact anchors proving this.
+
+The required fail-safe behavior is:
+
+edit wins first → old activation digest fails 409;
+activation wins first → subsequent inline Save fails because the row is no longer draft.
+
+No second activation boundary or Setup-Agent-specific digest is permitted.
+
+setupAgentController.js is expected to remain untouched. If implementation requires editing it, STOP AND REPORT before doing so.
+
+4. MEDIA
+
+PM9 binds persisted media references but does NOT provide media editing.
+
+Before pre-merge, cite the repository evidence showing whether uploaded media paths are unique/immutable.
+
+If media paths can be mutated in place:
+
+do NOT expand PM9;
+file/report the finding as I-77;
+continue only if PM9’s authorized implementation remains truthful and safe under Claude’s ruling.
+AUTHORIZED PRODUCTION FILES — EXHAUSTIVE
+utils/calendarActivationDigest.js
+controllers/contentCalendarController.js
+client/src/sections/social/CalendarPostEditor.jsx NEW
+client/src/sections/social/AICalendar.jsx
+client/src/onboarding/SetupAgent.jsx
+client/src/api.js ONLY if required for the draft-status precondition
+
+Seventh hand-edited production file = HARD STOP.
+
+Test files: maximum 6, within the ruled test surface.
+
+REGRESSIONS
+
+Implement the complete Stage-note Section K regression matrix plus Claude’s additions.
+
+At minimum prove:
+
+extracted editor preserves existing Calendar behavior;
+both hosts use the same editor;
+open/type/cancel perform zero writes;
+Save writes exactly once through existing writer;
+inline Save is draft-only;
+normal Calendar writer behavior remains unchanged without the precondition;
+Save does not schedule/publish/provider-call;
+Approve disabled during edit/dirty/save/preview-refresh states;
+successful Save invalidates old preview and obtains a fresh preview;
+text change changes digest;
+image reference change changes digest;
+video reference change changes digest;
+calendarId changes digest;
+eligible timing/platform/destination changes change digest;
+stale exclusion membership change changes digest;
+unbound exclusion membership change changes digest;
+deterministic ordering produces the same digest;
+old digest after any bound change returns 409;
+v1/pre-PM9 digest against v2 server returns clean 409 + fresh preview;
+lock/hash ordering is regression-bound;
+activation-first causes later draft-only Save to fail safely;
+stale and unbound exclusions continue to work;
+both activation callers continue through ONE shared boundary;
+no DDL;
+no provider/publisher/sweep regression.
+
+If a required test reveals a production behavior outside the authorized architecture that cannot be fixed within this ruling, STOP and report rather than expanding scope.
+
+BOUNDS
+
+Git numstat, hand-edited changes:
+
+Production HARD STOP: 400 touched
+Tests HARD STOP: 700 touched
+
+25% projected overage during work: disclose immediately.
+
+Migrations remain exactly 148.
+Any DDL = HARD STOP.
+
+Client changes require the ruled mechanical accompaniment:
+
+SW v184 → v185
+regenerate committed dist
+bundle rename as generated
+
+SW/dist are mechanical-only and excluded from the hand-edited production-file ceiling, but must be completely enumerated in the return package.
+
+SDS-H1 — DO NOT TOUCH
+
+The existing South Dixie Storage scheduled posts and consent are historical and must remain untouched.
+
+NO:
+
+SDS-H1 UI interaction;
+editing;
+rescheduling;
+regeneration;
+activation;
+consent change;
+forced sweep;
+Retry;
+Meta/provider mutation;
+publishing action.
+
+PM9 must not touch the publisher/sweep surface.
+
+The existing scheduled SDS-H1 posts continue naturally under their already-approved consent.
+
+PRE-MERGE RETURN PACKAGE
+
+DO NOT MERGE.
+
+Return to owner + ChatGPT + Claude with:
+
+exact implementation head SHA;
+base/head lineage, including the approved chain through PM10 to 300ebbee;
+per-file git numstat and purpose;
+production/test touched-line totals against bounds;
+immutable anchors for:
+v2 artifact builder;
+all digest inputs;
+corrected comments;
+lock-before-hash ordering;
+draft-only Save SQL/precondition;
+extracted editor;
+both editor hosts;
+one shared activation boundary;
+complete regression map with test file + exact test name;
+full-suite arithmetic from server 1525 / client 514;
+preservation-suite results;
+migrations = 148;
+D-32 accounting for any test deletions;
+proof expected-untouched production files stayed untouched;
+media-path immutability/uniqueness citation and any I-77 finding;
+mechanical SW v185 + regenerated dist/bundle accounting;
+explicit proof SDS-H1 and publisher/sweep surfaces were untouched;
+all anomalies or limitations discovered.
+
+Then HARD STOP for Claude’s pre-merge ruling.
+
+NOT AUTHORIZED
+
+No merge, deploy, production, SDS-H1 interaction, forced sweep, Retry, provider mutation, DDL, second writer/editor/digest, whole-PostPanel reuse, media editing, I-76, I-78, I-65, 031, BLACOR-H1, H2, or 027.
+
+Implement PM9 only within these bounds, prepare the complete pre-merge evidence package, and STOP.
