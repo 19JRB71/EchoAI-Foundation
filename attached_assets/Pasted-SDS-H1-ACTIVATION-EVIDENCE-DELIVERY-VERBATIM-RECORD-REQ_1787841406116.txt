@@ -1,0 +1,112 @@
+SDS-H1 ACTIVATION EVIDENCE DELIVERY — VERBATIM RECORD REQUEST
+
+Claude has issued:
+
+026 — SDS-H1 CALENDAR ACTIVATION + C1 CONSENT-ECHO CHECKPOINT RULING
+
+Verdict:
+
+PROVISIONAL PASS — checkpoint closes upon delivery of the already-captured activation evidence package VERBATIM.
+
+No new owner action is authorized.
+
+No new Replit work is required beyond delivering the evidence already captured.
+
+Do NOT re-run the activation.
+Do NOT query new state unless absolutely necessary to retrieve the already-captured values.
+Do NOT touch the Zorecho UI.
+Do NOT invoke application endpoints.
+Do NOT mutate DB/provider state.
+
+Return the previously captured activation evidence package with the following values explicitly present:
+
+1. C1 CONSENT ECHO — FIRST LIVE PROOF
+
+From agent_tasks meta, provide the exact captured values:
+
+digest value
+approver
+approval timestamp
+eligible/scheduled count
+stale/excluded count
+unbound/no-destination count
+destination platform
+destination Page ID
+any other fields in the captured consent meta that belong to the governed approval record
+
+Do not summarize.
+Paste the actual captured values.
+
+2. POST-ACTIVATION SOCIAL-POST SET
+
+Provide:
+
+new post-set hash
+exact 4 post IDs that changed draft → scheduled
+exact scheduled time for each of those 4 posts
+proof those times were future at capture
+exact 3 stale post IDs remaining draft
+exact 6 unbound/no-destination post IDs remaining draft
+total state reconciliation:
+4 scheduled
+9 drafts
+0 published
+3. PROTECTED-STATE HASH COMPARISON
+
+Against the banked 2026-08-25 SDS-H1 baseline, provide the before/after or equality result for:
+
+completed Setup Agent session
+agent_tasks protected rows, excluding the consented activation artifact if separately represented
+social_accounts
+Store-3/ad-destination state
+deferred campaign row
+historical external action
+deferred journey outcome
+_recovery
+full Guided Setup row
+
+State explicitly which hashes remained identical.
+
+4. ZERO-PROVIDER-CALL ACTIVATION PROOF
+
+Provide the captured evidence that activation itself caused:
+
+0 provider/Facebook/Meta calls
+0 publish attempts
+0 launch attempts
+0 new external actions attributable to activation
+
+If this was proven through row counts/timestamps rather than a call log, state exactly how.
+
+5. INSTAGRAM OWNER-EDIT DISCLOSURE
+
+Restate the already-captured observation:
+
+which two unbound Instagram drafts had same-day owner edits before consent;
+their IDs;
+that both remained drafts;
+that neither was touched by activation.
+6. SWEEP STATUS AT CAPTURE
+
+State explicitly:
+
+publishing sweep had not fired at capture;
+published count remained 0;
+no provider post ID existed at that time.
+7. SAFETY / NO-TOUCH STATEMENT
+
+Confirm:
+
+no UI interaction by Replit
+no DB mutation
+no API repair
+no Retry
+no provider mutation
+no forced sweep
+no code/deploy action
+
+Return this package verbatim and complete.
+
+Then STOP.
+
+Claude has ruled that if the delivered data matches the already-reported activation result, the checkpoint is CLOSED with no further ruling required.
