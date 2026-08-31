@@ -41,6 +41,15 @@ async function callPreview(uid, body) {
   return res;
 }
 
+async function callUpdate(uid, postId, body) {
+  const res = mockRes();
+  await contentCalendarController.updatePost(
+    { user: { userId: uid }, params: { postId }, body },
+    res,
+  );
+  return res;
+}
+
 async function insertDraftPost(offsetMs, platform = "facebook", content = "stage2 test post") {
   const { rows } = await db.query(
     `INSERT INTO social_posts (brand_id, calendar_id, platform, post_content, scheduled_time, status)
@@ -278,4 +287,114 @@ test("another user's calendar is a 404 for both preview and activate", async () 
   assert.equal(p.statusCode, 404);
   const a = await callActivate(otherUserId, { calendarId, confirmDigest: "x" });
   assert.equal(a.statusCode, 404);
+});
+
+test("updatePost rejects empty content", async () => {
+  const postId = await insertDraftPost(4 * 60 * 60 * 1000, "facebook", "keep me");
+  const res = await callUpdate(userId, postId, {
+    postContent: "   ",
+    expectedStatus: "draft",
+  });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.payload.error, "postContent is required");
+  const saved = await db.query("SELECT post_content FROM social_posts WHERE post_id = $1", [postId]);
+  assert.equal(saved.rows[0].post_content, "keep me");
+});
+
+test("updatePost denies a cross-tenant postId with 404", async () => {
+  const postId = await insertDraftPost(5 * 60 * 60 * 1000, "facebook", "owner only");
+  const res = await callUpdate(otherUserId, postId, {
+    postContent: "foreign edit",
+    expectedStatus: "draft",
+  });
+  assert.equal(res.statusCode, 404);
+  const saved = await db.query("SELECT post_content FROM social_posts WHERE post_id = $1", [postId]);
+  assert.equal(saved.rows[0].post_content, "owner only");
+});
+
+test("updatePost preserves image_url and video_url byte-for-byte", async () => {
+  const postId = await insertDraftPost(6 * 60 * 60 * 1000, "facebook", "before media save");
+  const imageUrl = "/uploads/images/ABC_def-123.png?signature=%2B%2F%3D";
+  const videoUrl = "https://cdn.example.test/Videos/Clip.MP4?token=Aa%2F9%3D";
+  await db.query(
+    "UPDATE social_posts SET image_url = $1, video_url = $2 WHERE post_id = $3",
+    [imageUrl, videoUrl, postId],
+  );
+
+  const res = await callUpdate(userId, postId, {
+    postContent: "after media save",
+    expectedStatus: "draft",
+  });
+  assert.equal(res.statusCode, 200);
+  const saved = await db.query(
+    "SELECT post_content, image_url, video_url FROM social_posts WHERE post_id = $1",
+    [postId],
+  );
+  assert.equal(saved.rows[0].post_content, "after media save");
+  assert.equal(saved.rows[0].image_url, imageUrl);
+  assert.equal(saved.rows[0].video_url, videoUrl);
+});
+
+test("updatePost changes exactly one row and leaves a sibling draft byte-identical", async () => {
+  const postId = await insertDraftPost(7 * 60 * 60 * 1000, "facebook", "target before");
+  const siblingId = await insertDraftPost(8 * 60 * 60 * 1000, "facebook", "sibling before");
+  const ids = [postId, siblingId];
+  const beforeRows = await db.query(
+    `SELECT post_id, xmin::text AS row_version, to_jsonb(social_posts) AS row
+       FROM social_posts
+      WHERE post_id = ANY($1::uuid[])
+      ORDER BY post_id`,
+    [ids],
+  );
+
+  const res = await callUpdate(userId, postId, {
+    postContent: "target after",
+    expectedStatus: "draft",
+  });
+  assert.equal(res.statusCode, 200);
+
+  const afterRows = await db.query(
+    `SELECT post_id, xmin::text AS row_version, to_jsonb(social_posts) AS row
+       FROM social_posts
+      WHERE post_id = ANY($1::uuid[])
+      ORDER BY post_id`,
+    [ids],
+  );
+  const beforeById = Object.fromEntries(beforeRows.rows.map((row) => [row.post_id, row]));
+  const afterById = Object.fromEntries(afterRows.rows.map((row) => [row.post_id, row]));
+  const changedIds = ids.filter(
+    (id) => JSON.stringify(beforeById[id]) !== JSON.stringify(afterById[id]),
+  );
+  assert.deepEqual(changedIds, [postId]);
+  assert.deepEqual(afterById[siblingId], beforeById[siblingId]);
+  assert.notEqual(afterById[postId].row_version, beforeById[postId].row_version);
+  assert.equal(afterById[postId].row.post_content, "target after");
+});
+
+test("updatePost creates no task, external-action, proof, or provider-connection rows", async () => {
+  const postId = await insertDraftPost(9 * 60 * 60 * 1000, "facebook", "side-effect before");
+  const counts = async () => {
+    const { rows } = await db.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM agent_tasks
+           WHERE brand_id = $1 OR user_id = $2) AS task_count,
+         (SELECT COUNT(*)::int FROM external_actions
+           WHERE brand_id = $1 OR user_id = $2) AS external_action_count,
+         (SELECT COUNT(*)::int FROM external_proofs
+           WHERE brand_id = $1 OR user_id = $2) AS provider_proof_count,
+         (SELECT COUNT(*)::int FROM api_integrations
+           WHERE user_id = $2) AS api_integration_count,
+         (SELECT COUNT(*)::int FROM social_accounts
+           WHERE brand_id = $1) AS social_account_count`,
+      [brandId, userId],
+    );
+    return rows[0];
+  };
+  const beforeCounts = await counts();
+  const res = await callUpdate(userId, postId, {
+    postContent: "side-effect after",
+    expectedStatus: "draft",
+  });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(await counts(), beforeCounts);
 });
