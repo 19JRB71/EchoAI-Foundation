@@ -41,12 +41,12 @@ async function callPreview(uid, body) {
   return res;
 }
 
-async function insertDraftPost(offsetMs, platform = "facebook") {
+async function insertDraftPost(offsetMs, platform = "facebook", content = "stage2 test post") {
   const { rows } = await db.query(
     `INSERT INTO social_posts (brand_id, calendar_id, platform, post_content, scheduled_time, status)
-     VALUES ($1, $2, $3, 'stage2 test post', NOW() + ($4 || ' milliseconds')::interval, 'draft')
+     VALUES ($1, $2, $3, $5, NOW() + ($4 || ' milliseconds')::interval, 'draft')
      RETURNING post_id`,
-    [brandId, calendarId, platform, String(offsetMs)],
+    [brandId, calendarId, platform, String(offsetMs), content],
   );
   return rows[0].post_id;
 }
@@ -125,6 +125,65 @@ test("a stale digest is refused with a fresh preview; the matching digest activa
   assert.equal(byId[secondFutureId], "scheduled");
 });
 
+test("v1 eligible-only digest and exclusion-only artifact changes are clean 409 mismatches", async () => {
+  await db.query(
+    "UPDATE social_posts SET status = 'draft' WHERE calendar_id = $1 AND status = 'scheduled'",
+    [calendarId],
+  );
+  const preview = await callPreview(userId, { calendarId });
+  const v1 = require("crypto")
+    .createHash("sha256")
+    .update(
+      preview.payload.eligible
+        .map((e) => `${e.postId}|${e.scheduledTime}|${e.platform}|${e.destination || ""}`)
+        .sort()
+        .join("\n"),
+      "utf8",
+    )
+    .digest("hex");
+  const oldVersion = await callActivate(userId, { calendarId, confirmDigest: v1 });
+  assert.equal(oldVersion.statusCode, 409);
+  assert.equal(oldVersion.payload.digestMismatch, true);
+
+  await insertDraftPost(-2 * 60 * 60 * 1000, "facebook", "excluded-only addition");
+  const exclusionChanged = await callActivate(userId, {
+    calendarId,
+    confirmDigest: preview.payload.digest,
+  });
+  assert.equal(exclusionChanged.statusCode, 409);
+  assert.equal(exclusionChanged.payload.digestMismatch, true);
+  assert.notEqual(exclusionChanged.payload.preview.digest, preview.payload.digest);
+});
+
+test("eligible content, media, and calendar identity are digest-bound", async () => {
+  const preview = await callPreview(userId, { calendarId });
+  const eligibleId = preview.payload.eligible[0].postId;
+  await db.query(
+    "UPDATE social_posts SET post_content = post_content || ' edited', image_url = 'https://example.test/new.png' WHERE post_id = $1",
+    [eligibleId],
+  );
+  const changed = await callActivate(userId, { calendarId, confirmDigest: preview.payload.digest });
+  assert.equal(changed.statusCode, 409);
+  assert.equal(changed.payload.digestMismatch, true);
+  assert.notEqual(changed.payload.preview.digest, preview.payload.digest);
+
+  const other = await db.query(
+    `INSERT INTO content_calendars (brand_id, month, year, posting_frequency, status)
+     VALUES ($1, 9, 2026, 'daily', 'draft') RETURNING calendar_id`,
+    [brandId],
+  );
+  const otherCalendarId = other.rows[0].calendar_id;
+  await db.query(
+    `INSERT INTO social_posts
+       (brand_id, calendar_id, platform, post_content, image_url, scheduled_time, status)
+     SELECT brand_id, $2, platform, post_content, image_url, scheduled_time, 'draft'
+       FROM social_posts WHERE post_id = $1`,
+    [eligibleId, otherCalendarId],
+  );
+  const otherPreview = await callPreview(userId, { calendarId: otherCalendarId });
+  assert.notEqual(otherPreview.payload.digest, changed.payload.preview.digest);
+});
+
 test("the consent echo lands in each activated post's spine task meta", async () => {
   const { rows } = await db.query(
     `SELECT t.meta FROM agent_tasks t
@@ -173,10 +232,45 @@ test("drafts with no eligible post fail closed (nothingEligible), and empty cale
   await db.query("DELETE FROM social_posts WHERE calendar_id = $1", [calendarId]);
   const resume = await callActivate(userId, {
     calendarId,
-    confirmDigest: computeActivationDigest([]),
+    confirmDigest: computeActivationDigest({
+      calendarId,
+      eligible: [],
+      excludedStale: [],
+      excludedUnbound: [],
+    }),
   });
   assert.equal(resume.statusCode, 200);
   assert.equal(resume.payload.activatedCount, 0);
+});
+
+test("draft-precondition edit fails after activation while legacy edits preserve behavior", async () => {
+  await db.query("UPDATE social_accounts SET connection_status = 'connected' WHERE brand_id = $1", [brandId]);
+  const postId = await insertDraftPost(3 * 60 * 60 * 1000, "facebook", "original");
+  const preview = await callPreview(userId, { calendarId });
+  const activated = await callActivate(userId, { calendarId, confirmDigest: preview.payload.digest });
+  assert.equal(activated.statusCode, 200);
+
+  const guarded = mockRes();
+  await contentCalendarController.updatePost(
+    {
+      user: { userId },
+      params: { postId },
+      body: { postContent: "must not land", expectedStatus: "draft" },
+    },
+    guarded,
+  );
+  assert.equal(guarded.statusCode, 409);
+  const unchanged = await db.query("SELECT post_content, status FROM social_posts WHERE post_id = $1", [postId]);
+  assert.equal(unchanged.rows[0].post_content, "original");
+  assert.equal(unchanged.rows[0].status, "scheduled");
+
+  const legacy = mockRes();
+  await contentCalendarController.updatePost(
+    { user: { userId }, params: { postId }, body: { postContent: "legacy edit" } },
+    legacy,
+  );
+  assert.equal(legacy.statusCode, 200);
+  assert.equal(legacy.payload.post.post_content, "legacy edit");
 });
 
 test("another user's calendar is a 404 for both preview and activate", async () => {

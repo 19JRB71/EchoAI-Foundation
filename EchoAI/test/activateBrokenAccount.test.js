@@ -25,7 +25,7 @@ const db = require("../config/db");
 const { activateCalendar } = require("../controllers/contentCalendarController");
 const { computeActivationDigest } = require("../utils/calendarActivationDigest");
 
-const EMPTY_DIGEST = computeActivationDigest([]);
+const EMPTY_DIGEST = computeActivationDigest({ calendarId: "cal1" });
 
 function makeRes() {
   const res = {

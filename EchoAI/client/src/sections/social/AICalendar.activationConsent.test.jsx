@@ -13,6 +13,7 @@ vi.mock("../../api.js", () => ({
     previewCalendarActivation: vi.fn(),
     activateContentCalendar: vi.fn(),
     pauseContentCalendar: vi.fn(),
+    updateCalendarPost: vi.fn(),
   },
 }));
 
@@ -115,6 +116,48 @@ describe("AICalendar two-phase activation", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByText("Approve your posting schedule")).not.toBeInTheDocument();
+    expect(api.activateContentCalendar).not.toHaveBeenCalled();
+  });
+
+  test("edits with the shared form only on Save, then refreshes before a separate approval", async () => {
+    const editable = {
+      ...PREVIEW,
+      posts: [{ postId: "post-1", postContent: "Original draft" }],
+    };
+    const refreshed = {
+      ...editable,
+      digest: "c".repeat(64),
+      posts: [{ postId: "post-1", postContent: "Updated draft" }],
+    };
+    api.previewCalendarActivation
+      .mockResolvedValueOnce(editable)
+      .mockResolvedValueOnce(refreshed);
+    api.updateCalendarPost.mockResolvedValue({
+      post: { post_id: "post-1", post_content: "Updated draft", status: "draft" },
+    });
+
+    render(<AICalendar brandId="b1" onReconnect={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Activate" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+    expect(screen.getByTestId("calendar-post-editor")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /approve & schedule/i })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Post text"), { target: { value: "Not saved" } });
+    expect(api.updateCalendarPost).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByTestId("calendar-post-editor").querySelector('button[type="button"]'),
+    );
+    expect(api.updateCalendarPost).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Post text"), { target: { value: "Updated draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(api.updateCalendarPost).toHaveBeenCalledWith("post-1", "Updated draft", "draft"),
+    );
+    await screen.findByTestId("activation-review-again");
+    expect(api.previewCalendarActivation).toHaveBeenCalledTimes(2);
     expect(api.activateContentCalendar).not.toHaveBeenCalled();
   });
 });

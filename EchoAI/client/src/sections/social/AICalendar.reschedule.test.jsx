@@ -120,9 +120,7 @@ describe("AICalendar PostPanel reschedule flow", () => {
       expect(screen.queryByText("Why this post failed")).not.toBeInTheDocument()
     );
     expect(screen.queryByText("Reschedule")).not.toBeInTheDocument();
-    const panel = screen
-      .getByText("Edit before it goes live")
-      .closest("div.max-w-md");
+    const panel = screen.getByTestId("calendar-post-editor").closest("div.max-w-md");
     expect(panel).toBeTruthy();
     expect(within(panel).getByText("scheduled")).toBeInTheDocument();
   });
