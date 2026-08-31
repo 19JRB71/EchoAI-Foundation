@@ -1,0 +1,51 @@
+026-C3-PM9 — BUNDLE FINGERPRINT DIAGNOSTIC
+
+Claude authorized diagnostic work only. Do not modify tracked files, commit, push, merge, or deploy until the branch determination is established.
+
+Perform these four steps:
+
+1. Determinism probe
+
+Build twice consecutively in the same fresh environment.
+Compare JS/CSS filenames and SHA-256 hashes.
+Report whether output is deterministic.
+
+2. Bundle-content diagnostic
+
+Beautify the surviving accepted index-DRUBuoO4.js.
+Beautify the fresh index-B3EZDk_P.js.
+Diff them and classify every meaningful difference as:
+environment/injected constant/timestamp;
+module-order/minifier/cosmetic;
+actual logic difference.
+If actual logic differs, map it to the exact source module(s) and regions.
+
+3. Build-context comparison
+Report:
+
+Node version;
+npm version;
+relevant VITE_* environment values;
+.env files/context;
+build mode;
+Vite/build flags or define replacements;
+any identifiable difference from the environment that produced the accepted bundle.
+
+4. Behavioral validation
+Run and report:
+
+server 1529/1529
+client 516/516
+focused server 21/21
+focused client 30/30
+migrations 148
+
+Then make an explicit determination:
+
+BRANCH A — BENIGN DELTA: no source-attributable logic difference. If proven, proceed automatically under Claude's ruling: use the fresh deterministic dist, record gate 4(c) as SATISFIED-AS-AMENDED, create the reconstruction commit, add the five previously authorized writer-contract tests as a tests-only child commit, prove the inter-head diff tests-only, and push both commits to the remote PM9 PR branch. Do not use the orphaned old bundle.
+
+BRANCH B — LOGIC DIFFERENCE: if any source-attributable logic difference exists, HARD STOP. Do not commit anything. Return the exact modules/regions and evidence for Claude.
+
+Return the determinism results, classified diff summary, build-context table, suite arithmetic, branch determination, and—only if Branch A—the reconstruction/completion SHAs, tree/blob hashes, tests-only inter-head proof, and remote branch information.
+
+No SDS-H1 interaction, forced sweep, Retry, Meta/provider mutation, BLACOR-H1, merge/deploy, or production.
