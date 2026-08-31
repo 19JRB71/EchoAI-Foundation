@@ -602,7 +602,7 @@ async function getOwnedCalendar(userId, calendarId) {
  */
 async function buildActivationArtifact(queryable, calendarId, brandId) {
   const drafts = await queryable.query(
-    `SELECT post_id, platform, scheduled_time
+    `SELECT post_id, platform, post_content, image_url, video_url, scheduled_time
        FROM social_posts
       WHERE calendar_id = $1 AND status = 'draft'`,
     [calendarId],
@@ -625,7 +625,7 @@ async function buildActivationArtifact(queryable, calendarId, brandId) {
     return { platform: row.platform, destination };
   });
   const classified = classifyDrafts({ drafts: drafts.rows, bindings, now: new Date() });
-  return summarizeArtifact(classified);
+  return summarizeArtifact({ calendarId, ...classified });
 }
 
 /**
@@ -722,10 +722,10 @@ async function activateCalendar(req, res) {
     const confirmedAt = new Date().toISOString();
     try {
       await client.query("BEGIN");
-      // Serialize against concurrent activations/edits of this calendar's
-      // drafts, then reconstruct the artifact from what is NOW true and
-      // recompute the digest. The owner's confirmation binds to an exact
-      // artifact — anything else is a stale confirmation, refused below.
+      // Lock the currently-draft post rows against concurrent status/content
+      // updates, then query their complete persisted artifact. The subsequent
+      // query also sees drafts inserted before it under READ COMMITTED. The
+      // owner's confirmation binds to exactly what that query reconstructs.
       await client.query(
         `SELECT post_id FROM social_posts
           WHERE calendar_id = $1 AND status = 'draft' FOR UPDATE`,
@@ -984,10 +984,13 @@ async function regeneratePost(req, res) {
 async function updatePost(req, res) {
   const userId = req.user.userId;
   const { postId } = req.params;
-  const { postContent } = req.body;
+  const { postContent, expectedStatus } = req.body;
   const content = String(postContent || "").trim();
   if (!content) {
     return res.status(400).json({ error: "postContent is required" });
+  }
+  if (expectedStatus !== undefined && expectedStatus !== "draft") {
+    return res.status(400).json({ error: "expectedStatus must be draft" });
   }
 
   try {
@@ -1002,14 +1005,21 @@ async function updatePost(req, res) {
     const updated = await db.query(
       `UPDATE social_posts
        SET post_content = $1
-       WHERE post_id = $2 AND status NOT IN ('publishing', 'published')
+       WHERE post_id = $2
+         AND status NOT IN ('publishing', 'published')
+         AND ($3::text IS NULL OR status = $3::social_post_status)
        RETURNING post_id, platform, post_content, scheduled_time, status, created_at`,
-      [content, postId]
+      [content, postId, expectedStatus || null]
     );
     if (updated.rowCount === 0) {
       return res
         .status(409)
-        .json({ error: "Cannot edit a post that is already publishing or published" });
+        .json({
+          error:
+            expectedStatus === "draft"
+              ? "The post is no longer a draft"
+              : "Cannot edit a post that is already publishing or published",
+        });
     }
     return res.json({ post: updated.rows[0] });
   } catch (err) {

@@ -22,6 +22,8 @@ vi.mock("../api.js", () => ({
     dismissSetupSession: vi.fn(),
     startGoogleOAuth: vi.fn(),
     startFacebookOAuth: vi.fn(),
+    previewCalendarActivation: vi.fn(),
+    updateCalendarPost: vi.fn(),
   },
 }));
 
@@ -152,5 +154,44 @@ describe("SetupAgent activation consent panel", () => {
 
     expect(await screen.findByText("Done.")).toBeInTheDocument();
     expect(screen.getByText("Skipped.")).toBeInTheDocument();
+  });
+
+  test("uses the shared editor, guards approval, and saves a draft before refreshing review", async () => {
+    const editablePreview = {
+      ...PREVIEW,
+      posts: [{ postId: "post-9", postContent: "Onboarding draft" }],
+    };
+    const refreshedPreview = {
+      ...editablePreview,
+      digest: "f".repeat(64),
+      posts: [{ postId: "post-9", postContent: "Reviewed draft" }],
+    };
+    api.runSetupAction.mockResolvedValueOnce(pausedResponse({ preview: editablePreview }));
+    api.updateCalendarPost.mockResolvedValue({
+      post: { post_id: "post-9", post_content: "Reviewed draft", status: "draft" },
+    });
+    api.previewCalendarActivation.mockResolvedValue(refreshedPreview);
+
+    render(<SetupAgent onClose={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+    expect(screen.getByTestId("calendar-post-editor")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /approve & schedule/i })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Post text"), {
+      target: { value: "Reviewed draft" },
+    });
+    expect(api.updateCalendarPost).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(api.updateCalendarPost).toHaveBeenCalledWith(
+        "post-9",
+        "Reviewed draft",
+        "draft",
+      ),
+    );
+    expect(await screen.findByTestId("activation-review-again")).toBeInTheDocument();
+    expect(api.previewCalendarActivation).toHaveBeenCalledWith("cal-1");
+    expect(api.runSetupAction).toHaveBeenCalledTimes(1);
   });
 });

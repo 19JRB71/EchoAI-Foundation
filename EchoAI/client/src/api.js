@@ -1125,10 +1125,10 @@ export const api = {
       method: "POST",
       body: { postId },
     }),
-  updateCalendarPost: (postId, postContent) =>
+  updateCalendarPost: (postId, postContent, expectedStatus) =>
     request(`/api/content-calendar/post/${postId}`, {
       method: "PUT",
-      body: { postContent },
+      body: expectedStatus ? { postContent, expectedStatus } : { postContent },
     }),
   getCalendarPostingSettings: (brandId) =>
     request(`/api/content-calendar/settings/${brandId}`),

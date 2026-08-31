@@ -12,6 +12,7 @@ import {
 import RetryBadge from "./RetryBadge.jsx";
 import ReschedulePost from "./ReschedulePost.jsx";
 import AccountHealthBanner from "./AccountHealthBanner.jsx";
+import CalendarPostEditor from "./CalendarPostEditor.jsx";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -65,6 +66,15 @@ function formatDateTime(value) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
 }
 
+function previewPosts(preview) {
+  const candidates = preview?.posts || preview?.eligible || [];
+  return candidates.filter(
+    (post) =>
+      (post.post_id || post.postId) &&
+      (typeof post.post_content === "string" || typeof post.postContent === "string"),
+  );
+}
+
 export default function AICalendar({ brandId, onReconnect }) {
   const [calendar, setCalendar] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -74,6 +84,14 @@ export default function AICalendar({ brandId, onReconnect }) {
   const [busy, setBusy] = useState(false);
   // 026-C1: the activation artifact under review (null = no dialog open).
   const [activationPreview, setActivationPreview] = useState(null);
+  const [activationEditPost, setActivationEditPost] = useState(null);
+  const [activationEditorState, setActivationEditorState] = useState({
+    open: false,
+    dirty: false,
+    saving: false,
+  });
+  const [activationRefreshing, setActivationRefreshing] = useState(false);
+  const [activationReviewNotice, setActivationReviewNotice] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -161,6 +179,7 @@ export default function AICalendar({ brandId, onReconnect }) {
     try {
       const preview = await api.previewCalendarActivation(calendar.calendar_id);
       setActivationPreview(preview);
+      setActivationReviewNotice("");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -169,7 +188,14 @@ export default function AICalendar({ brandId, onReconnect }) {
   }
 
   async function confirmActivation() {
-    if (!calendar || !activationPreview) return;
+    if (
+      !calendar ||
+      !activationPreview ||
+      activationEditorState.open ||
+      activationEditorState.dirty ||
+      activationEditorState.saving ||
+      activationRefreshing
+    ) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -205,6 +231,29 @@ export default function AICalendar({ brandId, onReconnect }) {
       }
     } finally {
       setBusy(false);
+    }
+  }
+
+  const handleActivationEditorState = useCallback((state) => {
+    setActivationEditorState(state);
+  }, []);
+
+  async function refreshActivationAfterEdit() {
+    if (!calendar) return;
+    setActivationEditPost(null);
+    setActivationPreview(null);
+    setActivationRefreshing(true);
+    setError("");
+    try {
+      const fresh = await api.previewCalendarActivation(calendar.calendar_id);
+      setActivationPreview(fresh);
+      setActivationReviewNotice(
+        "Post saved. The activation preview was refreshed — review it again before approving.",
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActivationRefreshing(false);
     }
   }
 
@@ -313,6 +362,14 @@ export default function AICalendar({ brandId, onReconnect }) {
           className="rounded-xl border border-teal-700 bg-teal-900/20 p-4"
         >
           <h3 className="text-sm font-semibold text-teal-200">Approve your posting schedule</h3>
+          {activationReviewNotice && (
+            <p
+              data-testid="activation-review-again"
+              className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+            >
+              {activationReviewNotice}
+            </p>
+          )}
           <div className="mt-2 space-y-1 text-sm text-gray-200">
             <p>
               <span className="font-semibold">{activationPreview.eligibleCount ?? 0}</span> post
@@ -343,18 +400,58 @@ export default function AICalendar({ brandId, onReconnect }) {
                 platform has no connected destination.
               </p>
             )}
+            {previewPosts(activationPreview).map((post) => (
+              <div
+                key={post.post_id || post.postId}
+                className="mt-2 flex items-start justify-between gap-3 rounded-lg border border-gray-700 p-3"
+              >
+                <p className="line-clamp-2 flex-1 whitespace-pre-wrap">
+                  {post.post_content ?? post.postContent}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActivationEditPost(post)}
+                  disabled={Boolean(activationEditPost) || activationRefreshing}
+                  className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-200 disabled:opacity-50"
+                >
+                  Edit
+                </button>
+              </div>
+            ))}
           </div>
+          {activationEditPost && (
+            <div className="mt-4 rounded-lg border border-gray-700 bg-gray-900 p-3">
+              <CalendarPostEditor
+                key={activationEditPost.post_id || activationEditPost.postId}
+                post={activationEditPost}
+                expectedStatus="draft"
+                onCancel={() => setActivationEditPost(null)}
+                onSaved={refreshActivationAfterEdit}
+                onStateChange={handleActivationEditorState}
+              />
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               onClick={confirmActivation}
-              disabled={busy || !activationPreview.digest}
+              disabled={
+                busy ||
+                !activationPreview.digest ||
+                activationEditorState.open ||
+                activationEditorState.dirty ||
+                activationEditorState.saving ||
+                activationRefreshing
+              }
               className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
             >
               Approve &amp; schedule
             </button>
             <button
-              onClick={() => setActivationPreview(null)}
-              disabled={busy}
+              onClick={() => {
+                setActivationEditPost(null);
+                setActivationPreview(null);
+              }}
+              disabled={busy || activationEditorState.saving || activationRefreshing}
               className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm font-semibold text-gray-300 hover:bg-gray-800"
             >
               Cancel
@@ -362,6 +459,8 @@ export default function AICalendar({ brandId, onReconnect }) {
           </div>
         </div>
       )}
+
+      {activationRefreshing && <Spinner label="Refreshing activation preview…" />}
 
       {showForm && (
         <GenerateForm
@@ -931,27 +1030,8 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
   const failReason = postFailureReason(post);
   const credentialFailure = isCredentialFailure(post);
   const retryInfo = retryAttemptInfo(post);
-  const [content, setContent] = useState(post.post_content || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    setContent(post.post_content || "");
-  }, [post]);
-
-  async function saveEdit() {
-    setBusy(true);
-    setError("");
-    try {
-      const data = await api.updateCalendarPost(post.post_id, content);
-      setActivePost(data.post);
-      await onChanged();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function postNow() {
     setBusy(true);
@@ -975,7 +1055,6 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
     setError("");
     try {
       const data = await api.regenerateCalendarPost(post.post_id);
-      setContent(data.post.post_content || "");
       setActivePost(data.post);
       await onChanged();
     } catch (err) {
@@ -1086,29 +1165,22 @@ function PostPanel({ post, onClose, onChanged, setActivePost, onReconnect }) {
 
         {editable ? (
           <>
-            <label className="mb-1 block text-xs font-medium text-gray-400">
-              Edit before it goes live
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={10}
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100"
+            <CalendarPostEditor
+              key={`${post.post_id}:${post.post_content}`}
+              post={post}
+              onCancel={onClose}
+              onSaved={async (updated) => {
+                setActivePost(updated);
+                await onChanged();
+              }}
             />
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <div className="mt-4 flex flex-wrap justify-end">
               <button
                 onClick={regenerate}
                 disabled={busy}
                 className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-50"
               >
                 {busy ? "Working…" : "Regenerate"}
-              </button>
-              <button
-                onClick={saveEdit}
-                disabled={busy || !content.trim()}
-                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-amber-600 disabled:opacity-50"
-              >
-                Save
               </button>
             </div>
           </>

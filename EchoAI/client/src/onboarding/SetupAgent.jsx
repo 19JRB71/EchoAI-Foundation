@@ -8,6 +8,7 @@ import { useVoiceInput, detectIsMobile } from "./useVoiceInput.js";
 import VoiceCalibration from "./VoiceCalibration.jsx";
 import useOnboardingTiming from "./useOnboardingTiming.js";
 import { FacebookPagePicker } from "../sections/social/ConnectedAccounts.jsx";
+import CalendarPostEditor from "../sections/social/CalendarPostEditor.jsx";
 
 const VOICE_MODE_KEY = "echoai_setup_voice_mode";
 // Set once the user completes OR skips voice calibration, so we never re-offer
@@ -135,6 +136,15 @@ function connectKind(connect) {
   return null;
 }
 
+function previewPosts(preview) {
+  const candidates = preview?.posts || preview?.eligible || [];
+  return candidates.filter(
+    (post) =>
+      (post.post_id || post.postId) &&
+      (typeof post.post_content === "string" || typeof post.postContent === "string"),
+  );
+}
+
 export default function SetupAgent({
   onClose,
   onExitToSection,
@@ -179,6 +189,15 @@ export default function SetupAgent({
   const [results, setResults] = useState({}); // key -> { status, detail }
   const [runningKey, setRunningKey] = useState(null);
   const [needsConnection, setNeedsConnection] = useState(null);
+  const [activationPreviewOverride, setActivationPreviewOverride] = useState(null);
+  const [activationEditPost, setActivationEditPost] = useState(null);
+  const [activationEditorState, setActivationEditorState] = useState({
+    open: false,
+    dirty: false,
+    saving: false,
+  });
+  const [activationPreviewLoading, setActivationPreviewLoading] = useState(false);
+  const [activationReviewNotice, setActivationReviewNotice] = useState("");
   // 026-C3: owner-action pause ({ key, label, action, detail }) — a re-derived
   // server pause (missing_ad_destination | confirm_campaign_launch), NOT a
   // failure. While active there is no Retry control and no failure copy.
@@ -832,6 +851,11 @@ export default function SetupAgent({
     setBusy(true);
     setError("");
     try {
+      if (connectKind(needsConnection?.connect) === "activate_calendar") {
+        setActivationEditPost(null);
+        setActivationPreviewOverride(null);
+        setActivationReviewNotice("");
+      }
       // Mark the current needs-connection step as skipped, then continue.
       await api.runSetupAction(sessionId, true);
       setResults((prev) => ({
@@ -945,15 +969,48 @@ export default function SetupAgent({
   // digest and consumed by exactly one execute call — if the calendar changed
   // meanwhile, the server refuses and pauses again with a fresh preview.
   async function approveActivation(digest) {
-    if (busy) return;
+    if (
+      busy ||
+      activationEditorState.open ||
+      activationEditorState.dirty ||
+      activationEditorState.saving ||
+      activationPreviewLoading
+    ) return;
     setBusy(true);
     setError("");
     try {
+      setActivationEditPost(null);
+      setActivationPreviewOverride(null);
+      setActivationReviewNotice("");
       confirmRef.current = { step: "social_schedule", digest };
       setNeedsConnection(null);
       await runLoop(sessionId);
     } finally {
       setBusy(false);
+    }
+  }
+
+  const handleActivationEditorState = useCallback((state) => {
+    setActivationEditorState(state);
+  }, []);
+
+  async function refreshActivationAfterEdit() {
+    const calendarId = needsConnection?.connect?.calendarId;
+    if (!calendarId) return;
+    setActivationEditPost(null);
+    setActivationPreviewOverride(null);
+    setActivationPreviewLoading(true);
+    setError("");
+    try {
+      const fresh = await api.previewCalendarActivation(calendarId);
+      setActivationPreviewOverride(fresh);
+      setActivationReviewNotice(
+        "Post saved. The activation preview was refreshed — review it again before approving.",
+      );
+    } catch (err) {
+      setError(err.message || "Could not refresh your posting schedule.");
+    } finally {
+      setActivationPreviewLoading(false);
     }
   }
 
@@ -1449,7 +1506,8 @@ export default function SetupAgent({
               // exact artifact (count, window, destinations, exclusions) and
               // binds the approve action to its digest.
               if (kind === "activate_calendar") {
-                const preview = needsConnection.connect?.preview || {};
+                const preview =
+                  activationPreviewOverride || needsConnection.connect?.preview || {};
                 const fmt = (iso) =>
                   iso
                     ? new Date(iso).toLocaleString(undefined, {
@@ -1464,6 +1522,14 @@ export default function SetupAgent({
                   <div className="mt-6 rounded-2xl border border-teal-500/30 bg-teal-500/5 p-6">
                     <h3 className="font-semibold text-teal-200">Approve your posting schedule</h3>
                     <p className="mt-1 text-sm text-white/70">{needsConnection.detail}</p>
+                    {activationReviewNotice ? (
+                      <p
+                        data-testid="activation-review-again"
+                        className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+                      >
+                        {activationReviewNotice}
+                      </p>
+                    ) : null}
                     <div className="mt-3 space-y-1 text-sm text-white/80">
                       <p>
                         <span className="font-semibold">{preview.eligibleCount ?? 0}</span> post
@@ -1497,16 +1563,62 @@ export default function SetupAgent({
                           This is the same approval as before — nothing has been scheduled yet.
                         </p>
                       ) : null}
+                      {previewPosts(preview).map((post) => (
+                        <div
+                          key={post.post_id || post.postId}
+                          className="mt-2 flex items-start justify-between gap-3 rounded-lg border border-white/15 p-3"
+                        >
+                          <p className="line-clamp-2 flex-1 whitespace-pre-wrap">
+                            {post.post_content ?? post.postContent}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setActivationEditPost(post)}
+                            disabled={Boolean(activationEditPost) || activationPreviewLoading}
+                            className="rounded border border-white/20 px-2 py-1 text-xs disabled:opacity-50"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      ))}
                     </div>
+                    {activationEditPost ? (
+                      <div className="mt-4 rounded-lg border border-white/15 bg-black/30 p-3">
+                        <CalendarPostEditor
+                          key={activationEditPost.post_id || activationEditPost.postId}
+                          post={activationEditPost}
+                          expectedStatus="draft"
+                          onCancel={() => setActivationEditPost(null)}
+                          onSaved={refreshActivationAfterEdit}
+                          onStateChange={handleActivationEditorState}
+                        />
+                      </div>
+                    ) : null}
+                    {activationPreviewLoading ? (
+                      <div className="mt-4">
+                        <Spinner label="Refreshing activation preview…" />
+                      </div>
+                    ) : null}
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button
                         onClick={() => approveActivation(preview.digest)}
-                        disabled={busy || !preview.digest}
+                        disabled={
+                          busy ||
+                          !preview.digest ||
+                          activationEditorState.open ||
+                          activationEditorState.dirty ||
+                          activationEditorState.saving ||
+                          activationPreviewLoading
+                        }
                         className={primaryBtnTeal}
                       >
                         Approve &amp; schedule
                       </button>
-                      <button onClick={skipConnection} disabled={busy} className={ghostBtn}>
+                      <button
+                        onClick={skipConnection}
+                        disabled={busy || activationEditorState.saving || activationPreviewLoading}
+                        className={ghostBtn}
+                      >
                         Skip — keep everything as drafts
                       </button>
                     </div>
