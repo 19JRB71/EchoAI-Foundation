@@ -1,0 +1,89 @@
+026 — SDS-H1 FIRST-PUBLISH SWEEP EVIDENCE CAPTURE
+
+We are reconciling the SDS-H1 publisher checkpoint before beginning BLACOR-H1.
+
+Important current state:
+
+PM9 fingerprint recovery resolved Branch A.
+PM9 merged to staging at 57261ebe59248c555c3eccb02bdcaa9a6d69f8eb.
+Staging verified healthy, migrations 148, SW v185.
+Meta-chain checkpoint completed: STILL BLOCKED / DEFERRED; no mutation performed.
+I-74 is formally CLOSED — false positive/non-secret by Claude.
+OBJECTIVE
+
+Determine what happened during the natural SDS-H1 first-publish sweep that was scheduled for approximately 2026-08-30 1:00 PM ET.
+
+This is READ-ONLY EVIDENCE CAPTURE.
+
+We are now past that scheduled time, so inspect the existing records and determine whether the natural publisher sweep executed and what happened.
+
+DO NOT
+Do not manually trigger or force a publisher sweep.
+Do not Retry anything.
+Do not republish anything.
+Do not modify SDS posts.
+Do not modify scheduling.
+Do not modify activation consent.
+Do not call Meta/Facebook merely to obtain additional evidence.
+Do not create provider actions.
+Do not change database records.
+Do not modify code.
+Do not commit/push/deploy.
+Do not start BLACOR-H1.
+READ-ONLY INVESTIGATION
+
+Identify the SDS post(s) whose scheduled publish time should have been reached by the first natural sweep.
+
+For each applicable post, capture:
+
+post ID;
+platform;
+scheduled time;
+status before/after publishing if provable;
+publisher/sweep execution timestamp;
+whether the publisher attempted delivery;
+provider/external-action result;
+provider proof/reference ID if one exists;
+failure classification/reason if unsuccessful;
+retryability/disposition if persisted;
+whether any duplicate publish attempt occurred;
+whether the exact owner-approved content remained bound through publication;
+whether the activation/digest protections introduced through PM9 remained intact;
+any task/audit/spine/ledger records created by the natural publisher execution.
+
+Also determine whether any SDS post actually reached Facebook publicly. Use existing persisted proof first. Do not perform a provider call if one is not already safely available through a strictly read-only path.
+
+IMPORTANT
+
+Distinguish clearly between:
+
+NO SWEEP OCCURRED
+SWEEP OCCURRED / PUBLISH SUCCEEDED
+SWEEP OCCURRED / PUBLISH FAILED
+INSUFFICIENT EVIDENCE
+
+If the sweep failed, do not fix or retry it.
+
+If you discover an unexpected mutation, duplicate publication, consent/content mismatch, or other integrity problem, HARD STOP and report it.
+
+RETURN
+
+Give me a concise SDS-H1 FIRST-PUBLISH CHECKPOINT REPORT containing:
+
+determination;
+posts involved;
+scheduled vs actual execution times;
+publisher result;
+provider/external-action evidence;
+public-publication evidence if available;
+duplicate/idempotency evidence;
+approved-content integrity evidence;
+relevant audit/task/ledger/spine evidence;
+any anomaly discovered;
+whether this checkpoint is clean enough to send to Claude for SDS-H1 segment adjudication.
+
+Finish with explicit confirmation:
+
+READ-ONLY — NO RETRY, NO FORCED SWEEP, NO PROVIDER MUTATION, NO SDS CONTENT CHANGE, NO BLACOR-H1 START.
+
+Return the report to me. Do not continue into the next phase.
