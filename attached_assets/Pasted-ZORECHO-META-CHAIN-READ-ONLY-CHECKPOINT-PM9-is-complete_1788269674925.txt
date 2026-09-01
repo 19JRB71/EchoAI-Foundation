@@ -1,0 +1,56 @@
+ZORECHO — META-CHAIN READ-ONLY CHECKPOINT
+
+PM9 is complete and deployed successfully to staging at merge SHA:
+
+57261ebe59248c555c3eccb02bdcaa9a6d69f8eb
+
+This task is READ-ONLY. Do not change code, database state, Meta state, campaigns, ads, credentials, tasks, or SDS-H1 records.
+
+Objective
+
+Determine the current status of the previously deferred South Dixie Storage Meta/Facebook advertising chain and whether the prior Meta/provider restriction or manual-review condition has changed.
+
+Known baseline
+
+SDS-H1 previously reached:
+
+Facebook Page binding connected.
+Store-3 destination correctly bound to South Dixie Storage.
+Meta campaign created.
+Meta ad set created.
+Creative/ad NOT created.
+Local campaign status: launch_failed.
+Outcome/code: provider_manual_review.
+retryable=false.
+journey_disposition=deferred.
+deferred_reason=pending_provider_review.
+owner_directed=true.
+No spend occurred.
+Perform only read-only investigation
+Inspect the current persisted SDS-H1 Meta-chain records.
+Determine whether any status/review information has changed since the established baseline.
+If an existing read-only Meta/API status lookup is available and can be performed without retrying, creating, publishing, modifying, or resubmitting anything, you may use it.
+Do NOT invoke Retry or resume the failed launch chain.
+Do NOT create an ad, creative, campaign, or ad set.
+Do NOT modify Facebook Page bindings or Store-3.
+Do NOT modify SDS posts, calendar, activation consent, publisher state, or scheduled content.
+Do NOT trigger a publisher sweep.
+Do NOT make any database writes.
+Do NOT rotate, expose, print, or alter credentials/tokens.
+Return
+
+Give me a concise checkpoint report containing:
+
+current campaign ID/status;
+current ad-set ID/status;
+whether creative/ad IDs now exist;
+current local failure/deferred state;
+current Meta/provider review or restriction state, if safely observable;
+whether anything materially changed from the SDS-H1 baseline;
+whether the chain appears CLEAR, STILL BLOCKED/DEFERRED, or UNKNOWN;
+exact evidence supporting that determination;
+confirmation that the entire investigation was read-only with zero mutations and zero spend.
+
+If determining Meta's current status would require a mutation, Retry, resubmission, or other provider action, STOP and report that limitation instead.
+
+Do not fix anything. Do not continue into I-74 or BLACOR-H1. Return the checkpoint report to me first.
