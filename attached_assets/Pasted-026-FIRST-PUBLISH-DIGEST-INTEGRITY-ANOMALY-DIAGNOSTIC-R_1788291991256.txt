@@ -1,0 +1,34 @@
+026 — FIRST-PUBLISH DIGEST-INTEGRITY ANOMALY: DIAGNOSTIC RULING
+
+Date: 2026-08-30 · Reviewer: Claude (reviewing architect)
+Ruling: the HARD STOP was correct and the capture did exactly what it exists to do — but before any forensics run, the PRIMARY HYPOTHESIS is named, because it is hiding in the report's own wording: the stored consent digest was created on 2026-08-26 BY THE v1 ALGORITHM (PM9's v2 had not merged at activation time), and it was recomputed "from the current persisted calendar artifact" WITH THE v2 ALGORITHM. A v1 artifact and a v2 recomputation can NEVER match — different input tuple, different serialization — even over byte-identical data. This is the report's own hypothesis #8 in its most specific form: a cross-version comparison, not evidence of a content change. The diagnostic below tests that first, then proves content integrity directly either way. Read-only forensics AUTHORIZED, plus ONE read-only provider fetch.
+
+Filed at PROMPT_LIBRARY/PROMPT_026_SDSH1_digest_anomaly_ruling_2026-08-30.md; this paste is the authoritative delivery.
+
+WHY THE MISMATCH WAS EXPECTED, stated plainly: on Aug 26 the digest bound postId|scheduledTime|platform|destination for eligible posts ONLY — that was the v1 contract, and its failure to bind content was I-67, the entire reason PM9 exists. The consent recorded that day is v1 consent: content integrity between approval and publish was always resting on the procedural same-sitting rule and audit timestamps, never on that hash — a gap we knew, disclosed twice, and built PM9 to close for FUTURE approvals. Nothing re-validates digests at publish time by design (publish consumes scheduled status; K+1 guards the approval boundary). So the mismatch, by itself, implies NO product defect and NO tampering — but we do not close integrity questions on reasoning alone, hence:
+
+The authorized diagnostic (read-only, in this order)
+
+STEP 1 — THE VERSION TEST (decisive, cheap): recompute the digest with the v1 algorithm (per-eligible-post lines postId|scheduledTimeISO|platform|destination, lexically sorted, newline-joined, SHA-256) over the four posts' CONSENT-TIME values — all four IDs, the 17:00Z times for 8/30–9/13, platform facebook, destination 140006069194366, all on the banked record. EXPECTED: exact equality with c674abb8…. Equality proves the stored digest is the healthy v1 artifact and the "anomaly" is a version mismatch in the evidence procedure.
+
+STEP 2 — DIRECT CONTENT-INTEGRITY PROOF (independent of any digest): the 2026-08-26 delivery package recorded every post verbatim and banked set hashes. (a) Field-diff the CURRENT 12 unpublished rows (3 scheduled + 9 drafts) against the banked record — every field, including updated_at (the three scheduled rows should still read 2026-08-26T14:52:53.039; an unchanged audit timestamp is proof of no write in this schema). (b) For the published row, diff every NON-OPERATIONAL field (content, media refs, platform, scheduled time, calendar) against its banked values; operational fields changed by the publish itself are expected. (c) Recompute the banked-style post-set hash over current rows with the published row's operational fields normalized to their Aug-26 values — equality with 08589c27… proves NO content-bearing field changed anywhere in the set. This one step adjudicates hypotheses 1–6 simultaneously.
+
+STEP 3 — END-TO-END PUBLISHED-CONTENT PROOF (one provider READ, authorized): fetch the published post's message via the Graph API read path for 140006069194366_122257581020056707 (a read, not a mutation — same class as the existing readback proof) and compare it to the persisted post_content. This closes the gap the report correctly named: the readback proves publication, not message-body equality. One fetch, no writes, no retries.
+
+STEP 4 — OWNER ATTESTATION, on the record: James states whether he edited ANY of the four scheduled posts after the Aug 26 approval. A yes is not a violation — owner edits are owner-lawful — it is an input the timeline needs.
+
+Pre-ruled outcomes
+
+IF Step 1 matches AND Steps 2–3 are clean (expected): the anomaly is CLOSED as a cross-version evidence-procedure artifact; the first-publish checkpoint converts from provisional to FULL PASS/CLOSED — publisher, ledger, external action, single-attempt discipline, and provider readback all live-proven, banking the LAST open C1 live proof. And a STANDING EVIDENCE RULE is recorded: a stored digest is verified with the algorithm version that created it — consent artifacts carry their era, and evidence tooling compares like with like (procedural rule; no code change; PM9's v2 artifacts are version-prefixed going forward, which makes this self-identifying for all future consents).
+
+IF any Step 2 field genuinely differs or Step 3 shows message inequality: STOP, return the exact field, both values, and the write timeline — ruled then, not guessed now; no assumption of unauthorized editing, per the request's own correct instinct.
+
+Interim dispositions
+
+The publication REMAINS ACCEPTED PROVISIONALLY — it is proven singular, succeeded, and provider-acknowledged; nothing about the digest question casts doubt on the publish machinery itself, and the post stays up (it is the owner's content on the owner's Page either way; if Step 3 somehow shows the wrong text, the OWNER decides its fate). The remaining three scheduled posts PROCEED NATURALLY — no pause — unless Step 2 shows a real content change, in which case Replit reports before the next slot (9/4) and the owner decides. BLACOR-H1 REMAINS BLOCKED — it already was (PM9 merge + Meta checkpoint) — and this resolution is expected to be fast, not a new long pole.
+
+NOT AUTHORIZED: any remediation; any mutation; Retry; forced sweep; provider writes; editing anything; pausing/unscheduling the remaining posts; I-76 work; BLACOR-H1; H2; 027; production.
+
+Constraints honored: ruling only; no Replit contact; specimen untouched. Returned to owner + ChatGPT. STOP.
+
+James — one line for you outside the ruling: your system published its first real post today, on time, exactly once, with provider proof. The digest flag is almost certainly our own evidence tooling comparing an old-format receipt against a new-format calculator — the checks above will settle it quickly. And Step 4 is yours to answer: did you edit any of the four posts after you approved them on the 26th? Just say yes or no on the record when you send this back.
