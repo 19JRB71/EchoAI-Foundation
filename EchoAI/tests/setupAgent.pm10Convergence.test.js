@@ -1,5 +1,6 @@
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
+const { createHash } = require("node:crypto");
 require("./dbGuard");
 const express = require("express");
 const jwt = require("jsonwebtoken");
@@ -374,11 +375,29 @@ test("R23: pre-completion new_business is a side-effect-free 409", async () => {
 });
 
 test("R24: post-completion new_business still starts normally", async () => {
+  const sdsUserId = await fixture({ completed: true });
+  const sdsBrandId = await brand(sdsUserId);
+  await db.query("UPDATE brands SET brand_name='SDS fixture' WHERE brand_id=$1", [sdsBrandId]);
+  const sdsBefore = await db.query("SELECT * FROM brands WHERE brand_id=$1", [sdsBrandId]);
+  const sdsBeforeHash = createHash("sha256").update(JSON.stringify(sdsBefore.rows)).digest("hex");
+
   const userId = await fixture({ completed: true });
   await brand(userId);
   const result = await call(userId, "/api/setup-agent/session", { intent: "new_business" });
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.session.answers._interview.entryIntent, "new_business");
+  assert.equal(result.body.session.brandId, null);
+  assert.deepEqual(Object.keys(result.body.session.answers), ["_interview"]);
+
+  const sdsAfter = await db.query("SELECT * FROM brands WHERE brand_id=$1", [sdsBrandId]);
+  const sdsAfterHash = createHash("sha256").update(JSON.stringify(sdsAfter.rows)).digest("hex");
+  assert.equal(sdsAfter.rowCount, sdsBefore.rowCount, "SDS brand fixture count is unchanged");
+  assert.equal(sdsAfterHash, sdsBeforeHash, "SDS brand fixture hash is unchanged");
+  assert.equal(
+    (await db.query("SELECT 1 FROM setup_sessions WHERE user_id=$1", [sdsUserId])).rowCount,
+    0,
+    "new_business creates no SDS setup session",
+  );
 });
 
 test("R25 + concurrency: new_business rejects; the same valid initial journey converges once and preserves evidence", async () => {

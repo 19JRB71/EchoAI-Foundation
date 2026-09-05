@@ -15,6 +15,7 @@ vi.mock("../api.js", () => ({
     startSetupSession: vi.fn(),
     probeSetupSession: vi.fn(),
     getBrands: vi.fn(),
+    getOnboardingStatus: vi.fn(),
     echoVoiceGetSettings: vi.fn().mockResolvedValue(null),
     pauseSetupSession: vi.fn().mockResolvedValue({}),
     pauseSetupSessionBeacon: vi.fn(),
@@ -49,6 +50,7 @@ beforeEach(() => {
   localStorage.clear();
   localStorage.setItem("echoai_calibration_offered", "1");
   api.echoVoiceGetSettings.mockResolvedValue(null);
+  api.getOnboardingStatus.mockResolvedValue({ onboardingCompleted: true });
   api.startSetupSession.mockResolvedValue({
     session: INTERVIEW_SESSION,
     question: { message: "What are you setting up?" },
@@ -56,16 +58,34 @@ beforeEach(() => {
 });
 
 describe("SetupAgent entry choice (P035 Section H)", () => {
-  test("R22: embedded onboarding keeps continuation but suppresses the different-business option", async () => {
+  test("R22/R-B1: embedded + onboarding complete renders the different-business option", async () => {
     api.getBrands.mockResolvedValue([BRAND]);
     api.probeSetupSession.mockResolvedValue({ openSession: false });
     render(<SetupAgent embedded onClose={() => {}} />);
     expect(await screen.findByTestId("entry-choice-continue")).toBeInTheDocument();
-    expect(screen.queryByTestId("entry-choice-new")).toBeNull();
+    expect(screen.getByTestId("entry-choice-new")).toBeInTheDocument();
     expect(api.startSetupSession).not.toHaveBeenCalled();
   });
 
-  test("brand exists + no open session → the choice renders and 'different business' starts with intent new_business", async () => {
+  test("R-B2: embedded + onboarding incomplete omits the different-business option", async () => {
+    api.getBrands.mockResolvedValue([BRAND]);
+    api.probeSetupSession.mockResolvedValue({ openSession: false });
+    api.getOnboardingStatus.mockResolvedValue({ onboardingCompleted: false });
+    render(<SetupAgent embedded onClose={() => {}} />);
+    expect(await screen.findByTestId("entry-choice-continue")).toBeInTheDocument();
+    expect(screen.queryByTestId("entry-choice-new")).toBeNull();
+  });
+
+  test("R-B3: standalone + onboarding incomplete omits the different-business option", async () => {
+    api.getBrands.mockResolvedValue([BRAND]);
+    api.probeSetupSession.mockResolvedValue({ openSession: false });
+    api.getOnboardingStatus.mockResolvedValue({ onboardingCompleted: false });
+    render(<SetupAgent onClose={() => {}} />);
+    expect(await screen.findByTestId("entry-choice-continue")).toBeInTheDocument();
+    expect(screen.queryByTestId("entry-choice-new")).toBeNull();
+  });
+
+  test("standalone + onboarding complete renders and keeps the existing new_business path", async () => {
     api.getBrands.mockResolvedValue([BRAND]);
     api.probeSetupSession.mockResolvedValue({ openSession: false });
     render(<SetupAgent onClose={() => {}} />);
