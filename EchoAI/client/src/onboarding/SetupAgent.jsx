@@ -590,6 +590,7 @@ export default function SetupAgent({
   // silent binding to the existing brand). The choice is persisted server-
   // side in the session's _interview bookkeeping and survives restarts.
   const [entryBrands, setEntryBrands] = useState([]);
+  const [entryOnboardingComplete, setEntryOnboardingComplete] = useState(false);
   const activeRef = useRef(true);
 
   // Start (or resume) a session and route to the right phase. intent is null
@@ -648,18 +649,22 @@ export default function SetupAgent({
       // never blocked on the choice surface).
       let brands = [];
       let openSession = true;
+      let onboardingComplete = false;
       try {
-        const [list, probe] = await Promise.all([
+        const [list, probe, onboarding] = await Promise.all([
           api.getBrands(),
           api.probeSetupSession(),
+          api.getOnboardingStatus(),
         ]);
         const arr = Array.isArray(list) ? list : list?.brands || [];
         brands = arr.filter((b) => b && b.is_demo !== true);
         openSession = Boolean(probe && probe.openSession);
+        onboardingComplete = onboarding?.onboardingCompleted === true;
       } catch {
         brands = [];
       }
       if (!activeRef.current) return;
+      setEntryOnboardingComplete(onboardingComplete);
       if (brands.length > 0 && !openSession) {
         setEntryBrands(brands);
         setPhase("entryChoice");
@@ -1101,7 +1106,7 @@ export default function SetupAgent({
           >
             Continue setting up {first ? `"${first.brand_name}"` : "my business"}
           </button>
-          {!embedded ? (
+          {entryOnboardingComplete ? (
             <button
               onClick={() => {
                 setPhase("loading");
