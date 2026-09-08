@@ -1,0 +1,10 @@
+PR: 66
+PR state after merge: closed
+PR merged: true
+approved head: f3b956e9140c2342e162582778fa6e949570b0dc
+required base: a3fa570a8d5bc255b469aaca2c8246d325ae9a86
+merge SHA: de8e996f55fd5139a5488f75f7d96078f9dc25c6
+resulting staging SHA: de8e996f55fd5139a5488f75f7d96078f9dc25c6
+merge tree: 144bb722ac0424e14102c67692ea9697a3931a09
+parent 1: a3fa570a8d5bc255b469aaca2c8246d325ae9a86
+parent 2: f3b956e9140c2342e162582778fa6e949570b0dc

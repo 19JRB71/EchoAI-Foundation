@@ -1,0 +1,182 @@
+{
+  "capturedAt": "2026-09-08T23:40:01.216Z",
+  "transaction": "BEGIN READ ONLY / ROLLBACK",
+  "migrations": 148,
+  "blacorApplicationState": {
+    "users": 0,
+    "brands": 0,
+    "setup_sessions": 0,
+    "guided_setup_progress": 0,
+    "agent_tasks": 0,
+    "social_posts": 0,
+    "campaigns": 0,
+    "ad_creatives": 0,
+    "external_actions": 0,
+    "external_proofs": 0,
+    "job_runs": 0
+  },
+  "blacorOauthMetadataSignals": {
+    "api_integrations": 3,
+    "google_integrations": 0
+  },
+  "sds": {
+    "brandIds": [
+      "bfe13534-f06d-4206-8139-3c217a52c8da",
+      "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+      "d5745758-30a6-462a-baa6-4233216b8f93"
+    ],
+    "postCounts": {
+      "total": 48,
+      "unpublished": 45,
+      "scheduled_unpublished": 6,
+      "published": 3
+    },
+    "statusDistribution": [
+      {
+        "status": "draft",
+        "count": 9
+      },
+      {
+        "status": "failed",
+        "count": 30
+      },
+      {
+        "status": "published",
+        "count": 3
+      },
+      {
+        "status": "scheduled",
+        "count": 6
+      }
+    ],
+    "aggregateCounts": {
+      "social_posts": 48,
+      "unpublished_posts": 45,
+      "scheduled_unpublished_posts": 6,
+      "social_accounts": 1,
+      "calendars": 3,
+      "campaigns": 1,
+      "ad_creatives": 3,
+      "agent_tasks": 43,
+      "external_actions": 4,
+      "external_proofs": 4,
+      "ad_spend_audit": 0,
+      "ad_spend_caps": 0,
+      "relevant_facebook_integrations": 2,
+      "relevant_google_integrations": 2,
+      "setup_sessions": 3
+    },
+    "updatedSincePriorCapture": {
+      "cutoff": "2026-09-05T01:41:45Z",
+      "rows": [
+        {
+          "post_id": "0c8c28d1-9bd7-45cb-9c91-0b5f38985d85",
+          "brand_id": "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "status": "failed",
+          "scheduled_time": "2026-09-05T16:00:00.000Z",
+          "published_time": null,
+          "external_post_id": null,
+          "publish_attempts": 1,
+          "updated_at": "2026-09-05T16:00:00.376Z"
+        },
+        {
+          "post_id": "99ab51bd-9fc1-446e-bff1-46fae5befdcd",
+          "brand_id": "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "status": "failed",
+          "scheduled_time": "2026-09-05T17:00:00.000Z",
+          "published_time": null,
+          "external_post_id": null,
+          "publish_attempts": 1,
+          "updated_at": "2026-09-05T17:00:00.956Z"
+        },
+        {
+          "post_id": "6631ec8b-c6df-49bc-8722-1a24ef920685",
+          "brand_id": "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "status": "failed",
+          "scheduled_time": "2026-09-07T16:00:00.000Z",
+          "published_time": null,
+          "external_post_id": null,
+          "publish_attempts": 1,
+          "updated_at": "2026-09-07T16:00:00.803Z"
+        },
+        {
+          "post_id": "22bf542b-1c97-40c6-b43a-791caf689611",
+          "brand_id": "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "status": "failed",
+          "scheduled_time": "2026-09-07T17:00:00.000Z",
+          "published_time": null,
+          "external_post_id": null,
+          "publish_attempts": 1,
+          "updated_at": "2026-09-07T17:00:00.445Z"
+        },
+        {
+          "post_id": "04de578b-c20e-4ff8-9239-742f6fc33fc4",
+          "brand_id": "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "status": "failed",
+          "scheduled_time": "2026-09-08T17:00:00.000Z",
+          "published_time": null,
+          "external_post_id": null,
+          "publish_attempts": 1,
+          "updated_at": "2026-09-08T17:00:01.057Z"
+        },
+        {
+          "post_id": "e8716b6e-bac3-4d21-855e-bbdb220020d4",
+          "brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+          "status": "published",
+          "scheduled_time": "2026-09-08T17:00:00.000Z",
+          "published_time": "2026-09-08T17:00:05.084Z",
+          "external_post_id": "140006069194366_122258455766056707",
+          "publish_attempts": 0,
+          "updated_at": "2026-09-08T17:00:05.084Z"
+        }
+      ]
+    },
+    "deferredCampaign": {
+      "campaign_id": "5eb4a506-e92e-4d94-a63c-7ce2c15ee741",
+      "status": "launch_failed",
+      "budget": "20.00",
+      "facebook_campaign_id": "52548872979134",
+      "facebook_adset_id": "52548872983334",
+      "facebook_creative_id": null,
+      "facebook_ad_id": null,
+      "activation_requested_at": null
+    },
+    "currentFingerprintDefinition": {
+      "note": "New explicit recovery definition only; the missing banked serializer prevents comparison to the prior banked hashes.",
+      "projection": [
+        "post_id",
+        "brand_id",
+        "platform",
+        "post_content",
+        "scheduled_time",
+        "published_time",
+        "status",
+        "engagement_metrics",
+        "external_post_id",
+        "created_at",
+        "updated_at",
+        "calendar_id",
+        "publish_attempts",
+        "source",
+        "image_url",
+        "video_url",
+        "proof_run_key"
+      ],
+      "order": "post_id::text ASC",
+      "timestampSerialization": "pg Date values serialized by JSON.stringify as UTC ISO-8601 strings",
+      "nullPreservation": "JSON null",
+      "jsonKeyOrder": "projection order shown above",
+      "unpublishedInclusion": "status::text <> 'published'",
+      "scheduledUnpublishedInclusion": "status::text = 'scheduled'",
+      "serialization": "JSON.stringify(array of row objects)",
+      "unpublished": {
+        "count": 45,
+        "sha256": "1292e1e3dd9bc30d4285984998f7385862a90370b3cec7d2ebd7b7e28289b36c"
+      },
+      "scheduledUnpublished": {
+        "count": 6,
+        "sha256": "a3d172d8f6e3b700e98d7a79ec917cfd6bcb80293fbbe36e17f62334e4a867f9"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+environment: staging
+health version: de8e996f55fd5139a5488f75f7d96078f9dc25c6
+applied migrations: 148
+service worker: echoai-shell-v186
+served bundle: index-qsmk6fKo.js
+served bundle SHA-256: 3dc55e6aaf7de162ca05034ccca8bdbf4139446c58cec3f6c8417ad6858d3a8f
+Railway deployment ID: 6339203571
+Railway terminal state: success
+Railway terminal timestamp: 2026-09-08T23:30:35Z

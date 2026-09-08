@@ -1,0 +1,23 @@
+Requested observation:
+  Render the embedded SetupAgent for an already-onboarded owner and verify
+  "Set up a different business" is visible without clicking it.
+
+Read-only eligibility proof:
+  onboarding completed: true
+  real brands: 1
+  completed setup sessions: 1
+  open in_progress/paused setup sessions: 0
+
+Guarded browser policy:
+  Allowed GET, HEAD, and OPTIONS.
+  Allowed only POST /api/setup-agent/session with exact body {"probe":true}.
+  Blocked all other POST, PUT, PATCH, and DELETE requests.
+
+Result:
+  Workspace-key JWT: HTTP 401 from live /api/auth/profile.
+  Session-key JWT: HTTP 401 from live /api/auth/profile.
+  No setup-session request was made.
+  Normal login was not used because it writes users.last_login_at and
+  increments users.login_count.
+  The target control was not clicked.
+  The authenticated live render is not certified under the read-only boundary.
