@@ -1,0 +1,56 @@
+command=node --require ./tests/dbGuard.js --test tests/calendarActivationDigest.test.js tests/contentCalendar.activationConsent.test.js test/setupAgent.e2e.test.js
+Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+✔ Professional user completes the full setup flow end-to-end (3799.232112ms)
+✔ Enterprise user completes every setup step (nothing wrongly gated) (744.027733ms)
+✔ Starter user skips Pro-gated steps gracefully and still completes (515.751552ms)
+✔ Invited team member is blocked from the setup agent (403) (28.653683ms)
+✔ Consent is auto-revoked on dismiss and the session becomes unusable (260.995608ms)
+✔ Unauthenticated requests are rejected (401) (1.769369ms)
+✔ a crashed holder's lease is reclaimed only after the window, and resume creates no duplicate side effects (759.084408ms)
+✔ concurrent /execute calls for one session run the step exactly once (HTTP layer) (717.044763ms)
+Drip Sequence Designer: attempt 1/3 failed (AI provider unavailable); retrying in 500ms
+Drip Sequence Designer: attempt 2/3 failed (AI provider unavailable); retrying in 1000ms
+design the drip sequence error: AI provider unavailable
+Setup agent step "email_preferences" failed [provider_unavailable] [ref a13f9945-2f5f-4a14-bb27-0904cf413b0e]: The AI provider could not design the drip sequence right now. Please try again shortly.
+✔ a failing step (drip designer) records a durable owner-safe failed outcome, and retry after recovery completes setup (2254.524158ms)
+✔ dismiss during an in-flight step cancels coherently (no resurrection to completed) (829.044837ms)
+✔ pause during an in-flight step is preserved (not overwritten by the step) (1045.728032ms)
+✔ finalize can't resurrect a session dismissed after the consent-middleware read (TOCTOU) (783.83693ms)
+✔ finalize can't complete a session paused after the consent-middleware read (TOCTOU) (818.650034ms)
+✔ future bound draft is eligible with its destination (1.295657ms)
+✔ past and inside-lead-window drafts are excluded as stale (1.351115ms)
+✔ a draft on an unbound platform is excluded as unbound, and unbound wins over stale (0.376196ms)
+✔ digest is order-independent and deterministic (1.285074ms)
+✔ digest changes for calendar identity and every eligible authorization field (0.823658ms)
+✔ exact exclusion membership and reason are digest-bound (0.303604ms)
+✔ operational fields are excluded and the empty artifact is calendar-bound and stable (0.456959ms)
+✔ summarizeArtifact reports truthful counts, range, destinations, and the eligible set (0.714115ms)
+Connected to PostgreSQL database
+✔ activation without a confirmDigest is refused with the preview (no zero-click path) (91.239827ms)
+✔ a stale digest is refused with a fresh preview; the matching digest activates ONLY the eligible set (1761.450507ms)
+✔ v1 eligible-only digest and exclusion-only artifact changes are clean 409 mismatches (24.330879ms)
+✔ eligible content, media, and calendar identity are digest-bound (107.776475ms)
+✔ the consent echo lands in each activated post's spine task meta (1295.428208ms)
+✔ drafts with no eligible post fail closed (nothingEligible), and empty calendars may re-activate (36.276908ms)
+✔ draft-precondition edit fails after activation while legacy edits preserve behavior (144.712525ms)
+✔ another user's calendar is a 404 for both preview and activate (2.748841ms)
+✔ updatePost rejects empty content (5.063969ms)
+✔ updatePost denies a cross-tenant postId with 404 (7.795968ms)
+✔ updatePost preserves image_url and video_url byte-for-byte (18.674596ms)
+✔ updatePost changes exactly one row and leaves a sibling draft byte-identical (13.284654ms)
+✔ updatePost creates no task, external-action, proof, or provider-connection rows (124.874415ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13756.267167

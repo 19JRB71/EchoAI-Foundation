@@ -1,0 +1,1 @@
+package-firewall.replit.local=0; other non-registry package hosts=0; portable registry resolutions=302 (https://registry.npmjs.org)

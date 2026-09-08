@@ -1,0 +1,11 @@
+command=npx vitest run src/onboarding/SetupAgent.entryChoice.test.jsx
+
+ RUN  v3.2.6 /home/runner/workspace/.local/pm9b-lockfile-portability-repair/EchoAI/client
+
+ ✓ src/onboarding/SetupAgent.entryChoice.test.jsx (9 tests) 176ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  23:07:33
+   Duration  1.91s (transform 372ms, setup 139ms, collect 439ms, tests 176ms, environment 651ms, prepare 200ms)
+
