@@ -1,0 +1,161 @@
+{
+  "capturedAt": "2026-09-08T23:54:53.501Z",
+  "transaction": "BEGIN READ ONLY / ROLLBACK",
+  "search": "to_jsonb(row)::text ILIKE '%blacor%'",
+  "applicationRows": {
+    "users": 0,
+    "brands": 0,
+    "setup_sessions": 0,
+    "guided_setup_progress": 0,
+    "agent_tasks": 0,
+    "social_posts": 0,
+    "campaigns": 0,
+    "ad_creatives": 0,
+    "external_actions": 0,
+    "external_proofs": 0,
+    "job_runs": 0
+  },
+  "oauthMetadata": [
+    {
+      "integration_id": "0503d3d5-0b11-424a-ad85-cd0480257d93",
+      "user_id": "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+      "platform": "facebook",
+      "connection_status": "connected",
+      "created_at": "2026-08-17T13:12:03.825Z",
+      "updated_at": "2026-08-21T16:50:34.582Z",
+      "account_ref": "act_185098744942162",
+      "page_ref": "140006069194366",
+      "facebook_pages": [
+        {
+          "id": "140006069194366",
+          "name": "South Dixie Storage ",
+          "category": "Portable Building Service"
+        }
+      ]
+    },
+    {
+      "integration_id": "477867dc-caa7-4890-a664-e93db8d07f4b",
+      "user_id": "cb06cf12-5828-48c5-ad7b-53966afd0ea5",
+      "platform": "facebook",
+      "connection_status": "connected",
+      "created_at": "2026-07-27T14:55:57.027Z",
+      "updated_at": "2026-08-14T17:45:39.198Z",
+      "account_ref": "act_818682760732833",
+      "page_ref": "140006069194366",
+      "facebook_pages": [
+        {
+          "id": "140006069194366",
+          "name": "South Dixie Storage ",
+          "category": "Portable Building Service"
+        }
+      ]
+    },
+    {
+      "integration_id": "9aa8d781-fb3d-4e88-b486-2c440a917950",
+      "user_id": "ef9be332-9294-4c6c-9616-88e48a58cac0",
+      "platform": "facebook",
+      "connection_status": "connected",
+      "created_at": "2026-08-15T19:57:50.700Z",
+      "updated_at": "2026-08-15T19:57:50.700Z",
+      "account_ref": "act_185098744942162",
+      "page_ref": "140006069194366",
+      "facebook_pages": [
+        {
+          "id": "140006069194366",
+          "name": "South Dixie Storage ",
+          "category": "Portable Building Service"
+        }
+      ]
+    }
+  ],
+  "deferredCampaign": [
+    {
+      "campaign_id": "5eb4a506-e92e-4d94-a63c-7ce2c15ee741",
+      "brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+      "user_id": "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+      "campaign_name": "South Dixie Storage - Done-For-You Barn",
+      "budget": "20.00",
+      "cost_per_lead": null,
+      "conversion_rate": null,
+      "launch_date": "2026-08-18T00:00:00.000Z",
+      "facebook_campaign_id": "52548872979134",
+      "facebook_adset_id": "52548872983334",
+      "status": "launch_failed",
+      "facebook_creative_id": null,
+      "facebook_ad_id": null,
+      "last_verified_at": null,
+      "last_verify_error": null,
+      "activation_requested_at": null,
+      "created_at": "2026-08-18T18:03:30.718Z",
+      "updated_at": "2026-08-18T18:03:30.718Z"
+    }
+  ],
+  "deferredCampaignCreatives": [
+    {
+      "creative_id": "58b920ec-6705-42d9-bddf-073b774e6a96",
+      "brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+      "campaign_id": null,
+      "status": "draft",
+      "facebook_campaign_id": null,
+      "facebook_adset_id": null,
+      "created_at": "2026-08-17T12:52:49.560Z",
+      "updated_at": "2026-08-17T12:52:49.560Z"
+    },
+    {
+      "creative_id": "6a8c2f3e-0569-487b-b0f8-acc2496c84a7",
+      "brand_id": "bfe13534-f06d-4206-8139-3c217a52c8da",
+      "campaign_id": null,
+      "status": "draft",
+      "facebook_campaign_id": null,
+      "facebook_adset_id": null,
+      "created_at": "2026-08-14T18:33:03.058Z",
+      "updated_at": "2026-08-14T18:33:03.058Z"
+    },
+    {
+      "creative_id": "a8e3756d-4946-4978-ab0a-31f168d3135f",
+      "brand_id": "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+      "campaign_id": null,
+      "status": "draft",
+      "facebook_campaign_id": null,
+      "facebook_adset_id": null,
+      "created_at": "2026-08-15T19:55:04.501Z",
+      "updated_at": "2026-08-15T19:55:04.501Z"
+    }
+  ],
+  "spendAudit": {
+    "count": 0,
+    "total_campaign_budget_cents": "0"
+  },
+  "spendCaps": [],
+  "deferredTasks": [
+    {
+      "task_id": "647db8ae-d9a6-46e1-9da1-a2b27c73d8d9",
+      "brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+      "task_type": "ad_launch",
+      "source_type": "campaign",
+      "source_id": "5eb4a506-e92e-4d94-a63c-7ce2c15ee741",
+      "attempt": 1,
+      "status": "MANUAL_REVIEW",
+      "external_ref": null,
+      "proof_id": null,
+      "last_error": "Permissions error — Permission Error: Either the object you are trying to access is not visible to you or the action you are trying to take is restricted to certain account types. (code 200, subcode 1487194)",
+      "created_at": "2026-08-18T18:03:23.733Z",
+      "updated_at": "2026-08-18T18:03:29.440Z"
+    }
+  ],
+  "deferredActions": [
+    {
+      "action_id": "1c173c3c-ebb3-434c-bd4c-04b9c0476306",
+      "provider": "facebook",
+      "action": "ad_launch",
+      "status": "failed",
+      "classification": "terminal",
+      "error": "Permissions error — Permission Error: Either the object you are trying to access is not visible to you or the action you are trying to take is restricted to certain account types. (code 200, subcode 1487194)",
+      "external_ref": null,
+      "proof_id": null,
+      "started_at": "2026-08-18T18:03:23.791Z",
+      "finished_at": "2026-08-18T18:03:29.435Z",
+      "created_at": "2026-08-18T18:03:23.791Z"
+    }
+  ]
+}

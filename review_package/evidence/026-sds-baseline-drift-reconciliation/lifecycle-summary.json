@@ -1,0 +1,954 @@
+{
+  "capturedAt": "2026-09-08T23:50:35.464Z",
+  "transaction": "BEGIN READ ONLY / ROLLBACK",
+  "counts": {
+    "posts": 8,
+    "tasks": 8,
+    "events": 36,
+    "actions": 2,
+    "proofs": 2,
+    "authorizations": 0,
+    "celebrations": 0,
+    "jobRuns": 18912
+  },
+  "posts": [
+    {
+      "post": {
+        "post_id": "8b3be13e-2cac-4f5a-aa7f-da70a87c7b7e",
+        "brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+        "calendar_id": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e",
+        "platform": "facebook",
+        "status": "published",
+        "scheduled_time": "2026-09-04T17:00:00.000Z",
+        "published_time": "2026-09-04T17:00:05.326Z",
+        "publish_attempts": 0,
+        "external_post_id": "140006069194366_122258091542056707",
+        "engagement_metrics": null,
+        "updated_at": "2026-09-04T17:00:05.326Z",
+        "proof_run_key": null
+      },
+      "tasks": [
+        {
+          "task_id": "fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "attempt": 1,
+          "status": "COMPLETED",
+          "external_ref": "140006069194366_122258091542056707",
+          "proof_id": "71f31d06-a2d3-4e3f-b53b-07e73c6b21f6",
+          "last_error": null,
+          "meta": {
+            "origin": "calendar_activate",
+            "consent": {
+              "digest": "c674abb80577c3a2ab958ab191c2d6e6a1d23a6fdfabaebc584c67168e2079b4",
+              "approver": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+              "confirmedAt": "2026-08-26T14:52:53.038Z",
+              "destination": "140006069194366",
+              "activatedCount": 4,
+              "destinationSummary": {
+                "facebook": "140006069194366"
+              },
+              "excludedStaleCount": 3,
+              "excludedUnboundCount": 6
+            },
+            "platform": "facebook",
+            "calendarId": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e"
+          },
+          "created_at": "2026-08-26T14:52:53.059Z",
+          "updated_at": "2026-09-04T17:00:05.777Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "954d8367-f285-4535-8524-a0eeb134b3f6",
+          "task_id": "fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "actor": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "from_status": null,
+          "to_status": "APPROVED",
+          "meta": {
+            "origin": "calendar_activate",
+            "consent": {
+              "digest": "c674abb80577c3a2ab958ab191c2d6e6a1d23a6fdfabaebc584c67168e2079b4",
+              "approver": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+              "confirmedAt": "2026-08-26T14:52:53.038Z",
+              "destination": "140006069194366",
+              "activatedCount": 4,
+              "destinationSummary": {
+                "facebook": "140006069194366"
+              },
+              "excludedStaleCount": 3,
+              "excludedUnboundCount": 6
+            },
+            "platform": "facebook",
+            "calendarId": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e"
+          },
+          "created_at": "2026-08-26T14:52:53.059Z"
+        },
+        {
+          "event_id": "f4530b4c-dda1-4d44-ba31-6fb6537f7127",
+          "task_id": "fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "actor": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "from_status": "APPROVED",
+          "to_status": "QUEUED",
+          "meta": {},
+          "created_at": "2026-08-26T14:52:53.075Z"
+        },
+        {
+          "event_id": "7ec9958e-7005-4358-aa91-32c4c85a3efd",
+          "task_id": "fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "actor": "system:publish-sweep",
+          "from_status": "QUEUED",
+          "to_status": "EXECUTING",
+          "meta": {
+            "platform": "facebook"
+          },
+          "created_at": "2026-09-04T17:00:00.841Z"
+        },
+        {
+          "event_id": "fcc9d7a7-527f-42c6-bdca-cb2533567833",
+          "task_id": "fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "actor": "system:publish-sweep",
+          "from_status": "EXECUTING",
+          "to_status": "PROVIDER_ACCEPTED",
+          "meta": {
+            "platform": "facebook"
+          },
+          "created_at": "2026-09-04T17:00:05.332Z"
+        },
+        {
+          "event_id": "dd43f513-50cb-4470-8ff7-65dda59292c6",
+          "task_id": "fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "actor": "system:publish-sweep",
+          "from_status": "PROVIDER_ACCEPTED",
+          "to_status": "EXTERNALLY_VERIFIED",
+          "meta": {
+            "verification": "graph_readback"
+          },
+          "created_at": "2026-09-04T17:00:05.772Z"
+        },
+        {
+          "event_id": "3f90ecca-0549-4f34-8961-8465972224a4",
+          "task_id": "fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "actor": "system:publish-sweep",
+          "from_status": "EXTERNALLY_VERIFIED",
+          "to_status": "REPORTED",
+          "meta": {},
+          "created_at": "2026-09-04T17:00:05.775Z"
+        },
+        {
+          "event_id": "f5e7b5db-5d4d-4711-9508-bec6999adb77",
+          "task_id": "fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "actor": "system:publish-sweep",
+          "from_status": "REPORTED",
+          "to_status": "COMPLETED",
+          "meta": {},
+          "created_at": "2026-09-04T17:00:05.777Z"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "769a2232-eda0-4e85-938e-f240675a2abe",
+          "attempt": 1,
+          "provider": "facebook",
+          "action": "social_publish",
+          "status": "succeeded",
+          "classification": null,
+          "error": null,
+          "external_ref": "140006069194366_122258091542056707",
+          "proof_id": null,
+          "dedup_count": 0,
+          "started_at": "2026-09-04T17:00:00.854Z",
+          "finished_at": "2026-09-04T17:00:05.323Z",
+          "created_at": "2026-09-04T17:00:00.854Z",
+          "meta": {
+            "platform": "facebook"
+          }
+        }
+      ],
+      "proofs": [
+        {
+          "proof_id": "71f31d06-a2d3-4e3f-b53b-07e73c6b21f6",
+          "run_key": "task-fbad62ae-0995-4bdb-8a28-d10066cf35b6",
+          "provider": "facebook",
+          "action": "publish_readback",
+          "external_id": "140006069194366_122258091542056707",
+          "verified_at": "2026-09-04T17:00:05.769Z",
+          "created_at": "2026-09-04T17:00:05.769Z",
+          "evidence": {
+            "readBack": {
+              "id": "140006069194366_122258091542056707",
+              "createdTime": "2026-09-04T17:00:00+0000",
+              "permalinkUrl": "https://www.facebook.com/122254631936056707/posts/122258091542056707"
+            },
+            "externalPostId": "140006069194366_122258091542056707"
+          }
+        }
+      ],
+      "authorizations": [],
+      "nearestJob": {
+        "deltaMs": 4502,
+        "run_id": "186098",
+        "job_name": "social-publish",
+        "tick_key": "2026-09-04T17:00:00.000Z",
+        "started_at": "2026-09-04T17:00:00.824Z",
+        "finished_at": "2026-09-04T17:00:05.780Z",
+        "outcome": "success",
+        "error": null
+      }
+    },
+    {
+      "post": {
+        "post_id": "0c8c28d1-9bd7-45cb-9c91-0b5f38985d85",
+        "brand_id": "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+        "calendar_id": "2a2064d2-b869-47c8-a8ea-5ca78772a20c",
+        "platform": "instagram",
+        "status": "failed",
+        "scheduled_time": "2026-09-05T16:00:00.000Z",
+        "published_time": null,
+        "publish_attempts": 1,
+        "external_post_id": null,
+        "engagement_metrics": {
+          "error": "No connected instagram account for this brand",
+          "failure_stage": "pre_provider"
+        },
+        "updated_at": "2026-09-05T16:00:00.376Z",
+        "proof_run_key": null
+      },
+      "tasks": [
+        {
+          "task_id": "69e2f3b0-907a-460e-bfc2-c36c96816f2b",
+          "attempt": 1,
+          "status": "VALIDATION_FAILED",
+          "external_ref": null,
+          "proof_id": null,
+          "last_error": "No connected instagram account for this brand",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "instagram",
+            "calendarId": "2a2064d2-b869-47c8-a8ea-5ca78772a20c"
+          },
+          "created_at": "2026-08-15T20:16:11.069Z",
+          "updated_at": "2026-09-05T16:00:00.567Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "33841274-74fe-4c09-8c2d-c69627100cc3",
+          "task_id": "69e2f3b0-907a-460e-bfc2-c36c96816f2b",
+          "actor": "owner:ef9be332-9294-4c6c-9616-88e48a58cac0",
+          "from_status": null,
+          "to_status": "APPROVED",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "instagram",
+            "calendarId": "2a2064d2-b869-47c8-a8ea-5ca78772a20c"
+          },
+          "created_at": "2026-08-15T20:16:11.069Z"
+        },
+        {
+          "event_id": "20c88d1a-1048-43ac-9c05-49a9e30e79fb",
+          "task_id": "69e2f3b0-907a-460e-bfc2-c36c96816f2b",
+          "actor": "owner:ef9be332-9294-4c6c-9616-88e48a58cac0",
+          "from_status": "APPROVED",
+          "to_status": "QUEUED",
+          "meta": {},
+          "created_at": "2026-08-15T20:16:11.071Z"
+        },
+        {
+          "event_id": "76814e6f-86f7-4398-9694-ac2f188aa8c2",
+          "task_id": "69e2f3b0-907a-460e-bfc2-c36c96816f2b",
+          "actor": "system:publish-sweep",
+          "from_status": "QUEUED",
+          "to_status": "EXECUTING",
+          "meta": {
+            "platform": "instagram"
+          },
+          "created_at": "2026-09-05T16:00:00.366Z"
+        },
+        {
+          "event_id": "4638d55d-e9aa-4ef6-aad4-d9d2971b40ef",
+          "task_id": "69e2f3b0-907a-460e-bfc2-c36c96816f2b",
+          "actor": "system:publish-sweep",
+          "from_status": "EXECUTING",
+          "to_status": "VALIDATION_FAILED",
+          "meta": {
+            "error": "No connected instagram account for this brand",
+            "statusCode": 400
+          },
+          "created_at": "2026-09-05T16:00:00.567Z"
+        }
+      ],
+      "actions": [],
+      "proofs": [],
+      "authorizations": [],
+      "nearestJob": {
+        "deltaMs": 42,
+        "run_id": "191415",
+        "job_name": "social-publish",
+        "tick_key": "2026-09-05T16:00:00.000Z",
+        "started_at": "2026-09-05T16:00:00.334Z",
+        "finished_at": "2026-09-05T16:00:00.571Z",
+        "outcome": "success",
+        "error": null
+      }
+    },
+    {
+      "post": {
+        "post_id": "99ab51bd-9fc1-446e-bff1-46fae5befdcd",
+        "brand_id": "bfe13534-f06d-4206-8139-3c217a52c8da",
+        "calendar_id": "27e4ef37-2ee1-417a-8477-414c19234f81",
+        "platform": "facebook",
+        "status": "failed",
+        "scheduled_time": "2026-09-05T17:00:00.000Z",
+        "published_time": null,
+        "publish_attempts": 1,
+        "external_post_id": null,
+        "engagement_metrics": {
+          "error": "No connected facebook account for this brand",
+          "failure_stage": "pre_provider"
+        },
+        "updated_at": "2026-09-05T17:00:00.956Z",
+        "proof_run_key": null
+      },
+      "tasks": [
+        {
+          "task_id": "b1522028-0986-47d9-b2c0-470126458ae3",
+          "attempt": 1,
+          "status": "VALIDATION_FAILED",
+          "external_ref": null,
+          "proof_id": null,
+          "last_error": "No connected facebook account for this brand",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "facebook",
+            "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81"
+          },
+          "created_at": "2026-08-14T18:40:11.959Z",
+          "updated_at": "2026-09-05T17:00:00.961Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "00a4baec-1839-4570-8d9b-240e4e98db8a",
+          "task_id": "b1522028-0986-47d9-b2c0-470126458ae3",
+          "actor": "owner:bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "from_status": null,
+          "to_status": "APPROVED",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "facebook",
+            "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81"
+          },
+          "created_at": "2026-08-14T18:40:11.959Z"
+        },
+        {
+          "event_id": "0365290a-08c4-4bf3-8c68-462e49fce93e",
+          "task_id": "b1522028-0986-47d9-b2c0-470126458ae3",
+          "actor": "owner:bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "from_status": "APPROVED",
+          "to_status": "QUEUED",
+          "meta": {},
+          "created_at": "2026-08-14T18:40:11.962Z"
+        },
+        {
+          "event_id": "c7cef529-6cb5-4174-9681-3a4238b21fe2",
+          "task_id": "b1522028-0986-47d9-b2c0-470126458ae3",
+          "actor": "system:publish-sweep",
+          "from_status": "QUEUED",
+          "to_status": "EXECUTING",
+          "meta": {
+            "platform": "facebook"
+          },
+          "created_at": "2026-09-05T17:00:00.950Z"
+        },
+        {
+          "event_id": "4b07ea13-9889-45f7-b51d-7004dc642f6c",
+          "task_id": "b1522028-0986-47d9-b2c0-470126458ae3",
+          "actor": "system:publish-sweep",
+          "from_status": "EXECUTING",
+          "to_status": "VALIDATION_FAILED",
+          "meta": {
+            "error": "No connected facebook account for this brand",
+            "statusCode": 400
+          },
+          "created_at": "2026-09-05T17:00:00.961Z"
+        }
+      ],
+      "actions": [],
+      "proofs": [],
+      "authorizations": [],
+      "nearestJob": {
+        "deltaMs": 35,
+        "run_id": "191637",
+        "job_name": "social-publish",
+        "tick_key": "2026-09-05T17:00:00.000Z",
+        "started_at": "2026-09-05T17:00:00.921Z",
+        "finished_at": "2026-09-05T17:00:00.967Z",
+        "outcome": "success",
+        "error": null
+      }
+    },
+    {
+      "post": {
+        "post_id": "6631ec8b-c6df-49bc-8722-1a24ef920685",
+        "brand_id": "bfe13534-f06d-4206-8139-3c217a52c8da",
+        "calendar_id": "27e4ef37-2ee1-417a-8477-414c19234f81",
+        "platform": "instagram",
+        "status": "failed",
+        "scheduled_time": "2026-09-07T16:00:00.000Z",
+        "published_time": null,
+        "publish_attempts": 1,
+        "external_post_id": null,
+        "engagement_metrics": {
+          "error": "No connected instagram account for this brand",
+          "failure_stage": "pre_provider"
+        },
+        "updated_at": "2026-09-07T16:00:00.803Z",
+        "proof_run_key": null
+      },
+      "tasks": [
+        {
+          "task_id": "a2873569-2a4a-4500-9cf7-9c787584b6a7",
+          "attempt": 1,
+          "status": "VALIDATION_FAILED",
+          "external_ref": null,
+          "proof_id": null,
+          "last_error": "No connected instagram account for this brand",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "instagram",
+            "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81"
+          },
+          "created_at": "2026-08-14T18:40:11.965Z",
+          "updated_at": "2026-09-07T16:00:00.810Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "33490440-8475-4031-b534-dfbad3e6f5af",
+          "task_id": "a2873569-2a4a-4500-9cf7-9c787584b6a7",
+          "actor": "owner:bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "from_status": null,
+          "to_status": "APPROVED",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "instagram",
+            "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81"
+          },
+          "created_at": "2026-08-14T18:40:11.965Z"
+        },
+        {
+          "event_id": "db905632-2f74-43d9-acd7-96e9c8f63ce4",
+          "task_id": "a2873569-2a4a-4500-9cf7-9c787584b6a7",
+          "actor": "owner:bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "from_status": "APPROVED",
+          "to_status": "QUEUED",
+          "meta": {},
+          "created_at": "2026-08-14T18:40:11.969Z"
+        },
+        {
+          "event_id": "8bb04898-8d69-4f97-a776-d558caa7e804",
+          "task_id": "a2873569-2a4a-4500-9cf7-9c787584b6a7",
+          "actor": "system:publish-sweep",
+          "from_status": "QUEUED",
+          "to_status": "EXECUTING",
+          "meta": {
+            "platform": "instagram"
+          },
+          "created_at": "2026-09-07T16:00:00.793Z"
+        },
+        {
+          "event_id": "fe64e181-2bf1-49d9-b71d-17afc6ae50c6",
+          "task_id": "a2873569-2a4a-4500-9cf7-9c787584b6a7",
+          "actor": "system:publish-sweep",
+          "from_status": "EXECUTING",
+          "to_status": "VALIDATION_FAILED",
+          "meta": {
+            "error": "No connected instagram account for this brand",
+            "statusCode": 400
+          },
+          "created_at": "2026-09-07T16:00:00.810Z"
+        }
+      ],
+      "actions": [],
+      "proofs": [],
+      "authorizations": [],
+      "nearestJob": {
+        "deltaMs": 37,
+        "run_id": "202485",
+        "job_name": "social-publish",
+        "tick_key": "2026-09-07T16:00:00.000Z",
+        "started_at": "2026-09-07T16:00:00.766Z",
+        "finished_at": "2026-09-07T16:00:00.814Z",
+        "outcome": "success",
+        "error": null
+      }
+    },
+    {
+      "post": {
+        "post_id": "22bf542b-1c97-40c6-b43a-791caf689611",
+        "brand_id": "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+        "calendar_id": "2a2064d2-b869-47c8-a8ea-5ca78772a20c",
+        "platform": "facebook",
+        "status": "failed",
+        "scheduled_time": "2026-09-07T17:00:00.000Z",
+        "published_time": null,
+        "publish_attempts": 1,
+        "external_post_id": null,
+        "engagement_metrics": {
+          "error": "No connected facebook account for this brand",
+          "failure_stage": "pre_provider"
+        },
+        "updated_at": "2026-09-07T17:00:00.445Z",
+        "proof_run_key": null
+      },
+      "tasks": [
+        {
+          "task_id": "85ca244a-a642-488e-a720-3dc0bf2e6200",
+          "attempt": 1,
+          "status": "VALIDATION_FAILED",
+          "external_ref": null,
+          "proof_id": null,
+          "last_error": "No connected facebook account for this brand",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "facebook",
+            "calendarId": "2a2064d2-b869-47c8-a8ea-5ca78772a20c"
+          },
+          "created_at": "2026-08-15T20:16:11.074Z",
+          "updated_at": "2026-09-07T17:00:00.545Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "2eed7367-78a9-4cee-be8c-0fa26895e0d0",
+          "task_id": "85ca244a-a642-488e-a720-3dc0bf2e6200",
+          "actor": "owner:ef9be332-9294-4c6c-9616-88e48a58cac0",
+          "from_status": null,
+          "to_status": "APPROVED",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "facebook",
+            "calendarId": "2a2064d2-b869-47c8-a8ea-5ca78772a20c"
+          },
+          "created_at": "2026-08-15T20:16:11.074Z"
+        },
+        {
+          "event_id": "08d2ab0b-ba43-449f-943d-187e7c5f6858",
+          "task_id": "85ca244a-a642-488e-a720-3dc0bf2e6200",
+          "actor": "owner:ef9be332-9294-4c6c-9616-88e48a58cac0",
+          "from_status": "APPROVED",
+          "to_status": "QUEUED",
+          "meta": {},
+          "created_at": "2026-08-15T20:16:11.076Z"
+        },
+        {
+          "event_id": "a39f39e7-1cb4-4985-b879-98d8d1184334",
+          "task_id": "85ca244a-a642-488e-a720-3dc0bf2e6200",
+          "actor": "system:publish-sweep",
+          "from_status": "QUEUED",
+          "to_status": "EXECUTING",
+          "meta": {
+            "platform": "facebook"
+          },
+          "created_at": "2026-09-07T17:00:00.437Z"
+        },
+        {
+          "event_id": "919881d3-398b-4c5a-a985-174e3e778bb4",
+          "task_id": "85ca244a-a642-488e-a720-3dc0bf2e6200",
+          "actor": "system:publish-sweep",
+          "from_status": "EXECUTING",
+          "to_status": "VALIDATION_FAILED",
+          "meta": {
+            "error": "No connected facebook account for this brand",
+            "statusCode": 400
+          },
+          "created_at": "2026-09-07T17:00:00.545Z"
+        }
+      ],
+      "actions": [],
+      "proofs": [],
+      "authorizations": [],
+      "nearestJob": {
+        "deltaMs": 32,
+        "run_id": "202708",
+        "job_name": "social-publish",
+        "tick_key": "2026-09-07T17:00:00.000Z",
+        "started_at": "2026-09-07T17:00:00.413Z",
+        "finished_at": "2026-09-07T17:00:00.554Z",
+        "outcome": "success",
+        "error": null
+      }
+    },
+    {
+      "post": {
+        "post_id": "04de578b-c20e-4ff8-9239-742f6fc33fc4",
+        "brand_id": "bfe13534-f06d-4206-8139-3c217a52c8da",
+        "calendar_id": "27e4ef37-2ee1-417a-8477-414c19234f81",
+        "platform": "facebook",
+        "status": "failed",
+        "scheduled_time": "2026-09-08T17:00:00.000Z",
+        "published_time": null,
+        "publish_attempts": 1,
+        "external_post_id": null,
+        "engagement_metrics": {
+          "error": "No connected facebook account for this brand",
+          "failure_stage": "pre_provider"
+        },
+        "updated_at": "2026-09-08T17:00:01.057Z",
+        "proof_run_key": null
+      },
+      "tasks": [
+        {
+          "task_id": "41cce48f-01c5-414b-8ebe-feaff57c745b",
+          "attempt": 1,
+          "status": "VALIDATION_FAILED",
+          "external_ref": null,
+          "proof_id": null,
+          "last_error": "No connected facebook account for this brand",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "facebook",
+            "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81"
+          },
+          "created_at": "2026-08-14T18:40:11.972Z",
+          "updated_at": "2026-09-08T17:00:01.061Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "471cccd8-abdf-4311-8fe4-661078cf774f",
+          "task_id": "41cce48f-01c5-414b-8ebe-feaff57c745b",
+          "actor": "owner:bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "from_status": null,
+          "to_status": "APPROVED",
+          "meta": {
+            "origin": "calendar_activate",
+            "platform": "facebook",
+            "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81"
+          },
+          "created_at": "2026-08-14T18:40:11.972Z"
+        },
+        {
+          "event_id": "215b7afb-5e02-48d7-9783-36045ecde5a9",
+          "task_id": "41cce48f-01c5-414b-8ebe-feaff57c745b",
+          "actor": "owner:bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "from_status": "APPROVED",
+          "to_status": "QUEUED",
+          "meta": {},
+          "created_at": "2026-08-14T18:40:11.974Z"
+        },
+        {
+          "event_id": "86b5d2b7-ff6d-474e-8910-0b363af56a8f",
+          "task_id": "41cce48f-01c5-414b-8ebe-feaff57c745b",
+          "actor": "system:publish-sweep",
+          "from_status": "QUEUED",
+          "to_status": "EXECUTING",
+          "meta": {
+            "platform": "facebook"
+          },
+          "created_at": "2026-09-08T17:00:01.048Z"
+        },
+        {
+          "event_id": "3e9cad5f-4b4a-420c-ab0f-f990eff50b89",
+          "task_id": "41cce48f-01c5-414b-8ebe-feaff57c745b",
+          "actor": "system:publish-sweep",
+          "from_status": "EXECUTING",
+          "to_status": "VALIDATION_FAILED",
+          "meta": {
+            "error": "No connected facebook account for this brand",
+            "statusCode": 400
+          },
+          "created_at": "2026-09-08T17:00:01.061Z"
+        }
+      ],
+      "actions": [],
+      "proofs": [],
+      "authorizations": [],
+      "nearestJob": {
+        "deltaMs": 44,
+        "run_id": "208242",
+        "job_name": "social-publish",
+        "tick_key": "2026-09-08T17:00:00.000Z",
+        "started_at": "2026-09-08T17:00:01.013Z",
+        "finished_at": "2026-09-08T17:00:05.550Z",
+        "outcome": "success",
+        "error": null
+      }
+    },
+    {
+      "post": {
+        "post_id": "e8716b6e-bac3-4d21-855e-bbdb220020d4",
+        "brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+        "calendar_id": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e",
+        "platform": "facebook",
+        "status": "published",
+        "scheduled_time": "2026-09-08T17:00:00.000Z",
+        "published_time": "2026-09-08T17:00:05.084Z",
+        "publish_attempts": 0,
+        "external_post_id": "140006069194366_122258455766056707",
+        "engagement_metrics": null,
+        "updated_at": "2026-09-08T17:00:05.084Z",
+        "proof_run_key": null
+      },
+      "tasks": [
+        {
+          "task_id": "37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "attempt": 1,
+          "status": "COMPLETED",
+          "external_ref": "140006069194366_122258455766056707",
+          "proof_id": "713b4619-1e10-4686-a2c7-d029aed11a95",
+          "last_error": null,
+          "meta": {
+            "origin": "calendar_activate",
+            "consent": {
+              "digest": "c674abb80577c3a2ab958ab191c2d6e6a1d23a6fdfabaebc584c67168e2079b4",
+              "approver": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+              "confirmedAt": "2026-08-26T14:52:53.038Z",
+              "destination": "140006069194366",
+              "activatedCount": 4,
+              "destinationSummary": {
+                "facebook": "140006069194366"
+              },
+              "excludedStaleCount": 3,
+              "excludedUnboundCount": 6
+            },
+            "platform": "facebook",
+            "calendarId": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e"
+          },
+          "created_at": "2026-08-26T14:52:53.087Z",
+          "updated_at": "2026-09-08T17:00:05.544Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "08c6cdca-aecc-42e2-8a58-c914d4c6714e",
+          "task_id": "37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "actor": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "from_status": null,
+          "to_status": "APPROVED",
+          "meta": {
+            "origin": "calendar_activate",
+            "consent": {
+              "digest": "c674abb80577c3a2ab958ab191c2d6e6a1d23a6fdfabaebc584c67168e2079b4",
+              "approver": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+              "confirmedAt": "2026-08-26T14:52:53.038Z",
+              "destination": "140006069194366",
+              "activatedCount": 4,
+              "destinationSummary": {
+                "facebook": "140006069194366"
+              },
+              "excludedStaleCount": 3,
+              "excludedUnboundCount": 6
+            },
+            "platform": "facebook",
+            "calendarId": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e"
+          },
+          "created_at": "2026-08-26T14:52:53.087Z"
+        },
+        {
+          "event_id": "8b27f232-f285-4a35-8a05-e33a9a332697",
+          "task_id": "37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "actor": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "from_status": "APPROVED",
+          "to_status": "QUEUED",
+          "meta": {},
+          "created_at": "2026-08-26T14:52:53.101Z"
+        },
+        {
+          "event_id": "e302acc3-394a-48e5-8081-9bad73988aa6",
+          "task_id": "37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "actor": "system:publish-sweep",
+          "from_status": "QUEUED",
+          "to_status": "EXECUTING",
+          "meta": {
+            "platform": "facebook"
+          },
+          "created_at": "2026-09-08T17:00:01.066Z"
+        },
+        {
+          "event_id": "3b29dbc0-d96d-4052-bee1-0e4e29d38b60",
+          "task_id": "37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "actor": "system:publish-sweep",
+          "from_status": "EXECUTING",
+          "to_status": "PROVIDER_ACCEPTED",
+          "meta": {
+            "platform": "facebook"
+          },
+          "created_at": "2026-09-08T17:00:05.089Z"
+        },
+        {
+          "event_id": "79dbd080-5b29-4766-9678-6a957f3e5ca4",
+          "task_id": "37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "actor": "system:publish-sweep",
+          "from_status": "PROVIDER_ACCEPTED",
+          "to_status": "EXTERNALLY_VERIFIED",
+          "meta": {
+            "verification": "graph_readback"
+          },
+          "created_at": "2026-09-08T17:00:05.533Z"
+        },
+        {
+          "event_id": "08996d77-a43c-44b3-9ff0-3449998d9914",
+          "task_id": "37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "actor": "system:publish-sweep",
+          "from_status": "EXTERNALLY_VERIFIED",
+          "to_status": "REPORTED",
+          "meta": {},
+          "created_at": "2026-09-08T17:00:05.539Z"
+        },
+        {
+          "event_id": "c5118851-38e8-4fbc-95f5-728e62849d9e",
+          "task_id": "37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "actor": "system:publish-sweep",
+          "from_status": "REPORTED",
+          "to_status": "COMPLETED",
+          "meta": {},
+          "created_at": "2026-09-08T17:00:05.544Z"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "944ec32b-9e41-4b82-bc33-4d95613ded13",
+          "attempt": 1,
+          "provider": "facebook",
+          "action": "social_publish",
+          "status": "succeeded",
+          "classification": null,
+          "error": null,
+          "external_ref": "140006069194366_122258455766056707",
+          "proof_id": null,
+          "dedup_count": 0,
+          "started_at": "2026-09-08T17:00:01.072Z",
+          "finished_at": "2026-09-08T17:00:05.081Z",
+          "created_at": "2026-09-08T17:00:01.072Z",
+          "meta": {
+            "platform": "facebook"
+          }
+        }
+      ],
+      "proofs": [
+        {
+          "proof_id": "713b4619-1e10-4686-a2c7-d029aed11a95",
+          "run_key": "task-37a0285e-703b-43df-be8d-1bb08c57ce31",
+          "provider": "facebook",
+          "action": "publish_readback",
+          "external_id": "140006069194366_122258455766056707",
+          "verified_at": "2026-09-08T17:00:05.530Z",
+          "created_at": "2026-09-08T17:00:05.530Z",
+          "evidence": {
+            "readBack": {
+              "id": "140006069194366_122258455766056707",
+              "createdTime": "2026-09-08T17:00:01+0000",
+              "permalinkUrl": "https://www.facebook.com/122254631936056707/posts/122258455766056707"
+            },
+            "externalPostId": "140006069194366_122258455766056707"
+          }
+        }
+      ],
+      "authorizations": [],
+      "nearestJob": {
+        "deltaMs": 4071,
+        "run_id": "208242",
+        "job_name": "social-publish",
+        "tick_key": "2026-09-08T17:00:00.000Z",
+        "started_at": "2026-09-08T17:00:01.013Z",
+        "finished_at": "2026-09-08T17:00:05.550Z",
+        "outcome": "success",
+        "error": null
+      }
+    },
+    {
+      "post": {
+        "post_id": "2aa02dcd-cae2-4e6e-9374-a192167a4ec9",
+        "brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+        "calendar_id": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e",
+        "platform": "facebook",
+        "status": "scheduled",
+        "scheduled_time": "2026-09-13T17:00:00.000Z",
+        "published_time": null,
+        "publish_attempts": 0,
+        "external_post_id": null,
+        "engagement_metrics": null,
+        "updated_at": "2026-08-26T14:52:53.039Z",
+        "proof_run_key": null
+      },
+      "tasks": [
+        {
+          "task_id": "b9c1a1d9-e999-4634-8b01-205454d4ba39",
+          "attempt": 1,
+          "status": "QUEUED",
+          "external_ref": null,
+          "proof_id": null,
+          "last_error": null,
+          "meta": {
+            "origin": "calendar_activate",
+            "consent": {
+              "digest": "c674abb80577c3a2ab958ab191c2d6e6a1d23a6fdfabaebc584c67168e2079b4",
+              "approver": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+              "confirmedAt": "2026-08-26T14:52:53.038Z",
+              "destination": "140006069194366",
+              "activatedCount": 4,
+              "destinationSummary": {
+                "facebook": "140006069194366"
+              },
+              "excludedStaleCount": 3,
+              "excludedUnboundCount": 6
+            },
+            "platform": "facebook",
+            "calendarId": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e"
+          },
+          "created_at": "2026-08-26T14:52:53.113Z",
+          "updated_at": "2026-08-26T14:52:53.128Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "3fa3ddcb-e0f7-456b-bd39-9264bd96c8be",
+          "task_id": "b9c1a1d9-e999-4634-8b01-205454d4ba39",
+          "actor": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "from_status": null,
+          "to_status": "APPROVED",
+          "meta": {
+            "origin": "calendar_activate",
+            "consent": {
+              "digest": "c674abb80577c3a2ab958ab191c2d6e6a1d23a6fdfabaebc584c67168e2079b4",
+              "approver": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+              "confirmedAt": "2026-08-26T14:52:53.038Z",
+              "destination": "140006069194366",
+              "activatedCount": 4,
+              "destinationSummary": {
+                "facebook": "140006069194366"
+              },
+              "excludedStaleCount": 3,
+              "excludedUnboundCount": 6
+            },
+            "platform": "facebook",
+            "calendarId": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e"
+          },
+          "created_at": "2026-08-26T14:52:53.113Z"
+        },
+        {
+          "event_id": "d8163319-f600-4ae2-86be-17cf40cbd1f9",
+          "task_id": "b9c1a1d9-e999-4634-8b01-205454d4ba39",
+          "actor": "owner:8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "from_status": "APPROVED",
+          "to_status": "QUEUED",
+          "meta": {},
+          "created_at": "2026-08-26T14:52:53.128Z"
+        }
+      ],
+      "actions": [],
+      "proofs": [],
+      "authorizations": [],
+      "nearestJob": {
+        "deltaMs": 7767,
+        "run_id": "135734",
+        "job_name": "social-publish",
+        "tick_key": "2026-08-26T14:53:00.000Z",
+        "started_at": "2026-08-26T14:53:00.806Z",
+        "finished_at": "2026-08-26T14:53:00.817Z",
+        "outcome": "success",
+        "error": null
+      }
+    }
+  ]
+}

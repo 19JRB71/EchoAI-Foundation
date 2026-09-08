@@ -1,0 +1,1212 @@
+{
+  "capturedAt": "2026-09-08T23:52:21.602Z",
+  "transaction": "BEGIN READ ONLY / ROLLBACK",
+  "tables": {
+    "ad_creatives": [
+      {
+        "name": "creative_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "campaign_goal",
+        "type": "text",
+        "ordinal": 3
+      },
+      {
+        "name": "creative_concept",
+        "type": "jsonb",
+        "ordinal": 4
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "launched_package",
+        "type": "jsonb",
+        "ordinal": 6
+      },
+      {
+        "name": "facebook_campaign_id",
+        "type": "text",
+        "ordinal": 7
+      },
+      {
+        "name": "facebook_adset_id",
+        "type": "text",
+        "ordinal": 8
+      },
+      {
+        "name": "campaign_id",
+        "type": "uuid",
+        "ordinal": 9
+      },
+      {
+        "name": "performance_data",
+        "type": "jsonb",
+        "ordinal": 10
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 11
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 12
+      }
+    ],
+    "ad_spend_audit": [
+      {
+        "name": "audit_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "campaign_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 3
+      },
+      {
+        "name": "actor_user_id",
+        "type": "uuid",
+        "ordinal": 4
+      },
+      {
+        "name": "action",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "result",
+        "type": "text",
+        "ordinal": 6
+      },
+      {
+        "name": "brand_cap_cents_at_time",
+        "type": "integer",
+        "ordinal": 7
+      },
+      {
+        "name": "platform_cap_cents_at_time",
+        "type": "integer",
+        "ordinal": 8
+      },
+      {
+        "name": "campaign_budget_cents",
+        "type": "integer",
+        "ordinal": 9
+      },
+      {
+        "name": "committed_live_cents_at_time",
+        "type": "integer",
+        "ordinal": 10
+      },
+      {
+        "name": "denial_reason",
+        "type": "text",
+        "ordinal": 11
+      },
+      {
+        "name": "error_message",
+        "type": "text",
+        "ordinal": 12
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 13
+      }
+    ],
+    "ad_spend_caps": [
+      {
+        "name": "cap_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "daily_cap_cents",
+        "type": "integer",
+        "ordinal": 3
+      },
+      {
+        "name": "set_by_user_id",
+        "type": "uuid",
+        "ordinal": 4
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 5
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 6
+      }
+    ],
+    "agent_task_events": [
+      {
+        "name": "event_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "task_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "actor",
+        "type": "text",
+        "ordinal": 3
+      },
+      {
+        "name": "from_status",
+        "type": "text",
+        "ordinal": 4
+      },
+      {
+        "name": "to_status",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "meta",
+        "type": "jsonb",
+        "ordinal": 6
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 7
+      }
+    ],
+    "agent_tasks": [
+      {
+        "name": "task_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 3
+      },
+      {
+        "name": "task_type",
+        "type": "text",
+        "ordinal": 4
+      },
+      {
+        "name": "source_type",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "source_id",
+        "type": "text",
+        "ordinal": 6
+      },
+      {
+        "name": "attempt",
+        "type": "integer",
+        "ordinal": 7
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "ordinal": 8
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "ordinal": 9
+      },
+      {
+        "name": "external_ref",
+        "type": "text",
+        "ordinal": 10
+      },
+      {
+        "name": "proof_id",
+        "type": "uuid",
+        "ordinal": 11
+      },
+      {
+        "name": "last_error",
+        "type": "text",
+        "ordinal": 12
+      },
+      {
+        "name": "meta",
+        "type": "jsonb",
+        "ordinal": 13
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 14
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 15
+      }
+    ],
+    "api_integrations": [
+      {
+        "name": "integration_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "platform",
+        "type": "USER-DEFINED",
+        "ordinal": 3
+      },
+      {
+        "name": "api_token_encrypted",
+        "type": "text",
+        "ordinal": 4
+      },
+      {
+        "name": "connection_status",
+        "type": "USER-DEFINED",
+        "ordinal": 5
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 6
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 7
+      },
+      {
+        "name": "account_ref",
+        "type": "character varying",
+        "ordinal": 8
+      },
+      {
+        "name": "facebook_ad_accounts",
+        "type": "jsonb",
+        "ordinal": 9
+      },
+      {
+        "name": "facebook_pages",
+        "type": "jsonb",
+        "ordinal": 10
+      },
+      {
+        "name": "page_ref",
+        "type": "text",
+        "ordinal": 11
+      },
+      {
+        "name": "facebook_page_tokens",
+        "type": "text",
+        "ordinal": 12
+      }
+    ],
+    "armed_publish_authorizations": [
+      {
+        "name": "authorization_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 3
+      },
+      {
+        "name": "post_id",
+        "type": "uuid",
+        "ordinal": 4
+      },
+      {
+        "name": "content_hash",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "destination_page_id",
+        "type": "text",
+        "ordinal": 6
+      },
+      {
+        "name": "destination_bound_at",
+        "type": "timestamp with time zone",
+        "ordinal": 7
+      },
+      {
+        "name": "consent_copy_version",
+        "type": "text",
+        "ordinal": 8
+      },
+      {
+        "name": "consent_captured_at",
+        "type": "timestamp with time zone",
+        "ordinal": 9
+      },
+      {
+        "name": "armed_at",
+        "type": "timestamp with time zone",
+        "ordinal": 10
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "ordinal": 11
+      },
+      {
+        "name": "invalidation_reason",
+        "type": "text",
+        "ordinal": 12
+      },
+      {
+        "name": "claimed_at",
+        "type": "timestamp with time zone",
+        "ordinal": 13
+      },
+      {
+        "name": "consumed_at",
+        "type": "timestamp with time zone",
+        "ordinal": 14
+      },
+      {
+        "name": "disarmed_at",
+        "type": "timestamp with time zone",
+        "ordinal": 15
+      },
+      {
+        "name": "execution_failed_at",
+        "type": "timestamp with time zone",
+        "ordinal": 16
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 17
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 18
+      }
+    ],
+    "brands": [
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "brand_name",
+        "type": "character varying",
+        "ordinal": 3
+      },
+      {
+        "name": "brand_personality",
+        "type": "text",
+        "ordinal": 4
+      },
+      {
+        "name": "voice_description",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "visual_style_preferences",
+        "type": "jsonb",
+        "ordinal": 6
+      },
+      {
+        "name": "target_audience",
+        "type": "jsonb",
+        "ordinal": 7
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 8
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 9
+      },
+      {
+        "name": "tagline",
+        "type": "text",
+        "ordinal": 10
+      },
+      {
+        "name": "is_demo",
+        "type": "boolean",
+        "ordinal": 11
+      },
+      {
+        "name": "brand_type",
+        "type": "character varying",
+        "ordinal": 12
+      },
+      {
+        "name": "campaign_profile",
+        "type": "jsonb",
+        "ordinal": 13
+      },
+      {
+        "name": "real_estate_profile",
+        "type": "jsonb",
+        "ordinal": 14
+      },
+      {
+        "name": "geo_targeting",
+        "type": "jsonb",
+        "ordinal": 15
+      },
+      {
+        "name": "demo_tier",
+        "type": "character varying",
+        "ordinal": 16
+      },
+      {
+        "name": "website_url",
+        "type": "text",
+        "ordinal": 17
+      },
+      {
+        "name": "facebook_page_url",
+        "type": "text",
+        "ordinal": 18
+      },
+      {
+        "name": "instagram_url",
+        "type": "text",
+        "ordinal": 19
+      },
+      {
+        "name": "linkedin_url",
+        "type": "text",
+        "ordinal": 20
+      },
+      {
+        "name": "youtube_url",
+        "type": "text",
+        "ordinal": 21
+      },
+      {
+        "name": "tiktok_url",
+        "type": "text",
+        "ordinal": 22
+      },
+      {
+        "name": "google_business_url",
+        "type": "text",
+        "ordinal": 23
+      },
+      {
+        "name": "facebook_page_id",
+        "type": "text",
+        "ordinal": 24
+      },
+      {
+        "name": "ad_link_url",
+        "type": "text",
+        "ordinal": 25
+      }
+    ],
+    "campaigns": [
+      {
+        "name": "campaign_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 3
+      },
+      {
+        "name": "campaign_name",
+        "type": "character varying",
+        "ordinal": 4
+      },
+      {
+        "name": "budget",
+        "type": "numeric",
+        "ordinal": 5
+      },
+      {
+        "name": "cost_per_lead",
+        "type": "numeric",
+        "ordinal": 6
+      },
+      {
+        "name": "conversion_rate",
+        "type": "numeric",
+        "ordinal": 7
+      },
+      {
+        "name": "ad_creative_variations",
+        "type": "jsonb",
+        "ordinal": 8
+      },
+      {
+        "name": "launch_date",
+        "type": "date",
+        "ordinal": 9
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 10
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 11
+      },
+      {
+        "name": "facebook_campaign_id",
+        "type": "character varying",
+        "ordinal": 12
+      },
+      {
+        "name": "facebook_adset_id",
+        "type": "character varying",
+        "ordinal": 13
+      },
+      {
+        "name": "status",
+        "type": "character varying",
+        "ordinal": 14
+      },
+      {
+        "name": "facebook_creative_id",
+        "type": "text",
+        "ordinal": 15
+      },
+      {
+        "name": "facebook_ad_id",
+        "type": "text",
+        "ordinal": 16
+      },
+      {
+        "name": "last_verified_at",
+        "type": "timestamp with time zone",
+        "ordinal": 17
+      },
+      {
+        "name": "last_verify_error",
+        "type": "text",
+        "ordinal": 18
+      },
+      {
+        "name": "activation_requested_at",
+        "type": "timestamp with time zone",
+        "ordinal": 19
+      }
+    ],
+    "content_calendars": [
+      {
+        "name": "calendar_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "month",
+        "type": "integer",
+        "ordinal": 3
+      },
+      {
+        "name": "year",
+        "type": "integer",
+        "ordinal": 4
+      },
+      {
+        "name": "posting_frequency",
+        "type": "character varying",
+        "ordinal": 5
+      },
+      {
+        "name": "content_theme",
+        "type": "text",
+        "ordinal": 6
+      },
+      {
+        "name": "status",
+        "type": "USER-DEFINED",
+        "ordinal": 7
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 8
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 9
+      }
+    ],
+    "external_actions": [
+      {
+        "name": "action_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "idempotency_key",
+        "type": "text",
+        "ordinal": 2
+      },
+      {
+        "name": "attempt",
+        "type": "integer",
+        "ordinal": 3
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "ordinal": 4
+      },
+      {
+        "name": "action",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "task_id",
+        "type": "uuid",
+        "ordinal": 6
+      },
+      {
+        "name": "proof_id",
+        "type": "uuid",
+        "ordinal": 7
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 8
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 9
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "ordinal": 10
+      },
+      {
+        "name": "classification",
+        "type": "text",
+        "ordinal": 11
+      },
+      {
+        "name": "error",
+        "type": "text",
+        "ordinal": 12
+      },
+      {
+        "name": "external_ref",
+        "type": "text",
+        "ordinal": 13
+      },
+      {
+        "name": "meta",
+        "type": "jsonb",
+        "ordinal": 14
+      },
+      {
+        "name": "dedup_count",
+        "type": "integer",
+        "ordinal": 15
+      },
+      {
+        "name": "alerted_at",
+        "type": "timestamp with time zone",
+        "ordinal": 16
+      },
+      {
+        "name": "reconciled_at",
+        "type": "timestamp with time zone",
+        "ordinal": 17
+      },
+      {
+        "name": "started_at",
+        "type": "timestamp with time zone",
+        "ordinal": 18
+      },
+      {
+        "name": "finished_at",
+        "type": "timestamp with time zone",
+        "ordinal": 19
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 20
+      }
+    ],
+    "external_proofs": [
+      {
+        "name": "proof_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "run_key",
+        "type": "text",
+        "ordinal": 2
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "ordinal": 3
+      },
+      {
+        "name": "action",
+        "type": "text",
+        "ordinal": 4
+      },
+      {
+        "name": "external_id",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 6
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 7
+      },
+      {
+        "name": "environment",
+        "type": "text",
+        "ordinal": 8
+      },
+      {
+        "name": "evidence",
+        "type": "jsonb",
+        "ordinal": 9
+      },
+      {
+        "name": "verified_at",
+        "type": "timestamp with time zone",
+        "ordinal": 10
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 11
+      }
+    ],
+    "google_integrations": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "google_account_email",
+        "type": "text",
+        "ordinal": 3
+      },
+      {
+        "name": "access_token_encrypted",
+        "type": "text",
+        "ordinal": 4
+      },
+      {
+        "name": "refresh_token_encrypted",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "scope",
+        "type": "text",
+        "ordinal": 6
+      },
+      {
+        "name": "token_expiry",
+        "type": "timestamp with time zone",
+        "ordinal": 7
+      },
+      {
+        "name": "connection_status",
+        "type": "text",
+        "ordinal": 8
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 9
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 10
+      }
+    ],
+    "guided_setup_progress": [
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "current_step",
+        "type": "text",
+        "ordinal": 2
+      },
+      {
+        "name": "connections",
+        "type": "jsonb",
+        "ordinal": 3
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 4
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 5
+      }
+    ],
+    "onboarding_first_win_celebrations": [
+      {
+        "name": "celebration_claim_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "proof_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 3
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 4
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "claimed_at",
+        "type": "timestamp with time zone",
+        "ordinal": 6
+      }
+    ],
+    "setup_sessions": [
+      {
+        "name": "session_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "ordinal": 3
+      },
+      {
+        "name": "answers",
+        "type": "jsonb",
+        "ordinal": 4
+      },
+      {
+        "name": "messages",
+        "type": "jsonb",
+        "ordinal": 5
+      },
+      {
+        "name": "completed_steps",
+        "type": "jsonb",
+        "ordinal": 6
+      },
+      {
+        "name": "current_field",
+        "type": "text",
+        "ordinal": 7
+      },
+      {
+        "name": "interview_complete",
+        "type": "boolean",
+        "ordinal": 8
+      },
+      {
+        "name": "consent_granted",
+        "type": "boolean",
+        "ordinal": 9
+      },
+      {
+        "name": "consent_at",
+        "type": "timestamp with time zone",
+        "ordinal": 10
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 11
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 12
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 13
+      },
+      {
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "ordinal": 14
+      },
+      {
+        "name": "executing",
+        "type": "boolean",
+        "ordinal": 15
+      },
+      {
+        "name": "executing_at",
+        "type": "timestamp with time zone",
+        "ordinal": 16
+      },
+      {
+        "name": "started_at",
+        "type": "timestamp with time zone",
+        "ordinal": 17
+      },
+      {
+        "name": "paused_at",
+        "type": "timestamp with time zone",
+        "ordinal": 18
+      },
+      {
+        "name": "resumed_at",
+        "type": "timestamp with time zone",
+        "ordinal": 19
+      },
+      {
+        "name": "discovery_session_id",
+        "type": "uuid",
+        "ordinal": 20
+      },
+      {
+        "name": "executing_token",
+        "type": "uuid",
+        "ordinal": 21
+      }
+    ],
+    "social_accounts": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "platform",
+        "type": "USER-DEFINED",
+        "ordinal": 3
+      },
+      {
+        "name": "platform_username",
+        "type": "character varying",
+        "ordinal": 4
+      },
+      {
+        "name": "credentials_encrypted",
+        "type": "text",
+        "ordinal": 5
+      },
+      {
+        "name": "connection_status",
+        "type": "USER-DEFINED",
+        "ordinal": 6
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 7
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 8
+      }
+    ],
+    "social_posts": [
+      {
+        "name": "post_id",
+        "type": "uuid",
+        "ordinal": 1
+      },
+      {
+        "name": "brand_id",
+        "type": "uuid",
+        "ordinal": 2
+      },
+      {
+        "name": "platform",
+        "type": "USER-DEFINED",
+        "ordinal": 3
+      },
+      {
+        "name": "post_content",
+        "type": "text",
+        "ordinal": 4
+      },
+      {
+        "name": "scheduled_time",
+        "type": "timestamp with time zone",
+        "ordinal": 5
+      },
+      {
+        "name": "published_time",
+        "type": "timestamp with time zone",
+        "ordinal": 6
+      },
+      {
+        "name": "status",
+        "type": "USER-DEFINED",
+        "ordinal": 7
+      },
+      {
+        "name": "engagement_metrics",
+        "type": "jsonb",
+        "ordinal": 8
+      },
+      {
+        "name": "external_post_id",
+        "type": "character varying",
+        "ordinal": 9
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "ordinal": 10
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "ordinal": 11
+      },
+      {
+        "name": "calendar_id",
+        "type": "uuid",
+        "ordinal": 12
+      },
+      {
+        "name": "publish_attempts",
+        "type": "integer",
+        "ordinal": 13
+      },
+      {
+        "name": "source",
+        "type": "character varying",
+        "ordinal": 14
+      },
+      {
+        "name": "image_url",
+        "type": "text",
+        "ordinal": 15
+      },
+      {
+        "name": "video_url",
+        "type": "text",
+        "ordinal": 16
+      },
+      {
+        "name": "proof_run_key",
+        "type": "text",
+        "ordinal": 17
+      }
+    ]
+  }
+}

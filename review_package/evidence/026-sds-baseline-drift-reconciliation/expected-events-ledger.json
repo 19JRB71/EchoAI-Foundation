@@ -1,0 +1,158 @@
+{
+  "ledgerVersion": "sds-expected-events-v1",
+  "capturedAt": "2026-09-08T23:53:55.453Z",
+  "sourceFilter": "social_posts.brand_id in SDS IDs AND status='scheduled'",
+  "events": [
+    {
+      "postId": "5698fa31-b9c3-48fc-a06f-b6da107c5465",
+      "brandId": "bfe13534-f06d-4206-8139-3c217a52c8da",
+      "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81",
+      "platform": "instagram",
+      "scheduledTimestamp": "2026-09-10T16:00:00.000Z",
+      "currentStatus": "scheduled",
+      "taskId": "c9663a06-1a2c-44c0-9f3c-b60206128364",
+      "taskStatus": "QUEUED",
+      "consentedH1Specimen": false,
+      "bindingEvidence": {
+        "socialAccountId": null,
+        "connectionStatus": null,
+        "credentialsPresent": false
+      },
+      "expectedLifecycle": "At due sweep: scheduled -> publishing -> failed/VALIDATION_FAILED before provider because no social_accounts row exists.",
+      "predictableEffects": {
+        "scheduledPosts": -1,
+        "unpublishedPosts": 0,
+        "failedPosts": 1,
+        "externalActions": 0,
+        "externalProofs": 0
+      }
+    },
+    {
+      "postId": "8f16aeb8-43ab-4273-9535-9c2f369aeafa",
+      "brandId": "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+      "calendarId": "2a2064d2-b869-47c8-a8ea-5ca78772a20c",
+      "platform": "instagram",
+      "scheduledTimestamp": "2026-09-10T16:00:00.000Z",
+      "currentStatus": "scheduled",
+      "taskId": "931a50b7-c8f2-4752-954b-16186b7a946b",
+      "taskStatus": "QUEUED",
+      "consentedH1Specimen": false,
+      "bindingEvidence": {
+        "socialAccountId": null,
+        "connectionStatus": null,
+        "credentialsPresent": false
+      },
+      "expectedLifecycle": "At due sweep: scheduled -> publishing -> failed/VALIDATION_FAILED before provider because no social_accounts row exists.",
+      "predictableEffects": {
+        "scheduledPosts": -1,
+        "unpublishedPosts": 0,
+        "failedPosts": 1,
+        "externalActions": 0,
+        "externalProofs": 0
+      }
+    },
+    {
+      "postId": "a6163450-685f-4df0-901f-73f8c6faae09",
+      "brandId": "bfe13534-f06d-4206-8139-3c217a52c8da",
+      "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81",
+      "platform": "facebook",
+      "scheduledTimestamp": "2026-09-11T17:00:00.000Z",
+      "currentStatus": "scheduled",
+      "taskId": "b4b6fce7-f6a0-4351-98a3-150f63258985",
+      "taskStatus": "QUEUED",
+      "consentedH1Specimen": false,
+      "bindingEvidence": {
+        "socialAccountId": null,
+        "connectionStatus": null,
+        "credentialsPresent": false
+      },
+      "expectedLifecycle": "At due sweep: scheduled -> publishing -> failed/VALIDATION_FAILED before provider because no social_accounts row exists.",
+      "predictableEffects": {
+        "scheduledPosts": -1,
+        "unpublishedPosts": 0,
+        "failedPosts": 1,
+        "externalActions": 0,
+        "externalProofs": 0
+      }
+    },
+    {
+      "postId": "6a06afd2-710f-4824-ace2-28744efff173",
+      "brandId": "bfe13534-f06d-4206-8139-3c217a52c8da",
+      "calendarId": "27e4ef37-2ee1-417a-8477-414c19234f81",
+      "platform": "instagram",
+      "scheduledTimestamp": "2026-09-12T16:00:00.000Z",
+      "currentStatus": "scheduled",
+      "taskId": "3dbabc08-997e-4861-a97d-faec551c7c0b",
+      "taskStatus": "QUEUED",
+      "consentedH1Specimen": false,
+      "bindingEvidence": {
+        "socialAccountId": null,
+        "connectionStatus": null,
+        "credentialsPresent": false
+      },
+      "expectedLifecycle": "At due sweep: scheduled -> publishing -> failed/VALIDATION_FAILED before provider because no social_accounts row exists.",
+      "predictableEffects": {
+        "scheduledPosts": -1,
+        "unpublishedPosts": 0,
+        "failedPosts": 1,
+        "externalActions": 0,
+        "externalProofs": 0
+      }
+    },
+    {
+      "postId": "484b4f33-edd9-4855-bd9c-5bbeec656bb6",
+      "brandId": "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+      "calendarId": "2a2064d2-b869-47c8-a8ea-5ca78772a20c",
+      "platform": "facebook",
+      "scheduledTimestamp": "2026-09-12T17:00:00.000Z",
+      "currentStatus": "scheduled",
+      "taskId": "501f504b-e730-4245-8c0a-46b41e8d5b17",
+      "taskStatus": "QUEUED",
+      "consentedH1Specimen": false,
+      "bindingEvidence": {
+        "socialAccountId": null,
+        "connectionStatus": null,
+        "credentialsPresent": false
+      },
+      "expectedLifecycle": "At due sweep: scheduled -> publishing -> failed/VALIDATION_FAILED before provider because no social_accounts row exists.",
+      "predictableEffects": {
+        "scheduledPosts": -1,
+        "unpublishedPosts": 0,
+        "failedPosts": 1,
+        "externalActions": 0,
+        "externalProofs": 0
+      }
+    },
+    {
+      "postId": "2aa02dcd-cae2-4e6e-9374-a192167a4ec9",
+      "brandId": "d5745758-30a6-462a-baa6-4233216b8f93",
+      "calendarId": "5588f3f0-f90b-4ca0-a00c-d13ed51b2c9e",
+      "platform": "facebook",
+      "scheduledTimestamp": "2026-09-13T17:00:00.000Z",
+      "currentStatus": "scheduled",
+      "taskId": "b9c1a1d9-e999-4634-8b01-205454d4ba39",
+      "taskStatus": "QUEUED",
+      "consentedH1Specimen": true,
+      "bindingEvidence": {
+        "socialAccountId": "4ed1a620-18e5-4ed7-84db-d18a6ede340f",
+        "connectionStatus": "connected",
+        "credentialsPresent": true
+      },
+      "expectedLifecycle": "At due sweep: scheduled -> publishing; provider attempt through external_actions. On provider success: published + completed task + one proof. On provider failure: failed/manual-review or governed transient retry per persisted classification.",
+      "predictableEffects": {
+        "scheduledPosts": -1,
+        "onSuccess": {
+          "unpublishedPosts": -1,
+          "publishedPosts": 1,
+          "externalActions": 1,
+          "externalProofs": 1
+        },
+        "onProviderFailure": {
+          "unpublishedPosts": 0,
+          "externalActions": 1,
+          "externalProofs": 0
+        }
+      }
+    }
+  ]
+}

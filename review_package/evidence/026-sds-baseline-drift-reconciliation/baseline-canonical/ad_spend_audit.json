@@ -1,0 +1,1 @@
+{"schemaVersion":"sds-reproducible-v1","dataset":"ad_spend_audit","columns":["audit_id","campaign_id","brand_id","actor_user_id","action","result","brand_cap_cents_at_time","platform_cap_cents_at_time","campaign_budget_cents","committed_live_cents_at_time","denial_reason","error_message","created_at"],"rows":[]}

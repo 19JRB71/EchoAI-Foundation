@@ -1,0 +1,726 @@
+{
+  "baselineVersion": "sds-reproducible-v1",
+  "capturedAt": "2026-09-08T23:53:55.453Z",
+  "transaction": "BEGIN READ ONLY / ROLLBACK",
+  "scope": {
+    "brandIds": [
+      "bfe13534-f06d-4206-8139-3c217a52c8da",
+      "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+      "d5745758-30a6-462a-baa6-4233216b8f93"
+    ],
+    "ownerUserIds": [
+      "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+      "bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+      "ef9be332-9294-4c6c-9616-88e48a58cac0"
+    ]
+  },
+  "canonicalization": {
+    "payloadShape": "{\"schemaVersion\":\"sds-reproducible-v1\",\"dataset\":<name>,\"columns\":[...],\"rows\":[[...],...]}",
+    "selectedFields": "Exact columns array per dataset; row values appear in that same order.",
+    "rowSort": "Exact SQL ORDER BY recorded per dataset.",
+    "timestamps": "PostgreSQL timestamp values are pg Date objects converted with Date.toISOString() to UTC ISO-8601 with milliseconds.",
+    "nulls": "SQL NULL is JSON null.",
+    "json": "JSON/JSONB object keys recursively sorted lexicographically; array order preserved.",
+    "numbers": "PostgreSQL integer values remain JSON numbers; NUMERIC values retain pg decimal-string representation.",
+    "encoding": "JSON.stringify with no added whitespace; UTF-8 bytes.",
+    "hash": "SHA-256 lowercase hexadecimal.",
+    "secrets": "Encrypted/token columns excluded; binding records retain only non-secret fields and presence booleans."
+  },
+  "datasets": {
+    "brands": {
+      "table": "brands",
+      "selectedFields": [
+        "brand_id",
+        "user_id",
+        "brand_name",
+        "brand_personality",
+        "voice_description",
+        "visual_style_preferences",
+        "target_audience",
+        "created_at",
+        "updated_at",
+        "tagline",
+        "is_demo",
+        "brand_type",
+        "campaign_profile",
+        "real_estate_profile",
+        "geo_targeting",
+        "demo_tier",
+        "website_url",
+        "facebook_page_url",
+        "instagram_url",
+        "linkedin_url",
+        "youtube_url",
+        "tiktok_url",
+        "google_business_url",
+        "facebook_page_id",
+        "ad_link_url"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "brand_id::text ASC",
+      "rowCount": 3,
+      "canonicalFile": "baseline-canonical/brands.json",
+      "canonicalBytes": 6241,
+      "sha256": "e4681c8abdc8799aaf7c931639edd587cbcb004935a4cd4ddb156a06d3a95ea8"
+    },
+    "social_posts_all": {
+      "table": "social_posts",
+      "selectedFields": [
+        "post_id",
+        "brand_id",
+        "platform",
+        "post_content",
+        "scheduled_time",
+        "published_time",
+        "status",
+        "engagement_metrics",
+        "external_post_id",
+        "created_at",
+        "updated_at",
+        "calendar_id",
+        "publish_attempts",
+        "source",
+        "image_url",
+        "video_url",
+        "proof_run_key"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "post_id::text ASC",
+      "rowCount": 48,
+      "canonicalFile": "baseline-canonical/social_posts_all.json",
+      "canonicalBytes": 42347,
+      "sha256": "34602a7236d80408e32de5eb8e122b413f2fc0310167916054efe0a9c544e004"
+    },
+    "social_posts_unpublished": {
+      "table": "social_posts",
+      "selectedFields": [
+        "post_id",
+        "brand_id",
+        "platform",
+        "post_content",
+        "scheduled_time",
+        "published_time",
+        "status",
+        "engagement_metrics",
+        "external_post_id",
+        "created_at",
+        "updated_at",
+        "calendar_id",
+        "publish_attempts",
+        "source",
+        "image_url",
+        "video_url",
+        "proof_run_key"
+      ],
+      "filter": "brand_id=ANY($1::uuid[]) AND status::text<>'published'",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "post_id::text ASC",
+      "rowCount": 45,
+      "canonicalFile": "baseline-canonical/social_posts_unpublished.json",
+      "canonicalBytes": 39751,
+      "sha256": "5ca9f1c53613cac643c87c6d95c108e220799a1b56a1617fb03286750b07dfff"
+    },
+    "social_posts_scheduled": {
+      "table": "social_posts",
+      "selectedFields": [
+        "post_id",
+        "brand_id",
+        "platform",
+        "post_content",
+        "scheduled_time",
+        "published_time",
+        "status",
+        "engagement_metrics",
+        "external_post_id",
+        "created_at",
+        "updated_at",
+        "calendar_id",
+        "publish_attempts",
+        "source",
+        "image_url",
+        "video_url",
+        "proof_run_key"
+      ],
+      "filter": "brand_id=ANY($1::uuid[]) AND status::text='scheduled'",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "scheduled_time ASC, post_id::text ASC",
+      "rowCount": 6,
+      "canonicalFile": "baseline-canonical/social_posts_scheduled.json",
+      "canonicalBytes": 5521,
+      "sha256": "b26d8ff879bb7c67eb395a22168554db45581e53048cb6961d5b426ca7c35738"
+    },
+    "social_posts_consented_h1": {
+      "table": "social_posts sp",
+      "selectedFields": [
+        "post_id",
+        "brand_id",
+        "platform",
+        "post_content",
+        "scheduled_time",
+        "published_time",
+        "status",
+        "engagement_metrics",
+        "external_post_id",
+        "created_at",
+        "updated_at",
+        "calendar_id",
+        "publish_attempts",
+        "source",
+        "image_url",
+        "video_url",
+        "proof_run_key"
+      ],
+      "filter": "sp.brand_id=ANY($1::uuid[]) AND EXISTS (SELECT 1 FROM agent_tasks t WHERE t.task_type='social_publish' AND t.source_type='social_post' AND t.source_id=sp.post_id::text AND t.meta ? 'consent')",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "sp.scheduled_time ASC, sp.post_id::text ASC",
+      "rowCount": 4,
+      "canonicalFile": "baseline-canonical/social_posts_consented_h1.json",
+      "canonicalBytes": 3691,
+      "sha256": "c22be2bdbbf591f8a93f0b44a96be909f22d208bb6a39699c84ad06a948ce64f"
+    },
+    "remaining_consented_scheduled_specimen": {
+      "table": "social_posts",
+      "selectedFields": [
+        "post_id",
+        "brand_id",
+        "platform",
+        "post_content",
+        "scheduled_time",
+        "published_time",
+        "status",
+        "engagement_metrics",
+        "external_post_id",
+        "created_at",
+        "updated_at",
+        "calendar_id",
+        "publish_attempts",
+        "source",
+        "image_url",
+        "video_url",
+        "proof_run_key"
+      ],
+      "filter": "post_id=$1::uuid",
+      "parameterValues": [
+        "2aa02dcd-cae2-4e6e-9374-a192167a4ec9"
+      ],
+      "sortOrder": "post_id::text ASC",
+      "rowCount": 1,
+      "canonicalFile": "baseline-canonical/remaining_consented_scheduled_specimen.json",
+      "canonicalBytes": 1100,
+      "sha256": "f4686caa5bd9fb4423a52e8f220122f2bc473c774a8f020c93f1242727d05b76"
+    },
+    "content_calendars": {
+      "table": "content_calendars",
+      "selectedFields": [
+        "calendar_id",
+        "brand_id",
+        "month",
+        "year",
+        "posting_frequency",
+        "content_theme",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "calendar_id::text ASC",
+      "rowCount": 3,
+      "canonicalFile": "baseline-canonical/content_calendars.json",
+      "canonicalBytes": 815,
+      "sha256": "46ce38ff5cd406cccbeefa1bbfd9456ab039da5801861438df88ddb816529264"
+    },
+    "agent_tasks": {
+      "table": "agent_tasks",
+      "selectedFields": [
+        "task_id",
+        "brand_id",
+        "user_id",
+        "task_type",
+        "source_type",
+        "source_id",
+        "attempt",
+        "status",
+        "title",
+        "external_ref",
+        "proof_id",
+        "last_error",
+        "meta",
+        "created_at",
+        "updated_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "task_id::text ASC",
+      "rowCount": 43,
+      "canonicalFile": "baseline-canonical/agent_tasks.json",
+      "canonicalBytes": 24146,
+      "sha256": "33d8437e12e9f9b46f26cf0a5d9cabe341bfe1b93d1ee1004165a74e23bd36da"
+    },
+    "agent_task_events": {
+      "table": "agent_task_events e",
+      "selectedFields": [
+        "event_id",
+        "task_id",
+        "actor",
+        "from_status",
+        "to_status",
+        "meta",
+        "created_at"
+      ],
+      "filter": "EXISTS (SELECT 1 FROM agent_tasks t WHERE t.task_id=e.task_id AND t.brand_id=ANY($1::uuid[]))",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "e.event_id::text ASC",
+      "rowCount": 172,
+      "canonicalFile": "baseline-canonical/agent_task_events.json",
+      "canonicalBytes": 38219,
+      "sha256": "fe655ff624bcfa462f1dfcb886766ee4cf53f83976f9fe174e703e7e60bcd957"
+    },
+    "external_actions": {
+      "table": "external_actions",
+      "selectedFields": [
+        "action_id",
+        "idempotency_key",
+        "attempt",
+        "provider",
+        "action",
+        "task_id",
+        "proof_id",
+        "brand_id",
+        "user_id",
+        "status",
+        "classification",
+        "error",
+        "external_ref",
+        "meta",
+        "dedup_count",
+        "alerted_at",
+        "reconciled_at",
+        "started_at",
+        "finished_at",
+        "created_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "action_id::text ASC",
+      "rowCount": 4,
+      "canonicalFile": "baseline-canonical/external_actions.json",
+      "canonicalBytes": 2220,
+      "sha256": "945ef5d8d304de4731fe24b28487f57ff7e5902c753d672f3db0c9d151b0f45d"
+    },
+    "external_proofs": {
+      "table": "external_proofs",
+      "selectedFields": [
+        "proof_id",
+        "run_key",
+        "provider",
+        "action",
+        "external_id",
+        "brand_id",
+        "user_id",
+        "environment",
+        "evidence",
+        "verified_at",
+        "created_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "proof_id::text ASC",
+      "rowCount": 4,
+      "canonicalFile": "baseline-canonical/external_proofs.json",
+      "canonicalBytes": 2251,
+      "sha256": "a278a242a9bac795f1969a44ccd8e20b9f5fb31915a4105e14c2ac5bce83721a"
+    },
+    "campaigns": {
+      "table": "campaigns",
+      "selectedFields": [
+        "campaign_id",
+        "brand_id",
+        "user_id",
+        "campaign_name",
+        "budget",
+        "cost_per_lead",
+        "conversion_rate",
+        "ad_creative_variations",
+        "launch_date",
+        "created_at",
+        "updated_at",
+        "facebook_campaign_id",
+        "facebook_adset_id",
+        "status",
+        "facebook_creative_id",
+        "facebook_ad_id",
+        "last_verified_at",
+        "last_verify_error",
+        "activation_requested_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "campaign_id::text ASC",
+      "rowCount": 1,
+      "canonicalFile": "baseline-canonical/campaigns.json",
+      "canonicalBytes": 4251,
+      "sha256": "52c1ca4e0d8292b7c3073f85dbbbf4781ca9091f4ef687238042c3ba0fdc6158"
+    },
+    "ad_creatives": {
+      "table": "ad_creatives",
+      "selectedFields": [
+        "creative_id",
+        "brand_id",
+        "campaign_goal",
+        "creative_concept",
+        "status",
+        "launched_package",
+        "facebook_campaign_id",
+        "facebook_adset_id",
+        "campaign_id",
+        "performance_data",
+        "created_at",
+        "updated_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "creative_id::text ASC",
+      "rowCount": 3,
+      "canonicalFile": "baseline-canonical/ad_creatives.json",
+      "canonicalBytes": 49363,
+      "sha256": "462af18c5daa931671a6e241738ae4927e362aea2a5eac50b1a264629ec7958b"
+    },
+    "ad_spend_audit": {
+      "table": "ad_spend_audit",
+      "selectedFields": [
+        "audit_id",
+        "campaign_id",
+        "brand_id",
+        "actor_user_id",
+        "action",
+        "result",
+        "brand_cap_cents_at_time",
+        "platform_cap_cents_at_time",
+        "campaign_budget_cents",
+        "committed_live_cents_at_time",
+        "denial_reason",
+        "error_message",
+        "created_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "audit_id::text ASC",
+      "rowCount": 0,
+      "canonicalFile": "baseline-canonical/ad_spend_audit.json",
+      "canonicalBytes": 313,
+      "sha256": "492f2623b5adb4c9c0e2ac1c86b0472ab577182247e8768fbbff4deb558e389c"
+    },
+    "ad_spend_caps": {
+      "table": "ad_spend_caps",
+      "selectedFields": [
+        "cap_id",
+        "brand_id",
+        "daily_cap_cents",
+        "set_by_user_id",
+        "created_at",
+        "updated_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "cap_id::text ASC",
+      "rowCount": 0,
+      "canonicalFile": "baseline-canonical/ad_spend_caps.json",
+      "canonicalBytes": 168,
+      "sha256": "dbea862b6fc9a07a5a7ee496ec101562052904bee651ed4453029a2062d9d4d3"
+    },
+    "setup_sessions_lifecycle": {
+      "table": "setup_sessions",
+      "selectedFields": [
+        "session_id",
+        "user_id",
+        "status",
+        "completed_steps",
+        "current_field",
+        "interview_complete",
+        "consent_granted",
+        "consent_at",
+        "brand_id",
+        "created_at",
+        "updated_at",
+        "completed_at",
+        "executing",
+        "executing_at",
+        "started_at",
+        "paused_at",
+        "resumed_at",
+        "discovery_session_id"
+      ],
+      "filter": "brand_id=ANY($1::uuid[]) OR user_id=ANY($2::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ],
+        [
+          "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "ef9be332-9294-4c6c-9616-88e48a58cac0"
+        ]
+      ],
+      "sortOrder": "session_id::text ASC",
+      "rowCount": 3,
+      "canonicalFile": "baseline-canonical/setup_sessions_lifecycle.json",
+      "canonicalBytes": 2149,
+      "sha256": "15b581d7504bc55ce7b796228bf87058e6550cf1755c7f7e9f5a6e01171be887"
+    },
+    "guided_setup_progress": {
+      "table": "guided_setup_progress",
+      "selectedFields": [
+        "user_id",
+        "current_step",
+        "connections",
+        "created_at",
+        "updated_at"
+      ],
+      "filter": "user_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "ef9be332-9294-4c6c-9616-88e48a58cac0"
+        ]
+      ],
+      "sortOrder": "user_id::text ASC",
+      "rowCount": 3,
+      "canonicalFile": "baseline-canonical/guided_setup_progress.json",
+      "canonicalBytes": 807,
+      "sha256": "30b3df404d47bd38116d0d92c9c26299a38daa5ca820ef4d8c6f4d4b8b6f8f79"
+    },
+    "armed_publish_authorizations": {
+      "table": "armed_publish_authorizations",
+      "selectedFields": [
+        "authorization_id",
+        "user_id",
+        "brand_id",
+        "post_id",
+        "content_hash",
+        "destination_page_id",
+        "destination_bound_at",
+        "consent_copy_version",
+        "consent_captured_at",
+        "armed_at",
+        "status",
+        "invalidation_reason",
+        "claimed_at",
+        "consumed_at",
+        "disarmed_at",
+        "execution_failed_at",
+        "created_at",
+        "updated_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "authorization_id::text ASC",
+      "rowCount": 0,
+      "canonicalFile": "baseline-canonical/armed_publish_authorizations.json",
+      "canonicalBytes": 388,
+      "sha256": "17730dd9e26049cf41ed02fd2d466bb449c287c41a703d347b903071832f52c4"
+    },
+    "onboarding_first_win_celebrations": {
+      "table": "onboarding_first_win_celebrations",
+      "selectedFields": [
+        "celebration_claim_id",
+        "proof_id",
+        "user_id",
+        "brand_id",
+        "provider",
+        "claimed_at"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "celebration_claim_id::text ASC",
+      "rowCount": 0,
+      "canonicalFile": "baseline-canonical/onboarding_first_win_celebrations.json",
+      "canonicalBytes": 186,
+      "sha256": "ee061fbdaf9b6fd3f7bf74c4235db5fff79eaf6c28aa469c5c89475ac183cb46"
+    },
+    "social_accounts_binding": {
+      "table": "social_accounts",
+      "selectedFields": [
+        "account_id",
+        "brand_id",
+        "platform",
+        "platform_username",
+        "connection_status",
+        "created_at",
+        "updated_at",
+        "credentials_present"
+      ],
+      "filter": "brand_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "bfe13534-f06d-4206-8139-3c217a52c8da",
+          "ae125e32-f130-4b5c-8c68-1f41cfd8ae20",
+          "d5745758-30a6-462a-baa6-4233216b8f93"
+        ]
+      ],
+      "sortOrder": "account_id::text ASC",
+      "rowCount": 1,
+      "canonicalFile": "baseline-canonical/social_accounts_binding.json",
+      "canonicalBytes": 404,
+      "sha256": "9d4a1f34ea95bb6d07bd8ba73cd7177e787cd726fa6ca405377a51441ed663e6"
+    },
+    "api_integrations_binding": {
+      "table": "api_integrations",
+      "selectedFields": [
+        "integration_id",
+        "user_id",
+        "platform",
+        "connection_status",
+        "created_at",
+        "updated_at",
+        "account_ref",
+        "facebook_ad_accounts",
+        "facebook_pages",
+        "page_ref",
+        "api_token_present",
+        "facebook_page_tokens_present"
+      ],
+      "filter": "user_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "ef9be332-9294-4c6c-9616-88e48a58cac0"
+        ]
+      ],
+      "sortOrder": "integration_id::text ASC",
+      "rowCount": 2,
+      "canonicalFile": "baseline-canonical/api_integrations_binding.json",
+      "canonicalBytes": 2747,
+      "sha256": "23050ef2ff1cdb71a9d5aa23fcd1044f020559daca9fc3fa5f14a580d540a78f"
+    },
+    "google_integrations_binding": {
+      "table": "google_integrations",
+      "selectedFields": [
+        "id",
+        "user_id",
+        "scope",
+        "token_expiry",
+        "connection_status",
+        "created_at",
+        "updated_at",
+        "access_token_present",
+        "refresh_token_present"
+      ],
+      "filter": "user_id=ANY($1::uuid[])",
+      "parameterValues": [
+        [
+          "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+          "bbd317fd-51d4-4eea-b67f-b9dd63c60cd1",
+          "ef9be332-9294-4c6c-9616-88e48a58cac0"
+        ]
+      ],
+      "sortOrder": "id::text ASC",
+      "rowCount": 2,
+      "canonicalFile": "baseline-canonical/google_integrations_binding.json",
+      "canonicalBytes": 1187,
+      "sha256": "93f07b77dec3058eb946002e296becac1460a9a25bb9af7361dc16e932ee0be6"
+    }
+  }
+}
