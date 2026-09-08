@@ -1,0 +1,13 @@
+command=npx vitest run src/onboarding/SetupAgent.activationConsent.test.jsx src/sections/social/AICalendar.activationConsent.test.jsx
+
+ RUN  v3.2.6 /home/runner/workspace/.local/pm9b-lockfile-portability-repair/EchoAI/client
+
+ ✓ src/onboarding/SetupAgent.activationConsent.test.jsx (5 tests) 419ms
+ ✓ src/sections/social/AICalendar.activationConsent.test.jsx (5 tests) 1031ms
+   ✓ AICalendar two-phase activation > Activate fetches and renders the preview; nothing activates yet  333ms
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  23:07:36
+   Duration  2.38s (transform 673ms, setup 295ms, collect 916ms, tests 1.45s, environment 808ms, prepare 224ms)
+
