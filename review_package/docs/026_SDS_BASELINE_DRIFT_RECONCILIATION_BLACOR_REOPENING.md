@@ -4,7 +4,7 @@
 **Authority:** Read-only staging reconciliation only
 **Authoritative checkout SHA:** `de8e996f55fd5139a5488f75f7d96078f9dc25c6`
 **Authoritative checkout tree:** `144bb722ac0424e14102c67692ea9697a3931a09`
-**Verdict:** **READY FOR OWNER LIVE-EYES CONFIRMATION**
+**Verdict:** **BLACOR-H1 OFFICIALLY REOPENED — READY FOR OWNER JOURNEY**
 
 ## 1. Absolute boundary
 
@@ -391,7 +391,7 @@ Key files:
 - `blacor-paused-zero-state.json` — BLACOR zero-state and PAUSED/$0 capture;
 - `SHA256SUMS` — evidence-file integrity list.
 
-## 12. Final ruling
+## 12. Reconciliation ruling
 
 Every reopening condition is satisfied:
 
@@ -409,9 +409,44 @@ Every reopening condition is satisfied:
 - the PM9b technical UI gate is satisfied per Claude's ruling without an
   authenticated live action.
 
-**FINAL VERDICT: READY FOR OWNER LIVE-EYES CONFIRMATION**
+**RECONCILIATION VERDICT: READY FOR OWNER LIVE-EYES CONFIRMATION**
 
 This is an owner-only visual handoff. This evidence does not authorize this agent
 to authenticate as James or click the new-business entry control, and it does not
 authorize BLACOR-H1, a provider action, a staging mutation, a production action,
 or any next slice.
+
+## 13. Owner live-eyes confirmation — completed September 9
+
+James supplied a staging screenshot on September 9, 2026. The screenshot visibly
+shows:
+
+- the staging environment banner;
+- the completed-owner embedded Setup Agent screen;
+- the prompt `What would you like to set up?`;
+- the existing-business continuation control; and
+- the distinct `Set up a different business` control.
+
+This satisfies Claude's final owner live-eyes requirement for PM9b.
+
+Durable evidence:
+
+```text
+confirmation record:
+  review_package/docs/026_PM9b_OWNER_LIVE_EYES_CONFIRMATION.md
+
+screenshot:
+  review_package/evidence/026-sds-baseline-drift-reconciliation/
+  pm9b-owner-live-eyes-2026-09-09.png
+
+PNG dimensions: 1920 x 1080
+PNG SHA-256:   e50c9e83dfc9a72b3e15bd486ca03df69d955fa93cd172269a447694b4cbf4dc
+```
+
+No control was clicked as part of this evidence-filing action. No code,
+deployment, database state, provider state, SDS state, or BLACOR state was
+modified.
+
+**FINAL VERDICT: BLACOR-H1 OFFICIALLY REOPENED — READY FOR OWNER JOURNEY**
+
+This ruling reopens the owner journey but does not itself begin BLACOR-H1.
