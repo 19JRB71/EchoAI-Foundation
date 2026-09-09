@@ -1,0 +1,86 @@
+{
+    "status": "paused",
+    "answers": {
+        "email": "james@blacorhomes.com",
+        "hours": "Monday through Friday  8:00 a.m. to 5:00 p.m. eastern time",
+        "phone": "352-356-1008",
+        "address": "86 ne 170th st Cross City , Fl",
+        "tagline": "no",
+        "services": "we have varity of sizes",
+        "_interview": {
+            "deferred": {
+            },
+            "resolved": {
+                "email": true,
+                "hours": true,
+                "phone": true,
+                "address": true,
+                "tagline": true,
+                "services": true,
+                "description": true,
+                "service_area": true,
+                "business_name": true,
+                "target_audience": true,
+                "brand_personality": true,
+                "voice_description": true
+            },
+            "surfaces": {
+                "email": 1,
+                "hours": 1,
+                "phone": 1,
+                "address": 1,
+                "tagline": 1,
+                "services": 1,
+                "description": 1,
+                "service_area": 1,
+                "business_name": 1,
+                "target_audience": 1,
+                "brand_personality": 1,
+                "voice_description": 1
+            },
+            "urlConfirm": {
+                "queue": [
+                ],
+                "decided": {
+                },
+                "exchangeLog": [
+                ],
+                "logDroppedCount": 0,
+                "pendingOverflow": 0
+            },
+            "entryIntent": "new_business",
+            "noticesShown": {
+            },
+            "continueAnyway": false,
+            "premiseChanged": {
+            },
+            "knowledgeReadFailed": false
+        },
+        "description": "we sell  shell house kits",
+        "account_type": "Business",
+        "service_area": "FL and Ga",
+        "business_name": "Blacor Homes",
+        "target_audience": "First-time home builders, rural landowners, investors, or DIY-minded families",
+        "brand_personality": "Professional and trustworthy, friendly and approachable, or bold and straightforward",
+        "voice_description": "Simple and to the point, or conversational and relationship-focused"
+    },
+    "user_id": "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+    "brand_id": "65292e37-c1b2-4c04-b2c5-5167dbb04581",
+    "executing": false,
+    "paused_at": "2026-09-09T17:31:21.423647+00:00",
+    "consent_at": null,
+    "created_at": "2026-09-09T17:11:46.865686+00:00",
+    "resumed_at": "2026-09-09T17:31:12.806022+00:00",
+    "session_id": "0e2decb1-e411-45cb-9810-2eeb26c4c142",
+    "started_at": "2026-09-09T17:11:46.865686+00:00",
+    "updated_at": "2026-09-09T17:31:21.423647+00:00",
+    "completed_at": null,
+    "executing_at": null,
+    "current_field": null,
+    "message_count": 41,
+    "completed_steps": [
+    ],
+    "consent_granted": false,
+    "interview_complete": true,
+    "discovery_session_id": null
+}

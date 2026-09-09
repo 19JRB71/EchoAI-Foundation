@@ -1,0 +1,78 @@
+{
+  "session_id": "0e2decb1-e411-45cb-9810-2eeb26c4c142",
+  "brand_id": "65292e37-c1b2-4c04-b2c5-5167dbb04581",
+  "deployed_source_sha": "de8e996f55fd5139a5488f75f7d96078f9dc25c6",
+  "projected_values": {
+    "platforms": [
+      "facebook",
+      "instagram"
+    ],
+    "posting_frequency": "three_per_week",
+    "campaign_goal": "lead_generation",
+    "monthly_ad_budget": null,
+    "facebook_daily_budget": 20,
+    "facebook_created_paused": true,
+    "facebook_initial_spend": 0,
+    "google_ads_opt_in": false,
+    "content_theme": "Brand awareness and lead generation",
+    "content_business_type": "we have varity of sizes",
+    "creative_product_focus": "we have varity of sizes",
+    "email_goal": "james@blacorhomes.com",
+    "email_segment": "all",
+    "email_count": 3,
+    "availability_timezone": "America/New_York",
+    "availability_weekly_hours": [
+      {
+        "day": 1,
+        "start": "08:00",
+        "end": "17:00"
+      },
+      {
+        "day": 2,
+        "start": "08:00",
+        "end": "17:00"
+      },
+      {
+        "day": 3,
+        "start": "08:00",
+        "end": "17:00"
+      },
+      {
+        "day": 4,
+        "start": "08:00",
+        "end": "17:00"
+      },
+      {
+        "day": 5,
+        "start": "08:00",
+        "end": "17:00"
+      }
+    ],
+    "appointment_duration_minutes": 30,
+    "appointment_buffer_minutes": 0,
+    "fallback_facebook_target_audience": {},
+    "survey_type": "general"
+  },
+  "first_execution_pause": {
+    "step": "create_facebook_campaign",
+    "status": "owner_action_required",
+    "code": "missing_ad_destination",
+    "missing": {
+      "facebook_page_id": true,
+      "ad_link_url": true
+    },
+    "provider_launch_before_pause": false
+  },
+  "later_consent_gates": [
+    {
+      "step": "create_facebook_campaign",
+      "code": "confirm_campaign_launch",
+      "binding": "digest"
+    },
+    {
+      "step": "social_schedule",
+      "code": "activate_calendar",
+      "binding": "preview digest"
+    }
+  ]
+}

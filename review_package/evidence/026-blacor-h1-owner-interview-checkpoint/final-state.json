@@ -1,0 +1,52 @@
+{
+    "session": {
+        "status": "paused",
+        "brand_id": "65292e37-c1b2-4c04-b2c5-5167dbb04581",
+        "executing": false,
+        "paused_at": "2026-09-09T17:31:21.423647+00:00",
+        "consent_at": null,
+        "created_at": "2026-09-09T17:11:46.865686+00:00",
+        "session_id": "0e2decb1-e411-45cb-9810-2eeb26c4c142",
+        "updated_at": "2026-09-09T17:31:21.423647+00:00",
+        "completed_at": null,
+        "executing_at": null,
+        "current_field": null,
+        "completed_steps": [
+        ],
+        "consent_granted": false,
+        "interview_complete": true,
+        "discovery_session_id": null
+    },
+    "observed_at": "2026-09-09T17:40:07.213596+00:00",
+    "blacor_counts": {
+        "brands": 1,
+        "surveys": 0,
+        "campaigns": 0,
+        "agent_tasks": 0,
+        "ad_creatives": 0,
+        "ai_usage_log": 12,
+        "social_posts": 0,
+        "external_proofs": 0,
+        "google_ad_plans": 0,
+        "social_accounts": 0,
+        "external_actions": 0,
+        "content_calendars": 0,
+        "availability_schedules": 0,
+        "brand_knowledge_versions": 12,
+        "email_marketing_campaigns": 0,
+        "armed_publish_authorizations": 0
+    },
+    "transaction_read_only": "on",
+    "sds_updates_since_session_start": {
+        "brand": 0,
+        "agent_tasks": 0,
+        "social_posts": 0,
+        "external_proofs": 0,
+        "external_actions": 0
+    },
+    "user_scoped_since_session_start": {
+        "agent_tasks": 0,
+        "external_proofs": 0,
+        "external_actions": 0
+    }
+}

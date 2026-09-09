@@ -1,0 +1,68 @@
+{
+    "ids": {
+        "user_id": "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+        "session_id": "0e2decb1-e411-45cb-9810-2eeb26c4c142",
+        "sds_brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+        "blacor_brand_id": "65292e37-c1b2-4c04-b2c5-5167dbb04581",
+        "session_started_at": "2026-09-09T17:11:46.865686+00:00"
+    },
+    "sds_brand": {
+        "brand_id": "d5745758-30a6-462a-baa6-4233216b8f93",
+        "brand_name": "South Dixie Storage",
+        "created_at": "2026-08-16T00:15:07.011304+00:00",
+        "updated_at": "2026-08-19T06:26:06.889559+00:00"
+    },
+    "blacor_brand": {
+        "is_demo": false,
+        "tagline": "no",
+        "user_id": "8e55c26c-7ac2-4ea6-9884-1703b0806016",
+        "brand_id": "65292e37-c1b2-4c04-b2c5-5167dbb04581",
+        "demo_tier": null,
+        "brand_name": "Blacor Homes",
+        "brand_type": "standard",
+        "created_at": "2026-09-09T17:15:02.581086+00:00",
+        "tiktok_url": null,
+        "updated_at": "2026-09-09T17:26:40.816288+00:00",
+        "ad_link_url": null,
+        "website_url": null,
+        "youtube_url": null,
+        "linkedin_url": null,
+        "geo_targeting": null,
+        "instagram_url": null,
+        "target_audience": "First-time home builders, rural landowners, investors, or DIY-minded families",
+        "campaign_profile": {
+        },
+        "facebook_page_id": null,
+        "brand_personality": "Professional and trustworthy, friendly and approachable, or bold and straightforward",
+        "facebook_page_url": null,
+        "voice_description": "Simple and to the point, or conversational and relationship-focused",
+        "google_business_url": null,
+        "real_estate_profile": {
+        }
+    },
+    "blacor_tasks": [
+    ],
+    "blacor_counts": {
+        "surveys": 0,
+        "campaigns": 0,
+        "agent_tasks": 0,
+        "ad_creatives": 0,
+        "social_posts": 0,
+        "email_campaigns": 0,
+        "external_proofs": 0,
+        "social_accounts": 0,
+        "external_actions": 0,
+        "survey_responses": 0,
+        "content_calendars": 0,
+        "availability_schedules": 0,
+        "email_marketing_campaigns": 0,
+        "armed_publish_authorizations": 0
+    },
+    "blacor_proofs": [
+    ],
+    "blacor_actions": [
+    ],
+    "transaction_read_only": "on",
+    "sds_activity_since_blacor_start": [
+    ]
+}

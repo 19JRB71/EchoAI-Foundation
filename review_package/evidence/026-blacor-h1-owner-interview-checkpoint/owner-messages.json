@@ -1,0 +1,62 @@
+{
+    "session_id": "0e2decb1-e411-45cb-9810-2eeb26c4c142",
+    "owner_messages": [
+        {
+            "content": "Please begin the setup interview with your first question.",
+            "ordinal": 1
+        },
+        {
+            "content": "Business",
+            "ordinal": 3
+        },
+        {
+            "content": "Blacor Homes",
+            "ordinal": 6
+        },
+        {
+            "content": "86 ne 170th st Cross City , Fl",
+            "ordinal": 9
+        },
+        {
+            "content": "FL and Ga",
+            "ordinal": 12
+        },
+        {
+            "content": "we sell  shell house kits",
+            "ordinal": 15
+        },
+        {
+            "content": "we have varity of sizes",
+            "ordinal": 18
+        },
+        {
+            "content": "Monday through Friday  8:00 a.m. to 5:00 p.m. eastern time",
+            "ordinal": 21
+        },
+        {
+            "content": "james@blacorhomes.com",
+            "ordinal": 24
+        },
+        {
+            "content": "352-356-1008",
+            "ordinal": 27
+        },
+        {
+            "content": "no",
+            "ordinal": 30
+        },
+        {
+            "content": "Professional and trustworthy, friendly and approachable, or bold and straightforward",
+            "ordinal": 33
+        },
+        {
+            "content": "Simple and to the point, or conversational and relationship-focused",
+            "ordinal": 36
+        },
+        {
+            "content": "First-time home builders, rural landowners, investors, or DIY-minded families",
+            "ordinal": 39
+        }
+    ],
+    "transaction_read_only": "on"
+}

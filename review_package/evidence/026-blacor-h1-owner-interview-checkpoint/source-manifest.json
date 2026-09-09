@@ -1,0 +1,41 @@
+{
+  "environment": "staging",
+  "deployed_source_sha": "de8e996f55fd5139a5488f75f7d96078f9dc25c6",
+  "deployed_source_tree": "144bb722ac0424e14102c67692ea9697a3931a09",
+  "files": [
+    {
+      "path": "EchoAI/controllers/setupAgentController.js",
+      "git_blob": "7e3628d5137f0a5b7774cb8f3d714b019411c976",
+      "bytes": 146587,
+      "sha256": "a682315299c8c49a4e334d735963cb64ef0aa22d66a3646700a402a48628960f"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/SetupAgent.jsx",
+      "git_blob": "14a43be4897657a3ab3bb1c21714ee94f5a77e07",
+      "bytes": 85029,
+      "sha256": "3d192f86d327f370cb2a21799a89836e9569eb70741fb6a4a092736ad68f2868"
+    },
+    {
+      "path": "EchoAI/middleware/setupConsent.js",
+      "bytes": 1721,
+      "sha256": "df50ad6eac9702c49bee301bd28e3a1d51d722dc4ee5cfe76e8a24567c8aa7be"
+    },
+    {
+      "path": "EchoAI/routes/setupAgentRoutes.js",
+      "bytes": 2033,
+      "sha256": "cc9b34d4db21db0631c9e4c7a9f5479917aadb5c71beddf98c769b0f36ddf675"
+    },
+    {
+      "path": "EchoAI/utils/hoursParser.js",
+      "bytes": 5303,
+      "sha256": "6abed94a2d5277bf3eab49117bdf1470f16c0d17a0c9e53e806df64d3000540e"
+    }
+  ],
+  "source_authority": "Remote files read directly from the deployed staging commit. The long-lived workspace copies differed byte-for-byte and were not used for the ruling.",
+  "database_boundary": {
+    "environment": "staging",
+    "transaction_mode": "BEGIN READ ONLY",
+    "termination": "ROLLBACK"
+  },
+  "evidence_branch_parent": "86079f7f778956f25a7c2f739f145427279461cf"
+}

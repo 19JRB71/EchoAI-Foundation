@@ -1,0 +1,426 @@
+{
+    "ai_usage": [
+        {
+            "at": "2026-09-09T17:15:04.410654+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1408,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:16:08.4326+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1410,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:16:50.927247+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1412,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:17:37.919046+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1414,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:19:25.098675+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1416,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:20:28.948514+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1418,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:21:15.034436+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1420,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:21:47.53391+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1422,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:22:15.071906+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1424,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:24:24.837071+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1426,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:25:17.857821+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1428,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        },
+        {
+            "at": "2026-09-09T17:26:44.098796+00:00",
+            "agent": null,
+            "model": "claude-sonnet-4-6",
+            "feature": "setup_interview",
+            "success": true,
+            "provider": "anthropic",
+            "usage_id": 1430,
+            "task_type": null,
+            "unit_type": null,
+            "provider_ref": null,
+            "triggered_by": "user",
+            "web_searches": 0,
+            "unit_quantity": null,
+            "error_category": null
+        }
+    ],
+    "knowledge_versions": [
+        {
+            "value": "86 ne 170th st Cross City , Fl",
+            "status": "current",
+            "field_key": "address",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:16:05.683395+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "Professional and trustworthy, friendly and approachable, or bold and straightforward",
+            "status": "current",
+            "field_key": "brand_personality",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:24:20.693038+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "Blacor Homes",
+            "status": "current",
+            "field_key": "business_name",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:15:02.581086+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "we sell  shell house kits",
+            "status": "current",
+            "field_key": "description",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:17:35.008841+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "james@blacorhomes.com",
+            "status": "current",
+            "field_key": "email",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:21:12.968628+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "Monday through Friday  8:00 a.m. to 5:00 p.m. eastern time",
+            "status": "current",
+            "field_key": "hours",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:20:26.270572+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "352-356-1008",
+            "status": "current",
+            "field_key": "phone",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:21:44.337759+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "FL and Ga",
+            "status": "current",
+            "field_key": "service_area",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:16:48.20466+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "we have varity of sizes",
+            "status": "current",
+            "field_key": "services",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:19:22.514382+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "no",
+            "status": "current",
+            "field_key": "tagline",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:22:12.128098+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "First-time home builders, rural landowners, investors, or DIY-minded families",
+            "status": "current",
+            "field_key": "target_audience",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:26:40.816288+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        },
+        {
+            "value": "Simple and to the point, or conversational and relationship-focused",
+            "status": "current",
+            "field_key": "voice_description",
+            "provenance": {
+                "sources": [
+                    {
+                        "source": "stated"
+                    }
+                ],
+                "conflict": false,
+                "confidence": "high",
+                "alternatives": [
+                ]
+            },
+            "approved_at": "2026-09-09T17:25:14.691731+00:00",
+            "proposed_by": "setup_interview",
+            "source_kind": "stated"
+        }
+    ]
+}
