@@ -1,0 +1,38 @@
+BLACOR-H1 HARD STOP — FACEBOOK PAGE / TENANT ISOLATION GATE
+
+During the live owner BLACOR-H1 journey, I reached the Facebook Page/destination selection gate.
+
+STOP THE JOURNEY HERE. Do not mutate anything.
+
+The UI is setting up Blacor Homes, but the Facebook Page selector is showing South Dixie Storage and states:
+
+“This is the only Page on your account — confirm it below.”
+
+The owner cannot select a Blacor Page, connect a different Page/account, reject South Dixie as unrelated, or otherwise proceed correctly from this screen.
+
+Owner has NOT clicked “Save & continue.” Do not bind South Dixie Storage to Blacor Homes.
+
+Investigate READ-ONLY and report:
+
+Why South Dixie Storage is being presented during the Blacor journey.
+Whether this is merely user-scoped Store-1 credential visibility, or whether any SDS Page/account/destination has already been inherited or bound to the Blacor brand/session.
+Prove the current Blacor brand_id, Setup Agent session, Store-2 Page binding, Store-3 destination binding, social-account rows, integration rows, campaign rows, tasks, external actions and provider proofs.
+Prove whether any Blacor-scoped row currently references SDS Page ID 140006069194366, the SDS social account, SDS destination, SDS brand IDs, or SDS campaign.
+Explain the exact UI/code path that produces “This is the only Page on your account.”
+Determine what legitimate path currently exists for an owner setting up a second business to connect/select that second business's Facebook Page. If none exists, state that plainly.
+Bank the current BLACOR and SDS state with serialization definitions so we can prove no cross-tenant mutation occurred.
+File this screenshot/finding as BLACOR-H1 evidence.
+
+DO NOT FIX ANYTHING YET. DO NOT CLICK THROUGH OR SIMULATE OWNER CONSENT.
+
+No code changes, database writes, OAuth reconnects, provider calls, Facebook mutations, campaign creation, Retry, SDS changes, deployment, or production action.
+
+Return one of:
+
+A. SAFE TO CONTINUE — only if there is already a legitimate owner-visible way to select/connect the correct Blacor Facebook Page without binding SDS; or
+
+B. HARD STOP — ARCHITECTURAL REPAIR REQUIRED — if the second-business journey cannot correctly establish its own Facebook Page/destination.
+
+Include exact evidence and the smallest repair surface if B, but do not implement it.
+
+This is precisely why we're doing Blacor as the second-business test instead of assuming SDS success meant multi-business isolation worked.

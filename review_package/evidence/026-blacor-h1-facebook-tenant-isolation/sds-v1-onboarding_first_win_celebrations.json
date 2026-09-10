@@ -1,0 +1,1 @@
+{"schemaVersion":"sds-reproducible-v1","dataset":"onboarding_first_win_celebrations","columns":["celebration_claim_id","proof_id","user_id","brand_id","provider","claimed_at"],"rows":[]}

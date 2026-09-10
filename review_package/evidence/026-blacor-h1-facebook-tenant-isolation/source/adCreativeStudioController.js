@@ -1,0 +1,824 @@
+const db = require("../config/db");
+const { anthropic, MODEL } = require("../config/anthropic");
+const { graphGet, graphPost, createPausedAd } = require("../utils/facebookApi");
+const { recordFailedLaunch, findExistingAdId } = require("../utils/facebookLaunchSafety");
+const adLaunchSpine = require("../utils/adLaunchSpine");
+const { executeExternal } = require("../utils/executeExternal");
+const { decrypt } = require("../utils/encryption");
+const { resolveBrandAdDestination } = require("./campaignController");
+const {
+  CAMPAIGN_GOALS,
+  AD_CREATIVE_DIRECTOR_SYSTEM_PROMPT,
+  buildAdCreativeStudioPrompt,
+  validateCreativePackages,
+} = require("../prompts/adCreativeStudioPrompt");
+const { isPolitical, ensureDisclaimer } = require("../utils/politicalContext");
+const { getGuidanceForImageRequest } = require("../utils/visionEngine");
+const { fbGeoLocations } = require("../utils/geoTargeting");
+
+// Maps an Zorecho campaign goal to a Facebook campaign objective.
+const GOAL_TO_OBJECTIVE = {
+  lead_generation: "OUTCOME_LEADS",
+  sales: "OUTCOME_SALES",
+  brand_awareness: "OUTCOME_AWARENESS",
+  traffic: "OUTCOME_TRAFFIC",
+  engagement: "OUTCOME_ENGAGEMENT",
+};
+
+function extractText(response) {
+  return (response.content || [])
+    .map((block) => block.text || "")
+    .join("")
+    .trim();
+}
+
+/**
+ * Parses a JSON object out of an Anthropic text response, tolerating ``` fences.
+ * A parse failure is an upstream AI problem → 502.
+ */
+function parseJsonResponse(text) {
+  const cleaned = text
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const err = new Error("Failed to parse the AI response as JSON");
+    err.statusCode = 502;
+    throw err;
+  }
+}
+
+/**
+ * Maps an error to an HTTP status. Anthropic SDK upstream errors carry a numeric
+ * `.status` (>= 400) → surface as 502 (never a generic 500). Our own typed
+ * errors carry `.statusCode`.
+ */
+function statusFor(err) {
+  if (err.statusCode) return err.statusCode;
+  if (typeof err.status === "number" && err.status >= 400) return 502;
+  return 500;
+}
+
+/**
+ * Loads a brand owned by the user. Throws a 404 if it isn't found.
+ */
+async function getOwnedBrand(brandId, userId) {
+  const result = await db.query(
+    "SELECT * FROM brands WHERE brand_id = $1 AND user_id = $2",
+    [brandId, userId]
+  );
+  if (result.rows.length === 0) {
+    const err = new Error("Brand not found");
+    err.statusCode = 404;
+    throw err;
+  }
+  return result.rows[0];
+}
+
+/**
+ * Loads the user's connected Facebook integration (decrypted access token + ad
+ * account reference). Throws a 400 if not connected.
+ */
+async function getFacebookIntegration(userId) {
+  const result = await db.query(
+    `SELECT api_token_encrypted, account_ref, facebook_pages, connection_status
+     FROM api_integrations
+     WHERE user_id = $1 AND platform = 'facebook'`,
+    [userId]
+  );
+
+  if (result.rows.length === 0 || result.rows[0].connection_status !== "connected") {
+    const err = new Error("No connected Facebook account found");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const row = result.rows[0];
+  return {
+    accessToken: decrypt(row.api_token_encrypted),
+    accountRef: row.account_ref,
+    grantedPages: Array.isArray(row.facebook_pages) ? row.facebook_pages : [],
+  };
+}
+
+/**
+ * Generates five complete creative packages for a brand using the AI Ad Creative
+ * Director. Pulls the brand's discovery insights and competitive positioning to
+ * deepen the brief. Throws 502 on any upstream/parse/validation failure.
+ */
+async function generateCreativePackagesForBrand(brand, opts = {}) {
+  const { campaignGoal, budgetRange, productFocus } = opts;
+
+  // Business type lives on the user, not the brand.
+  const ownerResult = await db.query(
+    "SELECT industry FROM users WHERE user_id = $1",
+    [brand.user_id]
+  );
+  const businessType = ownerResult.rows[0] ? ownerResult.rows[0].industry : null;
+
+  // Most recent completed brand-discovery profile (best-effort context).
+  const discoveryResult = await db.query(
+    `SELECT draft_profile
+     FROM brand_discovery_sessions
+     WHERE brand_id = $1 AND draft_profile IS NOT NULL
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [brand.brand_id]
+  );
+  const discoveryProfile = discoveryResult.rows[0]
+    ? discoveryResult.rows[0].draft_profile
+    : null;
+
+  // Latest competitor intelligence report (best-effort context).
+  const intelResult = await db.query(
+    `SELECT intelligence_report
+     FROM competitor_intelligence
+     WHERE brand_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [brand.brand_id]
+  );
+  const competitorIntel = intelResult.rows[0]
+    ? intelResult.rows[0].intelligence_report
+    : null;
+
+  // Consult Vision's visual knowledge base for the visual-direction sections
+  // (fail-open — null when Vision hasn't studied this brand; never blocks).
+  const visionGuidance = await getGuidanceForImageRequest({
+    brandId: brand.brand_id,
+    requester: "forge_ad_studio",
+    requestSummary: `ad creative: ${String(campaignGoal || "").slice(0, 120)} ${String(productFocus || "").slice(0, 80)}`.trim(),
+  });
+
+  const prompt = buildAdCreativeStudioPrompt({
+    brand,
+    campaignGoal,
+    budgetRange,
+    productFocus,
+    businessType,
+    discoveryProfile,
+    competitorIntel,
+    visionGuidance: visionGuidance ? visionGuidance.text : null,
+  });
+
+  let response;
+  try {
+    response = await anthropic.messages.create({
+      model: MODEL,
+      // Five full creative packages regularly exceed 4096 output tokens; a
+      // truncated response either fails JSON parsing or silently drops
+      // package 5's fields. 8192 gives comfortable headroom.
+      max_tokens: 8192,
+      system: AD_CREATIVE_DIRECTOR_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+    });
+  } catch (err) {
+    // Any upstream AI failure (billing/rate/network/runtime) surfaces as 502,
+    // never a generic 500 and never a mocked fallback.
+    const wrapped = new Error(err.message || "AI request failed");
+    wrapped.statusCode = 502;
+    throw wrapped;
+  }
+
+  // A response cut off at the output-token cap is an upstream AI problem —
+  // surface it honestly as 502 instead of a confusing parse/validation error.
+  if (response.stop_reason === "max_tokens") {
+    const err = new Error("AI response was truncated — please try again");
+    err.statusCode = 502;
+    throw err;
+  }
+
+  const parsed = parseJsonResponse(extractText(response));
+  const packages = validateCreativePackages(parsed);
+  // Political campaigns: deterministically guarantee the required "Paid for by"
+  // disclosure on every body-copy variation — never left to the AI's memory.
+  if (isPolitical(brand)) {
+    for (const pkg of packages) {
+      pkg.bodyCopyVariations = pkg.bodyCopyVariations.map((copy) =>
+        ensureDisclaimer(copy, brand)
+      );
+    }
+  }
+  return packages;
+}
+
+/**
+ * POST /api/ad-studio/generate
+ * Body: { brandId, campaignGoal, budgetRange?, productFocus? }
+ * Generates (but does not persist) five creative packages for preview.
+ */
+async function generateCreatives(req, res) {
+  const userId = req.user.userId;
+  const { brandId, campaignGoal, budgetRange, productFocus } = req.body;
+
+  if (!brandId || !campaignGoal) {
+    return res.status(400).json({ error: "brandId and campaignGoal are required" });
+  }
+  if (!CAMPAIGN_GOALS.includes(campaignGoal)) {
+    return res.status(400).json({
+      error: `campaignGoal must be one of: ${CAMPAIGN_GOALS.join(", ")}`,
+    });
+  }
+
+  try {
+    const brand = await getOwnedBrand(brandId, userId);
+    const packages = await generateCreativePackagesForBrand(brand, {
+      campaignGoal,
+      budgetRange,
+      productFocus,
+    });
+    return res.json({ brand: brand.brand_name, campaignGoal, packages });
+  } catch (err) {
+    const status = statusFor(err);
+    console.error("Generate ad creatives error:", err.message);
+    return res.status(status).json({ error: err.message || "Failed to generate ad creatives" });
+  }
+}
+
+/**
+ * POST /api/ad-studio
+ * Body: { brandId, campaignGoal, packages, budgetRange?, productFocus? }
+ * Persists a generated set of creative packages as a draft creative.
+ */
+async function saveCreative(req, res) {
+  const userId = req.user.userId;
+  const { brandId, campaignGoal, packages, budgetRange, productFocus } = req.body;
+
+  if (!brandId || !campaignGoal || !Array.isArray(packages) || packages.length === 0) {
+    return res
+      .status(400)
+      .json({ error: "brandId, campaignGoal, and a non-empty packages array are required" });
+  }
+  if (!CAMPAIGN_GOALS.includes(campaignGoal)) {
+    return res.status(400).json({
+      error: `campaignGoal must be one of: ${CAMPAIGN_GOALS.join(", ")}`,
+    });
+  }
+
+  try {
+    await getOwnedBrand(brandId, userId);
+
+    // Re-validate the supplied packages before persistence so no malformed/empty
+    // creative reaches the DB even though save can be reached independently of
+    // generate. A bad client payload here is a 400 (not an upstream AI 502).
+    let cleanedPackages;
+    try {
+      cleanedPackages = validateCreativePackages({ packages });
+    } catch {
+      return res.status(400).json({ error: "The provided creative packages are invalid or incomplete" });
+    }
+
+    const concept = {
+      packages: cleanedPackages,
+      budgetRange: budgetRange || null,
+      productFocus: productFocus || null,
+    };
+
+    const inserted = await db.query(
+      `INSERT INTO ad_creatives (brand_id, campaign_goal, creative_concept, status)
+       VALUES ($1, $2, $3, 'draft')
+       RETURNING creative_id, brand_id, campaign_goal, creative_concept, status, created_at`,
+      [brandId, campaignGoal, JSON.stringify(concept)]
+    );
+
+    return res.status(201).json({ creative: inserted.rows[0] });
+  } catch (err) {
+    const status = statusFor(err);
+    console.error("Save ad creative error:", err.message);
+    return res.status(status).json({ error: err.message || "Failed to save ad creative" });
+  }
+}
+
+/**
+ * GET /api/ad-studio/:brandId
+ * Returns the creative library for a brand (newest first).
+ */
+async function getCreativeLibrary(req, res) {
+  const userId = req.user.userId;
+  const { brandId } = req.params;
+
+  try {
+    await getOwnedBrand(brandId, userId);
+
+    const result = await db.query(
+      `SELECT creative_id, brand_id, campaign_goal, creative_concept, status,
+              launched_package, facebook_campaign_id, performance_data,
+              created_at, updated_at
+       FROM ad_creatives
+       WHERE brand_id = $1
+       ORDER BY created_at DESC`,
+      [brandId]
+    );
+
+    return res.json({ count: result.rows.length, creatives: result.rows });
+  } catch (err) {
+    const status = statusFor(err);
+    console.error("Get creative library error:", err.message);
+    return res.status(status).json({ error: err.message || "Failed to fetch creative library" });
+  }
+}
+
+/**
+ * Builds a conservative Facebook targeting spec from an AI audienceTargeting
+ * object. Kept minimal (geo + age + gender) so launches don't fail on
+ * unresolved interest IDs.
+ */
+function buildTargeting(audienceTargeting = {}, brandGeo = null) {
+  // Required by Facebook (subcode 1870227): the targeting spec must state the
+  // Advantage Audience flag explicitly. We build explicit targeting, so it is
+  // disabled (0) — never let Facebook auto-expand past our geo hard blocks.
+  const targeting = { targeting_automation: { advantage_audience: 0 } };
+  // Brand geo targeting/exclusions are a HARD BLOCK over any AI-suggested geo.
+  const geoSpec = fbGeoLocations(brandGeo);
+  if (geoSpec) {
+    targeting.geo_locations = geoSpec.geo_locations;
+    if (geoSpec.excluded_geo_locations) {
+      targeting.excluded_geo_locations = geoSpec.excluded_geo_locations;
+    }
+  } else {
+    const countries =
+      (Array.isArray(audienceTargeting.countries) && audienceTargeting.countries) || ["US"];
+    targeting.geo_locations = { countries };
+  }
+
+  const ageMin = Number(audienceTargeting.ageMin);
+  const ageMax = Number(audienceTargeting.ageMax);
+  if (Number.isFinite(ageMin)) targeting.age_min = Math.max(13, Math.min(65, ageMin));
+  if (Number.isFinite(ageMax)) targeting.age_max = Math.max(13, Math.min(65, ageMax));
+  if (Array.isArray(audienceTargeting.genders)) targeting.genders = audienceTargeting.genders;
+
+  return targeting;
+}
+
+/**
+ * POST /api/ad-studio/launch
+ * Body: { creativeId, packageIndex, budget }
+ * Launches a single creative package into the existing Facebook campaign infra
+ * (paused so nothing spends until reviewed), records a campaigns row so the
+ * optimizer/analytics pick it up, and marks the creative as launched.
+ */
+async function launchCreative(req, res) {
+  const userId = req.user.userId;
+  const { creativeId, packageIndex, budget } = req.body;
+
+  if (!creativeId || packageIndex === undefined || budget === undefined) {
+    return res
+      .status(400)
+      .json({ error: "creativeId, packageIndex, and budget are required" });
+  }
+
+  try {
+    // Ownership: join to brands on user_id so a foreign creative 404s.
+    const creativeResult = await db.query(
+      `SELECT ac.*, b.user_id, b.brand_name, b.geo_targeting,
+              b.facebook_page_id, b.ad_link_url
+       FROM ad_creatives ac
+       JOIN brands b ON b.brand_id = ac.brand_id
+       WHERE ac.creative_id = $1 AND b.user_id = $2`,
+      [creativeId, userId]
+    );
+    if (creativeResult.rows.length === 0) {
+      return res.status(404).json({ error: "Creative not found" });
+    }
+    const creative = creativeResult.rows[0];
+
+    if (creative.status === "launched") {
+      return res.status(409).json({ error: "This creative has already been launched" });
+    }
+
+    const packages =
+      creative.creative_concept && Array.isArray(creative.creative_concept.packages)
+        ? creative.creative_concept.packages
+        : [];
+    const pkg = packages[Number(packageIndex)];
+    if (!pkg) {
+      return res.status(400).json({ error: "packageIndex is out of range" });
+    }
+
+    const objective = GOAL_TO_OBJECTIVE[creative.campaign_goal] || GOAL_TO_OBJECTIVE.lead_generation;
+    const campaignName = `${creative.brand_name} - ${pkg.conceptName || pkg.angle || "Creative"}`;
+    const dailyBudgetCents = Math.round(Number(budget) * 100);
+
+    // Prompt 018 — the ONE canonical task-spine adopter (guide steps 1-2):
+    // the launch request is the approval; task + pre-generated campaign_id
+    // exist before any Facebook call. safeSpine'd — recording can never
+    // block or alter the launch.
+    const spineOrigin = ["echo", "setup_wizard"].includes(req.body.origin)
+      ? req.body.origin
+      : "ad_studio";
+    const launchRec = await adLaunchSpine.beginLaunch({
+      brandId: creative.brand_id,
+      userId,
+      actor: `owner:${userId}`,
+      origin: spineOrigin,
+      title: `Launch Facebook campaign: ${campaignName}`,
+    });
+    const spineFail = (error, ids) =>
+      adLaunchSpine.recordLaunchFailure({
+        taskId: launchRec.taskId,
+        campaignId: launchRec.campaignId,
+        brandId: creative.brand_id,
+        userId,
+        ids,
+        error,
+      });
+
+    const emptyIds = { campaignId: null, adSetId: null, creativeId: null, adId: null };
+    let accessToken, accountRef, grantedPages;
+    try {
+      ({ accessToken, accountRef, grantedPages } = await getFacebookIntegration(userId));
+    } catch (intErr) {
+      await spineFail(intErr, emptyIds);
+      throw intErr;
+    }
+
+    // A real, deliverable launch needs an ad creative, which requires a Facebook
+    // Page + destination link — resolved from the BRAND row (never env vars,
+    // never the user-scoped page_ref, which is only a wizard suggestion now).
+    // Fail fast (before creating any campaign/ad set) so we never report success
+    // for a campaign that can't actually serve ads.
+    let pageId, linkUrl;
+    try {
+      ({ pageId, linkUrl } = resolveBrandAdDestination(
+        { facebook_page_id: creative.facebook_page_id, ad_link_url: creative.ad_link_url },
+        grantedPages
+      ));
+    } catch (destErr) {
+      await spineFail(destErr, emptyIds);
+      if (destErr.statusCode === 503) {
+        return res.status(503).json({ error: destErr.message });
+      }
+      throw destErr;
+    }
+
+    // Track every Facebook object id so a mid-chain failure is recorded for
+    // cleanup and surfaced — never a silent partial chain.
+    const ids = { campaignId: null, adSetId: null, creativeId: null, adId: null };
+
+    try {
+      // Prompt 020: the whole Facebook object chain runs through the ONE
+      // execution gateway (D-30 §11) — ledger row per launch attempt,
+      // DB-level idempotency on the pre-generated campaign id, terminal
+      // escalation to MANUAL_REVIEW + one owner alert. Chain unchanged.
+      const launchOutcome = await executeExternal({
+        idempotencyKey: `ad_launch:${launchRec.campaignId}`,
+        provider: "facebook",
+        action: "ad_launch",
+        taskId: launchRec.taskId,
+        brandId: creative.brand_id,
+        userId,
+        meta: { origin: "ad_creative_studio" },
+        allowTransientRetry: false,
+        externalRefOf: (r) => (r && r.campaignId) || null,
+        execute: async () => {
+         try {
+      // 1. Campaign (paused).
+      const campaign = await graphPost(
+        `${accountRef}/campaigns`,
+        {
+          name: campaignName,
+          objective,
+          status: "PAUSED",
+          special_ad_categories: [],
+          // Required by Facebook (subcode 4834011): budgets live on our ad
+          // sets, so ad-set budget sharing must be explicitly disabled.
+          is_adset_budget_sharing_enabled: false,
+        },
+        accessToken
+      );
+      ids.campaignId = campaign.id;
+
+      // 2. Ad set (paused).
+      const adSet = await graphPost(
+        `${accountRef}/adsets`,
+        {
+          name: `${campaignName} - Ad Set`,
+          campaign_id: campaign.id,
+          daily_budget: dailyBudgetCents,
+          billing_event: "IMPRESSIONS",
+          // Required by Facebook (subcode 2490487): without an explicit bid
+          // strategy it demands a bid cap. Automatic bidding needs no bid amount.
+          bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+          optimization_goal: objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "REACH",
+          // Required by Facebook (subcode 1885154): the ad set must name what
+          // it promotes. Our ads promote the connected Page.
+          promoted_object: { page_id: pageId },
+          targeting: buildTargeting(pkg.audienceTargeting, creative.geo_targeting),
+          status: "PAUSED",
+        },
+        accessToken
+      );
+      ids.adSetId = adSet.id;
+
+      // 3. Ad creative (page + link guaranteed present by the guard above).
+      const created = await graphPost(
+        `${accountRef}/adcreatives`,
+        {
+          name: `${campaignName} - Creative`,
+          object_story_spec: {
+            page_id: pageId,
+            link_data: {
+              message: pkg.bodyCopyVariations[0],
+              link: linkUrl,
+              name: pkg.headline,
+              call_to_action: { type: "LEARN_MORE", value: { link: linkUrl } },
+            },
+          },
+        },
+        accessToken
+      );
+      ids.creativeId = created.id;
+
+      // 4. The actual ad object — PAUSED, via the one shared helper.
+      // Duplicate guard: never POST /ads twice for the same Facebook campaign.
+      const existingAdId = await findExistingAdId(ids.campaignId);
+      if (existingAdId) {
+        ids.adId = existingAdId;
+      } else {
+        const ad = await createPausedAd(
+          accountRef,
+          { name: `${campaignName} - Ad`, adSetId: ids.adSetId, creativeId: ids.creativeId },
+          accessToken
+        );
+        ids.adId = ad.id;
+      }
+          return { ...ids };
+         } catch (chainErr) {
+          // D-27 §11 honesty: the partial chain rides on the error so the
+          // MANUAL_REVIEW event records exactly which objects exist.
+          chainErr.partialChain = { ...ids };
+          throw chainErr;
+         }
+        },
+      });
+      if (launchOutcome.deduplicated) {
+        // The idempotency guard found a prior in-flight or succeeded
+        // execution for this launch — a second chain must never be created.
+        const dedupErr = new Error(
+          "This launch was already executed (or is executing) — refusing to create a second Facebook chain."
+        );
+        dedupErr.deduplicated = true;
+        throw dedupErr;
+      }
+    } catch (chainErr) {
+      await recordFailedLaunch({
+        brandId: creative.brand_id,
+        userId,
+        campaignName,
+        budget,
+        variations: [pkg],
+        ids,
+        error: chainErr,
+        campaignId: launchRec.campaignId,
+      });
+      // Guide step 5: partial chain -> EXTERNAL_FAILURE with partial ids
+      // (D-27 §11); pre-chain causes classify to their failure state.
+      await spineFail(chainErr, ids);
+      return res.status(502).json({
+        error: `Facebook launch failed: ${chainErr.message}. Partial objects were recorded for cleanup.`,
+        partialChain: { ...ids },
+      });
+    }
+
+    console.log(
+      `Facebook launch complete for brand ${creative.brand_id}: ` +
+        `campaign=${ids.campaignId} adset=${ids.adSetId} creative=${ids.creativeId} ad=${ids.adId} (all PAUSED)`
+    );
+    const facebookCreativeId = ids.creativeId;
+
+    // 5. Record a campaigns row so the optimizer/analytics include it —
+    // facebook_ad_id persisted only after Facebook returned the ad id. A local
+    // write failure AFTER Facebook succeeded is still recorded/logged with all
+    // ids — the objects are never silently orphaned.
+    let insertedCampaign;
+    try {
+      insertedCampaign = await runCampaignInsert();
+    } catch (persistErr) {
+      await recordFailedLaunch({
+        brandId: creative.brand_id,
+        userId,
+        campaignName,
+        budget,
+        variations: [pkg],
+        ids,
+        error: persistErr,
+        // Keep the failure row joined to the canonical task source id.
+        campaignId: launchRec.campaignId,
+      });
+      // Provider chain complete, local persist failed: PROVIDER_ACCEPTED then
+      // MANUAL_REVIEW — never a relaunch (Addendum F).
+      await adLaunchSpine.recordPersistFailure({
+        taskId: launchRec.taskId,
+        campaignId: launchRec.campaignId,
+        brandId: creative.brand_id,
+        userId,
+        ids,
+        error: persistErr,
+      });
+      return res.status(500).json({
+        error: `The Facebook chain was created but saving it locally failed: ${persistErr.message}. Partial objects were recorded for cleanup.`,
+        partialChain: { ...ids },
+      });
+    }
+
+    async function runCampaignInsert() {
+      return db.query(
+        `INSERT INTO campaigns
+           (campaign_id, brand_id, user_id, campaign_name, budget, ad_creative_variations,
+            launch_date, facebook_campaign_id, facebook_adset_id,
+            facebook_creative_id, facebook_ad_id, status)
+         VALUES ($10, $1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8, $9, 'created_paused')
+         RETURNING campaign_id`,
+        [
+          creative.brand_id,
+          userId,
+          campaignName,
+          budget,
+          JSON.stringify([pkg]),
+          ids.campaignId,
+          ids.adSetId,
+          ids.creativeId,
+          ids.adId,
+          launchRec.campaignId,
+        ]
+      );
+    }
+
+    // Guide steps 3-4: PROVIDER_ACCEPTED (all four ids) -> Prompt 005
+    // read-back -> proof row -> EXTERNALLY_VERIFIED -> REPORTED -> COMPLETED.
+    await adLaunchSpine.recordLaunchSuccess({
+      taskId: launchRec.taskId,
+      campaignId: insertedCampaign.rows[0].campaign_id,
+      brandId: creative.brand_id,
+      userId,
+      ids,
+    });
+
+    // 6. Mark the creative launched and remember which package shipped.
+    const launchedPackage = {
+      conceptName: pkg.conceptName || null,
+      angle: pkg.angle || null,
+      headline: pkg.headline,
+      callToAction: pkg.callToAction,
+    };
+    await db.query(
+      `UPDATE ad_creatives
+         SET status = 'launched',
+             launched_package = $1,
+             facebook_campaign_id = $2,
+             facebook_adset_id = $3,
+             campaign_id = $4
+       WHERE creative_id = $5`,
+      [
+        JSON.stringify(launchedPackage),
+        ids.campaignId,
+        ids.adSetId,
+        insertedCampaign.rows[0].campaign_id,
+        creativeId,
+      ]
+    );
+
+    return res.status(201).json({
+      creativeId,
+      campaignId: insertedCampaign.rows[0].campaign_id,
+      facebookCampaignId: ids.campaignId,
+      facebookAdSetId: ids.adSetId,
+      facebookCreativeId,
+      facebookAdId: ids.adId,
+      objective,
+    });
+  } catch (err) {
+    const status = statusFor(err);
+    console.error("Launch creative error:", err.message);
+    return res.status(status).json({ error: err.message || "Failed to launch creative" });
+  }
+}
+
+/**
+ * Pulls real Facebook insights for a launched creative's campaign.
+ */
+async function pullCreativePerformance(creative, accessToken) {
+  const insights = await graphGet(
+    `${creative.facebook_campaign_id}/insights`,
+    { fields: "spend,impressions,clicks,actions,cpc,ctr", date_preset: "last_7d" },
+    accessToken
+  );
+
+  const row = insights.data && insights.data[0] ? insights.data[0] : {};
+  const spend = Number(row.spend || 0);
+  const impressions = Number(row.impressions || 0);
+  const clicks = Number(row.clicks || 0);
+  const ctr = Number(row.ctr || 0);
+  const leadAction = (row.actions || []).find(
+    (a) => a.action_type === "lead" || a.action_type === "onsite_conversion.lead_grouped"
+  );
+  const leads = leadAction ? Number(leadAction.value) : 0;
+  const costPerLead = leads > 0 ? spend / leads : null;
+  const conversionRate = clicks > 0 ? leads / clicks : 0;
+
+  return {
+    spend,
+    impressions,
+    clicks,
+    ctr,
+    leads,
+    costPerLead,
+    conversionRate,
+    measuredAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Refreshes stored performance_data for every launched creative of a brand with
+ * the latest real Facebook metrics. Reusable by the weekly scheduler and the
+ * performance endpoint. Throws if the brand has no connected Facebook account.
+ *
+ * @returns {Promise<number>} number of creatives refreshed.
+ */
+async function updateCreativePerformanceForBrand(brand) {
+  const launched = await db.query(
+    `SELECT creative_id, facebook_campaign_id
+     FROM ad_creatives
+     WHERE brand_id = $1 AND status = 'launched' AND facebook_campaign_id IS NOT NULL`,
+    [brand.brand_id]
+  );
+  if (launched.rows.length === 0) return 0;
+
+  const { accessToken } = await getFacebookIntegration(brand.user_id);
+
+  let refreshed = 0;
+  for (const creative of launched.rows) {
+    try {
+      const performance = await pullCreativePerformance(creative, accessToken);
+      await db.query(
+        "UPDATE ad_creatives SET performance_data = $1 WHERE creative_id = $2",
+        [JSON.stringify(performance), creative.creative_id]
+      );
+      refreshed += 1;
+    } catch (err) {
+      console.error(
+        `Could not refresh performance for creative ${creative.creative_id}:`,
+        err.message
+      );
+    }
+  }
+  return refreshed;
+}
+
+/**
+ * GET /api/ad-studio/performance/:brandId
+ * Returns launched creatives with their real Facebook performance, grouped so
+ * the client can compare which angles perform best. Attempts a best-effort live
+ * refresh first; if Facebook is unreachable, returns the last stored metrics.
+ */
+async function getCreativePerformance(req, res) {
+  const userId = req.user.userId;
+  const { brandId } = req.params;
+
+  try {
+    const brand = await getOwnedBrand(brandId, userId);
+
+    // Best-effort live refresh — never fail the response if Facebook is down or
+    // not connected; we fall back to the last stored real metrics.
+    try {
+      await updateCreativePerformanceForBrand(brand);
+    } catch (err) {
+      console.error(`Live creative performance refresh skipped for brand ${brandId}:`, err.message);
+    }
+
+    const result = await db.query(
+      `SELECT creative_id, campaign_goal, launched_package, performance_data,
+              facebook_campaign_id, updated_at
+       FROM ad_creatives
+       WHERE brand_id = $1 AND status = 'launched'
+       ORDER BY updated_at DESC`,
+      [brandId]
+    );
+
+    const creatives = result.rows.map((r) => ({
+      creativeId: r.creative_id,
+      campaignGoal: r.campaign_goal,
+      concept: r.launched_package,
+      performance: r.performance_data,
+      facebookCampaignId: r.facebook_campaign_id,
+      updatedAt: r.updated_at,
+    }));
+
+    return res.json({ count: creatives.length, creatives });
+  } catch (err) {
+    const status = statusFor(err);
+    console.error("Get creative performance error:", err.message);
+    return res.status(status).json({ error: err.message || "Failed to fetch creative performance" });
+  }
+}
+
+module.exports = {
+  generateCreatives,
+  saveCreative,
+  getCreativeLibrary,
+  launchCreative,
+  getCreativePerformance,
+  updateCreativePerformanceForBrand,
+};

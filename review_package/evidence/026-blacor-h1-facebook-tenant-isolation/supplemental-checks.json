@@ -1,0 +1,16 @@
+{
+  "additionalNeedles": [
+    "52548872979134",
+    "southdixiestorage.com"
+  ],
+  "hits": [],
+  "ownerWideCheck": {
+    "observed_at": "2026-09-10T14:14:34.387394Z",
+    "read_only": "on",
+    "since": "2026-09-09T17:11:46.865686Z",
+    "tasks": 0,
+    "actions": 0,
+    "proofs": 0
+  },
+  "note": "Additional scan is offline against bank.json; no additional database mutation."
+}

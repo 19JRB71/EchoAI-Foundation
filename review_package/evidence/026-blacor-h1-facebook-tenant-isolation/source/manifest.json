@@ -1,0 +1,30 @@
+{
+  "sha": "de8e996f55fd5139a5488f75f7d96078f9dc25c6",
+  "authority": "GitHub staging ref; actual EchoAI source paths, not review_package copies",
+  "files": [
+    {
+      "file": "AdsDestinationCapture.jsx",
+      "sha256": "b3653404d94892dc2099072ba1a951bb1b110c5356c99a514d84af506845f0ec"
+    },
+    {
+      "file": "SetupAgent.jsx",
+      "sha256": "3d192f86d327f370cb2a21799a89836e9569eb70741fb6a4a092736ad68f2868"
+    },
+    {
+      "file": "adCreativeStudioController.js",
+      "sha256": "e63ef114a618ea97e4b750b21094adcb100060eac12160ff4ade9ec079e102bc"
+    },
+    {
+      "file": "brandController.js",
+      "sha256": "178807eaee64e72a6c1646a94429c0586ac9cba26c223a86f83a3afec773ff7e"
+    },
+    {
+      "file": "facebookOAuthController.js",
+      "sha256": "3da271298b873480b266f50890ab3e5c62acce784f8c58bb3fb24d09f017d0d0"
+    },
+    {
+      "file": "setupAgentController.js",
+      "sha256": "a682315299c8c49a4e334d735963cb64ef0aa22d66a3646700a402a48628960f"
+    }
+  ]
+}

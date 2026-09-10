@@ -1,0 +1,1 @@
+{"schemaVersion":"sds-reproducible-v1","dataset":"ad_spend_caps","columns":["cap_id","brand_id","daily_cap_cents","set_by_user_id","created_at","updated_at"],"rows":[]}
