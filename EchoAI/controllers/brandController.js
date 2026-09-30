@@ -124,6 +124,10 @@ async function updateBrand(req, res) {
   const userId = req.user.userId;
   const { brandId } = req.params;
   const { name, tagline, personality, voiceDescription, visualStylePreferences, targetAudience } = req.body;
+  if (["facebookPageId", "facebook_page_id", "adLinkUrl", "ad_link_url",
+       "facebookPageUrl", "facebook_page_url"].some((key) => Object.hasOwn(req.body, key))) {
+    return res.status(400).json({ error: "Use explicit ads destination confirmation to change or remove Facebook destinations" });
+  }
 
   // Prompt 011 split: knowledge fields route through the versioned write
   // boundary (immediate-effect owner edit, recorded in the history);

@@ -15,25 +15,21 @@
 // existing select-page validation.
 //
 // It configures STORE 3 ONLY (brands.facebook_page_id + brands.ad_link_url),
-// through the EXISTING product writers:
-//   Page:        api.selectFacebookPage(pageId, brandId)  → POST /api/facebook/select-page
-//   Destination: api.updateBrand(brandId, { adLinkUrl })  → PUT  /api/brands/:brandId
+// through its sole consented writer: POST /api/facebook/select-page.
+// Page, destination, changes and removals share this boundary and readback.
 // No direct DB writes, no new route, no new store. It never touches
 // social_accounts (STORE 2) and never reads page_ref as truth.
 //
 // Owner-authority contract (§F/§G):
 //   - zero granted Pages  → honest state + reconnect affordance, never fabricate;
-//   - one granted Page    → visibly preselected, NO write until explicit Save;
+//   - one granted Page    → explicit selection, NO write until explicit Save;
 //   - many granted Pages  → explicit choice required;
 //   - website_url         → visible "suggested" prefill only, never silently
 //                           copied into ad_link_url;
 //   - nothing is written until the single explicit "Save & continue".
 //
-// Save semantics (§H): Page write → destination write → authoritative server
-// reread → onConfigured ONLY when server truth shows both values. Partial
-// failure is honest: a saved Page stays saved (no rollback theater), the
-// missing half is reported exactly, and the next Save skips the write that
-// server truth already shows (no duplicate Page writes).
+// Save semantics: consented atomic write → authoritative server reread.
+// onConfigured runs only when the confirmed Page and destination are persisted.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api.js";
@@ -55,6 +51,7 @@ export default function AdsDestinationCapture({
   const [link, setLink] = useState("");
   const [linkTouched, setLinkTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [pageError, setPageError] = useState("");
   const [linkError, setLinkError] = useState("");
   const activeRef = useRef(true);
@@ -114,9 +111,8 @@ export default function AdsDestinationCapture({
       setSavedPageId(curPage);
       setSavedLink(curLink);
       setWebsiteSuggestion(website);
-      // Preselect ONLY from saved truth, or (visibly) when exactly one Page is
-      // granted. Never auto-select among many, never from page_ref/history.
-      setPageChoice(curPage || (granted.length === 1 ? granted[0].id : null));
+      // Saved Store-3 truth is not a new grant-derived destination.
+      setPageChoice(curPage);
       setLink((prev) => (linkTouched ? prev : curLink || website || ""));
       setLoading(false);
     } catch (err) {
@@ -132,39 +128,27 @@ export default function AdsDestinationCapture({
   }, [load]);
 
   // ---- Explicit Save & continue --------------------------------------------
-  async function save() {
+  async function save(remove = false) {
     if (saving || loading) return;
+    if (remove && (!savedPageId || !window.confirm(`Remove ads Page ${savedPageId} and its destination?`))) return;
     setPageError("");
     setLinkError("");
     const trimmed = (link || "").trim();
     let ok = true;
-    if (!pageChoice) {
+    if (!remove && !pageChoice) {
       setPageError("Choose the Facebook Page your ads will run from.");
       ok = false;
     }
-    if (!trimmed || !/^(https?:\/\/)?[^\s]+\.[^\s]{2,}/i.test(trimmed)) {
+    if (!remove && (!trimmed || !/^(https?:\/\/)?[^\s]+\.[^\s]{2,}/i.test(trimmed))) {
       setLinkError("Enter the web address customers should land on (e.g. https://yourbusiness.com).");
       ok = false;
     }
     if (!ok) return;
     setSaving(true);
-    let pageSaved = savedPageId === pageChoice; // §H: never duplicate a write server truth already shows
     try {
-      if (!pageSaved) {
-        try {
-          await api.selectFacebookPage(pageChoice, brandId);
-          pageSaved = true;
-        } catch (err) {
-          setPageError(err.message || "Couldn't save that Page choice. Try again.");
-        }
-      }
-      let linkSaved = false;
-      try {
-        await api.updateBrand(brandId, { adLinkUrl: trimmed });
-        linkSaved = true;
-      } catch (err) {
-        setLinkError(err.message || "That web address couldn't be saved. Check it and try again.");
-      }
+      await api.selectFacebookPage(remove ? savedPageId : pageChoice, brandId, {
+        adLinkUrl: remove ? null : trimmed, intent: "confirm_ads_destination", ...(remove ? { remove: true } : {}),
+      });
       // Authoritative reread — success is only ever declared from server truth.
       // 026-C3-PM4: GET /api/brands/:brandId returns a FLAT brand row (no
       // { brand } wrapper) that now includes facebook_page_id and ad_link_url;
@@ -172,20 +156,26 @@ export default function AdsDestinationCapture({
       // test/brandProfileContract.test.js. The server may return a NORMALIZED
       // destination (e.g. "southdixiestorage.com" → "https://southdixiestorage.com/");
       // normalized truth counts as success — never compare against raw input.
-      const brandRes = await api.getBrand(brandId).catch(() => null);
+      const brandRes = await api.getBrand(brandId);
       const brand = brandRes && (brandRes.brand || brandRes);
       const truthPage = brand && brand.facebook_page_id ? brand.facebook_page_id : null;
       const truthLink = brand && brand.ad_link_url ? brand.ad_link_url : null;
       if (!activeRef.current) return;
       setSavedPageId(truthPage);
       setSavedLink(truthLink);
-      if (truthPage && truthLink) {
+      if (remove && !truthPage && !truthLink) {
+        setPageChoice(null);
+        setLink("");
+        setEditing(false);
+      } else if (!remove && truthPage === pageChoice && truthLink) {
+        setLink(truthLink);
+        setEditing(false);
         if (typeof onConfigured === "function") onConfigured({ pageId: truthPage, adLinkUrl: truthLink });
       } else {
-        // Honest partial state: say exactly what remains, keep what saved.
-        if (!truthPage && pageSaved) setPageError("The Page choice didn't stick — please try again.");
-        if (!truthLink && linkSaved) setLinkError("The destination didn't stick — please try again.");
+        setPageError("The confirmed ads destination was not reflected by the server. Please retry.");
       }
+    } catch (err) {
+      setPageError(err.message || "Couldn't save the ads destination. Please retry.");
     } finally {
       if (activeRef.current) setSaving(false);
     }
@@ -217,13 +207,30 @@ export default function AdsDestinationCapture({
       </div>
     );
   }
-  if (savedPageId && savedLink) {
+  if (savedPageId && savedLink && !editing) {
     return (
       <div className={box} data-testid="ads-destination-capture">
         <p className="text-sm text-emerald-200" data-testid="ads-destination-configured">
           Ads are set up: Page selected and clicks go to{" "}
           <span className="font-semibold break-all">{savedLink}</span>.
         </p>
+        {pageError && <p className="mt-2 text-sm text-red-300">{pageError}</p>}
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => setEditing(true)}
+          className="mt-3 rounded-lg bg-white/10 px-4 py-2 text-sm"
+        >
+          Change ads destination
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => save(true)}
+          className="mt-3 ml-2 rounded-lg bg-white/10 px-4 py-2 text-sm"
+        >
+          Remove ads destination
+        </button>
       </div>
     );
   }
@@ -306,13 +313,23 @@ export default function AdsDestinationCapture({
       <div className="mt-4">
         <button
           type="button"
-          onClick={save}
+          onClick={() => save()}
           disabled={saving || pages.length === 0}
           className="rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
           data-testid="ads-destination-save"
         >
           {saving ? "Saving…" : "Save & continue"}
         </button>
+        {savedPageId && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => save(true)}
+            className="ml-2 rounded-lg bg-white/10 px-4 py-2 text-sm"
+          >
+            Remove ads destination
+          </button>
+        )}
       </div>
     </div>
   );

@@ -52,6 +52,7 @@ function makeRes() {
 test("PM3-R1: GET /api/facebook/accounts (real controller) returns pages[] in the exact shape the capture consumes", async () => {
   const orig = db.query;
   db.query = async (sql) => {
+    if (sql.includes("FROM brands b LEFT JOIN social_accounts")) return { rows: [] };
     if (sql.includes("FROM api_integrations")) {
       return {
         rows: [
@@ -93,7 +94,7 @@ test("PM3-R1: GET /api/facebook/accounts (real controller) returns pages[] in th
     assert.strictEqual(body.connected, true);
     assert.strictEqual(body.connectionStatus, "connected");
     assert.strictEqual(body.selectedAccountId, "act_185098744942162");
-    assert.strictEqual(body.selectedPageId, "140006069194366");
+    assert.strictEqual(body.selectedPageId, null); // S1 is not selection authority.
     assert.deepStrictEqual(body.accounts, AD_ACCOUNTS);
 
     // PM3-R2 source of truth: the stored granted Page rides pages[] in EXACTLY
@@ -105,6 +106,8 @@ test("PM3-R1: GET /api/facebook/accounts (real controller) returns pages[] in th
       id: "140006069194366",
       name: "South Dixie Storage",
       category: "Portable Building Service",
+      unavailable: true, // no current Page token in this grant fixture
+      boundBusinessName: null,
     });
 
     // PM3-R13 corollary: this endpoint — not /api/facebook/verify — is the
@@ -138,6 +141,7 @@ test("PM3-R12: a genuinely page-less account returns real pages: [] (never undef
 test("PM3-R12b: a connected account whose grant holds zero Pages also returns pages: [] through the real controller", async () => {
   const orig = db.query;
   db.query = async (sql) => {
+    if (sql.includes("FROM brands b LEFT JOIN social_accounts")) return { rows: [] };
     if (sql.includes("FROM api_integrations")) {
       return {
         rows: [

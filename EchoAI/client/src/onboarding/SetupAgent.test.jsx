@@ -31,6 +31,7 @@ vi.mock("../api.js", () => ({
     dismissSetupSession: vi.fn(),
     startGoogleOAuth: vi.fn(),
     startFacebookOAuth: vi.fn(),
+    getOnboardingStatus: vi.fn(),
   },
 }));
 
@@ -61,6 +62,7 @@ beforeEach(() => {
   api.startSetupSession.mockResolvedValue({ session: READY_SESSION });
   // The unmount handler chains .catch() on this, so it must return a promise.
   api.pauseSetupSession.mockResolvedValue(undefined);
+  api.getOnboardingStatus.mockResolvedValue({ firstWin: null, authorization: null });
 });
 
 // A fresh (not-yet-interviewed) session so the bootstrap effect lands in the
@@ -337,7 +339,13 @@ describe("SetupAgent needs_connection handoff", () => {
     expect(api.runSetupAction).toHaveBeenCalledTimes(2);
   });
 
-  test("a Facebook needs_connection renders a Connect Facebook button that launches FB OAuth", async () => {
+  test.each(["none", "owned", "foreign", "reconfirm", "error"])("Facebook initial OAuth context: %s authorization", async (mode) => {
+    api.startSetupSession.mockResolvedValue({ session: { ...READY_SESSION, brandId: "brand-1" } });
+    if (mode === "error") api.getOnboardingStatus.mockRejectedValueOnce(new Error("Status unavailable"));
+    else if (mode !== "none") api.getOnboardingStatus.mockResolvedValueOnce({
+      firstWin: { brandId: mode === "foreign" ? "other-brand" : "brand-1" },
+      authorization: { authorizationId: "armed-id", status: "armed", reconfirmationRequired: mode === "reconfirm" },
+    });
     // The Facebook ad-campaign step now hands off to Facebook OAuth inside setup
     // (was a silent skip). The same approval panel must render a "Connect
     // Facebook" button that drives api.startFacebookOAuth and navigates away.
@@ -361,7 +369,16 @@ describe("SetupAgent needs_connection handoff", () => {
       expect(screen.queryByRole("button", { name: /connect google calendar/i })).toBeNull();
       fireEvent.click(connectBtn);
 
+      if (mode === "error") {
+        expect(await screen.findByText("Status unavailable")).toBeInTheDocument();
+        expect(api.startFacebookOAuth).not.toHaveBeenCalled();
+        return;
+      }
       await waitFor(() => expect(api.startFacebookOAuth).toHaveBeenCalledTimes(1));
+      expect(api.startFacebookOAuth).toHaveBeenCalledWith({
+        brandId: "brand-1", sessionId: "sess-1", returnStep: "create_facebook_campaign",
+        ...(mode === "owned" ? { authorizationId: "armed-id" } : {}),
+      });
       await waitFor(() =>
         expect(window.location.href).toBe("https://www.facebook.com/dialog/oauth"),
       );

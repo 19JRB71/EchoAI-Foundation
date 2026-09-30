@@ -53,6 +53,13 @@ function makeSocialDb(seed) {
   const state = { published: [], failed: [], failedErrors: [], retried: [], rescued: [] };
 
   async function query(sql, params = []) {
+    if (sql.includes("FROM api_integrations ai")) return { rows: [{
+      facebook_pages: [{ id: params[0] }], facebook_page_tokens: encrypt(JSON.stringify({ [params[0]]: "tok" })),
+    }] };
+    if (sql.includes("FROM brands b LEFT JOIN social_accounts")) return { rows:
+      [...new Set(seed.posts.map((p) => p.brand_id))].map((brand_id) => ({
+        brand_id, credentials_encrypted: encrypt(JSON.stringify({ pageId: brand_id })),
+      })) };
     // 0) The stale-'publishing' rescue sweep that runs before the claim.
     if (
       /UPDATE social_posts/i.test(sql) &&
@@ -79,7 +86,7 @@ function makeSocialDb(seed) {
           {
             account_id: "acct-1",
             platform_username: "fineco",
-            credentials_encrypted: encrypt(JSON.stringify({ accessToken: "tok" })),
+            credentials_encrypted: encrypt(JSON.stringify({ pageId: params[0] })),
             connection_status: "connected",
           },
         ],

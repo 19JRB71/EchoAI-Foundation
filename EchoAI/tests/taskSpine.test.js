@@ -107,8 +107,13 @@ before(async () => {
   await db.query(
     `INSERT INTO social_accounts (brand_id, platform, platform_username, credentials_encrypted, connection_status)
      VALUES ($1, 'facebook', 'spine-test', $2, 'connected')`,
-    [brandId, encrypt(JSON.stringify({ accessToken: "spine-test-token" }))]
+    [brandId, encrypt(JSON.stringify({ pageId: `spine-${brandId}` }))]
   );
+  // I-80: successful Facebook execution requires a current S1 grant plus S2.
+  await db.query(`INSERT INTO api_integrations(user_id,platform,api_token_encrypted,
+    facebook_pages,facebook_page_tokens,connection_status) VALUES($1,'facebook',$2,$3::jsonb,$4,'connected')`,
+  [userId, encrypt("spine-user-token"), JSON.stringify([{ id: `spine-${brandId}` }]),
+    encrypt(JSON.stringify({ [`spine-${brandId}`]: "spine-test-token" }))]);
 });
 
 after(async () => {

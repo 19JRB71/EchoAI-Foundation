@@ -1,0 +1,11 @@
+# Final local working-tree fingerprints, NOT a deployed/live fingerprint. Exact base source SHA de8e996f55fd5139a5488f75f7d96078f9dc25c6.
+9492cf7ab80437e34a4632c0af9e432b93ad8b7f510d9058bf9f925d2c0c7cf7  EchoAI/client/dist/index.html
+6de475bdc29d089431f6e5446043d2daecbab05a399ff18dfb40208bde6c8d1c  EchoAI/client/dist/sw.js
+6de475bdc29d089431f6e5446043d2daecbab05a399ff18dfb40208bde6c8d1c  EchoAI/client/public/sw.js
+98648c1a9dd8503141088b067acf16985161fe85dc0753dc7d779e11b48a9db1  EchoAI/client/dist/assets/index-BOSvCscE.css
+a880460c24901af88278a278df79ac4f136dd084a0f753a5f42a5cd7ff41e578  EchoAI/client/dist/assets/index-Bjm_z3-E.js
+# Final local test/build logs plus isolated test DB setup, not live/deployment results:
+0e86ed4a9030dfb7b9de12b1dc93b4115b6e480306394a9019eb9feec8417663  review_package/evidence/I80_STAGE2_server-final-full.txt
+7b72366622694b19c8eecad299107efd451fc1351a57a1859b3f86b2b87f0c0b  review_package/evidence/I80_STAGE2_client-final-full.txt
+2ebd51a694d0e2d1ae61c0800eb681ac85f1586bef7c9d6f213ddc522431ccb8  review_package/evidence/I80_STAGE2_client-final-build.txt
+8186b159f31af4116616151aa10495f3143720a8ab51a09190cce865e51b1e45  review_package/evidence/I80_STAGE2_db-setup.txt

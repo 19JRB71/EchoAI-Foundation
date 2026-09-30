@@ -160,6 +160,13 @@ export default function SetupAgent({
   useOnboardingTiming(`setup:${phase}`, !embedded);
   const [error, setError] = useState("");
   const [session, setSession] = useState(null);
+  const [oauthReturn] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      brandId: params.get("brandId"), sessionId: params.get("sessionId"),
+      authorizationId: params.get("authorizationId"), returnStep: params.get("returnStep"),
+    };
+  });
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
@@ -601,6 +608,10 @@ export default function SetupAgent({
         const data = await api.startSetupSession(intent ? { intent } : undefined);
         if (!activeRef.current) return;
         const s = data.session;
+        if ((oauthReturn.sessionId && oauthReturn.sessionId !== s.sessionId) ||
+            (oauthReturn.brandId && oauthReturn.brandId !== s.brandId)) {
+          throw new Error("Facebook returned to a different business setup. Resume the original business.");
+        }
         // 026-C2: one adoption point for server truth — seeds completed,
         // skipped AND durably-failed step outcomes (a failed step renders as
         // its persistent failed state on every mount, incl. OAuth returns).
@@ -822,7 +833,18 @@ export default function SetupAgent({
     setBusy(true);
     setError("");
     try {
-      const { authUrl } = await api.startFacebookOAuth();
+      if (!session?.brandId || !sessionId || !needsConnection?.key) {
+        throw new Error("Your business setup context is missing. Retry this setup step.");
+      }
+      const status = await api.getOnboardingStatus();
+      const auth = status?.authorization;
+      const authorizationId = oauthReturn.authorizationId ||
+        (status?.firstWin?.brandId === session.brandId && auth?.status === "armed" &&
+         !auth.expired && !auth.reconfirmationRequired ? auth.authorizationId : null);
+      const { authUrl } = await api.startFacebookOAuth({
+        brandId: session.brandId, sessionId, returnStep: needsConnection.key,
+        ...(authorizationId ? { authorizationId } : {}),
+      });
       // Full-page handoff to Facebook's own consent screen. The setup session
       // persists; the agent resumes automatically when the user returns.
       if (!openAuthUrl(authUrl)) setBusy(false);
@@ -843,8 +865,12 @@ export default function SetupAgent({
     if (typeof onExitToSection === "function") onExitToSection("social", "accounts");
   }
 
-  async function completeInlinePageSelection() {
-    // The existing Page writer has already succeeded. Re-check the same
+  async function completeInlinePageSelection(pageId) {
+    await api.setFacebookBrandPage({
+      brandId: session.brandId, pageId, sessionId, intent: "confirm_business_facebook_page",
+      ...(oauthReturn.authorizationId ? { authorizationId: oauthReturn.authorizationId } : {}),
+    });
+    // The C1 confirmed writer succeeded. Re-check the same
     // unresolved Setup Agent step through its normal execute boundary; only
     // authoritative server truth may advance the run.
     await continueAfterConnect();

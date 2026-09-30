@@ -13,8 +13,8 @@
  *  - claimed -> armed is ILLEGAL. No code path here ever resets a claimed
  *    row; retry is owner reconfirmation -> a brand-new authorization row.
  *  - The claim (armed -> claimed) and the post handoff (prepared ->
- *    scheduled) commit in ONE database transaction (Section B1). An unbound
- *    destination is bound inside that same transaction (Section A7).
+ *    scheduled) commit in C1's database transaction (Section B1). C1 alone
+ *    confirms an unbound destination before requesting the claim.
  *  - Expiry (7 calendar days from armed_at, Section A6) is enforced at claim
  *    time: an expired authorization can never publish.
  *  - execution_failed only with definitive no-side-effect evidence
@@ -28,7 +28,66 @@
 
 const crypto = require("crypto");
 const db = require("../config/db");
-const { encrypt, decrypt } = require("./encryption");
+const { decrypt } = require("./encryption");
+
+// Shared across C1, C3, claim and disconnect: encrypted S2 has no unique Page index.
+const lockFacebookBindings = (client) => client.query("SELECT pg_advisory_xact_lock(8042080)");
+async function facebookContext(client, { userId, brandId, sessionId, authorizationId, returnStep }) {
+  if (!brandId && !sessionId && !authorizationId && !returnStep) return null;
+  const owned = await client.query("SELECT brand_id FROM brands WHERE brand_id = $1 AND user_id = $2", [brandId, userId]);
+  if (!owned.rows.length) throw Object.assign(new Error("Brand not found"), { statusCode: 404 });
+  if (sessionId) {
+    const session = await client.query(
+      "SELECT session_id FROM setup_sessions WHERE session_id = $1 AND user_id = $2 AND brand_id = $3 AND status = 'in_progress'",
+      [sessionId, userId, brandId]);
+    if (!session.rows.length) throw Object.assign(new Error("Setup session does not match this business"), { statusCode: 409 });
+  }
+  if (!authorizationId) return null;
+  const auth = await client.query(
+    `SELECT destination_page_id FROM armed_publish_authorizations
+      WHERE authorization_id = $1 AND user_id = $2 AND brand_id = $3 AND status = 'armed'`,
+    [authorizationId, userId, brandId]);
+  if (!auth.rows.length) throw Object.assign(new Error("Authorization does not match this business"), { statusCode: 409 });
+  return auth.rows[0];
+}
+function requireFacebookOwner(user) {
+  if (!user?.userId || user.isTeamMember || (user.workspaceRole && user.workspaceRole !== "owner") ||
+      (user.actualUserId && user.actualUserId !== user.userId)) {
+    throw Object.assign(new Error("Only the business owner may confirm Facebook destinations"), { statusCode: 403 });
+  }
+}
+async function facebookBindings(client = db) {
+  const { rows } = await client.query(
+    `SELECT b.brand_id, b.brand_name, b.user_id, b.facebook_page_id, s.account_id, s.credentials_encrypted
+       FROM brands b LEFT JOIN social_accounts s ON s.brand_id = b.brand_id AND s.platform = 'facebook'`);
+  return rows.map((r) => {
+    const postingPageId = r.credentials_encrypted ? JSON.parse(decrypt(r.credentials_encrypted)).pageId : null;
+    if (r.account_id && (typeof postingPageId !== "string" || !postingPageId)) {
+      throw new Error("Facebook binding cannot be verified; manual review required");
+    }
+    return { ...r, postingPageId };
+  });
+}
+async function validateFacebookDestination(client, userId, brandId, pageId) {
+  const owned = await client.query(
+    "SELECT brand_id FROM brands WHERE brand_id = $1 AND user_id = $2 FOR UPDATE", [brandId, userId]);
+  if (!owned.rows.length) throw Object.assign(new Error("Brand not found"), { statusCode: 404 });
+  const bindings = await facebookBindings(client);
+  const brand = bindings.find((b) => b.brand_id === brandId && b.user_id === userId);
+  if (!brand) throw Object.assign(new Error("Brand not found"), { statusCode: 404 });
+  if (!pageId || bindings.some((b) => b.brand_id !== brandId &&
+      [b.postingPageId, b.facebook_page_id].includes(pageId))) {
+    throw Object.assign(new Error("Page is unavailable or bound to another business"), { statusCode: 409 });
+  }
+  const { rows } = await client.query(
+    `SELECT facebook_pages, facebook_page_tokens FROM api_integrations
+      WHERE user_id = $1 AND platform = 'facebook' AND connection_status = 'connected' FOR UPDATE`, [userId]);
+  const grant = rows[0];
+  const page = grant?.facebook_pages?.find((p) => p.id === pageId);
+  const token = grant?.facebook_page_tokens && JSON.parse(decrypt(grant.facebook_page_tokens))[pageId];
+  if (!page || !token) throw Object.assign(new Error("Page access unavailable; reconnect Facebook"), { statusCode: 409 });
+  return { brand, page, token };
+}
 
 // The one first-win source slot (second idempotency belt via the existing
 // uq_social_posts_brand_platform_source partial unique index, migration 078).
@@ -93,18 +152,20 @@ async function afterClaimWrite(/* client */) {}
  *   - re-checks every claim predicate under FOR UPDATE;
  *   - invalidates (expired / content_changed / page_switched) when consent no
  *     longer matches reality — post stays prepared, no publish;
- *   - otherwise: armed -> claimed, binds an unbound destination, and hands
+ *   - otherwise: armed -> claimed for C1's confirmed destination, and hands
  *     the post prepared -> scheduled (scheduled_time NOW()) so the EXISTING
  *     publisher picks it up on its next tick.
  *
  * Returns { claimed, postId?, authorizationId?, reason? }. Never throws to
  * the caller for expected non-claims; genuine errors roll back and rethrow.
  */
-async function claimArmedAuthorization({ userId, connectedPageId, connectedPageName }) {
-  if (!userId) return { claimed: false, reason: "no_user" };
-  const client = await db.getClient();
+async function claimArmedAuthorization({ userId, brandId, authorizationId, connectedPageId, transaction }) {
+  if (!userId || !brandId || !authorizationId) return { claimed: false, reason: "context_required" };
+  const client = transaction || await db.getClient();
+  // C1 owns commit/rollback when continuing prepared-content consent atomically.
   try {
-    await client.query("BEGIN");
+    if (!transaction) await client.query("BEGIN");
+    await lockFacebookBindings(client);
     // Lock the authorization AND its post so a concurrent callback replay,
     // disarm, or content edit serializes behind this transaction.
     const { rows } = await client.query(
@@ -115,14 +176,13 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
          FROM armed_publish_authorizations a
          JOIN social_posts p ON p.post_id = a.post_id
         WHERE a.user_id = $1 AND a.status = 'armed'
-          AND p.source = $2
-        ORDER BY a.armed_at DESC
-        LIMIT 1
+          AND p.source = $2 AND a.authorization_id = $3
+          AND a.brand_id = $4 AND p.brand_id = $4
         FOR UPDATE OF a, p`,
-      [userId, FIRST_WIN_SOURCE],
+      [userId, FIRST_WIN_SOURCE, authorizationId, brandId],
     );
     if (rows.length === 0) {
-      await client.query("ROLLBACK");
+      if (!transaction) await client.query("ROLLBACK");
       return { claimed: false, reason: "no_armed_authorization" };
     }
     const auth = rows[0];
@@ -130,7 +190,7 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
     // Predicate: the post must still be prepared (B2). If something already
     // moved it, the authorization must not fire.
     if (auth.post_status !== "prepared") {
-      await client.query("ROLLBACK");
+      if (!transaction) await client.query("ROLLBACK");
       return { claimed: false, reason: "post_not_prepared" };
     }
 
@@ -143,7 +203,7 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
           WHERE authorization_id = $1 AND status = 'armed'`,
         [auth.authorization_id],
       );
-      await client.query("COMMIT");
+      if (!transaction) await client.query("COMMIT");
       return { claimed: false, reason: "expired" };
     }
 
@@ -157,15 +217,14 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
           WHERE authorization_id = $1 AND status = 'armed'`,
         [auth.authorization_id],
       );
-      await client.query("COMMIT");
+      if (!transaction) await client.query("COMMIT");
       return { claimed: false, reason: "content_changed" };
     }
 
-    // Predicate: destination (A7). A bound destination must match the
-    // connected Page exactly; an unbound one requires a real connected Page
-    // to bind — a callback with no Page cannot claim.
-    if (!connectedPageId) {
-      await client.query("ROLLBACK");
+    // Predicate: destination (A7). C1 must already have confirmed the exact
+    // Page; a destination-null authorization can never claim here.
+    if (!connectedPageId || !auth.destination_page_id) {
+      if (!transaction) await client.query("ROLLBACK");
       return { claimed: false, reason: "no_connected_page" };
     }
     if (auth.destination_page_id && auth.destination_page_id !== String(connectedPageId)) {
@@ -175,20 +234,12 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
           WHERE authorization_id = $1 AND status = 'armed'`,
         [auth.authorization_id],
       );
-      await client.query("COMMIT");
+      if (!transaction) await client.query("COMMIT");
       return { claimed: false, reason: "page_switched" };
     }
+    await validateFacebookDestination(client, userId, brandId, connectedPageId);
 
-    // Predicate + binding: the EXECUTABLE destination (A7 hardening). The
-    // canonical publisher posts to the brand's social_accounts facebook row
-    // (pageId, token resolved live from api_integrations). The consented
-    // destination and the executable destination must be the SAME Page:
-    //   - no brand row yet (the normal brand-new onboarding case): create it
-    //     here, inside the claim transaction, bound to the connected Page;
-    //   - existing row already bound to this Page: fine;
-    //   - existing row bound to a DIFFERENT Page (or one whose destination
-    //     cannot be verified): invalidate as page_switched — never publish to
-    //     a destination the owner did not consent to.
+    // Claim only the exact binding already confirmed by C1; never create S2 here.
     const acct = await client.query(
       `SELECT account_id, credentials_encrypted
          FROM social_accounts
@@ -211,22 +262,12 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
             WHERE authorization_id = $1 AND status = 'armed'`,
           [auth.authorization_id],
         );
-        await client.query("COMMIT");
+        if (!transaction) await client.query("COMMIT");
         return { claimed: false, reason: "page_switched" };
       }
     } else {
-      await client.query(
-        `INSERT INTO social_accounts
-           (brand_id, platform, platform_username, credentials_encrypted, connection_status)
-         VALUES ($1, 'facebook', $2, $3, 'connected')
-         ON CONFLICT (brand_id, platform)
-         DO NOTHING`,
-        [
-          auth.brand_id,
-          connectedPageName || String(connectedPageId),
-          encrypt(JSON.stringify({ pageId: String(connectedPageId) })),
-        ],
-      );
+      if (!transaction) await client.query("ROLLBACK");
+      return { claimed: false, reason: "page_confirmation_required" };
     }
 
     // Claim: armed -> claimed, binding the destination in the SAME statement
@@ -242,7 +283,7 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
       [auth.authorization_id, String(connectedPageId)],
     );
     if (claimed.rows.length === 0) {
-      await client.query("ROLLBACK");
+      if (!transaction) await client.query("ROLLBACK");
       return { claimed: false, reason: "lost_claim_race" };
     }
 
@@ -260,11 +301,11 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
     if (handed.rows.length === 0) {
       // The post moved under us despite the lock — impossible in practice,
       // but never leave claimed+prepared observable: roll everything back.
-      await client.query("ROLLBACK");
+      if (!transaction) await client.query("ROLLBACK");
       return { claimed: false, reason: "post_not_prepared" };
     }
 
-    await client.query("COMMIT");
+    if (!transaction) await client.query("COMMIT");
     return {
       claimed: true,
       authorizationId: auth.authorization_id,
@@ -276,13 +317,13 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN
     };
   } catch (err) {
     try {
-      await client.query("ROLLBACK");
+      if (!transaction) await client.query("ROLLBACK");
     } catch {
       /* connection-level failure — nothing more to do */
     }
     throw err;
   } finally {
-    client.release();
+    if (!transaction) client.release();
   }
 }
 
@@ -324,6 +365,11 @@ async function resolveAuthorizationAfterPublish(postId, outcome) {
 }
 
 module.exports = {
+  facebookContext,
+  lockFacebookBindings,
+  requireFacebookOwner,
+  facebookBindings,
+  validateFacebookDestination,
   FIRST_WIN_SOURCE,
   ARMED_WINDOW_DAYS,
   CONSENT_COPY_VERSIONS,

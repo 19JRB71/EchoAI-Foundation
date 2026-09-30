@@ -93,6 +93,32 @@ async function armPost(userId, postId, opts = {}) {
   return res;
 }
 
+// Lifecycle tests below begin AFTER destination confirmation. I-80 forbids the
+// engine from inventing S2 or choosing an arbitrary user-wide authorization.
+// Provision that explicit fixture state; endpoint tests exercise real C1 itself.
+async function claimConfirmedFixture({ userId, connectedPageId, ...options }) {
+  const { rows } = await db.query(
+    "SELECT * FROM armed_publish_authorizations WHERE user_id=$1 ORDER BY armed_at DESC LIMIT 1", [userId]);
+  const auth = rows[0];
+  if (!auth) return firstWin.claimArmedAuthorization({ userId, connectedPageId, ...options });
+  if (connectedPageId) {
+    const { encrypt } = require("../utils/encryption");
+    await db.query(`INSERT INTO api_integrations(user_id,platform,facebook_pages,facebook_page_tokens,connection_status,api_token_encrypted)
+      VALUES($1,'facebook',$2::jsonb,$3,'connected',$4)
+      ON CONFLICT(user_id,platform) DO UPDATE SET facebook_pages=EXCLUDED.facebook_pages,
+      facebook_page_tokens=EXCLUDED.facebook_page_tokens`,
+    [userId, JSON.stringify([{ id: connectedPageId, name: "Confirmed Page" }]),
+      encrypt(JSON.stringify({ [connectedPageId]: "test-only-token" })), encrypt("test-user-token")]);
+    await db.query(`INSERT INTO social_accounts(brand_id,platform,platform_username,credentials_encrypted,connection_status)
+      VALUES($1,'facebook','Confirmed Page',$2,'connected') ON CONFLICT(brand_id,platform) DO NOTHING`,
+    [auth.brand_id, encrypt(JSON.stringify({ pageId: connectedPageId }))]);
+    await db.query(`UPDATE armed_publish_authorizations SET destination_page_id=$1,destination_bound_at=NOW()
+      WHERE authorization_id=$2 AND destination_page_id IS NULL`, [connectedPageId, auth.authorization_id]);
+  }
+  return firstWin.claimArmedAuthorization({ userId, brandId: auth.brand_id,
+    authorizationId: auth.authorization_id, connectedPageId, ...options });
+}
+
 async function authRow(authorizationId) {
   const { rows } = await db.query(
     "SELECT * FROM armed_publish_authorizations WHERE authorization_id = $1",
@@ -312,13 +338,13 @@ test("J: arm refuses a post that is no longer prepared", async () => {
 // ---------------------------------------------------------------------------
 // C. Claim + handoff — the ONE atomic transaction
 
-test("J: a valid claim atomically flips armed→claimed, binds the destination, and hands prepared→scheduled NOW", async () => {
+test("J: a confirmed destination claim atomically flips armed→claimed and hands prepared→scheduled NOW", async () => {
   const userId = await createUser();
   try {
     const brandId = await createBrand(userId);
     const post = await preparePost(userId, brandId);
     const armRes = await armPost(userId, post.postId);
-    const result = await firstWin.claimArmedAuthorization({
+    const result = await claimConfirmedFixture({
       userId,
       connectedPageId: "page-42",
     });
@@ -327,7 +353,7 @@ test("J: a valid claim atomically flips armed→claimed, binds the destination, 
     const auth = await authRow(armRes.body.authorization.authorizationId);
     assert.equal(auth.status, "claimed");
     assert.ok(auth.claimed_at);
-    assert.equal(auth.destination_page_id, "page-42"); // bound in the SAME tx
+    assert.equal(auth.destination_page_id, "page-42"); // previously confirmed destination preserved
     assert.ok(auth.destination_bound_at);
     const row = await postRow(post.postId);
     assert.equal(row.status, "scheduled");
@@ -337,30 +363,28 @@ test("J: a valid claim atomically flips armed→claimed, binds the destination, 
   }
 });
 
-test("J: a claim for a brand with NO facebook social account creates the executable Page binding in the same tx", async () => {
+test("J/I-80: a scoped destination-null claim cannot create a Facebook binding", async () => {
   const userId = await createUser();
   try {
     const brandId = await createBrand(userId);
     const post = await preparePost(userId, brandId);
-    await armPost(userId, post.postId);
+    const armed = await armPost(userId, post.postId);
     const result = await firstWin.claimArmedAuthorization({
       userId,
+      brandId,
+      authorizationId: armed.body.authorization.authorizationId,
       connectedPageId: "page-exec-1",
       connectedPageName: "Exec Page",
     });
-    assert.equal(result.claimed, true);
-    // The canonical publisher's destination row now exists and points at the
-    // EXACT consented Page — consent destination === executable destination.
+    assert.equal(result.claimed, false);
+    assert.equal(result.reason, "no_connected_page");
     const { rows } = await db.query(
       `SELECT platform_username, credentials_encrypted, connection_status
          FROM social_accounts WHERE brand_id = $1 AND platform = 'facebook'`,
       [brandId],
     );
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0].connection_status, "connected");
-    assert.equal(rows[0].platform_username, "Exec Page");
-    const { decrypt } = require("../utils/encryption");
-    assert.equal(JSON.parse(decrypt(rows[0].credentials_encrypted)).pageId, "page-exec-1");
+    assert.equal(rows.length, 0);
+    assert.equal((await postRow(post.postId)).status, "prepared");
   } finally {
     await deleteUser(userId);
   }
@@ -378,7 +402,7 @@ test("J: a claim NEVER fires when the brand's existing facebook account points a
     );
     const post = await preparePost(userId, brandId);
     const armRes = await armPost(userId, post.postId);
-    const result = await firstWin.claimArmedAuthorization({
+    const result = await claimConfirmedFixture({
       userId,
       connectedPageId: "page-NEW",
     });
@@ -412,7 +436,7 @@ test("J: a claim proceeds when the brand's existing facebook account already poi
     );
     const post = await preparePost(userId, brandId);
     await armPost(userId, post.postId);
-    const result = await firstWin.claimArmedAuthorization({
+    const result = await claimConfirmedFixture({
       userId,
       connectedPageId: "page-SAME",
     });
@@ -423,7 +447,7 @@ test("J: a claim proceeds when the brand's existing facebook account already poi
   }
 });
 
-test("J: claim with no armed authorization is a clean no-op", async () => {
+test("J/I-80: claim without explicit brand/authorization context is a clean no-op", async () => {
   const userId = await createUser();
   try {
     const result = await firstWin.claimArmedAuthorization({
@@ -431,7 +455,7 @@ test("J: claim with no armed authorization is a clean no-op", async () => {
       connectedPageId: "page-1",
     });
     assert.equal(result.claimed, false);
-    assert.equal(result.reason, "no_armed_authorization");
+    assert.equal(result.reason, "context_required");
   } finally {
     await deleteUser(userId);
   }
@@ -443,7 +467,7 @@ test("J: a callback that connected NO Page cannot claim — the authorization st
     const brandId = await createBrand(userId);
     const post = await preparePost(userId, brandId);
     const armRes = await armPost(userId, post.postId);
-    const result = await firstWin.claimArmedAuthorization({ userId, connectedPageId: null });
+    const result = await claimConfirmedFixture({ userId, connectedPageId: null });
     assert.equal(result.claimed, false);
     assert.equal(result.reason, "no_connected_page");
     assert.equal((await authRow(armRes.body.authorization.authorizationId)).status, "armed");
@@ -460,7 +484,7 @@ test("J: an EXPIRED authorization is invalidated at claim time and never publish
     const post = await preparePost(userId, brandId);
     const armRes = await armPost(userId, post.postId);
     await backdateArmedAt(armRes.body.authorization.authorizationId, 8);
-    const result = await firstWin.claimArmedAuthorization({ userId, connectedPageId: "p" });
+    const result = await claimConfirmedFixture({ userId, connectedPageId: "p" });
     assert.equal(result.claimed, false);
     assert.equal(result.reason, "expired");
     const auth = await authRow(armRes.body.authorization.authorizationId);
@@ -479,7 +503,7 @@ test("J: an authorization still inside its 7 calendar days claims normally (day 
     const post = await preparePost(userId, brandId);
     const armRes = await armPost(userId, post.postId);
     await backdateArmedAt(armRes.body.authorization.authorizationId, 6);
-    const result = await firstWin.claimArmedAuthorization({ userId, connectedPageId: "p" });
+    const result = await claimConfirmedFixture({ userId, connectedPageId: "p" });
     assert.equal(result.claimed, true);
   } finally {
     await deleteUser(userId);
@@ -496,7 +520,7 @@ test("J: content drift after consent invalidates as content_changed at claim tim
     // endpoint (which would have invalidated already) — the claim itself
     // must still catch the mismatch.
     await db.query("UPDATE social_posts SET post_content = 'tampered' WHERE post_id = $1", [post.postId]);
-    const result = await firstWin.claimArmedAuthorization({ userId, connectedPageId: "p" });
+    const result = await claimConfirmedFixture({ userId, connectedPageId: "p" });
     assert.equal(result.claimed, false);
     assert.equal(result.reason, "content_changed");
     const auth = await authRow(armRes.body.authorization.authorizationId);
@@ -517,7 +541,7 @@ test("J: a bound destination that no longer matches the connected Page invalidat
       consentCopyVersion: "p024-v1-destination-known",
       destinationPageId: "page-A",
     });
-    const result = await firstWin.claimArmedAuthorization({ userId, connectedPageId: "page-B" });
+    const result = await claimConfirmedFixture({ userId, connectedPageId: "page-B" });
     assert.equal(result.claimed, false);
     assert.equal(result.reason, "page_switched");
     const auth = await authRow(armRes.body.authorization.authorizationId);
@@ -540,18 +564,18 @@ test("J (B3, acceptance-critical): a fault between the claim write and the hando
       throw new Error("injected fault between claim and handoff");
     };
     await assert.rejects(
-      firstWin.claimArmedAuthorization({ userId, connectedPageId: "p" }),
+      claimConfirmedFixture({ userId, connectedPageId: "p" }),
       /injected fault/,
     );
     // NOTHING moved: no claimed-without-scheduled, no scheduled-without-claim.
     const auth = await authRow(armRes.body.authorization.authorizationId);
     assert.equal(auth.status, "armed");
     assert.equal(auth.claimed_at, null);
-    assert.equal(auth.destination_page_id, null);
+    assert.equal(auth.destination_page_id, "p"); // prior C1 confirmation survives failed claim
     assert.equal((await postRow(post.postId)).status, "prepared");
     // And after the fault clears, the SAME authorization claims cleanly.
     firstWin.afterClaimWrite = original;
-    const retry = await firstWin.claimArmedAuthorization({ userId, connectedPageId: "p" });
+    const retry = await claimConfirmedFixture({ userId, connectedPageId: "p" });
     assert.equal(retry.claimed, true);
   } finally {
     firstWin.afterClaimWrite = original;
@@ -566,8 +590,8 @@ test("J: parallel claims for the same authorization — exactly one wins, the po
     const post = await preparePost(userId, brandId);
     await armPost(userId, post.postId);
     const [a, b] = await Promise.all([
-      firstWin.claimArmedAuthorization({ userId, connectedPageId: "p1" }),
-      firstWin.claimArmedAuthorization({ userId, connectedPageId: "p1" }),
+      claimConfirmedFixture({ userId, connectedPageId: "p1" }),
+      claimConfirmedFixture({ userId, connectedPageId: "p1" }),
     ]);
     const wins = [a, b].filter((r) => r.claimed);
     assert.equal(wins.length, 1);
@@ -589,7 +613,7 @@ async function claimedFixture(userId) {
   const brandId = await createBrand(userId);
   const post = await preparePost(userId, brandId);
   const armRes = await armPost(userId, post.postId);
-  const result = await firstWin.claimArmedAuthorization({ userId, connectedPageId: "p" });
+  const result = await claimConfirmedFixture({ userId, connectedPageId: "p" });
   assert.equal(result.claimed, true);
   return { brandId, postId: post.postId, authId: armRes.body.authorization.authorizationId };
 }
@@ -686,7 +710,7 @@ test("J: disarm flips armed→disarmed before any claim", async () => {
     assert.equal(auth.status, "disarmed");
     assert.ok(auth.disarmed_at);
     // A disarmed authorization can never claim.
-    const claim = await firstWin.claimArmedAuthorization({ userId, connectedPageId: "p" });
+    const claim = await claimConfirmedFixture({ userId, connectedPageId: "p" });
     assert.equal(claim.claimed, false);
     assert.equal((await postRow(post.postId)).status, "prepared");
   } finally {
@@ -743,7 +767,7 @@ test("J: after invalidation, reconfirmation arms a brand-NEW row with fresh cons
     const first = await armPost(userId, post.postId);
     const firstId = first.body.authorization.authorizationId;
     await backdateArmedAt(firstId, 8);
-    await firstWin.claimArmedAuthorization({ userId, connectedPageId: "p" }); // invalidates expired
+    await claimConfirmedFixture({ userId, connectedPageId: "p" }); // invalidates expired
     assert.equal((await authRow(firstId)).status, "invalidated");
 
     const second = await armPost(userId, post.postId);
