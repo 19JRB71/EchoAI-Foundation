@@ -14,7 +14,7 @@ const socialApi = require("../utils/socialApi");
 const onboarding = require("../controllers/onboardingController");
 const auth = require("../middleware/auth");
 const nativeFetch = global.fetch;
-let server, base, pages, calls, sweeps;
+let server, base, pages, calls, sweeps, refreshFailure, sessions;
 const providerMethods = ["publishPost", "verifyConnection", "fetchMetrics", "verifyPostExists"];
 const originalProviders = Object.fromEntries(providerMethods.map((key) => [key, socialApi[key]]));
 const originalSweep = social.publishDuePosts;
@@ -30,7 +30,10 @@ test.before(async () => {
     let body;
     if (url.pathname.endsWith("/oauth/access_token")) body = { access_token: "stub-user-token" };
     else if (url.pathname.endsWith("/me/adaccounts")) body = { data: [] };
-    else if (url.pathname.endsWith("/me/accounts")) body = { data: pages };
+    else if (url.pathname.endsWith("/me/accounts")) {
+      if (refreshFailure) return { ok: false, status: 503, json: async () => ({ error: { message: "temporary grant outage" } }) };
+      body = { data: pages };
+    }
     else if (url.pathname.endsWith("/ratings")) body = { data: [] };
     else throw new Error(`Unstubbed provider request: ${url.pathname}`);
     return { ok: true, status: 200, json: async () => body };
@@ -38,7 +41,8 @@ test.before(async () => {
   social.publishDuePosts = async () => { sweeps++; };
   const app = express();
   app.use(express.json());
-  app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: false }));
+  sessions = new session.MemoryStore();
+  app.use(session({ store: sessions, secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: false }));
   app.use("/api/facebook", require("../routes/facebookOAuthRoutes"));
   // Minimal routers retain actual auth; unrelated feature gates/providers are not booted.
   const router = express.Router();
@@ -47,6 +51,7 @@ test.before(async () => {
   router.post("/social/connect", social.connectSocialAccount);
   router.post("/onboarding/first-win/prepare", onboarding.prepareFirstWinPost);
   router.post("/onboarding/first-win/arm", onboarding.armFirstWinPost);
+  router.post("/onboarding/first-win/disarm", onboarding.disarmFirstWinPost);
   router.get("/onboarding/status", onboarding.getStatus);
   router.put("/brands/:brandId", require("../controllers/brandController").updateBrand);
   router.post("/reputation/:brandId/fetch", require("../controllers/reputationController").fetchReviews);
@@ -75,7 +80,7 @@ async function request(user, path, body, method = body === undefined ? "GET" : "
 async function fixture(fn) {
   const user = await createTestUser();
   const other = await createTestUser();
-  calls = []; sweeps = 0;
+  calls = []; sweeps = 0; refreshFailure = false;
   pages = ["page-a", "page-b"].map((id) => ({ id, name: id, access_token: `token-${id}` }));
   const brand = async (owner, name) => (await db.query(
     "INSERT INTO brands(user_id, brand_name) VALUES($1,$2) RETURNING brand_id", [owner, name])).rows[0].brand_id;
@@ -121,6 +126,144 @@ async function start(user, brandId, authorizationId, extra = {}) {
 }
 const callback = ({ cookie, nonce }, suffix = "") =>
   request(null, `/api/facebook/oauth/callback?code=stub&state=${nonce}${suffix}`, undefined, "GET", cookie);
+
+test("H-corrupt: unreadable ciphertext, invalid JSON and absent Page identity block C1 and C3 without mutation", () => fixture(async ({ user, a, b }) => {
+  await grant(user);
+  for (const credentials of ["not-ciphertext", encrypt("not-json"), encrypt("{}"), encrypt('{"pageId":null}')]) {
+    await db.query("DELETE FROM social_accounts WHERE brand_id=$1", [b]);
+    await db.query("INSERT INTO social_accounts(brand_id,platform,credentials_encrypted) VALUES($1,'facebook',$2)", [b, credentials]);
+    const before = (await db.query("SELECT * FROM social_accounts WHERE brand_id=$1", [b])).rows;
+    assert.equal((await c1(user, a, "page-a")).status, 500);
+    assert.equal((await c3(user, a, "page-a")).status, 500);
+    assert.equal((await state(a)).posting, null);
+    assert.equal((await state(a)).facebook_page_id, null);
+    assert.deepEqual((await db.query("SELECT * FROM social_accounts WHERE brand_id=$1", [b])).rows, before);
+    assert.deepEqual(calls, []);
+  }
+}));
+
+test("H-refresh: transient grant fetch failure preserves S1, S2, S3 and prepared authorization", () => fixture(async ({ user, a }) => {
+  await grant(user);
+  assert.equal((await c1(user, a, "page-a")).status, 200);
+  assert.equal((await c3(user, a, "page-a")).status, 200);
+  const id = await prepare(user, a, "page-a");
+  const integration = async () => (await db.query("SELECT * FROM api_integrations WHERE user_id=$1", [user])).rows;
+  const before = { grant: await integration(), binding: await state(a), auth: await authorization(id) };
+  const oauth = await start(user, a, id);
+  refreshFailure = true;
+  assert.match((await callback(oauth)).location, /fb=error/);
+  assert.deepEqual(await integration(), before.grant);
+  assert.deepEqual(await state(a), before.binding);
+  assert.deepEqual(await authorization(id), before.auth);
+  assert.equal(sweeps, 0);
+  assert.ok(!calls.some((s) => s.startsWith("FORBIDDEN:")));
+}));
+
+test("H-expiry-return: expired OAuth nonce and invalid return step fail before provider or writes", () => fixture(async ({ user, a }) => {
+  await grant(user);
+  const id = await prepare(user, a);
+  assert.equal((await request(user, "/api/facebook/oauth/initiate", {
+    brandId: a, authorizationId: id, returnStep: "https://evil.test/",
+  })).status, 400);
+  const oauth = await start(user, a, id);
+  const all = await new Promise((resolve, reject) => sessions.all((err, value) => err ? reject(err) : resolve(value)));
+  const entry = Object.entries(all).find(([, value]) => value.fbOAuth?.state === oauth.nonce);
+  assert.ok(entry);
+  entry[1].fbOAuth.expiresAt = Date.now() - 1;
+  await new Promise((resolve, reject) => sessions.set(entry[0], entry[1], (err) => err ? reject(err) : resolve()));
+  assert.match((await callback(oauth)).location, /fb=error/);
+  assert.deepEqual(calls, []);
+  assert.equal((await authorization(id)).status, "armed");
+  assert.equal((await state(a)).posting, null);
+}));
+
+// Pause real transactions at their lock boundary, not SQL-string mocks. A
+// facade prevents pooled clients retaining patched query methods on release.
+async function waitForLock(count = 1) {
+  for (let i = 0; i < 200; i++) {
+    const { rows } = await db.query("SELECT COUNT(*)::int AS blocked FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'");
+    if (rows[0].blocked >= count) return;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  assert.fail("second request never reached a real PostgreSQL lock wait");
+}
+async function interleave(match, first, second) {
+  const getClient = db.getClient;
+  let release, reached;
+  const gate = new Promise((r) => { release = r; });
+  const locked = new Promise((r) => { reached = r; });
+  let used = false;
+  db.getClient = async (...args) => {
+    const client = await getClient(...args);
+    return { release: client.release.bind(client), query: async (...q) => {
+      const result = await client.query(...q);
+      if (!used && match(String(q[0]))) { used = true; reached(); await gate; }
+      return result;
+    } };
+  };
+  const timeout = setTimeout(() => { reached(); release(); }, 8000);
+  try {
+    const a = first();
+    await locked;
+    assert.ok(used, "first request reached real locked transaction");
+    const b = second();
+    await waitForLock();
+    release();
+    return await Promise.all([a, b]);
+  } finally { release(); clearTimeout(timeout); db.getClient = getClient; }
+}
+
+for (const action of ["disarm", "edit"]) {
+  for (const order of ["before", "confirm-first", "during"]) {
+    test(`H-race: ${action} ${order} confirmation preserves the consent boundary`, () => fixture(async ({ user, a }) => {
+      await grant(user);
+      const id = await prepare(user, a);
+      const original = await authorization(id);
+      const confirm = () => c1(user, a, "page-a", { authorizationId: id });
+      const mutate = () => action === "disarm"
+        ? request(user, "/api/onboarding/first-win/disarm", { authorizationId: id })
+        : request(user, "/api/onboarding/first-win/prepare", { brandId: a, postContent: "Edited content requires new consent." });
+      let confirmation, mutation;
+      if (order === "before") { mutation = await mutate(); confirmation = await confirm(); }
+      else if (order === "confirm-first") {
+        [confirmation, mutation] = await interleave(
+          (sql) => /SELECT a\.armed_at/.test(sql), confirm, mutate);
+      } else if (action === "edit") {
+        [mutation, confirmation] = await interleave(
+          (sql) => /SELECT post_id, status FROM social_posts/.test(sql), mutate, confirm);
+      } else {
+        // Real disarm row lock wins while C1 is in flight.
+        const client = await db.getClient();
+        try {
+          await client.query("BEGIN");
+          await client.query("SELECT authorization_id FROM armed_publish_authorizations WHERE authorization_id=$1 FOR UPDATE", [id]);
+          const disarming = mutate();
+          await waitForLock();
+          const pending = confirm();
+          await waitForLock(2);
+          await client.query("COMMIT");
+          confirmation = await pending;
+          mutation = await disarming;
+        } finally { await client.query("ROLLBACK"); client.release(); }
+      }
+      const after = await authorization(id);
+      assert.equal(sweeps, 0);
+      assert.deepEqual(calls, []);
+      if (confirmation.status === 200) {
+        assert.equal(mutation.status, 409, JSON.stringify(mutation.body));
+        assert.equal(after.status, "claimed");
+        assert.equal(after.post_status, "scheduled");
+        assert.equal(after.post_content, original.post_content);
+        assert.equal(after.content_hash, original.content_hash);
+      } else {
+        assert.equal(confirmation.status, 409, JSON.stringify(confirmation.body));
+        assert.equal(after.post_status, "prepared");
+        assert.equal((await state(a)).posting, null);
+        assert.equal(after.status, action === "disarm" ? "disarmed" : "invalidated");
+      }
+    }));
+  }
+}
 
 test("H: real wrong-brand pages[0] callback cannot bind, schedule or publish; C1 preserves content consent", () => fixture(async ({ user, a, b }) => {
   await grant(user);

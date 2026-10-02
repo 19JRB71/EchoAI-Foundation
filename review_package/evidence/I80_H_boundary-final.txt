@@ -1,0 +1,47 @@
+Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Select Facebook page error: Invalid encrypted payload format
+Select Facebook page error: Unexpected token 'o', "not-json" is not valid JSON
+Select Facebook page error: Facebook binding cannot be verified; manual review required
+Select Facebook page error: Facebook binding cannot be verified; manual review required
+✔ H-corrupt: unreadable ciphertext, invalid JSON and absent Page identity block C1 and C3 without mutation (1623.228124ms)
+Facebook OAuth callback error: temporary grant outage
+✔ H-refresh: transient grant fetch failure preserves S1, S2, S3 and prepared authorization (1361.131559ms)
+✔ H-expiry-return: expired OAuth nonce and invalid return step fail before provider or writes (899.986678ms)
+✔ H-race: disarm before confirmation preserves the consent boundary (633.224446ms)
+Connected to PostgreSQL database
+✔ H-race: disarm confirm-first confirmation preserves the consent boundary (1440.595041ms)
+Connected to PostgreSQL database
+✔ H-race: disarm during confirmation preserves the consent boundary (830.983353ms)
+✔ H-race: edit before confirmation preserves the consent boundary (807.292193ms)
+✔ H-race: edit confirm-first confirmation preserves the consent boundary (1070.662501ms)
+✔ H-race: edit during confirmation preserves the consent boundary (1043.251778ms)
+✔ H: real wrong-brand pages[0] callback cannot bind, schedule or publish; C1 preserves content consent (1218.423805ms)
+✔ H: singleton list/GET/status/skip remain unselected, zero writes and zero provider calls despite defaults (766.758676ms)
+✔ H: OAuth scoped nonce rejects partial/foreign context, mismatch and replay before provider (855.671631ms)
+✔ H: generic context-free OAuth grants S1 only, never borrows an armed authorization or binds a business (771.160025ms)
+✔ H: exact-bound OAuth schedules only existing C1 binding, ignores pages[0], and nonce replay is inert (1387.335414ms)
+First-win claim after Facebook connect failed: Page access unavailable; reconnect Facebook
+✔ H: bound callback mismatch/missing grant never replaces existing binding or schedules (593.65649ms)
+✔ H: owner and cross-owner collisions rejected; PostgreSQL concurrent C1 attempts have exactly one winner (710.034622ms)
+Select Facebook page error: Removal must name the current ads Page
+Select Facebook page error: A valid adLinkUrl is required; removal requires null
+✔ R-S3a/b/c: generic writes rejected, explicit C3 write/removal identity, three stores stay separate (1348.854755ms)
+✔ R-REPa/b/c: reputation reads exact C1 Page, unbound and foreign businesses never enumerate or borrow (1050.456592ms)
+✔ H: grant loss and legacy embedded-token accounts preserve binding but cannot execute (858.610893ms)
+Connected to PostgreSQL database
+Select Facebook page error: Page is unavailable or bound to another business
+✔ H: C1 and C3 concurrent cross-owner attempts serialize on the same Page (899.844805ms)
+✔ H: exact prior consent with no S2 converges on C1; missing consent never does (788.199889ms)
+Select Facebook page error: Only the business owner may confirm Facebook destinations
+✔ H: real auth remapping never lets a team member confirm C1/C3 or initiate OAuth (630.127144ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24085.907659

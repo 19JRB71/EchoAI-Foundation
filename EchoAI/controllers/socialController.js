@@ -240,6 +240,12 @@ async function confirmFacebookBrandPage({ userId, brandId, pageId, intent, autho
     }
     await onboardingFirstWin.facebookContext(client, { userId, brandId, sessionId, authorizationId });
     if (authorizationId) {
+      // Match the prepared-content editor: post before authorization, avoiding
+      // a post/auth lock inversion when editing races this confirmation.
+      await client.query(
+        `SELECT p.post_id FROM social_posts p JOIN armed_publish_authorizations a ON a.post_id = p.post_id
+          WHERE a.authorization_id = $1 AND a.user_id = $2 AND p.brand_id = $3 FOR UPDATE OF p`,
+        [authorizationId, userId, brandId]);
       const consent = await client.query(
         `SELECT a.armed_at, a.content_hash, a.destination_page_id, p.*
            FROM armed_publish_authorizations a JOIN social_posts p ON p.post_id = a.post_id
