@@ -1,0 +1,1112 @@
+I-80 R1 — final pinned race matrix, 20 consecutive runs, no retries
+Source commit: f55c294be47261837a2b7b001d8648bf39a812a6
+Source tree: 52bcd3de5d245a6b24dbe457c3e1a105f6a00388
+Node: v24.13.0
+PostgreSQL: postgres (PostgreSQL) 16.10
+DB: new disposable local PostgreSQL; TCP 127.0.0.1:55481; database i80_r1_test; SSL off; loopback trust; no live/staging/production connection; sanitized environment; existing dbGuard fake test credentials only.
+DB bootstrap: unchanged pinned schema/migrations, 148 applied. No new DDL/migrations authored. Same database throughout; existing fixture cleanup between cases; no reset or retry between runs.
+Dependency lock SHA256: 37d526c2ad64b52b28a52df244a2c9a0f563e21850b9c817d7c22adab6eec445
+Command: node --require ./tests/dbGuard.js --test --test-reporter=tap --test-concurrency=1 --test-name-pattern=^H-race: tests/i80.facebookBoundary.test.js
+Run output below is verbatim merged stdout/stderr; explicit receipt lines are prefixed RECEIPT.
+
+RECEIPT RUN 01 START 2026-10-05T18:12:59.299937+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 357.544964
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 140.24258
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 138.31335
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 65.410265
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 140.850426
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 131.924955
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6394.229357
+RECEIPT RUN 01 END exit=0 pass=6/6 duration_seconds=6.758777 result=PASS
+
+RECEIPT RUN 02 START 2026-10-05T18:13:06.065364+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 175.159382
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 159.193421
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 112.223094
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 60.567589
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 135.481048
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 123.98432
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1382.938996
+RECEIPT RUN 02 END exit=0 pass=6/6 duration_seconds=1.435580 result=PASS
+
+RECEIPT RUN 03 START 2026-10-05T18:13:07.508151+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 178.731841
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 173.029996
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 116.244505
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 76.252241
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 127.920402
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 122.399905
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1394.006146
+RECEIPT RUN 03 END exit=0 pass=6/6 duration_seconds=1.447168 result=PASS
+
+RECEIPT RUN 04 START 2026-10-05T18:13:08.961568+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 176.184575
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 152.6929
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 109.986912
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 69.927145
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 134.801438
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 134.221043
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1346.691193
+RECEIPT RUN 04 END exit=0 pass=6/6 duration_seconds=1.407523 result=PASS
+
+RECEIPT RUN 05 START 2026-10-05T18:13:10.377305+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 177.378498
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 167.528655
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 127.341633
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 72.047289
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 131.918815
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 130.902402
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1436.565895
+RECEIPT RUN 05 END exit=0 pass=6/6 duration_seconds=1.490846 result=PASS
+
+RECEIPT RUN 06 START 2026-10-05T18:13:11.875969+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 170.109865
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 148.876697
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 113.497902
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 58.102728
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 132.3779
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 121.524455
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1342.881701
+RECEIPT RUN 06 END exit=0 pass=6/6 duration_seconds=1.408758 result=PASS
+
+RECEIPT RUN 07 START 2026-10-05T18:13:13.290211+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 301.754124
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 156.672434
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 118.596222
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 62.18821
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 130.203527
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 125.662058
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1459.772076
+RECEIPT RUN 07 END exit=0 pass=6/6 duration_seconds=1.508241 result=PASS
+
+RECEIPT RUN 08 START 2026-10-05T18:13:14.803970+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 180.695162
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 148.095117
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 110.617554
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 61.079751
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 142.911835
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 125.510598
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1327.550855
+RECEIPT RUN 08 END exit=0 pass=6/6 duration_seconds=1.386205 result=PASS
+
+RECEIPT RUN 09 START 2026-10-05T18:13:16.195693+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 171.522518
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 139.032361
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 112.755351
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 65.82915
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 128.23526
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 238.960309
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1406.516549
+RECEIPT RUN 09 END exit=0 pass=6/6 duration_seconds=1.461809 result=PASS
+
+RECEIPT RUN 10 START 2026-10-05T18:13:17.663551+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 171.904147
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 157.52438
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 125.991606
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 84.862387
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 141.887786
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 126.606425
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1354.769409
+RECEIPT RUN 10 END exit=0 pass=6/6 duration_seconds=1.431198 result=PASS
+
+RECEIPT RUN 11 START 2026-10-05T18:13:19.100018+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 385.401123
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 144.184506
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 118.803451
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 62.082675
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 165.475937
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 133.978988
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1704.257886
+RECEIPT RUN 11 END exit=0 pass=6/6 duration_seconds=1.762990 result=PASS
+
+RECEIPT RUN 12 START 2026-10-05T18:13:20.869563+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 178.413392
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 149.726924
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 111.331587
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 59.271864
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 207.44822
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 121.945795
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1384.835116
+RECEIPT RUN 12 END exit=0 pass=6/6 duration_seconds=1.435970 result=PASS
+
+RECEIPT RUN 13 START 2026-10-05T18:13:22.310747+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 187.19177
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 152.539998
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 116.979057
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 61.12579
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 133.511113
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 124.441382
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1327.011644
+RECEIPT RUN 13 END exit=0 pass=6/6 duration_seconds=1.379102 result=PASS
+
+RECEIPT RUN 14 START 2026-10-05T18:13:23.695482+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 272.029803
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 165.692008
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 116.824663
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 59.128335
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 126.40771
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 123.186925
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1384.668378
+RECEIPT RUN 14 END exit=0 pass=6/6 duration_seconds=1.438010 result=PASS
+
+RECEIPT RUN 15 START 2026-10-05T18:13:25.139234+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 204.871247
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 163.735284
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 119.826066
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 63.532396
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 216.645213
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 144.392694
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1471.563818
+RECEIPT RUN 15 END exit=0 pass=6/6 duration_seconds=1.521776 result=PASS
+
+RECEIPT RUN 16 START 2026-10-05T18:13:26.666983+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 173.8355
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 154.706091
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 114.560954
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 57.769966
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 130.12836
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 122.359189
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1314.824812
+RECEIPT RUN 16 END exit=0 pass=6/6 duration_seconds=1.369652 result=PASS
+
+RECEIPT RUN 17 START 2026-10-05T18:13:28.042702+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 205.6444
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 158.071433
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 141.019991
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 65.989649
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 202.164228
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 159.561422
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1691.917479
+RECEIPT RUN 17 END exit=0 pass=6/6 duration_seconds=1.752857 result=PASS
+
+RECEIPT RUN 18 START 2026-10-05T18:13:29.800992+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 173.674864
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 293.655703
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 128.623691
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 64.879855
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 88.636362
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 128.15355
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1435.049109
+RECEIPT RUN 18 END exit=0 pass=6/6 duration_seconds=1.491100 result=PASS
+
+RECEIPT RUN 19 START 2026-10-05T18:13:31.297691+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 186.313667
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 163.493646
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 121.554244
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 72.840537
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 138.620861
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 140.778663
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1407.741417
+RECEIPT RUN 19 END exit=0 pass=6/6 duration_seconds=1.457025 result=PASS
+
+RECEIPT RUN 20 START 2026-10-05T18:13:32.759955+00:00
+TAP version 13
+# Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+# Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm before confirmation preserves the consent boundary
+ok 1 - H-race: disarm before confirmation preserves the consent boundary
+  ---
+  duration_ms: 165.735961
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm confirm-first confirmation preserves the consent boundary
+ok 2 - H-race: disarm confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 146.251513
+  type: 'test'
+  ...
+# Connected to PostgreSQL database
+# Subtest: H-race: disarm during confirmation preserves the consent boundary
+ok 3 - H-race: disarm during confirmation preserves the consent boundary
+  ---
+  duration_ms: 128.374874
+  type: 'test'
+  ...
+# Subtest: H-race: edit before confirmation preserves the consent boundary
+ok 4 - H-race: edit before confirmation preserves the consent boundary
+  ---
+  duration_ms: 65.28412
+  type: 'test'
+  ...
+# Subtest: H-race: edit confirm-first confirmation preserves the consent boundary
+ok 5 - H-race: edit confirm-first confirmation preserves the consent boundary
+  ---
+  duration_ms: 133.978519
+  type: 'test'
+  ...
+# Subtest: H-race: edit during confirmation preserves the consent boundary
+ok 6 - H-race: edit during confirmation preserves the consent boundary
+  ---
+  duration_ms: 123.465155
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1319.981986
+RECEIPT RUN 20 END exit=0 pass=6/6 duration_seconds=1.371313 result=PASS
+
+RECEIPT FINAL: 20/20 runs; 120/120 individual cases; zero failures; zero flakes; zero retries; zero source changes.
