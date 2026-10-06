@@ -9,7 +9,7 @@ const assert = require("node:assert");
 //     owning user's api_integrations (single source of truth), keyed by pageId
 //   - loadConnectedAccount(facebook): a pageId-only social_accounts row gets its
 //     Page token injected from api_integrations; a legacy row that already
-//     carries its own accessToken is used unchanged (back-compat)
+//     carries its own accessToken must still resolve current grant/binding
 //   - setFacebookBrandPage: happy path stores ONLY the pageId (never the token);
 //     a Page with no captured publish token is rejected with needsReconnect
 // Tests never touch a real database or the network: db.query is swapped for a
@@ -49,8 +49,11 @@ test("resolveFacebookPageToken returns the live Page token for the given pageId"
   const orig = db.query;
   db.query = async (sql) => {
     if (sql.includes("FROM api_integrations ai") && sql.includes("JOIN brands b")) {
-      return { rows: [{ facebook_page_tokens: PAGE_TOKENS }] };
+      return { rows: [{ facebook_pages: PAGES, facebook_page_tokens: PAGE_TOKENS }] };
     }
+    if (sql.includes("FROM brands b LEFT JOIN social_accounts")) return { rows: [{
+      brand_id: "brand-1", credentials_encrypted: encrypt(JSON.stringify({ pageId: "p2" })),
+    }] };
     throw new Error("unexpected query: " + sql);
   };
   try {
@@ -76,8 +79,14 @@ test("resolveFacebookPageToken returns null when the user has no FB connection",
 
 test("setFacebookBrandPage stores ONLY the pageId (never the token) and returns the account", async () => {
   const orig = db.query;
+  const origClient = db.getClient;
+  db.getClient = async () => ({ query: (...args) => db.query(...args), release() {} });
   let storedCredentials = null;
   db.query = async (sql, params) => {
+    if (/^(BEGIN|COMMIT|ROLLBACK)/.test(sql) || sql.includes("pg_advisory_xact_lock")) return { rows: [] };
+    if (sql.includes("FROM brands b LEFT JOIN social_accounts")) return { rows: [{
+      brand_id: "brand-1", user_id: "u1", brand_name: "Acme",
+    }] };
     if (sql.includes("FROM brands") && sql.includes("WHERE brand_id = $1 AND user_id = $2")) {
       return { rows: [{ brand_id: "brand-1", brand_name: "Acme" }] };
     }
@@ -105,7 +114,7 @@ test("setFacebookBrandPage stores ONLY the pageId (never the token) and returns 
     throw new Error("unexpected query: " + sql);
   };
   try {
-    const req = { user: { userId: "u1" }, body: { brandId: "brand-1", pageId: "p1" } };
+    const req = { user: { userId: "u1" }, body: { brandId: "brand-1", pageId: "p1", intent: "confirm_business_facebook_page" } };
     const res = makeRes();
     await setFacebookBrandPage(req, res);
     assert.strictEqual(res.statusCode, 200);
@@ -117,13 +126,20 @@ test("setFacebookBrandPage stores ONLY the pageId (never the token) and returns 
     assert.ok(!("accessToken" in creds), "token must never be copied into social_accounts");
   } finally {
     db.query = orig;
+    db.getClient = origClient;
   }
 });
 
-test("setFacebookBrandPage rejects a Page with no captured publish token (needsReconnect)", async () => {
+test("setFacebookBrandPage rejects a Page with no captured publish token (explicit reconnect error)", async () => {
   const orig = db.query;
+  const origClient = db.getClient;
+  db.getClient = async () => ({ query: (...args) => db.query(...args), release() {} });
   const noTokens = encrypt(JSON.stringify({})); // connected but no page tokens captured
   db.query = async (sql) => {
+    if (/^(BEGIN|COMMIT|ROLLBACK)/.test(sql) || sql.includes("pg_advisory_xact_lock")) return { rows: [] };
+    if (sql.includes("FROM brands b LEFT JOIN social_accounts")) return { rows: [{
+      brand_id: "brand-1", user_id: "u1", brand_name: "Acme",
+    }] };
     if (sql.includes("FROM brands") && sql.includes("WHERE brand_id = $1 AND user_id = $2")) {
       return { rows: [{ brand_id: "brand-1", brand_name: "Acme" }] };
     }
@@ -133,13 +149,14 @@ test("setFacebookBrandPage rejects a Page with no captured publish token (needsR
     throw new Error("unexpected query: " + sql);
   };
   try {
-    const req = { user: { userId: "u1" }, body: { brandId: "brand-1", pageId: "p1" } };
+    const req = { user: { userId: "u1" }, body: { brandId: "brand-1", pageId: "p1", intent: "confirm_business_facebook_page" } };
     const res = makeRes();
     await setFacebookBrandPage(req, res);
-    assert.strictEqual(res.statusCode, 400);
-    assert.strictEqual(res.body.needsReconnect, true);
+    assert.strictEqual(res.statusCode, 409);
+    assert.match(res.body.error, /reconnect/i);
   } finally {
     db.query = orig;
+    db.getClient = origClient;
   }
 });
 

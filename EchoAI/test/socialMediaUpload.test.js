@@ -191,6 +191,12 @@ test("publishDuePosts forwards video_url to the Facebook publisher", async () =>
   let claimSql = "";
   let publishArgs = null;
   db.query = async (sql, params = []) => {
+    if (sql.includes("FROM api_integrations ai")) return { rows: [{
+      facebook_pages: [{ id: "page1" }], facebook_page_tokens: encrypt(JSON.stringify({ page1: "tok" })),
+    }] };
+    if (sql.includes("FROM brands b LEFT JOIN social_accounts")) return { rows: [{
+      brand_id: "b1", credentials_encrypted: encrypt(JSON.stringify({ pageId: "page1" })),
+    }] };
     if (/SET status = 'failed'/i.test(sql) && /updated_at </i.test(sql)) {
       return { rows: [] }; // rescue sweep: nothing stale
     }

@@ -302,8 +302,14 @@ async function seedPublishedPost(runKey) {
     `INSERT INTO social_accounts (brand_id, platform, platform_username, credentials_encrypted, connection_status)
      VALUES ($1, 'facebook', 'Proof Page', $2, 'connected')
      ON CONFLICT DO NOTHING`,
-    [brandId, encrypt(JSON.stringify({ pageId: "140006", accessToken: "EAAtesttoken" }))]
+    [brandId, encrypt(JSON.stringify({ pageId: "140006" }))]
   );
+  // I-80: read-back/delete resolve current S1 grants, never legacy S2 tokens.
+  await db.query(`INSERT INTO api_integrations(user_id,platform,api_token_encrypted,
+    facebook_pages,facebook_page_tokens,connection_status) VALUES($1,'facebook',$2,$3::jsonb,$4,'connected')
+    ON CONFLICT(user_id,platform) DO NOTHING`,
+  [userId, encrypt("proof-user-token"), JSON.stringify([{ id: "140006", name: "Proof Page" }]),
+    encrypt(JSON.stringify({ "140006": "EAAtesttoken" }))]);
   return post.rows[0].post_id;
 }
 

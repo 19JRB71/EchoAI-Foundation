@@ -918,24 +918,24 @@ export const api = {
     }),
 
   // Facebook OAuth connection
-  getFacebookAccounts: () => request("/api/facebook/accounts"),
+  getFacebookAccounts: (brandId) => request(`/api/facebook/accounts${brandId ? `?brandId=${encodeURIComponent(brandId)}` : ""}`),
   selectFacebookAccount: (accountId) =>
     request("/api/facebook/select-account", {
       method: "POST",
       body: { accountId },
     }),
-  selectFacebookPage: (pageId, brandId) =>
+  selectFacebookPage: (pageId, brandId, consent = {}) =>
     request("/api/facebook/select-page", {
       method: "POST",
-      body: brandId ? { pageId, brandId } : { pageId },
+      body: { pageId, brandId, ...consent },
     }),
   verifyFacebookConnection: () => request("/api/facebook/verify"),
   disconnectFacebook: () =>
     request("/api/facebook/disconnect", { method: "POST" }),
   // Authenticated initiation: returns the Facebook dialog URL the client should
   // navigate to. Keeps the bearer token in the Authorization header (not the URL).
-  startFacebookOAuth: () =>
-    request("/api/facebook/oauth/initiate", { method: "POST" }),
+  startFacebookOAuth: (context = {}) =>
+    request("/api/facebook/oauth/initiate", { method: "POST", body: context }),
 
   // Analytics
   getAnalytics: (brandId) => request(`/api/analytics/${brandId}`),
@@ -1082,10 +1082,10 @@ export const api = {
     }),
   // Facebook posting is wired from the unified Facebook connection: pick which
   // already-connected Page this brand posts to (no manual token pasting).
-  setFacebookBrandPage: ({ brandId, pageId }) =>
+  setFacebookBrandPage: ({ brandId, pageId, intent, sessionId, authorizationId }) =>
     request("/api/social/facebook-page", {
       method: "POST",
-      body: { brandId, pageId },
+      body: { brandId, pageId, intent, sessionId, authorizationId },
     }),
   disconnectSocial: (brandId, platform) =>
     request(`/api/social/accounts/${brandId}/${platform}`, { method: "DELETE" }),

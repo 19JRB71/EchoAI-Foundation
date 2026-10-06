@@ -164,11 +164,12 @@ async function loadConnectedAccount(brandId, platform) {
   // Facebook posting runs on the unified Facebook connection: the brand's
   // social_accounts row records WHICH Page it posts to (pageId), while the Page
   // access token itself lives (encrypted, single source of truth) on the user's
-  // api_integrations row and is resolved live here. Older manually-connected
-  // rows that still carry their own accessToken keep working unchanged.
-  if (platform === "facebook" && !credentials.accessToken && credentials.pageId) {
+  // api_integrations row and is resolved here. Legacy inline tokens do not
+  // bypass the current exact grant and cross-business conflict checks.
+  if (platform === "facebook") {
     const token = await resolveFacebookPageToken(brandId, credentials.pageId);
-    if (token) credentials.accessToken = token;
+    if (!token) throw Object.assign(new Error("Page access unavailable; reconnect Facebook"), { statusCode: 409 });
+    credentials.accessToken = token;
   }
   return {
     accountId: row.account_id,
@@ -186,7 +187,7 @@ async function loadConnectedAccount(brandId, platform) {
  */
 async function resolveFacebookPageToken(brandId, pageId) {
   const { rows } = await db.query(
-    `SELECT ai.facebook_page_tokens
+    `SELECT ai.facebook_page_tokens, ai.facebook_pages
        FROM api_integrations ai
        JOIN brands b ON b.user_id = ai.user_id
       WHERE b.brand_id = $1 AND ai.platform = 'facebook'
@@ -194,8 +195,13 @@ async function resolveFacebookPageToken(brandId, pageId) {
     [brandId]
   );
   if (!rows.length || !rows[0].facebook_page_tokens) return null;
+  if (!rows[0].facebook_pages?.some((p) => p.id === pageId)) return null;
   try {
     const tokens = JSON.parse(decrypt(rows[0].facebook_page_tokens));
+    const bindings = await onboardingFirstWin.facebookBindings();
+    const brand = bindings.find((b) => b.brand_id === brandId);
+    if (brand?.postingPageId !== pageId || bindings.some((b) => b.brand_id !== brandId &&
+        [b.postingPageId, b.facebook_page_id].includes(pageId))) return null;
     return tokens[pageId] || null;
   } catch (_e) {
     return null;
@@ -210,51 +216,58 @@ async function resolveFacebookPageToken(brandId, pageId) {
  * the token is resolved live at publish time from api_integrations.
  */
 async function setFacebookBrandPage(req, res) {
-  const userId = req.user.userId;
-  const { brandId, pageId } = req.body;
-  if (!brandId || !pageId) {
-    return res.status(400).json({ error: "brandId and pageId are required" });
-  }
   try {
-    const brand = await getOwnedBrand(userId, brandId);
-    if (!brand) return res.status(404).json({ error: "Brand not found" });
+    onboardingFirstWin.requireFacebookOwner(req.user);
+    return res.status(200).json(await confirmFacebookBrandPage({ ...req.body, userId: req.user.userId }));
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ error: err.message });
+  }
+}
 
-    const { rows } = await db.query(
-      `SELECT facebook_pages, facebook_page_tokens
-         FROM api_integrations
-        WHERE user_id = $1 AND platform = 'facebook'
-          AND connection_status = 'connected'`,
-      [userId]
-    );
-    if (!rows.length) {
-      return res.status(400).json({
-        error: "Connect your Facebook account first, then choose a Page to post from.",
-        needsFacebook: true,
-      });
+// C1 is the sole S2 writer, also for an exact previously consented OAuth target.
+async function confirmFacebookBrandPage({ userId, brandId, pageId, intent, authorizationId, sessionId }) {
+  if (!brandId || !pageId || intent !== "confirm_business_facebook_page") {
+    throw Object.assign(new Error("Explicit business Page confirmation required"), { statusCode: 400 });
+  }
+  let client;
+  try {
+    client = await db.getClient();
+    await client.query("BEGIN");
+    await onboardingFirstWin.lockFacebookBindings(client);
+    const { brand: binding, page } = await onboardingFirstWin.validateFacebookDestination(client, userId, brandId, pageId);
+    if (binding.postingPageId && binding.postingPageId !== pageId) {
+      throw Object.assign(new Error("Disconnect the existing posting Page before changing it"), { statusCode: 409 });
     }
-    const pages = rows[0].facebook_pages || [];
-    const page = pages.find((p) => p.id === pageId);
-    if (!page) {
-      return res
-        .status(400)
-        .json({ error: "That Page is not part of your connected Facebook account." });
+    await onboardingFirstWin.facebookContext(client, { userId, brandId, sessionId, authorizationId });
+    if (authorizationId) {
+      // Match the prepared-content editor: post before authorization, avoiding
+      // a post/auth lock inversion when editing races this confirmation.
+      await client.query(
+        `SELECT p.post_id FROM social_posts p JOIN armed_publish_authorizations a ON a.post_id = p.post_id
+          WHERE a.authorization_id = $1 AND a.user_id = $2 AND p.brand_id = $3 FOR UPDATE OF p`,
+        [authorizationId, userId, brandId]);
+      const consent = await client.query(
+        `SELECT a.armed_at, a.content_hash, a.destination_page_id, p.*
+           FROM armed_publish_authorizations a JOIN social_posts p ON p.post_id = a.post_id
+          WHERE a.authorization_id = $1 AND a.user_id = $2 AND a.brand_id = $3
+            AND p.brand_id = $3 AND a.status = 'armed' FOR UPDATE OF a, p`, [authorizationId, userId, brandId]);
+      const prepared = consent.rows[0];
+      if (!prepared || prepared.status !== "prepared" || prepared.platform !== "facebook" ||
+          prepared.source !== onboardingFirstWin.FIRST_WIN_SOURCE ||
+          !onboardingFirstWin.isWithinArmedWindow(prepared.armed_at) ||
+          onboardingFirstWin.contentHashForPost(prepared) !== prepared.content_hash ||
+          (prepared.destination_page_id && prepared.destination_page_id !== pageId)) {
+        if (prepared) {
+          const reason = !onboardingFirstWin.isWithinArmedWindow(prepared.armed_at) ? "expired" :
+            onboardingFirstWin.contentHashForPost(prepared) !== prepared.content_hash ? "content_changed" : "page_switched";
+          await client.query(
+            "UPDATE armed_publish_authorizations SET status = 'invalidated', invalidation_reason = $1 WHERE authorization_id = $2 AND status = 'armed'",
+            [reason, authorizationId]);
+          await client.query("COMMIT"); // No binding has been written.
+        }
+        throw Object.assign(new Error("Prepared content consent requires reconfirmation"), { statusCode: 409 });
+      }
     }
-    let tokens = {};
-    try {
-      tokens = rows[0].facebook_page_tokens
-        ? JSON.parse(decrypt(rows[0].facebook_page_tokens))
-        : {};
-    } catch (_e) {
-      tokens = {};
-    }
-    if (!tokens[pageId]) {
-      return res.status(400).json({
-        error:
-          "Reconnect Facebook to grant posting permission for your Pages, then try again.",
-        needsReconnect: true,
-      });
-    }
-
     // Selecting a Page counts as connecting the Facebook platform for this
     // account (tier-limited on Starter). Switching Page for an already-connected
     // brand stays within the limit (facebook is already counted).
@@ -263,21 +276,33 @@ async function setFacebookBrandPage(req, res) {
     // Store only the Page id — the token is resolved live at publish time from
     // api_integrations (single source of truth), so it never goes stale.
     const encrypted = encrypt(JSON.stringify({ pageId }));
-    const insert = await db.query(
+    const insert = binding.postingPageId ? await client.query(
+      "SELECT * FROM social_accounts WHERE brand_id = $1 AND platform = 'facebook'", [brandId],
+    ) : await client.query(
       `INSERT INTO social_accounts
          (brand_id, platform, platform_username, credentials_encrypted, connection_status)
        VALUES ($1, 'facebook', $2, $3, 'connected')
-       ON CONFLICT (brand_id, platform)
-       DO UPDATE SET platform_username = EXCLUDED.platform_username,
-                     credentials_encrypted = EXCLUDED.credentials_encrypted,
-                     connection_status = 'connected'
        RETURNING account_id, platform, platform_username,
                  connection_status, created_at, updated_at`,
       [brandId, page.name || pageId, encrypted]
     );
     const row = insert.rows[0];
-    return res.status(200).json({
+    if (authorizationId) {
+      await client.query(
+        `UPDATE armed_publish_authorizations SET destination_page_id = $1, destination_bound_at = NOW()
+          WHERE authorization_id = $2 AND user_id = $3 AND brand_id = $4 AND status = 'armed'
+            AND destination_page_id IS NULL`, [pageId, authorizationId, userId, brandId]);
+    }
+    const firstWin = await onboardingFirstWin.claimArmedAuthorization({
+      userId, brandId, authorizationId, connectedPageId: pageId, transaction: client,
+    });
+    if (authorizationId && !firstWin.claimed) {
+      throw Object.assign(new Error(`Content reconfirmation required: ${firstWin.reason}`), { statusCode: 409 });
+    }
+    await client.query("COMMIT");
+    return {
       pageId,
+      firstWin,
       account: {
         platform: row.platform,
         username: row.platform_username,
@@ -285,18 +310,15 @@ async function setFacebookBrandPage(req, res) {
         connectedAt: row.created_at,
         updatedAt: row.updated_at,
       },
-    });
+    };
   } catch (err) {
-    console.error("Set Facebook brand page error:", err.message);
-    if (err.statusCode) {
-      const payload = { error: err.message };
-      if (err.upgradeRequired) {
-        payload.upgradeRequired = true;
-        payload.requiredTier = err.requiredTier;
-      }
-      return res.status(err.statusCode).json(payload);
+    if (client) await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    if (client) {
+      await client.query("ROLLBACK");
+      client.release();
     }
-    return res.status(500).json({ error: "Failed to set Facebook Page for posting" });
   }
 }
 
@@ -306,6 +328,9 @@ async function setFacebookBrandPage(req, res) {
  * stores them (encrypted) in social_accounts.
  */
 async function connectSocialAccount(req, res) {
+  if (String(req.body.platform).toLowerCase() === "facebook") {
+    return res.status(400).json({ error: "Use the Facebook Page confirmation picker" });
+  }
   const userId = req.user.userId;
   const { brandId, platform, credentials, username } = req.body;
   const normalizedPlatform = String(platform || "").toLowerCase();
@@ -705,11 +730,21 @@ async function disconnectSocialAccount(req, res) {
     });
   }
 
+  let client;
   try {
     const brand = await getOwnedBrand(userId, brandId);
     if (!brand) return res.status(404).json({ error: "Brand not found" });
-
-    const result = await db.query(
+    client = await db.getClient();
+    await client.query("BEGIN");
+    if (normalizedPlatform === "facebook") {
+      onboardingFirstWin.requireFacebookOwner(req.user);
+      await onboardingFirstWin.lockFacebookBindings(client);
+      const active = await client.query(
+        `SELECT 1 FROM armed_publish_authorizations WHERE brand_id = $1 AND status = 'claimed'
+         UNION ALL SELECT 1 FROM social_posts WHERE brand_id = $1 AND platform = 'facebook' AND status = 'publishing'`, [brandId]);
+      if (active.rows.length) throw Object.assign(new Error("Publication is active; Page cannot be disconnected"), { statusCode: 409 });
+    }
+    const result = await client.query(
       `DELETE FROM social_accounts
        WHERE brand_id = $1 AND platform = $2
        RETURNING account_id`,
@@ -720,10 +755,16 @@ async function disconnectSocialAccount(req, res) {
         .status(404)
         .json({ error: `No connected ${normalizedPlatform} account for this brand` });
     }
+    await client.query("COMMIT");
     return res.json({ disconnected: true, platform: normalizedPlatform });
   } catch (err) {
     console.error("Disconnect social account error:", err.message);
-    return res.status(500).json({ error: "Failed to disconnect social account" });
+    return res.status(err.statusCode || 500).json({ error: err.message });
+  } finally {
+    if (client) {
+      await client.query("ROLLBACK");
+      client.release();
+    }
   }
 }
 
@@ -1474,6 +1515,10 @@ async function reverifyAccountRow(row) {
   }
 
   try {
+    if (row.platform === "facebook") {
+      credentials.accessToken = await resolveFacebookPageToken(row.brand_id, credentials.pageId);
+      if (!credentials.accessToken) return flagAccountRow(row);
+    }
     await socialApi.verifyConnection(row.platform, credentials);
   } catch (err) {
     // Only hard failures (auth rejections, missing fields) flag the account.
@@ -1536,6 +1581,7 @@ async function reverifySocialConnections() {
 }
 
 module.exports = {
+  confirmFacebookBrandPage,
   connectSocialAccount,
   generateSocialContent,
   uploadPostMedia,

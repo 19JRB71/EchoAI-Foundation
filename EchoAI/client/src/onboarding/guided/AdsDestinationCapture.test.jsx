@@ -2,14 +2,12 @@
 //
 // Pins, with the api module fully mocked (no network, no real writes):
 //   - zero granted Pages → honest state + reconnect affordance, Save disabled
-//   - one granted Page → VISIBLY preselected but NO write happens before Save
+//   - one granted Page → explicit selection and NO write before Save
 //   - many Pages → explicit pick required (nothing preselected, Save errors)
 //   - website_url prefill is labeled "suggested" and is never silently saved
-//   - Save & continue: selectFacebookPage → updateBrand → authoritative
+//   - Save & continue: consented selectFacebookPage → authoritative
 //     reread; onConfigured fires ONLY when the reread shows both values
-//   - partial failure is honest: the saved Page stays saved, only the
-//     destination is re-solicited, and the second Save does NOT repeat the
-//     Page write (no duplicate writes)
+//   - rejected atomic writes are honest; retry uses the same consented boundary
 //   - already-configured server truth renders the honest "set up" line
 //
 // 026-C3-PM3 mock fidelity (§G): Page candidates are mocked on
@@ -40,6 +38,7 @@ vi.mock("../../api.js", () => ({
     getBrands: vi.fn(),
     getActiveBrand: vi.fn(),
     updateBrand: vi.fn(),
+    setFacebookBrandPage: vi.fn(),
     selectFacebookPage: vi.fn(),
     getFacebookAccounts: vi.fn(),
   },
@@ -87,7 +86,7 @@ function stageBrand(brand) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   api.getFacebookAccounts.mockResolvedValue(accountsResponse(PAGES));
   stageBrand({});
   api.selectFacebookPage.mockResolvedValue({ success: true });
@@ -111,13 +110,13 @@ describe("AdsDestinationCapture", () => {
     expect(api.updateBrand).not.toHaveBeenCalled();
   });
 
-  test("single Page: visibly preselected, but NO write until explicit Save", async () => {
+  test("single Page: not preselected, NO write until explicit Save", async () => {
     api.getFacebookAccounts.mockResolvedValue(accountsResponse([PAGES[0]]));
     render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={vi.fn()} />);
 
     expect(await screen.findByTestId("ads-capture-single-page-note")).toBeInTheDocument();
-    expect(screen.getByTestId(`ads-page-option-${PAGES[0].id}`)).toBeChecked();
-    // Preselection alone writes nothing.
+    expect(screen.getByTestId(`ads-page-option-${PAGES[0].id}`)).not.toBeChecked();
+    // Candidate visibility alone writes nothing.
     expect(api.selectFacebookPage).not.toHaveBeenCalled();
     expect(api.updateBrand).not.toHaveBeenCalled();
   });
@@ -147,7 +146,7 @@ describe("AdsDestinationCapture", () => {
     expect(api.updateBrand).not.toHaveBeenCalled();
   });
 
-  test("happy path: Save → selectFacebookPage then updateBrand then reread; onConfigured only from server truth", async () => {
+  test("R-C3a: Save → dedicated consented writer then reread; no generic or Store-2 write", async () => {
     const onConfigured = vi.fn();
     // Reread after save shows both values (server truth).
     api.getBrand
@@ -169,22 +168,22 @@ describe("AdsDestinationCapture", () => {
         adLinkUrl: "https://example.com/offer",
       }),
     );
-    expect(api.selectFacebookPage).toHaveBeenCalledWith(PAGES[1].id, BRAND_ID);
-    expect(api.updateBrand).toHaveBeenCalledWith(BRAND_ID, { adLinkUrl: "https://example.com/offer" });
+    expect(api.selectFacebookPage).toHaveBeenCalledWith(PAGES[1].id, BRAND_ID, {
+      adLinkUrl: "https://example.com/offer", intent: "confirm_ads_destination",
+    });
+    expect(api.updateBrand).not.toHaveBeenCalled();
+    expect(api.setFacebookBrandPage).not.toHaveBeenCalled();
     // Configuration only — the capture never launches anything and calls no
     // execute/campaign API (it doesn't even import one).
   });
 
-  test("partial failure is honest: page stays saved, destination re-solicited, second Save skips the Page write", async () => {
+  test("atomic failure is honest: retry repeats the consented writer and requires readback", async () => {
     const onConfigured = vi.fn();
-    api.updateBrand.mockRejectedValueOnce(new Error("That link looks malformed."));
+    api.selectFacebookPage.mockRejectedValueOnce(new Error("That link looks malformed."));
     api.getBrand
       // initial load
       .mockResolvedValueOnce(flatBrand({}))
-      // reread after first (partially failed) save: page saved, link missing
-      // (PM4-R5: only the destination remains unresolved)
-      .mockResolvedValueOnce(flatBrand({ facebook_page_id: PAGES[0].id }))
-      // reread after second save: both present
+      // Failed writer has no success readback; retry returns both values.
       .mockResolvedValueOnce(
         flatBrand({ facebook_page_id: PAGES[0].id, ad_link_url: "https://ok.example/" }),
       );
@@ -196,16 +195,16 @@ describe("AdsDestinationCapture", () => {
     });
     fireEvent.click(screen.getByTestId("ads-destination-save"));
 
-    // Honest partial: an error shows, success is NOT declared.
+    // Rejection: an error shows, success is NOT declared.
     expect(await screen.findByText(/malformed/i)).toBeInTheDocument();
     expect(onConfigured).not.toHaveBeenCalled();
     expect(api.selectFacebookPage).toHaveBeenCalledTimes(1);
 
-    // Second Save: destination succeeds now; the Page write is NOT repeated.
-    api.updateBrand.mockResolvedValueOnce({ success: true });
+    // Second Save confirms both values through the same writer.
     fireEvent.click(screen.getByTestId("ads-destination-save"));
     await waitFor(() => expect(onConfigured).toHaveBeenCalled());
-    expect(api.selectFacebookPage).toHaveBeenCalledTimes(1); // no duplicate Page write
+    expect(api.selectFacebookPage).toHaveBeenCalledTimes(2);
+    expect(api.updateBrand).not.toHaveBeenCalled();
   });
 
   test("already configured server truth renders the honest 'set up' line, no form, no writes", async () => {
@@ -289,7 +288,7 @@ describe("AdsDestinationCapture", () => {
         flatBrand({ facebook_page_id: PAGES[0].id, ad_link_url: "https://southdixiestorage.com/" }),
       );
     render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
-    await screen.findByTestId(`ads-page-option-${PAGES[0].id}`);
+    fireEvent.click(await screen.findByTestId(`ads-page-option-${PAGES[0].id}`));
     fireEvent.change(screen.getByTestId("ads-destination-input"), {
       target: { value: "southdixiestorage.com" },
     });
@@ -304,7 +303,7 @@ describe("AdsDestinationCapture", () => {
     expect(screen.queryByText(/didn't stick/i)).not.toBeInTheDocument();
   });
 
-  test("PM4-R6: destination-only partial — reread shows ad_link_url present but Page missing; only the Page remains in error, destination is not re-solicited as failed", async () => {
+  test("PM4-R6: rejected Page save reports error without attempting a separate destination write", async () => {
     const onConfigured = vi.fn();
     api.selectFacebookPage.mockRejectedValueOnce(new Error("Page save failed"));
     api.getBrand
@@ -319,7 +318,8 @@ describe("AdsDestinationCapture", () => {
 
     expect(await screen.findByText(/page save failed/i)).toBeInTheDocument();
     expect(onConfigured).not.toHaveBeenCalled();
-    // Destination is server truth now — it must not carry an error.
+    expect(api.getBrand).toHaveBeenCalledTimes(1);
+    expect(api.updateBrand).not.toHaveBeenCalled();
     expect(screen.queryByText(/destination didn't stick/i)).not.toBeInTheDocument();
   });
 
@@ -336,7 +336,7 @@ describe("AdsDestinationCapture", () => {
     expect(api.updateBrand).not.toHaveBeenCalled();
   });
 
-  test("PM4-R4: after both writes land, the FLAT authoritative reread sees both fields and success is declared from server truth", async () => {
+  test("PM4-R4: after atomic write, FLAT authoritative reread sees both fields and declares success", async () => {
     const onConfigured = vi.fn();
     api.getBrand
       .mockResolvedValueOnce(flatBrand({}))
@@ -351,5 +351,83 @@ describe("AdsDestinationCapture", () => {
     fireEvent.click(screen.getByTestId("ads-destination-save"));
     await waitFor(() => expect(onConfigured).toHaveBeenCalled());
     expect(screen.queryByText(/didn't stick/i)).not.toBeInTheDocument();
+  });
+
+  test("R-C3b: changing a configured destination confirms Page and URL through the dedicated writer", async () => {
+    stageBrand({ facebook_page_id: PAGES[0].id, ad_link_url: "https://old.example/" });
+    const onConfigured = vi.fn();
+    render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Change ads destination" }));
+    fireEvent.click(screen.getByTestId(`ads-page-option-${PAGES[1].id}`));
+    fireEvent.change(screen.getByTestId("ads-destination-input"), { target: { value: "https://new.example/" } });
+    expect(api.selectFacebookPage).not.toHaveBeenCalled();
+    stageBrand({ facebook_page_id: PAGES[1].id, ad_link_url: "https://new.example/" });
+    fireEvent.click(screen.getByTestId("ads-destination-save"));
+    await waitFor(() => expect(onConfigured).toHaveBeenCalledWith({
+      pageId: PAGES[1].id, adLinkUrl: "https://new.example/",
+    }));
+    expect(api.selectFacebookPage).toHaveBeenCalledExactlyOnceWith(PAGES[1].id, BRAND_ID, {
+      adLinkUrl: "https://new.example/", intent: "confirm_ads_destination",
+    });
+    expect(api.updateBrand).not.toHaveBeenCalled();
+    expect(api.setFacebookBrandPage).not.toHaveBeenCalled();
+  });
+
+  test("R-C3c: removal cancellation writes nothing; confirmation names current Page and rereads cleared values", async () => {
+    stageBrand({ facebook_page_id: PAGES[0].id, ad_link_url: "https://old.example/" });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const onConfigured = vi.fn();
+    try {
+      render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
+      fireEvent.click(await screen.findByRole("button", { name: "Remove ads destination" }));
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining(PAGES[0].id));
+      expect(api.selectFacebookPage).not.toHaveBeenCalled();
+      confirm.mockReturnValue(true);
+      stageBrand({});
+      fireEvent.click(screen.getByRole("button", { name: "Remove ads destination" }));
+      await screen.findByTestId("ads-destination-save");
+      expect(api.selectFacebookPage).toHaveBeenCalledExactlyOnceWith(PAGES[0].id, BRAND_ID, {
+        adLinkUrl: null, intent: "confirm_ads_destination", remove: true,
+      });
+      expect(api.getBrand).toHaveBeenCalledTimes(2);
+      expect(screen.queryByTestId("ads-destination-configured")).not.toBeInTheDocument();
+      expect(onConfigured).not.toHaveBeenCalled();
+      expect(api.updateBrand).not.toHaveBeenCalled();
+      expect(api.setFacebookBrandPage).not.toHaveBeenCalled();
+    } finally {
+      confirm.mockRestore();
+    }
+  });
+
+  test.each(["mismatch", "missing", "read failure"])("R-C3d: %s readback never reports successful configuration", async (mode) => {
+    const onConfigured = vi.fn();
+    render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={onConfigured} />);
+    fireEvent.click(await screen.findByTestId(`ads-page-option-${PAGES[0].id}`));
+    fireEvent.change(screen.getByTestId("ads-destination-input"), { target: { value: "https://ok.example/" } });
+    if (mode === "read failure") api.getBrand.mockRejectedValueOnce(new Error("Readback unavailable"));
+    else stageBrand({
+      facebook_page_id: mode === "mismatch" ? PAGES[1].id : null,
+      ad_link_url: "https://ok.example/",
+    });
+    fireEvent.click(screen.getByTestId("ads-destination-save"));
+    expect(await screen.findByText(mode === "read failure" ? /Readback unavailable/ : /not reflected by the server/)).toBeInTheDocument();
+    expect(onConfigured).not.toHaveBeenCalled();
+    expect(api.updateBrand).not.toHaveBeenCalled();
+    expect(api.setFacebookBrandPage).not.toHaveBeenCalled();
+  });
+
+  test("R-C3d: removal readback still populated displays explicit failure, not fabricated removal", async () => {
+    stageBrand({ facebook_page_id: PAGES[0].id, ad_link_url: "https://old.example/" });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    try {
+      render(<AdsDestinationCapture brandId={BRAND_ID} onConfigured={vi.fn()} />);
+      fireEvent.click(await screen.findByRole("button", { name: "Remove ads destination" }));
+      expect(await screen.findByText(/not reflected by the server/)).toBeInTheDocument();
+      expect(screen.getByTestId("ads-destination-configured")).toBeInTheDocument();
+      expect(api.updateBrand).not.toHaveBeenCalled();
+      expect(api.setFacebookBrandPage).not.toHaveBeenCalled();
+    } finally {
+      confirm.mockRestore();
+    }
   });
 });

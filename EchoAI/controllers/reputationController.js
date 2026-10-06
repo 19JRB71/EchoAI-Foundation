@@ -85,36 +85,15 @@ async function fetchGoogleReviews(userId) {
 
 /**
  * Pulls recent Facebook Page ratings/recommendations using the stored long-lived
- * user token. Reviews live on a Page, so we list the user's pages and read the
- * first page's ratings.
+ * Page token. Only this business's explicit Store-2 binding can supply the Page.
  */
-async function fetchFacebookReviews(userId) {
-  const result = await db.query(
-    `SELECT api_token_encrypted, connection_status
-     FROM api_integrations
-     WHERE user_id = $1 AND platform = 'facebook'`,
-    [userId],
-  );
-  const row = result.rows[0];
-  if (!row || !row.api_token_encrypted) {
-    return { reviews: [], error: "Facebook account is not connected." };
-  }
-  const userToken = decrypt(row.api_token_encrypted);
-
-  // Find the first managed Page and its page-scoped access token.
-  const pagesRes = await fetch(
-    `${GRAPH}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`,
-  );
-  const pagesData = await pagesRes.json().catch(() => ({}));
-  if (!pagesRes.ok || pagesData.error) {
-    const err = new Error(
-      pagesData.error?.message || `Facebook pages lookup failed (HTTP ${pagesRes.status})`,
-    );
-    err.facebookError = true;
-    throw err;
-  }
-  const page = (pagesData.data || [])[0];
-  if (!page) return { reviews: [] };
+async function fetchFacebookReviews(userId, brandId) {
+  if (!await getOwnedBrand(userId, brandId)) return { reviews: [], error: "Brand not found" };
+  const binding = require("../utils/onboardingFirstWin");
+  const brand = (await binding.facebookBindings()).find((b) => b.brand_id === brandId);
+  if (!brand?.postingPageId) return { reviews: [], error: "No page bound for this business" };
+  const { token } = await binding.validateFacebookDestination(db, userId, brandId, brand.postingPageId);
+  const page = { id: brand.postingPageId, access_token: token };
 
   const ratingsRes = await fetch(
     `${GRAPH}/${page.id}/ratings?fields=reviewer{name},rating,review_text,created_time,recommendation_type` +
@@ -216,7 +195,7 @@ async function fetchReviews(req, res) {
 
     // Facebook
     try {
-      const { reviews, error } = await fetchFacebookReviews(userId);
+      const { reviews, error } = await fetchFacebookReviews(userId, brandId);
       const saved = await persistFetchedReviews(brandId, reviews);
       platforms.facebook = { fetched: reviews.length, saved, error: error || null };
     } catch (err) {

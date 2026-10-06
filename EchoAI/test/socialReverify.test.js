@@ -45,6 +45,12 @@ const GOOD_CREDS = encrypt(JSON.stringify({ accessToken: "tok", pageId: "p1" }))
 function makeDb(accounts, brands = {}) {
   const state = { updates: [], brandLookups: [] };
   async function query(sql, params = []) {
+    if (sql.includes("FROM api_integrations ai")) return { rows: [{
+      facebook_pages: [{ id: "p1" }], facebook_page_tokens: encrypt(JSON.stringify({ p1: "tok" })),
+    }] };
+    if (sql.includes("FROM brands b LEFT JOIN social_accounts")) return { rows: [{
+      brand_id: "b1", credentials_encrypted: GOOD_CREDS,
+    }] };
     if (/FROM social_accounts sa/i.test(sql) && /JOIN brands b/i.test(sql)) {
       return { rows: accounts };
     }

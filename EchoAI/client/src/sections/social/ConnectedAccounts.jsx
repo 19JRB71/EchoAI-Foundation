@@ -162,7 +162,6 @@ export default function ConnectedAccounts({ brandId, focusPlatform, onFocusConsu
 export function FacebookPagePicker({
   brandId,
   onConnected,
-  requireExplicitSelection = false,
   selectionOnly = false,
 }) {
   const [loading, setLoading] = useState(true);
@@ -175,21 +174,16 @@ export function FacebookPagePicker({
     setLoading(true);
     setError("");
     try {
-      const data = await api.getFacebookAccounts();
+      const data = await api.getFacebookAccounts(brandId);
       setFb(data);
-      const pages = data.pages || [];
-      setPageId(
-        data.selectedPageId ||
-          (!requireExplicitSelection && pages[0] && pages[0].id) ||
-          "",
-      );
+      setPageId("");
     } catch (err) {
       setError(err.message);
       setFb(null);
     } finally {
       setLoading(false);
     }
-  }, [requireExplicitSelection]);
+  }, [brandId]);
 
   useEffect(() => {
     loadFb();
@@ -199,7 +193,7 @@ export function FacebookPagePicker({
     setBusy(true);
     setError("");
     try {
-      const { authUrl } = await api.startFacebookOAuth();
+      const { authUrl } = await api.startFacebookOAuth({ brandId });
       if (authUrl) {
         openAuthUrl(authUrl);
         return;
@@ -233,15 +227,17 @@ export function FacebookPagePicker({
   }
 
   async function handleSave() {
-    if (!pageId) {
+    if (!pageId || !fb?.pages?.some((p) => p.id === pageId && !p.unavailable)) {
       setError("Choose a Page to post from.");
       return;
     }
     setBusy(true);
     setError("");
     try {
-      await api.setFacebookBrandPage({ brandId, pageId });
-      await onConnected();
+      if (!selectionOnly) {
+        await api.setFacebookBrandPage({ brandId, pageId, intent: "confirm_business_facebook_page" });
+      }
+      await onConnected(pageId);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -330,9 +326,12 @@ export function FacebookPagePicker({
                   name="fb-page"
                   value={p.id}
                   checked={pageId === p.id}
+                  disabled={busy || p.unavailable}
                   onChange={() => setPageId(p.id)}
                 />
                 <span className="font-medium">{p.name || p.id}</span>
+                {p.boundBusinessName && <span className="text-xs text-gray-400">· {p.boundBusinessName}</span>}
+                {p.unavailable && <span className="text-xs text-amber-300">Unavailable</span>}
                 {p.category && (
                   <span className="text-xs text-gray-400">· {p.category}</span>
                 )}

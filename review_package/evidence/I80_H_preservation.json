@@ -1,0 +1,143 @@
+{
+  "results": [
+    {
+      "actual": "e4681c8abdc8799aaf7c931639edd587cbcb004935a4cd4ddb156a06d3a95ea8",
+      "expected": "e4681c8abdc8799aaf7c931639edd587cbcb004935a4cd4ddb156a06d3a95ea8",
+      "file": "sds-v1-brands.json",
+      "pass": true
+    },
+    {
+      "actual": "149210c58e4ae4fd10326f5b4ce9a31d74b1bf143ffc8f1ae54900b4f864d6c7",
+      "expected": "149210c58e4ae4fd10326f5b4ce9a31d74b1bf143ffc8f1ae54900b4f864d6c7",
+      "file": "sds-v1-social_posts_all.json",
+      "pass": true
+    },
+    {
+      "actual": "7333033946ed727bbb38d8a6c338a737d91d2d3e096e1c158913a3f1fce7ef8a",
+      "expected": "7333033946ed727bbb38d8a6c338a737d91d2d3e096e1c158913a3f1fce7ef8a",
+      "file": "sds-v1-social_posts_unpublished.json",
+      "pass": true
+    },
+    {
+      "actual": "ace2d05f3a42f183c0bf2f9cdca4bd4d29acd208a32cdce871ab970dde966b02",
+      "expected": "ace2d05f3a42f183c0bf2f9cdca4bd4d29acd208a32cdce871ab970dde966b02",
+      "file": "sds-v1-social_posts_scheduled.json",
+      "pass": true
+    },
+    {
+      "actual": "27fe513b477fb5ccbcd706bd88cd8fae86c0640ec43153f06692169e0bea4591",
+      "expected": "27fe513b477fb5ccbcd706bd88cd8fae86c0640ec43153f06692169e0bea4591",
+      "file": "sds-v1-social_posts_consented_h1.json",
+      "pass": true
+    },
+    {
+      "actual": "3cdec5d2351aa30dabf410a4f8c3e57229d8f9d60bc04683723ab7301b313917",
+      "expected": "3cdec5d2351aa30dabf410a4f8c3e57229d8f9d60bc04683723ab7301b313917",
+      "file": "sds-v1-remaining_consented_scheduled_specimen.json",
+      "pass": true
+    },
+    {
+      "actual": "46ce38ff5cd406cccbeefa1bbfd9456ab039da5801861438df88ddb816529264",
+      "expected": "46ce38ff5cd406cccbeefa1bbfd9456ab039da5801861438df88ddb816529264",
+      "file": "sds-v1-content_calendars.json",
+      "pass": true
+    },
+    {
+      "actual": "6c76fee9fdf1d3210ff0c85e49c122afc622d671aa74e8731acdb2ded581c00c",
+      "expected": "6c76fee9fdf1d3210ff0c85e49c122afc622d671aa74e8731acdb2ded581c00c",
+      "file": "sds-v1-agent_tasks.json",
+      "pass": true
+    },
+    {
+      "actual": "813d67c4f321c4b7262f60371de2c51b56f08c1b412b8657ad729c7bb5b13b54",
+      "expected": "813d67c4f321c4b7262f60371de2c51b56f08c1b412b8657ad729c7bb5b13b54",
+      "file": "sds-v1-agent_task_events.json",
+      "pass": true
+    },
+    {
+      "actual": "b46f2cb1397440af67b64a3a7ea25b1618df0b8d6419d4779a282aa507a2c44d",
+      "expected": "b46f2cb1397440af67b64a3a7ea25b1618df0b8d6419d4779a282aa507a2c44d",
+      "file": "sds-v1-external_actions.json",
+      "pass": true
+    },
+    {
+      "actual": "b2b383b25f4f2e754258c30779816bb1ffa242df4b471248836e7b46c3001ede",
+      "expected": "b2b383b25f4f2e754258c30779816bb1ffa242df4b471248836e7b46c3001ede",
+      "file": "sds-v1-external_proofs.json",
+      "pass": true
+    },
+    {
+      "actual": "52c1ca4e0d8292b7c3073f85dbbbf4781ca9091f4ef687238042c3ba0fdc6158",
+      "expected": "52c1ca4e0d8292b7c3073f85dbbbf4781ca9091f4ef687238042c3ba0fdc6158",
+      "file": "sds-v1-campaigns.json",
+      "pass": true
+    },
+    {
+      "actual": "462af18c5daa931671a6e241738ae4927e362aea2a5eac50b1a264629ec7958b",
+      "expected": "462af18c5daa931671a6e241738ae4927e362aea2a5eac50b1a264629ec7958b",
+      "file": "sds-v1-ad_creatives.json",
+      "pass": true
+    },
+    {
+      "actual": "492f2623b5adb4c9c0e2ac1c86b0472ab577182247e8768fbbff4deb558e389c",
+      "expected": "492f2623b5adb4c9c0e2ac1c86b0472ab577182247e8768fbbff4deb558e389c",
+      "file": "sds-v1-ad_spend_audit.json",
+      "pass": true
+    },
+    {
+      "actual": "dbea862b6fc9a07a5a7ee496ec101562052904bee651ed4453029a2062d9d4d3",
+      "expected": "dbea862b6fc9a07a5a7ee496ec101562052904bee651ed4453029a2062d9d4d3",
+      "file": "sds-v1-ad_spend_caps.json",
+      "pass": true
+    },
+    {
+      "actual": "d7c4da27b3b3e9a47176cd746261acf866cdf50705364f7462cac3fdafd80adc",
+      "expected": "d7c4da27b3b3e9a47176cd746261acf866cdf50705364f7462cac3fdafd80adc",
+      "file": "sds-v1-setup_sessions_lifecycle.json",
+      "pass": true
+    },
+    {
+      "actual": "30b3df404d47bd38116d0d92c9c26299a38daa5ca820ef4d8c6f4d4b8b6f8f79",
+      "expected": "30b3df404d47bd38116d0d92c9c26299a38daa5ca820ef4d8c6f4d4b8b6f8f79",
+      "file": "sds-v1-guided_setup_progress.json",
+      "pass": true
+    },
+    {
+      "actual": "17730dd9e26049cf41ed02fd2d466bb449c287c41a703d347b903071832f52c4",
+      "expected": "17730dd9e26049cf41ed02fd2d466bb449c287c41a703d347b903071832f52c4",
+      "file": "sds-v1-armed_publish_authorizations.json",
+      "pass": true
+    },
+    {
+      "actual": "ee061fbdaf9b6fd3f7bf74c4235db5fff79eaf6c28aa469c5c89475ac183cb46",
+      "expected": "ee061fbdaf9b6fd3f7bf74c4235db5fff79eaf6c28aa469c5c89475ac183cb46",
+      "file": "sds-v1-onboarding_first_win_celebrations.json",
+      "pass": true
+    },
+    {
+      "actual": "9d4a1f34ea95bb6d07bd8ba73cd7177e787cd726fa6ca405377a51441ed663e6",
+      "expected": "9d4a1f34ea95bb6d07bd8ba73cd7177e787cd726fa6ca405377a51441ed663e6",
+      "file": "sds-v1-social_accounts_binding.json",
+      "pass": true
+    },
+    {
+      "actual": "925af4044f22b187a70af89e4a24fd28f6b95165b31d6441aa1a629f34473898",
+      "expected": "925af4044f22b187a70af89e4a24fd28f6b95165b31d6441aa1a629f34473898",
+      "file": "sds-v1-api_integrations_binding.json",
+      "pass": true
+    },
+    {
+      "actual": "93f07b77dec3058eb946002e296becac1460a9a25bb9af7361dc16e932ee0be6",
+      "expected": "93f07b77dec3058eb946002e296becac1460a9a25bb9af7361dc16e932ee0be6",
+      "file": "sds-v1-google_integrations_binding.json",
+      "pass": true
+    },
+    {
+      "actual": "38f32979461318cc6738c8170858e3a2d4f662e7c56a487a8d71f156ea5615ed",
+      "expected": "38f32979461318cc6738c8170858e3a2d4f662e7c56a487a8d71f156ea5615ed",
+      "file": "sds-v1-comparison.json",
+      "pass": true
+    }
+  ],
+  "scope": "Historical bank integrity only; no live SDS query or mutation"
+}

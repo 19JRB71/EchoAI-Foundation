@@ -1,0 +1,1049 @@
+{
+  "approvedBase": "de8e996f55fd5139a5488f75f7d96078f9dc25c6",
+  "priorReview": "1a8c2191d4f78fcbeb6c286210c36d866ede1537",
+  "requiredParent": "f55c294be47261837a2b7b001d8648bf39a812a6",
+  "pinnedTree": "52bcd3de5d245a6b24dbe457c3e1a105f6a00388",
+  "unchangedEchoAISubtree": "130c9c449ce279188f0f1a52f05d206d518e5787",
+  "commands": [
+    "git diff --numstat de8e996f55fd5139a5488f75f7d96078f9dc25c6 f55c294be47261837a2b7b001d8648bf39a812a6",
+    "git diff --numstat 1a8c2191d4f78fcbeb6c286210c36d866ede1537 f55c294be47261837a2b7b001d8648bf39a812a6"
+  ],
+  "counts": {
+    "mechanical": 5,
+    "production": 9,
+    "test": 14,
+    "evidence": 17
+  },
+  "lineCosts": {
+    "mechanical": 314,
+    "production": 718,
+    "test": 920,
+    "evidence": 7797
+  },
+  "final13Files": [
+    "EchoAI/controllers/socialController.js",
+    "EchoAI/tests/i80.facebookBoundary.test.js",
+    "review_package/docs/I80_STAGE2_H_CLOSURE.md",
+    "review_package/evidence/I80_H_SHA256SUMS.txt",
+    "review_package/evidence/I80_H_base-suite.txt",
+    "review_package/evidence/I80_H_base-test-files.txt",
+    "review_package/evidence/I80_H_boundary-final.txt",
+    "review_package/evidence/I80_H_build.txt",
+    "review_package/evidence/I80_H_client-final.txt",
+    "review_package/evidence/I80_H_db-setup.txt",
+    "review_package/evidence/I80_H_deadlock-before.txt",
+    "review_package/evidence/I80_H_numstat.txt",
+    "review_package/evidence/I80_H_preservation.json"
+  ],
+  "all45Files": [
+    {
+      "path": "EchoAI/client/dist/assets/index-Bjm_z3-E.js",
+      "classification": "mechanical",
+      "stage2Numstat": {
+        "added": 154,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Authorized mechanical artifact excluded from source ceiling: Replacement built client bundle.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,154 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/dist/assets/index-qsmk6fKo.js",
+      "classification": "mechanical",
+      "stage2Numstat": {
+        "added": 0,
+        "deleted": 154
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Authorized mechanical artifact excluded from source ceiling: Superseded built client bundle removed.",
+      "hunkHeaders": [
+        "@@ -1,154 +0,0 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/dist/index.html",
+      "classification": "mechanical",
+      "stage2Numstat": {
+        "added": 1,
+        "deleted": 1
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Authorized mechanical artifact excluded from source ceiling: Mechanical new bundle reference.",
+      "hunkHeaders": [
+        "@@ -21 +21 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/dist/sw.js",
+      "classification": "mechanical",
+      "stage2Numstat": {
+        "added": 1,
+        "deleted": 1
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Authorized mechanical artifact excluded from source ceiling: Built service worker v187.",
+      "hunkHeaders": [
+        "@@ -18 +18 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/public/sw.js",
+      "classification": "mechanical",
+      "stage2Numstat": {
+        "added": 1,
+        "deleted": 1
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Authorized mechanical artifact excluded from source ceiling: Source service-worker cache version v187.",
+      "hunkHeaders": [
+        "@@ -18 +18 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/src/api.js",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 7,
+        "deleted": 7
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 thin existing-route request contracts carry brand, consent and return context; no new route or behavior outside these contracts.",
+      "hunkHeaders": [
+        "@@ -921 +921 @@ export const api = {",
+        "@@ -927 +927 @@ export const api = {",
+        "@@ -930 +930 @@ export const api = {",
+        "@@ -937,2 +937,2 @@ export const api = {",
+        "@@ -1085 +1085 @@ export const api = {",
+        "@@ -1088 +1088 @@ export const api = {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/SetupAgent.jsx",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 29,
+        "deleted": 3
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 preserve scoped OAuth return context, reject wrong-business/session return, carry exact authorization and invoke C1 after explicit picker selection. All hunks within role.",
+      "hunkHeaders": [
+        "@@ -162,0 +163,7 @@ export default function SetupAgent({",
+        "@@ -603,0 +611,4 @@ export default function SetupAgent({",
+        "@@ -825 +836,12 @@ export default function SetupAgent({",
+        "@@ -846,2 +868,6 @@ export default function SetupAgent({"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/SetupAgent.pm8.test.jsx",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 82,
+        "deleted": 3
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 pending/wrong-business return, explicit zero/one/many/occupied picker, selectionOnly and C1-only confirmation.",
+      "hunkHeaders": [
+        "@@ -87,0 +88,30 @@ describe(\"SetupAgent PM8 inline Facebook Page picker\", () => {",
+        "@@ -124,0 +155,2 @@ describe(\"SetupAgent PM8 inline Facebook Page picker\", () => {",
+        "@@ -140 +172 @@ describe(\"SetupAgent PM8 inline Facebook Page picker\", () => {",
+        "@@ -144,2 +176,2 @@ describe(\"SetupAgent PM8 inline Facebook Page picker\", () => {",
+        "@@ -149,0 +182,47 @@ describe(\"SetupAgent PM8 inline Facebook Page picker\", () => {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/SetupAgent.test.jsx",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 18,
+        "deleted": 1
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 OAuth context for owned/foreign/absent/reconfirmation/error authorization; existing mocks adapted to scoped initiation.",
+      "hunkHeaders": [
+        "@@ -33,0 +34 @@ vi.mock(\"../api.js\", () => ({",
+        "@@ -63,0 +65 @@ beforeEach(() => {",
+        "@@ -340 +342,7 @@ describe(\"SetupAgent needs_connection handoff\", () => {",
+        "@@ -363,0 +372,5 @@ describe(\"SetupAgent needs_connection handoff\", () => {",
+        "@@ -364,0 +378,4 @@ describe(\"SetupAgent needs_connection handoff\", () => {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/guided/AdsDestinationCapture.jsx",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 55,
+        "deleted": 38
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 existing C3 flow explicitly confirms save/change/removal, uses dedicated Store-3 writer and authoritative readback, removes singleton preselection. All hunks within role.",
+      "hunkHeaders": [
+        "@@ -18,3 +18,2 @@",
+        "@@ -26 +25 @@",
+        "@@ -32,5 +31,2 @@",
+        "@@ -57,0 +54 @@ export default function AdsDestinationCapture({",
+        "@@ -117,3 +114,2 @@ export default function AdsDestinationCapture({",
+        "@@ -135 +131 @@ export default function AdsDestinationCapture({",
+        "@@ -136,0 +133 @@ export default function AdsDestinationCapture({",
+        "@@ -141 +138 @@ export default function AdsDestinationCapture({",
+        "@@ -145 +142 @@ export default function AdsDestinationCapture({",
+        "@@ -151 +147,0 @@ export default function AdsDestinationCapture({",
+        "@@ -153,15 +149,3 @@ export default function AdsDestinationCapture({",
+        "@@ -175 +159 @@ export default function AdsDestinationCapture({",
+        "@@ -182 +166,7 @@ export default function AdsDestinationCapture({",
+        "@@ -185,3 +175 @@ export default function AdsDestinationCapture({",
+        "@@ -188,0 +177,2 @@ export default function AdsDestinationCapture({",
+        "@@ -220 +210 @@ export default function AdsDestinationCapture({",
+        "@@ -226,0 +217,17 @@ export default function AdsDestinationCapture({",
+        "@@ -309 +316 @@ export default function AdsDestinationCapture({",
+        "@@ -315,0 +323,10 @@ export default function AdsDestinationCapture({"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/guided/AdsDestinationCapture.test.jsx",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 104,
+        "deleted": 26
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 R-C3 consented save/change/removal/readback, no generic or Store-2 write, no singleton inference; adapt old split-write expectations to dedicated atomic writer.",
+      "hunkHeaders": [
+        "@@ -5 +5 @@",
+        "@@ -8 +8 @@",
+        "@@ -10,3 +10 @@",
+        "@@ -42,0 +41 @@ vi.mock(\"../../api.js\", () => ({",
+        "@@ -90 +89 @@ beforeEach(() => {",
+        "@@ -114 +113 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -119,2 +118,2 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -150 +149 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -172,2 +171,5 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -178 +180 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -180 +182 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -184,4 +186 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -199 +198 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -204,2 +203 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -208 +206,2 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -292 +291 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -307 +306 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -322 +321,2 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -339 +339 @@ describe(\"AdsDestinationCapture\", () => {",
+        "@@ -354,0 +355,78 @@ describe(\"AdsDestinationCapture\", () => {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/client/src/sections/social/ConnectedAccounts.jsx",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 12,
+        "deleted": 13
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 existing picker has no inferred selection, disables occupied/unavailable Pages and retains selectionOnly without a writer. All hunks within role.",
+      "hunkHeaders": [
+        "@@ -165 +164,0 @@ export function FacebookPagePicker({",
+        "@@ -178 +177 @@ export function FacebookPagePicker({",
+        "@@ -180,6 +179 @@ export function FacebookPagePicker({",
+        "@@ -192 +186 @@ export function FacebookPagePicker({",
+        "@@ -202 +196 @@ export function FacebookPagePicker({",
+        "@@ -236 +230 @@ export function FacebookPagePicker({",
+        "@@ -243,2 +237,4 @@ export function FacebookPagePicker({",
+        "@@ -332,0 +329 @@ export function FacebookPagePicker({",
+        "@@ -335,0 +333,2 @@ export function FacebookPagePicker({"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/controllers/brandController.js",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 4,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 one property-presence guard rejects generic Store-3 writes AND clears, including naming variants. No general brand refactor.",
+      "hunkHeaders": [
+        "@@ -126,0 +127,4 @@ async function updateBrand(req, res) {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/controllers/facebookOAuthController.js",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 71,
+        "deleted": 118
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 scoped owner/nonce/expiry context; no automatic Page destination; grant-only refresh; exact prior consent delegates to C1; destination-null stays pending; zero-write listing; separate C3 consented write/removal boundary. All hunks within role.",
+      "hunkHeaders": [
+        "@@ -8,0 +9 @@ const onboardingFirstWin = require(\"../utils/onboardingFirstWin\");",
+        "@@ -11,0 +13 @@ const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;",
+        "@@ -57 +59 @@ function getRedirectUri(req) {",
+        "@@ -59,0 +62,4 @@ function dashboardRedirect(status, message) {",
+        "@@ -90,0 +97,8 @@ async function initiateOAuth(req, res) {",
+        "@@ -92 +106 @@ async function initiateOAuth(req, res) {",
+        "@@ -125,0 +140 @@ async function oauthCallback(req, res) {",
+        "@@ -135 +150 @@ async function oauthCallback(req, res) {",
+        "@@ -142,0 +158 @@ async function oauthCallback(req, res) {",
+        "@@ -203 +219 @@ async function oauthCallback(req, res) {",
+        "@@ -206 +222 @@ async function oauthCallback(req, res) {",
+        "@@ -241,3 +257,3 @@ async function oauthCallback(req, res) {",
+        "@@ -248,6 +264,5 @@ async function oauthCallback(req, res) {",
+        "@@ -264,0 +280 @@ async function oauthCallback(req, res) {",
+        "@@ -267 +283,3 @@ async function oauthCallback(req, res) {",
+        "@@ -273 +291 @@ async function oauthCallback(req, res) {",
+        "@@ -284,0 +303,2 @@ async function getConnectedAccounts(req, res) {",
+        "@@ -305,47 +325,7 @@ async function getConnectedAccounts(req, res) {",
+        "@@ -360 +340 @@ async function getConnectedAccounts(req, res) {",
+        "@@ -364 +344 @@ async function getConnectedAccounts(req, res) {",
+        "@@ -409 +389 @@ async function selectAccount(req, res) {",
+        "@@ -414,3 +394 @@ async function selectAccount(req, res) {",
+        "@@ -420,3 +398,3 @@ async function selectPage(req, res) {",
+        "@@ -424 +402 @@ async function selectPage(req, res) {",
+        "@@ -426,7 +404,4 @@ async function selectPage(req, res) {",
+        "@@ -434,4 +409,6 @@ async function selectPage(req, res) {",
+        "@@ -439,17 +416,4 @@ async function selectPage(req, res) {",
+        "@@ -457,16 +421,2 @@ async function selectPage(req, res) {",
+        "@@ -473,0 +424 @@ async function selectPage(req, res) {",
+        "@@ -475 +426,3 @@ async function selectPage(req, res) {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/controllers/reputationController.js",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 9,
+        "deleted": 30
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 replace first-managed-Page enumeration with owned business's explicit Store-2 Page and grant validation; pass brandId at caller. No reputation redesign.",
+      "hunkHeaders": [
+        "@@ -88,2 +88 @@ async function fetchGoogleReviews(userId) {",
+        "@@ -91,27 +90,7 @@ async function fetchGoogleReviews(userId) {",
+        "@@ -219 +198 @@ async function fetchReviews(req, res) {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/controllers/socialController.js",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 111,
+        "deleted": 65
+      },
+      "final13ChangeNumstat": {
+        "added": 6,
+        "deleted": 0
+      },
+      "authorizedRole": "PASS \u2014 C1 confirmed Store-2 writer, exact grant/legacy execution guard, removal serialization, access-loss behavior and six-line lock-order correction. All hunks within role.",
+      "hunkHeaders": [
+        "@@ -167,3 +167,3 @@ async function loadConnectedAccount(brandId, platform) {",
+        "@@ -171 +171,2 @@ async function loadConnectedAccount(brandId, platform) {",
+        "@@ -189 +190 @@ async function resolveFacebookPageToken(brandId, pageId) {",
+        "@@ -196,0 +198 @@ async function resolveFacebookPageToken(brandId, pageId) {",
+        "@@ -198,0 +201,4 @@ async function resolveFacebookPageToken(brandId, pageId) {",
+        "@@ -213,5 +218,0 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -219,2 +220,6 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -222,27 +227,13 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -250,6 +241,29 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -257 +270,0 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -266 +279,3 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -270,4 +284,0 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -279 +290,14 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -280,0 +305 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -288 +313 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -290,8 +315,6 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -299 +321,0 @@ async function setFacebookBrandPage(req, res) {",
+        "@@ -308,0 +331,3 @@ async function connectSocialAccount(req, res) {",
+        "@@ -707,0 +733 @@ async function disconnectSocialAccount(req, res) {",
+        "@@ -711,2 +737,11 @@ async function disconnectSocialAccount(req, res) {",
+        "@@ -722,0 +758 @@ async function disconnectSocialAccount(req, res) {",
+        "@@ -726 +762,6 @@ async function disconnectSocialAccount(req, res) {",
+        "@@ -1476,0 +1518,4 @@ async function reverifyAccountRow(row) {",
+        "@@ -1538,0 +1584 @@ module.exports = {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/test/deliveryCrons.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 8,
+        "deleted": 1
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 publishing fixtures now supply explicit Page identity and current grant instead of legacy-token bypass.",
+      "hunkHeaders": [
+        "@@ -55,0 +56,7 @@ function makeSocialDb(seed) {",
+        "@@ -82 +89 @@ function makeSocialDb(seed) {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/test/facebookAccountsContract.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 5,
+        "deleted": 1
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 zero-write candidate listing returns no selected Page and exposes availability truth.",
+      "hunkHeaders": [
+        "@@ -54,0 +55 @@ test(\"PM3-R1: GET /api/facebook/accounts (real controller) returns pages[] in th",
+        "@@ -96 +97 @@ test(\"PM3-R1: GET /api/facebook/accounts (real controller) returns pages[] in th",
+        "@@ -107,0 +109,2 @@ test(\"PM3-R1: GET /api/facebook/accounts (real controller) returns pages[] in th",
+        "@@ -140,0 +144 @@ test(\"PM3-R12b: a connected account whose grant holds zero Pages also returns pa"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/test/facebookUnified.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 24,
+        "deleted": 7
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 exact grant, explicit C1 intent and transaction-aware stubs; preserve Page-ID-only credentials and truthful reconnect errors.",
+      "hunkHeaders": [
+        "@@ -12 +12 @@ const assert = require(\"node:assert\");",
+        "@@ -52 +52 @@ test(\"resolveFacebookPageToken returns the live Page token for the given pageId\"",
+        "@@ -53,0 +54,3 @@ test(\"resolveFacebookPageToken returns the live Page token for the given pageId\"",
+        "@@ -78,0 +82,2 @@ test(\"setFacebookBrandPage stores ONLY the pageId (never the token) and returns",
+        "@@ -80,0 +86,4 @@ test(\"setFacebookBrandPage stores ONLY the pageId (never the token) and returns",
+        "@@ -108 +117 @@ test(\"setFacebookBrandPage stores ONLY the pageId (never the token) and returns",
+        "@@ -119,0 +129 @@ test(\"setFacebookBrandPage stores ONLY the pageId (never the token) and returns",
+        "@@ -123 +133 @@ test(\"setFacebookBrandPage stores ONLY the pageId (never the token) and returns",
+        "@@ -124,0 +135,2 @@ test(\"setFacebookBrandPage rejects a Page with no captured publish token (needsR",
+        "@@ -126,0 +139,4 @@ test(\"setFacebookBrandPage rejects a Page with no captured publish token (needsR",
+        "@@ -136 +152 @@ test(\"setFacebookBrandPage rejects a Page with no captured publish token (needsR",
+        "@@ -139,2 +155,2 @@ test(\"setFacebookBrandPage rejects a Page with no captured publish token (needsR",
+        "@@ -142,0 +159 @@ test(\"setFacebookBrandPage rejects a Page with no captured publish token (needsR"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/test/setupAgent.owneraction.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 8,
+        "deleted": 8
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 generic Store-3 write and clear attempts rejected; row remains unchanged.",
+      "hunkHeaders": [
+        "@@ -486 +486 @@ test(\"C2: classifyStepError checks the marker FIRST \u2014 before billing regex and",
+        "@@ -491 +491 @@ test(\"D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl",
+        "@@ -495 +495 @@ test(\"D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl",
+        "@@ -497 +497 @@ test(\"D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl",
+        "@@ -503 +503 @@ test(\"D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl",
+        "@@ -509 +509 @@ test(\"D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl",
+        "@@ -511 +511 @@ test(\"D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl",
+        "@@ -521 +521 @@ test(\"D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/test/socialMediaUpload.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 6,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 existing publisher test fixture supplies current grant and explicit binding.",
+      "hunkHeaders": [
+        "@@ -193,0 +194,6 @@ test(\"publishDuePosts forwards video_url to the Facebook publisher\", async () =>"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/test/socialReverify.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 6,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 reverification fixture supplies current grant and explicit binding.",
+      "hunkHeaders": [
+        "@@ -47,0 +48,6 @@ function makeDb(accounts, brands = {}) {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/tests/externalProofs.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 7,
+        "deleted": 1
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 external-proof fixture supplies current grant and explicit binding; no live certification implied.",
+      "hunkHeaders": [
+        "@@ -305 +305 @@ async function seedPublishedPost(runKey) {",
+        "@@ -306,0 +307,6 @@ async function seedPublishedPost(runKey) {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/tests/i80.facebookBoundary.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 498,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 147,
+        "deleted": 4
+      },
+      "authorizedRole": "PASS \u2014 new isolated real-endpoint acceptance file, including the final six lock-backed races.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,498 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/tests/onboardingFirstWin.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 54,
+        "deleted": 30
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 scoped confirmed fixtures, explicit no-private-binding assertions and retained expiry/hash/atomic rollback/parallel-claim coverage.",
+      "hunkHeaders": [
+        "@@ -95,0 +96,26 @@ async function armPost(userId, postId, opts = {}) {",
+        "@@ -315 +341 @@ test(\"J: arm refuses a post that is no longer prepared\", async () => {",
+        "@@ -321 +347 @@ test(\"J: a valid claim atomically flips armed\u2192claimed, binds the destination,",
+        "@@ -330 +356 @@ test(\"J: a valid claim atomically flips armed\u2192claimed, binds the destination,",
+        "@@ -340 +366 @@ test(\"J: a valid claim atomically flips armed\u2192claimed, binds the destination,",
+        "@@ -345 +371 @@ test(\"J: a claim for a brand with NO facebook social account creates the executa",
+        "@@ -347,0 +374,2 @@ test(\"J: a claim for a brand with NO facebook social account creates the executa",
+        "@@ -351,3 +379,2 @@ test(\"J: a claim for a brand with NO facebook social account creates the executa",
+        "@@ -359,5 +386,2 @@ test(\"J: a claim for a brand with NO facebook social account creates the executa",
+        "@@ -381 +405 @@ test(\"J: a claim NEVER fires when the brand's existing facebook account points a",
+        "@@ -415 +439 @@ test(\"J: a claim proceeds when the brand's existing facebook account already poi",
+        "@@ -426 +450 @@ test(\"J: a claim proceeds when the brand's existing facebook account already poi",
+        "@@ -434 +458 @@ test(\"J: claim with no armed authorization is a clean no-op\", async () => {",
+        "@@ -446 +470 @@ test(\"J: a callback that connected NO Page cannot claim \u2014 the authorization st",
+        "@@ -463 +487 @@ test(\"J: an EXPIRED authorization is invalidated at claim time and never publish",
+        "@@ -482 +506 @@ test(\"J: an authorization still inside its 7 calendar days claims normally (day",
+        "@@ -499 +523 @@ test(\"J: content drift after consent invalidates as content_changed at claim tim",
+        "@@ -520 +544 @@ test(\"J: a bound destination that no longer matches the connected Page invalidat",
+        "@@ -543 +567 @@ test(\"J (B3, acceptance-critical): a fault between the claim write and the hando",
+        "@@ -550 +574 @@ test(\"J (B3, acceptance-critical): a fault between the claim write and the hando",
+        "@@ -554 +578 @@ test(\"J (B3, acceptance-critical): a fault between the claim write and the hando",
+        "@@ -569,2 +593,2 @@ test(\"J: parallel claims for the same authorization \u2014 exactly one wins, the po",
+        "@@ -592 +616 @@ async function claimedFixture(userId) {",
+        "@@ -689 +713 @@ test(\"J: disarm flips armed\u2192disarmed before any claim\", async () => {",
+        "@@ -746 +770 @@ test(\"J: after invalidation, reconfirmation arms a brand-NEW row with fresh cons"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/tests/taskSpine.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 6,
+        "deleted": 1
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 task-spine fixture supplies current grant and explicit binding.",
+      "hunkHeaders": [
+        "@@ -110 +110 @@ before(async () => {",
+        "@@ -111,0 +112,5 @@ before(async () => {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/tests/tenantIsolation.background.test.js",
+      "classification": "test",
+      "stage2Numstat": {
+        "added": 11,
+        "deleted": 4
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 per-tenant exact grant and Page fixture replaces legacy-token bypass.",
+      "hunkHeaders": [
+        "@@ -87,3 +87,2 @@ async function dropTenant({ userId, brandId }) {",
+        "@@ -95 +94,2 @@ async function seedConnectedAccount(brandId, platform = \"facebook\") {",
+        "@@ -96,0 +97,7 @@ async function seedConnectedAccount(brandId, platform = \"facebook\") {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "EchoAI/utils/onboardingFirstWin.js",
+      "classification": "production",
+      "stage2Numstat": {
+        "added": 96,
+        "deleted": 50
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "PASS \u2014 shared context/grant/collision validation and serialization; remove private Store-2 creation; scoped claim preserves consent and reuses C1 transaction. All hunks within role.",
+      "hunkHeaders": [
+        "@@ -16,2 +16,2 @@",
+        "@@ -31 +31,60 @@ const db = require(\"../config/db\");",
+        "@@ -96 +155 @@ async function afterClaimWrite(/* client */) {}",
+        "@@ -103,3 +162,4 @@ async function afterClaimWrite(/* client */) {}",
+        "@@ -107 +167,2 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -118,3 +179,2 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -122 +182 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -125 +185 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -133 +193 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -146 +206 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -160 +220 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -164,5 +224,4 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -178 +237 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -180,0 +240 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -182,10 +242 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -214 +265 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -218,12 +269,2 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -245 +286 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -263 +304 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -267 +308 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -279 +320 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -285 +326 @@ async function claimArmedAuthorization({ userId, connectedPageId, connectedPageN",
+        "@@ -326,0 +368,5 @@ module.exports = {"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/docs/I80_STAGE2_EVIDENCE.md",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 76,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Previously committed Stage-2 pre-merge documentation, suite/build/database output or checksums; evidence only.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,76 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/docs/I80_STAGE2_H_CLOSURE.md",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 75,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 75,
+        "deleted": 0
+      },
+      "authorizedRole": "Mandatory H mapping, defect explanation, totals, boundaries and merge-gate disclosure. PASS \u2014 every hunk is review documentation; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,75 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_SHA256SUMS.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 12,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 12,
+        "deleted": 0
+      },
+      "authorizedRole": "Reproducible integrity checks for reviewed source and evidence. PASS \u2014 every hunk is checksum evidence; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,12 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_base-suite.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 2541,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 2541,
+        "deleted": 0
+      },
+      "authorizedRole": "Complete existing-server partition results, 1534 passes. PASS \u2014 every hunk is recorded test output; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,2541 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_base-test-files.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 167,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 167,
+        "deleted": 0
+      },
+      "authorizedRole": "Exact existing-server partition inventory, excluding only the separately run boundary file. PASS \u2014 every hunk is test inventory; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,167 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_boundary-final.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 47,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 47,
+        "deleted": 0
+      },
+      "authorizedRole": "Final boundary run, 22 passes, including all six races. PASS \u2014 every hunk is recorded test output; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,47 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_build.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 88,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 88,
+        "deleted": 0
+      },
+      "authorizedRole": "Client production-build verification. PASS \u2014 every hunk is recorded build output; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,88 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_client-final.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 827,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 827,
+        "deleted": 0
+      },
+      "authorizedRole": "Complete client-suite result, 535 passes. PASS \u2014 every hunk is recorded test output; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,827 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_db-setup.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 152,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 152,
+        "deleted": 0
+      },
+      "authorizedRole": "Isolated test-database setup and unchanged 148-migration inventory. PASS \u2014 every hunk is setup output, not new DDL or migration source; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,152 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_deadlock-before.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 45,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 45,
+        "deleted": 0
+      },
+      "authorizedRole": "Preserved pre-fix concurrency failure; not counted as a post-fix pass. PASS \u2014 every hunk is red-test output; no role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,45 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_numstat.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 34,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 34,
+        "deleted": 0
+      },
+      "authorizedRole": "Prior cumulative accounting snapshot. Its omission of then-untracked H evidence is explicitly superseded by this complete accounting. PASS \u2014 every hunk is historical accounting evidence; its limitation is disclosed, not treated as a complete final inventory.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,34 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_H_preservation.json",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 143,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": {
+        "added": 143,
+        "deleted": 0
+      },
+      "authorizedRole": "Historical bank checksum comparison, 23/23; not live SDS certification. PASS \u2014 every hunk is preservation evidence; no live mutation or role-external hunk.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,143 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_STAGE2_LOCAL_DIST_SHA256SUMS.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 11,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Previously committed Stage-2 pre-merge documentation, suite/build/database output or checksums; evidence only.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,11 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_STAGE2_client-final-build.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 84,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Previously committed Stage-2 pre-merge documentation, suite/build/database output or checksums; evidence only.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,84 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_STAGE2_client-final-full.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 776,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Previously committed Stage-2 pre-merge documentation, suite/build/database output or checksums; evidence only.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,776 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_STAGE2_db-setup.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 152,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Previously committed Stage-2 pre-merge documentation, suite/build/database output or checksums; evidence only.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,152 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    },
+    {
+      "path": "review_package/evidence/I80_STAGE2_server-final-full.txt",
+      "classification": "evidence",
+      "stage2Numstat": {
+        "added": 2567,
+        "deleted": 0
+      },
+      "final13ChangeNumstat": null,
+      "authorizedRole": "Previously committed Stage-2 pre-merge documentation, suite/build/database output or checksums; evidence only.",
+      "hunkHeaders": [
+        "@@ -0,0 +1,2567 @@"
+      ],
+      "everyHunkWithinRole": true,
+      "determinationBasis": "Manual diff review, role assessment in I80_R1_ACCOUNTING.md; mechanical/evidence excluded explicitly"
+    }
+  ],
+  "raceRuns": [
+    {
+      "run": 1,
+      "passedCases": 6,
+      "durationSeconds": 6.758777
+    },
+    {
+      "run": 2,
+      "passedCases": 6,
+      "durationSeconds": 1.43558
+    },
+    {
+      "run": 3,
+      "passedCases": 6,
+      "durationSeconds": 1.447168
+    },
+    {
+      "run": 4,
+      "passedCases": 6,
+      "durationSeconds": 1.407523
+    },
+    {
+      "run": 5,
+      "passedCases": 6,
+      "durationSeconds": 1.490846
+    },
+    {
+      "run": 6,
+      "passedCases": 6,
+      "durationSeconds": 1.408758
+    },
+    {
+      "run": 7,
+      "passedCases": 6,
+      "durationSeconds": 1.508241
+    },
+    {
+      "run": 8,
+      "passedCases": 6,
+      "durationSeconds": 1.386205
+    },
+    {
+      "run": 9,
+      "passedCases": 6,
+      "durationSeconds": 1.461809
+    },
+    {
+      "run": 10,
+      "passedCases": 6,
+      "durationSeconds": 1.431198
+    },
+    {
+      "run": 11,
+      "passedCases": 6,
+      "durationSeconds": 1.76299
+    },
+    {
+      "run": 12,
+      "passedCases": 6,
+      "durationSeconds": 1.43597
+    },
+    {
+      "run": 13,
+      "passedCases": 6,
+      "durationSeconds": 1.379102
+    },
+    {
+      "run": 14,
+      "passedCases": 6,
+      "durationSeconds": 1.43801
+    },
+    {
+      "run": 15,
+      "passedCases": 6,
+      "durationSeconds": 1.521776
+    },
+    {
+      "run": 16,
+      "passedCases": 6,
+      "durationSeconds": 1.369652
+    },
+    {
+      "run": 17,
+      "passedCases": 6,
+      "durationSeconds": 1.752857
+    },
+    {
+      "run": 18,
+      "passedCases": 6,
+      "durationSeconds": 1.4911
+    },
+    {
+      "run": 19,
+      "passedCases": 6,
+      "durationSeconds": 1.457025
+    },
+    {
+      "run": 20,
+      "passedCases": 6,
+      "durationSeconds": 1.371313
+    }
+  ],
+  "raceLogSha256": "33b997aa3c127e7aba41d37173d955a281a6f00704e8dc50056f369a0776fb9c",
+  "nodeVersion": "v24.13.0",
+  "sourceChanges": 0,
+  "fullSuiteRerun": false,
+  "recoveryPerformed": false
+}

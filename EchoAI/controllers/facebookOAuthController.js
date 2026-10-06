@@ -6,9 +6,11 @@ const { GRAPH_VERSION, appId, appSecret } = require("../config/facebook");
 const { graphGet, verifyAdAccount } = require("../utils/facebookApi");
 // Prompt 024: armed first-win claim + handoff (atomic, in one transaction).
 const onboardingFirstWin = require("../utils/onboardingFirstWin");
+const { normalizeWebsiteUrl } = require("../utils/onlinePresence");
 
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
+const RETURN_STEPS = ["connect_social", "create_facebook_campaign", "social_select_page", "social_accounts", "ads_destination"];
 
 // Permissions for the SINGLE, unified Facebook connection that serves both
 // Atlas (ads) and Nova (organic Page posting). The first five power ad
@@ -54,9 +56,13 @@ function getRedirectUri(req) {
   return `${base}/api/facebook/oauth/callback`;
 }
 
-function dashboardRedirect(status, message) {
+function dashboardRedirect(status, message, context) {
   const params = new URLSearchParams({ fb: status });
   if (message) params.set("fb_message", message);
+  if (context?.destinationPending) params.set("fb_destination", "pending");
+  for (const key of ["brandId", "sessionId", "authorizationId", "returnStep"]) {
+    if (context?.[key]) params.set(key, context[key]);
+  }
   return `/dashboard?${params.toString()}`;
 }
 
@@ -88,8 +94,16 @@ async function initiateOAuth(req, res) {
   }
 
   const userId = req.user.userId;
+  const { brandId, sessionId, authorizationId, returnStep } = req.body || {};
+  try {
+    onboardingFirstWin.requireFacebookOwner(req.user);
+    await onboardingFirstWin.facebookContext(db, { userId, brandId, sessionId, authorizationId, returnStep });
+    if (returnStep && !RETURN_STEPS.includes(returnStep)) throw new Error("Invalid return step");
+  } catch (err) {
+    return res.status(err.statusCode || 400).json({ error: err.message });
+  }
   const state = crypto.randomBytes(16).toString("hex");
-  req.session.fbOAuth = { state, userId };
+  req.session.fbOAuth = { state, userId, brandId, sessionId, authorizationId, returnStep, expiresAt: Date.now() + 600000 };
 
   // Persist the session before responding so the callback can read it.
   req.session.save((err) => {
@@ -123,6 +137,7 @@ async function oauthCallback(req, res) {
   const { code, state, error: fbError, error_description: fbErrorDesc } = req.query;
   const sessionState = req.session?.fbOAuth?.state;
   const userId = req.session?.fbOAuth?.userId;
+  const context = req.session?.fbOAuth;
 
   // Clear the one-time OAuth state regardless of outcome.
   if (req.session) delete req.session.fbOAuth;
@@ -132,7 +147,7 @@ async function oauthCallback(req, res) {
       dashboardRedirect("error", fbErrorDesc || "Facebook authorization was cancelled."),
     );
   }
-  if (!code || !state || !sessionState || !userId) {
+  if (!code || !state || !sessionState || !userId || !(context.expiresAt > Date.now())) {
     return res.redirect(dashboardRedirect("error", "Invalid or expired Facebook authorization."));
   }
   if (state !== sessionState) {
@@ -140,6 +155,7 @@ async function oauthCallback(req, res) {
   }
 
   try {
+    const authorization = await onboardingFirstWin.facebookContext(db, context);
     const redirectUri = getRedirectUri(req);
 
     // 1. Exchange the code for a short-lived access token.
@@ -200,10 +216,10 @@ async function oauthCallback(req, res) {
         if (p.id && p.access_token) pageTokens[p.id] = p.access_token;
       }
     } catch (pageErr) {
-      console.warn("Facebook pages fetch failed:", pageErr.message);
+      throw pageErr; // An incomplete grant refresh must leave the stored snapshot intact.
     }
 
-    const selectedPageRef = pages.length ? pages[0].id : null;
+    const selectedPageRef = null; // OAuth grants access; it never selects a destination.
     const encryptedToken = encrypt(accessToken);
     // Only overwrite stored Page tokens when we actually fetched some; a failed
     // pages refetch must not wipe previously-captured tokens (COALESCE below).
@@ -238,19 +254,18 @@ async function oauthCallback(req, res) {
       ],
     );
 
-    // Prompt 024 (Section B): the connection callback is the ONLY trigger for
-    // an armed first-win authorization. The claim + prepared->scheduled
-    // handoff commit atomically inside claimArmedAuthorization; on success the
+    // Only an exact destination-bound authorization can enter C1 here.
+    // The binding, claim and prepared->scheduled handoff commit atomically;
+    // destination-null consent remains pending for the existing picker. The
     // EXISTING canonical publisher executes on its next sweep — we kick one
     // sweep immediately so the win lands in seconds, not a minute. Entirely
     // best-effort: a claim failure must never break the connection redirect.
     try {
-      const claim = await onboardingFirstWin.claimArmedAuthorization({
-        userId,
-        connectedPageId: selectedPageRef,
-        connectedPageName: pages.length ? pages[0].name || null : null,
-      });
-      if (claim.claimed) {
+      const confirmed = authorization?.destination_page_id
+        ? await require("./socialController").confirmFacebookBrandPage({
+          ...context, pageId: authorization.destination_page_id, intent: "confirm_business_facebook_page",
+        }) : null;
+      if (confirmed?.firstWin.claimed) {
         setImmediate(() => {
           const socialController = require("./socialController");
           socialController
@@ -262,15 +277,18 @@ async function oauthCallback(req, res) {
       }
     } catch (claimErr) {
       console.error("First-win claim after Facebook connect failed:", claimErr.message);
+      return res.redirect(dashboardRedirect("error", claimErr.message, context));
     }
 
-    return res.redirect(dashboardRedirect("connected"));
+    // Pending resumes Setup Agent's C1 without opening the legacy Facebook wizard.
+    return res.redirect(dashboardRedirect(context.brandId && !authorization?.destination_page_id ? "pending" : "connected", "Facebook authorized; confirm this business's Page if pending.",
+      { ...context, destinationPending: !!context.brandId && !authorization?.destination_page_id }));
   } catch (err) {
     console.error("Facebook OAuth callback error:", err.message);
     const message = err.fbError
       ? `Facebook connection failed: ${err.message}`
       : "Could not complete the Facebook connection.";
-    return res.redirect(dashboardRedirect("error", message));
+    return res.redirect(dashboardRedirect("error", message, context));
   }
 }
 
@@ -282,6 +300,8 @@ async function oauthCallback(req, res) {
 async function getConnectedAccounts(req, res) {
   const userId = req.user.userId;
   try {
+    const brandId = req.query?.brandId;
+    if (brandId) await onboardingFirstWin.facebookContext(db, { userId, brandId });
     const result = await db.query(
       `SELECT account_ref, facebook_ad_accounts, page_ref, facebook_pages,
               facebook_page_tokens, api_token_encrypted, connection_status
@@ -302,53 +322,13 @@ async function getConnectedAccounts(req, res) {
     }
 
     const row = result.rows[0];
-    let pages = row.facebook_pages || [];
-
-    // Refresh the Page list live from Facebook on every load. The stored list
-    // is a snapshot from connect time, so Pages the owner grants LATER (via a
-    // reconnect or Facebook's own Settings → Business integrations screen)
-    // would otherwise never appear in the picker. Graph failures fall back to
-    // the stored snapshot — this refresh must never break the picker.
-    if (row.connection_status === "connected" && row.api_token_encrypted) {
-      try {
-        const accessToken = decrypt(row.api_token_encrypted);
-        const pageUrl = new URL(`${GRAPH}/me/accounts`);
-        pageUrl.searchParams.set("fields", "id,name,category,access_token");
-        pageUrl.searchParams.set("access_token", accessToken);
-        const pageData = await graphFetch(pageUrl.toString(), "Refreshing pages");
-        const livePages = (pageData.data || []).map((p) => ({
-          id: p.id,
-          name: p.name || p.id,
-          category: p.category || null,
-        }));
-        // Merge live page tokens over the stored ones (live wins; keep stored
-        // tokens for pages Graph momentarily omits so publishing keeps working).
-        const storedTokens = row.facebook_page_tokens
-          ? JSON.parse(decrypt(row.facebook_page_tokens))
-          : {};
-        const liveTokens = {};
-        for (const p of pageData.data || []) {
-          if (p.id && p.access_token) liveTokens[p.id] = p.access_token;
-        }
-        const mergedTokens = { ...storedTokens, ...liveTokens };
-        await db.query(
-          `UPDATE api_integrations
-             SET facebook_pages = $1::jsonb, facebook_page_tokens = $2
-           WHERE user_id = $3 AND platform = 'facebook'`,
-          [
-            JSON.stringify(livePages),
-            Object.keys(mergedTokens).length
-              ? encrypt(JSON.stringify(mergedTokens))
-              : row.facebook_page_tokens,
-            userId,
-          ],
-        );
-        pages = livePages;
-      } catch (err) {
-        console.error("Facebook live page refresh failed:", err.message);
-        // Fall back to the stored snapshot — never sink the picker.
-      }
-    }
+    const bindings = await onboardingFirstWin.facebookBindings();
+    const tokens = row.facebook_page_tokens ? JSON.parse(decrypt(row.facebook_page_tokens)) : {};
+    const pages = (row.facebook_pages || []).map((p) => {
+      const bound = bindings.find((b) => b.brand_id !== brandId && [b.postingPageId, b.facebook_page_id].includes(p.id));
+      return { ...p, unavailable: !!bound || row.connection_status !== "connected" || !tokens[p.id],
+        boundBusinessName: bound?.user_id === userId ? bound.brand_name : bound ? "another business" : null };
+    });
 
     return res.status(200).json({
       configured: oauthConfigured(),
@@ -357,11 +337,11 @@ async function getConnectedAccounts(req, res) {
       accounts: row.facebook_ad_accounts || [],
       selectedAccountId: row.account_ref,
       pages,
-      selectedPageId: row.page_ref,
+      selectedPageId: null,
     });
   } catch (err) {
     console.error("Get connected Facebook accounts error:", err.message);
-    return res.status(500).json({ error: "Failed to load Facebook accounts" });
+    return res.status(err.statusCode || 500).json({ error: err.message });
   }
 }
 
@@ -406,73 +386,46 @@ async function selectAccount(req, res) {
 }
 
 /**
- * POST /api/facebook/select-page  { pageId, brandId? }
+ * POST /api/facebook/select-page  { pageId, brandId, adLinkUrl, intent, remove? }
  * Sets which connected Facebook Page Zorecho should run ads through. The id must
  * be one of the pages returned by Facebook at connect time.
  *
  * Prompt 004: ads resolve their Page per BRAND (brands.facebook_page_id).
- * When brandId is provided, the selection is written to that brand (after an
- * ownership check). page_ref is still updated as the wizard's default
- * suggestion for future brands — launch paths never read it.
+ * Requires explicit C3 consent, writes only S3, and returns the stored destination.
  */
 async function selectPage(req, res) {
   const userId = req.user.userId;
-  const { pageId, brandId } = req.body;
-  if (!pageId) {
-    return res.status(400).json({ error: "pageId is required" });
+  const { pageId, brandId, adLinkUrl, intent, remove } = req.body;
+  if (!pageId || !brandId || intent !== "confirm_ads_destination") {
+    return res.status(400).json({ error: "Explicit business, Page and ads destination confirmation required" });
   }
-
+  let client;
   try {
-    const result = await db.query(
-      `SELECT facebook_pages FROM api_integrations
-       WHERE user_id = $1 AND platform = 'facebook'`,
-      [userId],
+    onboardingFirstWin.requireFacebookOwner(req.user);
+    const destination = normalizeWebsiteUrl(adLinkUrl);
+    if (remove === true ? adLinkUrl !== null : !destination?.value || destination.error) {
+      throw Object.assign(new Error("A valid adLinkUrl is required; removal requires null"), { statusCode: 400 });
+    }
+    client = await db.getClient();
+    await client.query("BEGIN");
+    await onboardingFirstWin.lockFacebookBindings(client);
+    const { brand } = await onboardingFirstWin.validateFacebookDestination(client, userId, brandId, pageId);
+    if (remove === true && brand.facebook_page_id !== pageId) {
+      throw Object.assign(new Error("Removal must name the current ads Page"), { statusCode: 409 });
+    }
+    const saved = await client.query(
+      `UPDATE brands SET facebook_page_id = $1, ad_link_url = $2
+        WHERE brand_id = $3 AND user_id = $4 RETURNING brand_id, facebook_page_id, ad_link_url`,
+      [remove === true ? null : pageId, remove === true ? null : destination.value, brandId, userId],
     );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "No connected Facebook account found" });
-    }
-
-    const pages = result.rows[0].facebook_pages || [];
-    if (!pages.some((p) => p.id === pageId)) {
-      return res.status(400).json({ error: "Unknown Facebook page" });
-    }
-
-    if (brandId) {
-      const brandUpdate = await db.query(
-        `UPDATE brands SET facebook_page_id = $1
-         WHERE brand_id = $2 AND user_id = $3
-         RETURNING brand_id`,
-        [pageId, brandId, userId],
-      );
-      if (brandUpdate.rows.length === 0) {
-        return res.status(404).json({ error: "Brand not found" });
-      }
-    }
-
-    await db.query(
-      `UPDATE api_integrations SET page_ref = $1
-       WHERE user_id = $2 AND platform = 'facebook'`,
-      [pageId, userId],
-    );
-
-    if (brandId) {
-      // Prompt 035 — a connected Facebook Page is a strong identity anchor.
-      // Fire-and-forget; the orchestrator itself enforces the onboarding
-      // phase boundary (post-onboarding this is a silent no-op here — the
-      // client surfaces the offer).
-      require("../utils/anchorOrchestrator").onAnchorArrival({
-        userId,
-        brandId,
-        reason: "facebook_page_connected",
-      });
-      // Campaign-ready milestone probe (Section L) — cheap, exactly-once.
-      require("../utils/campaignReady").maybeRecordCampaignReady(userId, brandId).catch(() => {});
-    }
-
-    return res.status(200).json({ selectedPageId: pageId, brandId: brandId || null });
+    await client.query("COMMIT");
+    return res.status(200).json({ ...saved.rows[0], brandId, selectedPageId: saved.rows[0].facebook_page_id });
   } catch (err) {
+    if (client) await client.query("ROLLBACK");
     console.error("Select Facebook page error:", err.message);
-    return res.status(500).json({ error: "Failed to update selected page" });
+    return res.status(err.statusCode || 500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
   }
 }
 

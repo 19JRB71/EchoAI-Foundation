@@ -1,0 +1,45 @@
+Warning: NOUS_PORTAL_API_KEY is not set. Hermes (Echo's decision brain) is disabled; Echo falls back to its existing behavior until it is configured.
+Warning: FACEBOOK_ACCESS_TOKEN is not set. Facebook API calls will fail until it is configured.
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Select Facebook page error: Invalid encrypted payload format
+Select Facebook page error: Unexpected token 'o', "not-json" is not valid JSON
+Select Facebook page error: Facebook binding cannot be verified; manual review required
+Select Facebook page error: Facebook binding cannot be verified; manual review required
+✔ H-corrupt: unreadable ciphertext, invalid JSON and absent Page identity block C1 and C3 without mutation (4394.420912ms)
+✔ H-race: disarm before confirmation preserves the consent boundary (1714.969137ms)
+Connected to PostgreSQL database
+✔ H-race: disarm confirm-first confirmation preserves the consent boundary (2282.590149ms)
+✔ H-race: disarm during confirmation preserves the consent boundary (2083.011963ms)
+✔ H-race: edit before confirmation preserves the consent boundary (1396.697577ms)
+✔ H-race: edit confirm-first confirmation preserves the consent boundary (3374.395725ms)
+✖ H-race: edit during confirmation preserves the consent boundary (2903.066963ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24286.844721
+
+✖ failing tests:
+
+test at tests/i80.facebookBoundary.test.js:218:5
+✖ H-race: edit during confirmation preserves the consent boundary (2903.066963ms)
+  AssertionError [ERR_ASSERTION]: {"error":"deadlock detected"}
+  
+  500 !== 409
+  
+      at /home/runner/workspace/.local/i80-h-regressions/EchoAI/tests/i80.facebookBoundary.test.js:258:16
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async fixture (/home/runner/workspace/.local/i80-h-regressions/EchoAI/tests/i80.facebookBoundary.test.js:88:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 409,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

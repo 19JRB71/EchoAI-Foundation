@@ -483,32 +483,32 @@ test("C2: classifyStepError checks the marker FIRST — before billing regex and
 // D. AM-C3-1 — updateBrand facebookPageId pinning (validated secondary writer)
 // ---------------------------------------------------------------------------
 
-test("D1: updateBrand accepts a granted Page, rejects an ungranted one, blank clears, non-string 400, ownership enforced", async () => {
+test("D1/I-80: generic updateBrand cannot write or clear Store-3, even with a granted Page", async () => {
   const { userId, token } = await createUser();
   await connectFacebook(userId);
   const brandId = await createBrand(userId);
 
-  // Granted Page saves.
+  // Granted Page still requires explicit C3, not this generic write boundary.
   let res = await apiRequest(token, "PUT", `/api/brands/${brandId}`, {
     facebookPageId: GRANTED_PAGES[1].id,
   });
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 400);
   let row = await db.query("SELECT facebook_page_id FROM brands WHERE brand_id = $1", [brandId]);
-  assert.equal(row.rows[0].facebook_page_id, GRANTED_PAGES[1].id);
+  assert.equal(row.rows[0].facebook_page_id, null);
 
   // Ungranted Page is rejected and nothing changes.
   res = await apiRequest(token, "PUT", `/api/brands/${brandId}`, { facebookPageId: "555000555" });
   assert.ok(res.status >= 400 && res.status < 500, `expected 4xx, got ${res.status}`);
   row = await db.query("SELECT facebook_page_id FROM brands WHERE brand_id = $1", [brandId]);
-  assert.equal(row.rows[0].facebook_page_id, GRANTED_PAGES[1].id);
+  assert.equal(row.rows[0].facebook_page_id, null);
 
   // Non-string is a 400.
   res = await apiRequest(token, "PUT", `/api/brands/${brandId}`, { facebookPageId: 12345 });
   assert.equal(res.status, 400);
 
-  // Blank clears.
+  // Blank cannot silently clear; exact Page identity is required by C3.
   res = await apiRequest(token, "PUT", `/api/brands/${brandId}`, { facebookPageId: "" });
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 400);
   row = await db.query("SELECT facebook_page_id FROM brands WHERE brand_id = $1", [brandId]);
   assert.equal(row.rows[0].facebook_page_id, null);
 
@@ -518,7 +518,7 @@ test("D1: updateBrand accepts a granted Page, rejects an ungranted one, blank cl
   res = await apiRequest(intruder.token, "PUT", `/api/brands/${brandId}`, {
     facebookPageId: GRANTED_PAGES[0].id,
   });
-  assert.ok(res.status === 404 || res.status === 403, `expected 403/404, got ${res.status}`);
+  assert.equal(res.status, 400); // forbidden generic destination field rejected before ownership lookup
   row = await db.query("SELECT facebook_page_id FROM brands WHERE brand_id = $1", [brandId]);
   assert.equal(row.rows[0].facebook_page_id, null);
 });

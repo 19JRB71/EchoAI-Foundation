@@ -84,16 +84,23 @@ async function dropTenant({ userId, brandId }) {
   await db.query("DELETE FROM users WHERE user_id = $1", [userId]);
 }
 
-// A connected social account whose credentials decrypt cleanly and carry an
-// accessToken so loadConnectedAccount never touches the Facebook-page resolve
-// path. socialApi.publishPost is stubbed, so the token value is irrelevant.
+// I-80: Facebook fixtures include both the explicit S2 binding and current S1
+// grant; embedded legacy tokens no longer bypass destination safety.
 async function seedConnectedAccount(brandId, platform = "facebook") {
   await db.query(
     `INSERT INTO social_accounts
        (brand_id, platform, platform_username, credentials_encrypted, connection_status)
      VALUES ($1, $2, $3, $4, 'connected')`,
-    [brandId, platform, "iso-test-user", encrypt(JSON.stringify({ accessToken: "iso-test-token" }))]
+    [brandId, platform, "iso-test-user", encrypt(JSON.stringify(
+      platform === "facebook" ? { pageId: `iso-${brandId}` } : { accessToken: "iso-test-token" }))]
   );
+  if (platform === "facebook") {
+    await db.query(`INSERT INTO api_integrations(user_id,platform,api_token_encrypted,
+      facebook_pages,facebook_page_tokens,connection_status)
+      SELECT user_id,'facebook',$2,$3::jsonb,$4,'connected' FROM brands WHERE brand_id=$1`,
+    [brandId, encrypt("iso-user-token"), JSON.stringify([{ id: `iso-${brandId}` }]),
+      encrypt(JSON.stringify({ [`iso-${brandId}`]: "iso-test-token" }))]);
+  }
 }
 
 // A text-only post already due (scheduled_time in the past) so publishDuePosts
