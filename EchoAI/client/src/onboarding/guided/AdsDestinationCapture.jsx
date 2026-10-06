@@ -44,6 +44,7 @@ export default function AdsDestinationCapture({
   const [loadError, setLoadError] = useState("");
   const [brandId, setBrandId] = useState(brandIdProp || null);
   const [pages, setPages] = useState([]);
+  const selectablePages = pages.filter((page) => !page.unavailable);
   const [savedPageId, setSavedPageId] = useState(null); // server truth
   const [savedLink, setSavedLink] = useState(null); // server truth
   const [websiteSuggestion, setWebsiteSuggestion] = useState("");
@@ -97,7 +98,7 @@ export default function AdsDestinationCapture({
       // Page list, so the picker was unconditionally empty.
       const [brandRes, accountsRes] = await Promise.all([
         api.getBrand(bid),
-        api.getFacebookAccounts().catch(() => null),
+        api.getFacebookAccounts(bid).catch(() => null),
       ]);
       if (!activeRef.current) return;
       const brand = brandRes && (brandRes.brand || brandRes);
@@ -135,7 +136,7 @@ export default function AdsDestinationCapture({
     setLinkError("");
     const trimmed = (link || "").trim();
     let ok = true;
-    if (!remove && !pageChoice) {
+    if (!remove && !selectablePages.some((page) => page.id === pageChoice)) {
       setPageError("Choose the Facebook Page your ads will run from.");
       ok = false;
     }
@@ -246,7 +247,7 @@ export default function AdsDestinationCapture({
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.15em] text-white/50">
         Facebook Page for ads
       </p>
-      {pages.length === 0 ? (
+      {selectablePages.length === 0 ? (
         <div className="mt-2" data-testid="ads-capture-zero-pages">
           <p className="text-sm text-amber-200">
             Your connected Facebook account has no Pages Echo can use. Create a Page on
@@ -262,9 +263,10 @@ export default function AdsDestinationCapture({
             </button>
           ) : null}
         </div>
-      ) : (
+      ) : null}
+      {pages.length > 0 ? (
         <div className="mt-2 space-y-2" role="radiogroup" aria-label="Facebook Page for ads">
-          {pages.length === 1 ? (
+          {pages.length === 1 && selectablePages.length === 1 ? (
             <p className="text-xs text-white/50" data-testid="ads-capture-single-page-note">
               This is the only Page on your account — confirm it below.
             </p>
@@ -272,20 +274,26 @@ export default function AdsDestinationCapture({
           {pages.map((p) => (
             <label
               key={p.id}
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm"
+              className={`flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm ${p.unavailable ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
             >
               <input
                 type="radio"
                 name="ads-page"
-                checked={pageChoice === p.id}
-                onChange={() => setPageChoice(p.id)}
+                checked={!p.unavailable && pageChoice === p.id}
+                disabled={Boolean(p.unavailable)}
+                onChange={() => { if (!p.unavailable) setPageChoice(p.id); }}
                 data-testid={`ads-page-option-${p.id}`}
               />
               <span className="font-medium">{p.name || p.id}</span>
+              {p.unavailable ? (
+                <span className="text-xs text-white/60">
+                  Connected to {p.boundBusinessName || "another business"}
+                </span>
+              ) : null}
             </label>
           ))}
         </div>
-      )}
+      ) : null}
       {pageError ? <p className="mt-2 text-sm text-red-300">{pageError}</p> : null}
 
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.15em] text-white/50">
@@ -314,7 +322,7 @@ export default function AdsDestinationCapture({
         <button
           type="button"
           onClick={() => save()}
-          disabled={saving || pages.length === 0}
+          disabled={saving || selectablePages.length === 0}
           className="rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-black hover:bg-teal-400 disabled:opacity-50"
           data-testid="ads-destination-save"
         >

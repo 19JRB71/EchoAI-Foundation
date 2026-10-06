@@ -1,0 +1,27 @@
+{
+  "assignmentId": "154779e3-d25e-43ea-be59-ca96ecd46826",
+  "jobId": "i82-local-c3:664",
+  "kind": "testing",
+  "name": "i82-local-c3",
+  "screenshots": [
+    {
+      "description": "Initial 1366×900 seam state: SDS disabled/unselected with connected label, Save disabled, and Reconnect Facebook visible.",
+      "id": "9tecxw"
+    },
+    {
+      "description": "Returned desktop mixed Page list after local Reconnect Facebook; SDS disabled, BlaCor available, owner panel present.",
+      "id": "1ztzvo"
+    },
+    {
+      "description": "Mobile 390×844 top-of-page view; confirms narrow single-column layout and no horizontal clipping.",
+      "id": "rotcyq"
+    },
+    {
+      "description": "Mobile lower-form view after vertical scrolling; Save control is visible without being clicked.",
+      "id": "tw43qq"
+    }
+  ],
+  "status": "completed",
+  "text": "Verified the isolated local seam only at `http://127.0.0.1:5174/tests/browser/i82.html`; no staging site, provider, main app, login, database, Save, or Skip action was used. The first navigation attempt was refused, but retrying the exact same local URL loaded the seam.\n\n- **Initial desktop (1366×900):** SDS was disabled and unselected, with the visible label “Connected to South Dixie Storage”; Save was disabled; Reconnect Facebook was visible. Screenshot `9tecxw`.\n- **Reconnect return:** Clicking Reconnect Facebook on the local seam returned to the same route with `brandId=blacor`, `sessionId=blacor-session`, and `returnStep=ads_destination`; `authorizationId` was absent. `sessionStorage['i82-oauth-context']` contained exactly those three fields. The same owner-action panel showed SDS disabled/unselected and BlaCor enabled/unselected, with no reconnect prompt. Screenshot `1ztzvo`.\n- **Local call log:** `window.__i82Calls` contained exactly `[['run','blacor-session',false,null]]`; no save or publish calls were present.\n- **Mobile (390×844):** No horizontal overflow (`scrollWidth` and `clientWidth` both 375px). Content extends below the viewport vertically and is scrollable; the lower form was brought into view without clicking anything. Screenshots `rotcyq` (top) and `tw43qq` (lower form).\n\nConsole issue: one `Failed to load resource: the server responded with a status of 404 (Not Found)` error appeared after reconnect; no resource path was reported. Also observed, but not clicked: after reconnect Save appeared enabled even though neither Page was selected and the destination was empty. The explicit initial-state Save-disabled check passed; the post-return Save state was not specified as an expected result, so I’m reporting it as an observation rather than a failed criterion.",
+  "verdict": "success"
+}

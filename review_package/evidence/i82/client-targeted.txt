@@ -1,0 +1,11 @@
+
+ RUN  v3.2.6 /home/runner/workspace/.local/i82-work/EchoAI/client
+
+ ✓ src/onboarding/guided/AdsDestinationCapture.test.jsx (22 tests) 564ms
+ ✓ src/onboarding/SetupAgent.i82.test.jsx (6 tests) 359ms
+
+ Test Files  2 passed (2)
+      Tests  28 passed (28)
+   Start at  20:37:39
+   Duration  8.04s (transform 629ms, setup 1.37s, collect 998ms, tests 923ms, environment 5.74s, prepare 598ms)
+

@@ -127,6 +127,58 @@ async function start(user, brandId, authorizationId, extra = {}) {
 const callback = ({ cookie, nonce }, suffix = "") =>
   request(null, `/api/facebook/oauth/callback?code=stub&state=${nonce}${suffix}`, undefined, "GET", cookie);
 
+test("R-LV3/4/5/6: C3 grant-only OAuth returns to the same session, rejects occupied Page, preserves SDS bytes", () => fixture(async ({ user, a, b }) => {
+  await grant(user);
+  assert.equal((await c1(user, a, "page-a")).status, 200);
+  assert.equal((await c3(user, a, "page-a")).status, 200);
+  const snapshot = async () => JSON.stringify({
+    brands: (await db.query("SELECT * FROM brands WHERE brand_id=$1", [a])).rows,
+    posting: (await db.query("SELECT * FROM social_accounts WHERE brand_id=$1 ORDER BY account_id", [a])).rows,
+  });
+  const hash = (value) => require("node:crypto").createHash("sha256").update(value).digest("hex");
+  const before = await snapshot();
+  const firstWin = await prepare(user, b, "page-b");
+  const consentBefore = await authorization(firstWin);
+  const sessionId = (await db.query(`INSERT INTO setup_sessions(user_id,brand_id,status)
+    VALUES($1,$2,'in_progress') RETURNING session_id`, [user, b])).rows[0].session_id;
+  const sessionBefore = (await db.query("SELECT * FROM setup_sessions WHERE session_id=$1", [sessionId])).rows;
+  const oauth = await start(user, b, undefined, { sessionId, returnStep: "ads_destination" });
+  const result = await callback(oauth);
+  const returned = new URL(result.location, "http://localhost");
+  assert.equal(returned.searchParams.get("brandId"), b);
+  assert.equal(returned.searchParams.get("sessionId"), sessionId);
+  assert.equal(returned.searchParams.get("returnStep"), "ads_destination");
+  assert.equal(returned.searchParams.get("fb_destination"), "pending");
+  assert.equal(returned.searchParams.has("authorizationId"), false);
+  assert.deepEqual((await db.query("SELECT * FROM setup_sessions WHERE session_id=$1", [sessionId])).rows, sessionBefore);
+  assert.deepEqual(await authorization(firstWin), consentBefore);
+  const list = await request(user, `/api/facebook/accounts?brandId=${b}`);
+  assert.equal(list.body.selectedPageId, null);
+  assert.equal(list.body.pages.find((p) => p.id === "page-a").unavailable, true);
+  assert.equal(list.body.pages.find((p) => p.id === "page-a").boundBusinessName, "Business A");
+  assert.equal(list.body.pages.find((p) => p.id === "page-b").unavailable, false);
+  const rejected = await c3(user, b, "page-a");
+  assert.equal(rejected.status, 409);
+  assert.match(rejected.body.error, /unavailable|bound to another business/i);
+  assert.equal((await c1(user, b, "page-a")).status, 409);
+  assert.deepEqual(await state(b), { facebook_page_id: null, ad_link_url: null, posting: null, rows: [] });
+  assert.equal(sweeps, 0);
+  assert.equal(calls.some((call) => call.startsWith("FORBIDDEN:")), false);
+  assert.equal(await snapshot(), before);
+  assert.equal(hash(await snapshot()), hash(before));
+}));
+
+test("R-LV6 carried SDS projection hashes remain byte-identical to the pre-live bank", () => {
+  const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto");
+  for (const [file, expected] of [
+    ["sds-current-brands.json", "e4681c8abdc8799aaf7c931639edd587cbcb004935a4cd4ddb156a06d3a95ea8"],
+    ["sds-current-social_accounts_binding.json", "9d4a1f34ea95bb6d07bd8ba73cd7177e787cd726fa6ca405377a51441ed663e6"],
+  ]) {
+    const bytes = fs.readFileSync(path.join(__dirname, "../../review_package/evidence/i82", file));
+    assert.equal(crypto.createHash("sha256").update(bytes).digest("hex"), expected);
+  }
+});
+
 test("H-corrupt: unreadable ciphertext, invalid JSON and absent Page identity block C1 and C3 without mutation", () => fixture(async ({ user, a, b }) => {
   await grant(user);
   for (const credentials of ["not-ciphertext", encrypt("not-json"), encrypt("{}"), encrypt('{"pageId":null}')]) {

@@ -830,19 +830,26 @@ export default function SetupAgent({
   }
 
   async function connectFacebook() {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
-      if (!session?.brandId || !sessionId || !needsConnection?.key) {
+      const isAdsDestination = ownerAction?.action?.code === "missing_ad_destination";
+      const returnStep = isAdsDestination ? "ads_destination" : needsConnection?.key;
+      if (!session?.brandId || !sessionId || !returnStep) {
         throw new Error("Your business setup context is missing. Retry this setup step.");
       }
-      const status = await api.getOnboardingStatus();
-      const auth = status?.authorization;
-      const authorizationId = oauthReturn.authorizationId ||
-        (status?.firstWin?.brandId === session.brandId && auth?.status === "armed" &&
-         !auth.expired && !auth.reconfirmationRequired ? auth.authorizationId : null);
+      // C3 refreshes owner Page visibility only; never carry publish consent.
+      let authorizationId = null;
+      if (!isAdsDestination) {
+        const status = await api.getOnboardingStatus();
+        const auth = status?.authorization;
+        authorizationId = oauthReturn.authorizationId ||
+          (status?.firstWin?.brandId === session.brandId && auth?.status === "armed" &&
+           !auth.expired && !auth.reconfirmationRequired ? auth.authorizationId : null);
+      }
       const { authUrl } = await api.startFacebookOAuth({
-        brandId: session.brandId, sessionId, returnStep: needsConnection.key,
+        brandId: session.brandId, sessionId, returnStep,
         ...(authorizationId ? { authorizationId } : {}),
       });
       // Full-page handoff to Facebook's own consent screen. The setup session
