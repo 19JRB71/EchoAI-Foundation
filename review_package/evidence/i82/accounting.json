@@ -1,0 +1,347 @@
+{
+  "base": "717a963ff7bf03a34832c9efcbf47e42a82987a7",
+  "baseTree": "e1876bf1048a508933e1e98ae04fc86d32c1c655",
+  "freshCloneReverified": true,
+  "changedCodeAndMechanicalFiles": [
+    {
+      "path": "EchoAI/client/dist/assets/index-Bjm_z3-E.js",
+      "added": 0,
+      "deleted": 154,
+      "blob": null,
+      "sha256": null
+    },
+    {
+      "path": "EchoAI/client/dist/assets/index-NzPpB4uz.js",
+      "added": 154,
+      "deleted": 0,
+      "blob": "0186af89f906f651bd6e3c117fb59a20473c7efa",
+      "sha256": "c9539fc223bb8c90dca56d8e39ec47266ff48ddeaa551a27801b34a097374a73"
+    },
+    {
+      "path": "EchoAI/client/dist/index.html",
+      "added": 1,
+      "deleted": 1,
+      "blob": "e49de63f7262e7322377e778f32258e62cdc6f72",
+      "sha256": "7944cf405f0ea894602225a5fc884c32a9a84b253b48e5306410d6764eaae90f"
+    },
+    {
+      "path": "EchoAI/client/dist/sw.js",
+      "added": 1,
+      "deleted": 1,
+      "blob": "12bf635cf5b7b8085ab551c8612af003ce510224",
+      "sha256": "895afbfc34030b5fc995faf9af0d168e9c6977bcf88dd31feecc19ae6bbb0c85"
+    },
+    {
+      "path": "EchoAI/client/public/sw.js",
+      "added": 1,
+      "deleted": 1,
+      "blob": "12bf635cf5b7b8085ab551c8612af003ce510224",
+      "sha256": "895afbfc34030b5fc995faf9af0d168e9c6977bcf88dd31feecc19ae6bbb0c85"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/SetupAgent.i82.test.jsx",
+      "added": 101,
+      "deleted": 0,
+      "blob": "ab9de5cb9c4b9ecdb3a10dcf72aa8b6b25bde82a",
+      "sha256": "b0cdb99fe51b6f9b31ad7e9f3a41692b88bc55dfe557b8bac1bd59f298d98ac9"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/SetupAgent.jsx",
+      "added": 14,
+      "deleted": 7,
+      "blob": "99fecea8e8e55d717e18d4f8b91f92125b37d973",
+      "sha256": "cb67043e4e80b0d143400a840bb0efacc7a1215ad5f1adef1439d37b0d20fbdc"
+    },
+    {
+      "path": "EchoAI/client/src/onboarding/guided/AdsDestinationCapture.jsx",
+      "added": 18,
+      "deleted": 10,
+      "blob": "0c35f123ab253ab80127665870c054e3bb7f7aac",
+      "sha256": "36f098c7d01a305687d5620479df7780f03b0ef11d82e2ac714e0ddc59a6f7d5"
+    },
+    {
+      "path": "EchoAI/client/tests/browser/i82.html",
+      "added": 1,
+      "deleted": 0,
+      "blob": "df57d63b6107628d8792c1433484789f75dfeb68",
+      "sha256": "9cd4d7bcb061618ef430fe08c371207c764f073bef7766cdae22ea4bd5affbcb"
+    },
+    {
+      "path": "EchoAI/client/tests/browser/i82.jsx",
+      "added": 31,
+      "deleted": 0,
+      "blob": "dfdad7f5e18239c88eefd5628f63717d75e8ee4b",
+      "sha256": "bdcc30410b92091d0189edd8c60652e47abf71011ab675de5ad8076b5ffd8409"
+    },
+    {
+      "path": "EchoAI/tests/i80.facebookBoundary.test.js",
+      "added": 52,
+      "deleted": 0,
+      "blob": "48d4cf96b7f751834357d81c5d879317713c3912",
+      "sha256": "c5135cc3e64696b146f1b404b8d3826fb7e46691d0201a064d4d45ef27c9bb62"
+    }
+  ],
+  "production": {
+    "added": 32,
+    "deleted": 17,
+    "cumulative": 49,
+    "ceiling": 150
+  },
+  "tests": {
+    "added": 185,
+    "deleted": 0,
+    "cumulative": 185,
+    "ceiling": 250
+  },
+  "unchangedProtectedFiles": {
+    "EchoAI/controllers/facebookOAuthController.js": {
+      "baseBlob": "05b955f66fba74942f574383736697b742c561c7",
+      "currentBlob": "05b955f66fba74942f574383736697b742c561c7",
+      "byteUnchanged": true
+    },
+    "EchoAI/controllers/socialController.js": {
+      "baseBlob": "0127f8a0a057de9a941a1571890637c3dd2d75a7",
+      "currentBlob": "0127f8a0a057de9a941a1571890637c3dd2d75a7",
+      "byteUnchanged": true
+    },
+    "EchoAI/controllers/brandController.js": {
+      "baseBlob": "a5649418860a3f664779f7bbf1148e57fbde3c55",
+      "currentBlob": "a5649418860a3f664779f7bbf1148e57fbde3c55",
+      "byteUnchanged": true
+    },
+    "EchoAI/utils/onboardingFirstWin.js": {
+      "baseBlob": "8f4051f3875353d295b6f44ee3189b6a83cca107",
+      "currentBlob": "8f4051f3875353d295b6f44ee3189b6a83cca107",
+      "byteUnchanged": true
+    },
+    "EchoAI/utils/runMigrations.js": {
+      "baseBlob": "3c753bd4f6cd7e97006da7c486a50ce81b3030e8",
+      "currentBlob": "3c753bd4f6cd7e97006da7c486a50ce81b3030e8",
+      "byteUnchanged": true
+    },
+    "EchoAI/tests/setupTestDb.js": {
+      "baseBlob": "e38ba7d29d751f387a7c912c13644affb6b16044",
+      "currentBlob": "e38ba7d29d751f387a7c912c13644affb6b16044",
+      "byteUnchanged": true
+    },
+    "EchoAI/tests/dbGuard.js": {
+      "baseBlob": "0a6c356dd6379d774c317d993fdcc706049db226",
+      "currentBlob": "0a6c356dd6379d774c317d993fdcc706049db226",
+      "byteUnchanged": true
+    }
+  },
+  "migrationInventory": {
+    "total": 148,
+    "baseSchema": 1,
+    "numbered": 147,
+    "filenames": [
+      "002_stripe_billing.sql",
+      "003_facebook_campaign.sql",
+      "004_brand_discovery.sql",
+      "005_lead_conversion.sql",
+      "006_weekly_report.sql",
+      "007_competitor_intelligence.sql",
+      "008_onboarding.sql",
+      "009_admin_roles.sql",
+      "010_platform_inquiries.sql",
+      "011_brand_tagline.sql",
+      "012_social_media.sql",
+      "013_video_scripts.sql",
+      "014_email_campaigns.sql",
+      "015_images.sql",
+      "016_push_subscriptions.sql",
+      "017_facebook_oauth.sql",
+      "018_google_seo.sql",
+      "019_roi_snapshots.sql",
+      "020_reviews.sql",
+      "021_phone_agent.sql",
+      "022_chatbot_sessions.sql",
+      "023_sales_scripts.sql",
+      "024_webhooks.sql",
+      "025_white_label.sql",
+      "026_affiliate_program.sql",
+      "027_mobile_tokens.sql",
+      "028_content_calendar.sql",
+      "029_ad_creatives.sql",
+      "030_feedback.sql",
+      "031_feature_gating.sql",
+      "032_team_members.sql",
+      "033_appointments.sql",
+      "034_follow_up_sequences.sql",
+      "035_sms_marketing.sql",
+      "036_image_studio_enrich.sql",
+      "037_email_marketing.sql",
+      "038_roi_advanced.sql",
+      "039_customer_intelligence.sql",
+      "040_tour_progress.sql",
+      "041_setup_agent.sql",
+      "042_setup_agent_concurrency.sql",
+      "043_setup_agent_lifecycle.sql",
+      "044_setup_agent_lease_token.sql",
+      "045_google_ad_plans.sql",
+      "046_health_monitor.sql",
+      "047_sales_agent.sql",
+      "048_echo_companion.sql",
+      "049_marketing_department.sql",
+      "050_accountability_enums.sql",
+      "051_accountability_crm.sql",
+      "052_echo_voice.sql",
+      "053_demo_mode.sql",
+      "054_demo_suggestions.sql",
+      "054_facebook_pages.sql",
+      "055_echo_deep_memory.sql",
+      "056_autonomous_growth.sql",
+      "057_capital_funding.sql",
+      "058_portfolio.sql",
+      "059_echo_suggestions.sql",
+      "060_target_goals.sql",
+      "061_goal_snapshot_nullable.sql",
+      "062_goal_alert_log.sql",
+      "063_analytics_ctr.sql",
+      "064_goal_alert_manage.sql",
+      "065_social_post_retry.sql",
+      "066_email_send_attempts.sql",
+      "067_email_blast_failed_status.sql",
+      "067_email_failure_alert_cooldown.sql",
+      "068_api_quota_monitoring.sql",
+      "068_sms_message_error.sql",
+      "069_sage_industry_intelligence.sql",
+      "070_content_calendar_settings.sql",
+      "071_content_calendar_frequencies.sql",
+      "071_email_recipient_error.sql",
+      "072_email_recipient_error_permanent.sql",
+      "073_preferred_name.sql",
+      "074_admin_preferred_name_sir.sql",
+      "075_voice_learned_phrases.sql",
+      "076_political_campaign.sql",
+      "077_real_estate.sql",
+      "078_social_post_source.sql",
+      "079_geo_targeting.sql",
+      "080_beta_program.sql",
+      "081_echo_personal.sql",
+      "082_users_phone.sql",
+      "083_feature_suggestions.sql",
+      "084_email_assistant.sql",
+      "085_active_brand.sql",
+      "086_autonomous_conversations.sql",
+      "087_competitor_ad_spy.sql",
+      "088_facebook_page_tokens.sql",
+      "089_competitor_websites.sql",
+      "090_competitor_website_digests.sql",
+      "090_demo_tiers.sql",
+      "091_demo_tier_unique.sql",
+      "092_voice_content_sessions.sql",
+      "093_autopilot.sql",
+      "094_learning_engine.sql",
+      "095_self_review.sql",
+      "096_ai_cost_controls.sql",
+      "096_guided_setup.sql",
+      "097_ai_usage_brand_uuid.sql",
+      "098_ai_ids_uuid.sql",
+      "099_social_post_video.sql",
+      "100_autopilot_item_video.sql",
+      "101_sage_feed_dismiss.sql",
+      "102_sage_feed_content_unique.sql",
+      "103_autopilot_posts_only.sql",
+      "104_usage_ledger_extension.sql",
+      "105_vision.sql",
+      "106_vision_reference.sql",
+      "107_autopilot_remove_pending_ads.sql",
+      "108_forge_creative_briefs.sql",
+      "109_sage_pattern_intelligence.sql",
+      "110_hybrid_creative_engine.sql",
+      "111_company_truth.sql",
+      "112_vision_image_data.sql",
+      "113_stored_files.sql",
+      "114_company_truth_failed_status.sql",
+      "115_brand_online_presence.sql",
+      "116_sage_v2_phase1.sql",
+      "117_sage_v2_phase2.sql",
+      "118_sage_v2_phase3.sql",
+      "119_sage_v2_phase4.sql",
+      "120_sage_v2_phase5.sql",
+      "121_sage_v2_phase6.sql",
+      "122_collaboration_bus.sql",
+      "123_password_changed_at.sql",
+      "124_jobber.sql",
+      "125_job_runs.sql",
+      "126_facebook_ad_object.sql",
+      "127_brand_ad_destination.sql",
+      "128_campaign_state_machine.sql",
+      "129_ad_spend_caps.sql",
+      "130_external_proofs.sql",
+      "131_agent_tasks.sql",
+      "132_ad_launch_task_type.sql",
+      "133_email_send_task_type.sql",
+      "134_external_actions.sql",
+      "135_hermes_decisions.sql",
+      "136_sage_research_drafts.sql",
+      "137_brand_knowledge.sql",
+      "138_brand_knowledge_source_enum.sql",
+      "139_brand_knowledge_fk_restrict.sql",
+      "140_onboarding_first_win.sql",
+      "141_p035_anchor_snapshot.sql",
+      "142_onboarding_timing_events.sql",
+      "schema.sql"
+    ],
+    "modelAndRouteDiffEmpty": true
+  },
+  "newDDLIntroduced": false,
+  "lockfileHostScan": [
+    {
+      "path": "EchoAI/package-lock.json",
+      "hosts": [
+        "dotenvx.com",
+        "feross.org",
+        "github.com",
+        "opencollective.com",
+        "paypal.me",
+        "registry.npmjs.org",
+        "www.patreon.com"
+      ],
+      "byteUnchanged": true
+    },
+    {
+      "path": "EchoAI/client/package-lock.json",
+      "hosts": [
+        "feross.org",
+        "github.com",
+        "opencollective.com",
+        "paulmillr.com",
+        "registry.npmjs.org",
+        "tidelift.com",
+        "www.patreon.com",
+        "www.paypal.me"
+      ],
+      "byteUnchanged": true
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "hosts": [],
+      "byteUnchanged": true
+    }
+  ],
+  "serviceWorkers": {
+    "EchoAI/client/public/sw.js": "\"echoai-shell-v188\"",
+    "EchoAI/client/dist/sw.js": "\"echoai-shell-v188\""
+  },
+  "testDatabase": {
+    "host": "helium",
+    "database": "heliumdb_setup_test_setup_test",
+    "distinctFromStaging": true,
+    "createdByExistingHarness": true,
+    "initialLegacyDatabase": "heliumdb_setup_test",
+    "initialLegacyLedgerExtra": "125_facebook_ad_object.sql",
+    "verifiedLedgerCount": 148
+  },
+  "suiteArithmetic": {
+    "serverBefore": 1556,
+    "serverAdded": 2,
+    "serverAfter": 1558,
+    "clientBefore": 535,
+    "clientAdded": 6,
+    "clientAfter": 541,
+    "combinedBefore": 2091,
+    "combinedAfter": 2099
+  }
+}
